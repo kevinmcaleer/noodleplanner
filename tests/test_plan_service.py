@@ -345,6 +345,27 @@ class TestPlanServiceParse:
         assert isinstance(result.raid_items, list)
         assert isinstance(result.baseline_items, list)
 
+    def test_active_calendar_changes_scheduled_dates(self, service):
+        """/api/parse applies the front-matter `calendar:` (#1047, #1132):
+        a Sun-Thu calendar schedules through a date that a Mon-Fri one
+        would push out to the following Monday."""
+        plan = """---
+title: Calendar Test
+calendar: Gulf
+calendars:
+- Gulf: Sun-Thu
+---
+Task 1 2026-08-02 5d"""
+        result = service.parse(plan)
+        assert result.success
+        task = next(t for t in result.tasks if t["name"] == "Task 1")
+        # 2026-08-02 is a Sunday, a working day on Sun-Thu: no weekend gap.
+        assert task["finish"] == "2026-08-07"
+
+        without_calendar = service.parse("Task 1 2026-08-02 5d")
+        without_task = next(t for t in without_calendar.tasks if t["name"] == "Task 1")
+        assert without_task["finish"] == "2026-08-08"
+
 
 # ---------------------------------------------------------------------------
 # PlanService.export_single

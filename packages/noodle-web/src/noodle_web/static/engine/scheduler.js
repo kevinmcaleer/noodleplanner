@@ -26,6 +26,7 @@ import {
   todayWorkingDay,
 } from "./date-math.js";
 import { extractMetadata } from "./tokeniser.js";
+import { STANDARD_CALENDAR } from "./calendar.js";
 
 export const MAX_NESTING_DEPTH = 20;
 export const MAX_TASK_NAME_LENGTH = 500;
@@ -190,15 +191,65 @@ function computeFinish(task, holidays) {
   task.finish = addWorkingDays(task.start, durationDaysOf(task), holidays);
 }
 
+/** A task's resource shortnames, lowercased, in task-line order. */
+function taskResourceKeys(task) {
+  return String(task.resources || "")
+    .split(",")
+    .map((r) => r.trim().replace(/^@/, "").toLowerCase())
+    .filter(Boolean);
+}
+
+/**
+ * The value to pass as `holidays` to date-math for one task: a plain Set
+ * when no calendar is in play at all (unchanged historical behaviour), or
+ * a Calendar (issue #1132) -- the task's first resource with an assigned
+ * calendar, falling back to the project's `calendar` (or Standard), with
+ * the project-wide and resource-specific exception days layered on top.
+ */
+function calendarOrHolidaysForTask(task, holidays, resourceNwd, calendar, resourceCalendars) {
+  const resourceKeys = taskResourceKeys(task);
+
+  if (!calendar && (!resourceCalendars || !resourceCalendars.size)) {
+    let taskHolidays = holidays;
+    if (task.resources && resourceNwd.size) {
+      taskHolidays = new Set(holidays);
+      for (const key of resourceKeys) {
+        const days = resourceNwd.get(key);
+        if (days) for (const day of days) taskHolidays.add(day);
+      }
+    }
+    return taskHolidays;
+  }
+
+  let base = calendar || STANDARD_CALENDAR;
+  if (resourceCalendars) {
+    for (const key of resourceKeys) {
+      if (resourceCalendars.has(key)) { base = resourceCalendars.get(key); break; }
+    }
+  }
+
+  const extraExceptions = new Set(holidays);
+  if (resourceNwd.size) {
+    for (const key of resourceKeys) {
+      const days = resourceNwd.get(key);
+      if (days) for (const day of days) extraExceptions.add(day);
+    }
+  }
+  return base.withExtraExceptions(extraExceptions);
+}
+
 /**
  * Schedule a task list in place, exactly as schedule_tasks does.
  *
  * @param {Array} allTasks from buildTasks
- * @param {object} options { holidays: Set, resourceNonWorkingDays: Map, today }
+ * @param {object} options { holidays: Set, resourceNonWorkingDays: Map, today,
+ *   calendar: Calendar, resourceCalendars: Map<string, Calendar> }
  */
 export function scheduleTasks(allTasks, options = {}) {
   const holidays = options.holidays || new Set();
   const resourceNwd = options.resourceNonWorkingDays || new Map();
+  const calendar = options.calendar || null;
+  const resourceCalendars = options.resourceCalendars || null;
   const today = options.today ?? null;
 
   // Resolve $product references to the task that declares them
@@ -232,16 +283,9 @@ export function scheduleTasks(allTasks, options = {}) {
   allTasks.forEach((t, idx) => {
     if (t.summary) return;
 
-    // project holidays plus this task's resources' non-working days
-    let taskHolidays = holidays;
-    if (t.resources && resourceNwd.size) {
-      taskHolidays = new Set(holidays);
-      for (const res of String(t.resources).split(",")) {
-        const key = res.trim().replace(/^@/, "").toLowerCase();
-        const days = resourceNwd.get(key);
-        if (days) for (const day of days) taskHolidays.add(day);
-      }
-    }
+    // project holidays plus this task's resources' non-working days, and
+    // (issue #1132) whichever calendar applies to this task
+    const taskHolidays = calendarOrHolidaysForTask(t, holidays, resourceNwd, calendar, resourceCalendars);
 
     const durationDays = durationDaysOf(t);
     const isMilestone = durationDays === 0;
@@ -390,7 +434,10 @@ export function scheduleTasks(allTasks, options = {}) {
 
   inheritSummaryResources(ordered);
   flagCircularDependencies(ordered);
-  calculateCriticalPath(ordered, holidays);
+  // Project-wide calendar only -- per-resource calendars vary float
+  // differently per task, which the current float model doesn't represent.
+  const projectCalendarOrHolidays = calendar ? calendar.withExtraExceptions(holidays) : holidays;
+  calculateCriticalPath(ordered, projectCalendarOrHolidays);
   return ordered;
 }
 
@@ -672,7 +719,8 @@ function taskToData(task, idx, resourceMap, currentDay) {
  * Schedule a plan and return the `/api/parse` task list.
  *
  * @param {string} planText
- * @param {object} options { today, holidays, resourceNonWorkingDays, resourceMap }
+ * @param {object} options { today, holidays, resourceNonWorkingDays, resourceMap,
+ *   calendar: Calendar, resourceCalendars: Map<string, Calendar> }
  */
 export function scheduleTasksFromText(planText, options = {}) {
   const tasks = buildTasks(planText);

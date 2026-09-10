@@ -108,16 +108,19 @@ engine bug — from the browser console::
 Known differences
 ------------------
 
-None currently. Both engines schedule around the front-matter calendar
-(project-wide ``non-working-days:``/``holidays:`` and per-resource
-``non-working [...]`` exceptions): ``PlanService._schedule_and_build_tasks``
-passes ``FrontMatterParser.parse_non_working_days()`` and
-``parse_resource_non_working_days()`` into ``schedule_tasks``, and the
-browser engine's ``localParse`` applies the same calendar by default
-(``local-parse.js``'s ``applyCalendar`` option, on unless passed ``false``).
-This was fixed in issue #837 — the conformance corpus was regenerated when it
-was, and ``tests/test_engine_conformance.mjs`` passes the calendar through
-too so the two engines keep agreeing.
+None currently. Both engines schedule around the same front-matter calendar:
+project-wide ``non-working-days:``/``holidays:``, per-resource
+``non-working [...]`` exceptions (issue #837), and a named ``calendar:`` /
+``calendars:`` week pattern or shift rotation (issue #1132, see
+:doc:`../reference/front-matter`). ``PlanService._schedule_and_build_tasks``
+passes ``FrontMatterParser.parse_non_working_days()``,
+``parse_resource_non_working_days()`` and ``active_calendar()`` into
+``schedule_tasks``, and the browser engine's ``localParse`` applies the same
+calendar by default (``local-parse.js``'s ``applyCalendar`` option, on unless
+passed ``false``, computing the active calendar via ``calendar.js``'s
+``activeCalendar()``). ``tests/test_engine_conformance.mjs`` passes the same
+calendar through for both, including a fixture with a named Sun-Thu calendar
+(``named-calendar.md``), so the two engines keep agreeing.
 
 Related
 --------

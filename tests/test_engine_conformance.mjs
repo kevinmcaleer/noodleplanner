@@ -18,6 +18,7 @@ import { join } from "node:path";
 
 import { dayOf, scheduleTasksFromText } from "../packages/noodle-web/src/noodle_web/static/engine/scheduler.js";
 import { planBody } from "../packages/noodle-web/src/noodle_web/static/engine/local-parse.js";
+import { activeCalendar } from "../packages/noodle-web/src/noodle_web/static/engine/calendar.js";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const CORPUS = join(repo, "tests", "fixtures", "conformance");
@@ -109,14 +110,16 @@ for (const plan of PLANS) {
     const expected = JSON.parse(readFileSync(expectedPath, "utf8")).tasks;
 
     const { holidays, resourceNonWorkingDays, resourceMap } = calendarFrom(planText);
-    // The calendar is passed, because /api/parse does too (issue #837):
-    // PlanService._schedule_and_build_tasks calls schedule_tasks with the
-    // front matter's holidays and per-resource non-working days.
+    // The calendar is passed, because /api/parse does too (issues #837,
+    // #1132): PlanService._schedule_and_build_tasks calls schedule_tasks
+    // with the front matter's holidays, per-resource non-working days, and
+    // active named calendar.
     const actual = scheduleTasksFromText(planBody(planText), {
       today: FROZEN_TODAY,
       resourceMap,
       holidays,
       resourceNonWorkingDays,
+      calendar: activeCalendar(planText),
     });
 
     assert.deepEqual(

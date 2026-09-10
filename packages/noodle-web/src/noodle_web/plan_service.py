@@ -714,6 +714,7 @@ class PlanService:
             phases,
             holidays=fm_parser.parse_non_working_days(),
             resource_non_working_days=fm_parser.parse_resource_non_working_days(),
+            calendar=fm_parser.active_calendar(),
         )
         tasks_data = []
 

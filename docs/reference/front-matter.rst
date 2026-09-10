@@ -195,6 +195,8 @@ Each ``calendars:`` entry is one line: ``- <Name>: <week pattern> [hours HH:MM-H
 
 ``calendar: <Name>`` selects which calendar is active for scheduling; omit it to use **Standard** even when other calendars are declared. Naming a calendar that isn't declared in ``calendars:`` falls back to Standard rather than failing to parse.
 
+The active calendar's week pattern, hours and exceptions govern scheduling everywhere a project's non-working days do (issue #1132) -- both the server and browser engines apply it, and it layers with ``non-working-days:``/``holidays:`` and any resource-specific ``non-working [...]`` dates rather than replacing them.
+
 .. note::
 
-   This is the front-matter shape only (issue #1134). The scheduling engine consuming a non-Standard calendar (#1132), assigning calendars to individual resources (#1136), and a UI for managing calendars (#1135) are tracked separately as part of the Calendars epic (#1047).
+   Assigning a calendar to an individual resource (#1136, so different resources can work different weeks on the same project) and a UI for managing calendars (#1135) are tracked separately as part of the Calendars epic (#1047). The scheduling engine's day-granular duration model does not yet consume a calendar's optional ``hours`` window when computing dates -- it is parsed and available on the ``Calendar`` object for a future UI/export to read, but every duration is still whole working days.
