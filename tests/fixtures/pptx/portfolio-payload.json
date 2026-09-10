@@ -1,0 +1,227 @@
+{
+  "portfolio_data": {
+    "portfolio_name": "Delivery Portfolio",
+    "date": "2026-09-06",
+    "projects": [
+      {
+        "name": "Silverfort Rollout",
+        "status": "In flight",
+        "rag": "amber",
+        "completion": 39,
+        "risk_count": 2,
+        "budget": "£125,000",
+        "start_date": "2026-06-25",
+        "end_date": "2026-10-28"
+      },
+      {
+        "name": "Website Redesign",
+        "status": "In flight",
+        "rag": "green",
+        "completion": 72,
+        "risk_count": 0,
+        "budget": "£40,000",
+        "start_date": "2026-05-01",
+        "end_date": "2026-09-30"
+      },
+      {
+        "name": "Payments Migration",
+        "status": "At risk",
+        "rag": "red",
+        "completion": 12,
+        "risk_count": 3,
+        "budget": "£310,000",
+        "start_date": "2026-07-01",
+        "end_date": "2027-02-28"
+      }
+    ],
+    "timeline_image": "iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAHElEQVQI12P8//8/AzbAxIAHDErJ/6EAmxwjIQUAxhcExGfCkzQAAAAASUVORK5CYII="
+  },
+  "project_reports": [
+    {
+      "project_name": "Silverfort Rollout",
+      "manager": "Kevin McAleer",
+      "sponsor": "Dana Reid",
+      "budget": "£125,000",
+      "date": "2026-09-06",
+      "status": "Amber",
+      "milestones": [
+        {
+          "name": "Discovery complete",
+          "date": "2026-07-02",
+          "rag": "complete"
+        },
+        {
+          "name": "Design gate",
+          "date": "2026-08-14",
+          "rag": "on track"
+        },
+        {
+          "name": "Go live",
+          "date": "2026-10-01",
+          "rag": "behind schedule"
+        }
+      ],
+      "up_next": [
+        {
+          "name": "Integration design",
+          "start": "2026-09-07",
+          "finish": "2026-09-11",
+          "rag": "on track"
+        },
+        {
+          "name": "Security review",
+          "start": "2026-09-14",
+          "finish": "2026-09-15",
+          "rag": "task overdue"
+        }
+      ],
+      "highlight": {
+        "date": "2026-09-02",
+        "author": "kevin",
+        "content": "**Progress**\n- Licensing resolved\n- Phased deployment agreed\n\nNext: confirm the design gate."
+      },
+      "risks_issues": [
+        {
+          "type": "issue",
+          "title": "Licence shortfall",
+          "description": "Procured tier does not cover all users",
+          "mitigation": "Renegotiate with supplier",
+          "score": 15
+        },
+        {
+          "type": "risk",
+          "title": "Vendor slippage",
+          "description": "Vendor may miss the agreed date",
+          "mitigation": "Weekly supplier call",
+          "score": 6
+        }
+      ],
+      "timeline_tasks": [],
+      "timeline_image": "iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAHElEQVQI12P8//8/AzbAxIAHDErJ/6EAmxwjIQUAxhcExGfCkzQAAAAASUVORK5CYII="
+    },
+    {
+      "project_name": "Website Redesign",
+      "manager": "Kevin McAleer",
+      "sponsor": "Dana Reid",
+      "budget": "£125,000",
+      "date": "2026-09-06",
+      "status": "Green",
+      "milestones": [
+        {
+          "name": "Discovery complete",
+          "date": "2026-07-02",
+          "rag": "complete"
+        },
+        {
+          "name": "Design gate",
+          "date": "2026-08-14",
+          "rag": "on track"
+        },
+        {
+          "name": "Go live",
+          "date": "2026-10-01",
+          "rag": "behind schedule"
+        }
+      ],
+      "up_next": [
+        {
+          "name": "Integration design",
+          "start": "2026-09-07",
+          "finish": "2026-09-11",
+          "rag": "on track"
+        },
+        {
+          "name": "Security review",
+          "start": "2026-09-14",
+          "finish": "2026-09-15",
+          "rag": "task overdue"
+        }
+      ],
+      "highlight": {
+        "date": "2026-09-02",
+        "author": "kevin",
+        "content": "**Progress**\n- Licensing resolved\n- Phased deployment agreed\n\nNext: confirm the design gate."
+      },
+      "risks_issues": [
+        {
+          "type": "issue",
+          "title": "Licence shortfall",
+          "description": "Procured tier does not cover all users",
+          "mitigation": "Renegotiate with supplier",
+          "score": 15
+        },
+        {
+          "type": "risk",
+          "title": "Vendor slippage",
+          "description": "Vendor may miss the agreed date",
+          "mitigation": "Weekly supplier call",
+          "score": 6
+        }
+      ],
+      "timeline_tasks": [],
+      "timeline_image": "iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAHElEQVQI12P8//8/AzbAxIAHDErJ/6EAmxwjIQUAxhcExGfCkzQAAAAASUVORK5CYII="
+    },
+    {
+      "project_name": "Payments Migration",
+      "manager": "Kevin McAleer",
+      "sponsor": "Dana Reid",
+      "budget": "£125,000",
+      "date": "2026-09-06",
+      "status": "Red",
+      "milestones": [
+        {
+          "name": "Discovery complete",
+          "date": "2026-07-02",
+          "rag": "complete"
+        },
+        {
+          "name": "Design gate",
+          "date": "2026-08-14",
+          "rag": "on track"
+        },
+        {
+          "name": "Go live",
+          "date": "2026-10-01",
+          "rag": "behind schedule"
+        }
+      ],
+      "up_next": [
+        {
+          "name": "Integration design",
+          "start": "2026-09-07",
+          "finish": "2026-09-11",
+          "rag": "on track"
+        },
+        {
+          "name": "Security review",
+          "start": "2026-09-14",
+          "finish": "2026-09-15",
+          "rag": "task overdue"
+        }
+      ],
+      "highlight": {
+        "date": "2026-09-02",
+        "author": "kevin",
+        "content": "**Progress**\n- Licensing resolved\n- Phased deployment agreed\n\nNext: confirm the design gate."
+      },
+      "risks_issues": [
+        {
+          "type": "issue",
+          "title": "Licence shortfall",
+          "description": "Procured tier does not cover all users",
+          "mitigation": "Renegotiate with supplier",
+          "score": 15
+        },
+        {
+          "type": "risk",
+          "title": "Vendor slippage",
+          "description": "Vendor may miss the agreed date",
+          "mitigation": "Weekly supplier call",
+          "score": 6
+        }
+      ],
+      "timeline_tasks": [],
+      "timeline_image": "iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAHElEQVQI12P8//8/AzbAxIAHDErJ/6EAmxwjIQUAxhcExGfCkzQAAAAASUVORK5CYII="
+    }
+  ]
+}

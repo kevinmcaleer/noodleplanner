@@ -67,8 +67,8 @@ function _toShortname(displayName) {
             if (short.toLowerCase() === lower) return short;
         }
     }
-    // Fallback: just use the display name as-is (lowercase, no spaces)
-    return displayName.trim().split(/\s+/)[0].toLowerCase();
+    // Fallback: normalize the display name into a single token for the flag.
+    return displayName.trim().toLowerCase().replace(/\s+/g, '-');
 }
 
 /**
