@@ -67,7 +67,7 @@ function _toShortname(displayName) {
             if (short.toLowerCase() === lower) return short;
         }
     }
-    // Fallback: use a stable lowercase token by hyphenating whitespace.
+    // Fallback: normalize the display name into a single token for the flag.
     return displayName.trim().toLowerCase().replace(/\s+/g, '-');
 }
 
