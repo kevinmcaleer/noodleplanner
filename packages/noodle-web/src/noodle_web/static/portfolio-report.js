@@ -4,6 +4,24 @@
  * with a portfolio overview slide followed by one slide per project.
  */
 
+/** Where the toast's progress bar sits when deck building starts (#1068). */
+const DECK_BUILD_START_PCT = 62;
+
+/**
+ * The toast percentage for a deck-build progress message. The worker reports
+ * a slide count while assembling, then a final "compressing" message with no
+ * count at all -- so hold the bar where it was rather than snapping it back
+ * to the start of the band for the last (and slowest) step.
+ *
+ * @param {number} done   Slides built so far, if known
+ * @param {number} total  Slides in the deck, if known
+ * @param {number} previous  The percentage currently shown
+ */
+function deckBuildPercent(done, total, previous) {
+    if (!total) return previous;
+    return Math.min(DECK_BUILD_START_PCT + (done / total) * 33, 96);
+}
+
 /**
  * Capture a per-project timeline as a PNG image using the swimlane style.
  * Builds an offscreen container with a date scale header and SVG swimlane,
@@ -266,15 +284,16 @@ async function exportPortfolioReport() {
             // Build and zip the deck off the main thread (issue #1068): this
             // is the CPU-heavy, DOM-free part, and the part that used to
             // freeze the UI on a large portfolio.
-            if (progress) progress.update('Building PowerPoint deck...', 62);
+            if (progress) progress.update('Building PowerPoint deck...', DECK_BUILD_START_PCT);
+            let deckPct = DECK_BUILD_START_PCT;
             const { filename, bytes } = await buildPortfolioDeckOffMainThread(
                 { portfolio_name: payload.portfolio_name, date: payload.date, projects: payload.projects, timeline_image: payload.timeline_image },
                 payload.project_reports,
                 function(done, total, label) {
                     if (!progress) return;
-                    var pct = total ? 62 + (done / total) * 33 : 62;
+                    deckPct = deckBuildPercent(done, total, deckPct);
                     var suffix = total ? ' (' + done + '/' + total + ')' : '';
-                    progress.update('Building PowerPoint: ' + (label || '') + suffix, Math.min(pct, 96));
+                    progress.update('Building PowerPoint: ' + (label || '') + suffix, deckPct);
                 }
             );
             downloadPptxBytes(bytes, filename);
@@ -331,8 +350,14 @@ async function exportPortfolioReport() {
 /**
  * Build and serialize the portfolio deck in a Web Worker, so slide assembly
  * (PptxGenJS) and zip compression (JSZip) run off the main thread and don't
- * block the UI on a large portfolio (issue #1068). Falls back to building on
- * the main thread if Web Workers aren't available.
+ * block the UI on a large portfolio (issue #1068).
+ *
+ * Every way the worker itself can fail to run -- no Worker constructor, a
+ * constructor that throws, or a module worker that fails to load (older
+ * browsers, a blocked or stale asset), which surfaces asynchronously as an
+ * error event -- falls back to building on the main thread. Only a failure
+ * *inside* the build is reported as an error, since that would fail the same
+ * way on either thread.
  *
  * @param {Object} portfolioData
  * @param {Array} projectReports
@@ -341,15 +366,25 @@ async function exportPortfolioReport() {
  */
 function buildPortfolioDeckOffMainThread(portfolioData, projectReports, onProgress) {
     if (typeof Worker === 'undefined') {
-        return buildPortfolioDeckOnMainThread(portfolioData, projectReports);
+        return buildPortfolioDeckOnMainThread(portfolioData, projectReports, onProgress);
     }
 
     return new Promise(function(resolve, reject) {
         let worker;
+        let settled = false;
+
+        function settle(fn, value) {
+            if (settled) return;
+            settled = true;
+            if (worker) worker.terminate();
+            fn(value);
+        }
+
         try {
             worker = new Worker('/static/pptx-build-worker.js', { type: 'module' });
         } catch (err) {
-            resolve(buildPortfolioDeckOnMainThread(portfolioData, projectReports));
+            console.warn('Portfolio export: Web Worker unavailable, building on the main thread:', err);
+            resolve(buildPortfolioDeckOnMainThread(portfolioData, projectReports, onProgress));
             return;
         }
 
@@ -358,25 +393,30 @@ function buildPortfolioDeckOffMainThread(portfolioData, projectReports, onProgre
             if (msg.type === 'progress') {
                 if (onProgress) onProgress(msg.done, msg.total, msg.label);
             } else if (msg.type === 'done') {
-                worker.terminate();
-                resolve({ filename: msg.filename, bytes: msg.bytes });
+                settle(resolve, { filename: msg.filename, bytes: msg.bytes });
             } else if (msg.type === 'error') {
-                worker.terminate();
-                reject(new Error(msg.message || 'Portfolio export failed'));
+                settle(reject, new Error(msg.message || 'Portfolio export failed'));
             }
         };
         worker.onerror = function(err) {
-            worker.terminate();
-            reject((err && err.error) || new Error((err && err.message) || 'Portfolio export failed'));
+            // The worker never got as far as running: fall back rather than
+            // failing the export outright.
+            if (settled) return;
+            console.warn('Portfolio export: worker failed to start, building on the main thread:', err);
+            settle(resolve, buildPortfolioDeckOnMainThread(portfolioData, projectReports, onProgress));
         };
         worker.postMessage({ portfolioData, projectReports });
     });
 }
 
-/** Fallback used when Web Workers are unavailable: builds on the main thread. */
-async function buildPortfolioDeckOnMainThread(portfolioData, projectReports) {
+/**
+ * Fallback used when the worker can't run: builds on the main thread, with
+ * the same progress reporting so the toast keeps moving.
+ */
+async function buildPortfolioDeckOnMainThread(portfolioData, projectReports, onProgress) {
     const { buildPortfolioDeck, deckBytes, pptxFilename } = await import('/static/pptx-export.js');
-    const pptx = buildPortfolioDeck(portfolioData, projectReports);
+    const pptx = buildPortfolioDeck(portfolioData, projectReports, onProgress);
+    if (onProgress) onProgress(undefined, undefined, 'Compressing PowerPoint file');
     const bytes = await deckBytes(pptx);
     const filename = pptxFilename(portfolioData && portfolioData.portfolio_name, ' - Portfolio Report');
     return { filename, bytes };
