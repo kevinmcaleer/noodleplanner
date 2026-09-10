@@ -86,7 +86,11 @@
 
 .fm-mode-btn.active {
     background: var(--np-accent, #667eea);
-    color: #fff;
+    /* var(--np-on-accent) is near-black in both themes -- the accent
+       (marigold) is light in both, so white text here fails WCAG AA.
+       See visual-system.css's "Text on the accent" block, which also
+       pins this selector at higher specificity as the authoritative fix. */
+    color: var(--np-on-accent, #23201C);
 }
 
 .fm-add-key-select {
