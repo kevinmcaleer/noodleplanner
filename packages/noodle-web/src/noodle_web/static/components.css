@@ -7797,12 +7797,23 @@ button.ribbon-breadcrumb-rung:hover {
     border-right: none;
 }
 
+/* Horizontal rhythm here is tuned to the *typeface*, not picked freely: the
+   simple ribbon lays every command out on one row and collapses whole groups
+   once they stop fitting. These values were set for Inter; Instrument Sans
+   (the approved #998 face) sets ~8% wider, which grew the Home > Plan group
+   from 610px to 659px and pushed Home > Views over the edge at a 1280px
+   window -- so the Gantt/Board/Calendar commands disappeared into a dropdown
+   at one of the most common laptop widths. 8px -> 6px per side buys back
+   ~4px a button, which restores the 1280px layout with room to spare.
+   tests/test_ribbon_simple_view.py's
+   test_gantt_button_reachable_and_works_in_simple_mode is the regression
+   guard; re-check it if this padding or the UI font changes again. */
 .ribbon-simple-btn {
     display: flex;
     align-items: center;
     gap: 5px;
     height: 28px;
-    padding: 0 8px;
+    padding: 0 6px;
     background: transparent;
     border: 1px solid transparent;
     border-radius: 4px;
