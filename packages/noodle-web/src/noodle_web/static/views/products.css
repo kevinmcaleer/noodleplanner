@@ -598,7 +598,7 @@
 
 .product-type-btn.active {
     background: var(--np-accent);
-    color: #fff;
+    color: var(--np-on-accent);
     font-weight: 600;
 }
 

@@ -47,8 +47,8 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: #108BB9;
-    color: white;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     border: none;
     width: 24px;
     height: 48px;
@@ -93,8 +93,8 @@
     justify-content: space-between;
     align-items: center;
     padding: 10px 20px;
-    background: #f8f9fa;
-    border-bottom: 2px solid #dee2e6;
+    background: var(--np-paper);
+    border-bottom: 2px solid var(--np-border);
     flex-shrink: 0;
     position: relative;
 }
@@ -195,7 +195,7 @@
     min-width: 300px;
     flex: 1; /* Allow columns to grow to fill available space */
     max-width: 400px; /* Limit maximum width so columns don't get too wide */
-    background: #ffffff;
+    background: var(--np-surface);
     border-radius: 8px;
     display: flex;
     flex-direction: column;
@@ -215,12 +215,12 @@
 }
 
 .kanban-column.drop-left {
-    border-left: 4px solid #108BB9;
+    border-left: 4px solid var(--np-accent);
     margin-left: 4px;
 }
 
 .kanban-column.drop-right {
-    border-right: 4px solid #108BB9;
+    border-right: 4px solid var(--np-accent);
     margin-right: 4px;
 }
 
@@ -328,8 +328,8 @@
 .theme-colour-picker {
     position: fixed;
     z-index: 10000;
-    background: #ffffff;
-    border: 1px solid #dee2e6;
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
     padding: 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -339,7 +339,7 @@
 .theme-colour-label {
     font-size: 12px;
     font-weight: 600;
-    color: #666;
+    color: var(--np-body);
     margin: 8px 0 4px 0;
 }
 
@@ -352,9 +352,9 @@
     width: 100%;
     margin-top: 10px;
     padding: 6px 12px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
-    background: #f8f9fa;
+    background: var(--np-paper);
     color: #495057;
     font-size: 13px;
     cursor: pointer;
@@ -395,7 +395,7 @@
 
 .kanban-column-footer {
     padding: 10px;
-    background: #f8f9fa;
+    background: var(--np-paper);
     border-radius: 0 0 8px 8px;
     flex-shrink: 0;
 }
@@ -404,9 +404,9 @@
     width: 100%;
     padding: 8px 12px;
     background: transparent;
-    border: 2px dashed #dee2e6;
+    border: 2px dashed var(--np-border);
     border-radius: 4px;
-    color: #6c757d;
+    color: var(--np-muted);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
@@ -414,16 +414,16 @@
 
 .kanban-add-card-btn:hover {
     background: #e9ecef;
-    border-color: #108BB9;
-    color: #108BB9;
+    border-color: var(--np-accent);
+    color: var(--np-accent-ink);
 }
 
 .kanban-add-card-btn:focus {
     outline: 3px solid #108BB9;
     outline-offset: 2px;
     background: #e9ecef;
-    border-color: #108BB9;
-    color: #108BB9;
+    border-color: var(--np-accent);
+    color: var(--np-accent-ink);
 }
 
 /* Add Column Button (Phase view) */
@@ -441,9 +441,9 @@
     height: 100px;
     padding: 20px;
     background: transparent;
-    border: 3px dashed #dee2e6;
+    border: 3px dashed var(--np-border);
     border-radius: 8px;
-    color: #6c757d;
+    color: var(--np-muted);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -451,17 +451,17 @@
 }
 
 .kanban-add-column-btn:hover {
-    background: #f8f9fa;
-    border-color: #108BB9;
-    color: #108BB9;
+    background: var(--np-paper);
+    border-color: var(--np-accent);
+    color: var(--np-accent-ink);
 }
 
 .kanban-add-column-btn:focus {
     outline: 3px solid #108BB9;
     outline-offset: 2px;
-    background: #f8f9fa;
-    border-color: #108BB9;
-    color: #108BB9;
+    background: var(--np-paper);
+    border-color: var(--np-accent);
+    color: var(--np-accent-ink);
 }
 
 /* Kanban Cards */
@@ -485,7 +485,7 @@
 .kanban-card:hover {
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     transform: translateY(-2px);
-    border-color: #108BB9;
+    border-color: var(--np-accent);
 }
 
 .kanban-card:focus {
@@ -510,18 +510,18 @@
 }
 
 .kanban-card.drop-before {
-    border-top: 3px solid #108BB9;
+    border-top: 3px solid var(--np-accent);
     margin-top: 3px;
 }
 
 .kanban-card.drop-after {
-    border-bottom: 3px solid #108BB9;
+    border-bottom: 3px solid var(--np-accent);
     margin-bottom: 3px;
 }
 
 .kanban-column-body.drag-over {
     background: #e8f4f8;
-    border: 2px dashed #108BB9;
+    border: 2px dashed var(--np-accent);
     border-radius: 4px;
 }
 
@@ -635,12 +635,12 @@
     width: 32px;
     height: 28px;
     border: none;
-    background: #f0f0f0;
+    background: var(--np-sunken);
     border-radius: 4px;
     cursor: pointer;
     font-size: 11px;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     padding: 0;
     line-height: 28px;
     text-align: center;
@@ -670,7 +670,7 @@
     max-width: 110px;
     border: 1px solid #ced4da;
     border-radius: 4px;
-    background: #fff;
+    background: var(--np-surface);
     color: #495057;
     font-size: 12px;
     margin-left: auto;
@@ -686,7 +686,7 @@
     min-height: 32px;
     border: 0;
     border-radius: 4px;
-    background: #fff;
+    background: var(--np-surface);
     color: #495057;
     cursor: pointer;
 }
@@ -716,7 +716,7 @@
     margin: 0;
     flex: 1;
     min-width: 0;
-    color: #212529;
+    color: var(--np-ink);
     line-height: 1.4;
     white-space: nowrap;
     overflow: hidden;
@@ -729,7 +729,7 @@
     font-weight: 600;
     flex: 1;
     min-width: 0;
-    color: #212529;
+    color: var(--np-ink);
     line-height: 1.4;
     border: 1px solid var(--bs-primary, #0d6efd);
     border-radius: 4px;
@@ -793,7 +793,7 @@
 
 .kanban-card-comment {
     font-size: 12px;
-    color: #6c757d;
+    color: var(--np-muted);
     font-style: italic;
     margin: 6px 0 0 0;
     line-height: 1.4;
@@ -850,7 +850,7 @@
 .kanban-empty-state p {
     font-size: 14px;
     margin: 0 0 20px 0;
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .kanban-empty-actions {
@@ -876,8 +876,8 @@
     width: 100%;
     padding: 10px;
     margin-top: 10px;
-    background: #f8f9fa;
-    border: 2px dashed #dee2e6;
+    background: var(--np-paper);
+    border: 2px dashed var(--np-border);
     border-radius: 6px;
     color: var(--np-accent);
     font-weight: 600;

@@ -17,7 +17,7 @@
 .gantt-title {
     font-size: 1.8em;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     margin-bottom: 0;
 }
 
@@ -194,7 +194,7 @@
 
 .gantt-info-table thead {
     background: var(--np-accent-gradient);
-    color: white;
+    color: var(--np-on-accent);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -210,7 +210,7 @@
 
 .gantt-info-table td {
     padding: 8px 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
     white-space: nowrap;
     cursor: default;
     height: 40px;
@@ -267,7 +267,7 @@
 }
 
 .gantt-info-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .gantt-info-table tr.selected {
@@ -302,15 +302,15 @@
 .gantt-header {
     display: flex;
     flex-wrap: wrap;
-    background: #f8f9fa;
-    border-bottom: 2px solid #dee2e6;
+    background: var(--np-paper);
+    border-bottom: 2px solid var(--np-border);
     position: sticky;
     top: 0;
     z-index: 5;
 }
 
 .gantt-month {
-    border-right: 1px solid #dee2e6;
+    border-right: 1px solid var(--np-border);
     padding: 6px 2px;
     text-align: center;
     font-weight: 600;
@@ -333,11 +333,11 @@
 .gantt-month-row {
     display: flex;
     width: 100%;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .gantt-month-label {
-    border-right: 1px solid #dee2e6;
+    border-right: 1px solid var(--np-border);
     padding: 4px 2px;
     text-align: center;
     font-weight: 600;
@@ -374,12 +374,12 @@
 .gantt-bar-row {
     height: 40px;
     position: relative;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
     box-sizing: border-box;
 }
 
 .gantt-bar-row:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .gantt-bar {
@@ -441,7 +441,7 @@
 }
 
 .gantt-phase-bar {
-    background: #333;
+    background: var(--np-sunken);
     height: 6px;
     top: 17px;
     border-radius: 0;
@@ -454,7 +454,7 @@
     position: absolute;
     width: 3px;
     height: 16px;
-    background: #333;
+    background: var(--np-sunken);
     top: -5px;
 }
 
@@ -641,7 +641,7 @@
 }
 
 .milestones-table td.baseline-col {
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .baseline-late {
@@ -655,7 +655,7 @@
 }
 
 .baseline-ontrack {
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .baseline-new {
@@ -718,7 +718,7 @@
     position: absolute;
     top: 0;
     height: 100%;
-    border-right: 1px solid #f0f0f0;
+    border-right: 1px solid var(--np-hairline);
     box-sizing: border-box;
 }
 
@@ -792,7 +792,7 @@
 }
 
 .toolbar-btn:active {
-    background: #2a2a2a;
+    background: var(--np-surface-alt);
 }
 
 .toolbar-separator {
@@ -827,10 +827,10 @@
 /* Project selector dropdown — portfolio header (light theme) */
 .portfolio-header .project-selector-dropdown {
     padding: 5px 10px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     background: white;
-    color: #333;
+    color: var(--np-ink);
     font-size: 0.85em;
     cursor: pointer;
     transition: border-color 0.2s;
@@ -844,7 +844,7 @@
 
 .portfolio-header .project-selector-label {
     font-weight: 600;
-    color: #6c757d;
+    color: var(--np-muted);
     margin-right: 6px;
     white-space: nowrap;
     font-size: 0.85em;
@@ -858,7 +858,7 @@
 
 .save-btn {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     border: none;
     padding: 6px 12px;
     border-radius: 4px;
@@ -1139,7 +1139,7 @@ body.hl-off-dependency .syntax-star {
     transform: translateY(-50%);
     width: 8px;
     height: 8px;
-    background: #108BB9;
+    background: var(--np-accent);
     border-radius: 50%;
     box-shadow: 0 0 4px rgba(16, 139, 185, 0.5);
 }
@@ -1188,7 +1188,7 @@ body.hl-off-dependency .syntax-star {
 
 .line-number.manually-scheduled:hover .pin-icon::before,
 .line-number.manually-scheduled:hover .pin-icon::after {
-    background: #fff;
+    background: var(--np-surface);
 }
 
 textarea {
@@ -1220,7 +1220,7 @@ textarea:focus:not(:focus-visible) {
 }
 
 textarea::placeholder {
-    color: #666;
+    color: var(--np-body);
 }
 
 textarea {
@@ -1233,7 +1233,7 @@ textarea:hover {
 
 .output-container {
     background: white;
-    color: #333;
+    color: var(--np-ink);
     padding: 15px;
     flex: 1;
     overflow: auto;
@@ -1247,7 +1247,7 @@ textarea:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #999;
+    color: var(--np-faint);
     font-style: italic;
 }
 
@@ -1269,13 +1269,13 @@ textarea:hover {
 
 .welcome-screen h2 {
     font-size: 2em;
-    color: #333;
+    color: var(--np-ink);
     margin-bottom: 5px;
     margin-top: 0;
 }
 
 .welcome-screen p {
-    color: #666;
+    color: var(--np-body);
     font-size: 1.1em;
     margin: 5px 0;
 }
@@ -1290,19 +1290,19 @@ textarea:hover {
 .welcome-screen li {
     padding: 5px 0;
     font-size: 1.1em;
-    color: #555;
+    color: var(--np-body);
 }
 
 .welcome-hint {
     margin-top: 15px;
     font-size: 0.95em;
-    color: #999;
+    color: var(--np-faint);
     font-style: normal;
 }
 
 .welcome-hint kbd {
     background: #f4f4f4;
-    border: 1px solid #ccc;
+    border: 1px solid var(--np-border-strong);
     border-radius: 3px;
     padding: 2px 6px;
     font-family: monospace;
@@ -1324,12 +1324,12 @@ textarea:hover {
 label {
     font-weight: 600;
     margin-bottom: 5px;
-    color: #555;
+    color: var(--np-body);
 }
 
 input[type="text"] {
     padding: 10px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-border);
     border-radius: 5px;
     font-size: 14px;
 }
@@ -1359,7 +1359,7 @@ input[type="checkbox"] {
 
 .btn {
     background: var(--np-accent-gradient, linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%));
-    color: white;
+    color: var(--np-on-accent);
     padding: 15px 30px;
     border: none;
     border-radius: 5px;
@@ -1411,7 +1411,7 @@ input[type="checkbox"] {
 }
 
 .syntax-guide {
-    background: #f8f9fa;
+    background: var(--np-paper);
     padding: 40px;
     width: 100%;
     box-sizing: border-box;
@@ -1499,7 +1499,7 @@ input[type="checkbox"] {
 
 .task-row-add-btn:hover {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     transform: translateX(-50%) scale(1.15);
 }
 

@@ -140,7 +140,7 @@ body {
 
 .plan-subnav-btn.active {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
 }
 
 /* Navigation dropdown menus */
@@ -594,7 +594,7 @@ body {
 
 [data-theme="dark"] .btn-outline-primary:hover {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
 }
 
 [data-theme="dark"] .card {
@@ -1441,7 +1441,7 @@ body {
 [data-theme="dark"] .budget-view-toggle:hover,
 [data-theme="dark"] .budget-view-toggle.active {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
 }
 
 [data-theme="dark"] .budget-action-btn:hover {

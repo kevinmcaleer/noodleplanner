@@ -21,7 +21,7 @@
     flex-wrap: wrap;
     gap: 8px;
     padding: 8px 16px;
-    background: #f0f0f0;
+    background: var(--np-sunken);
     border-bottom: 1px solid #d0d0d0;
     flex-shrink: 0;
 }
@@ -41,14 +41,14 @@
     border: 1px solid #c0c0c0;
     border-radius: 6px;
     background: #e4e4e4;
-    color: #444;
+    color: var(--np-body);
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
 }
 
 .wb-toolbar-btn:hover:not(:disabled) {
     background: #d4d4d4;
-    border-color: #108BB9;
+    border-color: var(--np-accent);
     color: #111;
 }
 
@@ -59,7 +59,7 @@
 
 .wb-zoom-label {
     font-size: 12px;
-    color: #666;
+    color: var(--np-body);
     min-width: 40px;
     text-align: center;
     user-select: none;
@@ -67,7 +67,7 @@
 
 .wb-toolbar-hint {
     font-size: 11px;
-    color: #777;
+    color: var(--np-muted);
     margin-left: auto;
     white-space: normal;
 }
@@ -77,7 +77,7 @@
     min-height: 0;
     overflow: hidden;
     position: relative;
-    background: #f5f5f5;
+    background: var(--np-surface-alt);
     outline: none;
     cursor: grab;
 }
@@ -292,7 +292,7 @@
 .wb-note-count-badge:hover,
 .wb-note-count-badge:focus-visible {
     background: var(--np-accent);
-    color: #ffffff;
+    color: var(--np-on-accent);
     border-color: var(--np-accent);
 }
 
@@ -765,7 +765,7 @@ body.wb-note-drag-active * {
 .wb-empty-state-btn-primary {
     background: var(--np-accent);
     border-color: var(--np-accent);
-    color: #ffffff;
+    color: var(--np-on-accent);
 }
 
 .wb-empty-state-btn-primary:hover,
@@ -979,7 +979,7 @@ body.wb-note-drag-active * {
     border: 1px solid var(--np-accent);
     border-radius: 6px;
     background: var(--np-accent);
-    color: #ffffff;
+    color: var(--np-on-accent);
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
@@ -1026,7 +1026,7 @@ body.wb-note-drag-active * {
 .wb-add-note-submit {
     border: 1px solid var(--np-accent);
     background: var(--np-accent);
-    color: #ffffff;
+    color: var(--np-on-accent);
 }
 
 .wb-add-note-submit:hover:not(:disabled) {

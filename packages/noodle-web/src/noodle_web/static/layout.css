@@ -293,7 +293,7 @@ svg.icon {
 
 .plan-subnav-btn.active {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
 }
 
 .plan-subnav-btn.active svg.icon {

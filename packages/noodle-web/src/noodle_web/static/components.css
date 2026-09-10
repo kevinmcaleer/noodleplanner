@@ -23,7 +23,7 @@
     justify-content: center;
     height: 100%;
     text-align: center;
-    color: #666;
+    color: var(--np-body);
 }
 
 .milestones-placeholder h3,
@@ -57,23 +57,23 @@
 
 .milestones-table thead {
     background: var(--np-accent-gradient);
-    color: white;
+    color: var(--np-on-accent);
 }
 
 .milestones-table th {
     padding: 12px;
     text-align: left;
     font-weight: 600;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 2px solid var(--np-border);
 }
 
 .milestones-table td {
     padding: 10px 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
 }
 
 .milestones-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .milestones-table tbody tr.summary-task {
@@ -100,7 +100,7 @@
 
 .milestones-table .rag-amber {
     background: #ffd93d;
-    color: #333;
+    color: var(--np-ink);
     text-align: center;
     font-weight: 600;
     border-radius: 4px;
@@ -142,7 +142,7 @@
 
 .up-next-in-progress {
     background: #ffd93d;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .up-next-starting-soon {
@@ -181,7 +181,7 @@
 .resources-title {
     font-size: 1.8em;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     margin-bottom: 20px;
 }
 
@@ -200,28 +200,28 @@
 
 .resources-table thead {
     background: var(--np-accent-gradient);
-    color: white;
+    color: var(--np-on-accent);
 }
 
 .resources-table th {
     padding: 14px;
     text-align: left;
     font-weight: 600;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 2px solid var(--np-border);
 }
 
 .resources-table td {
     padding: 12px 14px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
 }
 
 .resources-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .resources-table .resource-name {
     font-weight: 500;
-    color: #333;
+    color: var(--np-ink);
     transition: color 0.2s, background 0.2s;
 }
 
@@ -259,20 +259,20 @@
     top: 4px;
     right: 4px;
     z-index: 10;
-    background: #f0f0f0;
-    border: 1px solid #ccc;
+    background: var(--np-sunken);
+    border: 1px solid var(--np-border-strong);
     border-radius: 4px;
     padding: 4px;
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
     line-height: 0;
-    color: #999;
+    color: var(--np-faint);
 }
 
 .copy-image-btn:hover {
     background: #e0e0e0;
     border-color: #999;
-    color: #555;
+    color: var(--np-body);
 }
 
 .resources-table .resource-shortname {
@@ -310,7 +310,7 @@
 .resource-sheet-title {
     font-size: 1.8em;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     margin: 0;
 }
 
@@ -322,13 +322,13 @@
 
 .resource-sheet-filter label {
     font-weight: 500;
-    color: #555;
+    color: var(--np-body);
     white-space: nowrap;
 }
 
 .resource-sheet-filter select {
     padding: 6px 12px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--np-border-strong);
     border-radius: 4px;
     font-size: 0.9em;
     background: white;
@@ -356,7 +356,7 @@
 
 .resource-sheet-table thead {
     background: var(--np-accent-gradient);
-    color: white;
+    color: var(--np-on-accent);
     position: sticky;
     top: 0;
     z-index: 2;
@@ -415,7 +415,7 @@
 
 .resource-sheet-group-name {
     font-weight: 700;
-    color: #333;
+    color: var(--np-ink);
     padding: 10px 8px;
     font-size: 0.95em;
     border-bottom: 2px solid var(--np-accent);
@@ -423,11 +423,11 @@
 
 .resource-sheet-task-row td {
     padding: 4px 6px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
 }
 
 .resource-sheet-task-row:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .resource-sheet-task-name {
@@ -444,19 +444,19 @@
 }
 
 .resource-sheet-task-row:hover .resource-sheet-task-name {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .resource-sheet-date-cell {
     text-align: center;
     font-size: 0.85em;
-    color: #666;
+    color: var(--np-body);
 }
 
 .resource-sheet-pct-cell {
     text-align: center;
     font-size: 0.85em;
-    color: #666;
+    color: var(--np-body);
 }
 
 .resource-sheet-timeline-cell {
@@ -467,7 +467,7 @@
 }
 
 .resource-sheet-timeline-cell.resource-sheet-weekend {
-    background: #f5f5f5;
+    background: var(--np-surface-alt);
 }
 
 .resource-sheet-timeline-cell.resource-sheet-holiday {
@@ -504,7 +504,7 @@
 
 .timesheet-table thead {
     background: var(--np-accent-gradient);
-    color: white;
+    color: var(--np-on-accent);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -560,21 +560,21 @@
 
 .timesheet-table td {
     padding: 10px 8px;
-    border-bottom: 1px solid #f0f0f0;
-    border-right: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
+    border-right: 1px solid var(--np-hairline);
     text-align: center;
 }
 
 .timesheet-table td.timesheet-resource-name {
     font-weight: 500;
-    color: #333;
+    color: var(--np-ink);
     text-align: left;
     padding-left: 14px;
     position: sticky;
     left: 0;
     background: white;
     z-index: 5;
-    border-right: 2px solid #e0e0e0;
+    border-right: 2px solid var(--np-border);
     transition: color 0.2s;
 }
 
@@ -584,11 +584,11 @@
 }
 
 .timesheet-table tbody tr:hover td.timesheet-resource-name {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .timesheet-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .timesheet-hours-cell {
@@ -616,7 +616,7 @@
 }
 
 .timesheet-weekend {
-    background: #f5f5f5 !important;
+    background: var(--np-surface-alt) !important;
 }
 
 .timesheet-holiday {
@@ -636,7 +636,7 @@
 .timesheet-title {
     font-size: 1.8em;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     margin-bottom: 20px;
 }
 
@@ -646,7 +646,7 @@
     justify-content: center;
     align-items: center;
     min-height: 300px;
-    color: #888;
+    color: var(--np-muted);
     text-align: center;
 }
 
@@ -663,7 +663,7 @@
 .project-report-title {
     font-size: 2em;
     font-weight: 700;
-    color: #333;
+    color: var(--np-ink);
     margin: 0 0 12px 0;
 }
 
@@ -681,12 +681,12 @@
 
 .project-report-detail-label {
     font-weight: 600;
-    color: #666;
+    color: var(--np-body);
     font-size: 0.95em;
 }
 
 .project-report-detail-value {
-    color: #333;
+    color: var(--np-ink);
     font-size: 0.95em;
 }
 
@@ -697,7 +697,7 @@
 .project-report-section h3 {
     font-size: 1.3em;
     font-weight: 600;
-    color: #444;
+    color: var(--np-body);
     margin-bottom: 15px;
     padding-bottom: 8px;
     border-bottom: 1px solid #e9ecef;
@@ -727,14 +727,14 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    color: #666;
+    color: var(--np-body);
     cursor: pointer;
     text-decoration: none;
     user-select: none;
 }
 
 .embedded-timeline-toggle:hover {
-    color: #333;
+    color: var(--np-ink);
 }
 
 .embedded-timeline-toggle .toggle-icon {
@@ -864,7 +864,7 @@
     align-items: center;
     gap: 6px;
     font-size: 0.75em;
-    color: #444;
+    color: var(--np-body);
 }
 
 .donut-legend-swatch {
@@ -907,7 +907,7 @@
     border: 1px solid #e9ecef;
     border-radius: 8px;
     padding: 16px;
-    background: #fff;
+    background: var(--np-surface);
     min-height: 200px;
     overflow: auto;
 }
@@ -915,7 +915,7 @@
 .quad-cell h3 {
     font-size: 1.15em;
     font-weight: 600;
-    color: #444;
+    color: var(--np-body);
     margin: 0 0 12px 0;
     padding-bottom: 8px;
     border-bottom: 1px solid #e9ecef;
@@ -949,31 +949,31 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: #f0f0f0;
-    border: 1px solid #ccc;
+    background: var(--np-sunken);
+    border: 1px solid var(--np-border-strong);
     border-radius: 4px;
     padding: 4px;
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
     line-height: 0;
-    color: #999;
+    color: var(--np-faint);
     flex-shrink: 0;
 }
 
 .widget-shortcut:hover {
     background: #e0e0e0;
     border-color: #999;
-    color: #555;
+    color: var(--np-body);
 }
 
 .quad-add-btn {
-    background: #f0f0f0;
-    border: 1px solid #ccc;
+    background: var(--np-sunken);
+    border: 1px solid var(--np-border-strong);
     border-radius: 4px;
     padding: 2px 8px;
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
-    color: #999;
+    color: var(--np-faint);
     font-size: 1.1em;
     line-height: 1;
     font-weight: 600;
@@ -982,7 +982,7 @@
 .quad-add-btn:hover {
     background: #e0e0e0;
     border-color: #999;
-    color: #555;
+    color: var(--np-body);
 }
 
 .quad-table {
@@ -1056,7 +1056,7 @@
 
 .report-rag-badge.rag-amber {
     background: #ffd93d;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .report-rag-badge.rag-green {
@@ -1099,7 +1099,7 @@
     gap: 12px;
     margin-bottom: 10px;
     font-size: 0.9em;
-    color: #666;
+    color: var(--np-body);
 }
 
 .report-highlight-meta .highlight-date {
@@ -1109,7 +1109,7 @@
 .report-highlight-body {
     font-size: 0.95em;
     line-height: 1.5;
-    color: #333;
+    color: var(--np-ink);
     max-height: 15em; /* ~10 lines at 1.5 line-height */
     overflow: hidden;
     position: relative;
@@ -1208,7 +1208,7 @@
 
 .detail-pane-header {
     background: var(--np-accent-gradient);
-    color: white;
+    color: var(--np-on-accent);
     padding: 20px 30px;
     display: flex;
     justify-content: space-between;
@@ -1269,24 +1269,24 @@ body.detail-pane-open {
 .inspector-empty-state {
     text-align: center;
     padding: 40px 20px;
-    color: #888;
+    color: var(--np-muted);
     font-size: 0.95em;
 }
 
 .inspector-section {
     margin-bottom: 20px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--np-border);
     border-radius: 8px;
     overflow: hidden;
 }
 
 .inspector-section-header {
-    background: #f5f5f5;
+    background: var(--np-surface-alt);
     padding: 10px 15px;
     font-weight: 600;
     font-size: 0.9em;
-    color: #333;
-    border-bottom: 1px solid #e0e0e0;
+    color: var(--np-ink);
+    border-bottom: 1px solid var(--np-border);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1330,7 +1330,7 @@ body.detail-pane-open {
 }
 
 .inspector-rag-banner.rag-none {
-    background: #f5f5f5;
+    background: var(--np-surface-alt);
     border-left: 5px solid #9e9e9e;
 }
 
@@ -1360,7 +1360,7 @@ body.detail-pane-open {
 
 .inspector-rag-explanation {
     font-size: 0.88em;
-    color: #555;
+    color: var(--np-body);
     line-height: 1.5;
 }
 
@@ -1376,7 +1376,7 @@ body.detail-pane-open {
 
 .inspector-field-label {
     font-size: 0.78em;
-    color: #888;
+    color: var(--np-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 2px;
@@ -1384,7 +1384,7 @@ body.detail-pane-open {
 
 .inspector-field-value {
     font-size: 0.95em;
-    color: #333;
+    color: var(--np-ink);
     font-weight: 500;
 }
 
@@ -1396,7 +1396,7 @@ body.detail-pane-open {
 
 .inspector-dep-item {
     padding: 8px 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1409,11 +1409,11 @@ body.detail-pane-open {
 
 .inspector-dep-name {
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .inspector-dep-date {
-    color: #666;
+    color: var(--np-body);
     font-size: 0.88em;
 }
 
@@ -1431,7 +1431,7 @@ body.detail-pane-open {
 }
 
 .inspector-dep-badge.non-driving {
-    background: #f5f5f5;
+    background: var(--np-surface-alt);
     color: #757575;
 }
 
@@ -1442,16 +1442,16 @@ body.detail-pane-open {
     margin-top: 12px;
     border-radius: 0 6px 6px 0;
     font-size: 0.88em;
-    color: #555;
+    color: var(--np-body);
     line-height: 1.5;
 }
 
 .inspector-hint strong {
-    color: #333;
+    color: var(--np-ink);
 }
 
 .inspector-no-deps {
-    color: #888;
+    color: var(--np-muted);
     font-size: 0.9em;
     font-style: italic;
     padding: 6px 0;
@@ -1480,7 +1480,7 @@ body.detail-pane-open {
     margin-top: 14px;
     padding: 8px 18px;
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -1511,7 +1511,7 @@ body.detail-pane-open {
     border-radius: 4px;
     opacity: 0;
     transition: opacity 0.2s;
-    color: #6c757d;
+    color: var(--np-muted);
     line-height: 1;
     letter-spacing: 2px;
     min-width: 32px;
@@ -1687,7 +1687,7 @@ tr:hover .task-context-btn,
 #cfRulesTable input[type="text"] {
     font-size: 0.85em;
     padding: 2px 6px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     width: 100%;
 }
@@ -1704,7 +1704,7 @@ tr:hover .task-context-btn,
     width: 28px;
     height: 28px;
     border-radius: 4px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--np-border-strong);
     cursor: pointer;
     vertical-align: middle;
 }
@@ -1717,7 +1717,7 @@ tr:hover .task-context-btn,
 #cfRulesTable .cf-move-btn {
     background: none;
     border: none;
-    color: #6c757d;
+    color: var(--np-muted);
     cursor: pointer;
     font-size: 0.7em;
     padding: 0 3px;
@@ -1788,7 +1788,7 @@ tr:hover .task-context-btn,
 
 .modal-header {
     background: var(--np-accent-gradient);
-    color: white;
+    color: var(--np-on-accent);
     padding: 20px 30px;
     border-radius: 10px 10px 0 0;
     display: flex;
@@ -1936,7 +1936,7 @@ tr:hover .task-context-btn,
 .settings-tabs {
     display: flex;
     gap: 4px;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 2px solid var(--np-border);
     margin-bottom: 24px;
     overflow-x: auto;
 }
@@ -1948,7 +1948,7 @@ tr:hover .task-context-btn,
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
-    color: #666;
+    color: var(--np-body);
     border-bottom: 3px solid transparent;
     margin-bottom: -2px;
     white-space: nowrap;
@@ -1981,15 +1981,15 @@ tr:hover .task-context-btn,
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #888;
+    color: var(--np-muted);
     margin: 0 0 16px 0;
     padding-bottom: 8px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--np-hairline);
 }
 
 .settings-option {
     padding: 14px 0;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
 }
 
 .settings-option:last-child {
@@ -2003,7 +2003,7 @@ tr:hover .task-context-btn,
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .settings-option label input[type="checkbox"] {
@@ -2017,7 +2017,7 @@ tr:hover .task-context-btn,
     display: block;
     margin-top: 4px;
     margin-left: 28px;
-    color: #666;
+    color: var(--np-body);
     font-size: 0.85em;
 }
 
@@ -2033,7 +2033,7 @@ tr:hover .task-context-btn,
     align-items: center;
     gap: 10px;
     padding: 12px 16px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-border);
     border-radius: 8px;
     cursor: pointer;
     transition: background-color var(--np-anim-duration) var(--np-anim-easing),
@@ -2060,7 +2060,7 @@ tr:hover .task-context-btn,
 }
 
 .settings-ai-description {
-    color: #666;
+    color: var(--np-body);
     font-size: 14px;
     margin-bottom: 20px;
     line-height: 1.5;
@@ -2068,7 +2068,7 @@ tr:hover .task-context-btn,
 
 /* Dependencies table in task form */
 .dependencies-table {
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-border);
     border-radius: 5px;
     overflow: visible;
 }
@@ -2079,16 +2079,16 @@ tr:hover .task-context-btn,
 }
 
 .dependencies-table th {
-    background: #f8f9fa;
+    background: var(--np-paper);
     padding: 10px;
     text-align: left;
     font-weight: 600;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 2px solid var(--np-border);
 }
 
 .dependencies-table td {
     padding: 10px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .dependencies-table tbody tr:last-child td {
@@ -2099,7 +2099,7 @@ tr:hover .task-context-btn,
 .dependencies-table input[type="number"] {
     width: 100%;
     padding: 8px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
 }
 
@@ -2122,7 +2122,7 @@ tr:hover .task-context-btn,
     display: block;
     padding: 20px;
     text-align: center;
-    color: #999;
+    color: var(--np-faint);
     font-style: italic;
 }
 
@@ -2136,7 +2136,7 @@ tr:hover .task-context-btn,
 .btn-primary {
     flex: 1;
     background: var(--np-accent-gradient);
-    color: white;
+    color: var(--np-on-accent);
     padding: 12px 24px;
     border: none;
     border-radius: 5px;
@@ -2152,12 +2152,12 @@ tr:hover .task-context-btn,
 
 /* Subtasks list in task form */
 .subtasks-list {
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-border);
     border-radius: 5px;
     padding: 10px;
     max-height: 300px;
     overflow-y: auto;
-    background: #f9f9f9;
+    background: var(--np-paper);
 }
 
 .subtask-item {
@@ -2165,7 +2165,7 @@ tr:hover .task-context-btn,
     align-items: center;
     padding: 8px 10px;
     background: white;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     margin-bottom: 6px;
     transition: background 0.2s;
@@ -2176,7 +2176,7 @@ tr:hover .task-context-btn,
 }
 
 .subtask-item:hover {
-    background: #f5f5f5;
+    background: var(--np-surface-alt);
 }
 
 .subtask-checkbox.round-checkbox {
@@ -2188,7 +2188,7 @@ tr:hover .task-context-btn,
     cursor: pointer;
     user-select: none;
     font-size: 0.95em;
-    color: #333;
+    color: var(--np-ink);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -2223,7 +2223,7 @@ tr:hover .task-context-btn,
 
 .subtask-dates {
     font-size: 0.8em;
-    color: #888;
+    color: var(--np-muted);
     white-space: nowrap;
 }
 
@@ -2257,7 +2257,7 @@ tr:hover .task-context-btn,
 
 .subtask-resource-unassigned {
     background: transparent;
-    border: 2px dashed #ccc;
+    border: 2px dashed var(--np-border-strong);
     color: transparent;
 }
 
@@ -2268,7 +2268,7 @@ tr:hover .task-context-btn,
 /* Subtask resource picker dropdown */
 .subtask-resource-picker {
     background: white;
-    border: 1px solid #ddd;
+    border: 1px solid var(--np-border);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     min-width: 200px;
@@ -2279,15 +2279,15 @@ tr:hover .task-context-btn,
     padding: 8px 12px;
     font-weight: 600;
     font-size: 0.85em;
-    color: #555;
-    border-bottom: 1px solid #eee;
-    background: #f9f9f9;
+    color: var(--np-body);
+    border-bottom: 1px solid var(--np-hairline);
+    background: var(--np-paper);
 }
 
 .subtask-resource-picker-subheader {
     padding: 6px 12px 4px;
     font-size: 0.78em;
-    color: #999;
+    color: var(--np-faint);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -2326,7 +2326,7 @@ tr:hover .task-context-btn,
 .subtask-resource-picker-empty {
     padding: 10px 12px;
     font-size: 0.85em;
-    color: #999;
+    color: var(--np-faint);
     text-align: center;
 }
 
@@ -2361,7 +2361,7 @@ tr:hover .task-context-btn,
 
 .add-item-link:hover .add-icon {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     border-radius: 50%;
     transform: scale(1.1);
 }
@@ -2407,7 +2407,7 @@ tr:hover .task-context-btn,
 
 .export-btn {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     border: none;
     padding: 8px 16px;
     border-radius: 5px;
@@ -2569,7 +2569,7 @@ tr:hover .task-context-btn,
 
 .tour-popup p {
     margin: 0 0 20px 0;
-    color: #333;
+    color: var(--np-ink);
     line-height: 1.6;
 }
 
@@ -2583,7 +2583,7 @@ tr:hover .task-context-btn,
 .tour-progress {
     flex: 1;
     text-align: center;
-    color: #666;
+    color: var(--np-body);
     font-size: 14px;
 }
 
@@ -2608,7 +2608,7 @@ tr:hover .task-context-btn,
 
 .tour-actions .btn-primary {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
 }
 
 .tour-actions .btn-primary:hover {
@@ -2624,7 +2624,7 @@ tr:hover .task-context-btn,
 }
 
 .breadcrumb-item {
-    color: #666;
+    color: var(--np-body);
 }
 
 .breadcrumb-item a {
@@ -2638,18 +2638,18 @@ tr:hover .task-context-btn,
 }
 
 .breadcrumb-item.active {
-    color: #333;
+    color: var(--np-ink);
     font-weight: 600;
 }
 
 .breadcrumb-separator {
-    color: #999;
+    color: var(--np-faint);
 }
 
 /* Drill-down Button for Summary Tasks */
 .drill-down-btn {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     border: none;
     border-radius: 4px;
     padding: 4px 10px;
@@ -2680,7 +2680,7 @@ tr:hover .task-context-btn,
 .analysis-title {
     font-size: 1.8em;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     margin-bottom: 20px;
 }
 
@@ -2700,7 +2700,7 @@ tr:hover .task-context-btn,
 
 .analysis-health-score h3 {
     margin: 0 0 15px 0;
-    color: #666;
+    color: var(--np-body);
     font-size: 1.1em;
 }
 
@@ -2722,7 +2722,7 @@ tr:hover .task-context-btn,
     padding: 20px;
     margin-bottom: 20px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    border-left: 4px solid #ccc;
+    border-left: 4px solid var(--np-border-strong);
 }
 
 .analysis-warning {
@@ -2750,12 +2750,12 @@ tr:hover .task-context-btn,
 
 .insight-header h4 {
     margin: 0;
-    color: #333;
+    color: var(--np-ink);
     font-size: 1.2em;
 }
 
 .insight-description {
-    color: #666;
+    color: var(--np-body);
     margin: 10px 0;
     line-height: 1.5;
 }
@@ -2767,12 +2767,12 @@ tr:hover .task-context-btn,
 
 .insight-items li {
     margin: 8px 0;
-    color: #555;
+    color: var(--np-body);
 }
 
 .fix-it-btn {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     border: none;
     border-radius: 4px;
     padding: 8px 20px;
@@ -2825,18 +2825,18 @@ tr:hover .task-context-btn,
     max-width: 900px;
     margin: 30px auto 0;
     padding-top: 20px;
-    border-top: 2px solid #e0e0e0;
+    border-top: 2px solid var(--np-border);
 }
 
 .qa-section-title {
     font-size: 1.4em;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     margin-bottom: 6px;
 }
 
 .qa-section-desc {
-    color: #666;
+    color: var(--np-body);
     font-size: 0.95em;
     margin-bottom: 20px;
     line-height: 1.5;
@@ -2853,7 +2853,7 @@ tr:hover .task-context-btn,
     border-radius: 8px;
     padding: 16px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-    border-left: 4px solid #ccc;
+    border-left: 4px solid var(--np-border-strong);
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -2877,7 +2877,7 @@ tr:hover .task-context-btn,
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #999;
+    color: var(--np-faint);
 }
 
 .qa-check-count {
@@ -2900,7 +2900,7 @@ tr:hover .task-context-btn,
 
 .qa-check-label {
     font-size: 0.85em;
-    color: #555;
+    color: var(--np-body);
     line-height: 1.3;
     font-weight: 500;
 }
@@ -2971,7 +2971,7 @@ tr:hover .task-context-btn,
 
 .raid-toolbar .btn-primary {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     border: none;
     padding: 8px 16px;
     border-radius: 5px;
@@ -2999,7 +2999,7 @@ tr:hover .task-context-btn,
 
 .raid-toolbar .btn-secondary:hover {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
 }
 
 .raid-toolbar-separator {
@@ -3017,7 +3017,7 @@ tr:hover .task-context-btn,
 .raid-filter-group label {
     font-size: 0.85em;
     font-weight: 600;
-    color: #555;
+    color: var(--np-body);
 }
 
 .raid-filter-group select {
@@ -3051,7 +3051,7 @@ tr:hover .task-context-btn,
 
 .raid-table thead {
     background: var(--np-accent-gradient);
-    color: white;
+    color: var(--np-on-accent);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -3078,14 +3078,14 @@ tr:hover .task-context-btn,
 
 .raid-table td {
     padding: 10px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
     max-width: 250px;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .raid-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .raid-table tbody tr:nth-child(even) {
@@ -3207,7 +3207,7 @@ tr:hover .task-context-btn,
     font-size: 1.5em;
     font-weight: bold;
     border-radius: 5px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-border);
     transition: all 0.3s;
 }
 
@@ -3245,7 +3245,7 @@ tr:hover .task-context-btn,
 /* RAID Markdown Editor */
 .raid-editor-section {
     margin-top: 10px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 6px;
     overflow: hidden;
 }
@@ -3254,8 +3254,8 @@ tr:hover .task-context-btn,
     display: flex;
     align-items: center;
     padding: 8px 12px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
+    background: var(--np-paper);
+    border-bottom: 1px solid var(--np-border);
     cursor: pointer;
     user-select: none;
 }
@@ -3263,7 +3263,7 @@ tr:hover .task-context-btn,
 .raid-editor-toggle {
     font-size: 0.75em;
     margin-right: 8px;
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .raid-editor-title {
@@ -3282,7 +3282,7 @@ tr:hover .task-context-btn,
     padding: 2px 6px;
     font-size: 0.9em;
     background: transparent;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     cursor: pointer;
 }
@@ -3314,7 +3314,7 @@ tr:hover .task-context-btn,
     border: none;
     outline: none;
     resize: vertical;
-    background: #1e1e1e;
+    background: var(--np-surface);
     color: #d4d4d4;
     box-sizing: border-box;
 }
@@ -3338,7 +3338,7 @@ tr:hover .task-context-btn,
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #999;
+    color: var(--np-faint);
     font-size: 0.9em;
 }
 
@@ -3356,7 +3356,7 @@ tr:hover .task-context-btn,
     height: 28px;
     border-radius: 50%;
     background: #e0e0e0;
-    color: #666;
+    color: var(--np-body);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3366,7 +3366,7 @@ tr:hover .task-context-btn,
 
 .wizard-step.active .wizard-step-number {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
 }
 
 .wizard-step.completed .wizard-step-number {
@@ -3407,7 +3407,7 @@ tr:hover .task-context-btn,
 .wizard-panel .table-responsive {
     max-height: 200px;
     overflow: auto;
-    border: 1px solid #ddd;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
 }
 
@@ -3420,12 +3420,12 @@ tr:hover .task-context-btn,
 .wizard-panel .table-responsive th,
 .wizard-panel .table-responsive td {
     padding: 6px 10px;
-    border: 1px solid #eee;
+    border: 1px solid var(--np-hairline);
     white-space: nowrap;
 }
 
 .wizard-panel .table-responsive th {
-    background: #f5f5f5;
+    background: var(--np-surface-alt);
     font-weight: 600;
     position: sticky;
     top: 0;
@@ -3483,7 +3483,7 @@ tr:hover .task-context-btn,
 .highlights-title {
     margin: 0;
     font-size: 1.4em;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .highlights-list {
@@ -3493,8 +3493,8 @@ tr:hover .task-context-btn,
 }
 
 .highlight-card {
-    background: #fff;
-    border: 1px solid #dee2e6;
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
     padding: 16px 20px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
@@ -3506,7 +3506,7 @@ tr:hover .task-context-btn,
     align-items: center;
     margin-bottom: 10px;
     padding-bottom: 8px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--np-hairline);
 }
 
 .highlight-meta {
@@ -3548,7 +3548,7 @@ tr:hover .task-context-btn,
 
 .highlight-action-btn:hover {
     opacity: 1;
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .highlight-action-btn.delete:hover {
@@ -3556,7 +3556,7 @@ tr:hover .task-context-btn,
 }
 
 .highlight-body {
-    color: #333;
+    color: var(--np-ink);
     font-size: 0.95em;
     line-height: 1.6;
 }
@@ -3583,20 +3583,20 @@ tr:hover .task-context-btn,
 
 .highlight-body hr {
     border: none;
-    border-top: 1px solid #dee2e6;
+    border-top: 1px solid var(--np-border);
     margin: 10px 0;
 }
 
 .highlights-empty-state {
     text-align: center;
     padding: 40px 20px;
-    color: #666;
+    color: var(--np-body);
 }
 
 .highlights-placeholder {
     text-align: center;
     padding: 60px 20px;
-    color: #666;
+    color: var(--np-body);
 }
 
 /* 2-Week Look-Ahead View Styles */
@@ -3606,19 +3606,19 @@ tr:hover .task-context-btn,
 
 .lookahead-title {
     margin: 0 0 10px 0;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .lookahead-info {
     margin-bottom: 20px;
     padding: 10px;
-    background: #f5f5f5;
+    background: var(--np-surface-alt);
     border-radius: 4px;
 }
 
 .lookahead-info p {
     margin: 0;
-    color: #666;
+    color: var(--np-body);
     font-size: 14px;
 }
 
@@ -3656,12 +3656,12 @@ tr:hover .task-context-btn,
 .lookahead-table {
     width: 100%;
     border-collapse: collapse;
-    background: #fff;
+    background: var(--np-surface);
 }
 
 .lookahead-table thead {
     background: var(--np-accent-gradient);
-    color: #fff;
+    color: var(--np-on-accent);
 }
 
 .lookahead-table th {
@@ -3673,11 +3673,11 @@ tr:hover .task-context-btn,
 
 .lookahead-table td {
     padding: 10px 12px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .lookahead-table tbody tr:hover {
-    background-color: #f5f5f5;
+    background-color: var(--np-surface-alt);
 }
 
 .lookahead-table tbody tr:last-child td {
@@ -3694,7 +3694,7 @@ tr:hover .task-context-btn,
 .lookahead-placeholder {
     text-align: center;
     padding: 60px 20px;
-    color: #666;
+    color: var(--np-body);
 }
 
 /* User Workload View Styles */
@@ -3705,14 +3705,14 @@ tr:hover .task-context-btn,
 .user-workload-title {
     font-size: 1.8em;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     margin-bottom: 20px;
 }
 
 .user-filter {
     margin-bottom: 20px;
     padding: 15px;
-    background: #f5f5f5;
+    background: var(--np-surface-alt);
     border-radius: 4px;
     display: flex;
     align-items: center;
@@ -3721,15 +3721,15 @@ tr:hover .task-context-btn,
 
 .user-filter label {
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     margin: 0;
 }
 
 .user-filter select {
     padding: 8px 12px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--np-border-strong);
     border-radius: 4px;
-    background: #fff;
+    background: var(--np-surface);
     font-size: 14px;
     cursor: pointer;
 }
@@ -3740,7 +3740,7 @@ tr:hover .task-context-btn,
 
 .user-workload-section {
     margin-bottom: 30px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--np-border);
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -3748,7 +3748,7 @@ tr:hover .task-context-btn,
 
 .user-workload-header {
     background: var(--np-accent-gradient);
-    color: #fff;
+    color: var(--np-on-accent);
     padding: 15px 20px;
 }
 
@@ -3777,28 +3777,28 @@ tr:hover .task-context-btn,
 .user-workload-table {
     width: 100%;
     border-collapse: collapse;
-    background: #fff;
+    background: var(--np-surface);
 }
 
 .user-workload-table thead {
-    background: #f5f5f5;
+    background: var(--np-surface-alt);
 }
 
 .user-workload-table th {
     padding: 12px;
     text-align: left;
     font-weight: 600;
-    color: #666;
-    border-bottom: 2px solid #e0e0e0;
+    color: var(--np-body);
+    border-bottom: 2px solid var(--np-border);
 }
 
 .user-workload-table td {
     padding: 10px 12px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .user-workload-table tbody tr:hover {
-    background-color: #f9f9f9;
+    background-color: var(--np-paper);
 }
 
 .user-workload-table tbody tr:last-child td {
@@ -3808,13 +3808,13 @@ tr:hover .task-context-btn,
 .user-workload-empty {
     text-align: center;
     padding: 60px 20px;
-    color: #666;
+    color: var(--np-body);
 }
 
 .user-workload-placeholder {
     text-align: center;
     padding: 60px 20px;
-    color: #666;
+    color: var(--np-body);
 }
 
 /* Nav menu divider */
@@ -4000,7 +4000,7 @@ tr:hover .task-context-btn,
 
 .category-link.active {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     border-left-color: var(--np-accent-hover);
 }
 
@@ -4099,7 +4099,7 @@ tr:hover .task-context-btn,
 
 .template-category {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     padding: 2px 8px;
     border-radius: 12px;
     font-size: 0.75rem;
@@ -4116,7 +4116,7 @@ tr:hover .task-context-btn,
     width: 100%;
     min-height: 44px;
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     border: none;
     padding: 10px 16px;
     border-radius: 6px;
@@ -4177,7 +4177,7 @@ tr:hover .task-context-btn,
 
     .templates-header {
         padding: 16px;
-        border-bottom: 1px solid #e0e0e0;
+        border-bottom: 1px solid var(--np-border);
     }
 
     .templates-header h1 {
@@ -4191,9 +4191,9 @@ tr:hover .task-context-btn,
     /* Sidebar becomes horizontal tabs on mobile */
     .templates-sidebar {
         width: 100%;
-        background: #f8f9fa;
+        background: var(--np-paper);
         border-right: none;
-        border-bottom: 1px solid #e0e0e0;
+        border-bottom: 1px solid var(--np-border);
         padding: 16px;
         overflow-x: auto;
         overflow-y: visible;
@@ -4419,7 +4419,7 @@ tr:hover .task-context-btn,
 
 .calendar-day-header {
     background: #3a3a3a;
-    color: #aaa;
+    color: var(--np-muted);
     text-align: center;
     padding: 6px 4px;
     font-size: 0.8em;
@@ -4454,7 +4454,7 @@ tr:hover .task-context-btn,
 .calendar-day-number {
     font-size: 0.85em;
     font-weight: 600;
-    color: #bbb;
+    color: var(--np-muted);
     margin-bottom: 4px;
 }
 
@@ -4510,7 +4510,7 @@ tr:hover .task-context-btn,
 .calendar-more-btn {
     background: none;
     border: none;
-    color: #888;
+    color: var(--np-muted);
     font-size: 0.7em;
     cursor: pointer;
     padding: 1px 4px;
@@ -4537,7 +4537,7 @@ tr:hover .task-context-btn,
     height: 20px;
     border-radius: 50%;
     background: var(--np-accent);
-    color: #fff;
+    color: var(--np-on-accent);
     border: none;
     font-size: 0.85em;
     line-height: 1;
@@ -4608,7 +4608,7 @@ tr:hover .task-context-btn,
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 2px solid var(--np-border);
 }
 
 .actions-view-tab {
@@ -4618,7 +4618,7 @@ tr:hover .task-context-btn,
     border-bottom: 3px solid transparent;
     cursor: pointer;
     font-weight: 500;
-    color: #555;
+    color: var(--np-body);
     transition: all 0.2s;
 }
 
@@ -4647,7 +4647,7 @@ tr:hover .task-context-btn,
     gap: 15px;
     margin-bottom: 20px;
     padding: 15px;
-    background: #f8f9fa;
+    background: var(--np-paper);
     border-radius: 8px;
 }
 
@@ -4665,13 +4665,13 @@ tr:hover .task-context-btn,
 
 .actions-filter-group label {
     font-weight: 500;
-    color: #555;
+    color: var(--np-body);
     font-size: 0.9em;
 }
 
 .actions-filter-group select {
     padding: 6px 12px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     background: white;
     cursor: pointer;
@@ -4694,7 +4694,7 @@ tr:hover .task-context-btn,
 
 .actions-table thead {
     background: var(--np-accent-gradient);
-    color: white;
+    color: var(--np-on-accent);
 }
 
 .actions-table th {
@@ -4716,7 +4716,7 @@ tr:hover .task-context-btn,
 
 .actions-table td {
     padding: 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
     vertical-align: middle;
     max-width: 200px;
     overflow: hidden;
@@ -4725,22 +4725,22 @@ tr:hover .task-context-btn,
 }
 
 .actions-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .actions-table tbody tr:nth-child(even) {
-    background: #fafafa;
+    background: var(--np-paper);
 }
 
 .actions-empty-state {
     padding: 60px 20px;
     text-align: center;
-    color: #888;
+    color: var(--np-muted);
 }
 
 .actions-empty-state h3 {
     margin-top: 0;
-    color: #555;
+    color: var(--np-body);
 }
 
 /* Badges */
@@ -4792,7 +4792,7 @@ tr:hover .task-context-btn,
     padding: 6px 10px;
     margin: 0 3px;
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -4830,7 +4830,7 @@ tr:hover .task-context-btn,
     flex: 1;
     position: relative;
     min-height: 60px;
-    border-left: 1px solid #e0e0e0;
+    border-left: 1px solid var(--np-border);
 }
 
 .portfolio-today-line {
@@ -5186,7 +5186,7 @@ tr:hover .task-context-btn,
 #mindmap-view .mindmap-placeholder .mindmap-toolbar-btn {
     background: var(--np-accent);
     border-color: var(--np-accent);
-    color: #fff;
+    color: var(--np-on-accent);
 }
 
 #mindmap-view .mindmap-placeholder .mindmap-toolbar-btn:hover {
@@ -5206,7 +5206,7 @@ tr:hover .task-context-btn,
 
 .mm-colour-picker-label-text {
     font-size: 12px;
-    color: #999;
+    color: var(--np-faint);
     white-space: nowrap;
     user-select: none;
 }
@@ -5231,7 +5231,7 @@ tr:hover .task-context-btn,
 .mm-colour-picker {
     position: fixed;
     z-index: 10000;
-    background: #2a2a2a;
+    background: var(--np-surface-alt);
     border: 1px solid #555;
     border-radius: 8px;
     padding: 12px;
@@ -5242,7 +5242,7 @@ tr:hover .task-context-btn,
 .mm-colour-picker-label {
     font-size: 12px;
     font-weight: 600;
-    color: #999;
+    color: var(--np-faint);
     margin: 8px 0 4px 0;
 }
 
@@ -5283,7 +5283,7 @@ tr:hover .task-context-btn,
     padding: 6px 12px;
     border: 1px solid #555;
     border-radius: 6px;
-    background: #333;
+    background: var(--np-sunken);
     color: #ccc;
     font-size: 13px;
     cursor: pointer;
@@ -5530,7 +5530,7 @@ tr:hover .task-context-btn,
 
 .ben-view-btn--active {
     background: var(--np-accent) !important;
-    color: #fff !important;
+    color: var(--np-on-accent) !important;
 }
 
 .ben-view-btn--active:hover {
@@ -5551,7 +5551,7 @@ tr:hover .task-context-btn,
 }
 
 .ben-tracking-table {
-    background: #fff;
+    background: var(--np-surface);
     border-collapse: collapse;
     width: 100%;
 }
@@ -5562,7 +5562,7 @@ tr:hover .task-context-btn,
     padding: 8px 12px;
     font-size: 13px;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     white-space: nowrap;
     user-select: none;
 }
@@ -5570,9 +5570,9 @@ tr:hover .task-context-btn,
 .ben-tracking-table td {
     padding: 6px 12px;
     font-size: 13px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--np-hairline);
     vertical-align: middle;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .ben-tracking-table td.ben-cell-editable {
@@ -5602,12 +5602,12 @@ tr:hover .task-context-btn,
 
 .ben-tracking-table .ben-cell-select {
     width: 100%;
-    border: 1px solid #ddd;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
-    background: #fff;
+    background: var(--np-surface);
     font-size: 13px;
     padding: 2px 4px;
-    color: #333;
+    color: var(--np-ink);
     cursor: pointer;
 }
 
@@ -5654,7 +5654,7 @@ tr:hover .task-context-btn,
 .ben-tracking-empty {
     text-align: center;
     padding: 40px 20px;
-    color: #999;
+    color: var(--np-faint);
     font-size: 14px;
 }
 
@@ -5846,8 +5846,8 @@ tr:hover .task-context-btn,
     position: relative;
     width: 400px;
     height: 400px;
-    background: #fff;
-    border: 1px solid #e0e0e0;
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
     padding: 4px;
 }
@@ -5875,7 +5875,7 @@ tr:hover .task-context-btn,
     top: 0;
     z-index: 1;
     background: var(--np-accent-gradient);
-    color: white;
+    color: var(--np-on-accent);
 }
 
 .stakeholders-table th {
@@ -5890,7 +5890,7 @@ tr:hover .task-context-btn,
 
 .stakeholders-table td {
     padding: 10px 12px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--np-hairline);
     vertical-align: middle;
 }
 
@@ -5899,7 +5899,7 @@ tr:hover .task-context-btn,
 }
 
 .stakeholders-table tbody tr:nth-child(even) {
-    background: #fafafa;
+    background: var(--np-paper);
 }
 
 .stakeholders-table tbody tr:nth-child(even):hover {
@@ -5927,12 +5927,12 @@ tr:hover .task-context-btn,
 .stakeholders-empty-state {
     text-align: center;
     padding: 40px 20px;
-    color: #888;
+    color: var(--np-muted);
 }
 
 .stakeholders-empty-state h3 {
     margin-bottom: 10px;
-    color: #666;
+    color: var(--np-body);
 }
 
 @media (max-width: 900px) {
@@ -5991,7 +5991,7 @@ tr:hover .task-context-btn,
     min-height: 44px;
     border: 2px solid var(--np-accent);
     border-radius: 4px;
-    background: #fff;
+    background: var(--np-surface);
     color: var(--np-accent);
     font-size: 0.85em;
     cursor: pointer;
@@ -6000,12 +6000,12 @@ tr:hover .task-context-btn,
 
 .budget-view-toggle:hover {
     background: var(--np-accent);
-    color: #fff;
+    color: var(--np-on-accent);
 }
 
 .budget-view-toggle.active {
     background: var(--np-accent);
-    color: #fff;
+    color: var(--np-on-accent);
 }
 
 .budget-view-toggle:focus-visible {
@@ -6016,7 +6016,7 @@ tr:hover .task-context-btn,
 .budget-filter-group label {
     font-size: 0.85em;
     font-weight: 600;
-    color: #555;
+    color: var(--np-body);
 }
 
 .budget-filter-group select {
@@ -6050,7 +6050,7 @@ tr:hover .task-context-btn,
 
 .budget-table thead {
     background: var(--np-accent-gradient);
-    color: white;
+    color: var(--np-on-accent);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -6089,7 +6089,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-table tbody tr:nth-child(even) {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .budget-table tbody tr:nth-child(even):hover {
@@ -6130,7 +6130,7 @@ tr:hover .task-context-btn,
 .budget-empty-state {
     padding: 60px 20px;
     text-align: center;
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .budget-empty-state h3 {
@@ -6177,7 +6177,7 @@ tr:hover .task-context-btn,
 .budget-editor-section {
     flex-shrink: 0;
     margin-top: 15px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 8px;
     overflow: hidden;
 }
@@ -6187,10 +6187,10 @@ tr:hover .task-context-btn,
     align-items: center;
     gap: 8px;
     padding: 10px 15px;
-    background: #f8f9fa;
+    background: var(--np-paper);
     cursor: pointer;
     user-select: none;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .budget-editor-header:hover {
@@ -6218,7 +6218,7 @@ tr:hover .task-context-btn,
     padding: 2px 6px;
     font-size: 0.9em;
     background: transparent;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     cursor: pointer;
     min-width: 44px;
@@ -6277,7 +6277,7 @@ tr:hover .task-context-btn,
     flex: 1;
     min-width: 120px;
     padding: 12px 16px;
-    background: #f8f9fa;
+    background: var(--np-paper);
     border-radius: 8px;
     border: 1px solid #e9ecef;
     text-align: center;
@@ -6287,7 +6287,7 @@ tr:hover .task-context-btn,
     display: block;
     font-size: 0.8em;
     font-weight: 600;
-    color: #6c757d;
+    color: var(--np-muted);
     margin-bottom: 4px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -6297,7 +6297,7 @@ tr:hover .task-context-btn,
     display: block;
     font-size: 1.4em;
     font-weight: 700;
-    color: #212529;
+    color: var(--np-ink);
 }
 
 .budget-widget-value.budget-under {
@@ -6388,7 +6388,7 @@ tr:hover .task-context-btn,
     align-items: center;
     gap: 4px;
     padding: 4px 8px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9em;
@@ -6475,7 +6475,7 @@ tr:hover .task-context-btn,
 
 .benefits-summary-item .summary-label {
     font-size: 0.8em;
-    color: #6c757d;
+    color: var(--np-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -6499,7 +6499,7 @@ tr:hover .task-context-btn,
 
 .portfolio-benefits-filters select {
     padding: 8px 15px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 8px;
     font-size: 0.9em;
     background: white;
@@ -6525,7 +6525,7 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-benefits-table thead {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-benefits-table th {
@@ -6547,11 +6547,11 @@ tr:hover .task-context-btn,
 
 .portfolio-benefits-table td {
     padding: 15px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
 }
 
 .portfolio-benefits-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-benefits-table tbody tr:last-child td {
@@ -6685,7 +6685,7 @@ tr:hover .task-context-btn,
     padding: 4px 8px;
     margin-top: 4px;
     font-size: 12px;
-    color: #666;
+    color: var(--np-body);
 }
 
 .completion-sparkline-svg {
@@ -6694,14 +6694,14 @@ tr:hover .task-context-btn,
 
 .sparkline-label {
     font-size: 11px;
-    color: #888;
+    color: var(--np-muted);
     white-space: nowrap;
 }
 
 .sparkline-value {
     font-size: 12px;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     white-space: nowrap;
 }
 
@@ -6735,7 +6735,7 @@ tr:hover .task-context-btn,
 }
 
 .forecast-no-forecast {
-    color: #999;
+    color: var(--np-faint);
     font-style: italic;
     font-size: 13px;
 }
@@ -6752,8 +6752,8 @@ tr:hover .task-context-btn,
 .levelling-controls {
     margin-top: 1.5rem;
     padding: 1rem 1.25rem;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
+    background: var(--np-paper);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
 }
 
@@ -6764,7 +6764,7 @@ tr:hover .task-context-btn,
 
 .levelling-controls-hint {
     margin: 0 0 0.75rem 0;
-    color: #6c757d;
+    color: var(--np-muted);
     font-size: 0.9rem;
 }
 
@@ -6785,7 +6785,7 @@ tr:hover .task-context-btn,
 
 .levelling-buttons .btn-primary {
     background: var(--np-accent);
-    color: white;
+    color: var(--np-on-accent);
     border-color: var(--np-accent);
 }
 .levelling-buttons .btn-primary:hover { background: var(--np-accent-hover); }
@@ -6800,8 +6800,8 @@ tr:hover .task-context-btn,
 .levelling-suggestions-panel {
     margin-top: 1rem;
     padding: 0.75rem;
-    background: #ffffff;
-    border: 1px solid #dee2e6;
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
 }
 
@@ -6812,7 +6812,7 @@ tr:hover .task-context-btn,
 
 .levelling-hint {
     margin: 0 0 0.5rem 0;
-    color: #6c757d;
+    color: var(--np-muted);
     font-size: 0.85rem;
 }
 
@@ -6857,11 +6857,11 @@ tr:hover .task-context-btn,
     margin: 0 0 12px 0;
     font-size: 1.15em;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .portfolio-benefits-map-container {
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 8px;
     background: #fafbfc;
     overflow: hidden;
@@ -7749,7 +7749,7 @@ button.ribbon-breadcrumb-rung:hover {
     max-height: 320px;
     overflow-y: auto;
     padding: 8px;
-    background: #fff;
+    background: var(--np-surface);
     border: 1px solid #d8e1e5;
     border-radius: 6px;
     box-shadow: 0 14px 34px rgba(2, 20, 28, 0.2);
@@ -7914,7 +7914,7 @@ button.ribbon-breadcrumb-rung:hover {
 .ribbon-simple-group-popover {
     position: absolute;
     padding: 8px;
-    background: #fff;
+    background: var(--np-surface);
     border: 1px solid #d8e1e5;
     border-radius: 6px;
     box-shadow: 0 14px 34px rgba(2, 20, 28, 0.2);
@@ -7958,7 +7958,7 @@ button.ribbon-breadcrumb-rung:hover {
     position: absolute;
     width: 160px;
     padding: 4px;
-    background: #fff;
+    background: var(--np-surface);
     border: 1px solid #d8e1e5;
     border-radius: 6px;
     box-shadow: 0 14px 34px rgba(2, 20, 28, 0.2);

@@ -321,7 +321,7 @@ body.backstage-fullscreen {
     padding: 2px 8px;
     border-radius: 10px;
     background: var(--np-accent);
-    color: #ffffff;
+    color: var(--np-on-accent);
 }
 
 @media (max-width: 700px) {
