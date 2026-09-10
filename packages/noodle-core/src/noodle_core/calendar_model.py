@@ -102,16 +102,40 @@ def week_pattern_text(week_pattern: list[set[int]]) -> str:
 
 
 def _day_set_text(days: set[int]) -> str:
-    ordered = sorted(days)
-    ranges: list[tuple[int, int]] = []
-    for day in ordered:
-        if ranges and ranges[-1][1] == day - 1:
-            ranges[-1] = (ranges[-1][0], day)
-        else:
-            ranges.append((day, day))
+    """The most compact ``Mon-Fri``-style rendering of a day set.
+
+    Tries every rotation of the week as a starting point (not just Monday)
+    and keeps whichever needs the fewest comma-separated segments, so a
+    Friday/Saturday weekend round-trips as the wrapping ``Sun-Thu`` it was
+    written as rather than the equally-correct but unrecognisable
+    ``Mon-Thu,Sun`` a Monday-anchored scan would produce (found importing an
+    MS Project calendar back through this serializer, issue #1133). Ties
+    keep the lowest starting day, so the common non-wrapping cases (a plain
+    ``Mon-Fri`` week, non-contiguous single days) are unaffected.
+    """
+    if not days:
+        return ""
+    best: list[tuple[int, int]] | None = None
+    for start in range(7):
+        order = [(start + i) % 7 for i in range(7)]
+        ranges: list[tuple[int, int]] = []
+        i = 0
+        while i < 7:
+            if order[i] not in days:
+                i += 1
+                continue
+            j = i
+            while j + 1 < 7 and order[j + 1] in days:
+                j += 1
+            ranges.append((order[i], order[j]))
+            i = j + 1
+        if best is None or len(ranges) < len(best):
+            best = ranges
+            if len(best) == 1:
+                break
     parts = [
         DAY_NAMES[start] if start == end else f"{DAY_NAMES[start]}-{DAY_NAMES[end]}"
-        for start, end in ranges
+        for start, end in best
     ]
     return ",".join(parts)
 

@@ -62,15 +62,34 @@ export function parseWeekPattern(text) {
   return [parseDayList(trimmed)];
 }
 
+/**
+ * The most compact `Mon-Fri`-style rendering of a day set. Tries every
+ * rotation of the week as a starting point (not just Monday) and keeps
+ * whichever needs the fewest comma-separated segments, so a Friday/Saturday
+ * weekend round-trips as the wrapping `Sun-Thu` it was written as rather
+ * than the equally-correct but unrecognisable `Mon-Thu,Sun` a
+ * Monday-anchored scan would produce (issue #1133). Ties keep the lowest
+ * starting day, so plain non-wrapping cases are unaffected.
+ */
 function dayRanges(days) {
-  const ordered = [...days].sort((a, b) => a - b);
-  const ranges = [];
-  for (const day of ordered) {
-    const last = ranges[ranges.length - 1];
-    if (last && last[1] === day - 1) last[1] = day;
-    else ranges.push([day, day]);
+  let best = null;
+  for (let start = 0; start < 7; start++) {
+    const order = Array.from({ length: 7 }, (_, i) => (start + i) % 7);
+    const ranges = [];
+    let i = 0;
+    while (i < 7) {
+      if (!days.has(order[i])) { i++; continue; }
+      let j = i;
+      while (j + 1 < 7 && days.has(order[j + 1])) j++;
+      ranges.push([order[i], order[j]]);
+      i = j + 1;
+    }
+    if (best === null || ranges.length < best.length) {
+      best = ranges;
+      if (best.length === 1) break;
+    }
   }
-  return ranges;
+  return best;
 }
 
 /** The inverse of `parseWeekPattern`: day sets back to compact ranges. */

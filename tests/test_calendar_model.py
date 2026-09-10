@@ -60,6 +60,17 @@ class TestParseWeekPattern:
     def test_round_trip_non_contiguous(self):
         assert week_pattern_text(parse_week_pattern("Mon,Wed,Fri")) == "Mon,Wed,Fri"
 
+    def test_round_trip_wrapping_weekend(self):
+        # A day set built independently of parse_week_pattern (e.g. from an
+        # imported MS Project calendar, issue #1133) must still serialize
+        # to the wrapping form rather than the harder-to-read
+        # non-wrapping split ("Mon-Thu,Sun") that a naive Monday-anchored
+        # scan would produce for the same set of working days.
+        assert week_pattern_text([{6, 0, 1, 2, 3}]) == "Sun-Thu"
+
+    def test_round_trip_wrapping_weekend_saturday_off(self):
+        assert week_pattern_text([{5, 6, 0, 1, 2}]) == "Sat-Wed"
+
 
 class TestParseCalendarEntry:
     def test_bare_week_pattern(self):

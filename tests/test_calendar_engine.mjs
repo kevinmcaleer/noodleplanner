@@ -50,6 +50,14 @@ test("weekPatternText round-trips a rotation", () => {
   assert.equal(weekPatternText(parseWeekPattern(text)), text);
 });
 
+test("weekPatternText renders a wrapping weekend, not a non-wrapping split (#1133)", () => {
+  // A day set built independently of parseWeekPattern (e.g. from an
+  // imported MS Project calendar) must still serialize to the wrapping
+  // form rather than "Mon-Thu,Sun" for the same set of working days.
+  assert.equal(weekPatternText([new Set([6, 0, 1, 2, 3])]), "Sun-Thu");
+  assert.equal(weekPatternText([new Set([5, 6, 0, 1, 2])]), "Sat-Wed");
+});
+
 test("parseCalendarEntry: hours and exceptions, order-independent", () => {
   const a = parseCalendarEntry("X", "Mon-Fri hours 08:00-16:30 exceptions [2026-12-25]");
   const b = parseCalendarEntry("X", "Mon-Fri exceptions [2026-12-25] hours 08:00-16:30");
