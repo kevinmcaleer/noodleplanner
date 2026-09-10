@@ -120,14 +120,14 @@ function notAvailable(label) {
 // ---------------------------------------------------------------------------
 
 const VIEW_FOR_LABEL = {
-    Tasks: 'tasks', Notepad: 'notepad', Board: 'kanban', Gantt: 'gantt', Timeline: 'timeline', Calendar: 'calendar',
+    Tasks: 'tasks', Outline: 'notepad', Board: 'kanban', Gantt: 'gantt', Timeline: 'timeline', Calendar: 'calendar',
     RAID: 'raid', 'RAID Log': 'raid', Actions: 'actions', Highlights: 'highlights', Lookahead: 'lookahead',
     Lessons: 'lessons', Budget: 'budget', EVM: 'evm', Benefits: 'benefits', Analysis: 'analysis',
     Resources: 'resources', Stakeholders: 'stakeholders', Timesheet: 'timesheet', Workload: 'user-workload',
     'Resource Sheet': 'resource-sheet', 'Comms Plan': 'comms', Report: 'project-report', 'Project Report': 'project-report',
     Dashboard: 'project-report',
     Milestones: 'milestones', 'Mind Map': 'mindmap', Whiteboard: 'whiteboard', PBS: 'pbs', Products: 'pbs',
-    'Product Flow': 'product-flow', Deliverables: 'deliverables', Editor: 'editor',
+    'Product Flow': 'product-flow', Deliverables: 'deliverables',
     // #909 ribbon-parity follow-up: the old top nav's Tools > Syntax Guide item.
     'Syntax Guide': 'guide',
 };
@@ -248,6 +248,21 @@ function scopedAction(scopeId, label) {
         'raid:New Issue': () => addRaidItem(),
         'raid:Assumption': () => addRaidItem(),
         'raid:Dependency': () => addRaidItem(),
+
+        // #1113: the Track ribbon's RAID group buttons used to all fall back
+        // to the generic "Risk" default (or, for Assumption/Dependency, do
+        // nothing at all). openRaidFormWithType() already existed for
+        // exactly this. The app's RAID types are risk/action/issue/decision/
+        // dependency -- there's no dedicated "assumption" type, so the
+        // Assumption button presets the closest existing one, Decision.
+        'track:Risk': () => openRaidFormWithType('risk'),
+        'track:Issue': () => openRaidFormWithType('issue'),
+        'track:Assumption': () => openRaidFormWithType('decision'),
+        'track:Dependency': () => openRaidFormWithType('dependency'),
+        'track:Action': () => openRaidFormWithType('action'),
+        // #1115: switch into the Benefits view's Tracking sub-view (Map is
+        // the default; Realisation is the only reason this button existed).
+        'track:Realisation': () => { switchToView('benefits'); if (typeof benSwitchView === 'function') benSwitchView('tracking'); },
         'lessons:New Lesson': () => addLessonsItem(),
         'stakeholders:Add Stakeholder': () => addStakeholderRow(),
         'stakeholders:Comms Plan': switchView('comms'),
@@ -274,6 +289,9 @@ const LABEL_ACTIONS = {
     'New Task': () => addNewTaskViaShortcut(),
     'New task': () => addNewTaskViaShortcut(),
     Details: () => openTaskInspectorForCurrentLine(),
+    // #1125: used to switch to a non-existent 'editor' view; now toggles the
+    // markdown editor panel, same as the collapse arrow on its splitter.
+    Editor: () => toggleMainEditor(),
 
     // File / save / print
     Save: () => downloadMarkdown(),

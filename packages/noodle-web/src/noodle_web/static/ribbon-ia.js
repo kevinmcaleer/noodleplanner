@@ -54,7 +54,7 @@ export const TABS = [
         id: 'home', label: 'Home',
         groups: [
             { name: 'Plan', launcher: true, lg: [['project-report', 'Dashboard'], ['task-list', 'New Task'], ['milestones', 'Milestone']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['delete', 'Delete'], ['doc', 'Details']]] },
-            { name: 'Views', lg: [['gantt-chart', 'Gantt'], ['board', 'Board'], ['task-list', 'Notepad']], cols: [[['timeline', 'Timeline'], ['calendar', 'Calendar']], [['task-list', 'Tasks'], ['grid', 'Sheet']]] },
+            { name: 'Views', lg: [['gantt-chart', 'Gantt'], ['board', 'Board'], ['task-list', 'Outline']], cols: [[['timeline', 'Timeline'], ['calendar', 'Calendar']], [['task-list', 'Tasks']]] },
             { name: 'Track', launcher: true, lg: [['raid-log', 'RAID']], cols: [[['check', 'Actions'], ['highlights', 'Highlights']], [['search', 'Lookahead'], ['warn', 'Escalations']]] },
             { name: 'Report', launcher: true, cols: [[['download', 'Export', 'caret'], ['print', 'Print']], [['save', 'Save'], ['upload', 'Import', 'caret']]] },
         ],
@@ -80,16 +80,20 @@ export const TABS = [
     {
         id: 'track', label: 'Track',
         groups: [
-            { name: 'RAID', launcher: true, lg: [['raid-log', 'RAID Log']], cols: [[['flag', 'Risk'], ['warn', 'Issue']], [['doc', 'Assumption'], ['link', 'Dependency']]] },
+            { name: 'RAID', launcher: true, lg: [['raid-log', 'RAID Log']], cols: [[['flag', 'Risk'], ['warn', 'Issue']], [['doc', 'Assumption'], ['link', 'Dependency']], [['check', 'Action']]] },
             { name: 'Progress', lg: [['highlights', 'Highlights']], cols: [[['check', 'Actions'], ['search', 'Lookahead']], [['chart', 'Analysis'], ['bulb', 'Lessons']]] },
             { name: 'Cost', launcher: true, lg: [['money', 'Budget']], cols: [[['chart', 'EVM'], ['refresh', 'Forecast']]] },
-            { name: 'Benefits', lg: [['target', 'Benefits']], cols: [[['chart', 'Realisation'], ['doc', 'Profiles']]] },
+            { name: 'Benefits', lg: [['target', 'Benefits']], cols: [[['chart', 'Realisation']]] },
         ],
     },
     {
         id: 'resources', label: 'Resources',
         groups: [
-            { name: 'People', launcher: true, lg: [['resources', 'Resources'], ['people', 'Stakeholders']], cols: [[['money', 'Rates'], ['calendar', 'Calendars']], [['pin', 'Skills'], ['clock', 'Availability']]] },
+            // Rates, Skills and Availability removed (#1116): none had a
+            // real function behind them and none are on the near-term
+            // roadmap. Calendars stays a reviewed stub -- resource calendar
+            // support is tracked under the #1047 epic, not built here.
+            { name: 'People', launcher: true, lg: [['resources', 'Resources'], ['people', 'Stakeholders']], cols: [[['calendar', 'Calendars']]] },
             { name: 'Effort', launcher: true, lg: [['clock', 'Timesheet']], cols: [[['chart', 'Workload'], ['refresh', 'Level']], [['warn', 'Overallocation'], ['grid', 'Resource Sheet']]] },
             { name: 'Comms', lg: [['doc', 'Comms Plan']], cols: [[['people', 'Influence'], ['print', 'Print']]] },
         ],
@@ -105,15 +109,17 @@ export const TABS = [
     {
         id: 'view', label: 'View',
         groups: [
-            { name: 'Layout', lg: [['grid', 'Split View']], cols: [[['task-list', 'Editor'], ['doc', 'Preview']]] },
-            { name: 'Show', launcher: true, lg: [['filter', 'Filter']], cols: [[['sort', 'Sort'], ['pin', 'Group']], [['milestones', 'Milestones'], ['link', 'Deps']]] },
+            // Split View, Preview, Filter, Deps, Sort, Group and Zoom removed
+            // (#1124): none of them did anything. Editor now toggles the
+            // markdown editor panel (#1125) instead of the dead "Editor" view
+            // switch it used to be.
+            { name: 'Layout', launcher: true, lg: [['task-list', 'Editor']], cols: [[['milestones', 'Milestones']]] },
             // "System Theme" (#909 ribbon-parity follow-up) replicates the old
             // top nav's 3-way Light/Dark/System theme menu's third option --
             // see setThemeChoice('system') in theme.js. "AI Settings" opens the
             // same modal the old nav's AI button opened when unconfigured;
-            // grouped here with the app's other configuration/meta controls
-            // (Settings, theme, zoom) rather than with any one project view.
-            { name: 'Window', lg: [['settings', 'Settings']], cols: [[['refresh', 'Dark Mode'], ['monitor', 'System Theme']], [['search', 'Zoom', 'caret'], ['robot', 'AI Settings']]] },
+            // grouped here with the app's other configuration/meta controls.
+            { name: 'Window', lg: [['settings', 'Settings']], cols: [[['refresh', 'Dark Mode'], ['monitor', 'System Theme']], [['robot', 'AI Settings']]] },
             // "Help" (#909 ribbon-parity follow-up): the old top nav's Tools >
             // Syntax Guide item and its standalone Docs link, which had no
             // ribbon equivalent before this. Docs is a plain external link, not

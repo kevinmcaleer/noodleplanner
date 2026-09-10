@@ -105,13 +105,13 @@ const DELIBERATE_STUBS = new Set([
   // them instead of leaving them as stale stubs.)
   "Add Programme", "Weighting", "Rebaseline", "Snapshot",
   "Heat Map", "Heat", "Probability", "Impact", "RAG",
-  "Slack", "Sync", "Split View", "Preview", "Zoom", "Filter", "Sort", "Group", "Sheet",
+  "Slack", "Sync", "Filter", "Sort", "Group",
   // No dedicated function exists (checked: grepped the codebase, found none).
   "Delete", "Milestone", "Fit", "Today", "Go to Task", "Level", "Unlink",
   "Calendars", "Durations", "Rates", "Availability", "Skills", "Overallocation",
   "Influence", "Interest", "Owner", "Grid",
   "Categorise", "Tag", "Link to Risk", "Review", "Publish",
-  "Escalations", "Profiles", "Realisation", "Forecast",
+  "Escalations", "Forecast",
   // Programme scope (#936/#909): Programmes aren't built yet (#731/#910).
   // PROGRAMME_TABS is a deliberately small, honestly-labelled placeholder --
   // every button in it is intentionally a stub rather than the ribbon
