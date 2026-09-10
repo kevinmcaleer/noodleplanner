@@ -366,6 +366,27 @@ Task 1 2026-08-02 5d"""
         without_task = next(t for t in without_calendar.tasks if t["name"] == "Task 1")
         assert without_task["finish"] == "2026-08-08"
 
+    def test_resource_specific_calendar_overrides_the_project_calendar(self, service):
+        """A resource with its own `calendar <Name>` (#1136) schedules
+        their tasks against it, independent of every other resource."""
+        plan = """---
+title: Resource Calendar Test
+calendars:
+- Gulf: Sun-Thu
+Resources:
+- @kev: Kevin McAleer, PM calendar Gulf
+- @sam: Sam Jones, Analyst
+---
+Kev's task 2026-08-02 5d @kev
+Sam's task 2026-08-02 5d @sam"""
+        result = service.parse(plan)
+        assert result.success
+        by_name = {t["name"]: t for t in result.tasks}
+        # @kev is on Gulf (Sun-Thu): Sunday is a working day, no weekend gap.
+        assert by_name["Kev's task"]["finish"] == "2026-08-07"
+        # @sam has no assigned calendar: falls back to the implicit Standard.
+        assert by_name["Sam's task"]["finish"] == "2026-08-08"
+
 
 # ---------------------------------------------------------------------------
 # PlanService.export_single

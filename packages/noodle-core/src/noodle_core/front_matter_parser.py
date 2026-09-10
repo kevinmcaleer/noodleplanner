@@ -17,7 +17,7 @@ from .format_converter import (
     parse_baseline_markdown,
     _is_valid_yaml_value,
 )
-from .scheduling_engine import parse_resource_mappings
+from .scheduling_engine import parse_resource_mappings, parse_resource_calendars
 from .calendar_model import Calendar, CalendarFormatError, STANDARD_CALENDAR, parse_calendar_entry
 
 logger = logging.getLogger(__name__)
@@ -444,3 +444,27 @@ class FrontMatterParser:
                 active_name,
             )
         return calendars.get(STANDARD_CALENDAR.name, STANDARD_CALENDAR)
+
+    def resource_calendars(self) -> dict:
+        """Each resource's assigned calendar, resolved to a Calendar object
+        (issue #1136).
+
+        A resource's ``calendar <Name>`` suffix (see
+        ``parse_resource_calendars``) is resolved against ``calendars:``.
+        A resource naming a calendar that isn't declared is omitted here
+        entirely -- schedule_tasks() already falls back to the project's
+        active calendar for any resource with no entry, which is the right
+        behaviour for a typo'd or since-removed calendar name too.
+        """
+        calendars = self.parse_calendars()
+        resolved: dict[str, Calendar] = {}
+        for short_name, calendar_name in parse_resource_calendars(self._plan_text).items():
+            if calendar_name in calendars:
+                resolved[short_name] = calendars[calendar_name]
+            else:
+                logger.warning(
+                    "resource @%s's calendar %r not found among calendars:, "
+                    "falling back to the project calendar",
+                    short_name, calendar_name,
+                )
+        return resolved

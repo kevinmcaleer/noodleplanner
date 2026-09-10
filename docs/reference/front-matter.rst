@@ -128,6 +128,17 @@ Format for each entry:
 
 The short name (without ``@``) is used in task lines. The description is displayed in resource views and the resource form.
 
+A resource line can carry two optional trailing suffixes, in either order:
+
+.. code-block:: text
+
+   - @kev: Kevin McAleer, PM calendar Gulf non-working [2026-08-03, 2026-08-10:2026-08-14]
+
+- ``non-working [...]`` -- non-working days for that resource alone, single dates or ``date:date`` ranges (see ``non-working-days`` above).
+- ``calendar <Name>`` -- the calendar (see ``calendar`` / ``calendars`` below, issue #1136) this resource uses instead of the project's active one. The named calendar must be declared in ``calendars:``; naming one that isn't falls back to the project's calendar, same as an unrecognised top-level ``calendar:`` does.
+
+Both suffixes are metadata, not part of the resource's displayed name or role.
+
 ``dependencies``
 ~~~~~~~~~~~~~~~~~
 
@@ -199,4 +210,4 @@ The active calendar's week pattern, hours and exceptions govern scheduling every
 
 .. note::
 
-   Assigning a calendar to an individual resource (#1136, so different resources can work different weeks on the same project) and a UI for managing calendars (#1135) are tracked separately as part of the Calendars epic (#1047). The scheduling engine's day-granular duration model does not yet consume a calendar's optional ``hours`` window when computing dates -- it is parsed and available on the ``Calendar`` object for a future UI/export to read, but every duration is still whole working days.
+   A UI for managing calendars (#1135) is tracked separately as part of the Calendars epic (#1047) -- for now, calendars and resource assignments are hand-edited front matter. The scheduling engine's day-granular duration model does not yet consume a calendar's optional ``hours`` window when computing dates -- it is parsed and available on the ``Calendar`` object for a future UI/export to read, but every duration is still whole working days.

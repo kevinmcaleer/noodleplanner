@@ -207,3 +207,68 @@ class TestFrontMatterParserCalendars:
         parser = FrontMatterParser(plan)
         calendars = parser.parse_calendars()
         assert set(calendars) == {"Good"}
+
+
+PLAN_WITH_RESOURCE_CALENDARS = """\
+---
+title: Resource Calendars
+calendars:
+- Gulf: Sun-Thu
+- Standard: Mon-Fri
+Resources:
+- @kev: Kevin McAleer, PM calendar Gulf non-working [2026-06-10]
+- @sam: Sam Jones, Analyst non-working [2026-06-11] calendar Gulf
+- @adam: Adam Reid, Architect
+---
+Phase 1
+  Task A 3d @kev
+"""
+
+
+class TestParseResourceCalendars:
+    def test_parses_calendar_suffix_regardless_of_order_relative_to_non_working(self):
+        from noodle_core import parse_resource_calendars
+
+        assignments = parse_resource_calendars(PLAN_WITH_RESOURCE_CALENDARS)
+        assert assignments == {"kev": "Gulf", "sam": "Gulf"}
+        assert "adam" not in assignments
+
+    def test_calendar_suffix_does_not_leak_into_the_resource_map(self):
+        parser = FrontMatterParser(PLAN_WITH_RESOURCE_CALENDARS)
+        resource_map = parser.parse_resource_mappings()
+        assert resource_map["kev"] == "Kevin McAleer"
+
+    def test_calendar_suffix_does_not_leak_into_the_role(self):
+        from noodle_core import parse_resource_roles
+
+        roles = parse_resource_roles(PLAN_WITH_RESOURCE_CALENDARS)
+        assert roles["kev"] == "PM"
+        assert roles["sam"] == "Analyst"
+
+    def test_non_working_days_are_still_parsed_alongside_a_calendar_suffix(self):
+        parser = FrontMatterParser(PLAN_WITH_RESOURCE_CALENDARS)
+        nwd = parser.parse_resource_non_working_days()
+        assert nwd["kev"] == {date(2026, 6, 10)}
+        assert nwd["sam"] == {date(2026, 6, 11)}
+
+
+class TestResolvedResourceCalendars:
+    def test_resolves_assigned_calendars_to_calendar_objects(self):
+        parser = FrontMatterParser(PLAN_WITH_RESOURCE_CALENDARS)
+        resolved = parser.resource_calendars()
+        assert set(resolved) == {"kev", "sam"}
+        assert resolved["kev"].name == "Gulf"
+        assert resolved["kev"].week_pattern == parse_week_pattern("Sun-Thu")
+
+    def test_a_resource_naming_an_undeclared_calendar_is_omitted(self):
+        plan = (
+            "---\ntitle: X\ncalendars:\n- Gulf: Sun-Thu\n"
+            "Resources:\n- @kev: Kevin McAleer, PM calendar Nonexistent\n"
+            "---\nTask A 1d @kev\n"
+        )
+        parser = FrontMatterParser(plan)
+        assert parser.resource_calendars() == {}
+
+    def test_no_resource_calendars_at_all_resolves_to_an_empty_dict(self):
+        parser = FrontMatterParser("---\ntitle: X\n---\nTask A 1d\n")
+        assert parser.resource_calendars() == {}
