@@ -20,11 +20,13 @@ jobs:
   pytest:
     name: pytest
     runs-on: ubuntu-latest
-    # The whole suite is well under a minute of actual work. A job that runs
-    # far past that is wedged, not slow, and the default six-hour ceiling
-    # would sit there burning runner time -- fail fast instead, and read the
-    # log to see which test it stopped on.
-    timeout-minutes: 20
+    # ~19 minutes, because 229 Selenium tests that skip on a developer
+    # machine really run here (see the note on the pytest step below). The
+    # ceiling is generous enough not to fail a healthy run, and far below the
+    # six-hour default that would let a genuinely stuck job hold a runner all
+    # day -- a job that is still running is also a job whose log cannot be
+    # read, which is its own reason not to let one sit.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
 
@@ -39,15 +41,16 @@ jobs:
       - name: Install the workspace
         run: uv sync --all-packages
 
-      # Verbose on purpose. Nothing here needs the extra output when it
-      # passes, but if the job is killed on the timeout above, the last line
-      # of the log is the test that hung -- which `-q` would not tell you.
+      # 13 test files drive Selenium, not just tests/test_usability.py, and
+      # they skip only where no browser can be reached. A developer machine
+      # usually has none, so 229 tests silently skip there and run here --
+      # which is why this workflow found 42 of them asserting against a UI
+      # that no longer exists (no #projectTab, no #projectSubnav).
       #
-      # Note tests/test_usability.py does NOT skip here. It skips only where
-      # Selenium cannot reach a browser, and GitHub's runners ship Chrome, so
-      # its 50 tests really run, each against a uvicorn server of its own.
+      # pytest.ini already puts -v in addopts, so a run killed on the timeout
+      # names the test it stopped on rather than trailing off into dots.
       - name: Run the Python suite
-        run: uv run pytest -v -p no:cacheprovider
+        run: uv run pytest -p no:cacheprovider
 
   js:
     name: npm run test:js
