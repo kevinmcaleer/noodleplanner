@@ -1,0 +1,75 @@
+# The two full test suites. The other workflows guard specific invariants --
+# engine-conformance.yml that both scheduling engines agree, and
+# markdown-roundtrip.yml that a plan survives a save -- but until this one
+# existed nothing ran `pytest` or `npm run test:js` on a pull request, so a
+# broken test only showed up when somebody ran it locally.
+name: Test suites
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push supersedes whatever is still running for the same ref: these
+# suites take minutes, and a superseded run tells you nothing.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest
+    runs-on: ubuntu-latest
+    # ~19 minutes, because 229 Selenium tests that skip on a developer
+    # machine really run here (see the note on the pytest step below). The
+    # ceiling is generous enough not to fail a healthy run, and far below the
+    # six-hour default that would let a genuinely stuck job hold a runner all
+    # day -- a job that is still running is also a job whose log cannot be
+    # read, which is its own reason not to let one sit.
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install the workspace
+        run: uv sync --all-packages
+
+      # 13 test files drive Selenium, not just tests/test_usability.py, and
+      # they skip only where no browser can be reached. A developer machine
+      # usually has none, so 229 tests silently skip there and run here --
+      # which is why this workflow found 42 of them asserting against a UI
+      # that no longer exists (no #projectTab, no #projectSubnav).
+      #
+      # pytest.ini already puts -v in addopts, so a run killed on the timeout
+      # names the test it stopped on rather than trailing off into dots.
+      - name: Run the Python suite
+        run: uv run pytest -p no:cacheprovider
+
+  js:
+    name: npm run test:js
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # The browser libraries are vendored into static/vendor, but the tests
+      # import the npm originals to check the two agree, so the dev
+      # dependencies have to be installed.
+      - name: Install dev dependencies
+        run: npm ci
+
+      - name: Run the JavaScript suites
+        run: npm run test:js

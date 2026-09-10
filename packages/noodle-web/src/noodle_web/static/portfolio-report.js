@@ -22,89 +22,239 @@ function deckBuildPercent(done, total, previous) {
     return Math.min(DECK_BUILD_START_PCT + (done / total) * 33, 96);
 }
 
+/** html2canvas renders at 2x so the slide image is not soft on a projector. */
+const TIMELINE_CAPTURE_SCALE = 2;
+
+/** The offscreen capture width, in CSS pixels, as it has always been. */
+const TIMELINE_CAPTURE_WIDTH = 1200;
+
 /**
- * Capture a per-project timeline as a PNG image using the swimlane style.
- * Builds an offscreen container with a date scale header and SVG swimlane,
- * captures with html2canvas, then cleans up.
+ * The markup for one project's timeline block: a date scale header, the SVG
+ * swimlane, and a "today" marker when today falls inside the range.
+ *
+ * @param {Array} tasks - Parsed tasks for the project
+ * @param {string} projectName - Project name, shown in the row label
+ * @returns {string|null} Inner HTML for the block, or null if there is
+ *   nothing worth drawing (no phases, no milestones, or no dates).
+ */
+function buildProjectTimelineHtml(tasks, projectName) {
+    if (typeof renderTimelineScale !== 'function' || typeof assignSwimlanePhaseRows !== 'function') return null;
+
+    var phases = tasks.filter(function(t) { return t.is_summary && t.start && t.finish; });
+    var milestones = tasks.filter(function(t) { return !t.is_summary && t.duration_days === 0 && t.finish; });
+
+    if (phases.length === 0 && milestones.length === 0) return null;
+
+    // Compute date range
+    var projectStart = null;
+    var projectEnd = null;
+    tasks.forEach(function(t) {
+        if (t.start) {
+            var s = new Date(t.start);
+            if (!projectStart || s < projectStart) projectStart = s;
+        }
+        if (t.finish) {
+            var f = new Date(t.finish);
+            if (!projectEnd || f > projectEnd) projectEnd = f;
+        }
+    });
+    if (!projectStart || !projectEnd) return null;
+
+    // 7-day padding
+    var padding = 7 * 24 * 60 * 60 * 1000;
+    var globalStart = new Date(projectStart.getTime() - padding);
+    var globalEnd = new Date(projectEnd.getTime() + padding);
+
+    // Build timeline data object matching renderProjectSwimlane expectations
+    var timeline = {
+        projectId: '',
+        projectName: projectName,
+        phases: phases,
+        milestones: milestones,
+        startDate: projectStart,
+        endDate: projectEnd
+    };
+
+    var scaleHtml = renderTimelineScale(globalStart, globalEnd, 'months');
+    var swimlaneHtml = renderProjectSwimlane(timeline, globalStart, globalEnd);
+
+    // Today marker
+    var todayHtml = '';
+    var today = new Date();
+    if (today >= globalStart && today <= globalEnd) {
+        var todayPct = ((today - globalStart) / (globalEnd - globalStart)) * 100;
+        todayHtml = '<div class="portfolio-today-line" style="left: calc(200px + (100% - 200px) * ' +
+            (todayPct / 100) + ');"></div>';
+    }
+
+    return scaleHtml + swimlaneHtml + todayHtml;
+}
+
+/**
+ * One timeline block, as the element html2canvas rasterises.
+ *
+ * Every block is `.portfolio-timeline-container` with the same width and the
+ * same children in the same order, because both of those decide how it looks:
+ * the class carries the 12/12/24 padding, and `.timeline-project-row` is
+ * styled by `:nth-child(even)`, so the swimlane must stay the second child to
+ * keep its zebra background. `position: relative` makes the block the
+ * containing block for the absolutely positioned "today" line, which is what
+ * the single-block container used to be.
+ */
+function buildTimelineBlockElement(innerHtml) {
+    var block = document.createElement('div');
+    block.className = 'portfolio-timeline-container';
+    block.style.position = 'relative';
+    block.style.width = TIMELINE_CAPTURE_WIDTH + 'px';
+    block.style.background = '#ffffff';
+    block.innerHTML = innerHtml;
+    return block;
+}
+
+/**
+ * Rasterise several timeline blocks in a single html2canvas call (issue #778).
+ *
+ * html2canvas clones the whole document into an iframe and re-resolves every
+ * stylesheet against it on each call. On this page that fixed cost is ~2.2 s
+ * -- an empty element costs the same as a swimlane -- and it used to be paid
+ * once per project, which was 87% of a ten-project export's wall clock. The
+ * blocks are laid out stacked in one offscreen container instead, rasterised
+ * together, and cropped apart afterwards, so the clone is paid once.
+ *
+ * The pixels are unchanged: each block is the same element, at the same
+ * width, with the same class and children as the container that used to be
+ * captured on its own, and the crop is taken from its measured box.
+ *
+ * @param {Array<string|null>} blocks - Inner HTML per project; null entries
+ *   are skipped and come back as null.
+ * @returns {Promise<Array<string|null>>} Base64 PNGs, aligned with `blocks`.
+ */
+async function rasteriseTimelineBlocks(blocks) {
+    var images = blocks.map(function() { return null; });
+    var drawable = blocks
+        .map(function(html, index) { return { html: html, index: index }; })
+        .filter(function(entry) { return entry.html; });
+    if (drawable.length === 0) return images;
+
+    var container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = TIMELINE_CAPTURE_WIDTH + 'px';
+    container.style.background = '#ffffff';
+
+    var elements = drawable.map(function(entry) {
+        var block = buildTimelineBlockElement(entry.html);
+        container.appendChild(block);
+        return block;
+    });
+    document.body.appendChild(container);
+
+    try {
+        // Snap each block to a whole CSS pixel first. Block heights are
+        // content-driven and land on fractions, which would stack the blocks
+        // below the first at fractional offsets -- and text and bar edges
+        // rasterise differently at a fractional offset than at zero, which is
+        // where a solo capture always drew them. Rounding up costs a row of
+        // the block's own white bottom padding and makes every block start on
+        // a whole pixel, so each crop matches the solo capture exactly.
+        // `box-sizing: border-box` is global here, so this is the same box
+        // getBoundingClientRect reports.
+        elements.forEach(function(block) {
+            block.style.height = Math.ceil(block.getBoundingClientRect().height) + 'px';
+        });
+
+        // Measure after the snap: html2canvas leaves the live DOM alone, but
+        // reading here keeps the geometry and the pixels from one layout pass.
+        var origin = container.getBoundingClientRect();
+        var boxes = elements.map(function(block) {
+            var rect = block.getBoundingClientRect();
+            return {
+                left: Math.round((rect.left - origin.left) * TIMELINE_CAPTURE_SCALE),
+                top: Math.round((rect.top - origin.top) * TIMELINE_CAPTURE_SCALE),
+                // html2canvas ceils an element's box to whole CSS pixels before
+                // scaling it, so a block 329.6px tall becomes a 660px canvas at
+                // 2x, not 659. Round the same way and the crop comes out the
+                // exact size the per-block capture used to produce. The extra
+                // row is the block's own white bottom padding either way.
+                width: Math.floor(Math.ceil(rect.width) * TIMELINE_CAPTURE_SCALE),
+                height: Math.floor(Math.ceil(rect.height) * TIMELINE_CAPTURE_SCALE)
+            };
+        });
+
+        var sheet = await html2canvas(container, {
+            backgroundColor: '#ffffff',
+            scale: TIMELINE_CAPTURE_SCALE
+        });
+
+        drawable.forEach(function(entry, position) {
+            var box = boxes[position];
+            if (box.width <= 0 || box.height <= 0) return;
+            var crop = document.createElement('canvas');
+            crop.width = box.width;
+            crop.height = box.height;
+            var ctx = crop.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, box.width, box.height);
+            ctx.drawImage(sheet, box.left, box.top, box.width, box.height, 0, 0, box.width, box.height);
+            images[entry.index] = crop.toDataURL('image/png').split(',')[1] || null;
+        });
+    } finally {
+        container.remove();
+    }
+
+    return images;
+}
+
+/**
+ * Capture one timeline PNG per project.
+ *
+ * Takes the batched path, and falls back to one html2canvas call per project
+ * if that fails, so a capture problem costs speed rather than the images.
+ *
+ * @param {Array<{tasks: Array, name: string}>} projects
+ * @returns {Promise<Array<string|null>>} Base64 PNGs, aligned with `projects`.
+ */
+async function captureProjectTimelineImages(projects) {
+    if (typeof html2canvas === 'undefined') return projects.map(function() { return null; });
+
+    var blocks = projects.map(function(project) {
+        try {
+            return buildProjectTimelineHtml(project.tasks, project.name);
+        } catch (err) {
+            console.warn('Could not build timeline for ' + project.name + ':', err);
+            return null;
+        }
+    });
+
+    try {
+        return await rasteriseTimelineBlocks(blocks);
+    } catch (err) {
+        console.warn('Batched timeline capture failed, falling back to one at a time:', err);
+    }
+
+    var images = [];
+    for (var i = 0; i < blocks.length; i++) {
+        try {
+            images.push((await rasteriseTimelineBlocks([blocks[i]]))[0]);
+        } catch (err) {
+            console.warn('Could not capture project timeline for ' + projects[i].name + ':', err);
+            images.push(null);
+        }
+    }
+    return images;
+}
+
+/**
+ * Capture a single project's timeline as a PNG image using the swimlane style.
  *
  * @param {Array} tasks - Parsed tasks for the project
  * @param {string} projectName - Project name (for logging)
- * @returns {string|null} Base64-encoded PNG string, or null on failure
+ * @returns {Promise<string|null>} Base64-encoded PNG string, or null on failure
  */
 async function captureProjectTimelineImage(tasks, projectName) {
-    if (typeof html2canvas === 'undefined') return null;
-    if (typeof renderTimelineScale !== 'function' || typeof assignSwimlanePhaseRows !== 'function') return null;
-
-    try {
-        var phases = tasks.filter(function(t) { return t.is_summary && t.start && t.finish; });
-        var milestones = tasks.filter(function(t) { return !t.is_summary && t.duration_days === 0 && t.finish; });
-
-        if (phases.length === 0 && milestones.length === 0) return null;
-
-        // Compute date range
-        var projectStart = null;
-        var projectEnd = null;
-        tasks.forEach(function(t) {
-            if (t.start) {
-                var s = new Date(t.start);
-                if (!projectStart || s < projectStart) projectStart = s;
-            }
-            if (t.finish) {
-                var f = new Date(t.finish);
-                if (!projectEnd || f > projectEnd) projectEnd = f;
-            }
-        });
-        if (!projectStart || !projectEnd) return null;
-
-        // 7-day padding
-        var padding = 7 * 24 * 60 * 60 * 1000;
-        var globalStart = new Date(projectStart.getTime() - padding);
-        var globalEnd = new Date(projectEnd.getTime() + padding);
-
-        // Build timeline data object matching renderProjectSwimlane expectations
-        var timeline = {
-            projectId: '',
-            projectName: projectName,
-            phases: phases,
-            milestones: milestones,
-            startDate: projectStart,
-            endDate: projectEnd
-        };
-
-        // Build HTML: date scale + swimlane
-        var scaleHtml = renderTimelineScale(globalStart, globalEnd, 'months');
-        var swimlaneHtml = renderProjectSwimlane(timeline, globalStart, globalEnd);
-
-        // Today marker
-        var todayHtml = '';
-        var today = new Date();
-        if (today >= globalStart && today <= globalEnd) {
-            var todayPct = ((today - globalStart) / (globalEnd - globalStart)) * 100;
-            todayHtml = '<div class="portfolio-today-line" style="left: calc(200px + (100% - 200px) * ' +
-                (todayPct / 100) + ');"></div>';
-        }
-
-        // Create offscreen container
-        var container = document.createElement('div');
-        container.style.position = 'absolute';
-        container.style.left = '-9999px';
-        container.style.width = '1200px';
-        container.className = 'portfolio-timeline-container';
-        container.style.background = '#ffffff';
-        container.innerHTML = scaleHtml + swimlaneHtml + todayHtml;
-
-        document.body.appendChild(container);
-
-        var canvas = await html2canvas(container, { backgroundColor: '#ffffff', scale: 2 });
-        var dataUrl = canvas.toDataURL('image/png');
-        var base64 = dataUrl.split(',')[1] || null;
-
-        document.body.removeChild(container);
-        return base64;
-    } catch (err) {
-        console.warn('Could not capture project timeline for ' + projectName + ':', err);
-        return null;
-    }
+    var images = await captureProjectTimelineImages([{ tasks: tasks, name: projectName }]);
+    return images[0];
 }
 
 /**
@@ -143,6 +293,7 @@ async function exportPortfolioReport() {
         // Build portfolio overview data and individual project reports
         const portfolioProjects = [];
         const projectReports = [];
+        const timelineSpecs = [];
         const totalProjects = parsedProjects.length;
         let projectIndex = 0;
 
@@ -206,18 +357,20 @@ async function exportPortfolioReport() {
             const deliverablesData = buildDeliverablesData(tasks, resourceMap, resourceRoles, stakeholders);
             if (deliverablesData) reportData.deliverables = deliverablesData;
 
-            // Capture per-project timeline as a PNG image using swimlane style
-            if (progress) {
-                progress.update(
-                    'Capturing timeline: ' + (project.name || 'project') + ' (' + projectIndex + '/' + totalProjects + ')',
-                    25 + (projectIndex / totalProjects) * 25
-                );
-            }
-            const timelineImage = await captureProjectTimelineImage(tasks, project.name);
-            if (timelineImage) reportData.timeline_image = timelineImage;
+            // The timelines are captured together once the loop has finished,
+            // not one per project -- see captureProjectTimelineImages (#778).
+            timelineSpecs.push({ tasks: tasks, name: project.name });
 
             projectReports.push(reportData);
         }
+
+        if (progress) {
+            progress.update('Capturing project timelines (' + totalProjects + ')...', 40);
+        }
+        const timelineImages = await captureProjectTimelineImages(timelineSpecs);
+        timelineImages.forEach(function(image, index) {
+            if (image) projectReports[index].timeline_image = image;
+        });
 
         // Sort portfolio projects by RAG (red first, then amber, then green)
         var ragOrder = { 'red': 0, 'amber': 1, 'green': 2 };
@@ -232,7 +385,7 @@ async function exportPortfolioReport() {
             const timelineView = document.getElementById('portfolioTimelineView');
             const wasHiddenPre = timelineView && timelineView.style.display === 'none';
             if (wasHiddenPre) timelineView.style.display = 'block';
-            await renderPortfolioTimeline();
+            await renderPortfolioTimeline(parsedProjects);
             if (wasHiddenPre) timelineView.style.display = 'none';
         }
 
