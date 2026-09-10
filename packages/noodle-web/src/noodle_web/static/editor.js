@@ -579,6 +579,9 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
     // Debounce timer for render requests
     let renderDebounceTimer = null;
 
+    // Debounce timer for front-matter panel resync (#780)
+    let fmPanelSyncTimer = null;
+
     // Update on input and auto-render with debounce (only for main editor)
     editor.addEventListener('input', function() {
         // Quietly replace curly/smart quotes with straight quotes
@@ -616,6 +619,17 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 renderText();
                 renderDebounceTimer = null;
             }, 1000);
+
+            // Keep the front-matter panel (#780) in sync when the user
+            // types the raw YAML directly into the textarea instead of
+            // using the structured editor.
+            if (editor._updateFrontMatterPanel) {
+                if (fmPanelSyncTimer) clearTimeout(fmPanelSyncTimer);
+                fmPanelSyncTimer = setTimeout(() => {
+                    editor._updateFrontMatterPanel();
+                    fmPanelSyncTimer = null;
+                }, 500);
+            }
         }
     });
 
