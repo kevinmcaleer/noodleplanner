@@ -98,7 +98,7 @@ const DELIBERATE_STUBS = new Set([
   // Needs a selected card/column/row the ribbon has no way to know.
   "Add Card", "Edit", "Assign", "Add Column", "Rename", "WIP Limit", "Close", "Escalate",
   // Whiteboard canvas tools (need a selected object/tool state).
-  "Align", "Distribute", "Lock", "Colour", "Connector", "Note", "Shape", "Text", "To PBS", "To Tasks",
+  "Align", "Distribute", "Lock", "Colour", "Note", "Text", "To PBS", "To Tasks",
   // Features that don't exist in the app yet. ("Add Project" and "Capacity"
   // used to be here too -- #938 audit found both actually have real
   // functions (showCreateProjectDialog, the Team Allocation view) and wired
@@ -107,11 +107,10 @@ const DELIBERATE_STUBS = new Set([
   "Heat Map", "Heat", "Probability", "Impact", "RAG",
   "Slack", "Sync", "Filter", "Sort", "Group",
   // No dedicated function exists (checked: grepped the codebase, found none).
-  "Delete", "Milestone", "Fit", "Today", "Go to Task", "Level", "Unlink",
-  "Calendars", "Durations", "Rates", "Availability", "Skills", "Overallocation",
-  "Influence", "Interest", "Owner", "Grid",
+  "Delete", "Milestone", "Fit", "Today", "Go to Task", "Unlink",
+  "Calendars", "Durations",
+  "Interest", "Owner", "Grid",
   "Categorise", "Tag", "Link to Risk", "Review", "Publish",
-  "Escalations", "Forecast",
   // Programme scope (#936/#909): Programmes aren't built yet (#731/#910).
   // PROGRAMME_TABS is a deliberately small, honestly-labelled placeholder --
   // every button in it is intentionally a stub rather than the ribbon

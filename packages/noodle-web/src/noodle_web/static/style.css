@@ -4311,6 +4311,7 @@ body.detail-pane-open {
 .inspector-rag-banner.rag-blue {
     background: #e3f2fd;
     border-left: 5px solid #1976d2;
+    color: #111;
 }
 
 .inspector-rag-banner.rag-none {
@@ -4441,6 +4442,13 @@ body.detail-pane-open {
     padding: 6px 0;
 }
 
+.inspector-help-text {
+    margin: 0 0 10px;
+    color: #666;
+    font-size: .88em;
+    line-height: 1.4;
+}
+
 .inspector-progress-bar-wrapper {
     background: #e0e0e0;
     border-radius: 6px;
@@ -4458,6 +4466,23 @@ body.detail-pane-open {
 .inspector-progress-bar-fill.green { background: #4caf50; }
 .inspector-progress-bar-fill.amber { background: #ff9800; }
 .inspector-progress-bar-fill.red { background: #f44336; }
+
+/* Task-form progress labels need a light foreground on the dark RAG fills. */
+#progressBar.bg-danger #progressText,
+#progressBar.bg-success #progressText {
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .45);
+}
+
+#taskInspectorSection .close-btn {
+    color: #fff !important;
+}
+
+#taskInspectorSection .close-btn:hover,
+#taskInspectorSection .close-btn:focus-visible {
+    color: #fff !important;
+    background: rgba(255, 255, 255, .22);
+}
 
 .inspector-open-task-btn {
     display: inline-block;
@@ -5013,7 +5038,7 @@ tr:hover .task-context-btn,
 }
 
 .dependencies-table td {
-    padding: 10px;
+    padding: 5px 10px;
     border-bottom: 1px solid #e0e0e0;
 }
 
@@ -5053,12 +5078,21 @@ tr:hover .task-context-btn,
 }
 
 .dependencies-table tbody:empty::after {
-    content: 'No dependencies. Click "+ Add Dependency" to add one.';
+    content: 'No dependencies. Add one below.';
     display: block;
     padding: 20px;
     text-align: center;
     color: #999;
     font-style: italic;
+}
+
+.dependency-add-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--np-input-border, #e0e0e0);
+    border-radius: 4px;
+    background: var(--np-input-bg, #fff);
+    color: var(--np-text, #333);
 }
 
 .form-actions {
@@ -7383,6 +7417,11 @@ tr:hover .task-context-btn,
 
 .lookahead-section-title.upcoming {
     background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+    color: #fff;
+}
+
+:root body .lookahead-section-title.overdue,
+:root body .lookahead-section-title.upcoming {
     color: #fff;
 }
 
@@ -11841,6 +11880,11 @@ body.no-animations .np-fade-in {
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     padding: 4px;
+}
+
+.stakeholder-grid-wrapper.stakeholder-grid-expanded {
+    width: min(800px, 70vw);
+    height: min(800px, 70vh);
 }
 
 .stakeholder-grid-wrapper .copy-image-btn {

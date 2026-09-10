@@ -329,14 +329,14 @@
     color: #155724;
 }
 
-/* Month names row above day numbers */
-.gantt-month-row {
+/* Week commencing row above weekday initials in daily view */
+.gantt-week-row {
     display: flex;
     width: 100%;
     border-bottom: 1px solid var(--np-border);
 }
 
-.gantt-month-label {
+.gantt-week-label {
     border-right: 1px solid var(--np-border);
     padding: 4px 2px;
     text-align: center;

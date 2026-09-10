@@ -256,8 +256,8 @@ export const CONTEXTUAL_TABS = [
         id: 'resources', label: 'Resource Tools', icon: 'resources', accent: '#ff7b01', accentToken: '--np-orange', tint: '#fff1e2', onAccent: '#3a1c00',
         trigger: 'Resources, Timesheet, Workload or Resource Sheet open',
         groups: [
-            { name: 'People', launcher: true, lg: [['people', 'Add Resource']], cols: [[['money', 'Rates'], ['calendar', 'Calendar']], [['pin', 'Skills'], ['clock', 'Availability']]] },
-            { name: 'Effort', cols: [[['clock', 'Timesheet'], ['chart', 'Workload']], [['refresh', 'Level'], ['warn', 'Overallocation']]] },
+            { name: 'People', launcher: true, lg: [['people', 'Add Resource']], cols: [[['calendar', 'Calendar']]] },
+            { name: 'Effort', cols: [[['clock', 'Timesheet'], ['chart', 'Workload']], [['refresh', 'Level'], ['warn', 'Overallocation'], ['delete', 'Clear Level']]] },
         ],
     },
     {
@@ -272,7 +272,7 @@ export const CONTEXTUAL_TABS = [
         id: 'whiteboard', label: 'Whiteboard', icon: 'grid', accent: '#1c9e41', accentToken: '--np-green', tint: '#eaf6ee', onAccent: '#ffffff',
         trigger: 'Whiteboard or Mind Map open',
         groups: [
-            { name: 'Draw', launcher: true, lg: [['doc', 'Note'], ['grid', 'Shape']], cols: [[['link', 'Connector'], ['doc', 'Text']], [['pin', 'Colour'], ['delete', 'Delete']]] },
+            { name: 'Draw', launcher: true, lg: [['doc', 'Note']], cols: [[['doc', 'Text']], [['pin', 'Colour'], ['delete', 'Delete']]] },
             { name: 'Arrange', cols: [[['grid', 'Align'], ['sort', 'Distribute']], [['link', 'Group'], ['pin', 'Lock']]] },
             { name: 'Convert', cols: [[['task-list', 'To Tasks'], ['board', 'To PBS']]] },
         ],

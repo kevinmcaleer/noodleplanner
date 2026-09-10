@@ -1730,6 +1730,9 @@ class KanbanBoard {
             headerEl.style.background = themeColour;
             const textColour = isPastelColour(themeColour) ? '#000000' : '#FFFFFF';
             headerEl.style.color = textColour;
+            headerEl.querySelectorAll('button, .kanban-column-count').forEach((control) => {
+                control.style.color = textColour;
+            });
             // Apply a lighter tint of the colour to the entire column
             columnEl.style.background = themeColour + '1A'; // ~10% opacity hex suffix
             // Set the dots colour to match the column title text colour
