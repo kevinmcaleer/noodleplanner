@@ -67,8 +67,13 @@ function _toShortname(displayName) {
             if (short.toLowerCase() === lower) return short;
         }
     }
-    // Fallback: just use the display name as-is (lowercase, no spaces)
-    return displayName.trim().split(/\s+/)[0].toLowerCase();
+    // Fallback for a name the resource map doesn't know: hyphenate it, so
+    // "Kevin McAleer" becomes "kevin-mcaleer". Taking only the first token
+    // would satisfy the single-\S+-token rule above but collapse distinct
+    // people onto one shortname -- "Kevin McAleer" and "Kevin Smith" would
+    // both flag as @kevin, and stripLevellingFlags/the @-matching below
+    // could not tell them apart.
+    return displayName.trim().toLowerCase().split(/\s+/).join('-');
 }
 
 /**
