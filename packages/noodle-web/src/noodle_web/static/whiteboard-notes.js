@@ -319,6 +319,48 @@ let wbNoteNodes = new Map(); // summary task name -> { fo, refs: {...} }
 // generated `id` (never a task name) instead of a task name.
 let wbTextNodes = new Map(); // text-object id -> { fo, refs: {...} }
 
+// The "selected" note (issue #1109): the summary task name of whichever
+// note the user last picked up (dragged, resized or tapped -- see every
+// wbRaiseNoteToFront() call site) or explicitly cleared by clicking bare
+// canvas (whiteboard.js's wbHandleMouseDown(), mirroring how that same
+// click already clears the selected noodle). This exists so the ribbon's
+// whiteboard "Colour" button -- previously an unwired stub -- has
+// something to act on without requiring a note's own `...` menu.
+let wbSelectedNoteTask = null;
+
+/** Select (or, with a falsy name, deselect) one note, updating the
+ * `.wb-note-selected` class on its card. A no-op when the same note is
+ * already selected, so re-raising an already-frontmost note on repeated
+ * clicks doesn't thrash the class. */
+function wbSetSelectedNote(taskName) {
+    const next = taskName || null;
+    if (wbSelectedNoteTask === next) return;
+    const prevEntry = wbSelectedNoteTask ? wbNoteNodes.get(wbSelectedNoteTask) : null;
+    if (prevEntry && prevEntry.refs && prevEntry.refs.card) {
+        prevEntry.refs.card.classList.remove('wb-note-selected');
+    }
+    wbSelectedNoteTask = next;
+    const nextEntry = next ? wbNoteNodes.get(next) : null;
+    if (nextEntry && nextEntry.refs && nextEntry.refs.card) {
+        nextEntry.refs.card.classList.add('wb-note-selected');
+    }
+}
+
+function wbClearNoteSelection() {
+    wbSetSelectedNote(null);
+}
+
+/** The selected note's task name, or null -- self-healing against a
+ * selection left dangling by the note having been removed from the board
+ * since (wbRenderNotes()' sweep deletes straight from wbNoteNodes without
+ * going through wbSetSelectedNote()). */
+function wbGetSelectedNoteTask() {
+    if (wbSelectedNoteTask && !wbNoteNodes.has(wbSelectedNoteTask)) {
+        wbSelectedNoteTask = null;
+    }
+    return wbSelectedNoteTask;
+}
+
 // Colour-menu state (issue #849). Only one `...` menu is ever open at a
 // time (matches mindmap.js's single mmColourPicker / status-bar.js's
 // single statusBarHistoryPopup convention), so this is a single slot
@@ -481,10 +523,10 @@ function wbContrastTextColour(bgHex) {
  *
  * Contrast is verified by tests/test_whiteboard_note_colour.py's
  * TestNoteColourContrast against the real rendered header in both
- * themes; a swatch's raw value is never applied directly as a
- * background (wbUpdateNoteNode() always darkens it via wbShadeColour(_,
- * 0.3) first — see that call for why every pastel here still yields a
- * dark, legible header fill).
+ * themes: the raw swatch value fills the whole card as-is (issue #1103),
+ * and wbUpdateNoteNode() picks the note's one text colour against that
+ * raw fill via wbContrastTextColour() (a real WCAG check), rather than
+ * darkening the fill itself first.
  */
 const WB_NOTE_PASTEL_COLOURS = [
     '#FFF3B0', '#FCE38A', // yellow
@@ -512,9 +554,9 @@ function wbPalette() {
  * towards white) -- delegates to the real function when it's loaded (the
  * running app always has it, per index.html's <script> order); the body
  * below is an exact, kept-in-lockstep copy used only by this file's own
- * isolated unit tests. See the issue's "Contrast" section: a note's
- * header uses this same treatment mind map applies to its branch nodes'
- * fill, rather than painting the raw, sometimes-too-saturated swatch.
+ * isolated unit tests. Not used by note rendering itself (issue #1103
+ * fills a note with its raw swatch colour, not a shaded one -- see
+ * wbUpdateNoteNode()); kept as a shared colour-math helper.
  */
 function wbShadeColour(hex, factor) {
     if (typeof mindmapShadeColour === 'function') return mindmapShadeColour(hex, factor);
@@ -1542,22 +1584,20 @@ function wbUpdateNoteNode(entry, vm) {
     const tier = wbNoteZoomTier(zoom, entry.collapsed);
     refs.card.classList.toggle('wb-note-title-only', tier === 'title-only');
 
-    // Header colour: vm.colour (see wbResolveNoteColour() / this file's
+    // Note colour: vm.colour (see wbResolveNoteColour() / this file's
     // header for the row-Colour -> Theme: -> derived-palette precedence)
-    // applies to the header strip/accent only, never the body -- body
-    // text always sits on the themed var(--np-surface) background so it
-    // is contrast-safe by construction for every possible note colour,
-    // in both themes. The accent bar (--wb-note-accent) gets the full,
-    // undiluted swatch colour (mirrors the mind map's node stroke); the
-    // header's own background is the same colour softened via
-    // wbShadeColour(colour, 0.3) -- the exact treatment mindmap.js
-    // applies to its own (non-root) branch nodes' fill -- and the header
-    // text colour is computed against *that* softened fill, per real WCAG
-    // ratios, so the strip stays legible on every swatch in both themes.
-    const headerFill = wbShadeColour(vm.colour, 0.3);
-    refs.header.style.background = headerFill;
+    // fills the *entire* card as one solid block (issue #1103) -- header,
+    // body and footer alike, not just a header tint plus a left accent
+    // bar. --wb-note-accent (views/whiteboard.css's .wb-note-card) is the
+    // raw, undiluted swatch colour applied straight to the card's
+    // background and border; --wb-note-text is computed once against that
+    // same raw colour via wbContrastTextColour() (a real WCAG ratio) and
+    // used throughout the note -- header, rows, footer, free text -- via
+    // that one CSS custom property, so everything on the note stays
+    // legible on every swatch in both themes without the header and body
+    // ever disagreeing on colour.
     refs.card.style.setProperty('--wb-note-accent', vm.colour);
-    refs.header.style.color = wbContrastTextColour(headerFill) || '';
+    refs.card.style.setProperty('--wb-note-text', wbContrastTextColour(vm.colour) || '');
 
     // Don't clobber a title the user is in the middle of retyping.
     if (!refs.title.isContentEditable) {
@@ -1815,8 +1855,14 @@ function wbNoteCurrentRect(entry) {
  * paints siblings in document order, so this alone is "raise to front".
  * Called immediately on pointerdown (both for an actual drag and for a
  * plain click) for instant feedback, well before any markdown commit.
+ *
+ * Also the single choke point every "user picked this note up" gesture
+ * (header drag, resize drag, touch tap/long-press) already passes
+ * through, so it doubles as marking that note "selected" (issue #1109) --
+ * no separate click handler needed.
  */
 function wbRaiseNoteToFront(entry) {
+    if (entry && entry.fo) wbSetSelectedNote(entry.fo.dataset.wbTask);
     const layer = wbNotesLayer();
     if (!layer || !entry || !entry.fo) return;
     // Already frontmost: skip the appendChild entirely. Re-appending an
@@ -3173,6 +3219,38 @@ function wbOpenNoteMenu(taskName, btn) {
     if (first) first.focus();
 }
 
+/**
+ * The ribbon's whiteboard "Colour" toolbar button (issue #1109) --
+ * previously an unwired stub (ribbon.js's resolveAction() had no entry
+ * for it, so clicking it just showed "not available yet"). Opens the
+ * exact same `...` menu a note's own button opens -- colour swatches
+ * first, see wbBuildNoteMenu() -- for whichever note is currently
+ * selected (wbGetSelectedNoteTask(), set by wbRaiseNoteToFront() on every
+ * drag/resize/tap), so picking a colour goes through the one existing,
+ * already-tested commit path (wbHandleNoteColourPick()) rather than a
+ * second one. A note that's been drilled deep into via its task-peek
+ * popover is still *this* note -- peeking a child never changes which
+ * note is selected, so the colour always lands on the summary task's own
+ * post-it, never on a child that has no post-it of its own.
+ *
+ * With nothing selected, explains what to do (per the issue's own
+ * "disabled, or explain what to select" acceptance criterion) rather than
+ * silently doing nothing.
+ */
+function wbOpenColourPanelForSelectedNote(anchorEl) {
+    const taskName = wbGetSelectedNoteTask();
+    if (!taskName) {
+        if (typeof wbFlashNoodleMessage === 'function') {
+            wbFlashNoodleMessage('Select a note first, then click Colour to change it');
+        }
+        return;
+    }
+    const entry = wbNoteNodes.get(taskName);
+    const btn = (anchorEl && anchorEl.nodeType === 1) ? anchorEl : (entry && entry.refs && entry.refs.menuBtn);
+    if (!btn) return;
+    wbOpenNoteMenu(taskName, btn);
+}
+
 /** Close the `...` menu, if one is open, and tear down its listeners. */
 function wbCloseNoteMenu() {
     const menu = document.getElementById('wbNoteMenu');
@@ -4339,6 +4417,10 @@ function wbRenameNoteTask(oldName, newName) {
         wbNoteNodes.delete(oldName);
         wbNoteNodes.set(newName, entry);
         entry.fo.dataset.wbTask = newName;
+        // The selected note (if any) is tracked by name too -- keep it
+        // pointing at the same note through the rename (issue #1109's
+        // toolbar Colour button reads this to know which note to act on).
+        if (wbSelectedNoteTask === oldName) wbSelectedNoteTask = newName;
     }
 
     return wbCommitMarkdown(next);

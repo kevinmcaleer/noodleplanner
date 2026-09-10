@@ -295,6 +295,12 @@ function scopedAction(scopeId, label) {
         'kanban:Group by': () => openFormatMenu(KANBAN_GROUP_MODES, 'Group by'),
         'whiteboard:Mind Map': switchView('mindmap'),
         'whiteboard:Whiteboard': switchView('whiteboard'),
+        // #1109: previously unwired -- opens the selected note's colour
+        // panel (whiteboard-notes.js's wbOpenColourPanelForSelectedNote(),
+        // the same `...` menu a note's own button opens). Reads
+        // ribbonActionAnchor for the button to anchor the popover to,
+        // same convention openFormatMenu() below uses.
+        'whiteboard:Colour': () => { if (typeof wbOpenColourPanelForSelectedNote === 'function') wbOpenColourPanelForSelectedNote(ribbonActionAnchor); },
         'gantt:Day/Week/Month': () => openFormatMenu(GANTT_SCALES, 'Scale'),
     };
     return table[`${scopeId}:${label}`];

@@ -97,8 +97,10 @@ function extractKnownLabels() {
 const DELIBERATE_STUBS = new Set([
   // Needs a selected card/column/row the ribbon has no way to know.
   "Add Card", "Edit", "Assign", "Add Column", "Rename", "WIP Limit", "Close", "Escalate",
-  // Whiteboard canvas tools (need a selected object/tool state).
-  "Align", "Distribute", "Lock", "Colour", "Note", "Text", "To PBS", "To Tasks",
+  // Whiteboard canvas tools (need a selected object/tool state). "Colour"
+  // used to be here too -- #1109 wired it to the whiteboard's own note
+  // selection (wbGetSelectedNoteTask()/wbOpenColourPanelForSelectedNote()).
+  "Align", "Distribute", "Lock", "Note", "Text", "To PBS", "To Tasks",
   // Features that don't exist in the app yet. ("Add Project" and "Capacity"
   // used to be here too -- #938 audit found both actually have real
   // functions (showCreateProjectDialog, the Team Allocation view) and wired
