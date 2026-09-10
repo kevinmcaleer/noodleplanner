@@ -231,8 +231,8 @@ class TestStakeholderJavaScript:
         assert "'stakeholders'" in script_content
 
     def test_stakeholders_in_nav_mapping(self, client):
-        """Test that stakeholders maps to planTab in the nav mapping."""
-        response = client.get("/static/nav.js")
+        """Test that stakeholders maps to planTab in the global nav mapping."""
+        response = client.get("/static/script.js")
         assert response.status_code == 200
         assert "'stakeholders': 'planTab'" in response.text
 

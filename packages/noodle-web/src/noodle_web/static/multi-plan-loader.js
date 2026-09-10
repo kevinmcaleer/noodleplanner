@@ -110,6 +110,12 @@ async function loadProjectIntoEditor(projectId) {
         if (planEditor._updateLineNumbers) {
             planEditor._updateLineNumbers();
         }
+        // Same reasoning for the front-matter panel (#780): it caches its
+        // own parsed row model, so a bare .value assignment leaves it
+        // showing the previous project's front matter otherwise.
+        if (planEditor._updateFrontMatterPanel) {
+            planEditor._updateFrontMatterPanel();
+        }
     }
 
     const kanbanEditor = document.getElementById('kanbanPlanEditor');

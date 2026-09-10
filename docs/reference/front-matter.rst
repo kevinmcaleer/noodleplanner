@@ -19,6 +19,34 @@ The front matter block appears at the top of a plan file between ``---`` delimit
 
 All fields are optional.
 
+Editing front matter
+---------------------
+
+The editor shows a collapsible **Front matter** panel above the plan text.
+On a plan where the front matter runs longer than about ten lines, it
+starts collapsed, showing just a summary line such as ``Front matter (6
+keys)`` — the same collapse/summary language the back-matter sections use.
+Click the summary to expand or collapse it; the state is remembered per
+project.
+
+Expanded, the panel offers two interchangeable views:
+
+- **Structured** (the default) — one row per key, Obsidian-property style.
+  Known keys (``title``, ``status``, ``Resources``, ``dependencies``, …)
+  get a purpose-built widget — a dropdown for ``status``/``theme``, a tag
+  editor for ``labels``, repeatable entry rows for ``Resources``,
+  ``dependencies`` and ``non-working-days``. Unrecognised keys still get a
+  plain text row so nothing is ever hidden or silently dropped. Rows can be
+  added, removed, and reordered with the ↑/↓ buttons.
+- **Raw** — the front matter exactly as YAML text, for anyone who would
+  rather type it directly.
+
+Switching between the two is lossless in both directions: editing one key
+leaves every other line — including comments, blank lines, and formatting
+— byte-for-byte untouched. A line that doesn't parse as ``key: value`` is
+preserved as-is rather than corrupted, and flagged with a warning so it's
+easy to find.
+
 Fields
 -------
 
