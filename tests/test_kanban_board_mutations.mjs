@@ -98,7 +98,25 @@ function buildBoard(viewMode, { promptValue = null, confirmValue = true } = {}) 
   vm.runInContext(`${kanbanSrc}\nthis.KanbanBoard = KanbanBoard;`, sandbox);
 
   const board = new sandbox.KanbanBoard(viewMode);
-  return { board, editor };
+  return { board, editor, sandbox };
+}
+
+/** Lift script.js's deleteTask() (the card delete path, driven from the task
+ * detail pane rather than from KanbanBoard itself -- it splices the task's
+ * line, plus any more-deeply-indented subtask lines beneath it, straight out
+ * of the editor text) into an already-built board's sandbox, alongside its
+ * real dependency extractTaskNameFromEditorLine() (editor.js, pure). The
+ * detail-pane chrome deleteTask() also touches (closeDetailPane, the
+ * setTimeout()-deferred renderText()) is irrelevant to what's being tested
+ * here -- whether the right lines are removed and the board agrees on
+ * reparse -- so those are stubbed to no-ops rather than lifted. */
+function liftDeleteTask(sandbox) {
+  sandbox.closeDetailPane = () => {};
+  sandbox.renderText = () => {};
+  sandbox.setTimeout = (fn) => fn();
+  sandbox.currentTaskLineNumber = null;
+  liftFunctions(sandbox, 'editor.js', ['extractTaskNameFromEditorLine']);
+  liftFunctions(sandbox, 'script.js', ['deleteTask']);
 }
 
 /** Array.from() rather than .map(): the vm sandbox is a separate realm, so
@@ -386,6 +404,207 @@ test('removeLabel() is declined when the confirm() dialog is dismissed', () => {
   board.removeLabel('alpha');
 
   assert.match(editor.value, /#alpha/);
+});
+
+test('deleteTask() (#1078) removes the card\'s line and the board no longer shows it on reparse', () => {
+  const { board, editor, sandbox } = buildBoard('phase');
+  liftDeleteTask(sandbox);
+  loadPlan(board, editor, 'Phase One\n  Task A 0%\n  Task B 0%');
+
+  sandbox.currentTaskLineNumber = board.tasks.find(t => t.name === 'Task A').lineNumber;
+  sandbox.deleteTask();
+  board.parse();
+
+  assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Phase One').tasks), ['Task B']);
+  assert.doesNotMatch(editor.value, /Task A/);
+  assert.match(editor.value, /Task B/);
+});
+
+test('deleteTask() also removes more-deeply-indented subtask lines beneath the deleted card', () => {
+  const { board, editor, sandbox } = buildBoard('phase');
+  liftDeleteTask(sandbox);
+  loadPlan(board, editor, 'Phase\n  Summary 0%\n    Child A 0%\n    Child B 0%\n  Sibling 0%');
+
+  sandbox.currentTaskLineNumber = board.tasks.find(t => t.name === 'Summary').lineNumber;
+  sandbox.deleteTask();
+  board.parse();
+
+  assert.doesNotMatch(editor.value, /Summary|Child A|Child B/);
+  assert.match(editor.value, /Sibling/);
+  assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Phase').tasks), ['Sibling']);
+});
+
+test('deleteTask() is declined when the confirm() dialog is dismissed', () => {
+  const { board, editor, sandbox } = buildBoard('phase', { confirmValue: false });
+  liftDeleteTask(sandbox);
+  loadPlan(board, editor, 'Phase One\n  Task A 0%');
+
+  sandbox.currentTaskLineNumber = board.tasks[0].lineNumber;
+  sandbox.deleteTask();
+
+  assert.match(editor.value, /Task A/);
+});
+
+// ---------------------------------------------------------------------------
+// Creating columns directly (not via the Add-Phase/Label/Bucket drop target)
+// ---------------------------------------------------------------------------
+
+test('addNewLabel() (#1078) adds a new, empty label column straight to front matter', () => {
+  const { board, editor } = buildBoard('label', { promptValue: 'Urgent' });
+  loadPlan(board, editor, '---\nlabels: [existing]\n---\n\nTask A #existing 0%');
+
+  board.addNewLabel();
+  board.parse();
+
+  assert.match(editor.value, /labels: \[existing, urgent\]/);
+  assert.deepEqual(titlesOf(board.columns), ['Unlabeled', 'existing', 'urgent'].sort());
+  assert.deepEqual(namesOf(board.columns.find(c => c.title === 'urgent').tasks), []);
+});
+
+test('addNewLabel() creates front matter from scratch when the plan has none', () => {
+  const { board, editor } = buildBoard('label', { promptValue: 'First' });
+  loadPlan(board, editor, 'Task A 0%');
+
+  board.addNewLabel();
+  board.parse();
+
+  assert.match(editor.value, /^---\nlabels: \[first\]\n---/);
+  assert.ok(board.columns.some(c => c.title === 'first'));
+});
+
+test('addNewBucket() (#1078) adds a new, empty bucket column straight to front matter', () => {
+  const { board, editor } = buildBoard('bucket', { promptValue: 'Doing' });
+  loadPlan(board, editor, '---\nbuckets: [Backlog]\n---\n\nTask A {Backlog} 0%');
+
+  board.addNewBucket();
+  board.parse();
+
+  assert.match(editor.value, /buckets: \[Backlog, Doing\]/);
+  assert.deepEqual(titlesOf(board.columns), ['Backlog', 'Doing', 'No Bucket'].sort());
+  assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Doing').tasks), []);
+});
+
+test('addNewBucket() is a no-op when the bucket name is already declared', () => {
+  const { board, editor } = buildBoard('bucket', { promptValue: 'Backlog' });
+  loadPlan(board, editor, '---\nbuckets: [Backlog]\n---\n\nTask A {Backlog} 0%');
+
+  board.addNewBucket();
+
+  assert.match(editor.value, /buckets: \[Backlog\]/);
+  assert.doesNotMatch(editor.value, /Backlog, Backlog/);
+});
+
+// ---------------------------------------------------------------------------
+// Removing a column by emptying it (#1078) -- phase/bucket/label/resource
+// views have no explicit "delete this column" button of their own (only
+// removeLabel() does), so the only way one of their columns goes away is a
+// drop that empties it out. Whether the column then survives depends on
+// whether it's declared in front matter: a declared bucket/label/resource is
+// kept (0 tasks) exactly like a real front-matter Resource/label/bucket that
+// nothing currently references, but one only ever discovered from a task's
+// own tag disappears once nothing references it any more -- there's nothing
+// left to remember it by. Phase is the one view where even a declared
+// column (a phase header) can't survive emptying, because there is no
+// separate "phases:" declaration to fall back on (#1055/#1065).
+// ---------------------------------------------------------------------------
+
+test('moving the last card out of an undeclared bucket column removes that column', () => {
+  const { board, editor } = buildBoard('bucket');
+  loadPlan(board, editor, 'Task A {Adhoc} 0%');
+  assert.ok(board.columns.some(c => c.title === 'Adhoc'));
+
+  const task = board.tasks[0];
+  board.handleCardDrop(task.lineNumber, board.columns.find(c => c.title === 'No Bucket'));
+  board.parse();
+
+  assert.ok(!board.columns.some(c => c.title === 'Adhoc'));
+});
+
+test('moving the last card out of a front-matter-declared bucket column keeps it, empty', () => {
+  const { board, editor } = buildBoard('bucket');
+  loadPlan(board, editor, '---\nbuckets: [Backlog]\n---\n\nTask A {Backlog} 0%');
+
+  const task = board.tasks[0];
+  board.handleCardDrop(task.lineNumber, board.columns.find(c => c.title === 'No Bucket'));
+  board.parse();
+
+  const backlog = board.columns.find(c => c.title === 'Backlog');
+  assert.ok(backlog, 'declared bucket column should survive being emptied');
+  assert.deepEqual(namesOf(backlog.tasks), []);
+});
+
+test('moving the last card out of an undeclared label removes that column; a declared one survives, empty', () => {
+  const { board, editor } = buildBoard('label');
+  loadPlan(board, editor, '---\nlabels: [declared]\n---\n\nTask A #undeclared 0%\nTask B #declared 0%');
+
+  const undeclaredTask = board.tasks.find(t => t.name === 'Task A');
+  board.handleCardDrop(undeclaredTask.lineNumber, board.columns.find(c => c.title === 'Unlabeled'));
+  board.parse();
+  assert.ok(!board.columns.some(c => c.title === 'undeclared'));
+
+  const declaredTask = board.tasks.find(t => t.name === 'Task B');
+  board.handleCardDrop(declaredTask.lineNumber, board.columns.find(c => c.title === 'Unlabeled'));
+  board.parse();
+  const declaredColumn = board.columns.find(c => c.title === 'declared');
+  assert.ok(declaredColumn, 'front-matter-declared label column should survive being emptied');
+  assert.deepEqual(namesOf(declaredColumn.tasks), []);
+});
+
+test('moving the last card off an undeclared resource removes that column; a declared one survives, empty', () => {
+  const { board, editor } = buildBoard('resource');
+  loadPlan(board, editor,
+    '---\nresources:\n- @kev: Kevin\n---\n\nTask A @kev 0%\nTask B @sam 0%');
+  assert.ok(board.columns.some(c => c.title === 'sam'));
+
+  const undeclaredTask = board.tasks.find(t => t.name === 'Task B');
+  board.handleCardDrop(undeclaredTask.lineNumber, board.columns.find(c => c.title === 'Unassigned'));
+  board.parse();
+  assert.ok(!board.columns.some(c => c.title === 'sam'));
+
+  const declaredTask = board.tasks.find(t => t.name === 'Task A');
+  board.handleCardDrop(declaredTask.lineNumber, board.columns.find(c => c.title === 'Unassigned'));
+  board.parse();
+  const kevin = board.columns.find(c => c.title === 'Kevin');
+  assert.ok(kevin, 'front-matter-declared resource column should survive being emptied');
+  assert.deepEqual(namesOf(kevin.tasks), []);
+});
+
+// ---------------------------------------------------------------------------
+// Round-trip: after any sequence of mutations, re-parsing the editor text
+// must agree with the board, and the Markdown must not accumulate orphaned
+// blank lines (cf. #911, the reorder-leaves-blank-lines bug this guards
+// against regressing).
+// ---------------------------------------------------------------------------
+
+test('a sequence of create/move/remove mutations leaves no orphaned blank lines and the board agrees with the Markdown', () => {
+  const { board, editor, sandbox } = buildBoard('phase', { promptValue: 'Phase Three' });
+  liftDeleteTask(sandbox);
+  loadPlan(board, editor, 'Phase One\n  Task A 0%\n  Task B 0%\n\nPhase Two\n  Task C 0%');
+
+  // Create.
+  board.addNewCard(board.columns.find(c => c.title === 'Phase One'));
+  board.parse();
+  // Move.
+  const taskC = board.tasks.find(t => t.name === 'Task C');
+  board.handleCardDrop(taskC.lineNumber, board.columns.find(c => c.title === 'Phase One'));
+  board.parse();
+  // Remove (deleteTask, the card delete path).
+  sandbox.currentTaskLineNumber = board.tasks.find(t => t.name === 'Task B').lineNumber;
+  sandbox.deleteTask();
+  board.parse();
+  // Create a new phase.
+  board.addNewPhase();
+  board.parse();
+
+  // No run of 2+ blank lines anywhere in the Markdown.
+  assert.doesNotMatch(editor.value, /\n\s*\n\s*\n/, 'no orphaned multi-blank-line runs');
+
+  // The board's task set matches what a fresh parse of the same text finds --
+  // i.e. the rendered board and the Markdown haven't drifted apart.
+  const finalText = editor.value;
+  board.parse();
+  assert.deepEqual(editor.value, finalText, 'reparsing the same text is a no-op');
+  assert.deepEqual(namesOf(board.tasks), ['New Task', 'Task A', 'Task C'].sort());
 });
 
 // ---------------------------------------------------------------------------
