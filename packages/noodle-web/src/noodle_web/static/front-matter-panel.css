@@ -1,5 +1,12 @@
 /* Collapsible front-matter panel (#780) — Obsidian-style key/value editor
-   that sits above the plan editor textarea and shares its dark theme. */
+   that sits above the plan editor textarea and shares its dark theme.
+
+   The chevron/summary-row styling here intentionally matches the sibling
+   collapsible back-matter feature (#781, section-folding.js /
+   .section-fold-* in views/gantt.css) -- same monospace header font and
+   chevron colour -- so the two read as one collapsing mechanism even
+   though front matter's panel and back matter's inline fold are built
+   differently under the hood. */
 
 .fm-panel {
     flex-shrink: 0;
@@ -36,6 +43,7 @@
     cursor: pointer;
     padding: 4px 4px;
     font-size: 1em;
+    font-family: 'Courier New', monospace;
     border-radius: 3px;
 }
 
@@ -47,7 +55,7 @@
     display: inline-block;
     width: 1em;
     text-align: center;
-    color: var(--np-accent, #667eea);
+    color: #7dd3fc;
 }
 
 .fm-title {
