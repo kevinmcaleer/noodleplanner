@@ -2549,6 +2549,68 @@ svg.icon {
     border: 1px solid #ffeeba;
 }
 
+/* Progress toast: a persistent toast with a status line and progress bar,
+   for long-running operations (e.g. portfolio PowerPoint export) that run
+   off the main thread and report progress back as they go. */
+.progress-toast {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-60px);
+    min-width: 280px;
+    max-width: 420px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    z-index: 10000;
+    opacity: 0;
+    background: var(--np-surface, #fff);
+    color: var(--np-text, #333);
+    border: 1px solid var(--np-border, #e0e0e0);
+    transition: opacity var(--np-anim-duration-slow) var(--np-anim-easing), transform var(--np-anim-duration-slow) var(--np-anim-easing);
+    pointer-events: none;
+    box-shadow: 0 4px 16px var(--np-shadow-strong, rgba(0, 0, 0, 0.15));
+}
+
+.progress-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.progress-toast-text {
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.progress-toast-bar-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--np-surface-alt, #e9ecef);
+    overflow: hidden;
+}
+
+.progress-toast-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--np-accent, #366092);
+    border-radius: 3px;
+    transition: width 0.25s ease;
+}
+
+.progress-toast-success .progress-toast-bar-fill {
+    background: var(--np-success, #28a745);
+}
+
+.progress-toast-error {
+    border-color: var(--np-danger, #dc3545);
+}
+
+.progress-toast-error .progress-toast-bar-fill {
+    background: var(--np-danger, #dc3545);
+}
+
 .gantt-progress {
     position: absolute;
     left: 0;
