@@ -1,0 +1,56 @@
+# The two full test suites. The other workflows guard specific invariants --
+# engine-conformance.yml that both scheduling engines agree, and
+# markdown-roundtrip.yml that a plan survives a save -- but until this one
+# existed nothing ran `pytest` or `npm run test:js` on a pull request, so a
+# broken test only showed up when somebody ran it locally.
+name: Test suites
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    name: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install the workspace
+        run: uv sync --all-packages
+
+      # The Selenium tests in tests/test_usability.py skip themselves when
+      # there is no browser and no server to drive, so the whole suite runs
+      # here as-is -- nothing is excluded.
+      - name: Run the Python suite
+        run: uv run pytest -q -p no:cacheprovider
+
+  js:
+    name: npm run test:js
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # The browser libraries are vendored into static/vendor, but the tests
+      # import the npm originals to check the two agree, so the dev
+      # dependencies have to be installed.
+      - name: Install dev dependencies
+        run: npm ci
+
+      - name: Run the JavaScript suites
+        run: npm run test:js
