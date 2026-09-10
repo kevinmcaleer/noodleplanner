@@ -68,6 +68,7 @@ const {
     wbRectsOverlap,
     wbFindFreeSpacePosition,
     wbBuildAddNoteRows,
+    wbLayoutRows,
     wbInsertNewSummaryTaskLine,
 } = sandbox;
 
@@ -269,6 +270,69 @@ const tasks = [
     const readdRect = { x: readd.x, y: readd.y, width: opts.width, height: opts.height };
     const xRect = { x: xRow.x, y: xRow.y, width: opts.width, height: opts.height };
     assert(!wbRectsOverlap(readdRect, xRect, opts.gap), 're-adding must not overlap whatever now occupies the board');
+}
+
+// ── wbLayoutRows: layout tools (tidy/hierarchy/compact/comfy/flow) ───────
+{
+    const viewport = { x: 0, y: 0, width: 1400, height: 900 };
+    const baseItems = [
+        { task: 'Phase 1', x: 500, y: 500, width: 420, height: 260 },
+        { task: 'Discovery', x: 100, y: 100, width: 190, height: 180 },
+        { task: 'Build', x: 200, y: 300, width: 210, height: 200 },
+        { task: 'Phase 2', x: 800, y: 200, width: 220, height: 190 },
+        { kind: 'text', id: 'note-1', text: 'free text', x: 33, y: 44 },
+    ];
+
+    const tidy = wbLayoutRows(baseItems, tasks, 'tidy', {
+        viewportRect: viewport,
+        gap: 24,
+        standardSize: true,
+    });
+    const tidyNotes = tidy.filter(i => i.task);
+    assert(tidyNotes.every(row => row.width === 260 && row.height === 220),
+        'tidy layout applies a standard note size');
+    assert(tidy.find(i => i.kind === 'text').x === 33 && tidy.find(i => i.kind === 'text').y === 44,
+        'layout leaves free-floating text rows untouched');
+
+    const compact = wbLayoutRows(baseItems, tasks, 'compact', { viewportRect: viewport, gap: 8 });
+    const comfy = wbLayoutRows(baseItems, tasks, 'comfy', { viewportRect: viewport, gap: 56 });
+    const compactStep = compact[1].x - compact[0].x;
+    const comfyStep = comfy[1].x - comfy[0].x;
+    assert(compactStep < comfyStep, 'compact spacing places notes closer together than comfy spacing');
+
+    const hierarchy = wbLayoutRows(baseItems, tasks, 'hierarchy', { viewportRect: viewport, gap: 24 });
+    const hByName = Object.fromEntries(hierarchy.filter(i => i.task).map(i => [i.task, i]));
+    assert(hByName['Discovery'].x > hByName['Phase 1'].x,
+        'hierarchy view indents a child note relative to its parent');
+    assert(hByName['Phase 2'].x > hByName['Phase 1'].x,
+        'hierarchy view places multiple top-level summaries in separate columns');
+
+    const flowTasks = [
+        { name: 'A', parent: null, dependencies: [] },
+        { name: 'B', parent: null, dependencies: [{ target: { name: 'A' } }] },
+        { name: 'C', parent: null, dependencies: [{ target: { name: 'B' } }] },
+        { name: 'D', parent: null, dependencies: [{ target: { name: 'A' } }] },
+    ];
+    const flowItems = [
+        { task: 'A', x: 0, y: 0 },
+        { task: 'B', x: 0, y: 0 },
+        { task: 'C', x: 0, y: 0 },
+        { task: 'D', x: 0, y: 0 },
+    ];
+    const flow = wbLayoutRows(flowItems, flowTasks, 'flow', { viewportRect: viewport, gap: 24 });
+    const flowByName = Object.fromEntries(flow.map(i => [i.task, i]));
+    assert(flowByName.B.x > flowByName.A.x, 'flow view places a dependent task to the right of its prerequisite');
+    assert(flowByName.C.x > flowByName.B.x, 'flow view continues dependency chains left-to-right');
+    assert(flowByName.D.x > flowByName.A.x, 'flow view places sibling dependents to the right of shared prerequisites');
+
+    const missingDepTasks = [
+        { name: 'Only', parent: null, dependencies: [{ target: { name: 'Not On Board' } }] },
+    ];
+    const missingDepFlow = wbLayoutRows([{ task: 'Only', x: 0, y: 0 }], missingDepTasks, 'flow', {
+        viewportRect: viewport, gap: 24,
+    });
+    assert(missingDepFlow[0].x === 24,
+        'flow view ignores missing dependency targets rather than shifting a note right');
 }
 
 // ── wbInsertNewSummaryTaskLine: the picker's "create new" outline edit

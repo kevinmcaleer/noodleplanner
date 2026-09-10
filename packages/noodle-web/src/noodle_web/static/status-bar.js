@@ -677,6 +677,13 @@ function fixMppAssignmentWarning(index) {
 function goToEditorLine(lineNumber) {
     var editor = document.getElementById('planEditor');
     if (!editor) return;
+    if (typeof SectionFolding !== 'undefined') {
+        var controller = SectionFolding.controllerFor(editor);
+        if (controller) {
+            controller.revealRawLine(lineNumber);
+            return;
+        }
+    }
     var lines = editor.value.split('\n');
     var pos = 0;
     for (var i = 0; i < lineNumber - 1 && i < lines.length; i++) pos += lines[i].length + 1;
@@ -687,6 +694,7 @@ function goToEditorLine(lineNumber) {
     editor.scrollTop = Math.max(0, (lineNumber - 3) * lineHeight);
     editor.dispatchEvent(new Event('scroll'));
 }
+
 
 // ---------------------------------------------------------------------------
 // Status history popup + fullscreen log + save-to-file
