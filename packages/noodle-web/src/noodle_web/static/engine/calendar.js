@@ -209,6 +209,55 @@ export function parseActiveCalendarName(planText) {
   return null;
 }
 
+const RESOURCE_LINE_RE = /^-\s*@(\S+?):\s*(.*)$/;
+const RESOURCE_CALENDAR_SUFFIX_RE = /,?\s*calendar\s+([^,[]+?)(?=\s*(?:,|non-working\s*\[|$))/i;
+
+/**
+ * Each resource's assigned calendar name from its `calendar <Name>` suffix
+ * (issue #1136) -- order-independent relative to a `non-working [...]`
+ * suffix on the same line, mirroring exporters.py's
+ * parse_resource_calendars().
+ *
+ *     - @kev: Kevin McAleer, PM calendar Gulf non-working [2026-08-03]
+ */
+export function parseResourceCalendarNames(planText) {
+  const names = new Map();
+  const fm = /^---\n([\s\S]*?)\n---/.exec(String(planText || ""));
+  if (!fm) return names;
+
+  let inResources = false;
+  for (const raw of fm[1].split("\n")) {
+    if (raw.trim().startsWith("Resources:")) { inResources = true; continue; }
+    if (inResources && raw && !raw.startsWith(" ") && !raw.trim().startsWith("-")) inResources = false;
+    if (!inResources) continue;
+
+    const resource = RESOURCE_LINE_RE.exec(raw.trim());
+    if (!resource) continue;
+    const calendarMatch = RESOURCE_CALENDAR_SUFFIX_RE.exec(resource[2]);
+    if (calendarMatch) names.set(resource[1].toLowerCase(), calendarMatch[1].trim());
+  }
+  return names;
+}
+
+/**
+ * Each resource's assigned calendar, resolved against `calendars:`
+ * (issue #1136). A resource naming an undeclared calendar is omitted --
+ * scheduleTasks already falls back to the project calendar for any
+ * resource with no entry.
+ */
+export function resolvedResourceCalendars(planText) {
+  const calendars = parseCalendars(planText);
+  const resolved = new Map();
+  for (const [shortName, calendarName] of parseResourceCalendarNames(planText)) {
+    if (calendars.has(calendarName)) {
+      resolved.set(shortName, calendars.get(calendarName));
+    } else {
+      console.warn(`[calendar] resource @${shortName}'s calendar ${JSON.stringify(calendarName)} not found among calendars:, falling back to the project calendar`);
+    }
+  }
+  return resolved;
+}
+
 /** The project's active calendar: named by `calendar:`, falling back to
  * Standard when unset or when the named calendar isn't declared. */
 export function activeCalendar(planText) {
@@ -226,5 +275,6 @@ if (typeof module !== "undefined" && module.exports) {
     DAY_NAMES, ROTATION_EPOCH_DAY, CalendarFormatError, Calendar, STANDARD_CALENDAR,
     parseWeekPattern, weekPatternText, parseCalendarEntry, parseCalendars,
     parseActiveCalendarName, activeCalendar,
+    parseResourceCalendarNames, resolvedResourceCalendars,
   };
 }

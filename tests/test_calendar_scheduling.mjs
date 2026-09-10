@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 
 import { scheduleTasksFromText, dayOf, isoOf } from "../packages/noodle-web/src/noodle_web/static/engine/scheduler.js";
 import { Calendar, parseWeekPattern } from "../packages/noodle-web/src/noodle_web/static/engine/calendar.js";
+import { localParse } from "../packages/noodle-web/src/noodle_web/static/engine/local-parse.js";
 
 function finishOf(tasks, name) {
   return tasks.find((t) => t.name === name).finish;
@@ -92,4 +93,23 @@ test("critical-path float honours the active calendar", () => {
   assert.equal(byName.Long.critical, true);
   assert.equal(byName.Long.total_float, 0);
   assert.ok(byName.Short.total_float > 0);
+});
+
+test("localParse resolves a resource's calendar assignment from front matter end to end (#1136)", () => {
+  const plan = `---
+title: Resource Calendar Test
+calendars:
+- Gulf: Sun-Thu
+Resources:
+- @kev: Kevin McAleer, PM calendar Gulf
+- @sam: Sam Jones, Analyst
+---
+Kev's task 2026-08-02 5d @kev
+Sam's task 2026-08-02 5d @sam`;
+  const result = localParse(plan);
+  const byName = Object.fromEntries(result.tasks.map((t) => [t.name, t]));
+  // @kev is on Gulf (Sun-Thu): Sunday is a working day, no weekend gap.
+  assert.equal(byName["Kev's task"].finish, "2026-08-07");
+  // @sam has no assigned calendar: falls back to the implicit Standard.
+  assert.equal(byName["Sam's task"].finish, "2026-08-08");
 });

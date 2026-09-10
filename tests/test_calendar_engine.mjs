@@ -17,6 +17,8 @@ import {
   parseCalendars,
   parseActiveCalendarName,
   activeCalendar,
+  parseResourceCalendarNames,
+  resolvedResourceCalendars,
 } from "../packages/noodle-web/src/noodle_web/static/engine/calendar.js";
 import { dayOf } from "../packages/noodle-web/src/noodle_web/static/engine/date-math.js";
 
@@ -141,4 +143,36 @@ test("an invalid calendar entry is skipped, not fatal", () => {
   const plan = "---\ntitle: X\ncalendars:\n- Bad: Notaday-Fri\n- Good: Mon-Fri\n---\nTask A 1d\n";
   const calendars = parseCalendars(plan);
   assert.deepEqual([...calendars.keys()], ["Good"]);
+});
+
+const PLAN_WITH_RESOURCE_CALENDARS = `---
+title: Resource Calendars
+calendars:
+- Gulf: Sun-Thu
+- Standard: Mon-Fri
+Resources:
+- @kev: Kevin McAleer, PM calendar Gulf non-working [2026-06-10]
+- @sam: Sam Jones, Analyst non-working [2026-06-11] calendar Gulf
+- @adam: Adam Reid, Architect
+---
+Phase 1
+  Task A 3d @kev
+`;
+
+test("parseResourceCalendarNames finds each resource's calendar suffix regardless of order", () => {
+  const names = parseResourceCalendarNames(PLAN_WITH_RESOURCE_CALENDARS);
+  assert.deepEqual(Object.fromEntries(names), { kev: "Gulf", sam: "Gulf" });
+  assert.equal(names.has("adam"), false);
+});
+
+test("resolvedResourceCalendars resolves assignments to Calendar objects", () => {
+  const resolved = resolvedResourceCalendars(PLAN_WITH_RESOURCE_CALENDARS);
+  assert.deepEqual([...resolved.keys()].sort(), ["kev", "sam"]);
+  assert.equal(resolved.get("kev").name, "Gulf");
+  assert.deepEqual(resolved.get("kev").weekPattern, parseWeekPattern("Sun-Thu"));
+});
+
+test("a resource naming an undeclared calendar is omitted", () => {
+  const plan = "---\ntitle: X\ncalendars:\n- Gulf: Sun-Thu\nResources:\n- @kev: Kevin McAleer, PM calendar Nonexistent\n---\nTask A 1d @kev\n";
+  assert.equal(resolvedResourceCalendars(plan).size, 0);
 });
