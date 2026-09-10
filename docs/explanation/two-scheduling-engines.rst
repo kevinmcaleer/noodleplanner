@@ -108,18 +108,16 @@ engine bug — from the browser console::
 Known differences
 ------------------
 
-One difference is deliberate, and worth knowing about because it looks like a
-bug in the browser engine and is not.
-
-**The front-matter calendar is ignored on the web path.** Both engines can
-schedule around project-wide and per-resource non-working days, but
-``PlanService`` does not pass them: ``_schedule_and_build_tasks`` calls
-``schedule_tasks(phases)`` with no holidays, so the ``non-working-days:``
-front matter is parsed and then unused when the server answers
-``/api/parse``. The browser engine matches that, so the two agree. Wiring the
-calendar through is a one-line change on the Python side, and when it is made
-the corpus will need regenerating and the browser engine will need
-``applyCalendar`` turned on to match.
+None currently. Both engines schedule around the front-matter calendar
+(project-wide ``non-working-days:``/``holidays:`` and per-resource
+``non-working [...]`` exceptions): ``PlanService._schedule_and_build_tasks``
+passes ``FrontMatterParser.parse_non_working_days()`` and
+``parse_resource_non_working_days()`` into ``schedule_tasks``, and the
+browser engine's ``localParse`` applies the same calendar by default
+(``local-parse.js``'s ``applyCalendar`` option, on unless passed ``false``).
+This was fixed in issue #837 — the conformance corpus was regenerated when it
+was, and ``tests/test_engine_conformance.mjs`` passes the calendar through
+too so the two engines keep agreeing.
 
 Related
 --------

@@ -36,14 +36,14 @@
    "deliverable": "",
    "dependency_types": {},
    "depends": [],
-   "duration_days": 146,
+   "duration_days": 147,
    "effort_completed": "",
    "effort_completed_unit": "",
    "effort_remaining": "",
    "effort_remaining_unit": "",
    "effort_total": "",
    "effort_total_unit": "",
-   "finish": "2026-12-29",
+   "finish": "2026-12-30",
    "id": 1,
    "inherited_resource": false,
    "is_summary": true,
@@ -79,7 +79,7 @@
    "effort_remaining_unit": "",
    "effort_total": "",
    "effort_total_unit": "",
-   "finish": "2026-08-19",
+   "finish": "2026-08-26",
    "id": 2,
    "inherited_resource": false,
    "is_summary": false,
@@ -98,7 +98,7 @@
    "recurrence": null,
    "resources": "Kevin McAleer",
    "start": "2026-08-05",
-   "total_float": 94
+   "total_float": 89
   },
   {
    "bucket": "",
@@ -115,7 +115,7 @@
    "effort_remaining_unit": "",
    "effort_total": "",
    "effort_total_unit": "",
-   "finish": "2026-08-19",
+   "finish": "2026-08-26",
    "id": 3,
    "inherited_resource": false,
    "is_summary": false,
@@ -134,7 +134,7 @@
    "recurrence": null,
    "resources": "Adam Reid",
    "start": "2026-08-05",
-   "total_float": 94
+   "total_float": 89
   },
   {
    "bucket": "",
@@ -151,7 +151,7 @@
    "effort_remaining_unit": "",
    "effort_total": "",
    "effort_total_unit": "",
-   "finish": "2026-12-29",
+   "finish": "2026-12-30",
    "id": 4,
    "inherited_resource": false,
    "is_summary": false,

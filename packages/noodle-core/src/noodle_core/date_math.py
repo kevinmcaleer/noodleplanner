@@ -7,6 +7,24 @@ import re
 from datetime import datetime, timedelta
 
 
+def _as_date(value):
+    """Normalize a date or datetime to a plain date.
+
+    ``date`` and ``datetime`` are never equal to each other even for the same
+    calendar day (a `datetime` is considered more precise), so a holiday set
+    built from `date` objects silently never matches the `datetime` values
+    the scheduling engine works with unless both sides are normalized first.
+
+    Duck-typed (``hasattr`` rather than ``isinstance(value, datetime)``)
+    because the conformance-corpus builder monkeypatches this module's
+    ``datetime`` name with a `.now()`-frozen subclass to pin "today" -- an
+    isinstance check against that name would silently stop matching real
+    `datetime` instances the moment the patch is active. `date` objects have
+    no `.date()` method, so this still leaves them unchanged.
+    """
+    return value.date() if hasattr(value, 'date') else value
+
+
 def get_next_working_day(date, holidays=None):
     """Get the next working day from a given date.
 
@@ -22,12 +40,13 @@ def get_next_working_day(date, holidays=None):
     """
     if holidays is None:
         holidays = set()
+    normalized_holidays = {_as_date(h) for h in holidays}
 
     current_date = date
     max_iterations = 366
     for _ in range(max_iterations):
         is_weekend = current_date.weekday() >= 5  # Saturday=5, Sunday=6
-        is_holiday = current_date in holidays
+        is_holiday = _as_date(current_date) in normalized_holidays
 
         if not is_weekend and not is_holiday:
             return current_date
@@ -65,6 +84,7 @@ def add_working_days(start_date, num_days, holidays=None):
     """
     if holidays is None:
         holidays = set()
+    normalized_holidays = {_as_date(h) for h in holidays}
 
     if num_days == 0:
         # Zero-duration tasks (milestones) finish on the same day
@@ -88,7 +108,7 @@ def add_working_days(start_date, num_days, holidays=None):
 
             # Check if current date is a working day
             is_weekend = current_date.weekday() >= 5  # Saturday=5, Sunday=6
-            is_holiday = current_date in holidays
+            is_holiday = _as_date(current_date) in normalized_holidays
 
             if not is_weekend and not is_holiday:
                 days_subtracted += 1
@@ -106,7 +126,7 @@ def add_working_days(start_date, num_days, holidays=None):
 
         # Check if current date is a working day
         is_weekend = current_date.weekday() >= 5  # Saturday=5, Sunday=6
-        is_holiday = current_date in holidays
+        is_holiday = _as_date(current_date) in normalized_holidays
 
         if not is_weekend and not is_holiday:
             days_added += 1
@@ -134,12 +154,13 @@ def count_working_days(start_date, end_date, holidays=None):
     """
     if holidays is None:
         holidays = set()
+    normalized_holidays = {_as_date(h) for h in holidays}
     if start_date >= end_date:
         return 0
     count = 0
     current = start_date
     while current < end_date:
-        if current.weekday() < 5 and current not in holidays:
+        if current.weekday() < 5 and _as_date(current) not in normalized_holidays:
             count += 1
         current += timedelta(days=1)
     return count

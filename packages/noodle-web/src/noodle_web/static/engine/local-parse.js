@@ -161,9 +161,11 @@ function fromPage(name, ...args) {
  *
  * @param {string} planText
  * @param {string} [projectName]
- * @param {object} [options] { applyCalendar } — the server ignores the
- *   front-matter calendar (see the conformance test), so this does too
- *   unless asked, to keep the two engines answering alike.
+ * @param {object} [options] { applyCalendar } — the front-matter calendar
+ *   (project holidays and per-resource non-working days) is applied by
+ *   default now that the server applies it too (issue #837), so the two
+ *   engines keep answering alike. Pass `applyCalendar: false` to schedule
+ *   without it.
  */
 export function localParse(planText, projectName = null, options = {}) {
   const text = String(planText || "");
@@ -173,7 +175,7 @@ export function localParse(planText, projectName = null, options = {}) {
   const resolvedName = projectName || frontMatter.title || "Project";
 
   const scheduleOptions = { resourceMap };
-  if (options.applyCalendar) {
+  if (options.applyCalendar !== false) {
     const { holidays, resourceNonWorkingDays } = parseCalendar(text);
     scheduleOptions.holidays = holidays;
     scheduleOptions.resourceNonWorkingDays = resourceNonWorkingDays;
