@@ -67,8 +67,8 @@ function _toShortname(displayName) {
             if (short.toLowerCase() === lower) return short;
         }
     }
-    // Fallback: slugify the full display name into a single token.
-    return displayName.trim().toLowerCase().split(/\s+/).filter(Boolean).join('-');
+    // Fallback: normalize the display name into a single token for the flag.
+    return displayName.trim().toLowerCase().replace(/\s+/g, '-');
 }
 
 /**

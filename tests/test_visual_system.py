@@ -339,6 +339,70 @@ class TestContrast:
         set_theme(browser, "light")
 
 
+class TestComponentOwnedColours:
+    def test_whiteboard_note_titles_stay_legible_on_their_own_header_colour(self, browser, app_server):
+        """Components that colour their own surface must keep their own text colour.
+
+        A whiteboard note's header is painted with the note's colour -- chosen
+        by the user or derived from the task's place in the outline -- and
+        whiteboard-notes.js computes a real WCAG-contrasting text colour for it
+        (wbContrastTextColour()). The palette's blanket `h1,h2,h3 { color }`
+        used to paint over that, putting near-black ink on a dark navy header
+        at 1.12:1. This walks the rendered notes rather than the stylesheet, so
+        any future heading rule that reintroduces the clobber is caught.
+        """
+        open_app(browser, app_server)
+        set_theme(browser, "light")
+        browser.execute_script(
+            "const ed = document.getElementById('planEditor');"
+            "ed.value = `---\n"
+            "title: Note Title Contrast\n"
+            "---\n\n"
+            "Discovery & Planning\n"
+            "  Stakeholder interviews @alex 3d 100%\n"
+            "  Requirements gathering @alex 2d 75%\n\n"
+            "Design\n"
+            "  Wireframes @sam 5d\n\n"
+            "---whiteboard---\n"
+            "| Task                   | X   | Y   | Colour  | Width | Height | Collapsed |\n"
+            "|------------------------|-----|-----|---------|-------|--------|-----------|\n"
+            "| Discovery & Planning   | 80  | 60  | #4A90D9 | 280   | 220    | no        |\n"
+            "| Design                 | 460 | 60  |         | 280   | 220    | no        |\n"
+            "| Requirements gathering | 80  | 340 | #7FB069 | 280   | 200    | no        |\n"
+            "| Wireframes             | 460 | 340 | #E58C8A | 280   | 200    | no        |\n`;"
+            "ed.dispatchEvent(new Event('input', {bubbles: true}));"
+        )
+        time.sleep(1.5)
+        browser.execute_script("switchToView('whiteboard')")
+        time.sleep(1.2)
+
+        probe = """
+            function lum(c){const m=c.match(/[\\d.]+/g).map(Number);
+              const f=v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)};
+              return .2126*f(m[0])+.7152*f(m[1])+.0722*f(m[2]);}
+            function ratio(a,b){const x=lum(a),y=lum(b);
+              return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
+            return [...document.querySelectorAll('.wb-note')].map(fo => {
+              const header = fo.querySelector('.wb-note-header');
+              const title = fo.querySelector('.wb-note-title');
+              if (!header || !title) return null;
+              return {
+                task: fo.dataset.wbTask,
+                ratio: +ratio(getComputedStyle(title).color,
+                              getComputedStyle(header).backgroundColor).toFixed(2),
+              };
+            }).filter(Boolean);
+        """
+        notes = browser.execute_script(probe)
+        assert notes, "no whiteboard notes rendered"
+        # 4.5:1 is AA for normal text; a note title is 13px bold, so AA applies.
+        illegible = [n for n in notes if n["ratio"] < 4.5]
+        assert not illegible, (
+            "note titles below WCAG AA on their own header: "
+            + ", ".join(f"{n['task']} = {n['ratio']}:1" for n in illegible)
+        )
+
+
 class TestEditorMetrics:
     def test_editor_and_highlight_overlay_keep_identical_metrics(self, browser, app_server):
         """The textarea and its syntax-highlight overlay are stacked and must
