@@ -103,10 +103,17 @@ async function exportPortfolioReport() {
         btn.textContent = 'Exporting...';
     }
 
+    // A persistent toast with a progress bar, so the (potentially slow)
+    // export runs visibly instead of leaving the UI looking stuck (#1068).
+    const progress = (typeof showProgressToast === 'function')
+        ? showProgressToast('Preparing portfolio export...')
+        : null;
+
     try {
         const parsedProjects = await parseAllProjects();
 
         if (parsedProjects.length === 0) {
+            if (progress) progress.fail('No projects to export.');
             if (typeof showMessage === 'function') {
                 showMessage('editor', 'error', 'No projects to export.');
             }
@@ -118,8 +125,17 @@ async function exportPortfolioReport() {
         // Build portfolio overview data and individual project reports
         const portfolioProjects = [];
         const projectReports = [];
+        const totalProjects = parsedProjects.length;
+        let projectIndex = 0;
 
         for (const { project, parsedResult } of parsedProjects) {
+            projectIndex++;
+            if (progress) {
+                progress.update(
+                    'Collecting data: ' + (project.name || 'project') + ' (' + projectIndex + '/' + totalProjects + ')',
+                    5 + (projectIndex / totalProjects) * 20
+                );
+            }
             const tasks = (parsedResult && parsedResult.success) ? (parsedResult.tasks || []) : [];
             const frontMatter = (parsedResult && parsedResult.success) ? (parsedResult.front_matter || {}) : {};
             const raidItems = (parsedResult && parsedResult.success) ? (parsedResult.raid_items || []) : [];
@@ -173,6 +189,12 @@ async function exportPortfolioReport() {
             if (deliverablesData) reportData.deliverables = deliverablesData;
 
             // Capture per-project timeline as a PNG image using swimlane style
+            if (progress) {
+                progress.update(
+                    'Capturing timeline: ' + (project.name || 'project') + ' (' + projectIndex + '/' + totalProjects + ')',
+                    25 + (projectIndex / totalProjects) * 25
+                );
+            }
             const timelineImage = await captureProjectTimelineImage(tasks, project.name);
             if (timelineImage) reportData.timeline_image = timelineImage;
 
@@ -185,6 +207,8 @@ async function exportPortfolioReport() {
             return (ragOrder[a.rag] || 2) - (ragOrder[b.rag] || 2);
         });
 
+        if (progress) progress.update('Rendering portfolio timeline...', 52);
+
         // Ensure the portfolio timeline SVG is rendered before capture
         if (typeof renderPortfolioTimeline === 'function') {
             const timelineView = document.getElementById('portfolioTimelineView');
@@ -193,6 +217,8 @@ async function exportPortfolioReport() {
             await renderPortfolioTimeline();
             if (wasHiddenPre) timelineView.style.display = 'none';
         }
+
+        if (progress) progress.update('Capturing portfolio timeline...', 58);
 
         // Capture the portfolio timeline as a PNG image using html2canvas
         // so the PPTX gets a high-fidelity rendering of the SVG-based timeline.
@@ -237,16 +263,29 @@ async function exportPortfolioReport() {
         })();
 
         if (!serverExports) {
-            const { exportPortfolioPptxInBrowser } = await import('/static/pptx-export.js');
-            const { filename } = await exportPortfolioPptxInBrowser(
+            // Build and zip the deck off the main thread (issue #1068): this
+            // is the CPU-heavy, DOM-free part, and the part that used to
+            // freeze the UI on a large portfolio.
+            if (progress) progress.update('Building PowerPoint deck...', 62);
+            const { filename, bytes } = await buildPortfolioDeckOffMainThread(
                 { portfolio_name: payload.portfolio_name, date: payload.date, projects: payload.projects, timeline_image: payload.timeline_image },
-                payload.project_reports
+                payload.project_reports,
+                function(done, total, label) {
+                    if (!progress) return;
+                    var pct = total ? 62 + (done / total) * 33 : 62;
+                    var suffix = total ? ' (' + done + '/' + total + ')' : '';
+                    progress.update('Building PowerPoint: ' + (label || '') + suffix, Math.min(pct, 96));
+                }
             );
+            downloadPptxBytes(bytes, filename);
+            if (progress) progress.done('Exported ' + filename);
             if (typeof showMessage === 'function') {
                 showMessage('editor', 'success', 'Exported ' + filename);
             }
             return;
         }
+
+        if (progress) progress.update('Uploading to server for rendering...', 70);
 
         const response = await fetch('/api/portfolio/export-pptx', {
             method: 'POST',
@@ -259,6 +298,8 @@ async function exportPortfolioReport() {
             throw new Error(errorData.detail || 'Portfolio export failed');
         }
 
+        if (progress) progress.update('Downloading PowerPoint file...', 90);
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -269,11 +310,13 @@ async function exportPortfolioReport() {
         window.URL.revokeObjectURL(url);
         a.remove();
 
+        if (progress) progress.done('Portfolio report exported to PowerPoint successfully!');
         if (typeof showMessage === 'function') {
             showMessage('editor', 'success', 'Portfolio report exported to PowerPoint successfully!');
         }
     } catch (error) {
         console.error('Error exporting portfolio report:', error);
+        if (progress) progress.fail('Failed to export: ' + error.message);
         if (typeof showMessage === 'function') {
             showMessage('editor', 'error', 'Failed to export portfolio report: ' + error.message);
         }
@@ -283,6 +326,75 @@ async function exportPortfolioReport() {
             btn.textContent = originalText;
         }
     }
+}
+
+/**
+ * Build and serialize the portfolio deck in a Web Worker, so slide assembly
+ * (PptxGenJS) and zip compression (JSZip) run off the main thread and don't
+ * block the UI on a large portfolio (issue #1068). Falls back to building on
+ * the main thread if Web Workers aren't available.
+ *
+ * @param {Object} portfolioData
+ * @param {Array} projectReports
+ * @param {(done: number, total: number, label: string) => void} [onProgress]
+ * @returns {Promise<{filename: string, bytes: Uint8Array}>}
+ */
+function buildPortfolioDeckOffMainThread(portfolioData, projectReports, onProgress) {
+    if (typeof Worker === 'undefined') {
+        return buildPortfolioDeckOnMainThread(portfolioData, projectReports);
+    }
+
+    return new Promise(function(resolve, reject) {
+        let worker;
+        try {
+            worker = new Worker('/static/pptx-build-worker.js', { type: 'module' });
+        } catch (err) {
+            resolve(buildPortfolioDeckOnMainThread(portfolioData, projectReports));
+            return;
+        }
+
+        worker.onmessage = function(event) {
+            const msg = event.data || {};
+            if (msg.type === 'progress') {
+                if (onProgress) onProgress(msg.done, msg.total, msg.label);
+            } else if (msg.type === 'done') {
+                worker.terminate();
+                resolve({ filename: msg.filename, bytes: msg.bytes });
+            } else if (msg.type === 'error') {
+                worker.terminate();
+                reject(new Error(msg.message || 'Portfolio export failed'));
+            }
+        };
+        worker.onerror = function(err) {
+            worker.terminate();
+            reject((err && err.error) || new Error((err && err.message) || 'Portfolio export failed'));
+        };
+        worker.postMessage({ portfolioData, projectReports });
+    });
+}
+
+/** Fallback used when Web Workers are unavailable: builds on the main thread. */
+async function buildPortfolioDeckOnMainThread(portfolioData, projectReports) {
+    const { buildPortfolioDeck, deckBytes, pptxFilename } = await import('/static/pptx-export.js');
+    const pptx = buildPortfolioDeck(portfolioData, projectReports);
+    const bytes = await deckBytes(pptx);
+    const filename = pptxFilename(portfolioData && portfolioData.portfolio_name, ' - Portfolio Report');
+    return { filename, bytes };
+}
+
+/** Trigger a browser download for the deck bytes built off-thread. */
+function downloadPptxBytes(bytes, filename) {
+    const blob = new Blob([bytes], {
+        type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
 }
 
 /**
