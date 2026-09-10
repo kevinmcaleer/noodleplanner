@@ -356,7 +356,7 @@ class TestKeyboard:
         # call), so :focus-visible engages the way it would for an actual
         # keyboard user.
         #
-        # Four Tab stops sit in between, in DOM order after the zoom
+        # Eleven Tab stops sit in between, in DOM order after the zoom
         # controls and before the canvas wrapper: the two "create
         # something from nothing" actions grouped together first --
         # "New post-it" then "New text" (issue #1018's free-floating text
@@ -364,14 +364,27 @@ class TestKeyboard:
         # "Add existing" (a different kind of action: add an *existing*
         # task to the board, not create a new one), then the "Structure"
         # toggle for the floating outline panel, then the Parking lot
-        # button, then the Link mode toggle. Asserted by id rather than
-        # just tabbed past blindly, so this still fails loudly if the
-        # toolbar's tab order is disturbed.
+        # button, then the layout actions ("Tidy", "Hierarchy",
+        # "Compact", "Comfy", "Flow"), then the Link mode toggle.
+        # Asserted by id rather than just tabbed past blindly, so this
+        # still fails loudly if the toolbar's tab order is disturbed.
         reset_btn = browser.find_element(
             By.CSS_SELECTOR, '#whiteboard-view button[title="Reset to 100%"]'
         )
         reset_btn.click()
-        for expected in ("whiteboardNewNoteBtn", "whiteboardNewTextBtn", "whiteboardAddNoteBtn", "whiteboardOutlineBtn", "whiteboardParkingLotBtn", "whiteboardLinkModeBtn"):
+        for expected in (
+            "whiteboardNewNoteBtn",
+            "whiteboardNewTextBtn",
+            "whiteboardAddNoteBtn",
+            "whiteboardOutlineBtn",
+            "whiteboardParkingLotBtn",
+            "whiteboardTidyLayoutBtn",
+            "whiteboardHierarchyLayoutBtn",
+            "whiteboardCompactLayoutBtn",
+            "whiteboardComfyLayoutBtn",
+            "whiteboardFlowLayoutBtn",
+            "whiteboardLinkModeBtn",
+        ):
             ActionChains(browser).send_keys(Keys.TAB).perform()
             time.sleep(0.1)
             active = browser.execute_script("return document.activeElement.id;")
