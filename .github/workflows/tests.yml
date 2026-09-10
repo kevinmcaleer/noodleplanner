@@ -41,6 +41,15 @@ jobs:
       - name: Install the workspace
         run: uv sync --all-packages
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dev dependencies
+        run: npm ci
+
       # `-m "not usability"` is what keeps this job fast: it deselects the
       # Selenium tests, which are the entire difference between ~18 minutes
       # and ~18 seconds. They still run -- in the `usability` job below --
@@ -48,7 +57,10 @@ jobs:
       #
       # This only works because every Selenium file now carries
       # `pytest.mark.usability`. Before, only tests/test_usability.py did, so
-      # the switch deselected 30 tests out of 229 and looked broken.
+      # the switch deselected 30 tests out of 229 and looked broken. The
+      # browser/Python Excel parity tests are non-usability pytest tests that
+      # shell out to Node, so this job still installs the npm dev
+      # dependencies they need.
       #
       # pytest.ini already puts -v in addopts, so a run killed on the timeout
       # names the test it stopped on rather than trailing off into dots.

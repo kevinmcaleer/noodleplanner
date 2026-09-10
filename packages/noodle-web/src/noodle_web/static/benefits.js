@@ -1913,7 +1913,7 @@ function benRenderTrackingTable() {
     if (trackableItems.length === 0) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = 7;
+        td.colSpan = 8;
         td.className = 'ben-tracking-empty';
         td.textContent = 'No benefits or disbenefits to track. Add items in the Map view.';
         tr.appendChild(td);
@@ -1990,6 +1990,16 @@ function benRenderTrackingTable() {
         updatedTd.style.color = '#999';
         updatedTd.style.fontSize = '12px';
         tr.appendChild(updatedTd);
+
+        const sourceTd = document.createElement('td');
+        const sourceBtn = document.createElement('button');
+        sourceBtn.type = 'button';
+        sourceBtn.className = 'raid-action-btn';
+        sourceBtn.title = 'Open source row in plan editor';
+        sourceBtn.innerHTML = '<i class="bi bi-code-slash"></i>';
+        sourceBtn.addEventListener('click', () => SectionFolding.jumpToBackMatterSection('---benefits---', item.id, 'benefits'));
+        sourceTd.appendChild(sourceBtn);
+        tr.appendChild(sourceTd);
 
         tbody.appendChild(tr);
     }

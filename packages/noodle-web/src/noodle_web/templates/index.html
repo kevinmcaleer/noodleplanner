@@ -145,6 +145,7 @@
     <link rel="stylesheet" href="/static/responsive.css?v={{ v }}">
     <link rel="stylesheet" href="/static/noodlesheet.css?v={{ v }}">
     <link rel="stylesheet" href="/static/ai-chat.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/front-matter-panel.css?v={{ v }}">
 </head>
 <body>
     <!-- SVG Icon Sprite (hidden, reference with use#id) -->
@@ -581,6 +582,7 @@
                         <div style="padding: 6px 10px; background: #3a3a3a; border-left: 4px solid #108BB9; margin-bottom: 0; font-size: 0.85em; color: #d4d4d4;">
                             💡 <strong>Tip:</strong> Double-click or double-tap any task line to edit it
                         </div>
+                        <div id="frontMatterPanel" class="fm-panel"></div>
                         <div class="editor-wrapper">
                             <div class="line-numbers" id="lineNumbers">1</div>
                             <div class="editor-area">
@@ -1185,6 +1187,7 @@ Press Enter to render..."></textarea>
                                 <div class="highlights-toolbar">
                                     <h2 class="highlights-title"><span class="ribbon-banner ribbon-banner--yellow">Project Highlights</span></h2>
                                     <a class="subtle-add-btn" onclick="addHighlight()" title="Add highlight">+ Add Highlight</a>
+                                    <a class="subtle-add-btn" onclick="SectionFolding.jumpToBackMatterSection('---highlights---', null, 'highlights')" title="Open highlights markdown in the plan editor"><i class="bi bi-code-slash"></i> Markdown</a>
                                     <a class="subtle-add-btn" onclick="showTrendReportDialog()" title="Generate trend report from version history"><i class="bi bi-graph-up-arrow"></i> Auto Report</a>
                                 </div>
                                 <div class="highlights-list" id="highlightsList">
@@ -1437,6 +1440,23 @@ Press Enter to render..."></textarea>
                                         </button>
                                     </div>
                                     <div class="wb-toolbar-group">
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardTidyLayoutBtn" onclick="wbLayoutTidyNotes()" title="Tidy up notes into a uniform grid" aria-label="Tidy up notes">
+                                            <span>Tidy</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardHierarchyLayoutBtn" onclick="wbLayoutHierarchyView()" title="Arrange notes by plan hierarchy" aria-label="Hierarchy view">
+                                            <span>Hierarchy</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardCompactLayoutBtn" onclick="wbLayoutCompact()" title="Use compact spacing between notes" aria-label="Compact spacing">
+                                            <span>Compact</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardComfyLayoutBtn" onclick="wbLayoutComfy()" title="Use roomy spacing between notes" aria-label="Comfy spacing">
+                                            <span>Comfy</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardFlowLayoutBtn" onclick="wbLayoutFlowView()" title="Arrange notes left-to-right by dependencies" aria-label="Flow view">
+                                            <span>Flow</span>
+                                        </button>
+                                    </div>
+                                    <div class="wb-toolbar-group">
                                         <button class="wb-toolbar-btn wb-link-mode-btn" id="whiteboardLinkModeBtn" onclick="wbToggleLinkMode()" title="Dragging a noodle handle makes a subtask (Hierarchy) or a dependency (Dependency) -- click to switch" aria-label="Link mode: Hierarchy. Click to switch to Dependency mode." aria-pressed="false">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3v12a3 3 0 003 3h6"/><path d="M12 15l3 3-3 3"/></svg>
                                             <span id="whiteboardLinkModeLabel">Hierarchy</span>
@@ -1609,6 +1629,9 @@ Press Enter to render..."></textarea>
                                         <button class="mindmap-toolbar-btn" onclick="exportBenefitsExcel()" title="Export to Excel" aria-label="Export benefits to Excel">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                                         </button>
+                                        <button class="mindmap-toolbar-btn" onclick="SectionFolding.jumpToBackMatterSection('---benefits---', null, 'benefits')" title="Open the benefits markdown section in the plan editor" aria-label="Open benefits markdown in the plan editor">
+                                            <i class="bi bi-code-slash"></i>
+                                        </button>
                                     </div>
                                     <div class="mindmap-toolbar-separator"></div>
                                     <div class="mindmap-toolbar-group benefits-add-group">
@@ -1657,6 +1680,7 @@ Press Enter to render..."></textarea>
                                                     <th>Measurement Method</th>
                                                     <th>Status</th>
                                                     <th>Last Updated</th>
+                                                    <th>Source</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="benefitsTrackingBody">
@@ -1919,6 +1943,7 @@ Build
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
                         <a class="subtle-add-btn" onclick="addRaidItem()" title="Add RAID item">+ Add Item</a>
+                        <a class="subtle-add-btn" onclick="SectionFolding.jumpToBackMatterSection('---raid log---', null, 'tasks')" title="Open the RAID markdown section in the plan editor"><i class="bi bi-code-slash"></i> Markdown</a>
                         <input type="file" id="raidMdUpload" accept=".md" style="display:none;" onchange="uploadRaidMarkdown(event)">
                         <input type="file" id="raidXlUpload" accept=".xlsx" style="display:none;" onchange="uploadRaidExcel(event)">
                         <div class="raid-toolbar-separator"></div>
@@ -2002,6 +2027,7 @@ Build
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
                         <a class="subtle-add-btn" onclick="addCommsItem()" title="Add comms item">+ Add Item</a>
+                        <a class="subtle-add-btn" onclick="SectionFolding.jumpToBackMatterSection('---comms---', null, 'tasks')" title="Open the comms markdown section in the plan editor"><i class="bi bi-code-slash"></i> Markdown</a>
                         <div class="raid-toolbar-separator"></div>
                         <div class="raid-filter-group">
                             <label for="commsFilterStatus">Status:</label>
@@ -2053,6 +2079,7 @@ Build
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
                         <a class="subtle-add-btn" onclick="addLessonsItem()" title="Capture a lesson learned">+ Add Lesson</a>
+                        <a class="subtle-add-btn" onclick="SectionFolding.jumpToBackMatterSection('---lessons learned---', null, 'tasks')" title="Open the lessons markdown section in the plan editor"><i class="bi bi-code-slash"></i> Markdown</a>
                         <div class="raid-toolbar-separator"></div>
                         <div class="raid-filter-group">
                             <label for="lessonsFilterImpact">Impact:</label>
@@ -2128,6 +2155,7 @@ Build
                     <!-- Toolbar -->
                     <div class="budget-toolbar">
                         <a class="subtle-add-btn" onclick="openBudgetForm(null)" title="Add budget item">+ Add Item</a>
+                        <a class="subtle-add-btn" onclick="SectionFolding.jumpToBackMatterSection('---budget---', null, 'tasks')" title="Open the budget markdown section in the plan editor"><i class="bi bi-code-slash"></i> Markdown</a>
                         <input type="file" id="budgetMdUpload" accept=".md" style="display:none;" onchange="uploadBudgetMarkdown(event)">
                         <input type="file" id="budgetXlUpload" accept=".xlsx" style="display:none;" onchange="uploadBudgetExcel(event)">
                         <div class="budget-toolbar-separator"></div>
@@ -4261,10 +4289,12 @@ Build
     <script src="/static/nav.js?v={{ v }}"></script>
     <script src="/static/task-tokenizer.js?v={{ v }}"></script>
     <script src="/static/plan-model.js?v={{ v }}"></script>
+    <script src="/static/front-matter-model.js?v={{ v }}"></script>
     <script src="/static/estimating.js?v={{ v }}"></script>
     <script src="/static/cards.js?v={{ v }}"></script>
     <script src="/static/highlight-toggles.js?v={{ v }}"></script>
     <script src="/static/plan-wizard.js?v={{ v }}"></script>
+    <script src="/static/section-folding.js?v={{ v }}"></script>
     <script src="/static/editor.js?v={{ v }}"></script>
     <script src="/static/window-drop.js?v={{ v }}"></script>
     <script src="/static/editor-sync.js?v={{ v }}"></script>
@@ -4283,6 +4313,7 @@ Build
     <script src="/static/version-history.js?v={{ v }}"></script>
     <script src="/static/portfolio.js?v={{ v }}"></script>
     <script src="/static/multi-plan-loader.js?v={{ v }}"></script>
+    <script src="/static/front-matter-panel.js?v={{ v }}"></script>
     <script src="/static/portfolio-status.js?v={{ v }}"></script>
     <script src="/static/portfolio-resources.js?v={{ v }}"></script>
     <script src="/static/portfolio-leveling.js?v={{ v }}"></script>

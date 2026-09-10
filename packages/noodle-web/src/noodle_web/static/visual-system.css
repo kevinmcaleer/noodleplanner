@@ -366,5 +366,6 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
     .btn,
     .task-row-add-btn:hover,
     .ribbon-file-btn,
-    .ribbon-file-btn:hover
+    .ribbon-file-btn:hover,
+    .fm-mode-btn.active
 ) { color: var(--np-on-accent); }
