@@ -53,6 +53,7 @@ const {
     wbAppendTopLevelTask,
     wbAppendChildTask,
     wbReparentTaskInPlanText,
+    wbMoveTaskInPlanText,
     wbRenameTaskInPlanText,
     wbDeleteTaskFromPlanText,
     wbBuildOutlineTree,
@@ -218,6 +219,56 @@ assertEqual(wbReparentTaskInPlanText(PLAN, 'Design', 'Build'), PLAN,
     'a link that already exists is a no-op (no spurious undo step)');
 assertEqual(wbReparentTaskInPlanText(PLAN, 'Discovery', null), PLAN,
     'detaching an already-top-level task is a no-op');
+
+// ── Reorder: drag a row up/down in the structure panel (issue #1156) ────
+
+const movedBefore = wbMoveTaskInPlanText(PLAN, 'Build', 'Discovery', true);
+assertEqual(
+    JSON.stringify(wbParseOutline(movedBefore).entries.map(e => e.name)),
+    JSON.stringify(['Build', 'Design', 'Wireframes', 'Develop', 'Discovery', 'Kick-off', 'Interviews']),
+    'moving Build before Discovery takes its whole subtree with it, ahead of Discovery'
+);
+assert(movedBefore.includes('[depends Discovery]'), 'a reorder keeps a dependency token');
+assert(movedBefore.includes('@adam 8d'), 'a reorder keeps resources and durations');
+assert(movedBefore.includes('---whiteboard---'), 'a reorder preserves back matter');
+
+// Kick-off (Discovery's child) reordered to sit after Build, a top-level
+// task -- it un-nests to Build's own (top) level, with no separate
+// outdent gesture needed, and lands after all of Build's own children
+// since a sibling of Build can't sit inside Build's subtree.
+const movedAfter = wbMoveTaskInPlanText(PLAN, 'Kick-off', 'Build', false);
+const movedAfterOutline = wbParseOutline(movedAfter);
+assertEqual(
+    JSON.stringify(movedAfterOutline.entries.map(e => e.name)),
+    JSON.stringify(['Discovery', 'Interviews', 'Build', 'Design', 'Wireframes', 'Develop', 'Kick-off']),
+    'Kick-off reordered to sit after Build\'s whole subtree'
+);
+assertEqual(
+    movedAfterOutline.entries.find(e => e.name === 'Kick-off').indent, 0,
+    'reordering next to a top-level task un-nests it -- no separate outdent gesture needed'
+);
+
+// A move can change depth without changing document order: Wireframes
+// (Design's child) becomes Develop's *sibling* rather than moving past it.
+const promoted = wbMoveTaskInPlanText(PLAN, 'Wireframes', 'Develop', true);
+assert(promoted.split('\n').includes('  Wireframes @adam 2d'),
+    'Wireframes promoted to Build\'s direct child, at Develop\'s indent');
+assertEqual(
+    JSON.stringify(wbParseOutline(promoted).entries.map(e => e.name)),
+    JSON.stringify(['Discovery', 'Kick-off', 'Interviews', 'Build', 'Design', 'Wireframes', 'Develop']),
+    'document order is unchanged -- only depth moved'
+);
+
+assertEqual(wbMoveTaskInPlanText(PLAN, 'Design', 'Wireframes', true), PLAN,
+    'moving a task next to its own descendant is a no-op');
+assertEqual(wbMoveTaskInPlanText(PLAN, 'Design', 'Design', true), PLAN,
+    'moving a task next to itself is a no-op');
+assertEqual(wbMoveTaskInPlanText(PLAN, 'Nope', 'Discovery', true), PLAN,
+    'an unknown task is a no-op');
+assertEqual(wbMoveTaskInPlanText(PLAN, 'Design', 'Nope', true), PLAN,
+    'an unknown reference is a no-op');
+assertEqual(wbMoveTaskInPlanText(PLAN, 'Interviews', 'Kick-off', false), PLAN,
+    'dropping a row right back where it already was creates no spurious undo step');
 
 // ── Rename ──────────────────────────────────────────────────────────────
 

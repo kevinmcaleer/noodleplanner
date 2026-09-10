@@ -452,6 +452,82 @@ function wbReparentTaskInPlanText(planText, childName, parentName) {
 }
 
 /**
+ * Move `taskName` (and its whole subtree) to sit immediately before or
+ * after `referenceName`, at the reference's own outline depth -- i.e. as
+ * its new previous/next sibling, under the reference's own parent (or
+ * top-level, if the reference is top-level).
+ *
+ * This is the write behind reordering a row in the floating structure
+ * panel (see wbOutlineRowDropped() in whiteboard-outline.js). Unlike
+ * wbReparentTaskInPlanText(), which always lands a task as its new
+ * parent's *last* child, this places it at an exact position relative to
+ * a sibling -- and, because the target depth always matches whatever
+ * depth the reference sits at, dragging a nested task next to a
+ * top-level one un-nests it for free, with no separate "outdent" gesture
+ * needed. Reparenting under an unrelated task (the "drag under and to
+ * the right" gesture) is a different write -- wbReparentTaskInPlanText()
+ * -- since that changes depth relative to a *new parent*, not a sibling.
+ *
+ * No-ops, returning `planText` unchanged, when: the task or reference
+ * can't be found, they are the same task, the move would bury the
+ * reference inside the subtree being moved (a cycle), or the move would
+ * produce byte-for-byte identical text (already exactly there).
+ */
+function wbMoveTaskInPlanText(planText, taskName, referenceName, before) {
+    const text = String(planText == null ? '' : planText);
+    if (!taskName || !referenceName) return text;
+    if (String(taskName).toLowerCase() === String(referenceName).toLowerCase()) return text;
+
+    const parsed = wbParseOutline(text);
+    const { entries } = parsed;
+    const taskPos = wbFindOutlineIndex(entries, taskName);
+    const refPos = wbFindOutlineIndex(entries, referenceName);
+    if (taskPos === -1 || refPos === -1) return text;
+
+    const taskEntry = entries[taskPos];
+    const taskEnd = wbSubtreeEndIndex(parsed, taskPos);
+    const refEntry = entries[refPos];
+
+    // Refuse to move a task next to one of its own descendants -- the
+    // reference (and the insertion point it defines) would be inside the
+    // very subtree being cut.
+    if (refEntry.index >= taskEntry.index && refEntry.index <= taskEnd) return text;
+
+    const lines = parsed.lines.slice();
+    const block = lines.slice(taskEntry.index, taskEnd + 1);
+    lines.splice(taskEntry.index, block.length);
+
+    // Re-parse after the cut: line indices below it have shifted.
+    const afterCut = wbParseOutline(lines.join('\n'));
+    const newRefPos = wbFindOutlineIndex(afterCut.entries, referenceName);
+    if (newRefPos === -1) return text; // reference vanished with the cut -- bail, unchanged
+    const newRefEntry = afterCut.entries[newRefPos];
+
+    const insertAt = before
+        ? newRefEntry.index
+        : wbSubtreeEndIndex(afterCut, newRefPos) + 1;
+
+    const indentDelta = newRefEntry.indent - taskEntry.indent;
+    const reindented = indentDelta === 0
+        ? block
+        : block.map(line => (String(line).trim()
+            ? wbSetLineIndent(line, Math.max(0, wbLineIndent(line) + indentDelta))
+            : line));
+
+    while (reindented.length > 1 && !String(reindented[reindented.length - 1]).trim()) {
+        reindented.pop();
+    }
+
+    const out = afterCut.lines.slice();
+    out.splice(insertAt, 0, ...reindented);
+    const result = out.join('\n');
+
+    // Dropping a task right back where it already was is a no-op -- avoid
+    // manufacturing a spurious undo step out of a drag that changed nothing.
+    return result === text ? text : result;
+}
+
+/**
  * Rename a task in the outline (the line itself), leaving every other
  * token on that line untouched -- only the name run is replaced.
  *

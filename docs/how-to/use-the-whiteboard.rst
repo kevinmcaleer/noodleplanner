@@ -96,6 +96,7 @@ The panel floating on the left of the canvas shows your whole plan as a collapsi
 - **Click a row** to fly the board to that note, which flashes so you can spot it. This is the quickest way to find a note on a large board.
 - **Type in the search box** to filter to matching tasks and their parents. Search ignores collapsed branches, so a result is never hidden from you.
 - **Click the ``+``** on a row without a note to put that task on the board.
+- **Drag a row's grip** (``⠿``) to restructure the plan. Dropping on the top half of another row moves it to sit just above that row; dropping on the bottom half moves it to sit just below — either way, at that row's own level, so dragging a nested task next to a top-level one un-nests it in the same move. Dropping on the bottom half **and** well to the right instead nests it as that row's sub-task — a deliberately different spot so a plain reorder is never mistaken for "make this a sub-task", or the reverse.
 
 .. figure:: /_static/img/how-to/wb-04-plan-structure.png
    :alt: The plan structure panel, listing phases and their subtasks with collapse chevrons and dots marking which tasks are on the board
