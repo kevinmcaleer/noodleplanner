@@ -1593,6 +1593,55 @@ body.wb-dependency-mode .wb-noodle-ghost {
     background: rgba(16, 139, 185, 0.1);
 }
 
+/* Drag handle -- restructuring the plan by dragging a row (#1156). Hidden
+   until hover/focus on a fine pointer so the panel doesn't look cluttered
+   with a grip glyph on every row; always shown on touch, where hover has
+   no equivalent. */
+.wb-outline-drag-handle {
+    flex-shrink: 0;
+    width: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--np-text-muted, #b0b0b0);
+    font-size: 12px;
+    line-height: 1;
+    cursor: grab;
+    touch-action: none;
+    opacity: 0;
+}
+
+.wb-outline-row:hover .wb-outline-drag-handle,
+.wb-outline-drag-handle:focus-visible {
+    opacity: 1;
+}
+
+@media (pointer: coarse) {
+    .wb-outline-drag-handle {
+        opacity: 1;
+    }
+}
+
+.wb-outline-row.wb-outline-dragging {
+    opacity: 0.4;
+}
+
+/* Drop indicators: a line above/below for a reorder, a filled highlight
+   for "nest as a child" -- deliberately distinct so the two gestures the
+   issue asks not to confuse are never rendered the same way. */
+.wb-outline-row.wb-outline-drop-before {
+    box-shadow: inset 0 2px 0 0 var(--np-blue, #108BB9);
+}
+
+.wb-outline-row.wb-outline-drop-after {
+    box-shadow: inset 0 -2px 0 0 var(--np-blue, #108BB9);
+}
+
+.wb-outline-row.wb-outline-drop-child {
+    background: rgba(16, 139, 185, 0.16);
+    box-shadow: inset 3px 0 0 0 var(--np-blue, #108BB9);
+}
+
 .wb-outline-chevron,
 .wb-outline-chevron-spacer {
     flex-shrink: 0;

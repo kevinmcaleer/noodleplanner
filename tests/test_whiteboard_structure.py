@@ -312,6 +312,41 @@ def drag_noodle(driver, parent_name, child_name):
     )
 
 
+def drag_outline_row(driver, source_name, target_name, drop_ratio_y, drop_offset_x=8):
+    """Drag `source_name`'s outline row onto `target_name`'s row, dropping
+    at `drop_ratio_y` (0 = top edge, 1 = bottom edge) of the target row and
+    `drop_offset_x` pixels to the right of the target row's own indent --
+    driving the real native HTML5 drag-and-drop handlers
+    (wbAttachOutlineDragHandlers() in whiteboard-outline.js), the same way
+    tests/test_usability.py drives notepad.js's drag-to-reorder."""
+    return driver.execute_script(
+        """
+        const [sourceName, targetName, ratioY, offsetX] = arguments;
+        const rowFor = (name) => Array.from(document.querySelectorAll('.wb-outline-row'))
+            .find(r => r.dataset.task === name);
+        const source = rowFor(sourceName);
+        const target = rowFor(targetName);
+        const handle = source.querySelector('.wb-outline-drag-handle');
+        const rect = target.getBoundingClientRect();
+        const style = getComputedStyle(target);
+        const x = rect.left + parseFloat(style.paddingLeft) + offsetX;
+        const y = rect.top + rect.height * ratioY;
+        const transfer = new DataTransfer();
+        const fire = (el, type) => el.dispatchEvent(new DragEvent(type, {
+            bubbles: true, cancelable: true, dataTransfer: transfer, clientX: x, clientY: y,
+        }));
+        fire(handle, 'dragstart');
+        fire(target, 'dragover');
+        fire(target, 'drop');
+        fire(handle, 'dragend');
+        """,
+        source_name,
+        target_name,
+        drop_ratio_y,
+        drop_offset_x,
+    )
+
+
 def double_press_header(driver, task_name):
     """Two mousedown/mouseup pairs on a note's header, the rename gesture.
 
@@ -796,3 +831,104 @@ def test_outline_add_button_puts_a_task_on_the_board(app_server, browser):
     assert outline_only(after) == before_outline
     # And the noodle for its now-on-board parent appears with it.
     assert ("Design", "Wireframes") in rendered_noodles(browser)
+
+
+# ── Drag positioning in the outline panel (issue #1156) ──────────────────
+
+
+def test_dragging_a_row_to_the_top_reorders_it(app_server, browser):
+    open_app(browser, app_server)
+    load_plan(browser, SAMPLE_PLAN)
+    switch_to_whiteboard(browser)
+
+    # Dropping on the *top* half of a row reorders the dragged task to sit
+    # just before it, at that row's own depth -- a plain "move up/down",
+    # not the "make it a sub-task" gesture.
+    drag_outline_row(browser, "Develop", "Discovery", drop_ratio_y=0.1)
+    wait_for_stable_plan_text(browser, timeout=6.0, quiet=1.0)
+
+    assert outline_rows(browser) == [
+        ("Develop", 0, False),
+        ("Discovery", 0, True),
+        ("Kick-off", 1, False),
+        ("Interviews", 1, False),
+        ("Build", 0, True),
+        ("Design", 1, True),
+        ("Wireframes", 2, False),
+    ]
+    lines = outline_only(get_plan_text(browser)).splitlines()
+    assert lines.count("Develop @adam 8d") == 1, "the old line is gone, not duplicated"
+
+
+def test_dragging_a_row_to_the_bottom_reorders_it_after(app_server, browser):
+    open_app(browser, app_server)
+    load_plan(browser, SAMPLE_PLAN)
+    switch_to_whiteboard(browser)
+
+    # Dropping on the bottom half *without* a rightward offset is still a
+    # plain reorder: Kick-off (Discovery's child) lands right after Build's
+    # whole subtree, at Build's own top level -- un-nested for free.
+    drag_outline_row(browser, "Kick-off", "Build", drop_ratio_y=0.9, drop_offset_x=2)
+    wait_for_stable_plan_text(browser, timeout=6.0, quiet=1.0)
+
+    assert outline_rows(browser) == [
+        ("Discovery", 0, True),
+        ("Interviews", 1, False),
+        ("Build", 0, True),
+        ("Design", 1, True),
+        ("Wireframes", 2, False),
+        ("Develop", 1, False),
+        ("Kick-off", 0, False),
+    ]
+
+
+def test_dragging_a_row_under_and_right_nests_it_as_a_subtask(app_server, browser):
+    open_app(browser, app_server)
+    load_plan(browser, SAMPLE_PLAN)
+    switch_to_whiteboard(browser)
+
+    # Bottom half *and* well to the right of Discovery's own indent -- the
+    # "make it a sub-task" gesture the issue asks not to confuse with a
+    # plain reorder.
+    drag_outline_row(browser, "Develop", "Discovery", drop_ratio_y=0.9, drop_offset_x=40)
+    wait_for_stable_plan_text(browser, timeout=6.0, quiet=1.0)
+
+    assert outline_rows(browser) == [
+        ("Discovery", 0, True),
+        ("Kick-off", 1, False),
+        ("Interviews", 1, False),
+        ("Develop", 1, False),
+        ("Build", 0, True),
+        ("Design", 1, True),
+        ("Wireframes", 2, False),
+    ]
+    lines = outline_only(get_plan_text(browser)).splitlines()
+    assert "  Develop @adam 8d" in lines, "Develop is now Discovery's child, not Build's"
+
+
+def test_dragging_a_row_onto_its_own_child_is_refused(app_server, browser):
+    open_app(browser, app_server)
+    load_plan(browser, SAMPLE_PLAN)
+    switch_to_whiteboard(browser)
+
+    before = get_plan_text(browser)
+    # Nesting Discovery under its own child would detach the branch into a
+    # loop -- the same cycle check a dragged noodle already refuses.
+    drag_outline_row(browser, "Discovery", "Kick-off", drop_ratio_y=0.9, drop_offset_x=40)
+    time.sleep(0.4)
+
+    assert get_plan_text(browser) == before, "a refused nest writes nothing"
+
+
+def test_dragging_a_row_is_one_undo_step(app_server, browser):
+    open_app(browser, app_server)
+    load_plan(browser, SAMPLE_PLAN)
+    switch_to_whiteboard(browser)
+
+    before = get_plan_text(browser)
+    drag_outline_row(browser, "Develop", "Discovery", drop_ratio_y=0.1)
+    wait_for_stable_plan_text(browser, timeout=6.0, quiet=1.0)
+    assert get_plan_text(browser) != before
+
+    undo(browser)
+    assert get_plan_text(browser) == before
