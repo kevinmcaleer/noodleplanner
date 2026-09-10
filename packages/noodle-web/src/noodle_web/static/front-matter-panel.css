@@ -107,46 +107,58 @@
 }
 
 .fm-panel-body {
-    padding: 6px 10px 10px;
+    padding: 3px 8px 5px;
     max-height: 40vh;
     overflow-y: auto;
+    font-size: 0.9em;
 }
 
 .fm-row-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0;
 }
 
 .fm-empty-hint {
     color: #888;
     font-style: italic;
-    padding: 6px 0;
+    padding: 4px 0;
 }
 
 .fm-row {
     display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    padding: 3px 0;
-    border-bottom: 1px solid #2f2f2f;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 0;
+    border-bottom: 1px solid #2a2a2a;
 }
 
 .fm-row-reorder {
     display: flex;
     flex-direction: column;
     gap: 0;
+    flex: 0 0 auto;
+}
+
+.fm-row-move-up,
+.fm-row-move-down {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 10px;
+    font-size: 0.55em;
 }
 
 .fm-row-btn {
     background: transparent;
     border: 1px solid transparent;
-    color: #999;
+    color: #808080;
     cursor: pointer;
     border-radius: 3px;
     line-height: 1;
-    padding: 1px 4px;
-    font-size: 0.85em;
+    padding: 0 3px;
+    font-size: 0.7em;
 }
 
 .fm-row-btn:hover {
@@ -155,39 +167,54 @@
 }
 
 .fm-row-btn:disabled {
-    opacity: 0.3;
+    opacity: 0.25;
     cursor: default;
 }
 
-.fm-row-remove:hover {
-    color: var(--np-red, #c21d1d);
+.fm-row-remove {
+    font-size: 0.85em;
 }
 
 .fm-row-key {
-    flex: 0 0 150px;
+    flex: 0 0 110px;
     color: #9cdcfe;
-    padding-top: 4px;
     word-break: break-word;
 }
 
 .fm-row-key-input {
-    background: #2d2d2d;
+    background: transparent;
     color: #9cdcfe;
-    border: 1px solid #555;
+    border: 1px solid transparent;
     border-radius: 3px;
-    padding: 3px 6px;
+    padding: 1px 4px;
+}
+
+.fm-row-key-input:hover,
+.fm-row-key-input:focus {
+    background: #2d2d2d;
+    border-color: #555;
 }
 
 .fm-value-input,
 .fm-value-select,
 .fm-list-field {
-    background: #1e1e1e;
+    background: transparent;
     color: #d4d4d4;
-    border: 1px solid #555;
+    border: 1px solid transparent;
     border-radius: 3px;
-    padding: 3px 6px;
+    padding: 1px 4px;
     font-family: inherit;
-    font-size: 1em;
+    font-size: inherit;
+}
+
+.fm-value-input:hover,
+.fm-value-select:hover,
+.fm-list-field:hover,
+.fm-value-input:focus,
+.fm-value-select:focus,
+.fm-list-field:focus {
+    background: #2d2d2d;
+    border-color: #555;
 }
 
 .fm-value-input {
