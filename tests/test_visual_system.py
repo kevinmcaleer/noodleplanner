@@ -55,6 +55,7 @@ except ImportError:
     HAS_APP = False
 
 pytestmark = [
+    pytest.mark.usability,
     pytest.mark.skipif(not HAS_SELENIUM, reason="selenium not installed"),
     pytest.mark.skipif(not HAS_APP, reason="noodle_web not importable"),
 ]
