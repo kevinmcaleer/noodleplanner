@@ -2914,6 +2914,11 @@ svg.icon {
     color: #dcdcaa;
 }
 
+.syntax-deadline {
+    color: #f48771;
+    font-weight: 600;
+}
+
 .syntax-dependency {
     color: #569cd6;
 }
@@ -2975,6 +2980,7 @@ svg.icon {
    both in sync until that pre-existing duplication is cleaned up. */
 body.hl-off-duration .syntax-duration,
 body.hl-off-duration .syntax-date,
+body.hl-off-duration .syntax-deadline,
 body.hl-off-duration .syntax-effort,
 body.hl-off-duration .syntax-recurrence,
 body.hl-off-duration .syntax-lag-lead {
