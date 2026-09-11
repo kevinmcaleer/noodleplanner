@@ -146,5 +146,42 @@ const PLAN = [
     assert(collapsedAgain.displayText.includes('RAID log (2 rows)'), 'edited markdown can be re-folded after a round trip');
 })();
 
+(function typingKeystrokeTests() {
+    // Regression test for a bug where the cursor translation after an edit
+    // landed before the just-typed text instead of after it, so each new
+    // keystroke was inserted ahead of the previous ones (typing "test"
+    // produced "tset"). This drives the same applyVisibleEdit /
+    // translateEditedVisibleOffset pair the live editor's `input` handler
+    // uses, one character at a time, mimicking real native textarea typing.
+    function typeString(startRawText, descriptors, state, text, startVisibleCaret) {
+        let projection = SF.buildProjection(startRawText, descriptors, state);
+        let visibleCaret = typeof startVisibleCaret === 'number' ? startVisibleCaret : projection.displayText.length;
+        for (const ch of text) {
+            const before = projection.displayText;
+            const newVisibleText = before.slice(0, visibleCaret) + ch + before.slice(visibleCaret);
+            const applied = SF.applyVisibleEdit(projection, newVisibleText);
+            assert(!applied.blocked, 'typing "' + text + '" is not blocked by a synthetic range');
+            const newVisibleCaret = visibleCaret + 1;
+            const rawCaret = SF.translateEditedVisibleOffset(projection, applied.diff, newVisibleCaret);
+            projection = SF.buildProjection(applied.rawText, descriptors, state);
+            visibleCaret = SF.visibleOffsetFromRawOffset(projection, rawCaret, 'start');
+        }
+        return projection.rawText;
+    }
+
+    equal(typeString('', [], { defaultExpanded: false, overrides: {} }, 'test'), 'test',
+        'typing "test" into an empty plain editor produces "test", not "tset"');
+
+    equal(typeString('line one\n', [], { defaultExpanded: false, overrides: {} }, 'more'), 'line one\nmore',
+        'typing after existing text appends in order instead of reversing');
+
+    // Type right after "Project X" (well before any collapsed section, so the
+    // edit doesn't touch a synthetic range and isn't blocked).
+    const introCaret = 'Project X'.length;
+    const withSections = typeString(PLAN, DESCRIPTORS, { defaultExpanded: false, overrides: {} }, '!!!', introCaret);
+    equal(withSections, 'Project X!!!' + PLAN.slice('Project X'.length),
+        'typed characters land in order (not reversed) when typing near folded back matter');
+})();
+
 if (failures) process.exit(1);
 console.log('\nAll tests passed.');
