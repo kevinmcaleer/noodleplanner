@@ -837,8 +837,11 @@ function updateTimeline(tasks, projectName) {
         // The timeline will be re-rendered when the tab becomes visible
         // via switchOutputTab().
         if (timelineWrapper && timelineWrapper.offsetWidth === 0) {
+            timelineNeedsVisibleRender = true;
             return;
         }
+
+        timelineNeedsVisibleRender = false;
 
         const isMinimal = document.getElementById('minimalTimelineToggle')?.checked ?? false;
 
@@ -1127,4 +1130,3 @@ function updateTimeline(tasks, projectName) {
         console.error('Error updating timeline:', error);
     }
 }
-

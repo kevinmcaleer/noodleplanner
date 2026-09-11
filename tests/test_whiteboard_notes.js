@@ -66,6 +66,7 @@ const {
     wbClampNoteHeight,
     wbExceedsMoveThreshold,
     wbMoveTaskToEnd,
+    wbAddResourceToLine,
 } = sandbox;
 
 // WB_NOTE_TITLE_ONLY_ZOOM is declared `const` at module scope in
@@ -456,6 +457,44 @@ const tasks = [
         const { items: result, changed } = wbMoveTaskToEnd(items, 'Does Not Exist');
         assert(changed === false && result === items, 'an unknown task name is a safe no-op');
     }
+}
+
+// ── Quick resource-assign bubble (issue #1162, part of epic #878) ───────
+{
+    assert(
+        wbAddResourceToLine('Design review 2d', 'sam') === 'Design review @sam 2d',
+        'a resource is inserted right after the task name, before duration/other metadata'
+    );
+    assert(
+        wbAddResourceToLine('Design review @alex 2d', 'sam') === 'Design review @alex @sam 2d',
+        'a resource is appended after existing @resource tokens, not at the end of the line'
+    );
+    assert(
+        wbAddResourceToLine('  Design review 2d', 'sam') === '  Design review @sam 2d',
+        'leading indentation is preserved'
+    );
+    assert(
+        wbAddResourceToLine('Design review 2d 50% "notes"', 'sam') === 'Design review @sam 2d 50% "notes"',
+        'a resource is inserted after a multi-word name, before duration/percent/comment metadata'
+    );
+}
+{
+    const tasks = [
+        { name: 'Phase', parent: null },
+        { name: 'Child A', parent: 'Phase', resources: 'alex, sam' },
+        { name: 'Child B', parent: 'Phase' },
+    ];
+    const vm = wbBuildNoteViewModel({ task: 'Phase', x: 0, y: 0 }, tasks);
+    const childA = vm.children.find(c => c.task.name === 'Child A');
+    const childB = vm.children.find(c => c.task.name === 'Child B');
+    assert(
+        JSON.stringify(childA.resources) === JSON.stringify(['alex', 'sam']),
+        "a child row's view model carries its own resources for the assign bubble's avatars"
+    );
+    assert(
+        JSON.stringify(childB.resources) === JSON.stringify([]),
+        'a child with no resources gets an empty array, not undefined'
+    );
 }
 
 // ── Summary ──────────────────────────────────────────────────────────────

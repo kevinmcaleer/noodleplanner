@@ -40,7 +40,17 @@ export function weekday(day) {
   return (((day % 7) + 7) % 7 + 3) % 7;
 }
 
+/**
+ * `holidays` is either the historical shape -- a Set of exception day
+ * numbers, Mon-Fri assumed working -- or a Calendar-like object (see
+ * ./calendar.js, issue #1132) whose own week pattern decides instead,
+ * duck-typed via `.isWorkingDay` rather than `instanceof` so this module
+ * doesn't need to import calendar.js.
+ */
 export function isWorkingDay(day, holidays) {
+  if (holidays && typeof holidays.isWorkingDay === "function") {
+    return holidays.isWorkingDay(day);
+  }
   return weekday(day) < 5 && !(holidays && holidays.has(day));
 }
 

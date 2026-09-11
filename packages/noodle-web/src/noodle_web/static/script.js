@@ -790,6 +790,21 @@ NavigationController.register('actions', {
     deactivate() {}
 });
 
+NavigationController.register('escalations', {
+    activate() {
+        deactivateKanban();
+        activateTabContent('editor');
+        loadRaidItemsIfEmpty();
+        switchOutputTab('escalations');
+        renderEscalationsView();
+        updateRaidExportVisibility('escalations');
+        closeAllNavMenus();
+        setActiveNavTab('planTab');
+        updatePlanSubnav('escalations');
+    },
+    deactivate() {}
+});
+
 NavigationController.register('budget', {
     activate() {
         deactivateKanban();
@@ -1061,15 +1076,9 @@ async function exportFile(format, prefix) {
     }
 
     if ((exportExcel || exportCSV) && browserExcelExportsEnabled()) {
-        if (!lastParseResult || lastParseResult.planText.trim() !== text.trim()) {
-            showMessage(prefix, 'error', 'Render the latest plan changes before using browser Excel or CSV export.');
-            return;
-        }
         try {
-            const parse = lastParseResult.result;
-            if (!parse || !parse.success) {
-                throw new Error('the current plan could not be scheduled');
-            }
+            showMessage(prefix, 'info', 'Render the latest plan changes before export…');
+            const parse = await currentParseResult(text);
             const projectName = parse.project_name || null;
             const module = await import('/static/browser-excel.js');
             if (exportExcel) {
@@ -2393,6 +2402,7 @@ function openTaskForm(lineNumber) {
         if (backendTask) {
             task.startDate = backendTask.start || task.startDate;
             task.finishDate = backendTask.finish || task.finishDate;
+            task.deadline = backendTask.deadline || task.deadline;
             if (backendTask.duration_days) {
                 task.duration = String(backendTask.duration_days);
             }
@@ -2426,6 +2436,12 @@ function openTaskForm(lineNumber) {
         startDateField.style.fontStyle = userSetStartDate ? 'normal' : 'italic';
         finishDateField.style.fontStyle = userSetFinishDate ? 'normal' : 'italic';
         durationField.style.fontStyle = userSetDuration ? 'normal' : 'italic';
+
+        // Deadline is never auto-calculated -- it's exactly what's in the
+        // markdown, or blank.
+        const deadlineField = document.getElementById('taskDeadline');
+        deadlineField.value = task.deadline || '';
+        deadlineField.style.fontStyle = 'normal';
 
         document.getElementById('taskPercent').value = task.percent || '';
 
@@ -2693,7 +2709,7 @@ function showTaskContextMenu(event, task, taskIndex) {
     // insert a saved one after it. Available for summary tasks too (a
     // phase or a governance block is a natural card), unlike Estimate.
     if (typeof CardLibrary !== 'undefined') {
-        items.push(createContextMenuItem('Cards…', '📇', () => {
+        items.push(createContextMenuItem('Snippets…', '📇', () => {
             openCardLibraryForTask(task);
         }));
     }
@@ -2816,7 +2832,7 @@ function showTaskContextMenuAtPosition(event, task, taskIndex) {
     // insert a saved one after it. Available for summary tasks too (a
     // phase or a governance block is a natural card), unlike Estimate.
     if (typeof CardLibrary !== 'undefined') {
-        items.push(createContextMenuItem('Cards…', '📇', () => {
+        items.push(createContextMenuItem('Snippets…', '📇', () => {
             openCardLibraryForTask(task);
         }));
     }
@@ -3739,6 +3755,14 @@ function onDateChange(field) {
     updateRagDisplay();
 }
 
+// Called when the deadline field changes. A deadline never drives
+// scheduling -- it does not touch start/finish/duration, only the RAG
+// slippage flag, so this just persists the field and refreshes that.
+function onDeadlineChange() {
+    saveTask();
+    updateRagDisplay();
+}
+
 // Called when duration field changes - recalculate finish date
 function onDurationChange() {
     const startDateField = document.getElementById('taskStartDate');
@@ -3784,6 +3808,8 @@ function updateRagDisplay() {
     const percent = parseInt(document.getElementById('taskPercent').value) || 0;
     const startDateStr = document.getElementById('taskStartDate').value;
     const finishDateStr = document.getElementById('taskFinishDate').value;
+    const deadlineField = document.getElementById('taskDeadline');
+    const deadlineStr = deadlineField ? deadlineField.value : '';
     const ragDisplay = document.getElementById('ragDisplay');
     const ragReasoning = document.getElementById('ragReasoning');
 
@@ -3800,6 +3826,21 @@ function updateRagDisplay() {
         bgColor = '#1976d2';
         textColor = 'white';
         reasoning = 'Task is complete';
+    }
+    // Red: deadline slippage (#877). A deadline is a fixed marker, distinct
+    // from the on-track/behind-schedule comparison below and from the
+    // start/finish dates, which it never moves. Checked next so this
+    // preview agrees with calculate_rag_status.
+    else if (deadlineStr && (
+        new Date(deadlineStr) < today ||
+        (finishDateStr && new Date(finishDateStr) > new Date(deadlineStr))
+    )) {
+        ragStatus = 'Task Overdue';
+        bgColor = '#f44336';
+        textColor = 'white';
+        reasoning = new Date(deadlineStr) < today
+            ? 'Deadline has passed and the task is not complete'
+            : 'Not on track to complete by the deadline';
     }
     // Green: Task hasn't started yet (start date is in the future)
     else if (startDateStr && new Date(startDateStr) > today) {
@@ -4074,6 +4115,35 @@ function addDependencyRow(taskName = '', depType = 'FS', lagLead = '') {
     tbody.appendChild(row);
 }
 
+/** Commit the task named in the dependency add box on Enter. */
+function handleAddDependencyKeydown(event, input) {
+    if (event.key !== 'Enter') {
+        handleDependencyKeydown(event, input);
+        return;
+    }
+    event.preventDefault();
+
+    const dropdown = document.getElementById(input.dataset.dropdown);
+    const selected = dropdown?.querySelector('.autocomplete-item.selected');
+    const typed = (selected ? selected.textContent : input.value).trim();
+    if (!typed) return;
+
+    const match = getAllTaskNames().find(name => name.toLowerCase() === typed.toLowerCase());
+    if (!match) {
+        if (typeof showMessage === 'function') {
+            showMessage('editor', 'error', `Unknown dependency task: ${typed}`);
+        }
+        return;
+    }
+
+    addDependencyRow(match);
+    input.value = '';
+    if (dropdown) dropdown.style.display = 'none';
+    dependencyAutocompleteSelectedIndex = -1;
+    saveTask();
+    input.focus();
+}
+
 /**
  * Remove a dependency row from the table
  */
@@ -4197,6 +4267,8 @@ function saveTask() {
     const duration = document.getElementById('taskDuration').value.trim();
     const startDate = document.getElementById('taskStartDate').value.trim();
     const finishDate = document.getElementById('taskFinishDate').value.trim();
+    const deadlineField = document.getElementById('taskDeadline');
+    const deadline = deadlineField ? deadlineField.value.trim() : '';
     const percent = document.getElementById('taskPercent').value.trim();
     const resources = document.getElementById('taskResources').value.trim();
     const comment = document.getElementById('taskComment').value.trim();
@@ -4318,6 +4390,9 @@ function saveTask() {
     // Add dates (ISO format) - only if user explicitly set them
     if (startDate && userSetStartDate) newLine += ' ' + startDate;
     if (finishDate && userSetFinishDate) newLine += ' ' + finishDate;
+
+    // Add deadline (D-prefixed, never auto-calculated -- see #877)
+    if (deadline) newLine += ' D' + deadline;
 
     // Add priority marker
     const prioritySelect = document.getElementById('taskPriority');
@@ -4789,6 +4864,7 @@ function parseTaskLine(line, lineNum) {
         duration: values.duration,
         startDate: values.startDate,
         finishDate: values.finishDate,
+        deadline: values.deadline,
         percent: values.percent,
         resources: values.resources.join(', '),
         comment: values.comment,
@@ -7114,6 +7190,10 @@ function toggleMainEditor() {
             arrow.textContent = '\u25B6';
         }
 
+        window.dispatchEvent(new CustomEvent('editorPanelVisibilityChanged', {
+            detail: { visible: !panel.classList.contains('collapsed') }
+        }));
+
         // Re-render timeline and gantt after width change
         setTimeout(() => {
             if (timelineTasks.length > 0) {
@@ -7189,8 +7269,36 @@ document.addEventListener('DOMContentLoaded', function() {
 // Conditional formatting state and colour constants are now in state.js
 
 function isPastelColour(colour) {
-    const upper = colour.toUpperCase();
-    return CF_PASTEL_COLOURS.includes(upper);
+    const value = String(colour || '').trim();
+    const upper = value.toUpperCase();
+    if (CF_PASTEL_COLOURS.includes(upper)) return true;
+
+    // Use relative luminance for arbitrary custom colours, not just the
+    // built-in pastel palette.  0.179 is the point where black and white
+    // have equal WCAG contrast, so it also gives the more readable choice.
+    let r, g, b;
+    const hex = value.match(/^#([0-9a-f]{3,8})$/i);
+    if (hex) {
+        const digits = hex[1].length === 3
+            ? hex[1].split('').map(ch => ch + ch).join('')
+            : hex[1].slice(0, 6);
+        if (digits.length === 6) {
+            r = parseInt(digits.slice(0, 2), 16);
+            g = parseInt(digits.slice(2, 4), 16);
+            b = parseInt(digits.slice(4, 6), 16);
+        }
+    } else {
+        const rgb = value.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+        if (rgb) [r, g, b] = rgb.slice(1).map(Number);
+    }
+    if ([r, g, b].every(Number.isFinite)) {
+        const channel = (n) => {
+            n /= 255;
+            return n <= 0.03928 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4);
+        };
+        return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b) > 0.179;
+    }
+    return false;
 }
 
 function getForegroundForColour(bgColour) {
@@ -7911,6 +8019,7 @@ function renderRaidTable() {
     if (raidItems.length === 0) {
         emptyState.style.display = 'block';
         document.getElementById('raidTable').style.display = 'none';
+        renderEscalationsView();
         return;
     }
 
@@ -7950,12 +8059,36 @@ function renderRaidTable() {
         }
     });
 
+    renderEscalationsView();
+
     updateRaidSortIndicators();
     updateRaidMarkdownEditor();
     syncRaidLogToPlanText();
     } catch (error) {
         console.error('Error rendering RAID table:', error);
     }
+}
+
+/** Render RAID rows escalated to the Board or Programme. */
+function renderEscalationsView() {
+    const body = document.getElementById('escalationsTableBody');
+    const empty = document.getElementById('escalationsEmptyState');
+    if (!body) return;
+
+    const escalated = (raidItems || []).filter(item => {
+        const target = String(item.escalation_level || item.escalate_to || '').trim().toLowerCase();
+        return target === 'board' || target === 'programme' || target === 'program';
+    });
+    body.innerHTML = escalated.map(item => `
+        <tr>
+            <td>${escapeHtml(item.type || '')}</td>
+            <td><button class="link-button" type="button" onclick="openRaidForm(${Number(item.id)})">${escapeHtml(item.title || '')}</button></td>
+            <td>${escapeHtml(item.description || '')}</td>
+            <td>${escapeHtml(item.owner || '')}</td>
+            <td>${escapeHtml(item.escalation_level || item.escalate_to || '')}</td>
+            <td>${escapeHtml(item.status || '')}</td>
+        </tr>`).join('');
+    if (empty) empty.hidden = escalated.length > 0;
 }
 
 function escapeHtml(text) {
@@ -10798,6 +10931,26 @@ function updateUserWorkload(tasks) {
             }
         }
 
+        // In Overallocation mode, retain only resources with overlapping
+        // dated assignments.  This is deliberately derived from the same
+        // task rows as the ordinary workload view.
+        if (window.onlyOverallocatedWorkload) {
+            for (const [user, userTasks] of userMap) {
+                const dated = userTasks
+                    .filter(task => task.start && task.finish)
+                    .sort((a, b) => new Date(a.start) - new Date(b.start));
+                let latestFinish = null;
+                const overlaps = dated.some(task => {
+                    const start = new Date(task.start);
+                    const finish = new Date(task.finish);
+                    const overlapsExisting = latestFinish && start < latestFinish;
+                    if (!latestFinish || finish > latestFinish) latestFinish = finish;
+                    return overlapsExisting;
+                });
+                if (!overlaps) userMap.delete(user);
+            }
+        }
+
         // Store userMap globally for filtering
         window.currentUserMap = userMap;
 
@@ -10942,6 +11095,19 @@ function filterUserWorkload() {
 
     const selectedUser = filterSelect.value;
     displayUserWorkload(window.currentUserMap, selectedUser);
+}
+
+/** Open workload with resources that have overlapping dated assignments only. */
+function showOverallocationView() {
+    window.onlyOverallocatedWorkload = true;
+    switchToView('user-workload');
+    if (typeof lastRenderedTasks !== 'undefined') updateUserWorkload(lastRenderedTasks || []);
+}
+
+/** Open the stakeholder influence grid in an enlarged layout. */
+function showInfluenceDiagram() {
+    switchToView('stakeholders');
+    requestAnimationFrame(() => document.getElementById('stakeholderGridWrapper')?.classList.add('stakeholder-grid-expanded'));
 }
 
 // ========================================
@@ -15278,6 +15444,7 @@ function calculateInspectorRag(task) {
     const percent = parseInt(task.percent) || 0;
     const startDateStr = task.startDate;
     const finishDateStr = task.finishDate;
+    const deadlineStr = task.deadline;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -15288,6 +15455,18 @@ function calculateInspectorRag(task) {
         status = 'Complete';
         bgClass = 'rag-blue';
         reasoning = 'This task is complete. No further action needed.';
+    } else if (deadlineStr && (
+        new Date(deadlineStr) < today ||
+        (finishDateStr && new Date(finishDateStr) > new Date(deadlineStr))
+    )) {
+        // Red: deadline slippage (#877). A fixed marker, independent of the
+        // on-track/behind-schedule reasoning below. Mirrors
+        // exporters.calculate_rag_status in noodle_core.
+        status = 'Task Overdue';
+        bgClass = 'rag-red';
+        reasoning = new Date(deadlineStr) < today
+            ? 'This task has a deadline of ' + formatInspectorDate(deadlineStr) + ', which has passed, and the task is not complete.'
+            : 'This task is not on track to complete by its deadline of ' + formatInspectorDate(deadlineStr) + '.';
     } else if (startDateStr && new Date(startDateStr) > today) {
         status = 'Not Started';
         bgClass = 'rag-green';
@@ -15530,6 +15709,12 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     html += '        <div class="inspector-field-label">Finish Date</div>';
     html += '        <div class="inspector-field-value">' + formatInspectorDate(task.finishDate) + '</div>';
     html += '      </div>';
+    if (task.deadline) {
+        html += '      <div class="inspector-field">';
+        html += '        <div class="inspector-field-label">Deadline</div>';
+        html += '        <div class="inspector-field-value">' + formatInspectorDate(task.deadline) + '</div>';
+        html += '      </div>';
+    }
     html += '      <div class="inspector-field">';
     html += '        <div class="inspector-field-label">Duration</div>';
     html += '        <div class="inspector-field-value">' + escapeHtml(durationText) + '</div>';
@@ -15629,9 +15814,10 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
 
     // --- Cards (#1050) ---
     html += '<div class="inspector-section">';
-    html += '  <div class="inspector-section-header"><span class="inspector-icon">📇</span> Cards</div>';
+    html += '  <div class="inspector-section-header"><span class="inspector-icon">📇</span> Snippets</div>';
     html += '  <div class="inspector-section-body">';
-    html += '    <button type="button" class="estimate-open-btn" id="inspectorCardsBtn">Save / insert card…</button>';
+    html += '    <p class="inspector-help-text">Save this task and its sub-tasks as a reusable outline fragment.</p>';
+    html += '    <button type="button" class="estimate-open-btn" id="inspectorCardsBtn">Save / insert snippet…</button>';
     html += '  </div>';
     html += '</div>';
 
@@ -16476,6 +16662,9 @@ function calculateEVM(tasks) {
     const EAC = CPI !== 0 ? BAC / CPI : BAC;  // Estimate at Completion (using CPI method: BAC/CPI)
     const ETC = EAC - AC;  // Estimate to Complete
     const VAC = BAC - EAC; // Variance at Completion
+    const TCPI = (BAC - AC) !== 0 ? (BAC - EV) / (BAC - AC) : 0;
+    const scheduleForecastDays = SPI > 0 ? totalProjectMs / 86400000 / SPI : totalProjectMs / 86400000;
+    const scheduleForecast = new Date(Math.max(today.getTime(), projectStart.getTime() + scheduleForecastDays * 86400000));
 
     // Build time series data for the chart (monthly periods)
     const timeSeries = buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetData, EV, AC);
@@ -16484,7 +16673,7 @@ function calculateEVM(tasks) {
         BAC, PV, EV, AC,
         CV, SV,
         CPI, SPI,
-        EAC, ETC, VAC,
+        EAC, ETC, VAC, TCPI, scheduleForecast, scheduleForecastDays,
         overallPercentComplete,
         timeElapsedFraction,
         projectStart,
@@ -16830,6 +17019,20 @@ function renderEvmMetricsTable(data) {
             acronym: 'ETC',
             value: fmt(data.ETC),
             interpretation: 'Remaining cost to finish the project'
+        },
+        {
+            category: 'Forecast',
+            name: 'To Complete Performance Index',
+            acronym: 'TCPI',
+            value: fmtIdx(data.TCPI),
+            interpretation: 'Efficiency required to meet the approved budget'
+        },
+        {
+            category: 'Forecast',
+            name: 'Schedule Forecast',
+            acronym: 'Finish',
+            value: data.scheduleForecast.toLocaleDateString(),
+            interpretation: 'Forecast finish using the current schedule performance index'
         }
     ];
 
@@ -16996,6 +17199,22 @@ function renderEvmChart() {
         svgContent += '<text x="' + todayX + '" y="' + (padding.top - 8) + '" text-anchor="middle" fill="' + colLineToday + '" font-size="10">Today</text>';
     }
 
+    // Forecast continuation: keep the measured curves solid and make the
+    // schedule/cost projections visibly distinct after today's point.
+    if (todayX !== null && ts.dates.length > 1) {
+        const todayIndex = ts.dates.reduce((best, date, index) =>
+            Math.abs(date - evmData.today) < Math.abs(ts.dates[best] - evmData.today) ? index : best, 0);
+        const endIndex = ts.dates.length - 1;
+        const forecastFinish = Math.min(evmData.scheduleForecast.getTime(), ts.dates[endIndex].getTime());
+        const finishIndex = ts.dates.reduce((best, date, index) =>
+            Math.abs(date - forecastFinish) < Math.abs(ts.dates[best] - forecastFinish) ? index : best, 0);
+        const startEv = ts.ev[todayIndex] == null ? evmData.EV : ts.ev[todayIndex];
+        const startAc = ts.ac[todayIndex] == null ? evmData.AC : ts.ac[todayIndex];
+        const forecastX = xScale(Math.max(todayIndex, finishIndex));
+        svgContent += '<line x1="' + xScale(todayIndex) + '" y1="' + yScale(startEv) + '" x2="' + forecastX + '" y2="' + yScale(evmData.BAC) + '" stroke="' + colLineEV + '" stroke-width="2.5" stroke-dasharray="5,4"/>';
+        svgContent += '<line x1="' + xScale(todayIndex) + '" y1="' + yScale(startAc) + '" x2="' + xScale(endIndex) + '" y2="' + yScale(evmData.EAC) + '" stroke="' + colLineAC + '" stroke-width="2.5" stroke-dasharray="5,4"/>';
+    }
+
     // BAC reference line
     const bacY = yScale(evmData.BAC);
     if (bacY >= padding.top && bacY <= padding.top + chartH) {
@@ -17028,6 +17247,7 @@ function renderEvmChart() {
             '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLinePV + '; border-style:dashed;"></span> Planned Value (PV)</span>' +
             '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLineEV + ';"></span> Earned Value (EV)</span>' +
             '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLineAC + ';"></span> Actual Cost (AC)</span>' +
+            '<span class="evm-legend-item"><span class="evm-legend-swatch evm-legend-swatch-dashed" style="background:' + colLineEV + ';"></span> Forecast</span>' +
             '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLineToday + '; border-style:dashed;"></span> Today</span>';
     }
 }

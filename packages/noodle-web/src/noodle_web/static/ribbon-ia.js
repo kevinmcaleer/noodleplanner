@@ -91,8 +91,9 @@ export const TABS = [
         groups: [
             // Rates, Skills and Availability removed (#1116): none had a
             // real function behind them and none are on the near-term
-            // roadmap. Calendars stays a reviewed stub -- resource calendar
-            // support is tracked under the #1047 epic, not built here.
+            // roadmap. Calendars (#1047/#1135) now opens the Front Matter
+            // panel's Calendars section -- see ribbon.js's
+            // revealCalendarsPanel().
             { name: 'People', launcher: true, lg: [['resources', 'Resources'], ['people', 'Stakeholders']], cols: [[['calendar', 'Calendars']]] },
             { name: 'Effort', launcher: true, lg: [['clock', 'Timesheet']], cols: [[['chart', 'Workload'], ['refresh', 'Level']], [['warn', 'Overallocation'], ['grid', 'Resource Sheet']]] },
             { name: 'Comms', lg: [['doc', 'Comms Plan']], cols: [[['people', 'Influence'], ['print', 'Print']]] },
@@ -256,8 +257,8 @@ export const CONTEXTUAL_TABS = [
         id: 'resources', label: 'Resource Tools', icon: 'resources', accent: '#ff7b01', accentToken: '--np-orange', tint: '#fff1e2', onAccent: '#3a1c00',
         trigger: 'Resources, Timesheet, Workload or Resource Sheet open',
         groups: [
-            { name: 'People', launcher: true, lg: [['people', 'Add Resource']], cols: [[['money', 'Rates'], ['calendar', 'Calendar']], [['pin', 'Skills'], ['clock', 'Availability']]] },
-            { name: 'Effort', cols: [[['clock', 'Timesheet'], ['chart', 'Workload']], [['refresh', 'Level'], ['warn', 'Overallocation']]] },
+            { name: 'People', launcher: true, lg: [['people', 'Add Resource']], cols: [[['calendar', 'Calendar']]] },
+            { name: 'Effort', cols: [[['clock', 'Timesheet'], ['chart', 'Workload']], [['refresh', 'Level'], ['warn', 'Overallocation'], ['delete', 'Clear Level']]] },
         ],
     },
     {
@@ -272,7 +273,7 @@ export const CONTEXTUAL_TABS = [
         id: 'whiteboard', label: 'Whiteboard', icon: 'grid', accent: '#1c9e41', accentToken: '--np-green', tint: '#eaf6ee', onAccent: '#ffffff',
         trigger: 'Whiteboard or Mind Map open',
         groups: [
-            { name: 'Draw', launcher: true, lg: [['doc', 'Note'], ['grid', 'Shape']], cols: [[['link', 'Connector'], ['doc', 'Text']], [['pin', 'Colour'], ['delete', 'Delete']]] },
+            { name: 'Draw', launcher: true, lg: [['doc', 'Note']], cols: [[['doc', 'Text']], [['pin', 'Colour'], ['delete', 'Delete']]] },
             { name: 'Arrange', cols: [[['grid', 'Align'], ['sort', 'Distribute']], [['link', 'Group'], ['pin', 'Lock']]] },
             { name: 'Convert', cols: [[['task-list', 'To Tasks'], ['board', 'To PBS']]] },
         ],

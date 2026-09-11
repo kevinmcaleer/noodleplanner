@@ -21,6 +21,7 @@ from .scheduling_engine import (
     rag_status_to_colour,
     parse_resource_mappings,
     parse_resource_roles,
+    parse_resource_calendars,
     parse_stakeholders_from_frontmatter,
     calculate_evm,
     natural_language_to_yaml,
@@ -103,6 +104,14 @@ from .msproject import (
 )
 
 from .front_matter_parser import FrontMatterParser
+from .calendar_model import (
+    Calendar,
+    CalendarFormatError,
+    STANDARD_CALENDAR,
+    parse_calendar_entry,
+    parse_week_pattern,
+    week_pattern_text,
+)
 
 __version__ = "1.0.0"
 
@@ -128,6 +137,7 @@ __all__ = [
     "calculate_rag_status",
     "rag_status_to_colour",
     "parse_resource_mappings",
+    "parse_resource_calendars",
     "parse_resource_roles",
     "parse_stakeholders_from_frontmatter",
     "calculate_evm",
@@ -198,4 +208,11 @@ __all__ = [
     "_check_mpxj_available",
     # Front matter parser
     "FrontMatterParser",
+    # Calendars
+    "Calendar",
+    "CalendarFormatError",
+    "STANDARD_CALENDAR",
+    "parse_calendar_entry",
+    "parse_week_pattern",
+    "week_pattern_text",
 ]

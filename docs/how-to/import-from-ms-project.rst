@@ -40,8 +40,20 @@ What Gets Imported
 - **Progress** — percentage complete on each task
 - **Hierarchy** — summary tasks and subtasks are preserved as indented phases
 - **Notes** — task notes become a quoted comment (``.mpp`` only)
+- **Calendars** (``.xml`` only, issue #1133) — every project calendar becomes
+  a ``calendars:`` entry, the calendar Microsoft Project has active becomes
+  ``calendar:``, and a resource assigned its own calendar gets a
+  ``calendar <Name>`` suffix on its ``Resources:`` line. Nothing calendar-related
+  is written for a file whose only calendar is the plain Monday–Friday
+  Standard one, so a simple file still imports as cleanly as before this was
+  added. A shift-rotation calendar (Microsoft Project's ``WorkWeeks``) comes
+  back as a NoodlePlanner rotation only when every overridden week in the
+  file shares one pattern; otherwise the calendar's plain base pattern is
+  used instead of guessing at an irregular cycle.
 
-Calendars, non-working days, constraints, baselines and costs are not imported.
+Non-working days declared directly on the ``.mpp``/``.xml`` file's calendar
+(rather than through a resource or task exception), constraints, baselines
+and costs are not imported.
 
 Export to MS Project
 ---------------------

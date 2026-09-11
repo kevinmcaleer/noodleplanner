@@ -21,6 +21,7 @@
    "circular_dependencies": [],
    "comment": "",
    "critical": false,
+   "deadline": "",
    "deliverable": "definition",
    "dependency_types": {},
    "depends": [],
@@ -57,6 +58,7 @@
    "circular_dependencies": [],
    "comment": "",
    "critical": false,
+   "deadline": "",
    "deliverable": "",
    "dependency_types": {},
    "depends": [],
@@ -101,6 +103,7 @@
    ],
    "comment": "",
    "critical": false,
+   "deadline": "",
    "deliverable": "",
    "dependency_types": {},
    "depends": [
@@ -140,6 +143,7 @@
    "circular_dependencies": [],
    "comment": "",
    "critical": false,
+   "deadline": "",
    "deliverable": "",
    "dependency_types": {},
    "depends": [],
@@ -184,6 +188,7 @@
    ],
    "comment": "",
    "critical": true,
+   "deadline": "",
    "deliverable": "",
    "dependency_types": {},
    "depends": [
@@ -230,6 +235,7 @@
    ],
    "comment": "",
    "critical": true,
+   "deadline": "",
    "deliverable": "",
    "dependency_types": {},
    "depends": [
