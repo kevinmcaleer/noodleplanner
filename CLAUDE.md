@@ -12,7 +12,7 @@ Documentation is built with Sphinx and lives in `docs/`.
 - `docs/` — Sphinx documentation (tutorials, how-to, reference, explanation)
 - `tests/` — pytest test suite including Selenium usability tests
 
-## Working on a goal: always use a worktree
+## Working on a goal: always a branch, normally a worktree
 
 **Never do the work in `/home/kev/noodleplanner` itself.** When you pick up a
 goal, an issue, or any change beyond a read, create your own worktree first:
@@ -41,6 +41,36 @@ Two independent reasons, both of which have bitten real sessions:
 
 Branch naming follows the repo's history: `feat/842-msproject-sync-preserve-sections`,
 `fix/minimal-timeline-sub-summary-parent-rows`, `docs/cloudflare-tunnel-credentials`.
+
+### Branch or worktree?
+
+**A branch is never optional. A worktree usually isn't either**, because the
+main checkout can't hold one safely — see reason 1 above.
+
+- **Worktree** for anything you will build, run or test: it gets its own
+  working files, so a long task can't be disturbed by, and can't disturb,
+  whatever else is happening in the main checkout. This is the default.
+- **A plain branch** is only sensible where you already have a scratch
+  checkout that is not `/home/kev/noodleplanner` — a second clone, or an
+  existing worktree whose work is finished and merged. Never
+  `git checkout -b` inside the main checkout.
+
+One worktree per goal. Don't reuse a worktree whose PR has merged: start a
+fresh one from `origin/main` so you aren't carrying a stale base (see drift,
+below).
+
+### Never push to `main`
+
+`main` only ever receives changes through a merged pull request. Concretely:
+
+- No `git push origin main`, no committing on a local `main`, no
+  `git checkout main` to "just fix one thing".
+- The main checkout stays on `main` purely for reading and for `git pull`.
+- The only moment your work reaches `main` is `gh pr merge`, after review.
+
+This is what keeps `main` a base you can branch from with confidence. It also
+matters more here than in most repos, because that checkout is served to
+production live — a direct push is a deploy.
 
 ### Check for drift before you push
 
@@ -130,9 +160,11 @@ The screenshot script uses headless Chrome via Selenium — the same setup as
 
 ## Reminders
 
-- **Work in a worktree, never in `/home/kev/noodleplanner`.** See the section
-  above — that checkout is bind-mounted into the live production container,
-  and `main` moves fast enough that a stale branch means rework.
+- **Work on a branch, in a worktree, never in `/home/kev/noodleplanner`.** See
+  the section above — that checkout is bind-mounted into the live production
+  container, and `main` moves fast enough that a stale branch means rework.
+- **Never push to `main`.** It only ever changes through a merged PR. On this
+  repo a direct push to `main` is a deploy.
 - **Update screenshots when features change.** If you modify a view, add a
   navigation element, or change the editor, re-run `make screenshots` so the
   docs stay accurate. Check the RST files under `docs/` for `.. figure::`
