@@ -281,8 +281,10 @@ def is_note_selected(driver, task_name):
 def note_header_style(driver, task_name):
     """{background, color} computed style of one note's header, plus the
     --wb-note-accent custom property on its card and the card's own
-    computed background (issue #1103: these must match -- one solid
-    colour block, not a header tint over a differently-coloured body)."""
+    computed background. Issue #1103 deliberately leaves the header
+    transparent, so tests that care about what colour the title *renders
+    on* should use effectiveBackground/cardBackground rather than the
+    header's own raw backgroundColor."""
     return driver.execute_script(
         """
         const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
@@ -291,11 +293,19 @@ def note_header_style(driver, task_name):
             const card = n.querySelector('.wb-note-card');
             const header = n.querySelector('.wb-note-header');
             const style = getComputedStyle(header);
+            function effectiveBackground(el) {
+                for (let cur = el; cur; cur = cur.parentElement) {
+                    const bg = getComputedStyle(cur).backgroundColor;
+                    if (bg && !/rgba\\(0, 0, 0, 0\\)|transparent/.test(bg)) return bg;
+                }
+                return getComputedStyle(document.body).backgroundColor;
+            }
             return {
                 background: style.backgroundColor,
                 color: style.color,
                 accent: card.style.getPropertyValue('--wb-note-accent'),
                 cardBackground: getComputedStyle(card).backgroundColor,
+                effectiveBackground: effectiveBackground(header),
             };
         }
         return null;
@@ -427,10 +437,10 @@ class TestNoteColourPrecedenceAndPersistence:
         assert after["accent"].upper() == "#FFAFA3", \
             "the accent bar takes the raw swatch colour right away, before the debounced commit lands"
         # Issue #1103: the header itself is transparent -- the whole card
-        # carries the colour -- so the card's own background is what must
-        # change, not the header's (which reads as transparent either way).
+        # carries the colour -- so the effective rendered background the
+        # header text sits on is the card's fill underneath it.
         assert after["cardBackground"] != before["cardBackground"]
-        assert after["background"] == after["cardBackground"], \
+        assert after["effectiveBackground"] == after["cardBackground"], \
             "the header must show the card's colour through it, not a background of its own"
 
     def test_picking_a_swatch_persists_to_theme_front_matter(self, browser, app_server):
