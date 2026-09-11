@@ -95,7 +95,12 @@ export const TABS = [
             // panel's Calendars section -- see ribbon.js's
             // revealCalendarsPanel().
             { name: 'People', launcher: true, lg: [['resources', 'Resources'], ['people', 'Stakeholders']], cols: [[['calendar', 'Calendars']]] },
-            { name: 'Effort', launcher: true, lg: [['clock', 'Timesheet']], cols: [[['chart', 'Workload'], ['refresh', 'Level']], [['warn', 'Overallocation'], ['grid', 'Resource Sheet']]] },
+            // "Clear Level" (#1117) sits alongside "Level" here too, not just
+            // on the "Resource Tools" contextual tab (which only shows once
+            // a Resources/Timesheet/Workload/Resource Sheet view is already
+            // open) -- levelling needs to be reachable *and* undoable from
+            // this tab on its own.
+            { name: 'Effort', launcher: true, lg: [['clock', 'Timesheet']], cols: [[['chart', 'Workload'], ['refresh', 'Level']], [['warn', 'Overallocation'], ['grid', 'Resource Sheet']], [['delete', 'Clear Level']]] },
             { name: 'Comms', lg: [['doc', 'Comms Plan']], cols: [[['people', 'Influence'], ['print', 'Print']]] },
         ],
     },

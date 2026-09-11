@@ -320,7 +320,24 @@ function scopedAction(scopeId, label) {
         'resources:Calendar': () => revealCalendarsPanel(),
         'resources:Timesheet': switchView('timesheet'),
         'resources:Workload': () => { window.onlyOverallocatedWorkload = false; switchToView('user-workload'); },
-        'resources:Level': () => showLevellingSuggestions(),
+        // #1117: "Level" computes suggestions across the whole portfolio
+        // (see portfolio-leveling.js) and renders them into the Team
+        // Allocation view's #levellingSuggestionsPanel -- a container that
+        // only exists once that view has rendered. Calling
+        // showLevellingSuggestions() directly from the plain project-scope
+        // Resources tab (or the "Resource Tools" contextual tab, which
+        // shares this same scopeId) found no such panel and silently did
+        // nothing, which looked exactly like "not available" even though
+        // resolveAction() no longer fell through to the stub toast. Route
+        // through the Team Allocation view first, same as the working
+        // 'pf-plan:Level Team' entry above, so the button always produces
+        // visible output regardless of which tab it was clicked from.
+        // "Clear Level" needs no such routing: clearLevellingNow() reports
+        // its own result via confirm()/alert() and works standalone.
+        'resources:Level': () => {
+            switchPortfolioSubview('resources')();
+            if (typeof showLevellingSuggestions === 'function') showLevellingSuggestions();
+        },
         'resources:Clear Level': () => clearLevellingNow(),
         'resources:Overallocation': () => showOverallocationView(),
         'stakeholders:Influence': () => showInfluenceDiagram(),
