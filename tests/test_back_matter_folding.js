@@ -197,6 +197,30 @@ const PLAN = [
     const withSections = typeString(PLAN, DESCRIPTORS, { defaultExpanded: false, overrides: {} }, '!!!', introCaret);
     equal(withSections, 'Project X!!!' + PLAN.slice('Project X'.length),
         'typed characters land in order (not reversed) when typing near folded back matter');
+
+    // A newline is also the separator immediately before a collapsed header.
+    // A text-only common-prefix diff can therefore slide an Enter press from
+    // the task area onto the synthetic header and reject it. Supply the same
+    // post-input caret hint as the live textarea and verify that repeated
+    // Enter presses create editable task lines before back matter.
+    let rawWithNewLines = PLAN;
+    let newLineProjection = SF.buildProjection(rawWithNewLines, DESCRIPTORS, { defaultExpanded: false, overrides: {} });
+    let newLineCaret = newLineProjection.displayText.indexOf('Highlights (2 entries)') - 1;
+    for (let press = 0; press < 2; press++) {
+        const visibleWithNewLine = newLineProjection.displayText.slice(0, newLineCaret) + '\n' +
+            newLineProjection.displayText.slice(newLineCaret);
+        const applied = SF.applyVisibleEdit(newLineProjection, visibleWithNewLine, {
+            selectionStart: newLineCaret + 1,
+            selectionEnd: newLineCaret + 1,
+        });
+        assert(!applied.blocked, 'Enter above collapsed back matter is not mistaken for a header edit');
+        rawWithNewLines = applied.rawText;
+        const rawCaret = SF.translateEditedVisibleOffset(newLineProjection, applied.diff, newLineCaret + 1);
+        newLineProjection = SF.buildProjection(rawWithNewLines, DESCRIPTORS, { defaultExpanded: false, overrides: {} });
+        newLineCaret = SF.visibleOffsetFromRawOffset(newLineProjection, rawCaret, 'start');
+    }
+    assert(rawWithNewLines.includes('  Build feature @Alice 3d\n\n\n\n---highlights---'),
+        'repeated Enter presses append blank task lines before back matter without changing its contents');
 })();
 
 if (failures) process.exit(1);

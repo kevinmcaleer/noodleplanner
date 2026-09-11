@@ -460,13 +460,35 @@
         return null;
     }
 
-    function sfApplyVisibleEdit(projection, newVisibleText) {
+    function sfApplyVisibleEdit(projection, newVisibleText, selectionHint) {
         const beforeText = projection.displayText;
         const afterText = typeof newVisibleText === 'string' ? newVisibleText : '';
         if (afterText === beforeText) {
             return { rawText: projection.rawText, diff: sfCommonDiff(beforeText, afterText), blocked: null };
         }
-        const diff = sfCommonDiff(beforeText, afterText);
+        let diff = sfCommonDiff(beforeText, afterText);
+
+        // Repeated characters make a text-only diff ambiguous. In particular,
+        // inserting a newline on the last task line can be reported at the
+        // start of the following folded header because both sides already
+        // contain a newline. The textarea's collapsed post-input selection
+        // tells us where a pure insertion actually ended; prefer that exact
+        // range when removing it recreates the previous projection.
+        const insertedLength = afterText.length - beforeText.length;
+        const hintedStart = selectionHint && selectionHint.selectionStart;
+        const hintedEnd = selectionHint && selectionHint.selectionEnd;
+        if (insertedLength > 0 && Number.isInteger(hintedStart) && hintedStart === hintedEnd) {
+            const insertionStart = hintedStart - insertedLength;
+            if (insertionStart >= 0 &&
+                beforeText.slice(0, insertionStart) === afterText.slice(0, insertionStart) &&
+                beforeText.slice(insertionStart) === afterText.slice(hintedStart)) {
+                diff = {
+                    prefixLength: insertionStart,
+                    oldEnd: insertionStart,
+                    newEnd: hintedStart,
+                };
+            }
+        }
         const blocked = sfRangeTouchesSynthetic(projection, diff.prefixLength, diff.oldEnd);
         if (blocked) {
             return { rawText: projection.rawText, diff: diff, blocked: blocked };
@@ -665,7 +687,10 @@
                 const visibleEnd = this.nativeSelectionEnd.get.call(this.editor);
                 if (visibleText === this.projection.displayText) return;
 
-                const applied = sfApplyVisibleEdit(this.projection, visibleText);
+                const applied = sfApplyVisibleEdit(this.projection, visibleText, {
+                    selectionStart: visibleStart,
+                    selectionEnd: visibleEnd,
+                });
                 if (applied.blocked) {
                     const section = this.findSectionByMarker(applied.blocked.marker);
                     if (section) this.setExpanded(section.marker, true, { focus: true, rawLineNumber: section.startLine + 1 });
