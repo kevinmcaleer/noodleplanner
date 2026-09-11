@@ -474,7 +474,9 @@
         }
         if (offset >= diff.newEnd) {
             const visibleTailOffset = diff.oldEnd + (offset - diff.newEnd);
-            return sfRawOffsetFromVisibleOffset(projection, visibleTailOffset, 'end');
+            const rawTailOffset = sfRawOffsetFromVisibleOffset(projection, visibleTailOffset, 'end');
+            const rawEditedEnd = diff.rawStart + (diff.newEnd - diff.prefixLength);
+            return rawEditedEnd + (rawTailOffset - diff.rawEnd);
         }
         return diff.rawStart + (offset - diff.prefixLength);
     }
