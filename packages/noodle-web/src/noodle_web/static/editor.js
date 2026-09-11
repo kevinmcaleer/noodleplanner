@@ -168,7 +168,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 comment: 'syntax-comment', recurrence: 'syntax-recurrence', bucket: 'syntax-bucket',
                 priority: 'syntax-priority', resource: 'syntax-resource', label: 'syntax-label',
                 duration: 'syntax-duration', percent: 'syntax-percent', date: 'syntax-date',
-                product: 'syntax-product'
+                deadline: 'syntax-deadline', product: 'syntax-product'
             };
             const tokens = TaskLineTokenizer.tokenize(line);
             let output = '';

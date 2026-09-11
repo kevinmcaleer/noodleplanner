@@ -106,12 +106,16 @@
 /* ========================================
    Post-it notes (issue #846)
 
-   Body/footer text always sits on the themed var(--np-surface)/
-   var(--np-text) tokens -- never directly on an arbitrary whiteboard-row
-   Colour -- so note text is contrast-safe by construction for every
-   palette colour in both themes. A custom Colour only tints the header
-   strip and a left accent bar; wbContrastTextColour() (whiteboard-notes.js)
-   picks the header's text colour per-colour against a real WCAG ratio.
+   Issue #1103: a note's Colour fills the *entire* card -- header, body and
+   footer alike -- as one uniform block, not just a header tint plus a left
+   accent bar (the old #849/#1017 treatment). --wb-note-accent (set by
+   wbUpdateNoteNode() in whiteboard-notes.js, straight off the resolved
+   colour -- see wbResolveNoteColour()) drives both the card's background
+   and its border, and --wb-note-text (also set there, from
+   wbContrastTextColour() against that same colour, a real WCAG check) is
+   the one text colour used throughout -- header, body rows, footer,
+   free-form text -- so everything on the note stays legible on every
+   palette colour in both themes without the header/body ever disagreeing.
    ======================================== */
 
 .wb-note {
@@ -120,13 +124,14 @@
 
 .wb-note-card {
     --wb-note-accent: var(--np-border, #e0e0e0);
+    --wb-note-text: var(--np-text, #333333);
     display: flex;
     flex-direction: column;
     width: 100%;
     height: 100%;
-    background: var(--np-surface, #ffffff);
-    border: 1px solid var(--np-border, #e0e0e0);
-    border-left: 4px solid var(--wb-note-accent);
+    background: var(--wb-note-accent);
+    color: var(--wb-note-text);
+    border: 1px solid var(--wb-note-accent);
     border-radius: 8px;
     box-shadow: 0 2px 6px var(--np-shadow, rgba(0, 0, 0, 0.1));
     overflow: hidden;
@@ -150,8 +155,8 @@
     justify-content: space-between;
     gap: 6px;
     padding: 8px 10px;
-    background: var(--np-bg-alt, #f8f9fa);
-    color: var(--np-text, #333333);
+    background: transparent;
+    color: var(--wb-note-text);
     border-bottom: 1px solid var(--np-border, #e0e0e0);
     flex-shrink: 0;
     cursor: grab;
@@ -224,7 +229,8 @@
 .wb-note-empty {
     padding: 10px 6px;
     font-size: 12px;
-    color: var(--np-text-muted, #888888);
+    color: var(--wb-note-text);
+    opacity: 0.65;
     font-style: italic;
     text-align: center;
 }
@@ -254,7 +260,7 @@
     flex: 1;
     min-width: 0;
     font-size: 12px;
-    color: var(--np-text, #333333);
+    color: var(--wb-note-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -296,6 +302,54 @@
     border-color: var(--np-accent);
 }
 
+/* Quick resource-assign bubble (issue #1162, part of epic #878): a small
+   avatar per child row's already-assigned resource, plus a "+" bubble
+   that opens the assign dropdown (wbBuildAssignMenu(), reusing the
+   `.wb-note-menu` popup below as-is). Sits at the row's right-hand end,
+   after the drill-down badge if one is present -- "a bubble at the right
+   of a task", per the epic's own wording. */
+.wb-note-row-avatar {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--np-info-gradient, linear-gradient(135deg, #108BB9 0%, #0d7096 100%));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    font-weight: bold;
+}
+
+.wb-note-assign-bubble {
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 1px solid var(--np-border, #e0e0e0);
+    background: var(--np-bg-alt, #f8f9fa);
+    color: var(--np-text-secondary, #666666);
+    font-size: 11px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+}
+
+.wb-note-assign-bubble:hover,
+.wb-note-assign-bubble:focus-visible {
+    background: var(--np-accent);
+    color: var(--np-on-accent);
+    border-color: var(--np-accent);
+}
+
+.wb-note-menu-empty {
+    display: block;
+    padding: 6px 8px;
+    color: var(--np-text-secondary, #666666);
+    font-size: 12px;
+}
+
 .wb-note-footer {
     display: flex;
     align-items: center;
@@ -309,7 +363,8 @@
 .wb-note-progress {
     font-size: 11px;
     font-weight: 600;
-    color: var(--np-text-secondary, #666666);
+    color: var(--wb-note-text);
+    opacity: 0.8;
 }
 
 .wb-note-avatars {
@@ -478,7 +533,7 @@
     padding: 8px 6px;
     font-size: 12px;
     line-height: 1.5;
-    color: var(--np-text, #333333);
+    color: var(--wb-note-text);
     white-space: pre-wrap;
     overflow-wrap: break-word;
 }
@@ -1230,6 +1285,17 @@ body.wb-note-drag-active * {
     cursor: not-allowed;
 }
 
+/* The "selected" note (issue #1109): whichever note was last picked up
+   (dragged, resized or tapped -- see wbRaiseNoteToFront()), cleared by
+   clicking bare canvas. Drives the ribbon's whiteboard "Colour" button --
+   it opens *this* note's colour panel. A dashed outline (vs. the solid
+   green/red link-target rings above) keeps the two states visually
+   distinct even though both can show on the same note. */
+.wb-note-card.wb-note-selected {
+    outline: 2px dashed var(--np-accent, #108bb9);
+    outline-offset: 2px;
+}
+
 @keyframes wbNoteFlash {
     0%, 100% { box-shadow: 0 2px 6px var(--np-shadow, rgba(0, 0, 0, 0.1)); }
     30%      { box-shadow: 0 0 0 5px rgba(16, 139, 185, 0.55), 0 6px 18px var(--np-shadow, rgba(0, 0, 0, 0.25)); }
@@ -1419,7 +1485,19 @@ body.wb-dependency-mode .wb-noodle-ghost {
     stroke: #ffffff;
 }
 
-/* ── Link mode toggle (#1052) ────────────────────────────────────────── */
+/* ── Link mode toggle (#1052) ──────────────────────────────────────────
+   Icon + text label ("Hierarchy"/"Dependency"), so it needs the same
+   auto-width treatment as the Compact/Comfy/Flow buttons
+   (.wb-toolbar-btn-add) rather than .wb-toolbar-btn's fixed 32px square
+   (issue #1103: the label didn't fit). */
+.wb-link-mode-btn {
+    width: auto;
+    gap: 6px;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
 .wb-link-mode-btn.active {
     background: var(--np-purple, #9b59b6);
     border-color: var(--np-purple, #9b59b6);
@@ -1591,6 +1669,55 @@ body.wb-dependency-mode .wb-noodle-ghost {
 
 .wb-outline-row.matched {
     background: rgba(16, 139, 185, 0.1);
+}
+
+/* Drag handle -- restructuring the plan by dragging a row (#1156). Hidden
+   until hover/focus on a fine pointer so the panel doesn't look cluttered
+   with a grip glyph on every row; always shown on touch, where hover has
+   no equivalent. */
+.wb-outline-drag-handle {
+    flex-shrink: 0;
+    width: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--np-text-muted, #b0b0b0);
+    font-size: 12px;
+    line-height: 1;
+    cursor: grab;
+    touch-action: none;
+    opacity: 0;
+}
+
+.wb-outline-row:hover .wb-outline-drag-handle,
+.wb-outline-drag-handle:focus-visible {
+    opacity: 1;
+}
+
+@media (pointer: coarse) {
+    .wb-outline-drag-handle {
+        opacity: 1;
+    }
+}
+
+.wb-outline-row.wb-outline-dragging {
+    opacity: 0.4;
+}
+
+/* Drop indicators: a line above/below for a reorder, a filled highlight
+   for "nest as a child" -- deliberately distinct so the two gestures the
+   issue asks not to confuse are never rendered the same way. */
+.wb-outline-row.wb-outline-drop-before {
+    box-shadow: inset 0 2px 0 0 var(--np-blue, #108BB9);
+}
+
+.wb-outline-row.wb-outline-drop-after {
+    box-shadow: inset 0 -2px 0 0 var(--np-blue, #108BB9);
+}
+
+.wb-outline-row.wb-outline-drop-child {
+    background: rgba(16, 139, 185, 0.16);
+    box-shadow: inset 3px 0 0 0 var(--np-blue, #108BB9);
 }
 
 .wb-outline-chevron,

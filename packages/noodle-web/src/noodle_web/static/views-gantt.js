@@ -428,7 +428,9 @@ function renderMonthHeaders(container) {
 }
 
 function renderDayHeaders(container) {
-    // Use a two-row layout: month names row on top, day numbers below
+    // Use a two-row layout: week-commencing dates row on top, weekday
+    // initials below. Monday is the canonical start of the week, while the
+    // first/last displayed week may be clipped by the chart range.
     container.style.flexWrap = 'wrap';
 
     let currentDate = new Date(ganttMinDate);
@@ -439,39 +441,47 @@ function renderDayHeaders(container) {
     endDate.setHours(0, 0, 0, 0);
     today.setHours(0, 0, 0, 0);
 
-    // First pass: build month spans for the month row
-    const monthRow = document.createElement('div');
-    monthRow.className = 'gantt-month-row';
+    // First pass: build week spans for the week-commencing row.
+    const weekRow = document.createElement('div');
+    weekRow.className = 'gantt-week-row';
 
-    const months = [];
+    const weeks = [];
     let iterDate = new Date(currentDate);
     while (iterDate <= endDate) {
-        const monthKey = iterDate.getFullYear() + '-' + iterDate.getMonth();
-        if (months.length === 0 || months[months.length - 1].key !== monthKey) {
-            months.push({
-                key: monthKey,
-                name: iterDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        const monday = new Date(iterDate);
+        const daysSinceMonday = (monday.getDay() + 6) % 7;
+        monday.setDate(monday.getDate() - daysSinceMonday);
+        const weekKey = formatLocalDate(monday);
+        if (weeks.length === 0 || weeks[weeks.length - 1].key !== weekKey) {
+            weeks.push({
+                key: weekKey,
+                weekStart: monday,
                 days: 1
             });
         } else {
-            months[months.length - 1].days++;
+            weeks[weeks.length - 1].days++;
         }
         iterDate.setDate(iterDate.getDate() + 1);
     }
 
-    months.forEach(month => {
-        const monthDiv = document.createElement('div');
-        monthDiv.className = 'gantt-month-label';
-        monthDiv.style.width = (month.days * ganttPixelsPerDay) + 'px';
-        monthDiv.textContent = month.name;
-        monthRow.appendChild(monthDiv);
+    weeks.forEach(week => {
+        const weekDiv = document.createElement('div');
+        weekDiv.className = 'gantt-week-label';
+        weekDiv.style.width = (week.days * ganttPixelsPerDay) + 'px';
+        const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][week.weekStart.getMonth()];
+        const year = String(week.weekStart.getFullYear()).slice(-2);
+        weekDiv.textContent = `${week.weekStart.getDate()} ${month} '${year}`;
+        weekDiv.title = `Week commencing ${week.weekStart.toLocaleDateString()}`;
+        weekRow.appendChild(weekDiv);
     });
 
-    container.appendChild(monthRow);
+    container.appendChild(weekRow);
 
-    // Second pass: day number row
+    // Second pass: day-of-week initials (Monday through Sunday).
     const dayRow = document.createElement('div');
     dayRow.className = 'gantt-day-row';
+    const weekdayInitials = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
     currentDate = new Date(ganttMinDate);
     currentDate.setHours(0, 0, 0, 0);
@@ -480,7 +490,8 @@ function renderDayHeaders(container) {
         const dayDiv = document.createElement('div');
         dayDiv.className = 'gantt-month gantt-day-cell';
         dayDiv.style.width = ganttPixelsPerDay + 'px';
-        dayDiv.textContent = currentDate.getDate();
+        const weekday = (currentDate.getDay() + 6) % 7;
+        dayDiv.textContent = weekdayInitials[weekday];
         dayDiv.title = currentDate.toLocaleDateString();
 
         if (currentDate.getTime() === today.getTime()) {
@@ -940,6 +951,9 @@ function renderGanttRows() {
 
             // Render baseline bar if baseline is visible
             renderBaselineBar(barRow, task, minDate);
+
+            // Render deadline slippage marker if a deadline is set (#877)
+            renderDeadlineMarker(barRow, task, minDate);
         }
 
         ganttInfoBody.appendChild(infoRow);
@@ -1006,6 +1020,34 @@ function renderBaselineBar(barRow, task, minDate) {
         blBar.title = `Baseline: ${task.name}\n${baselineItem.start} to ${baselineItem.finish}\nDuration: ${baselineItem.duration || blCalendarDays + 'd'}`;
         barRow.appendChild(blBar);
     }
+}
+
+/**
+ * Render a deadline marker: a downward red arrow at the task's deadline
+ * date, independent of its bar/diamond position. A deadline never moves
+ * the schedule (#877) -- this only marks where it sits on the timeline.
+ */
+function renderDeadlineMarker(barRow, task, minDate) {
+    if (!task.deadline) return;
+
+    const deadlineDate = parseLocalDate(task.deadline);
+    if (!deadlineDate) return;
+    deadlineDate.setHours(0, 0, 0, 0);
+
+    let daysFromStart = 0;
+    const tempDate = new Date(minDate);
+    tempDate.setHours(0, 0, 0, 0);
+    while (tempDate < deadlineDate) {
+        tempDate.setDate(tempDate.getDate() + 1);
+        daysFromStart++;
+    }
+
+    const marker = document.createElement('div');
+    marker.className = 'gantt-deadline-marker';
+    marker.style.left = (daysFromStart * ganttPixelsPerDay) + 'px';
+    marker.title = `Deadline: ${task.deadline}` +
+        (task.rag && ragStatusToColour(task.rag) === 'red' ? ' (missed)' : '');
+    barRow.appendChild(marker);
 }
 
 function setupBarClickToOpenTask(element, task) {

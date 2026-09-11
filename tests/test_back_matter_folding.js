@@ -119,6 +119,22 @@ const PLAN = [
     equal(SF.visibleLineFromRawLine(projection, 12), 5, 'maps a hidden raw row onto the section header line');
 })();
 
+(function leadingFrontMatterProjectionTests() {
+    const plan = '---\ntitle: Hidden metadata\nstatus: Green\n---\nPhase\n  Task 1d\n';
+    const structured = SF.buildProjection(plan, DESCRIPTORS, { defaultExpanded: false, overrides: {} }, { hideLeadingFrontMatter: true });
+    equal(structured.displayText, 'Phase\n  Task 1d\n', 'structured mode hides the complete leading front matter from the editor projection');
+    const edited = SF.applyVisibleEdit(structured, structured.displayText.replace('Task', 'Renamed task'));
+    assert(edited.rawText.startsWith('---\ntitle: Hidden metadata\nstatus: Green\n---\n'), 'editing the structured projection preserves hidden front matter');
+
+    const raw = SF.buildProjection(plan, DESCRIPTORS, { defaultExpanded: false, overrides: {} }, { hideLeadingFrontMatter: false });
+    equal(raw.displayText, plan, 'raw mode projects the complete markdown file');
+
+    const withBackMatter = plan + '---whiteboard---\n| Task | X |\n|---|---|\n| Task | 20 |\n';
+    const completeRaw = SF.buildProjection(withBackMatter, DESCRIPTORS, { defaultExpanded: false, overrides: {} }, { disableSectionFolding: true });
+    equal(completeRaw.displayText, withBackMatter, 'raw mode leaves back matter expanded as part of the complete markdown file');
+    equal(completeRaw.sections.length, 0, 'raw mode creates no folding overlays');
+})();
+
 (function malformedSectionTests() {
     const malformed = 'Tasks\n---raid log---\n| ID | Type |\n| 1 | partial only';
     const projection = SF.buildProjection(malformed, DESCRIPTORS, { defaultExpanded: false, overrides: {} });
@@ -144,6 +160,43 @@ const PLAN = [
 
     const collapsedAgain = SF.buildProjection(edited.rawText, DESCRIPTORS, { defaultExpanded: false, overrides: {} });
     assert(collapsedAgain.displayText.includes('RAID log (2 rows)'), 'edited markdown can be re-folded after a round trip');
+})();
+
+(function typingKeystrokeTests() {
+    // Regression test for a bug where the cursor translation after an edit
+    // landed before the just-typed text instead of after it, so each new
+    // keystroke was inserted ahead of the previous ones (typing "test"
+    // produced "tset"). This drives the same applyVisibleEdit /
+    // translateEditedVisibleOffset pair the live editor's `input` handler
+    // uses, one character at a time, mimicking real native textarea typing.
+    function typeString(startRawText, descriptors, state, text, startVisibleCaret) {
+        let projection = SF.buildProjection(startRawText, descriptors, state);
+        let visibleCaret = typeof startVisibleCaret === 'number' ? startVisibleCaret : projection.displayText.length;
+        for (const ch of text) {
+            const before = projection.displayText;
+            const newVisibleText = before.slice(0, visibleCaret) + ch + before.slice(visibleCaret);
+            const applied = SF.applyVisibleEdit(projection, newVisibleText);
+            assert(!applied.blocked, 'typing "' + text + '" is not blocked by a synthetic range');
+            const newVisibleCaret = visibleCaret + 1;
+            const rawCaret = SF.translateEditedVisibleOffset(projection, applied.diff, newVisibleCaret);
+            projection = SF.buildProjection(applied.rawText, descriptors, state);
+            visibleCaret = SF.visibleOffsetFromRawOffset(projection, rawCaret, 'start');
+        }
+        return projection.rawText;
+    }
+
+    equal(typeString('', [], { defaultExpanded: false, overrides: {} }, 'test'), 'test',
+        'typing "test" into an empty plain editor produces "test", not "tset"');
+
+    equal(typeString('line one\n', [], { defaultExpanded: false, overrides: {} }, 'more'), 'line one\nmore',
+        'typing after existing text appends in order instead of reversing');
+
+    // Type right after "Project X" (well before any collapsed section, so the
+    // edit doesn't touch a synthetic range and isn't blocked).
+    const introCaret = 'Project X'.length;
+    const withSections = typeString(PLAN, DESCRIPTORS, { defaultExpanded: false, overrides: {} }, '!!!', introCaret);
+    equal(withSections, 'Project X!!!' + PLAN.slice('Project X'.length),
+        'typed characters land in order (not reversed) when typing near folded back matter');
 })();
 
 if (failures) process.exit(1);

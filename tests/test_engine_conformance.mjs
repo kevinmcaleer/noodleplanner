@@ -18,6 +18,7 @@ import { join } from "node:path";
 
 import { dayOf, scheduleTasksFromText } from "../packages/noodle-web/src/noodle_web/static/engine/scheduler.js";
 import { planBody } from "../packages/noodle-web/src/noodle_web/static/engine/local-parse.js";
+import { activeCalendar, resolvedResourceCalendars } from "../packages/noodle-web/src/noodle_web/static/engine/calendar.js";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const CORPUS = join(repo, "tests", "fixtures", "conformance");
@@ -108,15 +109,19 @@ for (const plan of PLANS) {
     const planText = readFileSync(join(CORPUS, plan), "utf8");
     const expected = JSON.parse(readFileSync(expectedPath, "utf8")).tasks;
 
-    const { resourceMap } = calendarFrom(planText);
-    // No calendar is passed, because /api/parse does not pass one either:
-    // PlanService._schedule_and_build_tasks calls schedule_tasks(phases) with
-    // no holidays, so the front matter's non-working days are parsed and then
-    // ignored on the web path. The engine supports them (see the calendar
-    // test below); matching the server is what conformance means here.
+    const { holidays, resourceNonWorkingDays, resourceMap } = calendarFrom(planText);
+    // The calendar is passed, because /api/parse does too (issues #837,
+    // #1132, #1136): PlanService._schedule_and_build_tasks calls
+    // schedule_tasks with the front matter's holidays, per-resource
+    // non-working days, active named calendar, and resolved per-resource
+    // calendar assignments.
     const actual = scheduleTasksFromText(planBody(planText), {
       today: FROZEN_TODAY,
       resourceMap,
+      holidays,
+      resourceNonWorkingDays,
+      calendar: activeCalendar(planText),
+      resourceCalendars: resolvedResourceCalendars(planText),
     });
 
     assert.deepEqual(
@@ -138,8 +143,8 @@ test("the corpus was actually compared", () => {
 });
 
 test("the engine honours a calendar when it is given one", () => {
-  // The server does not pass one (see the note above), but the engine must be
-  // ready for when that is fixed: a week-long shutdown pushes the finish out.
+  // A week-long shutdown pushes the finish out when a calendar is supplied,
+  // versus scheduling straight through it when one is not.
   const planText = readFileSync(join(CORPUS, "non-working-days.md"), "utf8");
   const { holidays, resourceNonWorkingDays } = calendarFrom(planText);
 
@@ -156,5 +161,5 @@ test("the engine honours a calendar when it is given one", () => {
     finish(withCalendar, "Over shutdown") > finish(without, "Over shutdown"),
     "the shutdown week should push the finish out when a calendar is supplied",
   );
-  assert.equal(finish(without, "Over shutdown"), "2026-08-19", "the no-calendar answer should match the server's");
+  assert.equal(finish(without, "Over shutdown"), "2026-08-19", "the no-calendar answer schedules straight through the shutdown");
 });

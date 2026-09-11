@@ -39,6 +39,10 @@
           description: 'Cross-project (programme) dependencies managed by the Portfolio Dependencies view.' },
         { key: 'non-working-days', aliases: ['holidays'], label: 'Non-working Days', kind: 'date-list',
           description: 'Project-wide holidays / non-working days, with optional date ranges.' },
+        { key: 'calendar', label: 'Active Calendar', kind: 'calendar-select',
+          description: 'Which declared calendar is active for scheduling. Unset (or naming one not declared below) falls back to the implicit Standard (Mon-Fri) calendar.' },
+        { key: 'calendars', label: 'Calendars', kind: 'calendar-list',
+          description: 'Named calendars: a work week (Mon-Fri) or bracketed shift rotation ([Mon-Fri; Mon-Wed]), optional daily hours, and dated exceptions.' },
         { key: 'labels', label: 'Labels', kind: 'flow-list',
           description: 'Tags used for portfolio grouping and filtering.' },
         { key: 'programme', label: 'Programme', kind: 'text',
@@ -338,6 +342,49 @@
         },
     };
 
+    // A calendar entry's `hours HH:MM-HH:MM` / `exceptions [...]` suffixes
+    // (see noodle_core/calendar_model.py for the authoritative grammar).
+    // This only splits the line into its four opaque text fields for
+    // editing -- it does not interpret the week pattern or exception dates,
+    // which is the scheduling engine's job (static/engine/calendar.js),
+    // not this lossless front-matter editor's.
+    const CalendarList = {
+        parse(children) {
+            const entries = [];
+            for (const line of children) {
+                const item = stripListDash(line.text);
+                if (item == null) continue;
+                const m = /^([^:]+):\s*(.*)$/.exec(item);
+                if (!m) continue;
+                let rest = m[2];
+                let hours = '';
+                const hoursMatch = /\bhours\s+(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2})\b/i.exec(rest);
+                if (hoursMatch) {
+                    hours = hoursMatch[1].replace(/\s+/g, '');
+                    rest = rest.slice(0, hoursMatch.index) + rest.slice(hoursMatch.index + hoursMatch[0].length);
+                }
+                let exceptions = '';
+                const exceptionsMatch = /\bexceptions\s*\[([^\]]*)\]/i.exec(rest);
+                if (exceptionsMatch) {
+                    exceptions = exceptionsMatch[1].trim();
+                    rest = rest.slice(0, exceptionsMatch.index) + rest.slice(exceptionsMatch.index + exceptionsMatch[0].length);
+                }
+                entries.push({ name: m[1].trim(), pattern: rest.trim(), hours, exceptions });
+            }
+            return entries;
+        },
+        serialize(entries) {
+            return entries
+                .filter(e => e.name && e.pattern)
+                .map(e => {
+                    let line = `- ${e.name}: ${e.pattern}`;
+                    if (e.hours) line += ` hours ${e.hours}`;
+                    if (e.exceptions) line += ` exceptions [${e.exceptions}]`;
+                    return line;
+                });
+        },
+    };
+
     const FlowList = {
         parse(value) {
             const trimmed = String(value || '').trim();
@@ -354,6 +401,7 @@
         'resource-list': ResourceList,
         'dependency-list': DependencyList,
         'date-list': DateList,
+        'calendar-list': CalendarList,
     };
 
     // ---- Row -> line reconstruction ----
@@ -498,6 +546,7 @@
         ResourceList,
         DependencyList,
         DateList,
+        CalendarList,
         FlowList,
         parseBody,
         serializeRows,

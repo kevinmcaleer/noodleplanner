@@ -495,6 +495,10 @@
         if (onSwitchToKanban) {
             const header = document.createElement('div');
             header.className = 'notepad-toolbar';
+            const title = document.createElement('h2');
+            title.className = 'notepad-title';
+            title.textContent = 'Outline';
+            header.appendChild(title);
             const hint = document.createElement('span');
             hint.className = 'notepad-hint';
             hint.textContent = 'Type a line, press Enter. Tab / Shift+Tab to indent.';

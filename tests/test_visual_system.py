@@ -55,6 +55,7 @@ except ImportError:
     HAS_APP = False
 
 pytestmark = [
+    pytest.mark.usability,
     pytest.mark.skipif(not HAS_SELENIUM, reason="selenium not installed"),
     pytest.mark.skipif(not HAS_APP, reason="noodle_web not importable"),
 ]
@@ -343,13 +344,15 @@ class TestComponentOwnedColours:
     def test_whiteboard_note_titles_stay_legible_on_their_own_header_colour(self, browser, app_server):
         """Components that colour their own surface must keep their own text colour.
 
-        A whiteboard note's header is painted with the note's colour -- chosen
-        by the user or derived from the task's place in the outline -- and
-        whiteboard-notes.js computes a real WCAG-contrasting text colour for it
-        (wbContrastTextColour()). The palette's blanket `h1,h2,h3 { color }`
-        used to paint over that, putting near-black ink on a dark navy header
-        at 1.12:1. This walks the rendered notes rather than the stylesheet, so
-        any future heading rule that reintroduces the clobber is caught.
+        A whiteboard note's header text sits on the note's own colour --
+        chosen by the user or derived from the task's place in the outline --
+        and whiteboard-notes.js computes a real WCAG-contrasting text colour
+        for it (wbContrastTextColour()). The palette's blanket `h1,h2,h3 {
+        color }` used to paint over that, putting near-black ink on a dark
+        navy note at 1.12:1. This walks the rendered notes rather than the
+        stylesheet, so any future heading rule that reintroduces the clobber
+        is caught whether the header paints that colour itself or lets the
+        card show through.
         """
         open_app(browser, app_server)
         set_theme(browser, "light")
@@ -382,6 +385,9 @@ class TestComponentOwnedColours:
               return .2126*f(m[0])+.7152*f(m[1])+.0722*f(m[2]);}
             function ratio(a,b){const x=lum(a),y=lum(b);
               return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
+            function bgOf(el){let e=el;while(e){const b=getComputedStyle(e).backgroundColor;
+              if(b && !/rgba\\(0, 0, 0, 0\\)|transparent/.test(b)) return b; e=e.parentElement;}
+              return getComputedStyle(document.body).backgroundColor;}
             return [...document.querySelectorAll('.wb-note')].map(fo => {
               const header = fo.querySelector('.wb-note-header');
               const title = fo.querySelector('.wb-note-title');
@@ -389,7 +395,7 @@ class TestComponentOwnedColours:
               return {
                 task: fo.dataset.wbTask,
                 ratio: +ratio(getComputedStyle(title).color,
-                              getComputedStyle(header).backgroundColor).toFixed(2),
+                              bgOf(header)).toFixed(2),
               };
             }).filter(Boolean);
         """
