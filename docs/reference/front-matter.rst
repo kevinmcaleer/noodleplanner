@@ -31,7 +31,7 @@ project.
 
 Expanded, the panel offers two interchangeable views:
 
-- **Structured** (the default) — one row per key, Obsidian-property style.
+- **Properties** (the default) — one row per key, Obsidian-property style.
   Known keys (``title``, ``status``, ``Resources``, ``dependencies``, …)
   get a purpose-built widget — a dropdown for ``status``/``theme``, a tag
   editor for ``labels``, repeatable entry rows for ``Resources``,
@@ -40,8 +40,13 @@ Expanded, the panel offers two interchangeable views:
   Unrecognised keys still get a plain text row so nothing is ever hidden or
   silently dropped. Rows can be added, removed, and reordered with the
   ↑/↓ buttons.
-- **Raw** — the front matter exactly as YAML text, for anyone who would
-  rather type it directly.
+- **YAML** — returns the editor to the complete, unfolded Markdown file,
+  including the front matter and every back-matter section, for anyone who
+  would rather work directly with the source.
+
+In **Properties** view, the front-matter source lines are hidden from the
+Markdown editor so the metadata is not shown twice. The task outline and
+foldable back-matter summaries remain below the properties panel.
 
 Switching between the two is lossless in both directions: editing one key
 leaves every other line — including comments, blank lines, and formatting

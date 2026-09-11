@@ -119,6 +119,22 @@ const PLAN = [
     equal(SF.visibleLineFromRawLine(projection, 12), 5, 'maps a hidden raw row onto the section header line');
 })();
 
+(function leadingFrontMatterProjectionTests() {
+    const plan = '---\ntitle: Hidden metadata\nstatus: Green\n---\nPhase\n  Task 1d\n';
+    const structured = SF.buildProjection(plan, DESCRIPTORS, { defaultExpanded: false, overrides: {} }, { hideLeadingFrontMatter: true });
+    equal(structured.displayText, 'Phase\n  Task 1d\n', 'structured mode hides the complete leading front matter from the editor projection');
+    const edited = SF.applyVisibleEdit(structured, structured.displayText.replace('Task', 'Renamed task'));
+    assert(edited.rawText.startsWith('---\ntitle: Hidden metadata\nstatus: Green\n---\n'), 'editing the structured projection preserves hidden front matter');
+
+    const raw = SF.buildProjection(plan, DESCRIPTORS, { defaultExpanded: false, overrides: {} }, { hideLeadingFrontMatter: false });
+    equal(raw.displayText, plan, 'raw mode projects the complete markdown file');
+
+    const withBackMatter = plan + '---whiteboard---\n| Task | X |\n|---|---|\n| Task | 20 |\n';
+    const completeRaw = SF.buildProjection(withBackMatter, DESCRIPTORS, { defaultExpanded: false, overrides: {} }, { disableSectionFolding: true });
+    equal(completeRaw.displayText, withBackMatter, 'raw mode leaves back matter expanded as part of the complete markdown file');
+    equal(completeRaw.sections.length, 0, 'raw mode creates no folding overlays');
+})();
+
 (function malformedSectionTests() {
     const malformed = 'Tasks\n---raid log---\n| ID | Type |\n| 1 | partial only';
     const projection = SF.buildProjection(malformed, DESCRIPTORS, { defaultExpanded: false, overrides: {} });
