@@ -245,7 +245,15 @@
         };
     }
 
-    function sfBuildProjection(text, descriptors, state) {
+    function sfLeadingFrontMatterEndLine(lines) {
+        if (!lines.length || String(lines[0] || '').trim() !== '---') return 0;
+        for (let line = 1; line < lines.length; line++) {
+            if (String(lines[line] || '').trim() === '---') return line + 1;
+        }
+        return 0;
+    }
+
+    function sfBuildProjection(text, descriptors, state, options) {
         const collected = sfCollectSectionInstances(text, descriptors);
         const rawText = collected.text;
         const rawLines = collected.lines;
@@ -254,8 +262,10 @@
         const segments = [];
         const syntheticRanges = [];
         const visibleLineToSection = new Map();
+        const foldingEnabled = !(options && options.disableSectionFolding);
         let visibleOffset = 0;
-        let rawLineIndex = 0;
+        const hideLeadingFrontMatter = !!(options && options.hideLeadingFrontMatter);
+        let rawLineIndex = hideLeadingFrontMatter ? sfLeadingFrontMatterEndLine(rawLines) : 0;
 
         function pushDisplayLine(record) {
             const lineText = record.text;
@@ -292,7 +302,7 @@
         }
 
         while (rawLineIndex < rawLines.length) {
-            const section = collected.byStartLine.get(rawLineIndex);
+            const section = foldingEnabled ? collected.byStartLine.get(rawLineIndex) : null;
             if (section) {
                 const expanded = sfIsExpanded(state, section.marker);
                 const markerLineText = section.summary;
@@ -348,10 +358,10 @@
             rawLineStarts: rawLineStarts,
             displayLines: displayLines,
             displayText: displayLines.map((line) => line.text).join('\n'),
-            sections: collected.sections.map((section) => Object.assign({}, section, {
+            sections: foldingEnabled ? collected.sections.map((section) => Object.assign({}, section, {
                 expanded: sfIsExpanded(state, section.marker),
-            })),
-            rawLineSections: collected.rawLineSections,
+            })) : [],
+            rawLineSections: foldingEnabled ? collected.rawLineSections : new Array(rawLines.length).fill(null),
             segments: segments,
             syntheticRanges: syntheticRanges,
             visibleLineToSection: visibleLineToSection,
@@ -410,7 +420,10 @@
         const offset = Math.max(0, Math.min(rawOffset, projection.rawText.length));
         for (const segment of projection.segments) {
             if (segment.kind === 'raw') {
-                if (offset < segment.rawStart) break;
+                // A structured front-matter view can hide a leading raw
+                // range. Map a caret from that range to the first visible
+                // position instead of jumping it to the end of the file.
+                if (offset < segment.rawStart) return segment.visibleStart;
                 if (offset <= segment.rawEnd) {
                     return segment.visibleStart + (offset - segment.rawStart);
                 }
@@ -530,7 +543,12 @@
             this.showToolbar = options.showToolbar !== false;
             this.projectId = null;
             this.state = { defaultExpanded: false, overrides: {} };
-            this.projection = sfBuildProjection('', this.descriptors, this.state);
+            this.hideLeadingFrontMatter = false;
+            this.disableSectionFolding = false;
+            this.projection = sfBuildProjection('', this.descriptors, this.state, {
+                hideLeadingFrontMatter: this.hideLeadingFrontMatter,
+                disableSectionFolding: this.disableSectionFolding,
+            });
 
             const proto = Object.getPrototypeOf(this.editor);
             this.nativeValue = Object.getOwnPropertyDescriptor(proto, 'value');
@@ -724,7 +742,10 @@
             const opts = options || {};
             let rawSelectionStart = typeof opts.rawSelectionStart === 'number' ? opts.rawSelectionStart : this.getRawSelectionStart();
             let rawSelectionEnd = typeof opts.rawSelectionEnd === 'number' ? opts.rawSelectionEnd : this.getRawSelectionEnd();
-            this.projection = sfBuildProjection(rawText, this.descriptors, this.state);
+            this.projection = sfBuildProjection(rawText, this.descriptors, this.state, {
+                hideLeadingFrontMatter: this.hideLeadingFrontMatter,
+                disableSectionFolding: this.disableSectionFolding,
+            });
             this.nativeValue.set.call(this.editor, this.projection.displayText);
             const visibleStart = sfVisibleOffsetFromRawOffset(this.projection, rawSelectionStart, 'start');
             const visibleEnd = sfVisibleOffsetFromRawOffset(this.projection, rawSelectionEnd, 'end');
@@ -742,6 +763,15 @@
                 rawSelectionStart: this.getRawSelectionStart(),
                 rawSelectionEnd: this.getRawSelectionEnd(),
             });
+        }
+
+        setFrontMatterPresentation(mode) {
+            const hideLeading = mode === 'structured';
+            const disableFolding = mode === 'raw';
+            if (hideLeading === this.hideLeadingFrontMatter && disableFolding === this.disableSectionFolding) return;
+            this.hideLeadingFrontMatter = hideLeading;
+            this.disableSectionFolding = disableFolding;
+            this.refreshProjection();
         }
 
         updateToolbar() {
@@ -767,29 +797,28 @@
 
             this.projection.displayLines.forEach((line, index) => {
                 if (line.kind !== 'header') return;
-                const header = document.createElement('div');
+                const header = document.createElement('button');
+                header.type = 'button';
                 header.className = 'section-fold-header-row' + (line.expanded ? ' is-expanded' : '');
+                header.setAttribute('aria-expanded', line.expanded ? 'true' : 'false');
+                header.setAttribute('title', (line.expanded ? 'Collapse ' : 'Expand ') + line.section.label);
                 header.style.top = (paddingTop + (index * lineHeight)) + 'px';
                 header.style.left = paddingLeft + 'px';
                 header.style.right = paddingRight + 'px';
                 header.style.height = lineHeight + 'px';
 
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'section-fold-header-btn' + (line.expanded ? ' is-expanded' : '');
-                button.setAttribute('aria-expanded', line.expanded ? 'true' : 'false');
-                button.setAttribute('title', (line.expanded ? 'Collapse ' : 'Expand ') + line.section.label);
-                button.style.height = lineHeight + 'px';
-                button.innerHTML =
-                    '<span class="section-fold-chevron" aria-hidden="true">' + (line.expanded ? '&#9662;' : '&#9656;') + '</span>';
-                button.addEventListener('click', (event) => {
+                header.addEventListener('click', (event) => {
                     event.preventDefault();
                     this.toggleSection(line.marker, { focus: true, rawLineNumber: line.rawLineNumber });
                 });
+                const chevron = document.createElement('span');
+                chevron.className = 'section-fold-chevron';
+                chevron.setAttribute('aria-hidden', 'true');
+                chevron.innerHTML = line.expanded ? '&#9662;' : '&#9656;';
                 const summary = document.createElement('span');
                 summary.className = 'section-fold-summary';
                 summary.textContent = line.summary;
-                header.appendChild(button);
+                header.appendChild(chevron);
                 header.appendChild(summary);
                 this.overlay.appendChild(header);
             });
@@ -811,7 +840,13 @@
                 rawSelectionStart: options && typeof options.rawSelectionStart === 'number' ? options.rawSelectionStart : this.getRawSelectionStart(),
                 rawSelectionEnd: options && typeof options.rawSelectionEnd === 'number' ? options.rawSelectionEnd : this.getRawSelectionEnd(),
             });
-            if (options && options.focus) this.revealRawLine(options.rawLineNumber || sfFindSectionStartLine(this.getRawText(), marker, this.descriptors));
+            // revealRawLine deliberately expands a collapsed section. Calling
+            // it after a collapse therefore undid the click immediately and
+            // made the header appear unresponsive. Only move the caret into
+            // section content when the action was an expansion.
+            if (expanded && options && options.focus) {
+                this.revealRawLine(options.rawLineNumber || sfFindSectionStartLine(this.getRawText(), marker, this.descriptors));
+            }
         }
 
         setDefaultExpanded(expanded) {

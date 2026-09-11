@@ -1045,6 +1045,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    width: auto;
     border: 1px solid rgba(255, 255, 255, 0.10);
     background: rgba(30, 30, 30, 0.96);
     color: #f3f4f6;
@@ -1053,40 +1054,24 @@
     font-family: 'Courier New', monospace;
     font-size: 14px;
     line-height: 1.5;
+    text-align: left;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    pointer-events: none;
+    cursor: pointer;
+    pointer-events: auto;
 }
 
 .section-fold-header-row.is-expanded {
     background: rgba(45, 45, 45, 0.96);
 }
 
-.section-fold-header-btn {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    min-width: 28px;
-    border: none;
-    background: transparent;
-    color: #f3f4f6;
-    border-radius: 4px;
-    padding: 0;
-    font-family: 'Courier New', monospace;
-    font-size: 14px;
-    line-height: 1.5;
-    pointer-events: auto;
-}
-
-.section-fold-header-btn:hover,
-.section-fold-header-btn:focus-visible {
+.section-fold-header-row:hover,
+.section-fold-header-row:focus-visible {
     background: rgba(23, 42, 51, 0.98);
     outline: none;
 }
 
 .section-fold-chevron {
-    width: 12px;
+    width: 18px;
     text-align: center;
     color: #7dd3fc;
     flex: 0 0 auto;

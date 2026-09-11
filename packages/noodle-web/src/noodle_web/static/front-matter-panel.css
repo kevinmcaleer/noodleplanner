@@ -1,355 +1,406 @@
-/* Collapsible front-matter panel (#780) — Obsidian-style key/value editor
-   that sits above the plan editor textarea and shares its dark theme. */
+/* Front-matter properties panel (#780).
+   This deliberately uses editor colours: it is part of the source editor,
+   not a light-theme form embedded above it. */
 
 .fm-panel {
     flex-shrink: 0;
     background: #252526;
     border-bottom: 1px solid #3a3a3a;
     color: #d4d4d4;
-    font-size: 0.85em;
+    font-size: 13px;
 }
 
-.fm-panel-absent {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 10px;
-    color: #999;
-}
-
+.fm-panel-absent,
 .fm-panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding: 4px 8px;
+    gap: 12px;
+    min-height: 38px;
+    padding: 0 12px;
 }
+
+.fm-panel-absent { color: #a6a6a6; }
 
 .fm-summary-toggle {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
+    min-width: 0;
+    min-height: 30px;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 5px;
     background: transparent;
-    border: none;
-    color: #d4d4d4;
+    color: #e3e3e3;
     cursor: pointer;
-    padding: 4px 4px;
-    font-size: 1em;
-    border-radius: 3px;
-}
-
-.fm-summary-toggle:hover {
-    background: #3a3a3a;
-}
-
-.fm-chevron {
-    display: inline-block;
-    width: 1em;
-    text-align: center;
-    color: var(--np-accent, #667eea);
-}
-
-.fm-title {
-    font-weight: 600;
-}
-
-.fm-summary-count {
-    color: #999;
-}
-
-.fm-panel-controls {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.fm-mode-toggle {
-    display: flex;
-    border: 1px solid #555;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.fm-mode-btn {
-    background: transparent;
-    color: #d4d4d4;
-    border: none;
-    padding: 3px 8px;
-    cursor: pointer;
-    font-size: 0.9em;
-}
-
-.fm-mode-btn + .fm-mode-btn {
-    border-left: 1px solid #555;
-}
-
-.fm-mode-btn.active {
-    background: var(--np-accent, #667eea);
-    /* var(--np-on-accent) is near-black in both themes -- the accent
-       (marigold) is light in both, so white text here fails WCAG AA.
-       See visual-system.css's "Text on the accent" block, which also
-       pins this selector at higher specificity as the authoritative fix. */
-    color: var(--np-on-accent, #23201C);
-}
-
-.fm-add-key-select {
-    background: #2d2d2d;
-    color: #d4d4d4;
-    border: 1px solid #555;
-    border-radius: 3px;
-    padding: 3px 6px;
-    font-size: 0.9em;
-}
-
-.fm-add-frontmatter-btn {
+    font: inherit;
+    text-align: left;
     white-space: nowrap;
 }
 
+.fm-summary-toggle:hover,
+.fm-summary-toggle:focus-visible { background: #333334; }
+
+.fm-summary-static:hover { background: transparent; }
+
+.fm-chevron {
+    width: 12px;
+    color: #a7a7a7;
+    text-align: center;
+}
+
+.fm-title { font-weight: 600; }
+
+.fm-summary-count {
+    color: #8d8d8d;
+    font-weight: 400;
+}
+
+.fm-panel-controls,
+.fm-mode-toggle {
+    display: flex;
+    align-items: center;
+}
+
+.fm-panel-controls { gap: 8px; }
+
+.fm-mode-toggle {
+    padding: 0;
+    background: transparent;
+}
+
+.fm-mode-btn {
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #999;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+}
+
+.fm-mode-btn:hover { color: #ddd; }
+
+:root body .fm-panel .fm-add-key-select {
+    width: auto;
+    min-height: 26px;
+    padding: 3px 25px 3px 8px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background-color: transparent;
+    color: #aaa;
+    font: inherit;
+    font-size: 12px;
+}
+
+:root body .fm-panel .fm-add-key-select:hover,
+:root body .fm-panel .fm-add-key-select:focus {
+    border-color: #4d4d4f;
+    background-color: #303031;
+    color: #e2e2e2;
+}
+
+.fm-add-frontmatter-btn { white-space: nowrap; }
+
 .fm-panel-body {
-    padding: 3px 8px 5px;
-    max-height: 40vh;
+    max-height: 42vh;
+    padding: 2px 12px 10px;
     overflow-y: auto;
-    font-size: 0.9em;
 }
 
 .fm-row-list {
     display: flex;
     flex-direction: column;
-    gap: 0;
 }
 
 .fm-empty-hint {
+    padding: 8px 7px;
     color: #888;
     font-style: italic;
-    padding: 4px 0;
 }
 
 .fm-row {
+    display: grid;
+    grid-template-columns: minmax(92px, 31%) minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 8px;
+    min-height: 34px;
+    padding: 3px 5px;
+    border-radius: 5px;
+    transition: background-color 120ms ease;
+}
+
+.fm-row:hover,
+.fm-row:focus-within { background: #2d2d2e; }
+
+.fm-row-highlight { background: rgba(237, 181, 42, 0.18); }
+
+.fm-row-key {
+    min-width: 0;
+    padding: 5px 4px;
+    color: #aaa;
+    line-height: 20px;
+    overflow-wrap: anywhere;
+}
+
+.fm-row-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 1px 0;
-    border-bottom: 1px solid #2a2a2a;
-    transition: background-color 0.3s ease;
+    min-height: 28px;
+    opacity: 0;
+    transition: opacity 120ms ease;
 }
 
-/* Ribbon "Calendars" button (#1047 follow-up): briefly flashes the row it
-   scrolled to, so landing in the panel is visibly tied to the click. */
-.fm-row-highlight {
-    background-color: rgba(16, 139, 185, 0.25);
-}
+.fm-row:hover .fm-row-actions,
+.fm-row:focus-within .fm-row-actions { opacity: 1; }
 
-.fm-row-reorder {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    flex: 0 0 auto;
-}
+.fm-row-reorder { display: flex; }
 
-.fm-row-move-up,
-.fm-row-move-down {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 10px;
-    font-size: 0.55em;
+.fm-row-btn,
+.fm-line-remove,
+.fm-add-line-btn {
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #8c8c8c;
+    cursor: pointer;
+    font: inherit;
 }
 
 .fm-row-btn {
-    background: transparent;
-    border: 1px solid transparent;
-    color: #808080;
-    cursor: pointer;
-    border-radius: 3px;
-    line-height: 1;
-    padding: 0 3px;
-    font-size: 0.7em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 26px;
+    padding: 0;
+    font-size: 14px;
 }
 
-.fm-row-btn:hover {
-    background: #3a3a3a;
-    color: #d4d4d4;
+.fm-row-btn:hover,
+.fm-row-btn:focus-visible,
+.fm-line-remove:hover,
+.fm-line-remove:focus-visible,
+.fm-add-line-btn:hover,
+.fm-add-line-btn:focus-visible {
+    background: #414142;
+    color: #f2f2f2;
 }
 
 .fm-row-btn:disabled {
-    opacity: 0.25;
+    opacity: 0.2;
     cursor: default;
 }
 
-.fm-row-remove {
-    font-size: 0.85em;
-}
+.fm-row-remove { font-size: 18px; }
 
-.fm-row-key {
-    flex: 0 0 110px;
-    color: #9cdcfe;
-    word-break: break-word;
-}
-
-.fm-row-key-input {
-    background: transparent;
-    color: #9cdcfe;
-    border: 1px solid transparent;
-    border-radius: 3px;
-    padding: 1px 4px;
-}
-
-.fm-row-key-input:hover,
-.fm-row-key-input:focus {
-    background: #2d2d2d;
-    border-color: #555;
-}
-
-.fm-value-input,
-.fm-value-select,
-.fm-list-field {
-    background: transparent;
-    color: #d4d4d4;
-    border: 1px solid transparent;
-    border-radius: 3px;
-    padding: 1px 4px;
-    font-family: inherit;
-    font-size: inherit;
-}
-
-.fm-value-input:hover,
-.fm-value-select:hover,
-.fm-list-field:hover,
-.fm-value-input:focus,
-.fm-value-select:focus,
-.fm-list-field:focus {
-    background: #2d2d2d;
-    border-color: #555;
-}
-
-.fm-value-input {
-    flex: 1;
+/* The app's global form rules are intentionally strong. Metadata inputs are
+   quiet inline values, so this scoped rule wins that cascade explicitly. */
+:root body .fm-panel :is(
+    input.fm-row-key-input,
+    input.fm-value-input,
+    input.fm-list-field,
+    input.fm-tag-input,
+    input.fm-block-line-input
+) {
+    box-sizing: border-box;
     min-width: 0;
+    min-height: 28px;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: #dedede;
+    font: inherit;
+    box-shadow: none;
 }
 
-.fm-value-select {
-    flex: 0 0 auto;
+:root body .fm-panel :is(
+    input.fm-row-key-input,
+    input.fm-value-input,
+    input.fm-list-field,
+    input.fm-tag-input,
+    input.fm-block-line-input
+):hover { border-color: #464648; }
+
+:root body .fm-panel :is(
+    input.fm-row-key-input,
+    input.fm-value-input,
+    input.fm-list-field,
+    input.fm-tag-input,
+    input.fm-block-line-input
+):focus {
+    border-color: #66666a;
+    background: #202021;
+    outline: none;
+    box-shadow: none;
+}
+
+:root body .fm-panel input.fm-row-key-input {
+    width: 100%;
+    color: #aaa;
+}
+
+.fm-value-input { width: 100%; }
+
+:root body .fm-panel select.fm-value-select {
+    min-height: 28px;
+    padding: 3px 28px 3px 6px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background-color: transparent;
+    color: #dedede;
+    font: inherit;
+}
+
+:root body .fm-panel select.fm-value-select:hover,
+:root body .fm-panel select.fm-value-select:focus {
+    border-color: #4d4d4f;
+    background-color: #202021;
 }
 
 .fm-tag-list {
-    flex: 1;
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
     align-items: center;
+    gap: 5px;
+    min-width: 0;
+    padding: 2px 0;
 }
 
 .fm-tag {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    background: #333;
-    border-radius: 12px;
-    padding: 2px 4px 2px 10px;
-    font-size: 0.9em;
+    gap: 3px;
+    padding: 2px 4px 2px 9px;
+    border-radius: 999px;
+    background: #3a334b;
+    color: #c9b4ff;
 }
 
 .fm-tag-remove {
-    background: transparent;
-    border: none;
-    color: #999;
-    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
     border-radius: 50%;
-    width: 16px;
-    height: 16px;
+    background: transparent;
+    color: #a99bc7;
+    cursor: pointer;
     line-height: 1;
 }
 
-.fm-tag-remove:hover {
-    background: #555;
-    color: #fff;
-}
+:root body .fm-panel input.fm-tag-input { flex: 1 1 90px; }
 
-.fm-tag-input {
-    background: transparent;
-    border: none;
-    color: #d4d4d4;
-    min-width: 100px;
-    flex: 1;
-}
-
-.fm-tag-input:focus {
-    outline: none;
-}
-
-.fm-list-widget {
-    flex: 1;
+.fm-list-widget,
+.fm-block-list-widget {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-}
-
-.fm-list-entry {
-    display: flex;
-    gap: 4px;
-}
-
-.fm-list-field {
-    flex: 1;
+    gap: 2px;
     min-width: 0;
 }
 
-.fm-add-entry-btn {
+.fm-list-entry,
+.fm-block-line {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.fm-list-entry { flex-wrap: wrap; }
+
+.fm-list-field,
+.fm-block-line-input { flex: 1 1 0; }
+
+.fm-list-field { flex-basis: 120px; }
+
+.fm-block-bullet {
+    flex: 0 0 12px;
+    color: #777;
+    text-align: center;
+}
+
+.fm-line-remove {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 26px;
+    padding: 0;
+    opacity: 0;
+    font-size: 17px;
+}
+
+.fm-block-line:hover .fm-line-remove,
+.fm-block-line:focus-within .fm-line-remove { opacity: 1; }
+
+.fm-add-entry-btn,
+.fm-add-line-btn {
     align-self: flex-start;
+    margin-top: 2px;
+    padding: 3px 6px;
+    color: #999;
+    font-size: 12px;
 }
 
 .fm-block-raw-textarea,
 .fm-raw-textarea {
-    width: 100%;
-    background: #1e1e1e;
-    color: #d4d4d4;
-    border: 1px solid #555;
-    border-radius: 3px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.95em;
-    padding: 6px;
-    resize: vertical;
     box-sizing: border-box;
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #4b4b4d;
+    border-radius: 5px;
+    background: #1e1e1f;
+    color: #d4d4d4;
+    font-family: var(--np-font-data, 'Courier New', monospace);
+    font-size: 12px;
+    resize: vertical;
 }
 
-.fm-block-raw-textarea {
-    min-height: 60px;
-    flex: 1;
-}
+.fm-block-raw-textarea { min-height: 60px; }
+.fm-raw-textarea { min-height: 120px; }
 
-.fm-raw-textarea {
-    min-height: 120px;
-}
+.fm-warnings { margin-bottom: 6px; }
+.fm-warnings:empty { display: none; }
 
-.fm-warnings {
-    margin-bottom: 6px;
-}
-
-.fm-warnings:empty {
-    display: none;
-}
+.fm-warning-title,
+.fm-warning-line { color: #e6b94f; }
 
 .fm-warning-title {
-    color: #e6a817;
-    font-weight: 600;
     margin-bottom: 2px;
+    font-weight: 600;
 }
 
 .fm-warning-line {
-    color: #e6a817;
-    font-family: 'Courier New', monospace;
-    font-size: 0.85em;
+    font-family: var(--np-font-data, 'Courier New', monospace);
+    font-size: 11px;
     white-space: pre-wrap;
 }
 
 @media (max-width: 768px) {
-    .fm-row {
-        flex-wrap: wrap;
+    .fm-panel-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 2px;
+        padding: 5px 8px;
     }
 
-    .fm-row-key {
-        flex: 1 1 100%;
+    .fm-panel-controls {
+        width: 100%;
+        padding-left: 5px;
     }
+
+    .fm-row {
+        grid-template-columns: minmax(84px, 34%) minmax(0, 1fr);
+    }
+
+    .fm-row-actions {
+        grid-column: 2;
+        justify-self: end;
+        opacity: 1;
+    }
+
+    .fm-list-entry { flex-wrap: wrap; }
+    .fm-list-field { flex-basis: calc(50% - 4px); }
 }

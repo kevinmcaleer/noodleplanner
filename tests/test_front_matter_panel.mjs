@@ -193,6 +193,21 @@ test('the status field renders as a select with the RAG options', () => {
     assert.ok(select, 'expected a <select> widget for status');
 });
 
+test('a multi-line block renders as quiet repeatable property values, not a raw textarea', async () => {
+    const text = '---\nTheme:\n- hdd: #FCE38A\n- lld: #FCE38A\n- test 2: #FFF3B0\n---\nPhase\n  Task 1d\n';
+    const { editor, container } = buildPanel(text);
+    const themeRow = container.querySelectorAll('.fm-row').find(r => r.querySelector('.fm-row-key')?.textContent === 'Theme');
+    assert.ok(themeRow, 'expected the Theme property');
+    assert.equal(themeRow.querySelectorAll('.fm-block-line').length, 3);
+    assert.equal(themeRow.querySelector('.fm-block-raw-textarea'), null);
+
+    const firstValue = themeRow.querySelectorAll('.fm-block-line-input')[0];
+    firstValue.value = 'hdd: #123456';
+    firstValue.dispatchEvent({ type: 'input' });
+    await wait(500);
+    assert.match(editor.value, /^- hdd: #123456$/m, 'editing keeps the original YAML list prefix');
+});
+
 test('adding a custom key appends it and it is editable afterwards', async () => {
     const text = '---\ntitle: My Project\n---\nPhase\n  Task 1d\n';
     const { editor, container, sandbox } = buildPanel(text);
@@ -203,14 +218,17 @@ test('adding a custom key appends it and it is editable afterwards', async () =>
     assert.match(editor.value, /custom-value:/);
 });
 
-test('raw mode shows exactly the reconstructed front-matter body and round-trips', () => {
+test('raw mode removes the duplicate front-matter textarea and leaves the complete markdown in the editor', () => {
     const text = '---\ntitle: My Project\nsponsor: CEO\n---\nPhase\n  Task 1d\n';
-    const { container, panel } = buildPanel(text);
-    const rawBtn = container.querySelectorAll('.fm-mode-btn')[1];
+    const { editor, container, panel } = buildPanel(text);
+    const rawBtn = container.querySelector('.fm-mode-btn');
+    assert.equal(rawBtn.textContent, 'YAML');
     rawBtn.dispatchEvent({ type: 'click' });
     assert.equal(panel.mode, 'raw');
-    const textarea = container.querySelector('.fm-raw-textarea');
-    assert.equal(textarea.value, 'title: My Project\nsponsor: CEO\n');
+    assert.equal(container.querySelector('.fm-raw-textarea'), null);
+    assert.equal(editor.value, text);
+    assert.equal(container.querySelector('.fm-title').textContent, 'Markdown');
+    assert.equal(container.querySelector('.fm-mode-btn').textContent, 'Properties');
 });
 
 test('a plan with no front matter offers to add one', () => {
