@@ -1077,7 +1077,13 @@ async function exportFile(format, prefix) {
 
     if ((exportExcel || exportCSV) && browserExcelExportsEnabled()) {
         try {
-            showMessage(prefix, 'info', 'Render the latest plan changes before export…');
+            // Auto-render stale changes instead of asking the user to do it
+            // first (issue #1120) -- only show the progress note when a
+            // render is actually about to happen.
+            const needsRender = !lastParseResult || lastParseResult.planText.trim() !== text.trim();
+            if (needsRender) {
+                showMessage(prefix, 'info', 'Rendering the latest plan changes…');
+            }
             const parse = await currentParseResult(text);
             const projectName = parse.project_name || null;
             const module = await import('/static/browser-excel.js');
