@@ -35,6 +35,7 @@
     color: #e3e3e3;
     cursor: pointer;
     font: inherit;
+    font-family: 'Courier New', monospace;
     text-align: left;
     white-space: nowrap;
 }
@@ -46,7 +47,7 @@
 
 .fm-chevron {
     width: 12px;
-    color: #a7a7a7;
+    color: #7dd3fc;
     text-align: center;
 }
 
