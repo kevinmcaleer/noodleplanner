@@ -1676,6 +1676,14 @@ function wbUpdateNoteNode(entry, vm) {
         linked.setAttribute('title', vm.linkedChildren.map(c => c.task.name).join(', '));
         refs.body.appendChild(linked);
     }
+    // Issue #1104, part of epic #1090: every checklist note (never a
+    // free-form one -- see the `freeform` branch above) always ends in one
+    // empty "Add task..." row, whether it currently has zero rows (the
+    // "No subtasks yet"/"N linked notes" placeholder above), some rows, or
+    // all of its children noodled elsewhere. wbBuildAddChildRow() below.
+    if (!freeform) {
+        refs.body.appendChild(wbBuildAddChildRow(vm.task.name));
+    }
     refs.body.scrollTop = savedScrollTop;
 
     // Footer: completed/total fraction + resource avatar chips. Populated
@@ -2630,6 +2638,136 @@ function wbAppendChildResourceControls(row, childVm) {
         wbToggleAssignMenu(child.name, bubble);
     });
     row.appendChild(bubble);
+}
+
+/**
+ * "Add task..." row (issue #1104, part of epic #1090): an always-present,
+ * empty checklist row at the bottom of every checklist note's body, so a
+ * new child task can be typed in and committed on the spot -- previously
+ * the only ways to add one were dragging a noodle from another note in,
+ * editing the outline/markdown by hand, or (only for a still-freeform
+ * note -- see wbIsFreeformNote()) "Promote to task"'s prompt(). Styled
+ * like an ordinary .wb-note-row (same padding/hover rhythm, views/
+ * whiteboard.css) but with a "+" glyph where a checkbox would sit and a
+ * borderless text <input> where the name would sit, so it reads as one
+ * more slot rather than a form bolted onto the card. Only ever appended
+ * for a checklist note (wbUpdateNoteNode() gates this on `!freeform`) --
+ * a free-form note keeps #885's "nothing prompts for detail" and gains
+ * this row automatically the moment it earns its first child, on the very
+ * next render pass, same as the rest of #1015's split.
+ *
+ * Deliberately its own `.wb-note-add-row` class rather than sharing
+ * `.wb-note-row` (views/whiteboard.css gives it the identical padding/
+ * layout rhythm on its own): several existing call sites -- both here
+ * (peek/menu wiring) and in tests -- find a real child row via
+ * `.wb-note-row` then assume `.wb-note-row-name` exists on it; sharing the
+ * class would make this placeholder row match that query too and break
+ * every one of them the moment a checklist note (i.e. almost any of them)
+ * renders it.
+ */
+function wbBuildAddChildRow(taskName) {
+    const row = document.createElementNS(XHTML_NS, 'div');
+    row.setAttribute('class', 'wb-note-add-row');
+
+    const icon = document.createElementNS(XHTML_NS, 'span');
+    icon.setAttribute('class', 'wb-note-add-icon');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = '+';
+    row.appendChild(icon);
+
+    const input = document.createElementNS(XHTML_NS, 'input');
+    input.setAttribute('type', 'text');
+    input.setAttribute('class', 'wb-note-add-input');
+    input.setAttribute('placeholder', 'Add task…');
+    input.setAttribute('aria-label', `Add a task under "${taskName}"`);
+    row.appendChild(input);
+
+    // Clicking anywhere on the row -- the "+" glyph, the row's own
+    // padding, not just the input itself -- focuses the input, matching
+    // how the ordinary child rows above treat their whole row as the
+    // click target rather than just the name text.
+    row.addEventListener('click', (e) => { e.stopPropagation(); input.focus(); });
+
+    // Never let a click into the input bubble up to the row-drag / note-
+    // select handlers a click on the card would otherwise trigger.
+    input.addEventListener('mousedown', (e) => e.stopPropagation());
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('keydown', (e) => {
+        e.stopPropagation(); // canvas shortcuts (n/t/+/-/arrows/...) must not fire while typing
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const typed = input.value;
+        input.value = '';
+        if (wbAddChecklistItem(taskName, typed)) {
+            wbFocusAddRowWhenReady(taskName);
+        }
+    });
+
+    return row;
+}
+
+/**
+ * Poll briefly for `taskName`'s own "Add task..." row after a commit-
+ * triggered re-render and refocus its input, so typing several checklist
+ * items in a row is one continuous gesture rather than a click per item.
+ * Needed because wbCommitMarkdown()'s renderText() is async and tears
+ * down/rebuilds the note's whole body (wbUpdateNoteNode()), which
+ * destroys the very input the Enter keypress came from -- same "commit is
+ * async, poll rather than guess a delay" shape as wbCreateNoteAt()'s and
+ * wbCreateTextObjectAt()'s own focusWhenReady() helpers. Gives up quietly
+ * (no focus, no error) if the note or its add-row never reappears -- e.g.
+ * something else removed the note from the board in the same tick.
+ */
+function wbFocusAddRowWhenReady(taskName, attempts = 0) {
+    const entry = wbNoteNodes.get(taskName);
+    const input = (entry && entry.refs && entry.refs.body)
+        ? entry.refs.body.querySelector('.wb-note-add-input')
+        : null;
+    if (input) { input.focus(); return; }
+    if (attempts < 20) setTimeout(() => wbFocusAddRowWhenReady(taskName, attempts + 1), 50);
+}
+
+/**
+ * Add one new child task under `taskName`, typed into that note's own
+ * "Add task..." row (issue #1104, wbBuildAddChildRow() above). Reuses
+ * exactly the primitive "Promote to task" (#1020's wbPromoteFreeformNote())
+ * already uses: wbSanitiseChildTaskName() (the same defence against
+ * embedded newlines/quotes that an untrusted comment or prompt() answer
+ * already gets), wbUniqueTaskName() so a duplicate typed name can't
+ * collide with an existing task, wbAppendChildTask() (whiteboard-
+ * structure.js) to write the line as this task's last child -- the exact
+ * same insertion point a noodle drop or a promotion would use -- and
+ * wbCommitMarkdown() to push the result through #planEditor in one write.
+ * A checklist item added this way is therefore indistinguishable in the
+ * outline from one added any other way: the same summary/parent rules
+ * apply (this task simply gains a child, exactly as a noodle drop or a
+ * promotion would leave it) and it round-trips through markdown
+ * identically. One wbCommitMarkdown() call, so it is a single undo step
+ * like every other whiteboard mutation.
+ *
+ * Returns false -- a no-op, nothing written -- for blank/whitespace-only
+ * text, or a `taskName` no longer found in the outline (wbAppendChildTask()
+ * returns the plan text unchanged in that case, which wbCommitMarkdown()
+ * then also no-ops on): matches this file's existing "nothing typed ->
+ * nothing happens" convention (wbPromoteFreeformNote()'s prompt(),
+ * kanban.js's addNewPhase()).
+ */
+function wbAddChecklistItem(taskName, rawText) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !taskName) return false;
+    if (typeof wbAppendChildTask !== 'function' || typeof wbUniqueTaskName !== 'function' ||
+        typeof wbOutlineTaskNames !== 'function' || typeof wbSanitiseChildTaskName !== 'function') {
+        return false;
+    }
+
+    const childName = wbSanitiseChildTaskName(rawText);
+    if (!childName) return false;
+
+    const planText = editor.value;
+    const uniqueChildName = wbUniqueTaskName(wbOutlineTaskNames(planText), childName);
+
+    const nextText = wbAppendChildTask(planText, taskName, uniqueChildName);
+    return wbCommitMarkdown(nextText);
 }
 
 /**

@@ -343,6 +343,62 @@
     border-color: var(--np-accent);
 }
 
+/* "Add task..." row (issue #1104, part of epic #1090): an always-present
+   empty checklist row at the bottom of every checklist note (never a
+   free-form one -- see .wb-note-freeform above), so a new child task can
+   be typed in and committed with Enter without leaving the board. Same
+   padding/hover rhythm as an ordinary .wb-note-row child row above (kept
+   as its own rule rather than sharing that class -- see
+   wbBuildAddChildRow()'s own comment in whiteboard-notes.js for why) --
+   with a faint "+" glyph in place of a checkbox and a transparent,
+   borderless text input in place of the name, so a note that has only
+   this row still reads as one more slot rather than a form bolted onto
+   the card. */
+.wb-note-add-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 4px;
+    border-radius: 4px;
+    min-width: 0;
+    cursor: text;
+}
+
+.wb-note-add-row:hover {
+    background: var(--np-bg-hover, #f0f1f4);
+}
+
+.wb-note-add-icon {
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--wb-note-text);
+    opacity: 0.45;
+}
+
+.wb-note-add-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    color: var(--wb-note-text);
+    padding: 0;
+}
+
+.wb-note-add-input::placeholder {
+    color: var(--wb-note-text);
+    opacity: 0.55;
+    font-style: italic;
+}
+
 .wb-note-menu-empty {
     display: block;
     padding: 6px 8px;
