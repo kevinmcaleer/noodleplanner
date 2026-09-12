@@ -728,6 +728,7 @@ const OUTPUT_VIEWS = {
     'user-workload': 'planTab',
     'resource-sheet': 'planTab',
     'evm': 'planTab',
+    'forecast': 'planTab',
     'pbs': 'planTab',
     'deliverables': 'planTab',
     'product-flow': 'planTab',
@@ -1735,6 +1736,11 @@ async function updateAllViews(planText, projectName) {
             { name: 'stakeholders',            fn: () => updateStakeholdersView() },
             { name: 'benefits',                fn: () => { if (typeof updateBenefits === 'function') updateBenefits(); } },
             { name: 'evm',                     fn: () => updateEVM(result.tasks || []) },
+            // #1114: the Forecast view shares calculateEVM()'s cached
+            // evmData with the EVM view above (this entry runs right after
+            // it) rather than recomputing it -- one source of truth for
+            // PV/EV/AC/EAC/ETC/VAC/TCPI/schedule forecast.
+            { name: 'forecast',                fn: () => updateForecastView() },
             { name: 'baseline',                fn: () => updateBaselineView(result, planText) },
             { name: 'editorLabels',            fn: () => updateEditorLabels(result, planText, generation) },
             { name: 'statusBar',               fn: () => { if (typeof updateStatusBarRAG === 'function') updateStatusBarRAG(result.front_matter, result.tasks); } },
@@ -17206,6 +17212,132 @@ function updateEVM(tasks) {
 }
 
 /**
+ * #1114: Forecast view -- reuses the same cached evmData the EVM view
+ * renders from (calculateEVM() already ran this cycle in the 'evm'
+ * viewUpdates entry, just above this one) rather than recomputing it, so
+ * the two views can never disagree. Renders the schedule/cost-at-completion
+ * summary, the forecast-focused KPI cards (EAC/ETC/VAC/TCPI/forecast
+ * finish), and the same PV/EV/AC-plus-forecast S-curve chart as the EVM
+ * view, into the Forecast view's own elements.
+ */
+function updateForecastView() {
+    const placeholder = document.querySelector('#forecast-view .forecast-placeholder');
+    const content = document.querySelector('#forecast-view .forecast-content');
+
+    if (!evmData) {
+        if (placeholder) placeholder.style.display = '';
+        if (content) content.style.display = 'none';
+        return;
+    }
+
+    if (placeholder) placeholder.style.display = 'none';
+    if (content) content.style.display = '';
+
+    renderForecastSummary(evmData);
+    renderForecastKpis(evmData);
+    renderEvmChart('forecastChart', 'forecastChartLegend');
+}
+
+/**
+ * Render the "cost at completion" / "schedule at completion" headline
+ * summary at the top of the Forecast view -- the two figures the issue
+ * (#1114) calls out by name, in plain language rather than acronyms.
+ */
+function renderForecastSummary(data) {
+    const el = document.getElementById('forecastSummary');
+    if (!el) return;
+
+    const fmt = (v) => {
+        if (data.hasBudgetData) {
+            return Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        return Number(v).toFixed(1);
+    };
+
+    const scheduleDays = Math.round((data.scheduleForecast.getTime() - data.projectEnd.getTime()) / 86400000);
+    const scheduleClass = scheduleDays > 0 ? 'evm-kpi-negative' : 'evm-kpi-positive';
+    const scheduleText = scheduleDays === 0
+        ? 'On the planned finish date'
+        : (scheduleDays > 0
+            ? Math.abs(scheduleDays) + ' day' + (Math.abs(scheduleDays) === 1 ? '' : 's') + ' later than planned'
+            : Math.abs(scheduleDays) + ' day' + (Math.abs(scheduleDays) === 1 ? '' : 's') + ' earlier than planned');
+
+    const costClass = data.VAC >= 0 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+    const costText = data.hasBudgetData
+        ? (data.VAC >= 0
+            ? fmt(Math.abs(data.VAC)) + ' under the ' + fmt(data.BAC) + ' budget'
+            : fmt(Math.abs(data.VAC)) + ' over the ' + fmt(data.BAC) + ' budget')
+        : 'No budget data -- estimated from task duration';
+
+    el.innerHTML =
+        '<div class="forecast-summary-item ' + costClass + '">' +
+            '<div class="forecast-summary-label">Cost at completion</div>' +
+            '<div class="forecast-summary-value">' + fmt(data.EAC) + '</div>' +
+            '<div class="forecast-summary-sub">' + costText + '</div>' +
+        '</div>' +
+        '<div class="forecast-summary-item ' + scheduleClass + '">' +
+            '<div class="forecast-summary-label">Schedule at completion</div>' +
+            '<div class="forecast-summary-value">' + data.scheduleForecast.toLocaleDateString() + '</div>' +
+            '<div class="forecast-summary-sub">' + scheduleText + '</div>' +
+        '</div>';
+}
+
+/**
+ * Render the Forecast view's KPI cards: the standard EVM forecast measures
+ * (EAC, ETC, VAC, TCPI, forecast finish date) called for by #1114, plus
+ * CPI/SPI since they're what's driving the forecast.
+ */
+function renderForecastKpis(data) {
+    const grid = document.getElementById('forecastKpiGrid');
+    if (!grid) return;
+
+    const fmt = (v) => {
+        if (data.hasBudgetData) {
+            return Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        return Number(v).toFixed(1);
+    };
+    const fmtIdx = (v) => Number(v).toFixed(2);
+
+    const cpiClass = data.CPI >= 1 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+    const spiClass = data.SPI >= 1 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+    const vacClass = data.VAC >= 0 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+    // TCPI > 1 means more efficiency than achieved so far is now required to
+    // land on budget -- the harder ask, so it's flagged the same way CPI < 1 is.
+    const tcpiClass = data.TCPI <= 1 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+
+    grid.innerHTML =
+        '<div class="evm-kpi-card ' + cpiClass + '">' +
+            '<div class="evm-kpi-label">CPI</div>' +
+            '<div class="evm-kpi-value">' + fmtIdx(data.CPI) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card ' + spiClass + '">' +
+            '<div class="evm-kpi-label">SPI</div>' +
+            '<div class="evm-kpi-value">' + fmtIdx(data.SPI) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card">' +
+            '<div class="evm-kpi-label">Estimate At Completion (EAC)</div>' +
+            '<div class="evm-kpi-value">' + fmt(data.EAC) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card">' +
+            '<div class="evm-kpi-label">Estimate To Complete (ETC)</div>' +
+            '<div class="evm-kpi-value">' + fmt(data.ETC) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card ' + vacClass + '">' +
+            '<div class="evm-kpi-label">Variance At Completion (VAC)</div>' +
+            '<div class="evm-kpi-value">' + fmt(data.VAC) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card ' + tcpiClass + '">' +
+            '<div class="evm-kpi-label">To-Complete Perf. Index (TCPI)</div>' +
+            '<div class="evm-kpi-value">' + fmtIdx(data.TCPI) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card">' +
+            '<div class="evm-kpi-label">Forecast Finish</div>' +
+            '<div class="evm-kpi-value">' + data.scheduleForecast.toLocaleDateString() + '</div>' +
+        '</div>';
+}
+
+/**
  * Render EVM KPI cards at the top of the view.
  */
 function renderEvmKpis(data) {
@@ -17435,12 +17567,17 @@ function renderEvmMetricsTable(data) {
 
 /**
  * Render the EVM S-curve chart using SVG.
+ *
+ * #1114: takes the target svg/legend element ids so the Forecast view can
+ * render the same PV/EV/AC-plus-forecast chart into its own `#forecastChart`
+ * / `#forecastChartLegend` pair without duplicating this function -- it's
+ * the same evmData, just displayed in a second place.
  */
-function renderEvmChart() {
+function renderEvmChart(svgId, legendId) {
     if (!evmData || !evmData.timeSeries) return;
 
-    const svg = document.getElementById('evmChart');
-    const legend = document.getElementById('evmChartLegend');
+    const svg = document.getElementById(svgId || 'evmChart');
+    const legend = document.getElementById(legendId || 'evmChartLegend');
     if (!svg) return;
 
     const container = svg.parentElement;

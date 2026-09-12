@@ -150,7 +150,7 @@ function revealCalendarsPanel() {
 const VIEW_FOR_LABEL = {
     Tasks: 'tasks', Outline: 'notepad', Board: 'kanban', Gantt: 'gantt', Timeline: 'timeline', Calendar: 'calendar',
     RAID: 'raid', 'RAID Log': 'raid', Actions: 'actions', Highlights: 'highlights', Lookahead: 'lookahead',
-    Lessons: 'lessons', Budget: 'budget', EVM: 'evm', Forecast: 'evm', Benefits: 'benefits', Analysis: 'analysis', Escalations: 'escalations',
+    Lessons: 'lessons', Budget: 'budget', EVM: 'evm', Forecast: 'forecast', Benefits: 'benefits', Analysis: 'analysis', Escalations: 'escalations',
     Resources: 'resources', Stakeholders: 'stakeholders', Timesheet: 'timesheet', Workload: 'user-workload',
     'Resource Sheet': 'resource-sheet', 'Comms Plan': 'comms', Report: 'project-report', 'Project Report': 'project-report',
     Dashboard: 'project-report',

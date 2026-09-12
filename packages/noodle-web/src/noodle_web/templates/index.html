@@ -437,7 +437,7 @@
                 <!-- Tracking dropdown -->
                 <div class="plan-subnav-dropdown">
                     <button class="plan-subnav-btn" id="trackingDropdownBtn"
-                            data-dropdown-views="raid,actions,highlights,lookahead,analysis,budget,evm,comms,lessons"
+                            data-dropdown-views="raid,actions,highlights,lookahead,analysis,budget,evm,forecast,comms,lessons"
                             onclick="toggleDropdownMenu('trackingDropdownMenu', 'trackingDropdownBtn', event)"
                             aria-haspopup="true" aria-expanded="false" aria-controls="trackingDropdownMenu">
                         Tracking &#9662;
@@ -463,6 +463,9 @@
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="evm" onclick="switchToView('evm'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-evm"/></svg> EVM
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="forecast" onclick="switchToView('forecast'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-chart"/></svg> Forecast
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="comms" onclick="switchToView('comms'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Comms Plan
@@ -1803,6 +1806,39 @@ Press Enter to render..."></textarea>
                             </div>
                         </div>
 
+                        <!-- Forecast View (#1114): the Track ribbon's Forecast button --
+                             the same PV/EV/AC S-curve as the EVM view above, but led with
+                             the schedule- and cost-at-completion forecast rather than
+                             measurement-to-date. Rendered by updateForecastView(), which
+                             reuses the EVM view's cached evmData -- see script.js. -->
+                        <div id="forecast-view" class="output-tab-content">
+                            <div class="evm-placeholder forecast-placeholder placeholder-view">
+                                <h3>Forecast</h3>
+                                <p>Render your plan with budget data to see a schedule and cost forecast here.</p>
+                                <p>Forecasting requires tasks with % complete and budget items to calculate meaningful metrics.</p>
+                            </div>
+                            <div class="evm-content forecast-content" style="display: none;">
+                                <div class="evm-header">
+                                    <h2 class="evm-title"><span class="ribbon-banner ribbon-banner--blue">Forecast</span></h2>
+                                    <span class="copy-image-btn" onclick="copyElementAsImage(document.getElementById('forecastChartWrapper'), this)" title="Copy chart as image">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    </button>
+                                </div>
+
+                                <!-- Cost-at-completion / schedule-at-completion headline -->
+                                <div class="forecast-summary" id="forecastSummary"></div>
+
+                                <!-- Forecast KPI Cards: CPI, SPI, EAC, ETC, VAC, TCPI, forecast finish -->
+                                <div class="evm-kpi-grid" id="forecastKpiGrid">
+                                </div>
+
+                                <!-- Forecast Chart: same PV/EV/AC-plus-forecast S-curve as the EVM view -->
+                                <div class="evm-chart-wrapper" id="forecastChartWrapper">
+                                    <svg id="forecastChart" class="evm-chart-svg"></svg>
+                                    <div class="evm-chart-legend" id="forecastChartLegend"></div>
+                                </div>
+                            </div>
+                        </div>
 
 
 
