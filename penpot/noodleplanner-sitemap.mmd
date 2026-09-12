@@ -1,0 +1,94 @@
+%% Executive map
+graph TD
+  Home["/ (Main App)"]
+
+  Home --> Backstage["Backstage (file/start screen)"]
+  Home --> Portfolio["Portfolio"]
+  Home --> Programme["Programme"]
+  Home --> Project["Project Workspace"]
+  Home --> Search["Search"]
+
+  Portfolio --> P1["Projects"]
+  Portfolio --> P2["Status"]
+  Portfolio --> P3["Team Allocation"]
+  Portfolio --> P4["Timeline"]
+  Portfolio --> P5["Actions"]
+  Portfolio --> P6["Risks"]
+  Portfolio --> P7["Look-Ahead"]
+  Portfolio --> P8["Dependencies"]
+  Portfolio --> P9["Benefits"]
+  Portfolio --> P10["Lessons"]
+
+  Programme --> Project
+  Portfolio --> Programme
+  Portfolio --> Project
+
+  Templates["/templates"]:::ext
+  Join["/join/{session_id}"]:::ext
+  Docs["/docs"]:::ext
+
+  classDef ext fill:#f8f8f8,stroke:#999,stroke-dasharray: 4 4;
+
+---
+%% Detailed map
+graph TD
+  Root["/ (index.html)"]
+
+  Root --> V_backstage["backstage"]
+  Root --> V_search["search"]
+  Root --> V_portfolio["portfolio"]
+  Root --> V_programme["programme"]
+  Root --> V_upload["upload"]
+  Root --> V_editor["editor (container)"]
+
+  V_editor --> V_project_report["project-report"]
+  V_editor --> V_tasks["tasks"]
+  V_editor --> V_notepad["notepad"]
+  V_editor --> V_gantt["gantt"]
+  Root --> V_kanban["kanban"]
+  V_editor --> V_calendar["calendar"]
+  V_editor --> V_milestones["milestones"]
+  V_editor --> V_timeline["timeline"]
+  V_editor --> V_mindmap["mindmap"]
+  V_editor --> V_whiteboard["whiteboard"]
+  V_editor --> V_pbs["pbs"]
+  V_editor --> V_deliverables["deliverables"]
+  V_editor --> V_product_flow["product-flow"]
+  V_editor --> V_benefits["benefits"]
+  Root --> V_raid["raid"]
+  Root --> V_actions["actions"]
+  V_editor --> V_highlights["highlights"]
+  V_editor --> V_lookahead["lookahead"]
+  V_editor --> V_escalations["escalations"]
+  V_editor --> V_analysis["analysis"]
+  Root --> V_budget["budget"]
+  V_editor --> V_evm["evm"]
+  Root --> V_comms["comms"]
+  Root --> V_lessons["lessons"]
+  V_editor --> V_resources["resources"]
+  V_editor --> V_timesheet["timesheet"]
+  V_editor --> V_user_workload["user-workload"]
+  V_editor --> V_resource_sheet["resource-sheet"]
+  V_editor --> V_stakeholders["stakeholders"]
+  Root --> V_guide["guide"]
+
+  V_portfolio --> P_projects["projects"]
+  V_portfolio --> P_status["status"]
+  V_portfolio --> P_resources["resources"]
+  V_portfolio --> P_timeline["timeline"]
+  V_portfolio --> P_actions["actions"]
+  V_portfolio --> P_risks["risks"]
+  V_portfolio --> P_lookahead["lookahead"]
+  V_portfolio --> P_dependencies["dependencies"]
+  V_portfolio --> P_benefits["benefits"]
+  V_portfolio --> P_lessons["lessons"]
+
+  P_projects --> V_programme
+  P_projects --> V_project_report
+  V_programme --> V_project_report
+
+  Templates["/templates (templates.html)"]:::ext
+  Join["/join/{session_id} (collab_join.html)"]:::ext
+  Docs["/docs (mounted static docs)"]:::ext
+
+  classDef ext fill:#f8f8f8,stroke:#999,stroke-dasharray: 4 4;
