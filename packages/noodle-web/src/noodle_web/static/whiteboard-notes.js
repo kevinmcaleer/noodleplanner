@@ -2136,6 +2136,7 @@ function wbNoteHeaderMouseDown(e, entry) {
     // Nor the noodle handle, nor a title mid-rename: both are their own
     // gestures that happen to start inside the drag handle.
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
+    if (e.target && e.target.closest && e.target.closest('.wb-note-promote-btn')) return;
     if (e.target && e.target.isContentEditable) return;
     e.preventDefault();
     e.stopPropagation(); // never let this fall through to canvas panning
@@ -2175,6 +2176,7 @@ function wbNoteHeaderTouchStart(e, entry) {
     if (wbActiveDrag || e.touches.length !== 1) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-menu-btn')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
+    if (e.target && e.target.closest && e.target.closest('.wb-note-promote-btn')) return;
 
     const touch = e.touches[0];
     // Double-tap the header to rename, the touch twin of the mouse
@@ -2895,7 +2897,7 @@ function wbBuildAddChildRow(taskName) {
         const typed = input.value;
         input.value = '';
         if (wbAddChecklistItem(taskName, typed)) {
-            wbFocusAddRowWhenReady(taskName);
+            wbFocusAddRowWhenReady(taskName, input);
         }
     });
 
@@ -2914,13 +2916,13 @@ function wbBuildAddChildRow(taskName) {
  * (no focus, no error) if the note or its add-row never reappears -- e.g.
  * something else removed the note from the board in the same tick.
  */
-function wbFocusAddRowWhenReady(taskName, attempts = 0) {
+function wbFocusAddRowWhenReady(taskName, previousInput = null, attempts = 0) {
     const entry = wbNoteNodes.get(taskName);
     const input = (entry && entry.refs && entry.refs.body)
         ? entry.refs.body.querySelector('.wb-note-add-input')
         : null;
-    if (input) { input.focus(); return; }
-    if (attempts < 20) setTimeout(() => wbFocusAddRowWhenReady(taskName, attempts + 1), 50);
+    if (input && input !== previousInput) { input.focus(); return; }
+    if (attempts < 20) setTimeout(() => wbFocusAddRowWhenReady(taskName, previousInput, attempts + 1), 50);
 }
 
 /**
