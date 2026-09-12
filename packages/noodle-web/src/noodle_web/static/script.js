@@ -8075,25 +8075,56 @@ function renderRaidTable() {
     }
 }
 
-/** Render RAID rows escalated to the Board or Programme. */
+/** Normalize a RAID item's "Escalate To" value to 'board' / 'programme' /
+ * '' (not escalated, or escalated only to 'project'). 'program' is folded
+ * into 'programme' -- some imported/legacy rows use the US spelling. */
+function normalizedEscalationTarget(item) {
+    const target = String(item.escalation_level || item.escalate_to || '').trim().toLowerCase();
+    if (target === 'board') return 'board';
+    if (target === 'programme' || target === 'program') return 'programme';
+    return '';
+}
+
+/**
+ * Render risks escalated to the Board or Programme (#1096). This is
+ * deliberately narrower than the RAID log: it only ever shows RAID items
+ * of type 'risk' -- issues, actions, decisions and dependencies can carry
+ * an escalation_level too (see aggregateEscalatedRaidItems() in
+ * programme.js, which rolls up risks *and* issues for the programme
+ * dashboard), but the Escalations view named in #1090/#1096 is specifically
+ * about risks raised for Board/Programme attention.
+ */
 function renderEscalationsView() {
     const body = document.getElementById('escalationsTableBody');
     const empty = document.getElementById('escalationsEmptyState');
     if (!body) return;
 
+    const filterEl = document.getElementById('escalationsFilterTarget');
+    const filterTarget = filterEl ? String(filterEl.value || 'all').trim().toLowerCase() : 'all';
+
     const escalated = (raidItems || []).filter(item => {
-        const target = String(item.escalation_level || item.escalate_to || '').trim().toLowerCase();
-        return target === 'board' || target === 'programme' || target === 'program';
+        if (String(item.type || '').trim().toLowerCase() !== 'risk') return false;
+        const target = normalizedEscalationTarget(item);
+        if (!target) return false;
+        if (filterTarget !== 'all' && target !== filterTarget) return false;
+        return true;
     });
-    body.innerHTML = escalated.map(item => `
+
+    body.innerHTML = escalated.map(item => {
+        const target = normalizedEscalationTarget(item);
+        const targetLabel = target.charAt(0).toUpperCase() + target.slice(1);
+        const scoreClass = item.score >= 16 ? 'raid-score-high' : item.score >= 6 ? 'raid-score-medium' : 'raid-score-low';
+        return `
         <tr>
-            <td>${escapeHtml(item.type || '')}</td>
             <td><button class="link-button" type="button" onclick="openRaidForm(${Number(item.id)})">${escapeHtml(item.title || '')}</button></td>
             <td>${escapeHtml(item.description || '')}</td>
             <td>${escapeHtml(item.owner || '')}</td>
-            <td>${escapeHtml(item.escalation_level || item.escalate_to || '')}</td>
-            <td>${escapeHtml(item.status || '')}</td>
-        </tr>`).join('');
+            <td><span class="raid-score ${scoreClass}">${item.score || ''}</span></td>
+            <td><span class="raid-escalation-badge raid-escalation-${target}">${escapeHtml(targetLabel)}</span></td>
+            <td>${escapeHtml(item.target_date || '')}</td>
+            <td><span class="raid-status-badge raid-status-${item.status || 'open'}">${escapeHtml(item.status || 'open')}</span></td>
+        </tr>`;
+    }).join('');
     if (empty) empty.hidden = escalated.length > 0;
 }
 

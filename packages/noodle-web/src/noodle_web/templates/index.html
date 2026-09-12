@@ -1266,17 +1266,27 @@ Press Enter to render..."></textarea>
                                 <div class="view-header">
                                     <div>
                                         <h2>Escalations</h2>
-                                        <p class="view-subtitle">RAID items escalated to the Board or Programme.</p>
+                                        <p class="view-subtitle">Risks escalated to the Board or Programme.</p>
+                                    </div>
+                                </div>
+                                <div class="raid-toolbar">
+                                    <div class="raid-filter-group">
+                                        <label for="escalationsFilterTarget">Escalate To:</label>
+                                        <select id="escalationsFilterTarget" onchange="renderEscalationsView()">
+                                            <option value="all">All</option>
+                                            <option value="board">Board</option>
+                                            <option value="programme">Programme</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div class="raid-table-wrapper">
-                                    <table class="raid-table" aria-label="Escalated RAID items">
-                                        <thead><tr><th>Type</th><th>Title</th><th>Description</th><th>Owner</th><th>Escalate To</th><th>Status</th></tr></thead>
+                                    <table class="raid-table" aria-label="Escalated risks">
+                                        <thead><tr><th>Title</th><th>Description</th><th>Owner</th><th>Score</th><th>Escalate To</th><th>Target Date</th><th>Status</th></tr></thead>
                                         <tbody id="escalationsTableBody"></tbody>
                                     </table>
                                     <div class="raid-empty-state" id="escalationsEmptyState">
                                         <h3>No escalations</h3>
-                                        <p>RAID items escalated to the Board or Programme will appear here.</p>
+                                        <p>Risks escalated to the Board or Programme will appear here.</p>
                                     </div>
                                 </div>
                             </div>
