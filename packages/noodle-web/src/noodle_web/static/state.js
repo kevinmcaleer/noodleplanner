@@ -196,6 +196,15 @@ let commsSortColumn = 'id';
 let commsSortAsc = true;
 let commsItemPendingDeleteId = null;
 let baselineItems = [];
+// Baseline history (issue #1112): metadata (id/name/date) for every baseline
+// created via the Baseline dialog, most recent first. Only the most recent
+// non-cleared entry has real task data behind it -- that data lives in
+// baselineItems above, and activeBaselineId names which history entry it
+// belongs to (null once the active baseline has been cleared). See
+// format_converter.py's generate_baseline_history_comment() for how this is
+// round-tripped through the plan text's ---baseline--- section.
+let baselineHistory = [];
+let activeBaselineId = null;
 
 // Lessons Learned state (issue #598)
 let lessonsItems = [];

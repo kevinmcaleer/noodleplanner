@@ -1590,6 +1590,13 @@ function updateBaselineView(result, planText) {
         const baselineFromText = extractBaselineFromPlanText(planText);
         loadBaselineFromData(baselineFromText);
     }
+
+    // The /api/parse response only carries the active baseline's items, not
+    // the history log (#1112) -- that's read straight from the plan text,
+    // the same way the client-side fallback above already does for items.
+    const hist = extractBaselineHistoryFromSectionText(extractBaselineSectionText(planText));
+    baselineHistory = hist.entries;
+    activeBaselineId = hist.active;
 }
 
 function updateEditorLabels(result, planText, generation) {
@@ -13559,17 +13566,118 @@ function showToast(message, type) {
 
 
 /**
- * Baseline Plan System
+ * Baseline Plan System (issue #1112)
  * Stores a snapshot of the current schedule as a baseline for comparison.
- * Only one baseline is kept at a time. Stored as a ---baseline--- section
- * at the bottom of the plan text with a markdown table.
+ * Only one baseline's task-level data is ever kept -- the *active* one --
+ * stored as a ---baseline--- section at the bottom of the plan text with a
+ * markdown table (name/start/finish/duration per task), same as before
+ * #1112. Layered on top of that table is a lightweight history log (id,
+ * name, creation date -- no task data) recording every baseline the
+ * Baseline dialog has created, so a user can see past baselines and delete
+ * them even after they've been replaced or cleared. See
+ * format_converter.py's generate_baseline_history_comment() for the exact
+ * on-disk format and why it's a comment line rather than a second table.
  */
 
-// Baseline state is now in state.js
+// Baseline state (baselineItems, baselineHistory, activeBaselineId) is in
+// state.js.
+
+/**
+ * Format a Date for a default baseline name / list display, e.g.
+ * "12 Sep 2026, 14:05".
+ */
+function formatBaselineTimestamp(date) {
+    return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+        + ', ' + date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Create a new baseline from the current scheduled tasks: captures name,
+ * start, finish, and duration for each task, makes it the active baseline,
+ * and records it in the history log. Used by both the Baseline dialog and
+ * the Gantt toolbar's quick "Set Baseline" button.
+ *
+ * @param {string} [name] Label for this baseline; defaults to a timestamp.
+ * @returns {boolean} true if a baseline was created.
+ */
+function createBaseline(name) {
+    if (!lastRenderedTasks || lastRenderedTasks.length === 0) {
+        showToast('No tasks to baseline. Render your plan first.', 'warning');
+        return false;
+    }
+
+    const label = (name && name.trim()) || ('Baseline ' + formatBaselineTimestamp(new Date()));
+
+    baselineItems = lastRenderedTasks
+        .filter(t => t.start && t.finish)
+        .map(t => ({
+            name: t.name,
+            start: t.start,
+            finish: t.finish,
+            duration: t.duration_days != null ? t.duration_days + 'd' : ''
+        }));
+
+    const id = 'bl-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    activeBaselineId = id;
+    baselineHistory = [{ id, name: label, date: new Date().toISOString() }, ...baselineHistory];
+
+    syncBaselineToPlanText();
+    showBaselineToggle(true);
+    showToast('Baseline "' + label + '" created.', 'success');
+
+    // Re-render views if baseline is visible
+    const ganttToggle = document.getElementById('ganttShowBaseline');
+    if (ganttToggle && ganttToggle.checked) {
+        renderGanttChart();
+    }
+    const msToggle = document.getElementById('milestonesShowBaseline');
+    if (msToggle && msToggle.checked) {
+        updateMilestonesTable(lastRenderedTasks);
+    }
+    return true;
+}
+
+/**
+ * Clear the active baseline (stop comparing against it) without deleting
+ * its entry from the history log -- it stays listed in the Baseline
+ * dialog, just no longer "Active", and can still be deleted from there.
+ */
+function clearActiveBaseline() {
+    baselineItems = [];
+    activeBaselineId = null;
+    syncBaselineToPlanText();
+    showBaselineToggle(false);
+
+    renderGanttChart();
+    updateMilestonesTable(lastRenderedTasks || []);
+}
+
+/**
+ * Permanently remove one baseline from the history log. If it was the
+ * active baseline, this also clears the active table (its task-level data
+ * only ever existed there, so there is nothing left to keep active).
+ */
+function deleteBaselineEntry(id) {
+    const wasActive = id === activeBaselineId;
+    baselineHistory = baselineHistory.filter(entry => entry.id !== id);
+
+    if (wasActive) {
+        baselineItems = [];
+        activeBaselineId = null;
+        showBaselineToggle(false);
+        renderGanttChart();
+        updateMilestonesTable(lastRenderedTasks || []);
+    }
+
+    syncBaselineToPlanText();
+}
 
 /**
  * Set (or replace) the baseline from the current scheduled tasks.
- * Captures name, start, finish, and duration for each task.
+ * Legacy one-click entry point (the Gantt toolbar's "Set Baseline"
+ * button) -- kept alongside the fuller Baseline dialog (openBaselineDialog)
+ * for the "just snapshot it now" flow it always offered, now backed by the
+ * same createBaseline() the dialog uses.
  */
 function setBaseline() {
     if (!lastRenderedTasks || lastRenderedTasks.length === 0) {
@@ -13584,50 +13692,17 @@ function setBaseline() {
 
     if (!confirm(message)) return;
 
-    // Build baseline items from current tasks
-    baselineItems = lastRenderedTasks
-        .filter(t => t.start && t.finish)
-        .map(t => ({
-            name: t.name,
-            start: t.start,
-            finish: t.finish,
-            duration: t.duration_days != null ? t.duration_days + 'd' : ''
-        }));
-
-    // Sync baseline to plan text
-    syncBaselineToPlanText();
-
-    // Show the baseline toggle
-    showBaselineToggle(true);
-
-    showToast('Baseline set successfully.', 'success');
-
-    // Re-render views if baseline is visible
-    const ganttToggle = document.getElementById('ganttShowBaseline');
-    if (ganttToggle && ganttToggle.checked) {
-        renderGanttChart();
-    }
-    const msToggle = document.getElementById('milestonesShowBaseline');
-    if (msToggle && msToggle.checked) {
-        updateMilestonesTable(lastRenderedTasks);
-    }
+    createBaseline();
 }
 
 /**
- * Clear the baseline from the plan.
+ * Clear the active baseline from the plan (legacy entry point -- see
+ * clearActiveBaseline() for what actually happens).
  */
 function clearBaseline() {
-    if (!confirm('Remove the baseline from this plan?')) return;
-
-    baselineItems = [];
-    syncBaselineToPlanText();
-    showBaselineToggle(false);
-
-    // Re-render views
-    renderGanttChart();
-    updateMilestonesTable(lastRenderedTasks || []);
-
-    showToast('Baseline removed.', 'success');
+    if (!confirm('Remove the current baseline from this plan? Past baselines stay listed in the Baseline dialog.')) return;
+    clearActiveBaseline();
+    showToast('Baseline cleared.', 'success');
 }
 
 /**
@@ -13672,25 +13747,71 @@ function loadBaselineFromData(items) {
 }
 
 /**
- * Extract baseline items from plan text (client-side fallback).
+ * Extract the raw text of the ---baseline--- section (the #1112 history
+ * comment, if any, plus the active baseline's markdown table), without
+ * parsing it. Shared by extractBaselineFromPlanText() (items) and
+ * updateBaselineView() (history) so the section boundary logic -- baseline
+ * is not always the last section, a whiteboard section may follow it --
+ * lives in exactly one place.
  */
-function extractBaselineFromPlanText(planText) {
+function extractBaselineSectionText(planText) {
     const marker = BASELINE_START;
     const idx = planText.indexOf(marker);
-    if (idx === -1) return [];
+    if (idx === -1) return '';
 
     const afterStart = idx + marker.length;
-    // Baseline is not always the last section any more (a whiteboard
-    // section, or anything else, may follow it): stop at whichever other
-    // section marker occurs next, not just at EOF.
     let endIdx = planText.length;
     for (const other of [WHITEBOARD_START]) {
         const oi = planText.indexOf(other, afterStart);
         if (oi !== -1 && oi < endIdx) endIdx = oi;
     }
 
-    const section = planText.substring(afterStart, endIdx).trim();
+    return planText.substring(afterStart, endIdx).trim();
+}
+
+/**
+ * Extract baseline items from plan text (client-side fallback).
+ */
+function extractBaselineFromPlanText(planText) {
+    const section = extractBaselineSectionText(planText);
+    if (!section) return [];
     return parseBaselineMarkdown(section);
+}
+
+/**
+ * Build the <!-- baseline-history: ... --> comment line that records the
+ * baseline history log (#1112). Mirrors format_converter.py's
+ * generate_baseline_history_comment() -- keep the two in sync.
+ */
+function generateBaselineHistoryComment(activeId, entries) {
+    if (!entries || entries.length === 0) return '';
+    const payload = JSON.stringify({ active: activeId || null, entries: entries });
+    return '<!-- baseline-history: ' + payload + ' -->';
+}
+
+/**
+ * Parse the baseline-history comment out of a ---baseline--- section's raw
+ * text (extractBaselineSectionText()'s return value). Mirrors
+ * format_converter.py's extract_baseline_history() -- keep the two in sync.
+ * Defaults to { active: null, entries: [] } for plans with no history
+ * comment (pre-#1112 plans, or a section that's just the plain table).
+ */
+function extractBaselineHistoryFromSectionText(sectionText) {
+    const empty = { active: null, entries: [] };
+    if (!sectionText) return empty;
+
+    const m = sectionText.match(/<!--\s*baseline-history:\s*(\{[\s\S]*?\})\s*-->/);
+    if (!m) return empty;
+
+    try {
+        const data = JSON.parse(m[1]);
+        if (!data || typeof data !== 'object') return empty;
+        const entries = Array.isArray(data.entries) ? data.entries : [];
+        const active = typeof data.active === 'string' ? data.active : null;
+        return { active, entries };
+    } catch (e) {
+        return empty;
+    }
 }
 
 /**
@@ -13815,9 +13936,15 @@ function updatePlanBaselineText(planText, items) {
     base = base.replace(/\n+$/, '');
 
     const table = generateBaselineTable();
+    // #1112: the history log rides along as a comment line above the table
+    // (or alone, once the active baseline has been cleared but past
+    // baselines are still listed in the dialog) -- see
+    // generateBaselineHistoryComment()'s header comment for why.
+    const historyComment = generateBaselineHistoryComment(activeBaselineId, baselineHistory);
+    const sectionText = [historyComment, table].filter(Boolean).join('\n\n');
     let result = base;
-    if (table) {
-        result = result + '\n\n' + BASELINE_START + '\n' + table;
+    if (sectionText) {
+        result = result + '\n\n' + BASELINE_START + '\n' + sectionText;
     }
 
     if (whiteboardText) {
@@ -13825,6 +13952,106 @@ function updatePlanBaselineText(planText, items) {
     }
 
     return result;
+}
+
+// ---------------------------------------------------------------------------
+// Baseline dialog (issue #1112)
+//
+// Opened from the Plan ribbon's Baseline button (and Gantt Tools' own
+// Baseline button, which shares the same generic ribbon action) instead of
+// the old "just toggle the Gantt display checkbox" behaviour. Lets the user
+// create a new baseline, see every baseline previously created on this
+// plan, clear the active one (stop comparing against it, keep it listed),
+// and delete a past one outright.
+// ---------------------------------------------------------------------------
+
+/**
+ * Open the Baseline dialog and render its current list.
+ */
+function openBaselineDialog() {
+    const overlay = document.getElementById('baselineDialogOverlay');
+    if (!overlay) return;
+    const nameInput = document.getElementById('newBaselineName');
+    if (nameInput) nameInput.value = '';
+    renderBaselineDialogList();
+    overlay.classList.add('active');
+}
+
+/**
+ * Close the Baseline dialog.
+ */
+function closeBaselineDialog() {
+    const overlay = document.getElementById('baselineDialogOverlay');
+    if (overlay) overlay.classList.remove('active');
+}
+
+/**
+ * Render the list of baselines (history entries) inside the dialog, most
+ * recently created first -- baselineHistory is already kept in that order.
+ */
+function renderBaselineDialogList() {
+    const list = document.getElementById('baselineHistoryList');
+    if (!list) return;
+
+    if (!baselineHistory || baselineHistory.length === 0) {
+        list.innerHTML = '<p class="baseline-dialog-empty">No baselines yet. Create one above to start tracking schedule variance.</p>';
+        return;
+    }
+
+    list.innerHTML = baselineHistory.map(entry => {
+        const isActive = entry.id === activeBaselineId;
+        const dateStr = formatBaselineTimestamp(new Date(entry.date));
+        const safeName = escapeHtml(entry.name || 'Untitled baseline');
+        const clearBtn = isActive
+            ? `<button type="button" class="btn-secondary baseline-clear-btn" onclick="clearActiveBaselineFromDialog()">Clear</button>`
+            : '';
+        return `
+            <div class="baseline-history-row${isActive ? ' baseline-history-row-active' : ''}">
+                <div class="baseline-history-info">
+                    <span class="baseline-history-name">${safeName}</span>
+                    ${isActive ? '<span class="baseline-active-badge">Active</span>' : ''}
+                    <span class="baseline-history-date">${dateStr}</span>
+                </div>
+                <div class="baseline-history-actions">
+                    ${clearBtn}
+                    <button type="button" class="btn-danger baseline-delete-btn" onclick="deleteBaselineEntryFromDialog('${entry.id}')" aria-label="Delete ${safeName}">&#128465; Delete</button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+/**
+ * Dialog "Create Baseline" button: read the name field and create a new
+ * baseline from it.
+ */
+function createBaselineFromDialog() {
+    const nameInput = document.getElementById('newBaselineName');
+    const name = nameInput ? nameInput.value : '';
+    if (!createBaseline(name)) return;
+    if (nameInput) nameInput.value = '';
+    renderBaselineDialogList();
+}
+
+/**
+ * Dialog "Clear" button on the active baseline's row.
+ */
+function clearActiveBaselineFromDialog() {
+    if (!confirm('Clear the active baseline? It stays listed here and can still be deleted, but the plan will no longer compare against it.')) return;
+    clearActiveBaseline();
+    showToast('Baseline cleared.', 'success');
+    renderBaselineDialogList();
+}
+
+/**
+ * Dialog "Delete" button on a baseline row.
+ */
+function deleteBaselineEntryFromDialog(id) {
+    const entry = baselineHistory.find(e => e.id === id);
+    const label = entry ? entry.name : 'this baseline';
+    if (!confirm('Delete "' + label + '"? This cannot be undone.')) return;
+    deleteBaselineEntry(id);
+    showToast('Baseline deleted.', 'success');
+    renderBaselineDialogList();
 }
 
 // =====================================================================

@@ -2516,6 +2516,82 @@ svg.icon {
     font-style: italic;
 }
 
+/* Baseline dialog (issue #1112): create/list/clear/delete baselines */
+.gantt-manage-baselines-btn {
+    align-self: center;
+}
+
+.baseline-history-list {
+    max-height: 320px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.baseline-dialog-empty {
+    color: var(--text-secondary, #666);
+    font-style: italic;
+    padding: 12px 0;
+}
+
+.baseline-history-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 8px;
+    background: var(--bg-secondary, #f8f9fa);
+}
+
+.baseline-history-row-active {
+    border-color: #28a745;
+    background: #eaf7ed;
+}
+
+.baseline-history-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.baseline-history-name {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.baseline-active-badge {
+    background: #28a745;
+    color: white;
+    font-size: 0.75em;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.baseline-history-date {
+    color: var(--text-secondary, #666);
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
+.baseline-history-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.baseline-history-actions button {
+    padding: 6px 12px;
+    min-height: 36px;
+    white-space: nowrap;
+}
+
 /* Toast notifications */
 .baseline-toast {
     position: fixed;

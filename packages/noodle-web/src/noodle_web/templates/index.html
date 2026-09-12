@@ -978,6 +978,7 @@ Press Enter to render..."></textarea>
                                             </label>
                                         </div>
                                         <button class="btn btn-sm btn-outline-secondary gantt-set-baseline-btn" id="setBaselineBtn" onclick="setBaseline()" title="Save current schedule as baseline">Set Baseline</button>
+                                        <button class="btn btn-sm btn-outline-secondary gantt-manage-baselines-btn" id="manageBaselinesBtn" onclick="openBaselineDialog()" title="Create, view, clear and delete baselines">Manage Baselines&hellip;</button>
                                     </div>
                                 </div>
                                 <div class="gantt-wrapper">
@@ -4561,6 +4562,31 @@ Build
                     <button type="button" id="trendReportAddBtn" class="btn-primary" onclick="addReportToHighlights()" style="display: none; padding: 8px 20px; min-height: 44px;">
                         <i class="bi bi-plus-circle"></i> Add to Highlights
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Baseline Dialog (issue #1112): create, list, clear and delete baselines -->
+    <div id="baselineDialogOverlay" class="modal-overlay" onclick="if(event.target===this) closeBaselineDialog()" role="dialog" aria-modal="true" aria-label="Baselines">
+        <div class="task-form-modal" style="max-width: 550px;">
+            <div class="modal-header">
+                <h2><i class="bi bi-clock-history"></i> Baselines</h2>
+                <button class="close-btn" onclick="closeBaselineDialog()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 12px; color: var(--text-secondary, #666);">
+                    A baseline snapshots the current schedule so you can compare it against progress later. Only the most recently created (and not yet cleared) baseline is active for that comparison.
+                </p>
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <input type="text" id="newBaselineName" class="form-control" placeholder="Baseline name (optional)" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color, #ddd);">
+                    <button type="button" class="btn-primary" onclick="createBaselineFromDialog()" style="padding: 8px 20px; min-height: 44px; white-space: nowrap;">
+                        <i class="bi bi-plus-circle"></i> Create Baseline
+                    </button>
+                </div>
+                <div id="baselineHistoryList" class="baseline-history-list"></div>
+                <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                    <button type="button" class="btn-secondary" onclick="closeBaselineDialog()" style="padding: 8px 20px; min-height: 44px;">Close</button>
                 </div>
             </div>
         </div>

@@ -95,6 +95,10 @@ function getLiveState() {
         ganttShowCriticalPath: !!document.getElementById('ganttShowCriticalPath')?.checked,
         ganttShowBaseline: !!document.getElementById('ganttShowBaseline')?.checked,
         ganttShowDependencies: !!document.getElementById('ganttShowDependencies')?.checked,
+        // #1112: the ribbon's Baseline button opens the Baseline dialog
+        // rather than toggling ganttShowBaseline, so its pressed state now
+        // reflects whether a baseline is actually active, not display prefs.
+        hasActiveBaseline: (typeof baselineItems !== 'undefined') && baselineItems.length > 0,
         isDark: document.documentElement.getAttribute('data-theme') === 'dark',
         // theme.js's currentThemeChoice ('light'|'dark'|'system') -- a plain
         // top-level `let` in a classic script, so it's readable here as a
@@ -420,7 +424,12 @@ const LABEL_ACTIONS = {
     // view, flipped via a real 'change' event so views-gantt.js's own
     // addEventListener('change', ...) wiring does the actual work.
     'Critical Path': () => toggleGanttCheckbox('ganttShowCriticalPath'),
-    Baseline: () => toggleGanttCheckbox('ganttShowBaseline'),
+    // #1112: used to just toggle the Gantt "show baseline overlay" checkbox
+    // (ganttShowBaseline), which did nothing to actually create or manage a
+    // baseline. That checkbox is still reachable from its own control next
+    // to the Gantt view's "Set Baseline" button; this button now opens the
+    // full Baseline dialog (create/list/clear/delete) instead.
+    Baseline: () => { if (typeof openBaselineDialog === 'function') openBaselineDialog(); },
     Dependencies: () => toggleGanttCheckbox('ganttShowDependencies'),
     Deps: () => toggleGanttCheckbox('ganttShowDependencies'),
     Risk: () => addRaidItem(),
@@ -681,7 +690,7 @@ function renderSimpleButton(scopeId, tuple) {
 function isButtonActive(scopeId, label, live) {
     if (label === 'Editor') return live.editorVisible;
     if (label === 'Critical Path') return live.ganttShowCriticalPath;
-    if (label === 'Baseline') return live.ganttShowBaseline;
+    if (label === 'Baseline') return live.hasActiveBaseline;
     if (label === 'Dependencies' || label === 'Deps') return live.ganttShowDependencies;
     if (label === 'Dark Mode') return live.isDark;
     if (label === 'System Theme') return live.themeChoice === 'system';
