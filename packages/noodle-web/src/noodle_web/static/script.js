@@ -12624,13 +12624,14 @@ function generateBudgetMarkdown() {
     return md;
 }
 
-function generateBudgetTable() {
-    if (budgetItems.length === 0) return '';
+function generateBudgetTable(items) {
+    items = items || budgetItems;
+    if (items.length === 0) return '';
 
     const headers = ['ID', 'Description', 'Estimate', 'Forecast', 'Type', 'Invoice', 'PO', 'Supplier', 'Total', 'Ordered', 'Received', 'Category'];
     const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
-    const rows = budgetItems.map(item => [
+    const rows = items.map(item => [
         String(item.id),
         escPipe(item.description),
         String(item.estimate || 0),
@@ -13253,12 +13254,78 @@ function initBudgetSheet() {
             syncBudgetToPlanText();
         }
     });
+
+    // The spreadsheet view hides the toolbar's Category/Type filters, so
+    // equivalent dropdowns live in the sheet's own column headers instead
+    // (#1119). NoodleSheet rebuilds its header on every renderGrid() call
+    // (sort, edit, loadMarkdown, ...), so wrap it rather than patch the
+    // shared component -- our filters get re-added after every rebuild.
+    const originalRenderGrid = budgetSheetInstance.renderGrid.bind(budgetSheetInstance);
+    budgetSheetInstance.renderGrid = function() {
+        originalRenderGrid();
+        injectBudgetSheetHeaderFilters();
+    };
+    budgetSheetInstance.renderGrid();
+}
+
+// Does this budget item pass the spreadsheet view's header filters? Used
+// both to build the filtered rows shown in the sheet and, on the way back,
+// to keep hold of the items the current filters are hiding.
+function budgetItemMatchesSheetFilters(item) {
+    if (budgetSheetCategoryFilter !== 'all' && item.category !== budgetSheetCategoryFilter) return false;
+    if (budgetSheetTypeFilter !== 'all' && item.type !== budgetSheetTypeFilter) return false;
+    return true;
+}
+
+// Adds small <select> filters into the Category/Type column header cells of
+// the budget NoodleSheet grid, cloned from the toolbar's own
+// #budgetCategoryFilter/#budgetTypeFilter selects so both views offer the
+// exact same option values (#1119).
+function injectBudgetSheetHeaderFilters() {
+    const container = document.getElementById('budgetSheetContainer');
+    if (!container) return;
+
+    const filterConfig = [
+        { label: 'category', sourceId: 'budgetCategoryFilter', get: () => budgetSheetCategoryFilter, set: (v) => { budgetSheetCategoryFilter = v; } },
+        { label: 'type', sourceId: 'budgetTypeFilter', get: () => budgetSheetTypeFilter, set: (v) => { budgetSheetTypeFilter = v; } }
+    ];
+
+    container.querySelectorAll('.ns-col-header').forEach(th => {
+        const nameEl = th.querySelector('.ns-col-name');
+        if (!nameEl) return;
+        const label = (nameEl.firstChild ? nameEl.firstChild.textContent : nameEl.textContent || '').trim().toLowerCase();
+        const config = filterConfig.find(c => c.label === label);
+        if (!config) return;
+
+        const sourceSelect = document.getElementById(config.sourceId);
+        if (!sourceSelect) return;
+
+        const select = sourceSelect.cloneNode(true);
+        select.removeAttribute('id');
+        select.removeAttribute('onchange');
+        select.className = 'budget-sheet-col-filter';
+        select.value = config.get();
+        select.title = 'Filter rows by ' + label;
+        select.setAttribute('aria-label', 'Filter rows by ' + label);
+        // Keep clicks/drags on the filter from also triggering the header's
+        // own sort-on-click and column-resize handlers.
+        ['click', 'mousedown', 'pointerdown'].forEach(evt => {
+            select.addEventListener(evt, (e) => e.stopPropagation());
+        });
+        select.addEventListener('change', (e) => {
+            e.stopPropagation();
+            config.set(select.value);
+            syncBudgetItemsToSheet();
+        });
+        th.appendChild(select);
+    });
 }
 
 function syncBudgetItemsToSheet() {
     if (!budgetSheetInstance) return;
 
-    const md = generateBudgetTable();
+    const filtered = budgetItems.filter(budgetItemMatchesSheetFilters);
+    const md = generateBudgetTable(filtered);
     budgetSheetInstance.loadMarkdown(md, 0);
 }
 
@@ -13269,10 +13336,9 @@ function syncSheetToBudgetItems() {
     const columns = budgetSheetInstance.getColumns(0);
     if (!columns.length) return;
 
-    const newItems = rows.filter(row => {
+    const visibleItems = rows.filter(row => {
         return columns.some(col => row[col.name] && row[col.name].trim() !== '');
-    }).map((row, i) => ({
-        id: i + 1,
+    }).map(row => ({
         description: row.description || '',
         estimate: row.estimate || '',
         forecast: row.forecast || '',
@@ -13286,8 +13352,15 @@ function syncSheetToBudgetItems() {
         category: row.category || ''
     }));
 
-    budgetItems = newItems;
-    budgetNextId = newItems.length + 1;
+    // The sheet only ever shows the rows that pass the header filters, so a
+    // straight replace would silently delete everything currently filtered
+    // out. Keep those items untouched and merge the (possibly edited)
+    // visible rows back in alongside them.
+    const hiddenItems = budgetItems.filter(item => !budgetItemMatchesSheetFilters(item));
+
+    const merged = hiddenItems.concat(visibleItems);
+    budgetItems = merged.map((item, i) => Object.assign({}, item, { id: i + 1 }));
+    budgetNextId = budgetItems.length + 1;
 }
 
 

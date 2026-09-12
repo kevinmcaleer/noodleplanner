@@ -6029,6 +6029,11 @@ tr:hover .task-context-btn,
     gap: 6px;
 }
 
+/* A solid, filled button -- like .export-btn elsewhere in the same toolbar
+   row -- so it reads as clearly enabled and clickable rather than a faint
+   outline that looks greyed out (#1119). .active marks spreadsheet mode as
+   "pressed": a darker fill plus an inset shadow, not just a color swap, so
+   the two states stay visually distinct at a glance. */
 .budget-view-toggle {
     display: inline-flex;
     align-items: center;
@@ -6037,21 +6042,24 @@ tr:hover .task-context-btn,
     min-height: 44px;
     border: 2px solid var(--np-accent);
     border-radius: 4px;
-    background: var(--np-surface);
-    color: var(--np-accent);
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     font-size: 0.85em;
+    font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s, color 0.2s;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
 }
 
 .budget-view-toggle:hover {
-    background: var(--np-accent);
-    color: var(--np-on-accent);
+    background: var(--np-accent-hover);
+    border-color: var(--np-accent-hover);
 }
 
 .budget-view-toggle.active {
-    background: var(--np-accent);
+    background: var(--np-accent-hover);
+    border-color: var(--np-accent-hover);
     color: var(--np-on-accent);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .budget-view-toggle:focus-visible {
@@ -6077,6 +6085,31 @@ tr:hover .task-context-btn,
 .budget-filter-group select:focus {
     outline: 2px solid var(--np-accent);
     border-color: var(--np-accent-hover);
+}
+
+/* Category/Type filters embedded in the spreadsheet view's own column
+   headers (#1119) -- the toolbar filter groups above are hidden while that
+   view is active, so these are the only way to narrow it by category/type.
+   Cloned from the toolbar selects, so kept deliberately plain/compact to
+   fit inside a NoodleSheet header cell. */
+.budget-sheet-col-filter {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 2px;
+    padding: 1px 2px;
+    font-size: 10px;
+    font-weight: 400;
+    border: 1px solid #a0a0a0;
+    border-radius: 3px;
+    background: #fff;
+    color: var(--np-ink);
+    cursor: pointer;
+}
+
+.budget-sheet-col-filter:focus-visible {
+    outline: 2px solid var(--np-accent);
+    outline-offset: 1px;
 }
 
 .budget-table-wrapper {

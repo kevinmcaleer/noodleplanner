@@ -124,6 +124,11 @@ let budgetEditorIsUpdating = false;
 let budgetEditorDebounceTimer = null;
 let budgetSheetInstance = null;
 let budgetSheetViewActive = false;
+// Category/Type filters shown in the spreadsheet view's own column headers
+// (#1119) -- the toolbar's Category/Type filters are hidden while the
+// spreadsheet view is active, so these keep filtering available there.
+let budgetSheetCategoryFilter = 'all';
+let budgetSheetTypeFilter = 'all';
 let budgetItemPendingDeleteId = null;
 let agreedBudget = 0;
 
