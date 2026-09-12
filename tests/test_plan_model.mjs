@@ -205,6 +205,31 @@ test('addDependency refuses a transitive cycle (A -> B -> C, then C -> A)', () =
     assert.equal(model.serialize(), before);
 });
 
+test('canAddDependency refuses when the dependent task is a summary task (#1106)', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d\nOther 1d\n');
+    const phase = model.findByName('Phase');
+    const other = model.findByName('Other');
+    const check = model.canAddDependency(phase, other);
+    assert.equal(check.ok, false);
+    assert.match(check.reason, /summary/);
+});
+
+test('canAddDependency refuses when the predecessor is a summary task (#1106)', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d\nOther 1d\n');
+    const phase = model.findByName('Phase');
+    const other = model.findByName('Other');
+    const check = model.canAddDependency(other, phase);
+    assert.equal(check.ok, false);
+    assert.match(check.reason, /summary/);
+});
+
+test('addDependency refuses a summary-task endpoint and changes nothing (#1106)', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d\nOther 1d\n');
+    const before = model.serialize();
+    assert.equal(model.addDependency(model.findByName('Phase'), model.findByName('Other')), false);
+    assert.equal(model.serialize(), before);
+});
+
 test('canAddDependency reports a reason without mutating anything', () => {
     const model = PlanModel.parse('Phase\n  A 1d\n  B 1d [depends: A]\n');
     const before = model.serialize();

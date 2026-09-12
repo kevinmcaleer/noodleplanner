@@ -1442,7 +1442,7 @@ function wbRenderNotes() {
     // noodle arriving at it, and its row in the outline can never disagree
     // about the hierarchy. Both are no-ops if their file isn't loaded.
     if (typeof wbRenderNoodles === 'function') wbRenderNoodles(rows, wbLastTasks);
-    if (typeof wbRenderDependencyNoodles === 'function') wbRenderDependencyNoodles(rows);
+    if (typeof wbRenderDependencyNoodles === 'function') wbRenderDependencyNoodles();
     if (typeof wbRenderOutlinePanel === 'function') wbRenderOutlinePanel();
 
     // Empty state (issue #847): purposeful "what is this board for" copy
@@ -2647,6 +2647,13 @@ function wbBuildChildRow(childVm) {
     const child = childVm.task;
     const row = document.createElementNS(XHTML_NS, 'div');
     row.setAttribute('class', 'wb-note-row');
+    // Read by whiteboard-dep-noodles.js's wbNoteRowRectFor() (to draw a
+    // committed dependency noodle at this row's own position) and by its
+    // row-drag drop handling (wbUpdateRowDepDrag()/wbEndRowDepDrag(), to
+    // find which task a dependency handle was dropped onto) -- see that
+    // file's header comment for #1106.
+    row.dataset.wbRowTask = child.name;
+    row.dataset.wbRowSummary = childVm.hasChildren ? 'true' : 'false';
 
     const checkbox = document.createElementNS(XHTML_NS, 'input');
     checkbox.setAttribute('type', 'checkbox');
@@ -2703,8 +2710,58 @@ function wbBuildChildRow(childVm) {
     }
 
     wbAppendChildResourceControls(row, childVm);
+    wbAppendRowDependencyHandle(row, childVm);
 
     return row;
+}
+
+/**
+ * Append the row-level dependency-drag handle (issue #1106, epic #1090):
+ * a small icon at the row's own right-hand end -- after every other
+ * trailing control, so it is always the last, right-most thing in the
+ * row, per the issue's own "to the right of the checkbox task name
+ * (aligned to the right)" wording -- shown only on hover/focus (views/
+ * whiteboard.css's `.wb-note-row:hover`) so a board at rest still reads
+ * as checklists, not a grid of controls, matching `.wb-note-link-handle`'s
+ * existing convention on the note header.
+ *
+ * Only ever added for a *leaf* child row (`!childVm.hasChildren` -- the
+ * same "does this task have children of its own" signal wbHasChildren()
+ * already computes for the count-badge/peek decision above, reused here
+ * rather than a second, possibly-diverging "is this a summary task"
+ * check): the epic's "not summary task/note level -- it has to be
+ * another task" rule means a summary child row can never be a dependency
+ * endpoint, so it never even offers the handle. plan-model.js's
+ * canAddDependency() enforces the same rule server-side-of-the-DOM (on
+ * both the drag's source and whatever it's dropped on), so this is a
+ * usability guard, not the only guard.
+ */
+function wbAppendRowDependencyHandle(row, childVm) {
+    if (childVm.hasChildren) return;
+    const child = childVm.task;
+
+    const handle = document.createElementNS(XHTML_NS, 'button');
+    handle.setAttribute('type', 'button');
+    handle.setAttribute('class', 'wb-note-row-dep-handle');
+    handle.setAttribute('title', 'Drag to another task to make it depend on this one');
+    handle.setAttribute('aria-label', `Draw a dependency from "${child.name}" to another task`);
+    handle.innerHTML =
+        '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+        'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
+        '<circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/>' +
+        '<path d="M4 6 C4 11, 7 12, 10 12"/></svg>';
+    handle.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof wbBeginRowDepDrag === 'function') wbBeginRowDepDrag(child.name, e.clientX, e.clientY);
+    });
+    handle.addEventListener('touchstart', (e) => {
+        if (typeof wbRowDepHandleTouchStart === 'function') wbRowDepHandleTouchStart(e, child.name);
+    }, { passive: false });
+    handle.addEventListener('click', (e) => e.stopPropagation());
+
+    row.appendChild(handle);
 }
 
 /**

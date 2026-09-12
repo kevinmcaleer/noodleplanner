@@ -343,6 +343,68 @@
     border-color: var(--np-accent);
 }
 
+/* Row-level dependency-drag handle (issue #1106, epic #1090): the
+   right-most control on a leaf checklist row (wbAppendRowDependencyHandle()
+   in whiteboard-notes.js), dimmed until the row is hovered or focused --
+   same convention as `.wb-note-link-handle` on the note header, just
+   scoped to one row instead of the whole card, and tinted purple to match
+   the dependency noodle it draws (views/whiteboard.css's own
+   `.wb-dep-noodle-path` below) rather than the header handle's default
+   (hierarchy) colour. */
+.wb-note-row-dep-handle {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--np-purple, #9b59b6);
+    cursor: crosshair;
+    opacity: 0;
+    padding: 0;
+    transition: opacity 0.12s ease, background 0.12s ease;
+    touch-action: none;
+}
+
+.wb-note-row:hover .wb-note-row-dep-handle,
+.wb-note-row-dep-handle:focus-visible {
+    opacity: 0.75;
+}
+
+.wb-note-row-dep-handle:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+/* Touch has no hover, so the handle can never be revealed by one --
+   show it permanently on coarse pointers, same as the header link handle. */
+@media (pointer: coarse) {
+    .wb-note-row-dep-handle {
+        opacity: 0.75;
+        width: 24px;
+        height: 24px;
+    }
+}
+
+/* The row a dependency drag is currently hovering over -- scoped to just
+   that row (not the whole card, unlike the old card-level `.wb-link-target`
+   above) since only one specific task, not its whole note, is the actual
+   endpoint. */
+.wb-note-row.wb-dep-row-target {
+    outline: 2px solid var(--np-green, #1c9e41);
+    outline-offset: -2px;
+    background: var(--np-bg-hover, #f0f1f4);
+}
+
+.wb-note-row.wb-dep-row-target-invalid {
+    outline: 2px solid var(--np-red, #d64545);
+    outline-offset: -2px;
+    cursor: not-allowed;
+}
+
 /* "Add task..." row (issue #1104, part of epic #1090): an always-present
    empty checklist row at the bottom of every checklist note (never a
    free-form one -- see .wb-note-freeform above), so a new child task can
@@ -1462,9 +1524,8 @@ body.wb-linking * {
     stroke: #ffffff;
 }
 
-/* The rubber band that follows the pointer mid-drag. Dependency mode
-   (#1052) recolours it to match the dependency noodle's own colour, so
-   the drag itself previews which kind of link will land. */
+/* The rubber band that follows the pointer mid-drag for a hierarchy
+   noodle (whiteboard-noodles.js's wbBeginLinkDrag()). */
 .wb-noodle-ghost {
     stroke: var(--np-green, #1c9e41);
     stroke-width: 2.5;
@@ -1474,8 +1535,17 @@ body.wb-linking * {
     pointer-events: none;
 }
 
-body.wb-dependency-mode .wb-noodle-ghost {
+/* Same rubber band, for a row-level dependency drag (#1106) -- purple and
+   dashed to match the dependency noodle it previews
+   (`.wb-dep-noodle-path` below), so the drag itself signals which kind of
+   link is being drawn without a mode toggle to read first. */
+.wb-dep-noodle-ghost {
     stroke: var(--np-purple, #9b59b6);
+    stroke-width: 2.5;
+    stroke-dasharray: 6 5;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
 }
 
 /* ── Dependency noodles (#1052) ──────────────────────────────────────
@@ -1550,25 +1620,6 @@ body.wb-dependency-mode .wb-noodle-ghost {
 
 .wb-dep-noodle-cut:hover .wb-dep-noodle-cut-mark {
     stroke: #ffffff;
-}
-
-/* ── Link mode toggle (#1052) ──────────────────────────────────────────
-   Icon + text label ("Hierarchy"/"Dependency"), so it needs the same
-   auto-width treatment as the Compact/Comfy/Flow buttons
-   (.wb-toolbar-btn-add) rather than .wb-toolbar-btn's fixed 32px square
-   (issue #1103: the label didn't fit). */
-.wb-link-mode-btn {
-    width: auto;
-    gap: 6px;
-    padding: 0 12px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.wb-link-mode-btn.active {
-    background: var(--np-purple, #9b59b6);
-    border-color: var(--np-purple, #9b59b6);
-    color: #ffffff;
 }
 
 /* ── Transient canvas message ────────────────────────────────────────

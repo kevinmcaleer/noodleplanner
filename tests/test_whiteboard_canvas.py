@@ -365,15 +365,17 @@ class TestKeyboard:
         # (a different kind of action: add an *existing* task to the
         # board, not create a new one), then the "Structure" toggle for
         # the floating outline panel, then the Parking lot button, then
-        # the five layout tools (Tidy/Hierarchy/Compact/Comfy/Flow), then
-        # the Link mode toggle. Asserted by id rather than just tabbed
-        # past blindly, so this still fails loudly if the toolbar's tab
-        # order is disturbed.
+        # the five layout tools (Tidy/Hierarchy/Compact/Comfy/Flow) -- the
+        # Link mode toggle that used to follow them was removed by #1106
+        # (dependency-drawing moved to a per-row handle on checklist rows,
+        # so there is no longer a whole-board mode to switch). Asserted by
+        # id rather than just tabbed past blindly, so this still fails
+        # loudly if the toolbar's tab order is disturbed.
         reset_btn = browser.find_element(
             By.CSS_SELECTOR, '#whiteboard-view button[title="Reset to 100%"]'
         )
         reset_btn.click()
-        for expected in ("whiteboardNewNoteBtn", "whiteboardNewTextBtn", "whiteboardAddNoteBtn", "whiteboardOutlineBtn", "whiteboardParkingLotBtn", "whiteboardTidyLayoutBtn", "whiteboardHierarchyLayoutBtn", "whiteboardCompactLayoutBtn", "whiteboardComfyLayoutBtn", "whiteboardFlowLayoutBtn", "whiteboardLinkModeBtn"):
+        for expected in ("whiteboardNewNoteBtn", "whiteboardNewTextBtn", "whiteboardAddNoteBtn", "whiteboardOutlineBtn", "whiteboardParkingLotBtn", "whiteboardTidyLayoutBtn", "whiteboardHierarchyLayoutBtn", "whiteboardCompactLayoutBtn", "whiteboardComfyLayoutBtn", "whiteboardFlowLayoutBtn"):
             ActionChains(browser).send_keys(Keys.TAB).perform()
             time.sleep(0.1)
             active = browser.execute_script("return document.activeElement.id;")

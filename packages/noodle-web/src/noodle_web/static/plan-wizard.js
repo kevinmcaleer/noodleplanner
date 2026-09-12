@@ -5,11 +5,17 @@
  * -> Scheduling -> Risks -> Comms. Per the issue's own framing, the shell
  * *hosts* each stage rather than reimplementing it: entering a stage just
  * switches the app to the existing view that already covers it
- * (switchToView()), applies that stage's highlighting preset
- * (HighlightToggles.applyPreset(), #1051), and -- for Dependencies --
- * forces the whiteboard into dependency-link mode (wbSetLinkMode(),
- * #1052). Nothing here duplicates Notepad/Whiteboard/RAID/Comms/Tasks
- * logic.
+ * (switchToView()) and applies that stage's highlighting preset
+ * (HighlightToggles.applyPreset(), #1051). Nothing here duplicates
+ * Notepad/Whiteboard/RAID/Comms/Tasks logic.
+ *
+ * The Dependencies stage used to also force the whiteboard into a
+ * whole-card "dependency link" mode (#1052's wbSetLinkMode()); #1106
+ * removed that mode (it let a summary task's card appear to have a
+ * dependency, breaking the "summary tasks can't have dependencies" rule)
+ * in favour of a per-row drag handle on checklist rows, so this stage now
+ * just hosts the Whiteboard view as-is -- there is no board-wide mode
+ * left to switch into.
  *
  * Decision (recorded on #1054): a stage is an overlay above the current
  * view, not a modal replacing it. The shell is a small persistent panel
@@ -128,7 +134,6 @@
 
     function applyStageHost(stage) {
         if (typeof switchToView === 'function') switchToView(stage.view);
-        if (stage.key === 'dependencies' && typeof wbSetLinkMode === 'function') wbSetLinkMode('dependency');
         if (typeof HighlightToggles !== 'undefined' && HighlightToggles.applyPreset) HighlightToggles.applyPreset(stage.preset);
     }
 
