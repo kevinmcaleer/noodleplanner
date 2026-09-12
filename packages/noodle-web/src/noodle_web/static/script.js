@@ -11003,8 +11003,24 @@ function updateUserWorkload(tasks) {
 function displayUserWorkload(userMap, filterUser) {
     const sectionsContainer = document.getElementById('userWorkloadSections');
     const emptyState = document.getElementById('userWorkloadEmpty');
+    const emptyText = document.getElementById('userWorkloadEmptyText');
+    const filterNotice = document.getElementById('userWorkloadFilterNotice');
+    const titleBanner = document.getElementById('userWorkloadTitleBanner');
 
     if (!sectionsContainer) return;
+
+    // #1118: the Overallocation button filters this same view down to only
+    // overallocated resources (see the window.onlyOverallocatedWorkload
+    // handling in updateUserWorkload() above); reflect that here so the
+    // filtered state is visible and reversible from within the view itself,
+    // not just by remembering to click the ribbon's Workload button again.
+    if (filterNotice) filterNotice.style.display = window.onlyOverallocatedWorkload ? 'flex' : 'none';
+    if (titleBanner) titleBanner.textContent = window.onlyOverallocatedWorkload
+        ? 'Overallocated Resources'
+        : 'User Workload Breakdown';
+    if (emptyText) emptyText.textContent = window.onlyOverallocatedWorkload
+        ? 'No resources are currently overallocated.'
+        : 'No tasks assigned to users.';
 
     sectionsContainer.innerHTML = '';
 
@@ -11138,6 +11154,14 @@ function filterUserWorkload() {
 function showOverallocationView() {
     window.onlyOverallocatedWorkload = true;
     switchToView('user-workload');
+    if (typeof lastRenderedTasks !== 'undefined') updateUserWorkload(lastRenderedTasks || []);
+}
+
+/** Drop the Overallocation filter and show every resource's workload again.
+ * Wired to the "Show all resources" link the filter notice banner shows
+ * while showOverallocationView()'s filter is active (see #1118). */
+function clearOverallocationFilter() {
+    window.onlyOverallocatedWorkload = false;
     if (typeof lastRenderedTasks !== 'undefined') updateUserWorkload(lastRenderedTasks || []);
 }
 

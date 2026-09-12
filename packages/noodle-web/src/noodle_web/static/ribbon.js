@@ -340,6 +340,15 @@ function scopedAction(scopeId, label) {
         },
         'resources:Clear Level': () => clearLevellingNow(),
         'resources:Overallocation': () => showOverallocationView(),
+        // #1118: the "Influence" button lives on both the main Resources
+        // tab's Comms group (scopeId 'resources', ribbon-ia.js's home
+        // 'resources' tab) and the "Stakeholders" contextual tab's Register
+        // group (scopeId 'stakeholders', only shown once the Stakeholders
+        // view is already open) -- both need their own table entry, since
+        // scopedAction() keys strictly on '<scopeId>:<label>' and the main
+        // Resources tab's clicks were previously falling through to the
+        // "not available" stub because only 'stakeholders:Influence' existed.
+        'resources:Influence': () => showInfluenceDiagram(),
         'stakeholders:Influence': () => showInfluenceDiagram(),
         'kanban:Phase': () => switchKanbanView('phase'),
         'kanban:Resource': () => switchKanbanView('resource'),

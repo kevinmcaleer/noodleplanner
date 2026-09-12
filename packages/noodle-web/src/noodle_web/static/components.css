@@ -3748,6 +3748,37 @@ tr:hover .task-context-btn,
     border-color: #999;
 }
 
+/* #1118: banner shown when the Overallocation button has filtered the
+ * Workload view down to only overallocated resources, with a way back to
+ * the unfiltered view without having to remember the ribbon button. */
+.user-workload-filter-notice {
+    margin-bottom: 16px;
+    padding: 10px 15px;
+    background: var(--np-warn-bg, #fff3cd);
+    border: 1px solid var(--np-warn-border, #ffe08a);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    color: var(--np-ink, #111);
+}
+
+.link-button {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--np-link, #1976d2);
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+}
+
+.link-button:hover {
+    color: var(--np-link-hover, #0d47a1);
+}
+
 .user-workload-section {
     margin-bottom: 30px;
     border: 1px solid var(--np-border);

@@ -1299,7 +1299,11 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see tasks broken down by user here.</p>
                             </div>
                             <div class="user-workload-content" style="display: none;">
-                                <h2 class="user-workload-title"><span class="ribbon-banner ribbon-banner--dark">User Workload Breakdown</span></h2>
+                                <h2 class="user-workload-title"><span class="ribbon-banner ribbon-banner--dark" id="userWorkloadTitleBanner">User Workload Breakdown</span></h2>
+                                <div class="user-workload-filter-notice" id="userWorkloadFilterNotice" style="display: none;">
+                                    <span>Showing only overallocated resources.</span>
+                                    <button type="button" class="link-button" onclick="clearOverallocationFilter()">Show all resources</button>
+                                </div>
                                 <div class="user-filter">
                                     <label for="userFilter">Filter by user:</label>
                                     <select id="userFilter" onchange="filterUserWorkload()">
@@ -1310,7 +1314,7 @@ Press Enter to render..."></textarea>
                                     <!-- User sections will be populated by JavaScript -->
                                 </div>
                                 <div class="user-workload-empty" id="userWorkloadEmpty" style="display: none;">
-                                    <p>No tasks assigned to users.</p>
+                                    <p id="userWorkloadEmptyText">No tasks assigned to users.</p>
                                 </div>
                             </div>
                         </div>
