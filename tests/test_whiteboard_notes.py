@@ -27,6 +27,7 @@ try:
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.chrome.service import Service as ChromeService
     from selenium.webdriver.common.by import By
+    from selenium.webdriver.common.keys import Keys
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.common.exceptions import WebDriverException
@@ -203,6 +204,22 @@ def get_note(driver, task_name):
 
 def get_plan_text(driver):
     return driver.execute_script("return document.getElementById('planEditor').value;")
+
+
+def add_row_input_for(driver, task_name):
+    """The "Add task..." row's own <input> (issue #1104) inside `task_name`'s
+    note, or None if that note isn't on the board or isn't a checklist note
+    (a still-freeform note has no add-row -- see wbUpdateNoteNode())."""
+    return driver.execute_script(
+        """
+        const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+        for (const n of notes) {
+            if (n.dataset.wbTask === arguments[0]) return n.querySelector('.wb-note-add-input');
+        }
+        return null;
+        """,
+        task_name,
+    )
 
 
 def wait_for_front_matter_rag(driver, timeout=15.0, interval=0.25):
@@ -955,3 +972,306 @@ class TestPromoteToTask:
 
         note = get_note(browser, "Empty Phase")
         assert note is not None and "wb-note-freeform" not in note["html"]
+
+    def test_header_quick_promote_button_shown_only_for_free_form_notes(self, browser, app_server):
+        """Issue #1107, part of epic #1090: "a button at the top right of
+        the board (to the left of the `...`) to change this from a text
+        note into a summary task." This is a one-click header shortcut for
+        the exact same promotion the `...` menu's "Promote to task" item
+        already performs (issue #1020) -- see wb-note-promote-btn in
+        whiteboard-notes.js's wbCreateNoteNode()/wbUpdateNoteNode()."""
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+        browser.execute_script("whiteboardZoomFit();")
+        time.sleep(0.3)
+
+        def promote_btn_for(task_name):
+            return browser.execute_script(
+                """
+                const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+                for (const n of notes) {
+                    if (n.dataset.wbTask !== arguments[0]) continue;
+                    return n.querySelector('.wb-note-promote-btn');
+                }
+                return null;
+                """,
+                task_name,
+            )
+
+        freeform_btn = promote_btn_for("Empty Phase")
+        assert freeform_btn is not None, "a free-form note must offer the header quick-promote button"
+        assert freeform_btn.value_of_css_property("display") != "none"
+
+        checklist_btn = promote_btn_for("Discovery")
+        assert checklist_btn is not None
+        assert checklist_btn.value_of_css_property("display") == "none", \
+            "a checklist note (already has children) must not show the quick-promote button"
+
+    def test_header_quick_promote_button_promotes_the_note(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+        browser.execute_script("whiteboardZoomFit();")
+        time.sleep(0.3)
+
+        before = get_note(browser, "Empty Phase")
+        assert before is not None and "wb-note-freeform" in before["html"]
+
+        btn = browser.execute_script(
+            """
+            const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+            for (const n of notes) {
+                if (n.dataset.wbTask !== 'Empty Phase') continue;
+                return n.querySelector('.wb-note-promote-btn');
+            }
+            return null;
+            """
+        )
+        assert btn is not None
+        btn.click()
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        plan_text = get_plan_text(browser)
+        assert bare_line_for(plan_text, "Chase the vendor for a quote.") is not None, \
+            "clicking the header quick-promote button performs the same promotion as the menu item"
+
+        after = get_note(browser, "Empty Phase")
+        assert after is not None and "wb-note-freeform" not in after["html"]
+
+
+class TestAddChecklistItem:
+    """Issue #1104, part of epic #1090: "there should be an extra
+    checkbox/task row ready for the user to add new rows (currently there
+    isn't an easy way to add items to the checklist)."
+
+    Before this issue the only ways to add a child task to an existing
+    checklist note were: drag a noodle from another note onto it, edit the
+    outline/markdown directly, or -- only for a still-freeform note with no
+    children yet -- the "..." menu's "Promote to task" (issue #1020), whose
+    own prompt() is a one-shot, not a repeatable row that stays on the
+    note. This adds a genuinely always-present empty row (wbBuildAddChildRow()
+    in whiteboard-notes.js) with a plain text input, committed with Enter
+    via wbAddChecklistItem() -- which deliberately reuses the exact same
+    wbAppendChildTask()/wbUniqueTaskName()/wbSanitiseChildTaskName()
+    primitives "Promote to task" already uses, so a checklist item added
+    this way is subject to the same summary/parent rules, is a single undo
+    step, and round-trips through markdown identically -- see
+    wbAddChecklistItem()'s own doc comment.
+    """
+
+    def test_add_row_present_on_checklist_notes_absent_on_freeform_notes(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        # Discovery and Build both already have children (checklist notes).
+        assert add_row_input_for(browser, "Discovery") is not None, \
+            "a checklist note always offers an empty 'Add task...' row"
+        assert add_row_input_for(browser, "Build") is not None
+
+        # Empty Phase and Loose Idea have zero children -- still free-form
+        # (issue #1015) -- so no add-row yet; "Promote to task" (or typing a
+        # comment) is still how those gain their first child.
+        assert add_row_input_for(browser, "Empty Phase") is None, \
+            "a free-form note has no checklist to add to yet"
+        assert add_row_input_for(browser, "Loose Idea") is None
+
+        placeholder = add_row_input_for(browser, "Discovery").get_attribute("placeholder")
+        assert placeholder == "Add task…"
+
+    def test_typing_and_pressing_enter_adds_a_child_and_resets_the_row(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+        browser.execute_script("whiteboardZoomFit();")
+        time.sleep(0.3)
+
+        before = wait_for_stable_plan_text(browser)
+        assert bare_line_for(before, "Draft brief") is None
+
+        add_input = add_row_input_for(browser, "Discovery")
+        assert add_input is not None
+        add_input.click()
+        add_input.send_keys("Draft brief")
+        add_input.send_keys(Keys.ENTER)
+
+        after = wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+        assert after != before
+
+        child_line = bare_line_for(after, "Draft brief")
+        assert child_line is not None, "the typed text becomes a real outline line"
+
+        parent_line = line_for_task(after, "Discovery")
+        parent_indent = len(parent_line) - len(parent_line.lstrip(" "))
+        child_indent = len(child_line) - len(child_line.lstrip(" "))
+        assert child_indent == parent_indent + 2, \
+            "the new child is indented one outline level under Discovery, same as its existing children"
+
+        note = get_note(browser, "Discovery")
+        assert "Draft brief" in note["html"], "the new child renders as an ordinary checklist row"
+
+        # The row commits, then the whole body re-renders (wbUpdateNoteNode())
+        # -- the old input node is gone, so this checks a *fresh* add-row
+        # input exists, empty, ready for the next item (wbFocusAddRowWhenReady()).
+        fresh_input = add_row_input_for(browser, "Discovery")
+        assert fresh_input is not None
+        assert fresh_input.get_attribute("value") == "", \
+            "the add-row resets to empty so the next task can be typed straight away"
+
+        focused = browser.execute_script(
+            "return document.activeElement && document.activeElement.classList.contains('wb-note-add-input');"
+        )
+        assert focused is True, "the fresh add-row is refocused so adding several tasks is one continuous gesture"
+
+    def test_blank_input_on_enter_is_a_no_op(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        before = wait_for_stable_plan_text(browser)
+
+        add_input = add_row_input_for(browser, "Discovery")
+        add_input.click()
+        add_input.send_keys(Keys.ENTER)
+        time.sleep(0.3)
+
+        after = get_plan_text(browser)
+        assert after == before, "pressing Enter on an empty add-row must not write anything to the plan"
+
+    def test_whitespace_only_input_on_enter_is_a_no_op(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        before = wait_for_stable_plan_text(browser)
+
+        add_input = add_row_input_for(browser, "Discovery")
+        add_input.click()
+        add_input.send_keys("   ")
+        add_input.send_keys(Keys.ENTER)
+        time.sleep(0.3)
+
+        after = get_plan_text(browser)
+        assert after == before
+
+    def test_add_is_a_single_undo_step(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        # Same rationale as TestChecklistTicking.test_ticking_is_a_single_undo_step
+        # and TestPromoteToTask.test_promotion_is_a_single_undo_step above:
+        # check one specific side effect rather than whole-plan-text equality
+        # across the undo (status-bar.js's RAG front-matter sync can land its
+        # own, separately-undoable write at any point).
+        before = wait_for_stable_plan_text(browser)
+        assert bare_line_for(before, "Sign off scope") is None
+
+        browser.execute_script("wbAddChecklistItem('Discovery', 'Sign off scope');")
+        added_text = wait_for_stable_plan_text(browser)
+        assert bare_line_for(added_text, "Sign off scope") is not None
+        assert added_text != before
+
+        browser.execute_script("EditorUndoManager.undo();")
+        time.sleep(0.3)
+        after_one_undo = get_plan_text(browser)
+        assert bare_line_for(after_one_undo, "Sign off scope") is None, \
+            "a single undo must fully reverse adding the checklist item"
+
+    def test_added_child_is_a_normal_task_tickable_like_any_other(self, browser, app_server):
+        """The new child is subject to the same summary/parent rules as any
+        other task -- nothing about how it was created marks it specially:
+        it can be ticked complete through the exact same checkbox/commit
+        path as an existing checklist row (TestChecklistTicking above)."""
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        browser.execute_script("wbAddChecklistItem('Discovery', 'Sign off scope');")
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        clicked = browser.execute_script(
+            """
+            const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+            for (const n of notes) {
+                if (n.dataset.wbTask !== 'Discovery') continue;
+                const rows = Array.from(n.querySelectorAll('.wb-note-row'));
+                const target = rows.find(r => r.querySelector('.wb-note-row-name').textContent === 'Sign off scope');
+                if (!target) return false;
+                target.querySelector('.wb-note-checkbox').click();
+                return true;
+            }
+            return false;
+            """
+        )
+        assert clicked is True
+        time.sleep(0.5)
+
+        after = get_plan_text(browser)
+        after_line = line_for_task(after, "Sign off scope")
+        assert after_line is not None and "100%" in after_line.split(), after
+
+    def test_added_child_round_trips_through_markdown(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        browser.execute_script("wbAddChecklistItem('Discovery', 'Sign off scope');")
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+        committed = get_plan_text(browser)
+        assert bare_line_for(committed, "Sign off scope") is not None
+
+        # Reload the exact committed text as a fresh plan and confirm it
+        # parses back identically -- same round-trip check as
+        # TestPromoteToTask.test_promoted_child_round_trips.
+        editor = browser.find_element(By.ID, "planEditor")
+        browser.execute_script(
+            "arguments[0].value = arguments[1];"
+            "arguments[0].dispatchEvent(new Event('input', {bubbles: true}));",
+            editor,
+            committed,
+        )
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+        reloaded = get_plan_text(browser)
+        assert bare_line_for(reloaded, "Sign off scope") is not None
+
+        note = get_note(browser, "Discovery")
+        assert note is not None and "Sign off scope" in note["html"]
+
+    def test_helper_gives_a_freeform_note_its_first_child_and_the_note_gains_an_add_row(self, browser, app_server):
+        """wbAddChecklistItem() is not gated on the note already being a
+        checklist -- calling it on a still-freeform note (issue #1015) adds
+        its very first child, which is exactly what flips wbIsFreeformNote()
+        to false, same as "Promote to task". The note's own add-row then
+        appears automatically on the very next render, with no separate
+        "convert to checklist" action -- matching wbBuildAddChildRow()'s own
+        doc comment."""
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        before = get_note(browser, "Empty Phase")
+        assert before is not None and "wb-note-freeform" in before["html"]
+        assert add_row_input_for(browser, "Empty Phase") is None
+
+        added = browser.execute_script("return wbAddChecklistItem('Empty Phase', 'Kickoff call');")
+        assert added is True
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        after = get_note(browser, "Empty Phase")
+        assert after is not None and "wb-note-freeform" not in after["html"]
+        assert add_row_input_for(browser, "Empty Phase") is not None, \
+            "the note gains its own add-row the moment it has a real child"
+
+    def test_unknown_task_is_a_no_op(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        before = wait_for_stable_plan_text(browser)
+        added = browser.execute_script("return wbAddChecklistItem('Does Not Exist', 'New idea');")
+        assert added is False
+
+        after = get_plan_text(browser)
+        assert after == before

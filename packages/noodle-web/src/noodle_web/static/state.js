@@ -124,6 +124,11 @@ let budgetEditorIsUpdating = false;
 let budgetEditorDebounceTimer = null;
 let budgetSheetInstance = null;
 let budgetSheetViewActive = false;
+// Category/Type filters shown in the spreadsheet view's own column headers
+// (#1119) -- the toolbar's Category/Type filters are hidden while the
+// spreadsheet view is active, so these keep filtering available there.
+let budgetSheetCategoryFilter = 'all';
+let budgetSheetTypeFilter = 'all';
 let budgetItemPendingDeleteId = null;
 let agreedBudget = 0;
 
@@ -191,6 +196,15 @@ let commsSortColumn = 'id';
 let commsSortAsc = true;
 let commsItemPendingDeleteId = null;
 let baselineItems = [];
+// Baseline history (issue #1112): metadata (id/name/date) for every baseline
+// created via the Baseline dialog, most recent first. Only the most recent
+// non-cleared entry has real task data behind it -- that data lives in
+// baselineItems above, and activeBaselineId names which history entry it
+// belongs to (null once the active baseline has been cleared). See
+// format_converter.py's generate_baseline_history_comment() for how this is
+// round-tripped through the plan text's ---baseline--- section.
+let baselineHistory = [];
+let activeBaselineId = null;
 
 // Lessons Learned state (issue #598)
 let lessonsItems = [];
@@ -229,7 +243,7 @@ let goKeyTimeout = null;
 
 // Navigation constants
 const PLAN_VIEWS = ['project-report', 'tasks', 'notepad', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'whiteboard', 'pbs', 'deliverables', 'product-flow', 'benefits', 'guide'];
-const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'escalations', 'analysis', 'budget', 'evm', 'comms'];
+const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'escalations', 'analysis', 'budget', 'evm', 'forecast', 'comms'];
 const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet', 'stakeholders'];
 const TOOLS_VIEWS = ['guide'];
 

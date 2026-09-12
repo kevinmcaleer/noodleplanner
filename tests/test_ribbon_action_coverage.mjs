@@ -100,14 +100,17 @@ const DELIBERATE_STUBS = new Set([
   // Whiteboard canvas tools (need a selected object/tool state). "Colour"
   // used to be here too -- #1109 wired it to the whiteboard's own note
   // selection (wbGetSelectedNoteTask()/wbOpenColourPanelForSelectedNote()).
-  "Align", "Distribute", "Lock", "Note", "Text", "To PBS", "To Tasks",
+  // "Note" used to be here too -- #1107 wired it to
+  // wbCreateNoteInViewportCentre(), the same free-form-note creation
+  // #1015 already built and the whiteboard toolbar's own buttons call.
+  "Align", "Distribute", "Lock", "Text", "To PBS", "To Tasks",
   // Features that don't exist in the app yet. ("Add Project" and "Capacity"
   // used to be here too -- #938 audit found both actually have real
   // functions (showCreateProjectDialog, the Team Allocation view) and wired
   // them instead of leaving them as stale stubs.)
   "Add Programme", "Weighting", "Rebaseline", "Snapshot",
   "Heat Map", "Heat", "Probability", "Impact", "RAG",
-  "Slack", "Sync", "Filter", "Sort", "Group",
+  "Slack", "Filter", "Sort", "Group",
   // No dedicated function exists (checked: grepped the codebase, found none).
   "Delete", "Milestone", "Fit", "Today", "Go to Task", "Unlink",
   "Durations",

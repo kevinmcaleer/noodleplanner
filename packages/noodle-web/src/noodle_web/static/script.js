@@ -728,6 +728,7 @@ const OUTPUT_VIEWS = {
     'user-workload': 'planTab',
     'resource-sheet': 'planTab',
     'evm': 'planTab',
+    'forecast': 'planTab',
     'pbs': 'planTab',
     'deliverables': 'planTab',
     'product-flow': 'planTab',
@@ -1077,7 +1078,13 @@ async function exportFile(format, prefix) {
 
     if ((exportExcel || exportCSV) && browserExcelExportsEnabled()) {
         try {
-            showMessage(prefix, 'info', 'Render the latest plan changes before export…');
+            // Auto-render stale changes instead of asking the user to do it
+            // first (issue #1120) -- only show the progress note when a
+            // render is actually about to happen.
+            const needsRender = !lastParseResult || lastParseResult.planText.trim() !== text.trim();
+            if (needsRender) {
+                showMessage(prefix, 'info', 'Rendering the latest plan changes…');
+            }
             const parse = await currentParseResult(text);
             const projectName = parse.project_name || null;
             const module = await import('/static/browser-excel.js');
@@ -1584,6 +1591,13 @@ function updateBaselineView(result, planText) {
         const baselineFromText = extractBaselineFromPlanText(planText);
         loadBaselineFromData(baselineFromText);
     }
+
+    // The /api/parse response only carries the active baseline's items, not
+    // the history log (#1112) -- that's read straight from the plan text,
+    // the same way the client-side fallback above already does for items.
+    const hist = extractBaselineHistoryFromSectionText(extractBaselineSectionText(planText));
+    baselineHistory = hist.entries;
+    activeBaselineId = hist.active;
 }
 
 function updateEditorLabels(result, planText, generation) {
@@ -1722,6 +1736,11 @@ async function updateAllViews(planText, projectName) {
             { name: 'stakeholders',            fn: () => updateStakeholdersView() },
             { name: 'benefits',                fn: () => { if (typeof updateBenefits === 'function') updateBenefits(); } },
             { name: 'evm',                     fn: () => updateEVM(result.tasks || []) },
+            // #1114: the Forecast view shares calculateEVM()'s cached
+            // evmData with the EVM view above (this entry runs right after
+            // it) rather than recomputing it -- one source of truth for
+            // PV/EV/AC/EAC/ETC/VAC/TCPI/schedule forecast.
+            { name: 'forecast',                fn: () => updateForecastView() },
             { name: 'baseline',                fn: () => updateBaselineView(result, planText) },
             { name: 'editorLabels',            fn: () => updateEditorLabels(result, planText, generation) },
             { name: 'statusBar',               fn: () => { if (typeof updateStatusBarRAG === 'function') updateStatusBarRAG(result.front_matter, result.tasks); } },
@@ -8069,25 +8088,56 @@ function renderRaidTable() {
     }
 }
 
-/** Render RAID rows escalated to the Board or Programme. */
+/** Normalize a RAID item's "Escalate To" value to 'board' / 'programme' /
+ * '' (not escalated, or escalated only to 'project'). 'program' is folded
+ * into 'programme' -- some imported/legacy rows use the US spelling. */
+function normalizedEscalationTarget(item) {
+    const target = String(item.escalation_level || item.escalate_to || '').trim().toLowerCase();
+    if (target === 'board') return 'board';
+    if (target === 'programme' || target === 'program') return 'programme';
+    return '';
+}
+
+/**
+ * Render risks escalated to the Board or Programme (#1096). This is
+ * deliberately narrower than the RAID log: it only ever shows RAID items
+ * of type 'risk' -- issues, actions, decisions and dependencies can carry
+ * an escalation_level too (see aggregateEscalatedRaidItems() in
+ * programme.js, which rolls up risks *and* issues for the programme
+ * dashboard), but the Escalations view named in #1090/#1096 is specifically
+ * about risks raised for Board/Programme attention.
+ */
 function renderEscalationsView() {
     const body = document.getElementById('escalationsTableBody');
     const empty = document.getElementById('escalationsEmptyState');
     if (!body) return;
 
+    const filterEl = document.getElementById('escalationsFilterTarget');
+    const filterTarget = filterEl ? String(filterEl.value || 'all').trim().toLowerCase() : 'all';
+
     const escalated = (raidItems || []).filter(item => {
-        const target = String(item.escalation_level || item.escalate_to || '').trim().toLowerCase();
-        return target === 'board' || target === 'programme' || target === 'program';
+        if (String(item.type || '').trim().toLowerCase() !== 'risk') return false;
+        const target = normalizedEscalationTarget(item);
+        if (!target) return false;
+        if (filterTarget !== 'all' && target !== filterTarget) return false;
+        return true;
     });
-    body.innerHTML = escalated.map(item => `
+
+    body.innerHTML = escalated.map(item => {
+        const target = normalizedEscalationTarget(item);
+        const targetLabel = target.charAt(0).toUpperCase() + target.slice(1);
+        const scoreClass = item.score >= 16 ? 'raid-score-high' : item.score >= 6 ? 'raid-score-medium' : 'raid-score-low';
+        return `
         <tr>
-            <td>${escapeHtml(item.type || '')}</td>
             <td><button class="link-button" type="button" onclick="openRaidForm(${Number(item.id)})">${escapeHtml(item.title || '')}</button></td>
             <td>${escapeHtml(item.description || '')}</td>
             <td>${escapeHtml(item.owner || '')}</td>
-            <td>${escapeHtml(item.escalation_level || item.escalate_to || '')}</td>
-            <td>${escapeHtml(item.status || '')}</td>
-        </tr>`).join('');
+            <td><span class="raid-score ${scoreClass}">${item.score || ''}</span></td>
+            <td><span class="raid-escalation-badge raid-escalation-${target}">${escapeHtml(targetLabel)}</span></td>
+            <td>${escapeHtml(item.target_date || '')}</td>
+            <td><span class="raid-status-badge raid-status-${item.status || 'open'}">${escapeHtml(item.status || 'open')}</span></td>
+        </tr>`;
+    }).join('');
     if (empty) empty.hidden = escalated.length > 0;
 }
 
@@ -10966,8 +11016,24 @@ function updateUserWorkload(tasks) {
 function displayUserWorkload(userMap, filterUser) {
     const sectionsContainer = document.getElementById('userWorkloadSections');
     const emptyState = document.getElementById('userWorkloadEmpty');
+    const emptyText = document.getElementById('userWorkloadEmptyText');
+    const filterNotice = document.getElementById('userWorkloadFilterNotice');
+    const titleBanner = document.getElementById('userWorkloadTitleBanner');
 
     if (!sectionsContainer) return;
+
+    // #1118: the Overallocation button filters this same view down to only
+    // overallocated resources (see the window.onlyOverallocatedWorkload
+    // handling in updateUserWorkload() above); reflect that here so the
+    // filtered state is visible and reversible from within the view itself,
+    // not just by remembering to click the ribbon's Workload button again.
+    if (filterNotice) filterNotice.style.display = window.onlyOverallocatedWorkload ? 'flex' : 'none';
+    if (titleBanner) titleBanner.textContent = window.onlyOverallocatedWorkload
+        ? 'Overallocated Resources'
+        : 'User Workload Breakdown';
+    if (emptyText) emptyText.textContent = window.onlyOverallocatedWorkload
+        ? 'No resources are currently overallocated.'
+        : 'No tasks assigned to users.';
 
     sectionsContainer.innerHTML = '';
 
@@ -11101,6 +11167,14 @@ function filterUserWorkload() {
 function showOverallocationView() {
     window.onlyOverallocatedWorkload = true;
     switchToView('user-workload');
+    if (typeof lastRenderedTasks !== 'undefined') updateUserWorkload(lastRenderedTasks || []);
+}
+
+/** Drop the Overallocation filter and show every resource's workload again.
+ * Wired to the "Show all resources" link the filter notice banner shows
+ * while showOverallocationView()'s filter is active (see #1118). */
+function clearOverallocationFilter() {
+    window.onlyOverallocatedWorkload = false;
     if (typeof lastRenderedTasks !== 'undefined') updateUserWorkload(lastRenderedTasks || []);
 }
 
@@ -12563,13 +12637,14 @@ function generateBudgetMarkdown() {
     return md;
 }
 
-function generateBudgetTable() {
-    if (budgetItems.length === 0) return '';
+function generateBudgetTable(items) {
+    items = items || budgetItems;
+    if (items.length === 0) return '';
 
     const headers = ['ID', 'Description', 'Estimate', 'Forecast', 'Type', 'Invoice', 'PO', 'Supplier', 'Total', 'Ordered', 'Received', 'Category'];
     const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
-    const rows = budgetItems.map(item => [
+    const rows = items.map(item => [
         String(item.id),
         escPipe(item.description),
         String(item.estimate || 0),
@@ -13192,12 +13267,78 @@ function initBudgetSheet() {
             syncBudgetToPlanText();
         }
     });
+
+    // The spreadsheet view hides the toolbar's Category/Type filters, so
+    // equivalent dropdowns live in the sheet's own column headers instead
+    // (#1119). NoodleSheet rebuilds its header on every renderGrid() call
+    // (sort, edit, loadMarkdown, ...), so wrap it rather than patch the
+    // shared component -- our filters get re-added after every rebuild.
+    const originalRenderGrid = budgetSheetInstance.renderGrid.bind(budgetSheetInstance);
+    budgetSheetInstance.renderGrid = function() {
+        originalRenderGrid();
+        injectBudgetSheetHeaderFilters();
+    };
+    budgetSheetInstance.renderGrid();
+}
+
+// Does this budget item pass the spreadsheet view's header filters? Used
+// both to build the filtered rows shown in the sheet and, on the way back,
+// to keep hold of the items the current filters are hiding.
+function budgetItemMatchesSheetFilters(item) {
+    if (budgetSheetCategoryFilter !== 'all' && item.category !== budgetSheetCategoryFilter) return false;
+    if (budgetSheetTypeFilter !== 'all' && item.type !== budgetSheetTypeFilter) return false;
+    return true;
+}
+
+// Adds small <select> filters into the Category/Type column header cells of
+// the budget NoodleSheet grid, cloned from the toolbar's own
+// #budgetCategoryFilter/#budgetTypeFilter selects so both views offer the
+// exact same option values (#1119).
+function injectBudgetSheetHeaderFilters() {
+    const container = document.getElementById('budgetSheetContainer');
+    if (!container) return;
+
+    const filterConfig = [
+        { label: 'category', sourceId: 'budgetCategoryFilter', get: () => budgetSheetCategoryFilter, set: (v) => { budgetSheetCategoryFilter = v; } },
+        { label: 'type', sourceId: 'budgetTypeFilter', get: () => budgetSheetTypeFilter, set: (v) => { budgetSheetTypeFilter = v; } }
+    ];
+
+    container.querySelectorAll('.ns-col-header').forEach(th => {
+        const nameEl = th.querySelector('.ns-col-name');
+        if (!nameEl) return;
+        const label = (nameEl.firstChild ? nameEl.firstChild.textContent : nameEl.textContent || '').trim().toLowerCase();
+        const config = filterConfig.find(c => c.label === label);
+        if (!config) return;
+
+        const sourceSelect = document.getElementById(config.sourceId);
+        if (!sourceSelect) return;
+
+        const select = sourceSelect.cloneNode(true);
+        select.removeAttribute('id');
+        select.removeAttribute('onchange');
+        select.className = 'budget-sheet-col-filter';
+        select.value = config.get();
+        select.title = 'Filter rows by ' + label;
+        select.setAttribute('aria-label', 'Filter rows by ' + label);
+        // Keep clicks/drags on the filter from also triggering the header's
+        // own sort-on-click and column-resize handlers.
+        ['click', 'mousedown', 'pointerdown'].forEach(evt => {
+            select.addEventListener(evt, (e) => e.stopPropagation());
+        });
+        select.addEventListener('change', (e) => {
+            e.stopPropagation();
+            config.set(select.value);
+            syncBudgetItemsToSheet();
+        });
+        th.appendChild(select);
+    });
 }
 
 function syncBudgetItemsToSheet() {
     if (!budgetSheetInstance) return;
 
-    const md = generateBudgetTable();
+    const filtered = budgetItems.filter(budgetItemMatchesSheetFilters);
+    const md = generateBudgetTable(filtered);
     budgetSheetInstance.loadMarkdown(md, 0);
 }
 
@@ -13208,10 +13349,9 @@ function syncSheetToBudgetItems() {
     const columns = budgetSheetInstance.getColumns(0);
     if (!columns.length) return;
 
-    const newItems = rows.filter(row => {
+    const visibleItems = rows.filter(row => {
         return columns.some(col => row[col.name] && row[col.name].trim() !== '');
-    }).map((row, i) => ({
-        id: i + 1,
+    }).map(row => ({
         description: row.description || '',
         estimate: row.estimate || '',
         forecast: row.forecast || '',
@@ -13225,8 +13365,15 @@ function syncSheetToBudgetItems() {
         category: row.category || ''
     }));
 
-    budgetItems = newItems;
-    budgetNextId = newItems.length + 1;
+    // The sheet only ever shows the rows that pass the header filters, so a
+    // straight replace would silently delete everything currently filtered
+    // out. Keep those items untouched and merge the (possibly edited)
+    // visible rows back in alongside them.
+    const hiddenItems = budgetItems.filter(item => !budgetItemMatchesSheetFilters(item));
+
+    const merged = hiddenItems.concat(visibleItems);
+    budgetItems = merged.map((item, i) => Object.assign({}, item, { id: i + 1 }));
+    budgetNextId = budgetItems.length + 1;
 }
 
 
@@ -13425,17 +13572,118 @@ function showToast(message, type) {
 
 
 /**
- * Baseline Plan System
+ * Baseline Plan System (issue #1112)
  * Stores a snapshot of the current schedule as a baseline for comparison.
- * Only one baseline is kept at a time. Stored as a ---baseline--- section
- * at the bottom of the plan text with a markdown table.
+ * Only one baseline's task-level data is ever kept -- the *active* one --
+ * stored as a ---baseline--- section at the bottom of the plan text with a
+ * markdown table (name/start/finish/duration per task), same as before
+ * #1112. Layered on top of that table is a lightweight history log (id,
+ * name, creation date -- no task data) recording every baseline the
+ * Baseline dialog has created, so a user can see past baselines and delete
+ * them even after they've been replaced or cleared. See
+ * format_converter.py's generate_baseline_history_comment() for the exact
+ * on-disk format and why it's a comment line rather than a second table.
  */
 
-// Baseline state is now in state.js
+// Baseline state (baselineItems, baselineHistory, activeBaselineId) is in
+// state.js.
+
+/**
+ * Format a Date for a default baseline name / list display, e.g.
+ * "12 Sep 2026, 14:05".
+ */
+function formatBaselineTimestamp(date) {
+    return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+        + ', ' + date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Create a new baseline from the current scheduled tasks: captures name,
+ * start, finish, and duration for each task, makes it the active baseline,
+ * and records it in the history log. Used by both the Baseline dialog and
+ * the Gantt toolbar's quick "Set Baseline" button.
+ *
+ * @param {string} [name] Label for this baseline; defaults to a timestamp.
+ * @returns {boolean} true if a baseline was created.
+ */
+function createBaseline(name) {
+    if (!lastRenderedTasks || lastRenderedTasks.length === 0) {
+        showToast('No tasks to baseline. Render your plan first.', 'warning');
+        return false;
+    }
+
+    const label = (name && name.trim()) || ('Baseline ' + formatBaselineTimestamp(new Date()));
+
+    baselineItems = lastRenderedTasks
+        .filter(t => t.start && t.finish)
+        .map(t => ({
+            name: t.name,
+            start: t.start,
+            finish: t.finish,
+            duration: t.duration_days != null ? t.duration_days + 'd' : ''
+        }));
+
+    const id = 'bl-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    activeBaselineId = id;
+    baselineHistory = [{ id, name: label, date: new Date().toISOString() }, ...baselineHistory];
+
+    syncBaselineToPlanText();
+    showBaselineToggle(true);
+    showToast('Baseline "' + label + '" created.', 'success');
+
+    // Re-render views if baseline is visible
+    const ganttToggle = document.getElementById('ganttShowBaseline');
+    if (ganttToggle && ganttToggle.checked) {
+        renderGanttChart();
+    }
+    const msToggle = document.getElementById('milestonesShowBaseline');
+    if (msToggle && msToggle.checked) {
+        updateMilestonesTable(lastRenderedTasks);
+    }
+    return true;
+}
+
+/**
+ * Clear the active baseline (stop comparing against it) without deleting
+ * its entry from the history log -- it stays listed in the Baseline
+ * dialog, just no longer "Active", and can still be deleted from there.
+ */
+function clearActiveBaseline() {
+    baselineItems = [];
+    activeBaselineId = null;
+    syncBaselineToPlanText();
+    showBaselineToggle(false);
+
+    renderGanttChart();
+    updateMilestonesTable(lastRenderedTasks || []);
+}
+
+/**
+ * Permanently remove one baseline from the history log. If it was the
+ * active baseline, this also clears the active table (its task-level data
+ * only ever existed there, so there is nothing left to keep active).
+ */
+function deleteBaselineEntry(id) {
+    const wasActive = id === activeBaselineId;
+    baselineHistory = baselineHistory.filter(entry => entry.id !== id);
+
+    if (wasActive) {
+        baselineItems = [];
+        activeBaselineId = null;
+        showBaselineToggle(false);
+        renderGanttChart();
+        updateMilestonesTable(lastRenderedTasks || []);
+    }
+
+    syncBaselineToPlanText();
+}
 
 /**
  * Set (or replace) the baseline from the current scheduled tasks.
- * Captures name, start, finish, and duration for each task.
+ * Legacy one-click entry point (the Gantt toolbar's "Set Baseline"
+ * button) -- kept alongside the fuller Baseline dialog (openBaselineDialog)
+ * for the "just snapshot it now" flow it always offered, now backed by the
+ * same createBaseline() the dialog uses.
  */
 function setBaseline() {
     if (!lastRenderedTasks || lastRenderedTasks.length === 0) {
@@ -13450,50 +13698,17 @@ function setBaseline() {
 
     if (!confirm(message)) return;
 
-    // Build baseline items from current tasks
-    baselineItems = lastRenderedTasks
-        .filter(t => t.start && t.finish)
-        .map(t => ({
-            name: t.name,
-            start: t.start,
-            finish: t.finish,
-            duration: t.duration_days != null ? t.duration_days + 'd' : ''
-        }));
-
-    // Sync baseline to plan text
-    syncBaselineToPlanText();
-
-    // Show the baseline toggle
-    showBaselineToggle(true);
-
-    showToast('Baseline set successfully.', 'success');
-
-    // Re-render views if baseline is visible
-    const ganttToggle = document.getElementById('ganttShowBaseline');
-    if (ganttToggle && ganttToggle.checked) {
-        renderGanttChart();
-    }
-    const msToggle = document.getElementById('milestonesShowBaseline');
-    if (msToggle && msToggle.checked) {
-        updateMilestonesTable(lastRenderedTasks);
-    }
+    createBaseline();
 }
 
 /**
- * Clear the baseline from the plan.
+ * Clear the active baseline from the plan (legacy entry point -- see
+ * clearActiveBaseline() for what actually happens).
  */
 function clearBaseline() {
-    if (!confirm('Remove the baseline from this plan?')) return;
-
-    baselineItems = [];
-    syncBaselineToPlanText();
-    showBaselineToggle(false);
-
-    // Re-render views
-    renderGanttChart();
-    updateMilestonesTable(lastRenderedTasks || []);
-
-    showToast('Baseline removed.', 'success');
+    if (!confirm('Remove the current baseline from this plan? Past baselines stay listed in the Baseline dialog.')) return;
+    clearActiveBaseline();
+    showToast('Baseline cleared.', 'success');
 }
 
 /**
@@ -13538,25 +13753,71 @@ function loadBaselineFromData(items) {
 }
 
 /**
- * Extract baseline items from plan text (client-side fallback).
+ * Extract the raw text of the ---baseline--- section (the #1112 history
+ * comment, if any, plus the active baseline's markdown table), without
+ * parsing it. Shared by extractBaselineFromPlanText() (items) and
+ * updateBaselineView() (history) so the section boundary logic -- baseline
+ * is not always the last section, a whiteboard section may follow it --
+ * lives in exactly one place.
  */
-function extractBaselineFromPlanText(planText) {
+function extractBaselineSectionText(planText) {
     const marker = BASELINE_START;
     const idx = planText.indexOf(marker);
-    if (idx === -1) return [];
+    if (idx === -1) return '';
 
     const afterStart = idx + marker.length;
-    // Baseline is not always the last section any more (a whiteboard
-    // section, or anything else, may follow it): stop at whichever other
-    // section marker occurs next, not just at EOF.
     let endIdx = planText.length;
     for (const other of [WHITEBOARD_START]) {
         const oi = planText.indexOf(other, afterStart);
         if (oi !== -1 && oi < endIdx) endIdx = oi;
     }
 
-    const section = planText.substring(afterStart, endIdx).trim();
+    return planText.substring(afterStart, endIdx).trim();
+}
+
+/**
+ * Extract baseline items from plan text (client-side fallback).
+ */
+function extractBaselineFromPlanText(planText) {
+    const section = extractBaselineSectionText(planText);
+    if (!section) return [];
     return parseBaselineMarkdown(section);
+}
+
+/**
+ * Build the <!-- baseline-history: ... --> comment line that records the
+ * baseline history log (#1112). Mirrors format_converter.py's
+ * generate_baseline_history_comment() -- keep the two in sync.
+ */
+function generateBaselineHistoryComment(activeId, entries) {
+    if (!entries || entries.length === 0) return '';
+    const payload = JSON.stringify({ active: activeId || null, entries: entries });
+    return '<!-- baseline-history: ' + payload + ' -->';
+}
+
+/**
+ * Parse the baseline-history comment out of a ---baseline--- section's raw
+ * text (extractBaselineSectionText()'s return value). Mirrors
+ * format_converter.py's extract_baseline_history() -- keep the two in sync.
+ * Defaults to { active: null, entries: [] } for plans with no history
+ * comment (pre-#1112 plans, or a section that's just the plain table).
+ */
+function extractBaselineHistoryFromSectionText(sectionText) {
+    const empty = { active: null, entries: [] };
+    if (!sectionText) return empty;
+
+    const m = sectionText.match(/<!--\s*baseline-history:\s*(\{[\s\S]*?\})\s*-->/);
+    if (!m) return empty;
+
+    try {
+        const data = JSON.parse(m[1]);
+        if (!data || typeof data !== 'object') return empty;
+        const entries = Array.isArray(data.entries) ? data.entries : [];
+        const active = typeof data.active === 'string' ? data.active : null;
+        return { active, entries };
+    } catch (e) {
+        return empty;
+    }
 }
 
 /**
@@ -13681,9 +13942,15 @@ function updatePlanBaselineText(planText, items) {
     base = base.replace(/\n+$/, '');
 
     const table = generateBaselineTable();
+    // #1112: the history log rides along as a comment line above the table
+    // (or alone, once the active baseline has been cleared but past
+    // baselines are still listed in the dialog) -- see
+    // generateBaselineHistoryComment()'s header comment for why.
+    const historyComment = generateBaselineHistoryComment(activeBaselineId, baselineHistory);
+    const sectionText = [historyComment, table].filter(Boolean).join('\n\n');
     let result = base;
-    if (table) {
-        result = result + '\n\n' + BASELINE_START + '\n' + table;
+    if (sectionText) {
+        result = result + '\n\n' + BASELINE_START + '\n' + sectionText;
     }
 
     if (whiteboardText) {
@@ -13691,6 +13958,106 @@ function updatePlanBaselineText(planText, items) {
     }
 
     return result;
+}
+
+// ---------------------------------------------------------------------------
+// Baseline dialog (issue #1112)
+//
+// Opened from the Plan ribbon's Baseline button (and Gantt Tools' own
+// Baseline button, which shares the same generic ribbon action) instead of
+// the old "just toggle the Gantt display checkbox" behaviour. Lets the user
+// create a new baseline, see every baseline previously created on this
+// plan, clear the active one (stop comparing against it, keep it listed),
+// and delete a past one outright.
+// ---------------------------------------------------------------------------
+
+/**
+ * Open the Baseline dialog and render its current list.
+ */
+function openBaselineDialog() {
+    const overlay = document.getElementById('baselineDialogOverlay');
+    if (!overlay) return;
+    const nameInput = document.getElementById('newBaselineName');
+    if (nameInput) nameInput.value = '';
+    renderBaselineDialogList();
+    overlay.classList.add('active');
+}
+
+/**
+ * Close the Baseline dialog.
+ */
+function closeBaselineDialog() {
+    const overlay = document.getElementById('baselineDialogOverlay');
+    if (overlay) overlay.classList.remove('active');
+}
+
+/**
+ * Render the list of baselines (history entries) inside the dialog, most
+ * recently created first -- baselineHistory is already kept in that order.
+ */
+function renderBaselineDialogList() {
+    const list = document.getElementById('baselineHistoryList');
+    if (!list) return;
+
+    if (!baselineHistory || baselineHistory.length === 0) {
+        list.innerHTML = '<p class="baseline-dialog-empty">No baselines yet. Create one above to start tracking schedule variance.</p>';
+        return;
+    }
+
+    list.innerHTML = baselineHistory.map(entry => {
+        const isActive = entry.id === activeBaselineId;
+        const dateStr = formatBaselineTimestamp(new Date(entry.date));
+        const safeName = escapeHtml(entry.name || 'Untitled baseline');
+        const clearBtn = isActive
+            ? `<button type="button" class="btn-secondary baseline-clear-btn" onclick="clearActiveBaselineFromDialog()">Clear</button>`
+            : '';
+        return `
+            <div class="baseline-history-row${isActive ? ' baseline-history-row-active' : ''}">
+                <div class="baseline-history-info">
+                    <span class="baseline-history-name">${safeName}</span>
+                    ${isActive ? '<span class="baseline-active-badge">Active</span>' : ''}
+                    <span class="baseline-history-date">${dateStr}</span>
+                </div>
+                <div class="baseline-history-actions">
+                    ${clearBtn}
+                    <button type="button" class="btn-danger baseline-delete-btn" onclick="deleteBaselineEntryFromDialog('${entry.id}')" aria-label="Delete ${safeName}">&#128465; Delete</button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+/**
+ * Dialog "Create Baseline" button: read the name field and create a new
+ * baseline from it.
+ */
+function createBaselineFromDialog() {
+    const nameInput = document.getElementById('newBaselineName');
+    const name = nameInput ? nameInput.value : '';
+    if (!createBaseline(name)) return;
+    if (nameInput) nameInput.value = '';
+    renderBaselineDialogList();
+}
+
+/**
+ * Dialog "Clear" button on the active baseline's row.
+ */
+function clearActiveBaselineFromDialog() {
+    if (!confirm('Clear the active baseline? It stays listed here and can still be deleted, but the plan will no longer compare against it.')) return;
+    clearActiveBaseline();
+    showToast('Baseline cleared.', 'success');
+    renderBaselineDialogList();
+}
+
+/**
+ * Dialog "Delete" button on a baseline row.
+ */
+function deleteBaselineEntryFromDialog(id) {
+    const entry = baselineHistory.find(e => e.id === id);
+    const label = entry ? entry.name : 'this baseline';
+    if (!confirm('Delete "' + label + '"? This cannot be undone.')) return;
+    deleteBaselineEntry(id);
+    showToast('Baseline deleted.', 'success');
+    renderBaselineDialogList();
 }
 
 // =====================================================================
@@ -16845,6 +17212,132 @@ function updateEVM(tasks) {
 }
 
 /**
+ * #1114: Forecast view -- reuses the same cached evmData the EVM view
+ * renders from (calculateEVM() already ran this cycle in the 'evm'
+ * viewUpdates entry, just above this one) rather than recomputing it, so
+ * the two views can never disagree. Renders the schedule/cost-at-completion
+ * summary, the forecast-focused KPI cards (EAC/ETC/VAC/TCPI/forecast
+ * finish), and the same PV/EV/AC-plus-forecast S-curve chart as the EVM
+ * view, into the Forecast view's own elements.
+ */
+function updateForecastView() {
+    const placeholder = document.querySelector('#forecast-view .forecast-placeholder');
+    const content = document.querySelector('#forecast-view .forecast-content');
+
+    if (!evmData) {
+        if (placeholder) placeholder.style.display = '';
+        if (content) content.style.display = 'none';
+        return;
+    }
+
+    if (placeholder) placeholder.style.display = 'none';
+    if (content) content.style.display = '';
+
+    renderForecastSummary(evmData);
+    renderForecastKpis(evmData);
+    renderEvmChart('forecastChart', 'forecastChartLegend');
+}
+
+/**
+ * Render the "cost at completion" / "schedule at completion" headline
+ * summary at the top of the Forecast view -- the two figures the issue
+ * (#1114) calls out by name, in plain language rather than acronyms.
+ */
+function renderForecastSummary(data) {
+    const el = document.getElementById('forecastSummary');
+    if (!el) return;
+
+    const fmt = (v) => {
+        if (data.hasBudgetData) {
+            return Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        return Number(v).toFixed(1);
+    };
+
+    const scheduleDays = Math.round((data.scheduleForecast.getTime() - data.projectEnd.getTime()) / 86400000);
+    const scheduleClass = scheduleDays > 0 ? 'evm-kpi-negative' : 'evm-kpi-positive';
+    const scheduleText = scheduleDays === 0
+        ? 'On the planned finish date'
+        : (scheduleDays > 0
+            ? Math.abs(scheduleDays) + ' day' + (Math.abs(scheduleDays) === 1 ? '' : 's') + ' later than planned'
+            : Math.abs(scheduleDays) + ' day' + (Math.abs(scheduleDays) === 1 ? '' : 's') + ' earlier than planned');
+
+    const costClass = data.VAC >= 0 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+    const costText = data.hasBudgetData
+        ? (data.VAC >= 0
+            ? fmt(Math.abs(data.VAC)) + ' under the ' + fmt(data.BAC) + ' budget'
+            : fmt(Math.abs(data.VAC)) + ' over the ' + fmt(data.BAC) + ' budget')
+        : 'No budget data -- estimated from task duration';
+
+    el.innerHTML =
+        '<div class="forecast-summary-item ' + costClass + '">' +
+            '<div class="forecast-summary-label">Cost at completion</div>' +
+            '<div class="forecast-summary-value">' + fmt(data.EAC) + '</div>' +
+            '<div class="forecast-summary-sub">' + costText + '</div>' +
+        '</div>' +
+        '<div class="forecast-summary-item ' + scheduleClass + '">' +
+            '<div class="forecast-summary-label">Schedule at completion</div>' +
+            '<div class="forecast-summary-value">' + data.scheduleForecast.toLocaleDateString() + '</div>' +
+            '<div class="forecast-summary-sub">' + scheduleText + '</div>' +
+        '</div>';
+}
+
+/**
+ * Render the Forecast view's KPI cards: the standard EVM forecast measures
+ * (EAC, ETC, VAC, TCPI, forecast finish date) called for by #1114, plus
+ * CPI/SPI since they're what's driving the forecast.
+ */
+function renderForecastKpis(data) {
+    const grid = document.getElementById('forecastKpiGrid');
+    if (!grid) return;
+
+    const fmt = (v) => {
+        if (data.hasBudgetData) {
+            return Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        return Number(v).toFixed(1);
+    };
+    const fmtIdx = (v) => Number(v).toFixed(2);
+
+    const cpiClass = data.CPI >= 1 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+    const spiClass = data.SPI >= 1 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+    const vacClass = data.VAC >= 0 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+    // TCPI > 1 means more efficiency than achieved so far is now required to
+    // land on budget -- the harder ask, so it's flagged the same way CPI < 1 is.
+    const tcpiClass = data.TCPI <= 1 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+
+    grid.innerHTML =
+        '<div class="evm-kpi-card ' + cpiClass + '">' +
+            '<div class="evm-kpi-label">CPI</div>' +
+            '<div class="evm-kpi-value">' + fmtIdx(data.CPI) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card ' + spiClass + '">' +
+            '<div class="evm-kpi-label">SPI</div>' +
+            '<div class="evm-kpi-value">' + fmtIdx(data.SPI) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card">' +
+            '<div class="evm-kpi-label">Estimate At Completion (EAC)</div>' +
+            '<div class="evm-kpi-value">' + fmt(data.EAC) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card">' +
+            '<div class="evm-kpi-label">Estimate To Complete (ETC)</div>' +
+            '<div class="evm-kpi-value">' + fmt(data.ETC) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card ' + vacClass + '">' +
+            '<div class="evm-kpi-label">Variance At Completion (VAC)</div>' +
+            '<div class="evm-kpi-value">' + fmt(data.VAC) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card ' + tcpiClass + '">' +
+            '<div class="evm-kpi-label">To-Complete Perf. Index (TCPI)</div>' +
+            '<div class="evm-kpi-value">' + fmtIdx(data.TCPI) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card">' +
+            '<div class="evm-kpi-label">Forecast Finish</div>' +
+            '<div class="evm-kpi-value">' + data.scheduleForecast.toLocaleDateString() + '</div>' +
+        '</div>';
+}
+
+/**
  * Render EVM KPI cards at the top of the view.
  */
 function renderEvmKpis(data) {
@@ -17074,12 +17567,17 @@ function renderEvmMetricsTable(data) {
 
 /**
  * Render the EVM S-curve chart using SVG.
+ *
+ * #1114: takes the target svg/legend element ids so the Forecast view can
+ * render the same PV/EV/AC-plus-forecast chart into its own `#forecastChart`
+ * / `#forecastChartLegend` pair without duplicating this function -- it's
+ * the same evmData, just displayed in a second place.
  */
-function renderEvmChart() {
+function renderEvmChart(svgId, legendId) {
     if (!evmData || !evmData.timeSeries) return;
 
-    const svg = document.getElementById('evmChart');
-    const legend = document.getElementById('evmChartLegend');
+    const svg = document.getElementById(svgId || 'evmChart');
+    const legend = document.getElementById(legendId || 'evmChartLegend');
     if (!svg) return;
 
     const container = svg.parentElement;

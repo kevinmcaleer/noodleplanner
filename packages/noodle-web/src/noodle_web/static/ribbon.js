@@ -95,6 +95,10 @@ function getLiveState() {
         ganttShowCriticalPath: !!document.getElementById('ganttShowCriticalPath')?.checked,
         ganttShowBaseline: !!document.getElementById('ganttShowBaseline')?.checked,
         ganttShowDependencies: !!document.getElementById('ganttShowDependencies')?.checked,
+        // #1112: the ribbon's Baseline button opens the Baseline dialog
+        // rather than toggling ganttShowBaseline, so its pressed state now
+        // reflects whether a baseline is actually active, not display prefs.
+        hasActiveBaseline: (typeof baselineItems !== 'undefined') && baselineItems.length > 0,
         isDark: document.documentElement.getAttribute('data-theme') === 'dark',
         // theme.js's currentThemeChoice ('light'|'dark'|'system') -- a plain
         // top-level `let` in a classic script, so it's readable here as a
@@ -146,7 +150,7 @@ function revealCalendarsPanel() {
 const VIEW_FOR_LABEL = {
     Tasks: 'tasks', Outline: 'notepad', Board: 'kanban', Gantt: 'gantt', Timeline: 'timeline', Calendar: 'calendar',
     RAID: 'raid', 'RAID Log': 'raid', Actions: 'actions', Highlights: 'highlights', Lookahead: 'lookahead',
-    Lessons: 'lessons', Budget: 'budget', EVM: 'evm', Forecast: 'evm', Benefits: 'benefits', Analysis: 'analysis', Escalations: 'escalations',
+    Lessons: 'lessons', Budget: 'budget', EVM: 'evm', Forecast: 'forecast', Benefits: 'benefits', Analysis: 'analysis', Escalations: 'escalations',
     Resources: 'resources', Stakeholders: 'stakeholders', Timesheet: 'timesheet', Workload: 'user-workload',
     'Resource Sheet': 'resource-sheet', 'Comms Plan': 'comms', Report: 'project-report', 'Project Report': 'project-report',
     Dashboard: 'project-report',
@@ -223,6 +227,12 @@ const LABEL_HELP = {
     'Show Dependencies': 'Toggle dependency syntax highlighting in the markdown editor',
     'Highlight Preset': 'Choose a markdown editor syntax-highlighting preset',
     Editor: 'Show or hide the markdown editor panel',
+    // #1123: the per-target RAID Excel / MS Project sync already built in
+    // #868 lives in Settings > Sync -- there is no consolidated one-click
+    // control yet (that's #913's single-button, multi-target work). This
+    // button is a stopgap that jumps straight there rather than doing
+    // nothing.
+    Sync: 'Open sync settings for linked RAID Excel / MS Project files (a single consolidated Sync button is tracked in #913)',
 };
 
 function labelHelp(label) {
@@ -320,9 +330,35 @@ function scopedAction(scopeId, label) {
         'resources:Calendar': () => revealCalendarsPanel(),
         'resources:Timesheet': switchView('timesheet'),
         'resources:Workload': () => { window.onlyOverallocatedWorkload = false; switchToView('user-workload'); },
-        'resources:Level': () => showLevellingSuggestions(),
+        // #1117: "Level" computes suggestions across the whole portfolio
+        // (see portfolio-leveling.js) and renders them into the Team
+        // Allocation view's #levellingSuggestionsPanel -- a container that
+        // only exists once that view has rendered. Calling
+        // showLevellingSuggestions() directly from the plain project-scope
+        // Resources tab (or the "Resource Tools" contextual tab, which
+        // shares this same scopeId) found no such panel and silently did
+        // nothing, which looked exactly like "not available" even though
+        // resolveAction() no longer fell through to the stub toast. Route
+        // through the Team Allocation view first, same as the working
+        // 'pf-plan:Level Team' entry above, so the button always produces
+        // visible output regardless of which tab it was clicked from.
+        // "Clear Level" needs no such routing: clearLevellingNow() reports
+        // its own result via confirm()/alert() and works standalone.
+        'resources:Level': () => {
+            switchPortfolioSubview('resources')();
+            if (typeof showLevellingSuggestions === 'function') showLevellingSuggestions();
+        },
         'resources:Clear Level': () => clearLevellingNow(),
         'resources:Overallocation': () => showOverallocationView(),
+        // #1118: the "Influence" button lives on both the main Resources
+        // tab's Comms group (scopeId 'resources', ribbon-ia.js's home
+        // 'resources' tab) and the "Stakeholders" contextual tab's Register
+        // group (scopeId 'stakeholders', only shown once the Stakeholders
+        // view is already open) -- both need their own table entry, since
+        // scopedAction() keys strictly on '<scopeId>:<label>' and the main
+        // Resources tab's clicks were previously falling through to the
+        // "not available" stub because only 'stakeholders:Influence' existed.
+        'resources:Influence': () => showInfluenceDiagram(),
         'stakeholders:Influence': () => showInfluenceDiagram(),
         'kanban:Phase': () => switchKanbanView('phase'),
         'kanban:Resource': () => switchKanbanView('resource'),
@@ -337,6 +373,14 @@ function scopedAction(scopeId, label) {
         // ribbonActionAnchor for the button to anchor the popover to,
         // same convention openFormatMenu() below uses.
         'whiteboard:Colour': () => { if (typeof wbOpenColourPanelForSelectedNote === 'function') wbOpenColourPanelForSelectedNote(ribbonActionAnchor); },
+        // #1107: previously unwired -- issue #1015's "free-form note" (a
+        // post-it with no checklist yet, whiteboard-notes.js's
+        // wbIsFreeformNote()) already IS the "Note" this button's own
+        // ribbon-ia.js label describes; there is no second, task-less
+        // "note" concept to build. Reuses the exact same creation path the
+        // whiteboard toolbar's own "New post-it"/"Text note" buttons and
+        // the `n` keyboard shortcut already call.
+        'whiteboard:Note': () => { if (typeof wbCreateNoteInViewportCentre === 'function') wbCreateNoteInViewportCentre(); },
         'gantt:Day/Week/Month': () => openFormatMenu(GANTT_SCALES, 'Scale'),
     };
     return table[`${scopeId}:${label}`];
@@ -362,6 +406,13 @@ const LABEL_ACTIONS = {
     Settings: () => openSettingsPanel(),
     Undo: () => EditorUndoManager.undo(),
 
+    // #1123: the Report ribbon's Sync button used to resolve to nothing
+    // (a generic "Sync isn't available yet" toast). The real per-target
+    // sync UI (RAID Excel / MS Project, #868) already lives in Settings >
+    // Sync -- jump straight there rather than leaving a dead button until
+    // #913's consolidated single-button sync replaces this.
+    Sync: () => openSettingsPanel('sync'),
+
     // Per-category syntax highlight toggles (#1051) -- see
     // highlight-toggles.js's own header comment for why flipping these can
     // never touch the editor's actual text or caret.
@@ -381,7 +432,12 @@ const LABEL_ACTIONS = {
     // view, flipped via a real 'change' event so views-gantt.js's own
     // addEventListener('change', ...) wiring does the actual work.
     'Critical Path': () => toggleGanttCheckbox('ganttShowCriticalPath'),
-    Baseline: () => toggleGanttCheckbox('ganttShowBaseline'),
+    // #1112: used to just toggle the Gantt "show baseline overlay" checkbox
+    // (ganttShowBaseline), which did nothing to actually create or manage a
+    // baseline. That checkbox is still reachable from its own control next
+    // to the Gantt view's "Set Baseline" button; this button now opens the
+    // full Baseline dialog (create/list/clear/delete) instead.
+    Baseline: () => { if (typeof openBaselineDialog === 'function') openBaselineDialog(); },
     Dependencies: () => toggleGanttCheckbox('ganttShowDependencies'),
     Deps: () => toggleGanttCheckbox('ganttShowDependencies'),
     Risk: () => addRaidItem(),
@@ -642,7 +698,7 @@ function renderSimpleButton(scopeId, tuple) {
 function isButtonActive(scopeId, label, live) {
     if (label === 'Editor') return live.editorVisible;
     if (label === 'Critical Path') return live.ganttShowCriticalPath;
-    if (label === 'Baseline') return live.ganttShowBaseline;
+    if (label === 'Baseline') return live.hasActiveBaseline;
     if (label === 'Dependencies' || label === 'Deps') return live.ganttShowDependencies;
     if (label === 'Dark Mode') return live.isDark;
     if (label === 'System Theme') return live.themeChoice === 'system';

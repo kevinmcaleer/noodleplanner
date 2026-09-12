@@ -192,3 +192,77 @@
         padding: 8px;
     }
 }
+
+/* =================================================================
+ * FORECAST VIEW (#1114)
+ * Reuses the EVM view's KPI-card, chart and placeholder styling above --
+ * only the headline cost/schedule-at-completion summary is unique to it.
+ * ================================================================= */
+
+#forecast-view {
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.forecast-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.forecast-summary-item {
+    background: var(--evm-card-bg);
+    border: 1px solid var(--evm-card-border);
+    border-left: 4px solid var(--evm-card-border);
+    border-radius: 8px;
+    padding: 18px 20px;
+}
+
+.forecast-summary-item.evm-kpi-positive {
+    border-left-color: var(--evm-positive);
+}
+
+.forecast-summary-item.evm-kpi-negative {
+    border-left-color: var(--evm-negative);
+}
+
+.forecast-summary-label {
+    font-size: 0.8em;
+    color: var(--evm-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.forecast-summary-value {
+    font-size: 1.9em;
+    font-weight: 700;
+    color: var(--evm-text-primary);
+    line-height: 1.1;
+}
+
+.forecast-summary-item.evm-kpi-positive .forecast-summary-value {
+    color: var(--evm-positive);
+}
+
+.forecast-summary-item.evm-kpi-negative .forecast-summary-value {
+    color: var(--evm-negative);
+}
+
+.forecast-summary-sub {
+    margin-top: 6px;
+    font-size: 0.85em;
+    color: var(--evm-text-secondary);
+}
+
+@media (max-width: 768px) {
+    .forecast-summary {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .forecast-summary-value {
+        font-size: 1.5em;
+    }
+}

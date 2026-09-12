@@ -5,11 +5,17 @@
  * -> Scheduling -> Risks -> Comms. Per the issue's own framing, the shell
  * *hosts* each stage rather than reimplementing it: entering a stage just
  * switches the app to the existing view that already covers it
- * (switchToView()), applies that stage's highlighting preset
- * (HighlightToggles.applyPreset(), #1051), and -- for Dependencies --
- * forces the whiteboard into dependency-link mode (wbSetLinkMode(),
- * #1052). Nothing here duplicates Notepad/Whiteboard/RAID/Comms/Tasks
- * logic.
+ * (switchToView()) and applies that stage's highlighting preset
+ * (HighlightToggles.applyPreset(), #1051). Nothing here duplicates
+ * Notepad/Whiteboard/RAID/Comms/Tasks logic.
+ *
+ * The Dependencies stage used to also force the whiteboard into a
+ * whole-card "dependency link" mode (#1052's wbSetLinkMode()); #1106
+ * removed that mode (it let a summary task's card appear to have a
+ * dependency, breaking the "summary tasks can't have dependencies" rule)
+ * in favour of a per-row drag handle on checklist rows, so this stage now
+ * just hosts the Whiteboard view as-is -- there is no board-wide mode
+ * left to switch into.
  *
  * Decision (recorded on #1054): a stage is an overlay above the current
  * view, not a modal replacing it. The shell is a small persistent panel
@@ -32,6 +38,15 @@
  * something #877 hasn't built yet. Likewise the Design stage's Backstage
  * host only creates a blank plan today -- template instantiation is
  * itself an open follow-up (#945/#946), not something to duplicate here.
+ *
+ * The Design stage's host (Backstage) is the one exception to "entering a
+ * stage switches the app to the view that covers it" (#1107): Backstage is
+ * a full-screen shell, not a workspace tab the wizard's floating panel can
+ * sit over, so applyStageHost() deliberately skips the switchToView() call
+ * for it -- see that function's own comment. Opening or stepping onto the
+ * Guided Plan wizard's Design stage now only shows the wizard panel and
+ * highlights the Design step; it never yanks the user into Backstage as a
+ * side effect.
  */
 (function (root) {
     const STORAGE_KEY = 'noodleplanner:wizard-state';
@@ -127,8 +142,24 @@
     function currentStage() { return STAGES[state.currentIndex]; }
 
     function applyStageHost(stage) {
-        if (typeof switchToView === 'function') switchToView(stage.view);
-        if (stage.key === 'dependencies' && typeof wbSetLinkMode === 'function') wbSetLinkMode('dependency');
+        // #1107: the Design stage hosts Backstage (create a blank plan) --
+        // but Backstage is not a normal workspace tab like every other
+        // stage's host. It is a distinct full-screen shell (backstage.css
+        // hides #ribbonShell/.status-bar under `body.backstage-fullscreen`)
+        // that replaces the whole editor rather than sitting behind the
+        // wizard's floating panel the way Notepad/Whiteboard/Tasks/RAID/
+        // Comms do -- so auto-switching into it doesn't fit this file's own
+        // "a stage is an overlay above the current view" model (see the
+        // header comment above). Concretely: clicking "Guided Plan" used to
+        // yank a user straight out of whatever they were doing and into
+        // Backstage the instant the wizard opened (a fresh wizard always
+        // starts on the Design stage), which read as "the button opens
+        // Backstage" rather than "the button opens the wizard". Backstage
+        // stays reachable -- Home/File still open it directly, and a user
+        // can always start a blank plan from there themselves -- it just
+        // never happens as a side effect of merely opening or stepping
+        // through the wizard.
+        if (stage.view !== 'backstage' && typeof switchToView === 'function') switchToView(stage.view);
         if (typeof HighlightToggles !== 'undefined' && HighlightToggles.applyPreset) HighlightToggles.applyPreset(stage.preset);
     }
 
@@ -257,7 +288,7 @@
 
     const api = {
         STAGES, defaultState, clampIndex, isLastStage, markVisited, markSkipped, normaliseState,
-        loadState, open, close, isOpen, next, back, skip, jumpTo,
+        loadState, open, close, isOpen, next, back, skip, jumpTo, applyStageHost,
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     root.PlanWizard = api;

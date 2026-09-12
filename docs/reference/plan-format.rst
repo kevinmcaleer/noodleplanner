@@ -402,7 +402,8 @@ state, no task-derived title, no post-it colour). The ``Kind``/``Id``/
 plan has at least one text object; a plan with post-it rows only still
 round-trips through an edit as the same seven-column table it always has.
 
-Created via the toolbar's **New text** button, the ``t`` key, or double-
+Created via the toolbar's **Add title** button (renamed from **New text**
+by issue #1107), the ``t`` key, or double-
 clicking is reserved for a new post-it (``n``) -- a text object goes
 straight into inline edit so typing its content is part of the same
 gesture, the same handoff a new post-it's title gets. Dragging repositions

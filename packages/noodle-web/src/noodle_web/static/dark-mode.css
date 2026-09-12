@@ -1433,14 +1433,15 @@ body {
 }
 
 [data-theme="dark"] .budget-view-toggle {
-    background: var(--np-surface);
-    color: var(--np-accent);
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     border-color: var(--np-accent);
 }
 
 [data-theme="dark"] .budget-view-toggle:hover,
 [data-theme="dark"] .budget-view-toggle.active {
-    background: var(--np-accent);
+    background: var(--np-accent-hover);
+    border-color: var(--np-accent-hover);
     color: var(--np-on-accent);
 }
 
@@ -1704,6 +1705,12 @@ body {
 
 [data-theme="dark"] .ns-col-name {
     color: var(--np-text);
+}
+
+[data-theme="dark"] .budget-sheet-col-filter {
+    background: var(--np-input-bg, var(--np-surface));
+    color: var(--np-text);
+    border-color: var(--np-input-border, var(--np-border));
 }
 
 [data-theme="dark"] .ns-row-num {
@@ -2811,6 +2818,8 @@ body {
    follow. */
 
 [data-theme="dark"] .wb-note-link-handle:hover,
+[data-theme="dark"] .wb-note-promote-btn:hover,
+[data-theme="dark"] .wb-note-promote-btn:focus-visible,
 [data-theme="dark"] .wb-outline-btn:hover,
 [data-theme="dark"] .wb-outline-btn:focus-visible,
 [data-theme="dark"] .wb-outline-chevron:hover {

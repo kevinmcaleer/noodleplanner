@@ -10,13 +10,13 @@ tests/test_whiteboard_drag_resize.py (#848).
 
 Covers what tests/test_whiteboard_backmatter.mjs (the pure Kind/Id/Text
 row-shape parsing) can't: real DOM structure with no post-it chrome,
-creation via the toolbar button and the `t` key, click-to-edit vs.
-click-and-drag disambiguation, drag-to-reposition committing exactly once,
-delete, round-trip persistence across a reload, and -- the storage design's
-own key risk (see script.js's "Whiteboard back matter" header comment) --
-that a completely unrelated post-it edit on a *mixed* board never clobbers
-a text object's row, or vice versa, since both share one table rewritten
-from `items` on every commit.
+creation via the toolbar button and the `t` key, single-click-to-select vs.
+double-click-to-edit vs. click-and-drag disambiguation (issue #1105),
+drag-to-reposition committing exactly once, delete, round-trip persistence
+across a reload, and -- the storage design's own key risk (see script.js's
+"Whiteboard back matter" header comment) -- that a completely unrelated
+post-it edit on a *mixed* board never clobbers a text object's row, or vice
+versa, since both share one table rewritten from `items` on every commit.
 
 Usage:
     uv run pytest tests/test_whiteboard_text_objects.py -x -q
@@ -224,6 +224,7 @@ def get_text_objects(driver):
                 y: parseFloat(fo.getAttribute('y')),
                 text: content ? content.textContent : null,
                 editing: content ? content.isContentEditable : null,
+                selected: content ? content.classList.contains('selected') : null,
                 outerHTML: fo.outerHTML,
             };
         });
@@ -478,7 +479,11 @@ class TestTextObjectNoCardChrome:
 
 
 class TestTextObjectDragAndEdit:
-    def test_click_without_moving_enters_edit_mode_not_a_drag(self, browser, app_server):
+    def test_click_without_moving_selects_but_does_not_enter_edit_mode(self, browser, app_server):
+        """Issue #1105: a plain single click that never turns into a drag
+        selects the object (a solid outline -- move mode) rather than
+        jumping straight into edit, so a drag's own initial mousedown is
+        never mistaken for "start editing"."""
         open_app(browser, app_server)
         load_plan(browser, SAMPLE_PLAN)
         switch_to_whiteboard(browser)
@@ -493,13 +498,59 @@ class TestTextObjectDragAndEdit:
         after = get_text_objects(browser)[text_id]
         assert after["x"] == before["x"] and after["y"] == before["y"], \
             "a zero-movement click must not reposition the object"
-        assert after["editing"] is True, "a click that doesn't drag enters edit mode"
+        assert after["editing"] is False, \
+            "a single click that doesn't drag must not enter edit mode"
+        assert after["selected"] is True, \
+            "a single click that doesn't drag selects the object instead"
+
+    def test_double_click_enters_edit_mode(self, browser, app_server):
+        """Issue #1105's explicit ask: double-clicking a text object puts
+        the caret in it for editing."""
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        text_id = list(get_text_objects(browser).keys())[0]
+        before = get_text_objects(browser)[text_id]
+        point = content_point(browser, text_id)
+
+        # Two quick, non-moving clicks at the same point -- the same
+        # mousedown/mouseup pairs a real double-click dispatches.
+        drag_pointer(browser, point, 0, 0, steps=1)
+        drag_pointer(browser, point, 0, 0, steps=1)
+        time.sleep(0.3)
+
+        after = get_text_objects(browser)[text_id]
+        assert after["x"] == before["x"] and after["y"] == before["y"], \
+            "double-clicking must not reposition the object"
+        assert after["editing"] is True, "a double-click enters edit mode"
 
         # Leave edit mode cleanly so later tests in this module see a
         # settled DOM.
         browser.execute_script(
             "document.activeElement && document.activeElement.blur && document.activeElement.blur();"
         )
+
+    def test_second_click_outside_the_double_click_window_does_not_enter_edit_mode(self, browser, app_server):
+        """Two single clicks far enough apart in time are two separate
+        selections, not a double-click -- each one on its own must still
+        not enter edit mode (only click #2 immediately following #1 does)."""
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        text_id = list(get_text_objects(browser).keys())[0]
+        point = content_point(browser, text_id)
+
+        drag_pointer(browser, point, 0, 0, steps=1)
+        time.sleep(0.8)  # past WB_HEADER_DOUBLE_PRESS_MS (450ms)
+        drag_pointer(browser, point, 0, 0, steps=1)
+        time.sleep(0.3)
+
+        after = get_text_objects(browser)[text_id]
+        assert after["editing"] is False, \
+            "two clicks separated by more than the double-click window are not a double-click"
+        assert after["selected"] is True
 
     def test_drag_repositions_and_commits_once_on_drop(self, browser, app_server):
         open_app(browser, app_server)
@@ -524,6 +575,8 @@ class TestTextObjectDragAndEdit:
         objs = get_text_objects(browser)
         assert row["x"] == objs[text_id]["x"]
         assert row["y"] == objs[text_id]["y"]
+        assert objs[text_id]["editing"] is False, \
+            "issue #1105: dragging must not accidentally enter edit mode"
 
     def test_undo_reverts_the_drag_in_one_step(self, browser, app_server):
         open_app(browser, app_server)
