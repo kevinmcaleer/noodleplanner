@@ -247,13 +247,15 @@
  * handle, no z-order-to-front commit, no noodles, so folding them into the
  * note drag state machine would mean threading a `kind` branch through
  * code that already carries a lot of state for a feature this one doesn't
- * need. A click that doesn't move past WB_DRAG_MOVE_THRESHOLD enters
- * inline edit (wbBeginTextObjectEdit()) instead of starting a drag --
- * exactly the same click-vs-drag disambiguation #848 already uses for a
- * note's header, just without that separate double-press-to-rename step
- * (there is nothing else to distinguish "edit" from here: the whole object
- * *is* its text). No resize: per the issue, bare text has no fixed box to
- * resize -- it simply grows/shrinks with its own content
+ * need. A click that doesn't move past WB_DRAG_MOVE_THRESHOLD selects the
+ * object (wbSetSelectedText(), a solid outline -- move mode); only the
+ * *second* such click, within the same double-click window #848's note
+ * header rename already uses, enters inline edit (wbBeginTextObjectEdit(),
+ * a fainter dashed outline instead -- issue #1105's explicit ask for
+ * single-click-to-select/drag vs. double-click-to-edit, kept as two
+ * visually distinct modes so a drag's own initial mousedown is never
+ * mistaken for "start editing"). No resize: per the issue, bare text has
+ * no fixed box to resize -- it simply grows/shrinks with its own content
  * (`.wb-text-object` renders with `overflow: visible` over a generous
  * fixed <foreignObject> box rather than a content-fitted one, since SVG
  * foreignObject sizing requires an explicit width/height).
@@ -359,6 +361,39 @@ function wbGetSelectedNoteTask() {
         wbSelectedNoteTask = null;
     }
     return wbSelectedNoteTask;
+}
+
+// The "selected" text object (issue #1105), the same idea as
+// wbSelectedNoteTask just above but keyed by a text object's own generated
+// `id` instead of a task name: whichever object a plain click (no
+// movement, and not the second click of a double-click) last landed on, or
+// explicitly cleared by clicking bare canvas / Escape (whiteboard.js's
+// wbHandleMouseDown()/wbHandleKeyDown()). A solid accent outline
+// (`.wb-text-object-content.selected`) is the "picked up, ready to drag"
+// affordance -- deliberately distinct from the dashed muted outline
+// `.editing` shows, so the two modes the issue asks for ("selection
+// outline vs. edit border") never look the same.
+let wbSelectedTextId = null;
+
+/** Select (or, with a falsy id, deselect) one text object, updating the
+ * `.wb-text-object-content.selected` class on its content div. A no-op
+ * when the same object is already selected. */
+function wbSetSelectedText(id) {
+    const next = id || null;
+    if (wbSelectedTextId === next) return;
+    const prevEntry = wbSelectedTextId ? wbTextNodes.get(wbSelectedTextId) : null;
+    if (prevEntry && prevEntry.refs && prevEntry.refs.content) {
+        prevEntry.refs.content.classList.remove('selected');
+    }
+    wbSelectedTextId = next;
+    const nextEntry = next ? wbTextNodes.get(next) : null;
+    if (nextEntry && nextEntry.refs && nextEntry.refs.content) {
+        nextEntry.refs.content.classList.add('selected');
+    }
+}
+
+function wbClearTextSelection() {
+    wbSetSelectedText(null);
 }
 
 // Colour-menu state (issue #849). Only one `...` menu is ever open at a
@@ -1734,6 +1769,9 @@ function wbRenderTextObjects(layer, items) {
         if (!seen.has(id)) {
             entry.fo.remove();
             wbTextNodes.delete(id);
+            // A deleted object can't stay "selected" (issue #1105's move-
+            // mode outline) with nothing left on the board to show it on.
+            if (wbSelectedTextId === id) wbSelectedTextId = null;
         }
     }
 }
@@ -2187,16 +2225,62 @@ if (typeof window !== 'undefined') {
     window.addEventListener('touchcancel', wbNoteDragTouchEnd);
 }
 
-// ── Text object drag / edit interaction (issue #1018) ───────────────────
+// ── Text object drag / edit interaction (issue #1018, #1105) ────────────
 //
 // A deliberately smaller, parallel state machine to the note drag/resize
 // one above -- see the file header comment for why this isn't a
 // generalisation of wbActiveDrag. Move-only (no resize, no z-order-to-
 // front commit, no noodles); a press that never exceeds
-// WB_DRAG_MOVE_THRESHOLD is a click, which enters inline edit instead of
-// starting a drag.
+// WB_DRAG_MOVE_THRESHOLD is a click, not a drag.
+//
+// #1105 tightened what a non-dragging click does: it used to enter inline
+// edit on its own (any click that didn't move was "the click to edit"),
+// which made a plain, deliberate single click -- the gesture that starts
+// every drag -- indistinguishable from "I want to edit this" the instant
+// the pointer happened to lift without having moved yet. The issue asks
+// explicitly for single-click-to-select/drag with *double*-click-to-edit,
+// so a click that doesn't move now only selects (wbSetSelectedText());
+// wbIsRepeatTextClick() below -- built the same way wbIsRepeatHeaderPress()
+// already detects a note's own double-press-to-rename, from consecutive
+// mousedowns rather than a native 'dblclick' listener, for the same touch
+// parity -- promotes the *second* such click on the same object to inline
+// edit instead.
 
 let wbActiveTextDrag = null;
+
+/** Last non-dragging click on a text object, for the double-press-to-edit
+ * gesture (issue #1105) -- see wbIsRepeatTextClick(). Reuses
+ * WB_HEADER_DOUBLE_PRESS_MS/SLOP: same "platform double-click default"
+ * feel as the note header's own rename gesture, just tracked separately so
+ * clicking a note then a text object in quick succession is never mistaken
+ * for a double-click on either. */
+let wbLastTextClick = null;
+
+/** Whether `entry` was also the target of the *previous* non-dragging
+ * click, within WB_HEADER_DOUBLE_PRESS_MS and without the pointer having
+ * wandered more than WB_HEADER_DOUBLE_PRESS_SLOP px -- i.e. this click is
+ * the second half of a double-click. Records this click either way, so
+ * the next one can be compared against it. */
+function wbIsRepeatTextClick(entry, clientX, clientY) {
+    const now = Date.now();
+    const last = wbLastTextClick;
+    wbLastTextClick = { entry, x: clientX, y: clientY, at: now };
+
+    if (!last || last.entry !== entry) return false;
+    if (now - last.at > WB_HEADER_DOUBLE_PRESS_MS) return false;
+    return !wbExceedsMoveThreshold(last.x, last.y, clientX, clientY, WB_HEADER_DOUBLE_PRESS_SLOP);
+}
+
+/** Resolve a text object click that never turned into a drag: the second
+ * click of a double-click enters inline edit, anything else just selects
+ * the object (the "picked up" state a drag would also show). */
+function wbFinishTextClick(entry, clientX, clientY) {
+    if (wbIsRepeatTextClick(entry, clientX, clientY)) {
+        wbBeginTextObjectEdit(entry);
+    } else {
+        wbSetSelectedText(entry.fo.dataset.wbTextId);
+    }
+}
 
 /** A text object's current board position, read off its own <foreignObject> dataset. */
 function wbTextObjectCurrentRect(entry) {
@@ -2219,6 +2303,10 @@ function wbBeginTextDrag(entry, clientX, clientY, touchId) {
         startY: rect.y,
         moved: false,
     };
+    // Picking the object up selects it, same as a plain click that never
+    // turns into a drag -- so the "selected" outline is already showing by
+    // the time wbUpdateTextDragFromClient() starts moving it.
+    wbSetSelectedText(entry.fo.dataset.wbTextId);
     wbSetDragCursor('grabbing');
 }
 
@@ -2268,7 +2356,8 @@ function wbCommitTextObjectChange(id, mutateItemFn) {
 }
 
 /** End the active text-object drag gesture: commit its new position, or
- * (a click that never moved) enter inline edit instead. */
+ * (a click that never moved) resolve it as a plain click vs. the second
+ * half of a double-click -- see wbFinishTextClick(). */
 function wbFinishTextDrag() {
     const drag = wbActiveTextDrag;
     if (!drag) return;
@@ -2276,7 +2365,7 @@ function wbFinishTextDrag() {
     wbSetDragCursor('');
 
     if (!drag.moved) {
-        wbBeginTextObjectEdit(drag.entry);
+        wbFinishTextClick(drag.entry, drag.startClientX, drag.startClientY);
         return;
     }
     const rect = wbTextObjectCurrentRect(drag.entry);
@@ -2294,7 +2383,8 @@ function wbTextObjectFindTouchById(touchList, id) {
  * A press on a text object's content: never hijack an already-editing
  * object (so cursor placement/text selection inside it works normally),
  * otherwise start a drag-or-click gesture -- resolved on release by
- * wbFinishTextDrag() into either a committed reposition or an inline edit.
+ * wbFinishTextDrag() into either a committed reposition, a plain-click
+ * selection, or (the second click of a double-click) inline edit.
  */
 function wbTextObjectMouseDown(e, entry) {
     if (e.button !== 0 || wbActiveTextDrag) return;
@@ -2319,8 +2409,9 @@ function wbTextDragMouseUp(e) {
  * Touch twin of wbTextObjectMouseDown() -- same pending/long-press-to-
  * drag shape as wbNoteHeaderTouchStart() (issue #848), so a touch that
  * turns out to be an attempted canvas pan/scroll is abandoned rather than
- * dragging a text object by accident, and a quick tap enters edit mode
- * exactly like a mouse click does.
+ * dragging a text object by accident, and a quick tap resolves exactly
+ * like a mouse click does (select, or edit on the second tap of a
+ * double-tap -- see wbFinishTextClick()).
  */
 function wbTextObjectTouchStart(e, entry) {
     if (wbActiveTextDrag || e.touches.length !== 1) return;
@@ -2372,7 +2463,9 @@ function wbTextDragTouchEnd(e) {
     if (drag.phase === 'pending') {
         if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
         wbActiveTextDrag = null;
-        wbBeginTextObjectEdit(drag.entry); // a plain tap: same as a mouse click
+        // A plain tap: same resolution as a mouse click that never moved --
+        // select, or edit on the second tap of a double-tap.
+        wbFinishTextClick(drag.entry, drag.startClientX, drag.startClientY);
         return;
     }
     wbFinishTextDrag();
@@ -2404,6 +2497,13 @@ function wbBeginTextObjectEdit(entry) {
     const wasPlaceholder = content.classList.contains('wb-text-object-placeholder');
     const originalText = wasPlaceholder ? '' : content.textContent;
 
+    // Still "the selected object" once edit mode ends (issue #1105: leaving
+    // edit mode returns to move mode, not to nothing selected) -- but the
+    // two modes must look distinct, so the solid "selected" outline steps
+    // aside for edit's own dashed one while typing (restored by finish()).
+    wbSetSelectedText(id);
+    content.classList.remove('selected');
+
     content.textContent = originalText;
     content.classList.remove('wb-text-object-placeholder');
     content.contentEditable = 'true';
@@ -2425,6 +2525,9 @@ function wbBeginTextObjectEdit(entry) {
         content.classList.remove('editing');
         content.removeEventListener('keydown', onKeydown);
         content.removeEventListener('blur', onBlur);
+        // Back to move mode: restore the "selected" outline edit borrowed,
+        // unless something else got selected while this was mid-edit.
+        if (wbSelectedTextId === id) content.classList.add('selected');
 
         const typed = (content.innerText || content.textContent || '').replace(/\r\n/g, '\n').replace(/\n+$/, '');
         if (!commit || typed === originalText) {

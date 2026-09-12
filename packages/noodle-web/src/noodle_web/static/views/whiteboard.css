@@ -655,6 +655,17 @@
     cursor: grabbing;
 }
 
+/* The "selected" text object (issue #1105): a plain click that doesn't
+   turn into a drag, or picking the object up to drag it. A solid accent
+   outline -- move mode, ready to be dragged -- deliberately distinct from
+   edit's own fainter dashed one just below, so the two states the issue
+   asks to keep visually separate never look the same. Never shown at the
+   same time as .editing (wbBeginTextObjectEdit() swaps one for the other). */
+.wb-text-object-content.selected {
+    outline: 2px solid var(--np-accent, #108bb9);
+    outline-offset: 3px;
+}
+
 /* Mid-edit (wbBeginTextObjectEdit()): a faint dashed outline as the only
    edit affordance -- present solely while typing, never at rest, so it
    never reads as the "bordered card" chrome this object type exists to
