@@ -425,6 +425,27 @@ def test_new_post_it_creates_a_task_and_a_row(app_server, browser):
     assert outline_only(before).splitlines() == outline_only(after).splitlines()[:-1]
 
 
+def test_text_note_toolbar_button_creates_a_free_form_note(app_server, browser):
+    """Issue #1107: the whiteboard toolbar's "Text note" button (next to
+    the renamed "Add title" button) is a second entry point onto the exact
+    same free-form note creation "New post-it" already uses -- both call
+    wbCreateNoteInViewportCentre() -- rather than a new, third kind of
+    canvas object."""
+    open_app(browser, app_server)
+    load_plan(browser, SAMPLE_PLAN)
+    switch_to_whiteboard(browser)
+
+    before = get_plan_text(browser)
+    browser.find_element(By.ID, "whiteboardTextNoteBtn").click()
+    wait_for_stable_plan_text(browser, timeout=6.0, quiet=1.0)
+    after = get_plan_text(browser)
+
+    assert outline_only(after).splitlines()[-1] == "New idea"
+    assert "New idea" in whiteboard_rows(after)
+    assert "New idea" in rendered_note_task_names(browser)
+    assert outline_only(before).splitlines() == outline_only(after).splitlines()[:-1]
+
+
 def test_new_post_it_lands_where_it_was_dropped(app_server, browser):
     open_app(browser, app_server)
     load_plan(browser, SAMPLE_PLAN)

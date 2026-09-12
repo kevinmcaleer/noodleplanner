@@ -2818,6 +2818,8 @@ body {
    follow. */
 
 [data-theme="dark"] .wb-note-link-handle:hover,
+[data-theme="dark"] .wb-note-promote-btn:hover,
+[data-theme="dark"] .wb-note-promote-btn:focus-visible,
 [data-theme="dark"] .wb-outline-btn:hover,
 [data-theme="dark"] .wb-outline-btn:focus-visible,
 [data-theme="dark"] .wb-outline-chevron:hover {

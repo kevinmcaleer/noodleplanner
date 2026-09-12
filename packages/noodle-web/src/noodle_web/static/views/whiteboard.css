@@ -1357,6 +1357,41 @@ body.wb-note-drag-active * {
     }
 }
 
+/* ── Note: the "promote to task" quick button (issue #1107) ──────────
+   Sits between the noodle handle and the `...` menu -- "to the left of
+   the ..." per the issue. Unlike the noodle handle, this is an action a
+   free-form note either offers or doesn't (see wbUpdateNoteNode()'s
+   `refs.promoteBtn.style.display` toggle), not a permanently-present
+   control that only dims -- so it stays fully opaque whenever it is
+   shown at all, rather than fading in on hover like the noodle handle. */
+.wb-note-promote-btn {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.wb-note-promote-btn:hover,
+.wb-note-promote-btn:focus-visible {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+@media (pointer: coarse) {
+    .wb-note-promote-btn {
+        width: 30px;
+        height: 30px;
+    }
+}
+
 /* ── Note: "under X" caption and the linked-children summary ───────── */
 .wb-note-parent {
     flex-shrink: 0;

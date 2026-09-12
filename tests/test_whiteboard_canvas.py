@@ -358,12 +358,15 @@ class TestKeyboard:
         # keyboard user.
         #
         # Tab stops sit in between, in DOM order after the zoom controls
-        # and before the canvas wrapper: the two "create something from
-        # nothing" actions grouped together first -- "New post-it" then
-        # "New text" (issue #1018's free-floating text object, the "no
-        # task, no card" sibling of New post-it) -- then "Add existing"
-        # (a different kind of action: add an *existing* task to the
-        # board, not create a new one), then the "Structure" toggle for
+        # and before the canvas wrapper: the "create something from
+        # nothing" actions grouped together first -- "New post-it", then
+        # "Add title" (issue #1018's free-floating text object, the "no
+        # task, no card" sibling of New post-it; renamed from "New text" by
+        # #1107), then "Text note" (#1107 -- a second entry point onto the
+        # exact same free-form note "New post-it" creates, per
+        # wbCreateNoteInViewportCentre()'s own comment) -- then "Add
+        # existing" (a different kind of action: add an *existing* task to
+        # the board, not create a new one), then the "Structure" toggle for
         # the floating outline panel, then the Parking lot button, then
         # the five layout tools (Tidy/Hierarchy/Compact/Comfy/Flow) -- the
         # Link mode toggle that used to follow them was removed by #1106
@@ -375,7 +378,7 @@ class TestKeyboard:
             By.CSS_SELECTOR, '#whiteboard-view button[title="Reset to 100%"]'
         )
         reset_btn.click()
-        for expected in ("whiteboardNewNoteBtn", "whiteboardNewTextBtn", "whiteboardAddNoteBtn", "whiteboardOutlineBtn", "whiteboardParkingLotBtn", "whiteboardTidyLayoutBtn", "whiteboardHierarchyLayoutBtn", "whiteboardCompactLayoutBtn", "whiteboardComfyLayoutBtn", "whiteboardFlowLayoutBtn"):
+        for expected in ("whiteboardNewNoteBtn", "whiteboardNewTextBtn", "whiteboardTextNoteBtn", "whiteboardAddNoteBtn", "whiteboardOutlineBtn", "whiteboardParkingLotBtn", "whiteboardTidyLayoutBtn", "whiteboardHierarchyLayoutBtn", "whiteboardCompactLayoutBtn", "whiteboardComfyLayoutBtn", "whiteboardFlowLayoutBtn"):
             ActionChains(browser).send_keys(Keys.TAB).perform()
             time.sleep(0.1)
             active = browser.execute_script("return document.activeElement.id;")

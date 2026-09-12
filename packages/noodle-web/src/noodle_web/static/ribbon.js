@@ -373,6 +373,14 @@ function scopedAction(scopeId, label) {
         // ribbonActionAnchor for the button to anchor the popover to,
         // same convention openFormatMenu() below uses.
         'whiteboard:Colour': () => { if (typeof wbOpenColourPanelForSelectedNote === 'function') wbOpenColourPanelForSelectedNote(ribbonActionAnchor); },
+        // #1107: previously unwired -- issue #1015's "free-form note" (a
+        // post-it with no checklist yet, whiteboard-notes.js's
+        // wbIsFreeformNote()) already IS the "Note" this button's own
+        // ribbon-ia.js label describes; there is no second, task-less
+        // "note" concept to build. Reuses the exact same creation path the
+        // whiteboard toolbar's own "New post-it"/"Text note" buttons and
+        // the `n` keyboard shortcut already call.
+        'whiteboard:Note': () => { if (typeof wbCreateNoteInViewportCentre === 'function') wbCreateNoteInViewportCentre(); },
         'gantt:Day/Week/Month': () => openFormatMenu(GANTT_SCALES, 'Scale'),
     };
     return table[`${scopeId}:${label}`];

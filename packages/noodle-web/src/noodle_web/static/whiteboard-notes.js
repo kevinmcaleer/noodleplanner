@@ -1495,6 +1495,33 @@ function wbCreateNoteNode() {
         }
     });
 
+    // Promote-to-task quick button (issue #1107, part of epic #1090's
+    // "button at the top right of the board, to the left of the `...`, to
+    // change this from a text note into a summary task"): a one-click
+    // header shortcut for exactly the `...` menu's existing "Promote to
+    // task" item (wbAppendPromoteMenuSection()/wbPromoteFreeformNote(),
+    // issue #1020) -- same commit, same single undo step, no new promotion
+    // logic. Only ever shown for a free-form note (wbIsFreeformNote(), see
+    // the visibility toggle in wbUpdateNoteNode() below); a checklist note
+    // hides it rather than offering a "demote back to text note" the other
+    // way, since undoing that would mean deleting real child tasks with no
+    // existing precedent in this codebase for doing so safely -- out of
+    // scope here, see this issue's own notes on why only the forward
+    // direction is wired.
+    const promoteBtn = document.createElementNS(XHTML_NS, 'button');
+    promoteBtn.setAttribute('class', 'wb-note-promote-btn');
+    promoteBtn.setAttribute('type', 'button');
+    promoteBtn.setAttribute('title', "Turn this text note into a summary task");
+    promoteBtn.innerHTML =
+        '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+        'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<rect x="2" y="3" width="8" height="8" rx="1"/><path d="M8 12h6M11 9l3 3-3 3"/></svg>';
+    promoteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const taskName = fo.dataset.wbTask;
+        if (taskName && typeof wbPromoteFreeformNote === 'function') wbPromoteFreeformNote(taskName);
+    });
+
     // The noodle handle: drag from here to another note to make that note
     // a child of this one. Lives in the header rather than floating over
     // the card edge so it never sits on top of the note's own content.
@@ -1527,6 +1554,7 @@ function wbCreateNoteNode() {
 
     header.appendChild(title);
     header.appendChild(linkHandle);
+    header.appendChild(promoteBtn);
     header.appendChild(menuBtn);
 
     // A caption naming the note this one hangs off, when its parent is
@@ -1566,7 +1594,7 @@ function wbCreateNoteNode() {
     const entry = {
         fo,
         refs: {
-            card, header, title, menuBtn, linkHandle, parentCaption,
+            card, header, title, menuBtn, linkHandle, promoteBtn, parentCaption,
             body, footer, progress, avatars, resizeHandle,
         },
     };
@@ -1673,6 +1701,13 @@ function wbUpdateNoteNode(entry, vm) {
     // quietly drift from this one.
     const freeform = wbIsFreeformNote(vm);
     refs.card.classList.toggle('wb-note-freeform', freeform);
+
+    // Header quick "promote to task" button (#1107): visible only for a
+    // free-form note, same condition wbAppendPromoteMenuSection() uses for
+    // the `...` menu's own "Promote to task" item, so the two affordances
+    // never disagree about when promoting makes sense.
+    refs.promoteBtn.style.display = freeform ? '' : 'none';
+    refs.promoteBtn.setAttribute('aria-label', `Promote ${vm.task.name} to a task`);
 
     if (freeform) {
         // A free-form note's body is its own `comment` field -- the same
@@ -2635,7 +2670,8 @@ function wbCreateTextObjectAtClientPoint(clientX, clientY) {
 }
 
 /** wbCreateTextObjectAt() for the middle of whatever is currently on
- * screen -- the toolbar's "New text" button and the `t` keyboard shortcut. */
+ * screen -- the toolbar's "Add title" button (renamed from "New text" by
+ * #1107) and the `t` keyboard shortcut. */
 function wbCreateTextObjectInViewportCentre() {
     if (typeof wbCurrentViewportBoardRect !== 'function') return null;
     const rect = wbCurrentViewportBoardRect();
@@ -4874,7 +4910,11 @@ function wbCreateNoteAtClientPoint(clientX, clientY) {
 }
 
 /** wbCreateNoteAt() for the middle of whatever is currently on screen --
- * the toolbar's "New note" button and the `n` keyboard shortcut. */
+ * the toolbar's "New post-it" and "Text note" buttons (#1107 -- the latter
+ * is a second entry point onto this exact same free-form note, grouped
+ * with the other bare-canvas-object buttons; see index.html's comment by
+ * #whiteboardTextNoteBtn), the ribbon's Whiteboard tab "Note" button
+ * (#1107, ribbon.js's 'whiteboard:Note'), and the `n` keyboard shortcut. */
 function wbCreateNoteInViewportCentre() {
     if (typeof wbCurrentViewportBoardRect !== 'function') return null;
     const rect = wbCurrentViewportBoardRect();

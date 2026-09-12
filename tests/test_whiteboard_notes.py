@@ -973,6 +973,72 @@ class TestPromoteToTask:
         note = get_note(browser, "Empty Phase")
         assert note is not None and "wb-note-freeform" not in note["html"]
 
+    def test_header_quick_promote_button_shown_only_for_free_form_notes(self, browser, app_server):
+        """Issue #1107, part of epic #1090: "a button at the top right of
+        the board (to the left of the `...`) to change this from a text
+        note into a summary task." This is a one-click header shortcut for
+        the exact same promotion the `...` menu's "Promote to task" item
+        already performs (issue #1020) -- see wb-note-promote-btn in
+        whiteboard-notes.js's wbCreateNoteNode()/wbUpdateNoteNode()."""
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+        browser.execute_script("whiteboardZoomFit();")
+        time.sleep(0.3)
+
+        def promote_btn_for(task_name):
+            return browser.execute_script(
+                """
+                const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+                for (const n of notes) {
+                    if (n.dataset.wbTask !== arguments[0]) continue;
+                    return n.querySelector('.wb-note-promote-btn');
+                }
+                return null;
+                """,
+                task_name,
+            )
+
+        freeform_btn = promote_btn_for("Empty Phase")
+        assert freeform_btn is not None, "a free-form note must offer the header quick-promote button"
+        assert freeform_btn.value_of_css_property("display") != "none"
+
+        checklist_btn = promote_btn_for("Discovery")
+        assert checklist_btn is not None
+        assert checklist_btn.value_of_css_property("display") == "none", \
+            "a checklist note (already has children) must not show the quick-promote button"
+
+    def test_header_quick_promote_button_promotes_the_note(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+        browser.execute_script("whiteboardZoomFit();")
+        time.sleep(0.3)
+
+        before = get_note(browser, "Empty Phase")
+        assert before is not None and "wb-note-freeform" in before["html"]
+
+        btn = browser.execute_script(
+            """
+            const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+            for (const n of notes) {
+                if (n.dataset.wbTask !== 'Empty Phase') continue;
+                return n.querySelector('.wb-note-promote-btn');
+            }
+            return null;
+            """
+        )
+        assert btn is not None
+        btn.click()
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        plan_text = get_plan_text(browser)
+        assert bare_line_for(plan_text, "Chase the vendor for a quote.") is not None, \
+            "clicking the header quick-promote button performs the same promotion as the menu item"
+
+        after = get_note(browser, "Empty Phase")
+        assert after is not None and "wb-note-freeform" not in after["html"]
+
 
 class TestAddChecklistItem:
     """Issue #1104, part of epic #1090: "there should be an extra

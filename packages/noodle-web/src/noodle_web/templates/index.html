@@ -1462,9 +1462,19 @@ Press Enter to render..."></textarea>
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11a0 0 0 010 0H4z"/><path d="M15 4v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="12" y1="10" x2="12" y2="16"/></svg>
                                             <span>New post-it</span>
                                         </button>
-                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardNewTextBtn" onclick="wbCreateTextObjectInViewportCentre()" title="New free-floating text (no task, no card -- just text on the canvas)" aria-label="New free-floating text object on the whiteboard">
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardNewTextBtn" onclick="wbCreateTextObjectInViewportCentre()" title="Add a title -- free-floating text, no task, no card, just text on the canvas" aria-label="Add a free-floating title text object on the whiteboard">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg>
-                                            <span>New text</span>
+                                            <span>Add title</span>
+                                        </button>
+                                        <!-- #1107: reuses wbCreateNoteInViewportCentre() as-is -- issue #1015's
+                                             free-form note (a post-it with no checklist yet) is the "text note"
+                                             this button is for; "New post-it" above creates the exact same
+                                             thing, this is just a second, more discoverable entry point grouped
+                                             with the other bare-canvas-object buttons (Add title / free text)
+                                             rather than only under the task-creation heading. -->
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardTextNoteBtn" onclick="wbCreateNoteInViewportCentre()" title="New text note -- a post-it with no checklist yet, just a title and a comment" aria-label="New text note on the whiteboard">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>
+                                            <span>Text note</span>
                                         </button>
                                         <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardAddNoteBtn" onclick="wbOpenAddNotePicker()" title="Add an existing task to the board" aria-label="Add an existing task to the whiteboard">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>

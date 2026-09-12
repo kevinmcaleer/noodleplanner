@@ -100,7 +100,10 @@ const DELIBERATE_STUBS = new Set([
   // Whiteboard canvas tools (need a selected object/tool state). "Colour"
   // used to be here too -- #1109 wired it to the whiteboard's own note
   // selection (wbGetSelectedNoteTask()/wbOpenColourPanelForSelectedNote()).
-  "Align", "Distribute", "Lock", "Note", "Text", "To PBS", "To Tasks",
+  // "Note" used to be here too -- #1107 wired it to
+  // wbCreateNoteInViewportCentre(), the same free-form-note creation
+  // #1015 already built and the whiteboard toolbar's own buttons call.
+  "Align", "Distribute", "Lock", "Text", "To PBS", "To Tasks",
   // Features that don't exist in the app yet. ("Add Project" and "Capacity"
   // used to be here too -- #938 audit found both actually have real
   // functions (showCreateProjectDialog, the Team Allocation view) and wired
