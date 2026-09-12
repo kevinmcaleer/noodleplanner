@@ -274,9 +274,13 @@ function applyToggle(elementId, value) {
 // Settings panel open/close
 // ---------------------------------------------------------------------------
 
-function openSettingsPanel() {
+function openSettingsPanel(initialTab) {
     // Populate the settings panel from the current front matter
     populateSettingsPanelFromState();
+    // #1123: callers that already know which tab is relevant (e.g. the
+    // Report ribbon's Sync button) can jump straight to it -- overriding
+    // populateSettingsPanelFromState()'s own default of the Gantt tab.
+    if (initialTab) switchSettingsTab(initialTab);
     openDetailPane('settingsSection');
 }
 

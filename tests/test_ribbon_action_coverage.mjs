@@ -107,7 +107,7 @@ const DELIBERATE_STUBS = new Set([
   // them instead of leaving them as stale stubs.)
   "Add Programme", "Weighting", "Rebaseline", "Snapshot",
   "Heat Map", "Heat", "Probability", "Impact", "RAG",
-  "Slack", "Sync", "Filter", "Sort", "Group",
+  "Slack", "Filter", "Sort", "Group",
   // No dedicated function exists (checked: grepped the codebase, found none).
   "Delete", "Milestone", "Fit", "Today", "Go to Task", "Unlink",
   "Durations",

@@ -223,6 +223,12 @@ const LABEL_HELP = {
     'Show Dependencies': 'Toggle dependency syntax highlighting in the markdown editor',
     'Highlight Preset': 'Choose a markdown editor syntax-highlighting preset',
     Editor: 'Show or hide the markdown editor panel',
+    // #1123: the per-target RAID Excel / MS Project sync already built in
+    // #868 lives in Settings > Sync -- there is no consolidated one-click
+    // control yet (that's #913's single-button, multi-target work). This
+    // button is a stopgap that jumps straight there rather than doing
+    // nothing.
+    Sync: 'Open sync settings for linked RAID Excel / MS Project files (a single consolidated Sync button is tracked in #913)',
 };
 
 function labelHelp(label) {
@@ -387,6 +393,13 @@ const LABEL_ACTIONS = {
     Templates: () => openTemplatesModal(),
     Settings: () => openSettingsPanel(),
     Undo: () => EditorUndoManager.undo(),
+
+    // #1123: the Report ribbon's Sync button used to resolve to nothing
+    // (a generic "Sync isn't available yet" toast). The real per-target
+    // sync UI (RAID Excel / MS Project, #868) already lives in Settings >
+    // Sync -- jump straight there rather than leaving a dead button until
+    // #913's consolidated single-button sync replaces this.
+    Sync: () => openSettingsPanel('sync'),
 
     // Per-category syntax highlight toggles (#1051) -- see
     // highlight-toggles.js's own header comment for why flipping these can
