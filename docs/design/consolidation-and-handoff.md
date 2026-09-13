@@ -142,12 +142,15 @@ sees the tokens you give it, never the 26,045 lines of CSS they are supposed to
 govern. Use the explorer to pick the survivors, then use Penpot to design with
 them.
 
-**Tokens.** Design → Tokens → Import, pointing at the four files in
+**Tokens.** Design → Tokens → Import, pointing at the five files in
 `docs/design/tokens/` (`core.json`, `color-light.json`, `color-dark.json`,
-`$themes.json`). They are W3C Design Tokens-typed JSON in the multi-set Tokens
-Studio convention Penpot reads natively. Penpot's Tokens feature has moved fast
-across releases — if the importer wants a single merged file instead, check
-Penpot's own docs for the installed version.
+`$themes.json`, `$metadata.json`). They are W3C Design Tokens-typed JSON in the
+multi-set Tokens Studio convention Penpot reads natively — `$themes.json` maps
+the two colour sets onto a Light and a Dark theme, and `$metadata.json` fixes
+the order they resolve in. Import all five together; the two `$`-prefixed files
+are the ones that make it a themed set rather than three loose lists. Penpot's
+Tokens feature has moved fast across releases — if the importer wants a single
+merged file instead, check Penpot's own docs for the installed version.
 
 **Screens.** `penpot/noodleplanner-ui-structure.mmd` renders anywhere Mermaid
 does (GitHub previews it inline). Export it to SVG and import that as a board
