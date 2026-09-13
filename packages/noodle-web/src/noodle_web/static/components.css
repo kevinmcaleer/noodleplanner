@@ -5156,8 +5156,11 @@ tr:hover .task-context-btn,
     cursor: grab;
 }
 
-.mindmap-canvas-wrapper:focus {
+/* The wrapper is focusable so the canvas can take keyboard input. It needs a
+   ring like anything else; only the UA's own outline is being replaced. */
+.mindmap-canvas-wrapper:focus-visible {
     outline: none;
+    box-shadow: var(--np-focus-ring);
 }
 
 .mindmap-canvas-wrapper:active {
@@ -7531,8 +7534,9 @@ button.ribbon-breadcrumb-rung:hover {
     color: #cfe0e7;
 }
 
-.ribbon-search-input:focus {
+.ribbon-search-input:focus-visible {
     outline: none;
+    box-shadow: var(--np-focus-ring);
 }
 
 .ribbon-search-input::-webkit-search-cancel-button {

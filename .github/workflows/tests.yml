@@ -121,3 +121,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - run: ./ci/run.sh -j1 --strict js
+
+  design:
+    name: design system
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
+    # Seconds, not minutes: both scripts read the CSS directly and neither
+    # starts a browser. A gate, because the linter is a ratchet against a
+    # committed baseline and so cannot fail on the ~1,950 violations that
+    # already exist -- see ci/jobs/design.sh.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: ./ci/run.sh -j1 --strict design

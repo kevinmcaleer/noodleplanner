@@ -174,10 +174,16 @@ body.backstage-fullscreen {
     padding: 4px;
 }
 
-.backstage-more-templates-btn:hover,
+.backstage-more-templates-btn:hover {
+    text-decoration: underline;
+}
+
+/* Underline alone was the focus treatment, which made focus and hover
+   indistinguishable; the ring is what tells a keyboard user where they are. */
 .backstage-more-templates-btn:focus-visible {
     text-decoration: underline;
     outline: none;
+    box-shadow: var(--np-focus-ring);
 }
 
 .backstage-recent-title {

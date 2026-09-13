@@ -106,6 +106,25 @@ This requires a running NoodlePlanner instance at `http://localhost:8007`
 The screenshot script uses headless Chrome via Selenium — the same setup as
 `tests/test_usability.py`.
 
+## UI and design system
+
+The design tokens live in
+`packages/noodle-web/src/noodle_web/static/visual-system.css` and nowhere else.
+Before pushing a change that touches CSS, run the two design gates:
+
+```bash
+npm run lint:design      # hardcoded colours, off-scale spacing, focus, token placement
+npm run check:contrast   # WCAG AA across every token pairing the app renders
+```
+
+Both are in CI as the gating `design` job. The linter is a ratchet against
+`ci/design-system-baseline.json`: it tolerates the ~1,950 existing violations
+and fails only on new ones, so a clean push cannot be blocked by pre-existing
+debt.
+
+`docs/design/contributing.md` explains the rules and when a raw value is
+legitimate. `/components` serves a gallery of every component in both themes.
+
 ## Reminders
 
 - **Work in a worktree, never in `/home/kev/noodleplanner`.** See the section
