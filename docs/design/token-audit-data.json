@@ -29,14 +29,14 @@
     "packages/noodle-web/src/noodle_web/static/visual-system.css"
   ],
   "stylesheet": {
-    "sourceLinesOfCode": 26045,
-    "complexity": 74271
+    "sourceLinesOfCode": 26187,
+    "complexity": 74656
   },
   "rules": {
-    "total": 5772
+    "total": 5805
   },
   "selectors": {
-    "totalUnique": 3847,
+    "totalUnique": 3871,
     "maxSpecificity": [
       2,
       1,
@@ -69,7 +69,6 @@
       "--np-font-mono",
       "--np-info",
       "--np-ink-hover",
-      "--np-light-grey-subtle",
       "--np-radius-card",
       "--np-sage",
       "--np-success-hover",
@@ -1202,7 +1201,7 @@
   },
   "canonicalTokenCount": 73,
   "colors": {
-    "totalUnique": 583,
+    "totalUnique": 586,
     "duplicateOfTokenCount": 9,
     "duplicateOfToken": [
       {
@@ -1309,7 +1308,7 @@
         "id": "white-edecb6ba",
         "hex": "#FFFFFF",
         "authoredAs": "#fff",
-        "usage": 454,
+        "usage": 457,
         "props": [
           "background",
           "color",
@@ -1340,7 +1339,7 @@
         "id": "grey-bd8d7f37",
         "hex": "#333333",
         "authoredAs": "#333",
-        "usage": 198,
+        "usage": 200,
         "props": [
           "background",
           "box-shadow",
@@ -1366,7 +1365,7 @@
         "id": "grey-fdb1d2f4",
         "hex": "#E0E0E0",
         "authoredAs": "#e0e0e0",
-        "usage": 187,
+        "usage": 189,
         "props": [
           "background",
           "color",
@@ -1395,7 +1394,7 @@
         "id": "black-edec3e7a",
         "hex": "#000000",
         "authoredAs": "transparent",
-        "usage": 162,
+        "usage": 164,
         "props": [
           "background",
           "color",
@@ -1474,7 +1473,7 @@
         "id": "blue-cfa3ecb7",
         "hex": "#DEE2E6",
         "authoredAs": "#dee2e6",
-        "usage": 74,
+        "usage": 77,
         "props": [
           "background",
           "color",
@@ -1482,6 +1481,7 @@
           "border",
           "border-color",
           "border-top",
+          "border-left",
           "border-right",
           "--np-splitter-bg"
         ]
@@ -1501,7 +1501,7 @@
         "id": "blue-2fbce37e",
         "hex": "#6C757D",
         "authoredAs": "#6c757d",
-        "usage": 65,
+        "usage": 67,
         "props": [
           "background",
           "color"
@@ -1574,10 +1574,23 @@
         ]
       },
       {
+        "id": "green-4abf4310",
+        "hex": "#28A745",
+        "authoredAs": "#28a745",
+        "usage": 46,
+        "props": [
+          "background",
+          "color",
+          "border",
+          "border-color",
+          "border-left"
+        ]
+      },
+      {
         "id": "grey-f0e137da",
         "hex": "#F0F0F0",
         "authoredAs": "#f0f0f0",
-        "usage": 41,
+        "usage": 43,
         "props": [
           "background",
           "border-bottom",
@@ -1586,19 +1599,6 @@
           "--mm-toolbar-bg",
           "--np-surface-alt",
           "--np-border-light"
-        ]
-      },
-      {
-        "id": "green-4abf4310",
-        "hex": "#28A745",
-        "authoredAs": "#28a745",
-        "usage": 40,
-        "props": [
-          "background",
-          "color",
-          "border",
-          "border-color",
-          "border-left"
         ]
       },
       {
@@ -1719,12 +1719,12 @@
     {
       "id": "fontSize-170fe9",
       "authoredAs": "12px",
-      "usage": 94
+      "usage": 96
     },
     {
       "id": "fontSize-1713aa",
       "authoredAs": "13px",
-      "usage": 64
+      "usage": 66
     },
     {
       "id": "fontSize-548b93c2",
@@ -1734,7 +1734,7 @@
     {
       "id": "fontSize-2ba3022",
       "authoredAs": "0.8em",
-      "usage": 55
+      "usage": 57
     },
     {
       "id": "fontSize-17176b",
@@ -1774,7 +1774,7 @@
     {
       "id": "fontSize-170867",
       "authoredAs": "10px",
-      "usage": 20
+      "usage": 21
     },
     {
       "id": "fontSize-2ba2c61",
@@ -2150,12 +2150,12 @@
     {
       "id": "radius-d13c",
       "authoredAs": "4px",
-      "usage": 200
+      "usage": 202
     },
     {
       "id": "radius-d8be",
       "authoredAs": "6px",
-      "usage": 135
+      "usage": 138
     },
     {
       "id": "radius-e040",
@@ -2402,6 +2402,11 @@
     {
       "id": "boxShadow-7ab6a9d5",
       "authoredAs": "0 2px 8px rgba(0,0,0,0.15)",
+      "usage": 2
+    },
+    {
+      "id": "boxShadow-ed287e7a",
+      "authoredAs": "0 0 0 2px rgba(40, 167, 69, 0.35)",
       "usage": 2
     },
     {

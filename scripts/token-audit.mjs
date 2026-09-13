@@ -358,6 +358,14 @@ writeFileSync(
 	) + '\n',
 )
 
+// Set order is the other half of the multi-file convention: a set later in the
+// list overrides an earlier one, so without this the importer is free to resolve
+// a name defined in both `core` and a `color-*` set either way round.
+writeFileSync(
+	join(OUT_DIR, '$metadata.json'),
+	JSON.stringify({ tokenSetOrder: ['core', 'color-light', 'color-dark'] }, null, 2) + '\n',
+)
+
 writeFileSync(join(OUT_DIR, '..', 'token-audit-data.json'), JSON.stringify(summary, null, 2) + '\n')
 
 console.log(JSON.stringify(summary, null, 2))
