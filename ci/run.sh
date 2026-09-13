@@ -14,14 +14,16 @@
 #   ci/run.sh --strict usability fail the run even on a non-blocking job
 #
 # Every job is run under a deadline (see JOB_TIMEOUT below), and that is not
-# boilerplate. tests/test_collab_*.py deadlocks intermittently: pytest stops
-# dead partway through a collab test and never returns. It is the Starlette
-# TestClient portal deadlock that pyproject.toml's `websockets` note already
-# describes, it predates this directory, and it is not caused by running jobs
-# concurrently -- observed 2 wedged runs out of 5 in parallel and 1 out of 1
-# serially, against 3 clean runs of the collab files on their own. Nothing here
-# can fix that; what it can do is refuse to hang forever on it, so a wedged
-# suite fails with a named deadline instead of silently holding a push open.
+# boilerplate. tests/test_collab_*.py used to deadlock -- pytest stopping dead
+# partway through a collab test and never returning, the Starlette TestClient
+# portal problem pyproject.toml's `websockets` note describes. That is fixed on
+# main in e26843c, whose own message reports it had been killing the pytest job
+# on roughly half of all runs.
+#
+# The deadlines outlive that one bug, because a hang is the single failure a test
+# suite cannot report on its own: there is no assertion, no traceback and no exit
+# status, just silence. A deadline converts that into a named limit and a log
+# that ends where the work stopped.
 #
 # Exit status is 0 when every blocking job passed. A non-blocking job that
 # fails is reported loudly and does not change the exit status -- that is what
@@ -51,7 +53,7 @@ fi
 
 # The jobs that gate a push. Everything in ci/jobs/ that is not listed here
 # still runs under --all or by name, but cannot fail the run.
-CI_BLOCKING_JOBS=(python js conformance roundtrip)
+CI_BLOCKING_JOBS=(python js conformance roundtrip ui)
 
 ALL_JOBS=()
 for f in "$CI_DIR"/jobs/*.sh; do
@@ -101,7 +103,7 @@ JOBS_ARG=""
 # shared 30-minute ceiling would mean a deadlocked `python` job holding a push
 # open for half an hour, which is the problem, not the fix.
 declare -A JOB_TIMEOUT=(
-  [python]=600 [js]=600 [conformance]=900 [roundtrip]=900 [usability]=2100
+  [python]=600 [js]=600 [conformance]=900 [roundtrip]=900 [ui]=600 [usability]=2100
 )
 JOB_TIMEOUT_DEFAULT=${CI_JOB_TIMEOUT:-900}
 TIMEOUT_OVERRIDE=""

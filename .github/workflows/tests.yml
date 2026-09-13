@@ -70,12 +70,13 @@ jobs:
     # request, and losing 19 minutes of reporting beats losing the ability to
     # run any CI at all.
     if: vars.CI_RUNS_ON != ''
-    # Reporting, not gating. 13 test files drive a browser and they skip wherever
-    # none is reachable, so on a developer machine they silently skip and only
-    # ever really run here -- which is how this workflow found 42 of them
-    # asserting against a UI that no longer exists (no #projectTab, no
-    # #projectSubnav). Deselecting them from the blocking job would have hidden
-    # that, so they get their own job instead.
+    # Reporting, not gating. Ten test files still drive Selenium -- the other
+    # three now live in tests/ui on Playwright, run by the `ui` job above. They
+    # skip wherever no browser is reachable, so on a developer machine they
+    # silently skip and only ever really run here -- which is how this workflow
+    # found 42 of them asserting against a UI that no longer exists (no
+    # #projectTab, no #projectSubnav). Deselecting them from the blocking job
+    # would have hidden that, so they get their own job instead.
     #
     # continue-on-error means a red result here annotates the pull request
     # without blocking it. --strict is what makes a real failure red at all:
@@ -94,6 +95,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - run: ./ci/run.sh -j1 --strict usability
+
+  ui:
+    name: pytest (ui)
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
+    # A real gate, unlike `usability` below, because it is fast enough to block
+    # on and green enough to mean something. On this runner the three ported
+    # files cost ~135.7s under Selenium and ~43.5s here; see tests/ui/README.md
+    # for where the difference comes from and what is left to port.
+    #
+    # No CI_RUNS_ON guard, unlike `usability`: at well under a minute it is not
+    # what drains the allowance, and a gating job has to run wherever the gate
+    # applies.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: ./ci/run.sh -j1 --strict ui
 
   js:
     name: npm run test:js

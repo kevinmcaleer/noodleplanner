@@ -31,25 +31,25 @@ Every job runs under a deadline, set per job in `ci/run.sh` to mirror the
 reports `TIME` and always fails, gating or not: it has told you nothing, and
 unlike a failing assertion it leaves nothing in the log's tail to read.
 
-### The collab deadlock
+### Why the deadlines are not decoration
 
-`tests/test_collab_*.py` deadlocks intermittently — pytest stops partway through
-a collab test and never returns. This predates `ci/` and is the Starlette
-`TestClient` portal deadlock that `pyproject.toml`'s `websockets` note already
-describes. Measured while building this: 2 wedged runs out of 5 in parallel, 1
-out of 1 serially, against 3 clean runs of the collab files on their own, so it
-is not caused by running jobs concurrently.
+`tests/test_collab_*.py` used to deadlock: pytest stopped partway through a
+collab test and never returned — the Starlette `TestClient` portal problem
+`pyproject.toml`'s `websockets` note describes. **Fixed on `main` in `e26843c`**,
+which reports it had been killing the `pytest` job on roughly half of all runs,
+`main` included.
 
-If `python` reports `TIME`, check whether the log ends inside a collab test
-before assuming your branch broke something:
+The deadlines predate that fix and still earn their place, because a hang is the
+one failure a test suite cannot report on its own. If a job reports `TIME`, read
+the end of its log before assuming your branch caused it:
 
 ```bash
 tail -3 .ci-logs/python.log
-ci/run.sh python            # and just run it again
+ci/run.sh python            # then just run it again
 ```
 
-The deadline is what keeps that survivable rather than fatal — before it existed,
-a wedged suite held `git push` open indefinitely.
+A wedged suite used to hold `git push` open indefinitely. Now it fails with a
+named limit, which is the difference between a diagnosis and a mystery.
 
 ## The jobs
 
@@ -59,7 +59,8 @@ a wedged suite held `git push` open indefinitely.
 | `js` | `npm run test:js` — ~45 `node --test` files | yes |
 | `conformance` | the Python and JavaScript scheduling engines agree (#793) | yes |
 | `roundtrip` | opening and saving an unedited plan does not alter it (#771) | yes |
-| `usability` | `pytest -m usability` — the browser suites | no, reports only |
+| `ui` | `pytest tests/ui -n auto` — the Playwright browser suite | yes |
+| `usability` | `pytest -m usability` — the remaining Selenium suites | no, reports only |
 
 `usability` is reporting-only for two reasons: it needs a real browser, so it
 skips wherever none is reachable, and a known subset still asserts against UI
