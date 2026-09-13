@@ -196,6 +196,60 @@ test('named non-working-days list parses and serializes with ranges', () => {
     ]);
 });
 
+test('calendars list (#1047, #1135) parses week pattern, hours and exceptions into flat fields', () => {
+    const text = [
+        '---',
+        'calendar: Fortnight Ops',
+        'calendars:',
+        '- Standard: Mon-Fri',
+        '- Night Shift: Sun-Thu hours 22:00-06:00',
+        '- Fortnight Ops: [Mon-Fri; Mon-Wed] hours 08:00-16:30 exceptions [Christmas: 2026-12-25:2026-12-26]',
+        '---',
+        'Phase',
+        '  Task 1d',
+        '',
+    ].join('\n');
+    const { model, rows, loc } = parseFm(text);
+    assert.equal(reserialize(model, loc, rows), text);
+
+    const calendars = rows.find(r => r.kind === 'block' && r.key === 'calendars');
+    const entries = FM.CalendarList.parse(calendars.children);
+    assert.deepEqual(entries, [
+        { name: 'Standard', pattern: 'Mon-Fri', hours: '', exceptions: '' },
+        { name: 'Night Shift', pattern: 'Sun-Thu', hours: '22:00-06:00', exceptions: '' },
+        { name: 'Fortnight Ops', pattern: '[Mon-Fri; Mon-Wed]', hours: '08:00-16:30', exceptions: 'Christmas: 2026-12-25:2026-12-26' },
+    ]);
+
+    const active = rows.find(r => r.kind === 'kv' && r.key === 'calendar');
+    assert.equal(active.value, 'Fortnight Ops');
+});
+
+test('CalendarList serializes hours and exceptions in a fixed order and omits blank fields', () => {
+    assert.deepEqual(
+        FM.CalendarList.serialize([
+            { name: 'Standard', pattern: 'Mon-Fri', hours: '', exceptions: '' },
+            { name: 'Gulf', pattern: 'Sun-Thu', hours: '', exceptions: '2026-08-12' },
+            { name: 'Night Shift', pattern: 'Sun-Thu', hours: '22:00-06:00', exceptions: '' },
+        ]),
+        [
+            '- Standard: Mon-Fri',
+            '- Gulf: Sun-Thu exceptions [2026-08-12]',
+            '- Night Shift: Sun-Thu hours 22:00-06:00',
+        ],
+    );
+});
+
+test('CalendarList.serialize drops entries with no name or no pattern (unfilled new rows)', () => {
+    assert.deepEqual(
+        FM.CalendarList.serialize([
+            { name: '', pattern: '', hours: '', exceptions: '' },
+            { name: 'Standard', pattern: '', hours: '', exceptions: '' },
+            { name: 'Standard', pattern: 'Mon-Fri', hours: '', exceptions: '' },
+        ]),
+        ['- Standard: Mon-Fri'],
+    );
+});
+
 test('adding a new key appends it without disturbing existing lines', () => {
     const text = '---\ntitle: My Project\n---\nPhase\n  Task 1d\n';
     const { model, rows, loc } = parseFm(text);

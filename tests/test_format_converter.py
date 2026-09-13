@@ -17,6 +17,8 @@ from noodle_core import (
     parse_baseline_markdown,
     generate_baseline_text,
     update_plan_baseline,
+    generate_baseline_history_comment,
+    extract_baseline_history,
     extract_budget,
     strip_budget,
     extract_estimates,
@@ -1812,6 +1814,147 @@ Phase 1
         assert '---baseline---' not in converted
         assert '| Task Name' not in converted
         assert 'Task 1' in converted
+
+
+class TestBaselineHistory:
+    """Test suite for the baseline history log (issue #1112).
+
+    The Baseline dialog lets a user create/list/clear/delete baselines, but
+    the plan format only ever keeps one *active* baseline's task-level data
+    (the pre-existing ---baseline--- markdown table). The history log is a
+    lightweight id/name/date record of every baseline created, layered on
+    as a single JSON comment line above that table -- these tests cover
+    generating/parsing that comment and update_plan_baseline()'s optional
+    `history` argument.
+    """
+
+    def test_generate_baseline_history_comment_basic(self):
+        history = {'active': 'bl-1', 'entries': [{'id': 'bl-1', 'name': 'Sprint 1', 'date': '2026-09-12T10:00:00.000Z'}]}
+        comment = generate_baseline_history_comment(history)
+        assert comment.startswith('<!-- baseline-history: ')
+        assert comment.endswith('-->')
+        assert 'Sprint 1' in comment
+        assert 'bl-1' in comment
+
+    def test_generate_baseline_history_comment_empty(self):
+        assert generate_baseline_history_comment(None) == ''
+        assert generate_baseline_history_comment({'active': None, 'entries': []}) == ''
+
+    def test_extract_baseline_history_round_trips(self):
+        history = {
+            'active': 'bl-2',
+            'entries': [
+                {'id': 'bl-2', 'name': 'Mid-project', 'date': '2026-09-20T08:30:00.000Z'},
+                {'id': 'bl-1', 'name': 'Sprint 1', 'date': '2026-09-12T10:00:00.000Z'},
+            ],
+        }
+        comment = generate_baseline_history_comment(history)
+        parsed = extract_baseline_history(comment)
+        assert parsed == history
+
+    def test_extract_baseline_history_missing_returns_default(self):
+        assert extract_baseline_history('') == {'active': None, 'entries': []}
+        assert extract_baseline_history('| Task Name | Start | Finish | Duration |\n|-|-|-|-|\n') == \
+            {'active': None, 'entries': []}
+
+    def test_extract_baseline_history_malformed_json_returns_default(self):
+        assert extract_baseline_history('<!-- baseline-history: {not json} -->') == \
+            {'active': None, 'entries': []}
+
+    def test_update_plan_baseline_with_history_and_items(self):
+        """Creating a baseline: both the table and the history comment land
+        in the ---baseline--- section, and the table still parses back to
+        the same items."""
+        plan = "Phase 1\n  Task 1 @john 3d"
+        items = [{'name': 'Task 1', 'start': '2026-03-02', 'finish': '2026-03-05', 'duration': '3d'}]
+        history = {'active': 'bl-1', 'entries': [{'id': 'bl-1', 'name': 'Sprint 1', 'date': '2026-09-12T10:00:00.000Z'}]}
+
+        result = update_plan_baseline(plan, items, history)
+
+        assert '---baseline---' in result
+        assert '<!-- baseline-history:' in result
+        assert 'Task 1 @john 3d' in result
+
+        section = extract_baseline(result)
+        assert extract_baseline_history(section) == history
+        assert parse_baseline_markdown(section) == items
+
+    def test_update_plan_baseline_clear_keeps_history(self):
+        """Clearing the active baseline (empty items, history still given)
+        keeps the ---baseline--- section (and its history) but drops the
+        table -- so parse_baseline_markdown() correctly reports no active
+        baseline while the history dialog still has something to show."""
+        plan = "Phase 1\n  Task 1 @john 3d"
+        history = {'active': None, 'entries': [{'id': 'bl-1', 'name': 'Sprint 1', 'date': '2026-09-12T10:00:00.000Z'}]}
+
+        result = update_plan_baseline(plan, [], history)
+
+        assert '---baseline---' in result
+        section = extract_baseline(result)
+        assert extract_baseline_history(section) == history
+        assert parse_baseline_markdown(section) == []
+
+    def test_update_plan_baseline_without_history_keeps_old_behaviour(self):
+        """No history argument (every pre-#1112 caller, e.g. the AI chat
+        create_baseline tool) must behave exactly as before: an empty item
+        list removes the whole section."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |"""
+        result = update_plan_baseline(plan, [])
+        assert '---baseline---' not in result
+
+    def test_update_plan_baseline_history_survives_replace(self):
+        """Replacing the active baseline (new items, updated history)
+        overwrites both the table and the comment in one call."""
+        plan = "Phase 1\n  Task 1 @john 3d"
+        first_history = {'active': 'bl-1', 'entries': [{'id': 'bl-1', 'name': 'First', 'date': '2026-09-01T00:00:00.000Z'}]}
+        after_first = update_plan_baseline(plan, [{'name': 'Task 1', 'start': '2026-03-01', 'finish': '2026-03-04', 'duration': '3d'}], first_history)
+
+        second_history = {
+            'active': 'bl-2',
+            'entries': [
+                {'id': 'bl-2', 'name': 'Second', 'date': '2026-09-10T00:00:00.000Z'},
+                {'id': 'bl-1', 'name': 'First', 'date': '2026-09-01T00:00:00.000Z'},
+            ],
+        }
+        new_items = [{'name': 'Task 1', 'start': '2026-03-02', 'finish': '2026-03-05', 'duration': '3d'}]
+        result = update_plan_baseline(after_first, new_items, second_history)
+
+        assert result.count('---baseline---') == 1
+        section = extract_baseline(result)
+        assert extract_baseline_history(section) == second_history
+        assert parse_baseline_markdown(section) == new_items
+        assert 'First' in section  # old history entry preserved, not just the active one
+
+    def test_update_plan_baseline_with_history_preserves_whiteboard_and_parking_lot(self):
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---whiteboard---
+some whiteboard text
+
+---parking lot---
+| Idea | Raised By | Date |
+|------|-----------|------|
+| Idea 1 | Alice | 2026-01-01 |"""
+        items = [{'name': 'Task 1', 'start': '2026-03-02', 'finish': '2026-03-05', 'duration': '3d'}]
+        history = {'active': 'bl-1', 'entries': [{'id': 'bl-1', 'name': 'Sprint 1', 'date': '2026-09-12T10:00:00.000Z'}]}
+
+        result = update_plan_baseline(plan, items, history)
+
+        assert '---whiteboard---' in result
+        assert 'some whiteboard text' in result
+        assert '---parking lot---' in result
+        assert 'Idea 1' in result
+        baseline_pos = result.find('---baseline---')
+        whiteboard_pos = result.find('---whiteboard---')
+        parking_lot_pos = result.find('---parking lot---')
+        assert baseline_pos < whiteboard_pos < parking_lot_pos
 
 
 class TestConvertPlanFormatStripsBudget:

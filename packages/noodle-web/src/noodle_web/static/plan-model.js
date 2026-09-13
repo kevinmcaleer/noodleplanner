@@ -408,10 +408,25 @@
          * without mutating anything. Used for live drag-hover feedback
          * (#1052), where re-checking on every pointer move must be cheap
          * and side-effect-free.
+         *
+         * Neither end may be a summary task (#1106): a task is classified
+         * as a summary purely by whether it currently has any nested lines
+         * (`.children.length` -- the same "has this task got children"
+         * test engine/scheduler.js's buildTasks() and whiteboard-notes.js's
+         * wbHasChildren() already use for the identical rule elsewhere),
+         * so this reuses that existing signal rather than adding a second,
+         * possibly-diverging notion of "is a summary task". Summary tasks
+         * can't have dependencies of their own -- only their individual
+         * leaf tasks can -- so both the old whole-card dependency link
+         * (whiteboard-dep-noodles.js, now removed) and the new row-level
+         * one (dragged from a checklist row) are refused here identically.
          */
         canAddDependency(task, predecessor) {
             if (!task || !predecessor) return { ok: false, reason: 'Pick two tasks to link.' };
             if (task === predecessor) return { ok: false, reason: 'A task cannot depend on itself.' };
+            if (task.children.length || predecessor.children.length) {
+                return { ok: false, reason: 'Only individual tasks can have dependencies, not summary tasks.' };
+            }
             if (task.dependencies.some(edge => edge.target === predecessor)) {
                 return { ok: false, reason: `"${task.name}" already depends on "${predecessor.name}".` };
             }

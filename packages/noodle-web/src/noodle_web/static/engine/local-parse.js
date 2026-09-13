@@ -14,6 +14,7 @@
  * script.js asks.
  */
 import { scheduleTasksFromText, dayOf } from "./scheduler.js";
+import { activeCalendar, resolvedResourceCalendars } from "./calendar.js";
 
 export const LOCAL_ENGINE_KEY = "np-local-engine";
 
@@ -161,9 +162,12 @@ function fromPage(name, ...args) {
  *
  * @param {string} planText
  * @param {string} [projectName]
- * @param {object} [options] { applyCalendar } — the server ignores the
- *   front-matter calendar (see the conformance test), so this does too
- *   unless asked, to keep the two engines answering alike.
+ * @param {object} [options] { applyCalendar } — the front-matter calendar
+ *   (project holidays, per-resource non-working days, any named
+ *   `calendar:`/`calendars:`, and per-resource `calendar <Name>`
+ *   assignments) is applied by default now that the server applies it too
+ *   (issues #837, #1132, #1136), so the two engines keep answering alike.
+ *   Pass `applyCalendar: false` to schedule without it.
  */
 export function localParse(planText, projectName = null, options = {}) {
   const text = String(planText || "");
@@ -173,10 +177,12 @@ export function localParse(planText, projectName = null, options = {}) {
   const resolvedName = projectName || frontMatter.title || "Project";
 
   const scheduleOptions = { resourceMap };
-  if (options.applyCalendar) {
+  if (options.applyCalendar !== false) {
     const { holidays, resourceNonWorkingDays } = parseCalendar(text);
     scheduleOptions.holidays = holidays;
     scheduleOptions.resourceNonWorkingDays = resourceNonWorkingDays;
+    scheduleOptions.calendar = activeCalendar(text);
+    scheduleOptions.resourceCalendars = resolvedResourceCalendars(text);
   }
 
   let tasks = [];

@@ -95,17 +95,45 @@ function getLiveState() {
         ganttShowCriticalPath: !!document.getElementById('ganttShowCriticalPath')?.checked,
         ganttShowBaseline: !!document.getElementById('ganttShowBaseline')?.checked,
         ganttShowDependencies: !!document.getElementById('ganttShowDependencies')?.checked,
+        // #1112: the ribbon's Baseline button opens the Baseline dialog
+        // rather than toggling ganttShowBaseline, so its pressed state now
+        // reflects whether a baseline is actually active, not display prefs.
+        hasActiveBaseline: (typeof baselineItems !== 'undefined') && baselineItems.length > 0,
         isDark: document.documentElement.getAttribute('data-theme') === 'dark',
         // theme.js's currentThemeChoice ('light'|'dark'|'system') -- a plain
         // top-level `let` in a classic script, so it's readable here as a
         // shared global, same as NavigationController/EditorUndoManager above.
         themeChoice: (typeof currentThemeChoice !== 'undefined') ? currentThemeChoice : 'light',
         highlightToggles: (typeof HighlightToggles !== 'undefined') ? HighlightToggles.getState() : null,
+        editorVisible: !document.querySelector('.editor-panel')?.classList.contains('collapsed'),
     };
 }
 
 function notAvailable(label) {
     if (typeof showToast === 'function') showToast(`${label} isn't available yet`, 'info');
+}
+
+/**
+ * #1047 ribbon follow-up: the ribbon's "Calendars" buttons (Plan > Schedule,
+ * Resources > People, and the Resource Tools contextual tab's "Calendar")
+ * used to be reviewed "not available yet" stubs. Calendar management
+ * itself already shipped (#1135) as a Calendars list + Active Calendar
+ * selector inside the Front Matter panel -- these buttons just never
+ * pointed at it. This opens the plan editor if it isn't already showing
+ * (the panel lives above the editor textarea) and reveals that section.
+ */
+function revealCalendarsPanel() {
+    const editorTab = document.getElementById('editor-tab');
+    if (!editorTab || !editorTab.classList.contains('active')) switchToView('notepad');
+    const editorPanel = document.querySelector('.editor-panel');
+    if (editorPanel && editorPanel.classList.contains('collapsed') && typeof toggleMainEditor === 'function') {
+        toggleMainEditor();
+    }
+    if (typeof FrontMatterPanel !== 'undefined' && FrontMatterPanel.instance) {
+        FrontMatterPanel.revealCalendars();
+    } else {
+        notAvailable('Calendars');
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -120,14 +148,14 @@ function notAvailable(label) {
 // ---------------------------------------------------------------------------
 
 const VIEW_FOR_LABEL = {
-    Tasks: 'tasks', Notepad: 'notepad', Board: 'kanban', Gantt: 'gantt', Timeline: 'timeline', Calendar: 'calendar',
+    Tasks: 'tasks', Outline: 'notepad', Board: 'kanban', Gantt: 'gantt', Timeline: 'timeline', Calendar: 'calendar',
     RAID: 'raid', 'RAID Log': 'raid', Actions: 'actions', Highlights: 'highlights', Lookahead: 'lookahead',
-    Lessons: 'lessons', Budget: 'budget', EVM: 'evm', Benefits: 'benefits', Analysis: 'analysis',
+    Lessons: 'lessons', Budget: 'budget', EVM: 'evm', Forecast: 'forecast', Benefits: 'benefits', Analysis: 'analysis', Escalations: 'escalations',
     Resources: 'resources', Stakeholders: 'stakeholders', Timesheet: 'timesheet', Workload: 'user-workload',
     'Resource Sheet': 'resource-sheet', 'Comms Plan': 'comms', Report: 'project-report', 'Project Report': 'project-report',
     Dashboard: 'project-report',
     Milestones: 'milestones', 'Mind Map': 'mindmap', Whiteboard: 'whiteboard', PBS: 'pbs', Products: 'pbs',
-    'Product Flow': 'product-flow', Deliverables: 'deliverables', Editor: 'editor',
+    'Product Flow': 'product-flow', Deliverables: 'deliverables',
     // #909 ribbon-parity follow-up: the old top nav's Tools > Syntax Guide item.
     'Syntax Guide': 'guide',
 };
@@ -191,6 +219,26 @@ const HIGHLIGHT_PRESETS = [
     run: () => { if (typeof HighlightToggles !== 'undefined') HighlightToggles.applyPreset(preset); },
 }));
 
+const LABEL_HELP = {
+    'Show Durations': 'Toggle duration syntax highlighting in the markdown editor',
+    'Show Resources': 'Toggle resource syntax highlighting in the markdown editor',
+    'Show Tags': 'Toggle tag syntax highlighting in the markdown editor',
+    'Show Comments': 'Toggle comment syntax highlighting in the markdown editor',
+    'Show Dependencies': 'Toggle dependency syntax highlighting in the markdown editor',
+    'Highlight Preset': 'Choose a markdown editor syntax-highlighting preset',
+    Editor: 'Show or hide the markdown editor panel',
+    // #1123: the per-target RAID Excel / MS Project sync already built in
+    // #868 lives in Settings > Sync -- there is no consolidated one-click
+    // control yet (that's #913's single-button, multi-target work). This
+    // button is a stopgap that jumps straight there rather than doing
+    // nothing.
+    Sync: 'Open sync settings for linked RAID Excel / MS Project files (a single consolidated Sync button is tracked in #913)',
+};
+
+function labelHelp(label) {
+    return LABEL_HELP[label] || label;
+}
+
 /** Navigate to the portfolio view's `name` sub-view (portfolio.js's own
  * switchPortfolioView() -- Projects/Status/Team Allocation/Timeline/
  * Actions/Risks/Look-Ahead/Dependencies/Benefits/Lessons), switching into
@@ -242,18 +290,76 @@ function scopedAction(scopeId, label) {
         'portfolio:Benefits': switchPortfolioSubview('benefits'),
         'portfolio:Capacity': switchPortfolioSubview('resources'),
 
+        // #1047 ribbon follow-up: Plan tab's Schedule group "Calendars" --
+        // see the 'resources:Calendars' comment above for the full story.
+        'plan:Calendars': () => revealCalendarsPanel(),
+
         'raid:Import': () => openFormatMenu(RAID_IMPORT_FORMATS, 'Import'),
         'raid:Export': () => openFormatMenu(RAID_EXPORT_FORMATS, 'Export'),
         'raid:New Risk': () => addRaidItem(),
         'raid:New Issue': () => addRaidItem(),
         'raid:Assumption': () => addRaidItem(),
         'raid:Dependency': () => addRaidItem(),
+
+        // #1113: the Track ribbon's RAID group buttons used to all fall back
+        // to the generic "Risk" default (or, for Assumption/Dependency, do
+        // nothing at all). openRaidFormWithType() already existed for
+        // exactly this. The app's RAID types are risk/action/issue/decision/
+        // dependency -- there's no dedicated "assumption" type, so the
+        // Assumption button presets the closest existing one, Decision.
+        'track:Risk': () => openRaidFormWithType('risk'),
+        'track:Issue': () => openRaidFormWithType('issue'),
+        'track:Assumption': () => openRaidFormWithType('decision'),
+        'track:Dependency': () => openRaidFormWithType('dependency'),
+        'track:Action': () => openRaidFormWithType('action'),
+        // #1115: switch into the Benefits view's Tracking sub-view (Map is
+        // the default; Realisation is the only reason this button existed).
+        'track:Realisation': () => { switchToView('benefits'); if (typeof benSwitchView === 'function') benSwitchView('tracking'); },
         'lessons:New Lesson': () => addLessonsItem(),
         'stakeholders:Add Stakeholder': () => addStakeholderRow(),
         'stakeholders:Comms Plan': switchView('comms'),
         'resources:Add Resource': () => openResourceForm(),
+        // #1047 ribbon follow-up: "Calendars" (main Resources tab) and
+        // "Calendar" (Resource Tools contextual tab) both land in the
+        // Front Matter panel's Calendars section -- see
+        // revealCalendarsPanel() above. The contextual tab's singular
+        // "Calendar" used to fall through to VIEW_FOR_LABEL's generic
+        // task-calendar view, which isn't what a resource calendar button
+        // should open.
+        'resources:Calendars': () => revealCalendarsPanel(),
+        'resources:Calendar': () => revealCalendarsPanel(),
         'resources:Timesheet': switchView('timesheet'),
-        'resources:Workload': switchView('user-workload'),
+        'resources:Workload': () => { window.onlyOverallocatedWorkload = false; switchToView('user-workload'); },
+        // #1117: "Level" computes suggestions across the whole portfolio
+        // (see portfolio-leveling.js) and renders them into the Team
+        // Allocation view's #levellingSuggestionsPanel -- a container that
+        // only exists once that view has rendered. Calling
+        // showLevellingSuggestions() directly from the plain project-scope
+        // Resources tab (or the "Resource Tools" contextual tab, which
+        // shares this same scopeId) found no such panel and silently did
+        // nothing, which looked exactly like "not available" even though
+        // resolveAction() no longer fell through to the stub toast. Route
+        // through the Team Allocation view first, same as the working
+        // 'pf-plan:Level Team' entry above, so the button always produces
+        // visible output regardless of which tab it was clicked from.
+        // "Clear Level" needs no such routing: clearLevellingNow() reports
+        // its own result via confirm()/alert() and works standalone.
+        'resources:Level': () => {
+            switchPortfolioSubview('resources')();
+            if (typeof showLevellingSuggestions === 'function') showLevellingSuggestions();
+        },
+        'resources:Clear Level': () => clearLevellingNow(),
+        'resources:Overallocation': () => showOverallocationView(),
+        // #1118: the "Influence" button lives on both the main Resources
+        // tab's Comms group (scopeId 'resources', ribbon-ia.js's home
+        // 'resources' tab) and the "Stakeholders" contextual tab's Register
+        // group (scopeId 'stakeholders', only shown once the Stakeholders
+        // view is already open) -- both need their own table entry, since
+        // scopedAction() keys strictly on '<scopeId>:<label>' and the main
+        // Resources tab's clicks were previously falling through to the
+        // "not available" stub because only 'stakeholders:Influence' existed.
+        'resources:Influence': () => showInfluenceDiagram(),
+        'stakeholders:Influence': () => showInfluenceDiagram(),
         'kanban:Phase': () => switchKanbanView('phase'),
         'kanban:Resource': () => switchKanbanView('resource'),
         'kanban:Progress': () => switchKanbanView('progress'),
@@ -261,6 +367,20 @@ function scopedAction(scopeId, label) {
         'kanban:Group by': () => openFormatMenu(KANBAN_GROUP_MODES, 'Group by'),
         'whiteboard:Mind Map': switchView('mindmap'),
         'whiteboard:Whiteboard': switchView('whiteboard'),
+        // #1109: previously unwired -- opens the selected note's colour
+        // panel (whiteboard-notes.js's wbOpenColourPanelForSelectedNote(),
+        // the same `...` menu a note's own button opens). Reads
+        // ribbonActionAnchor for the button to anchor the popover to,
+        // same convention openFormatMenu() below uses.
+        'whiteboard:Colour': () => { if (typeof wbOpenColourPanelForSelectedNote === 'function') wbOpenColourPanelForSelectedNote(ribbonActionAnchor); },
+        // #1107: previously unwired -- issue #1015's "free-form note" (a
+        // post-it with no checklist yet, whiteboard-notes.js's
+        // wbIsFreeformNote()) already IS the "Note" this button's own
+        // ribbon-ia.js label describes; there is no second, task-less
+        // "note" concept to build. Reuses the exact same creation path the
+        // whiteboard toolbar's own "New post-it"/"Text note" buttons and
+        // the `n` keyboard shortcut already call.
+        'whiteboard:Note': () => { if (typeof wbCreateNoteInViewportCentre === 'function') wbCreateNoteInViewportCentre(); },
         'gantt:Day/Week/Month': () => openFormatMenu(GANTT_SCALES, 'Scale'),
     };
     return table[`${scopeId}:${label}`];
@@ -274,6 +394,9 @@ const LABEL_ACTIONS = {
     'New Task': () => addNewTaskViaShortcut(),
     'New task': () => addNewTaskViaShortcut(),
     Details: () => openTaskInspectorForCurrentLine(),
+    // #1125: used to switch to a non-existent 'editor' view; now toggles the
+    // markdown editor panel, same as the collapse arrow on its splitter.
+    Editor: () => toggleMainEditor(),
 
     // File / save / print
     Save: () => downloadMarkdown(),
@@ -282,6 +405,13 @@ const LABEL_ACTIONS = {
     Templates: () => openTemplatesModal(),
     Settings: () => openSettingsPanel(),
     Undo: () => EditorUndoManager.undo(),
+
+    // #1123: the Report ribbon's Sync button used to resolve to nothing
+    // (a generic "Sync isn't available yet" toast). The real per-target
+    // sync UI (RAID Excel / MS Project, #868) already lives in Settings >
+    // Sync -- jump straight there rather than leaving a dead button until
+    // #913's consolidated single-button sync replaces this.
+    Sync: () => openSettingsPanel('sync'),
 
     // Per-category syntax highlight toggles (#1051) -- see
     // highlight-toggles.js's own header comment for why flipping these can
@@ -302,7 +432,12 @@ const LABEL_ACTIONS = {
     // view, flipped via a real 'change' event so views-gantt.js's own
     // addEventListener('change', ...) wiring does the actual work.
     'Critical Path': () => toggleGanttCheckbox('ganttShowCriticalPath'),
-    Baseline: () => toggleGanttCheckbox('ganttShowBaseline'),
+    // #1112: used to just toggle the Gantt "show baseline overlay" checkbox
+    // (ganttShowBaseline), which did nothing to actually create or manage a
+    // baseline. That checkbox is still reachable from its own control next
+    // to the Gantt view's "Set Baseline" button; this button now opens the
+    // full Baseline dialog (create/list/clear/delete) instead.
+    Baseline: () => { if (typeof openBaselineDialog === 'function') openBaselineDialog(); },
     Dependencies: () => toggleGanttCheckbox('ganttShowDependencies'),
     Deps: () => toggleGanttCheckbox('ganttShowDependencies'),
     Risk: () => addRaidItem(),
@@ -352,7 +487,8 @@ function resolveAction(scopeId, label) {
  * the post-action refresh rather than re-render over their own menu. */
 const OPENS_OWN_POPOVER = new Set(['Export', 'Export…', 'Import', 'Import from Excel / MS Project', 'Group by', 'Day/Week/Month', 'Highlight Preset']);
 
-function runAction(scopeId, label) {
+function runAction(scopeId, label, anchorEl = null) {
+    ribbonActionAnchor = anchorEl;
     const action = resolveAction(scopeId, label);
     if (action) {
         action();
@@ -375,13 +511,14 @@ function closePopovers() {
     ribbonState.openGroupTrigger = null;
 }
 
-function openFormatMenu(formats, label) {
+let ribbonActionAnchor = null;
+
+function openFormatMenu(formats, label, anchorEl = ribbonActionAnchor) {
     closePopovers();
-    const strip = document.querySelector('.ribbon-tabstrip');
-    if (!strip) return;
+    const shell = document.querySelector('.ribbon-shell');
+    if (!shell) return;
     const menu = document.createElement('div');
     menu.className = 'ribbon-file-menu';
-    menu.style.left = '8px';
     menu.innerHTML = formats.map((f, i) =>
         `<button type="button" class="ribbon-file-menu-item" data-format-index="${i}">
             <span class="ribbon-file-menu-item-label">${f.label}</span>
@@ -393,7 +530,15 @@ function openFormatMenu(formats, label) {
         formats[Number(btn.dataset.formatIndex)].run();
         closePopovers();
     });
-    strip.appendChild(menu);
+    const anchor = anchorEl || Array.from(shell.querySelectorAll('[data-label]')).find((el) => el.dataset.label === label) || shell.querySelector('.ribbon-file-btn');
+    const shellRect = shell.getBoundingClientRect();
+    const anchorRect = anchor?.getBoundingClientRect();
+    const menuWidth = 290;
+    const desiredLeft = anchorRect ? anchorRect.left - shellRect.left : 8;
+    const maxLeft = Math.max(8, shellRect.width - menuWidth - 8);
+    menu.style.left = `${Math.round(Math.min(Math.max(8, desiredLeft), maxLeft))}px`;
+    menu.style.top = `${Math.round(anchorRect ? anchorRect.bottom - shellRect.top : 34)}px`;
+    shell.appendChild(menu);
 }
 
 // ---------------------------------------------------------------------------
@@ -503,9 +648,10 @@ function renderButton(scopeId, tuple, kind) {
     const size = kind === 'lg' ? 26 : 15;
     const cls = kind === 'lg' ? 'ribbon-lg-btn' : 'ribbon-sm-btn';
     const href = linkHrefFor(flag);
+    const help = labelHelp(label);
     if (href) {
         return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="${cls}"
-            title="${label}" aria-label="${label} (opens in a new tab)">
+            title="${help}" aria-label="${label} (opens in a new tab)">
             ${icon(iconName, size)}${label}
         </a>`;
     }
@@ -513,7 +659,7 @@ function renderButton(scopeId, tuple, kind) {
     const action = resolveAction(scopeId, label);
     const isActive = isButtonActive(scopeId, label, live);
     return `<button type="button" class="${cls}${isActive ? ' active' : ''}" data-scope-id="${scopeId}" data-label="${label}"
-        title="${label}" aria-label="${label}" aria-pressed="${isActive}" ${action ? '' : 'data-stub="true"'}>
+        title="${help}" aria-label="${label}" aria-pressed="${isActive}" ${action ? '' : 'data-stub="true"'}>
         ${icon(iconName, size)}${label}${flag === 'caret' ? '<span class="ribbon-caret">▼</span>' : ''}
     </button>`;
 }
@@ -536,21 +682,23 @@ function renderSimpleButton(scopeId, tuple) {
     const [iconName, label, flag] = tuple;
     const inner = `${icon(iconName, 15)}<span class="ribbon-simple-btn-label">${label}</span>${flag === 'caret' ? '<span class="ribbon-caret">▼</span>' : ''}`;
     const href = linkHrefFor(flag);
+    const help = labelHelp(label);
     if (href) {
         return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="ribbon-simple-btn"
-            title="${label}" aria-label="${label} (opens in a new tab)">${inner}</a>`;
+            title="${help}" aria-label="${label} (opens in a new tab)">${inner}</a>`;
     }
     const live = getLiveState();
     const action = resolveAction(scopeId, label);
     const isActive = isButtonActive(scopeId, label, live);
     return `<button type="button" class="ribbon-simple-btn${isActive ? ' active' : ''}" data-scope-id="${scopeId}" data-label="${label}"
-        title="${label}" aria-label="${label}" aria-pressed="${isActive}" ${action ? '' : 'data-stub="true"'}>${inner}</button>`;
+        title="${help}" aria-label="${label}" aria-pressed="${isActive}" ${action ? '' : 'data-stub="true"'}>${inner}</button>`;
 }
 
 /** Buttons whose pressed state reflects real, currently-known app state. */
 function isButtonActive(scopeId, label, live) {
+    if (label === 'Editor') return live.editorVisible;
     if (label === 'Critical Path') return live.ganttShowCriticalPath;
-    if (label === 'Baseline') return live.ganttShowBaseline;
+    if (label === 'Baseline') return live.hasActiveBaseline;
     if (label === 'Dependencies' || label === 'Deps') return live.ganttShowDependencies;
     if (label === 'Dark Mode') return live.isDark;
     if (label === 'System Theme') return live.themeChoice === 'system';
@@ -1168,7 +1316,7 @@ function wireEvents(shell) {
 
         const cmdBtn = e.target.closest('.ribbon-lg-btn, .ribbon-sm-btn, .ribbon-simple-btn');
         if (cmdBtn && cmdBtn.dataset.label) {
-            runAction(cmdBtn.dataset.scopeId, cmdBtn.dataset.label);
+            runAction(cmdBtn.dataset.scopeId, cmdBtn.dataset.label, cmdBtn);
             return;
         }
     });
@@ -1202,6 +1350,7 @@ function wireEvents(shell) {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { closePopovers(); refreshRibbon(); }
     });
+    window.addEventListener('editorPanelVisibilityChanged', () => refreshRibbon());
 
     // #972: New/Open/Print must keep working as real, global keyboard
     // shortcuts once the File dropdown (their only previous home, as

@@ -6,7 +6,7 @@ const TaskLineTokenizer = (() => {
         ['recurrence', /\[repeats\s+[^\]]+\]/gi],
         ['bucket', /\{[^}]+\}/g],
     ];
-    const tokenPattern = /~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?|(?<![\w!])(!!!|!!|!)(?![\w!"'{])|@\w+|#\w+|[/^]?\$[A-Za-z_][A-Za-z0-9_-]*|\b\d+[dmwy]\b|(?<!\w)\d+%(?!\w)|\b\d{4}-\d{2}-\d{2}\b/g;
+    const tokenPattern = /~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?|(?<![\w!])(!!!|!!|!)(?![\w!"'{])|@\w+|#\w+|[/^]?\$[A-Za-z_][A-Za-z0-9_-]*|\b\d+[dmwy]\b|(?<!\w)\d+%(?!\w)|\bD\d{4}-\d{2}-\d{2}\b|\b\d{4}-\d{2}-\d{2}\b/g;
 
     function addToken(tokens, line, type, start, end) {
         tokens.push({ type, start, end, text: line.slice(start, end) });
@@ -47,6 +47,7 @@ const TaskLineTokenizer = (() => {
                 : text[0] === '#' ? 'label'
                 : text.includes('$') ? 'product'
                 : text.endsWith('%') ? 'percent'
+                : text[0] === 'D' ? 'deadline'
                 : /^\d{4}-/.test(text) ? 'date'
                 : 'duration';
             addToken(tokens, line, type, start, start + text.length);
@@ -57,7 +58,7 @@ const TaskLineTokenizer = (() => {
     function metadata(line) {
         const tokens = tokenize(line);
         const values = {
-            name: '', duration: '', startDate: '', finishDate: '', percent: '',
+            name: '', duration: '', startDate: '', finishDate: '', deadline: '', percent: '',
             resources: [], labels: [], comment: '', priority: 'Low', bucket: '',
             dependencies: [], recurrence: '', product_type: undefined, deliverable: undefined,
             effortCompleted: '', effortCompletedUnit: 'h', effortRemaining: '',
@@ -85,6 +86,7 @@ const TaskLineTokenizer = (() => {
             else if (token.type === 'duration') values.duration = text.slice(0, -1);
             else if (token.type === 'percent') values.percent = text.slice(0, -1);
             else if (token.type === 'date') dates.push(text);
+            else if (token.type === 'deadline' && !values.deadline) values.deadline = text.slice(1);
             else if (token.type === 'product') {
                 values.product_type = text[0] === '/' ? 'group' : text[0] === '^' ? 'external' : 'internal';
                 values.deliverable = text.replace(/^[/^]?\$/, '');

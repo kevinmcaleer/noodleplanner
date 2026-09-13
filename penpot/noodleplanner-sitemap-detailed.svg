@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="1700" viewBox="0 0 2600 1700">
+  <style>
+    .title { font: 700 30px Arial, sans-serif; fill: #111827; }
+    .subtitle { font: 400 16px Arial, sans-serif; fill: #4b5563; }
+    .main { fill: #eef2ff; stroke: #4f46e5; stroke-width: 2; rx: 10; }
+    .ctx { fill: #ecfeff; stroke: #0891b2; stroke-width: 2; rx: 10; }
+    .proj { fill: #f0fdf4; stroke: #16a34a; stroke-width: 2; rx: 8; }
+    .port { fill: #fff7ed; stroke: #ea580c; stroke-width: 2; rx: 8; }
+    .ext { fill: #f9fafb; stroke: #9ca3af; stroke-width: 2; stroke-dasharray: 6 6; rx: 8; }
+    .label { font: 600 13px Arial, sans-serif; fill: #111827; }
+    .line { stroke: #6b7280; stroke-width: 2; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+
+  <text x="40" y="50" class="title">NoodlePlanner — Detailed Site Map</text>
+  <text x="40" y="78" class="subtitle">NavigationController views + portfolio sub-views + external routes</text>
+
+  <rect class="main" x="1130" y="110" width="320" height="62"/><text class="label" x="1230" y="148">/ (index.html)</text>
+
+  <rect class="ctx" x="120" y="260" width="230" height="52"/><text class="label" x="182" y="292">backstage</text>
+  <rect class="ctx" x="390" y="260" width="230" height="52"/><text class="label" x="474" y="292">search</text>
+  <rect class="ctx" x="660" y="260" width="230" height="52"/><text class="label" x="739" y="292">portfolio</text>
+  <rect class="ctx" x="930" y="260" width="230" height="52"/><text class="label" x="1007" y="292">programme</text>
+  <rect class="ctx" x="1200" y="260" width="230" height="52"/><text class="label" x="1287" y="292">upload</text>
+  <rect class="ctx" x="1470" y="260" width="230" height="52"/><text class="label" x="1552" y="292">editor</text>
+  <rect class="ctx" x="1740" y="260" width="230" height="52"/><text class="label" x="1822" y="292">kanban</text>
+  <rect class="ctx" x="2010" y="260" width="230" height="52"/><text class="label" x="2107" y="292">raid</text>
+  <rect class="ctx" x="2280" y="260" width="230" height="52"/><text class="label" x="2369" y="292">actions</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M 1290 172 L 235 260"/>
+  <path class="line" marker-end="url(#arrow)" d="M 1290 172 L 505 260"/>
+  <path class="line" marker-end="url(#arrow)" d="M 1290 172 L 775 260"/>
+  <path class="line" marker-end="url(#arrow)" d="M 1290 172 L 1045 260"/>
+  <path class="line" marker-end="url(#arrow)" d="M 1290 172 L 1315 260"/>
+  <path class="line" marker-end="url(#arrow)" d="M 1290 172 L 1585 260"/>
+  <path class="line" marker-end="url(#arrow)" d="M 1290 172 L 1855 260"/>
+  <path class="line" marker-end="url(#arrow)" d="M 1290 172 L 2125 260"/>
+  <path class="line" marker-end="url(#arrow)" d="M 1290 172 L 2395 260"/>
+
+  <rect class="ctx" x="1740" y="330" width="230" height="52"/><text class="label" x="1820" y="362">budget</text>
+  <rect class="ctx" x="2010" y="330" width="230" height="52"/><text class="label" x="2098" y="362">comms</text>
+  <rect class="ctx" x="2280" y="330" width="230" height="52"/><text class="label" x="2363" y="362">lessons</text>
+  <rect class="ctx" x="120" y="330" width="230" height="52"/><text class="label" x="212" y="362">guide</text>
+
+  <rect class="port" x="660" y="430" width="230" height="46"/><text class="label" x="742" y="458">projects</text>
+  <rect class="port" x="660" y="484" width="230" height="46"/><text class="label" x="756" y="512">status</text>
+  <rect class="port" x="660" y="538" width="230" height="46"/><text class="label" x="739" y="566">resources</text>
+  <rect class="port" x="660" y="592" width="230" height="46"/><text class="label" x="751" y="620">timeline</text>
+  <rect class="port" x="660" y="646" width="230" height="46"/><text class="label" x="756" y="674">actions</text>
+  <rect class="port" x="660" y="700" width="230" height="46"/><text class="label" x="769" y="728">risks</text>
+  <rect class="port" x="660" y="754" width="230" height="46"/><text class="label" x="744" y="782">lookahead</text>
+  <rect class="port" x="660" y="808" width="230" height="46"/><text class="label" x="731" y="836">dependencies</text>
+  <rect class="port" x="660" y="862" width="230" height="46"/><text class="label" x="752" y="890">benefits</text>
+  <rect class="port" x="660" y="916" width="230" height="46"/><text class="label" x="756" y="944">lessons</text>
+  <path class="line" marker-end="url(#arrow)" d="M 775 312 L 775 430"/>
+
+  <rect class="proj" x="980" y="430" width="220" height="44"/><text class="label" x="1032" y="457">project-report</text>
+  <rect class="proj" x="980" y="482" width="220" height="44"/><text class="label" x="1062" y="509">tasks</text>
+  <rect class="proj" x="980" y="534" width="220" height="44"/><text class="label" x="1051" y="561">notepad</text>
+  <rect class="proj" x="980" y="586" width="220" height="44"/><text class="label" x="1063" y="613">gantt</text>
+  <rect class="proj" x="980" y="638" width="220" height="44"/><text class="label" x="1055" y="665">calendar</text>
+  <rect class="proj" x="980" y="690" width="220" height="44"/><text class="label" x="1048" y="717">milestones</text>
+  <rect class="proj" x="980" y="742" width="220" height="44"/><text class="label" x="1059" y="769">timeline</text>
+  <rect class="proj" x="980" y="794" width="220" height="44"/><text class="label" x="1057" y="821">mindmap</text>
+  <rect class="proj" x="980" y="846" width="220" height="44"/><text class="label" x="1046" y="873">whiteboard</text>
+  <rect class="proj" x="980" y="898" width="220" height="44"/><text class="label" x="1071" y="925">pbs</text>
+  <rect class="proj" x="980" y="950" width="220" height="44"/><text class="label" x="1039" y="977">deliverables</text>
+  <rect class="proj" x="980" y="1002" width="220" height="44"/><text class="label" x="1036" y="1029">product-flow</text>
+  <rect class="proj" x="980" y="1054" width="220" height="44"/><text class="label" x="1049" y="1081">benefits</text>
+  <rect class="proj" x="980" y="1106" width="220" height="44"/><text class="label" x="1040" y="1133">highlights</text>
+  <rect class="proj" x="980" y="1158" width="220" height="44"/><text class="label" x="1042" y="1185">lookahead</text>
+  <rect class="proj" x="980" y="1210" width="220" height="44"/><text class="label" x="1047" y="1237">escalations</text>
+  <rect class="proj" x="980" y="1262" width="220" height="44"/><text class="label" x="1052" y="1289">analysis</text>
+  <rect class="proj" x="980" y="1314" width="220" height="44"/><text class="label" x="1078" y="1341">evm</text>
+  <rect class="proj" x="980" y="1366" width="220" height="44"/><text class="label" x="1044" y="1393">resources</text>
+  <rect class="proj" x="980" y="1418" width="220" height="44"/><text class="label" x="1046" y="1445">timesheet</text>
+  <rect class="proj" x="980" y="1470" width="220" height="44"/><text class="label" x="1018" y="1497">user-workload</text>
+  <rect class="proj" x="980" y="1522" width="220" height="44"/><text class="label" x="1024" y="1549">resource-sheet</text>
+  <rect class="proj" x="980" y="1574" width="220" height="44"/><text class="label" x="1038" y="1601">stakeholders</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M 1585 312 L 1090 430"/>
+  <path class="line" marker-end="url(#arrow)" d="M 1855 312 L 1090 586"/>
+  <path class="line" marker-end="url(#arrow)" d="M 2125 312 L 1090 1106"/>
+  <path class="line" marker-end="url(#arrow)" d="M 2395 312 L 1090 1002"/>
+
+  <rect class="ext" x="1320" y="430" width="280" height="52"/><text class="label" x="1416" y="462">/templates</text>
+  <rect class="ext" x="1320" y="496" width="280" height="52"/><text class="label" x="1374" y="528">/join/{session_id}</text>
+  <rect class="ext" x="1320" y="562" width="280" height="52"/><text class="label" x="1451" y="594">/docs</text>
+</svg>

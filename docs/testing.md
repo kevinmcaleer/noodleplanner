@@ -178,6 +178,23 @@ Required testing packages:
 - `pytest==8.4.1`
 - `pytest-cov==7.0.0`
 
+### Running what CI runs
+
+The checks that gate a push live in `ci/jobs/` as shell scripts, not in workflow
+YAML, so the same command runs them locally and on the CI runners:
+
+```bash
+ci/run.sh              # the four gating jobs in parallel (~45s)
+ci/run.sh --all        # plus the browser suites
+ci/run.sh --list       # what exists, and which jobs gate
+ci/install-hooks.sh    # make `git push` run them first
+```
+
+See [`ci/README.md`](https://github.com/kevinmcaleer/noodleplanner/blob/main/ci/README.md)
+for the job list, how to add one, and how the self-hosted runners are set up.
+The sections below are the underlying `pytest` invocations, which are still the
+right tool when you are working on one test rather than checking a branch.
+
 ### Running All Tests
 
 ```bash

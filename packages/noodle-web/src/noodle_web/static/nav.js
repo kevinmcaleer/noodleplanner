@@ -516,7 +516,7 @@ function switchOutputTab(tabName) {
     }
 
     // If switching to timeline view, trigger a re-render after layout is ready
-    if (tabName === 'timeline' && timelineTasks.length > 0) {
+    if (tabName === 'timeline' && timelineTasks.length > 0 && timelineNeedsVisibleRender) {
         // Use setTimeout to ensure the browser has fully laid out the
         // newly-visible container before we measure its width
         setTimeout(() => {

@@ -141,20 +141,20 @@
         const dialog = el('div', 'card-popup');
         dialog.innerHTML = `
             <div class="card-popup-header">
-                <span>Cards</span>
+                <span>Snippets</span>
                 <button type="button" class="card-popup-close" aria-label="Close">×</button>
             </div>
             <div class="card-popup-body">
                 <div class="card-save-section">
-                    <label class="card-save-label">Save "${escapeCardHtml(taskName)}" and its subtree as a card
+                    <label class="card-save-label">Save "${escapeCardHtml(taskName)}" and its subtree as a snippet
                         <div class="card-save-row">
-                            <input type="text" id="cardSaveName" placeholder="Card name">
+                            <input type="text" id="cardSaveName" placeholder="Snippet name">
                             <button type="button" class="card-save-btn" id="cardSaveBtn">Save</button>
                         </div>
                     </label>
                 </div>
                 <div class="card-list-section">
-                    <div class="card-list-heading">Insert a saved card after "${escapeCardHtml(taskName)}"</div>
+                    <div class="card-list-heading">Insert a saved snippet after "${escapeCardHtml(taskName)}"</div>
                     <div class="card-list" id="cardLibraryList"></div>
                 </div>
             </div>
@@ -174,7 +174,7 @@
             const listEl = dialog.querySelector('#cardLibraryList');
             const cards = listCards();
             if (!cards.length) {
-                listEl.innerHTML = '<div class="card-list-empty">No cards saved yet.</div>';
+                listEl.innerHTML = '<div class="card-list-empty">No snippets saved yet.</div>';
                 return;
             }
             listEl.innerHTML = '';
@@ -188,7 +188,7 @@
                     <div class="card-list-actions">
                         <button type="button" class="card-insert-tasks-btn">Insert as Tasks</button>
                         <button type="button" class="card-insert-text-btn">Insert as Text</button>
-                        <button type="button" class="card-delete-btn" aria-label="Delete card">🗑</button>
+                        <button type="button" class="card-delete-btn" aria-label="Delete snippet">🗑</button>
                     </div>
                 `;
                 row.querySelector('.card-insert-tasks-btn').addEventListener('click', () => {

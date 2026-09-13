@@ -15,6 +15,7 @@ const {
     computeLevellingSuggestions,
     annotateTaskWithLevellingFlag,
     stripLevellingFlags,
+    clearAllLevelling,
     computePortfolioAnchor,
     _toShortname,
 } = mod;
@@ -109,6 +110,39 @@ function assertTrue(cond, msg) {
     );
 })();
 
+// --- level -> unlevel round-trip (#1117) -----------------------------------
+
+(() => {
+    // Acceptance criterion: "Round-tripping (level -> unlevel) leaves the
+    // plan unchanged." Annotate several tasks, then strip: the plan text
+    // must come back byte-for-byte identical to the original.
+    const original =
+        'Project:\n' +
+        '  Phase:\n' +
+        '    DesignReview 3d @alice\n' +
+        '    Build 5d @bob\n' +
+        '    Kevin McAleer task 2d @Kevin McAleer\n';
+
+    let leveled = annotateTaskWithLevellingFlag(original, 'DesignReview', 'alice', '2026-05-18');
+    leveled = annotateTaskWithLevellingFlag(leveled, 'Build', 'bob', '2026-05-22');
+    leveled = annotateTaskWithLevellingFlag(leveled, 'Kevin McAleer task', 'Kevin McAleer', '2026-05-25');
+
+    assertTrue(leveled.includes('[levelled @alice 2026-05-18]'), 'round-trip setup: DesignReview levelled');
+    assertTrue(leveled.includes('[levelled @bob 2026-05-22]'), 'round-trip setup: Build levelled');
+    assertTrue(leveled.includes('[levelled @kevin-mcaleer 2026-05-25]'), 'round-trip setup: multi-word resource levelled');
+    assertTrue(leveled !== original, 'round-trip setup: levelling actually changed the plan text');
+
+    const unleveled = stripLevellingFlags(leveled);
+    assertEqual(unleveled, original, 'clearing levelling restores the plan text exactly (level -> unlevel round-trip)');
+})();
+
+(() => {
+    // stripLevellingFlags on plan text with no flags at all is a no-op --
+    // "Clear Level" should be safe to invoke on an already-clean plan.
+    const plain = 'Project:\n  Phase:\n    TaskOne 3d @alice\n';
+    assertEqual(stripLevellingFlags(plain), plain, 'stripping a plan with no levelling flags leaves it unchanged');
+})();
+
 // --- computePortfolioAnchor -----------------------------------------------
 
 (() => {
@@ -174,6 +208,62 @@ function assertTrue(cond, msg) {
     ];
     const s = computeLevellingSuggestions(parsed);
     assertEqual(s.length, 0, 'no suggestions when no contention');
+})();
+
+// --- clearAllLevelling (#1117: "Remove levelling" ribbon action) ----------
+
+(() => {
+    // clearAllLevelling() is the function behind the ribbon's "Clear Level"
+    // button (ribbon.js's clearLevellingNow()). It must strip the
+    // [levelled ...] flag from *every* project's stored plan text -- not
+    // just hide it in the UI -- so a re-render/re-schedule behaves exactly
+    // as if levelling had never been applied.
+    const store = {
+        p1: {
+            id: 'p1',
+            planText:
+                'Project:\n' +
+                '  Phase:\n' +
+                '    TaskOne 3d @alice [levelled @alice 2026-05-18]\n',
+        },
+        p2: {
+            id: 'p2',
+            planText:
+                'Project:\n' +
+                '  Phase:\n' +
+                '    TaskTwo 2d @bob [levelled @bob 2026-05-22]\n',
+        },
+        p3: {
+            // A project with no levelling flags at all should be left alone
+            // and not counted as "modified".
+            id: 'p3',
+            planText: 'Project:\n  Phase:\n    TaskThree 1d @carol\n',
+        },
+    };
+    const updates = [];
+
+    global.getAllProjects = () => store;
+    global.updateCachedProject = (id, patch) => {
+        updates.push(id);
+        Object.assign(store[id], patch);
+    };
+    global.getCurrentProjectId = () => null;
+
+    try {
+        const modifiedCount = clearAllLevelling();
+
+        assertEqual(modifiedCount, 2, 'clearAllLevelling reports the number of projects it actually changed');
+        assertEqual(updates.sort(), ['p1', 'p2'], 'clearAllLevelling only writes back the projects that had a flag');
+        assertTrue(!store.p1.planText.includes('[levelled'), 'p1 task data no longer carries the levelling flag');
+        assertTrue(!store.p2.planText.includes('[levelled'), 'p2 task data no longer carries the levelling flag');
+        assertTrue(store.p1.planText.includes('TaskOne 3d @alice'), 'p1 task line survives with its original content');
+        assertTrue(store.p2.planText.includes('TaskTwo 2d @bob'), 'p2 task line survives with its original content');
+        assertEqual(store.p3.planText, 'Project:\n  Phase:\n    TaskThree 1d @carol\n', 'p3 (no flags) is untouched');
+    } finally {
+        delete global.getAllProjects;
+        delete global.updateCachedProject;
+        delete global.getCurrentProjectId;
+    }
 })();
 
 console.log(failures === 0

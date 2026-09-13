@@ -28,6 +28,16 @@
  * testing (a 2px curve is close to unclickable) and the visible one on
  * top. This mirrors views-products.js's own invisible hover hit area for
  * its PBS connectors.
+ *
+ * History: #1052 briefly overloaded this same card-to-card drag with a
+ * toolbar "Dependency" mode that wrote a `[depends: ...]` link between two
+ * whole notes instead of re-parenting. #1106 removes that mode entirely
+ * -- it let a note representing a *summary* task appear to have a
+ * dependency, breaking the "summary tasks can't have dependencies" rule
+ * (plan-model.js's canAddDependency() had no way to steer the drag away
+ * from even attempting it) -- so this drag is hierarchy-only again, and
+ * dependency-drawing has moved to a per-row gesture on checklist rows
+ * (see whiteboard-dep-noodles.js's header).
  */
 
 // -- Configuration -------------------------------------------------------
@@ -44,40 +54,6 @@ let wbNoodleNodes = new Map();
 
 /** The link currently being dragged out of a note, or null. */
 let wbActiveLink = null;
-
-/**
- * Which kind of link the drag gesture below currently draws (#1052):
- * 'hierarchy' (the default -- re-parents in the outline, unchanged
- * behaviour) or 'dependency' (writes a real [depends: ...] link via
- * plan-model.js, in whiteboard-dep-noodles.js). One gesture, two
- * meanings, switched by a toolbar toggle -- see wbSetLinkMode().
- */
-let wbLinkMode = 'hierarchy';
-
-function wbSetLinkMode(mode) {
-    wbLinkMode = (mode === 'dependency') ? 'dependency' : 'hierarchy';
-    document.body.classList.toggle('wb-dependency-mode', wbLinkMode === 'dependency');
-
-    const btn = document.getElementById('whiteboardLinkModeBtn');
-    const label = document.getElementById('whiteboardLinkModeLabel');
-    if (btn && label) {
-        const isDep = wbLinkMode === 'dependency';
-        label.textContent = isDep ? 'Dependency' : 'Hierarchy';
-        btn.setAttribute('aria-pressed', String(isDep));
-        btn.setAttribute('aria-label',
-            'Link mode: ' + label.textContent + '. Click to switch to ' + (isDep ? 'Hierarchy' : 'Dependency') + ' mode.');
-        btn.classList.toggle('active', isDep);
-    }
-}
-
-function wbGetLinkMode() {
-    return wbLinkMode;
-}
-
-/** Toolbar button handler (#1052). */
-function wbToggleLinkMode() {
-    wbSetLinkMode(wbLinkMode === 'dependency' ? 'hierarchy' : 'dependency');
-}
 
 /** The selected noodle's id, or null. */
 let wbSelectedNoodle = null;
@@ -498,9 +474,7 @@ function wbUpdateLinkDrag(clientX, clientY) {
     wbActiveLink.hoverName = (name && name !== wbActiveLink.parentName) ? name : null;
 
     if (noteEl && wbActiveLink.hoverName) {
-        const ok = wbLinkMode === 'dependency'
-            ? wbCanLinkDependency(wbActiveLink.parentName, wbActiveLink.hoverName).ok
-            : wbCanLinkNotes(wbLastTasks, wbActiveLink.parentName, wbActiveLink.hoverName).ok;
+        const ok = wbCanLinkNotes(wbLastTasks, wbActiveLink.parentName, wbActiveLink.hoverName).ok;
         noteEl.classList.toggle('wb-link-target', ok);
         noteEl.classList.toggle('wb-link-target-invalid', !ok);
     }
@@ -519,8 +493,7 @@ function wbEndLinkDrag(clientX, clientY) {
     wbActiveLink = null;
 
     if (!hoverName) return;
-    if (wbLinkMode === 'dependency') wbLinkDependency(parentName, hoverName);
-    else wbLinkNotes(parentName, hoverName);
+    wbLinkNotes(parentName, hoverName);
 }
 
 function wbLinkDragMouseMove(e) {

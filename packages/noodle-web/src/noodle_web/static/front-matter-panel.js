@@ -86,6 +86,7 @@ const FrontMatterPanel = (function () {
                 this.collapsedDefault = bodyLines > COLLAPSE_LINE_THRESHOLD;
             }
             this.render();
+            this._syncEditorProjection();
         }
 
         get collapsed() {
@@ -104,6 +105,47 @@ const FrontMatterPanel = (function () {
         setMode(mode) {
             this._saveState({ mode });
             this.render();
+            this._syncEditorProjection();
+        }
+
+        _syncEditorProjection() {
+            if (typeof SectionFolding === 'undefined' || !SectionFolding.controllerFor) return;
+            const controller = SectionFolding.controllerFor(this.editor);
+            if (controller && typeof controller.setFrontMatterPresentation === 'function') {
+                controller.setFrontMatterPresentation(this.present ? this.mode : null);
+            }
+        }
+
+        /**
+         * #1047 ribbon follow-up: land the ribbon's "Calendars" button
+         * somewhere real. Expands the panel in structured mode and scrolls
+         * to the Calendars row, or -- if no `calendars` key exists in this
+         * plan yet -- to the "+ Add key" control it can be added from.
+         */
+        revealCalendars() {
+            if (!this.present) {
+                this.render();
+                requestAnimationFrame(() => {
+                    const btn = this.container.querySelector('.fm-add-frontmatter-btn');
+                    if (btn) { btn.scrollIntoView({ behavior: 'smooth', block: 'center' }); btn.focus(); }
+                });
+                return;
+            }
+            this.setMode('structured');
+            this.setCollapsed(false);
+            requestAnimationFrame(() => {
+                const calendarsRow = Array.from(this.container.querySelectorAll('.fm-row'))
+                    .find((row) => row.querySelector('.fm-row-key')?.textContent === 'Calendars');
+                const target = calendarsRow || this.container.querySelector('.fm-add-key-select');
+                if (!target) return;
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (calendarsRow) {
+                    calendarsRow.classList.add('fm-row-highlight');
+                    setTimeout(() => calendarsRow.classList.remove('fm-row-highlight'), 1600);
+                } else {
+                    target.focus();
+                }
+            });
         }
 
         // Splice the in-memory rows back into a FRESH parse of the editor's
@@ -161,7 +203,7 @@ const FrontMatterPanel = (function () {
         addKey(keyName, kind) {
             const id = this.nextRowId();
             let row;
-            if (kind === 'resource-list' || kind === 'dependency-list' || kind === 'date-list') {
+            if (kind === 'resource-list' || kind === 'dependency-list' || kind === 'date-list' || kind === 'calendar-list') {
                 row = NoodleFrontMatter.newBlockRow(id, keyName, []);
             } else {
                 row = NoodleFrontMatter.newKvRow(id, keyName, '');
@@ -211,8 +253,8 @@ const FrontMatterPanel = (function () {
                 return;
             }
             this.container.appendChild(this._renderHeader());
-            if (!this.collapsed) {
-                this.container.appendChild(this.mode === 'raw' ? this._renderRaw() : this._renderStructured());
+            if (!this.collapsed && this.mode === 'structured') {
+                this.container.appendChild(this._renderStructured());
             }
         }
 
@@ -228,43 +270,45 @@ const FrontMatterPanel = (function () {
 
         _renderHeader() {
             const count = NoodleFrontMatter.countKeys(this.rows);
+            const rawMode = this.mode === 'raw';
             const chevron = el('span', { className: 'fm-chevron', text: this.collapsed ? '▸' : '▾' });
-            const title = el('span', { className: 'fm-title', text: 'Front matter' });
+            const title = el('span', { className: 'fm-title', text: rawMode ? 'Markdown' : 'Properties' });
             const badge = el('span', { className: 'fm-summary-count', text: `(${count} key${count === 1 ? '' : 's'})` });
-            const summary = el('button', {
-                className: 'fm-summary-toggle', type: 'button',
-                'aria-expanded': String(!this.collapsed),
-                onclick: () => this.setCollapsed(!this.collapsed),
-            }, [chevron, title, badge]);
+            const summary = rawMode
+                ? el('div', { className: 'fm-summary-toggle fm-summary-static' }, [title])
+                : el('button', {
+                    className: 'fm-summary-toggle', type: 'button',
+                    'aria-expanded': String(!this.collapsed),
+                    onclick: () => this.setCollapsed(!this.collapsed),
+                }, [chevron, title, badge]);
 
             const controls = [];
-            if (!this.collapsed) {
+            if (rawMode || !this.collapsed) {
                 controls.push(this._renderModeToggle());
-                if (this.mode === 'structured') controls.push(this._renderAddKeyControl());
+                if (!rawMode) controls.push(this._renderAddKeyControl());
             }
             const header = el('div', { className: 'fm-panel-header' }, [summary, el('div', { className: 'fm-panel-controls' }, controls)]);
             return header;
         }
 
         _renderModeToggle() {
-            const structuredBtn = el('button', {
-                className: 'fm-mode-btn' + (this.mode === 'structured' ? ' active' : ''), type: 'button', text: 'Structured',
-                onclick: () => this.setMode('structured'),
+            const targetMode = this.mode === 'raw' ? 'structured' : 'raw';
+            const button = el('button', {
+                className: 'fm-mode-btn', type: 'button',
+                text: targetMode === 'raw' ? 'YAML' : 'Properties',
+                title: targetMode === 'raw' ? 'Edit front matter as YAML' : 'Edit front matter as properties',
+                onclick: () => this.setMode(targetMode),
             });
-            const rawBtn = el('button', {
-                className: 'fm-mode-btn' + (this.mode === 'raw' ? ' active' : ''), type: 'button', text: 'Raw',
-                onclick: () => this.setMode('raw'),
-            });
-            return el('div', { className: 'fm-mode-toggle' }, [structuredBtn, rawBtn]);
+            return el('div', { className: 'fm-mode-toggle' }, [button]);
         }
 
         _renderAddKeyControl() {
             const select = el('select', { className: 'fm-add-key-select' }, [
-                el('option', { value: '', text: '+ Add key…' }),
+                el('option', { value: '', text: '+ Add property…' }),
                 ...NoodleFrontMatter.SCHEMA
                     .filter(s => !this.rows.some(r => (r.kind === 'kv' || r.kind === 'block') && r.key === s.key))
                     .map(s => el('option', { value: s.key, text: s.label })),
-                el('option', { value: '__custom__', text: 'Custom key…' }),
+                el('option', { value: '__custom__', text: 'Custom property…' }),
             ]);
             select.addEventListener('change', () => {
                 const value = select.value;
@@ -329,7 +373,7 @@ const FrontMatterPanel = (function () {
                 list.appendChild(this._renderRow(row, idx === 0, idx === editable.length - 1));
             });
             if (!editable.length) {
-                list.appendChild(el('div', { className: 'fm-empty-hint', text: 'No keys yet — use "Add key" above.' }));
+                list.appendChild(el('div', { className: 'fm-empty-hint', text: 'No properties yet — use "Add property" above.' }));
             }
             const warnings = this._collectWarnings();
             const warnBox = el('div', { className: 'fm-warnings' });
@@ -339,17 +383,24 @@ const FrontMatterPanel = (function () {
 
         _renderRow(row, isFirst, isLast) {
             const schema = NoodleFrontMatter.schemaFor(row.key);
-            const reorder = el('div', { className: 'fm-row-reorder' }, [
-                el('button', { className: 'fm-row-btn', type: 'button', text: '↑', disabled: isFirst ? '' : null, title: 'Move up', onclick: () => this.moveKey(row.id, -1) }),
-                el('button', { className: 'fm-row-btn', type: 'button', text: '↓', disabled: isLast ? '' : null, title: 'Move down', onclick: () => this.moveKey(row.id, 1) }),
+            // A familiar scalar key can also be used as a custom YAML block
+            // (notably `Theme:` for per-task colours). In that case retain
+            // the friendly label, but do not claim it is the scalar setting
+            // or force its scalar widget/description onto the block.
+            const widgetSchema = row.kind === 'block' && schema && !NoodleFrontMatter.LIST_KINDS[schema.kind]
+                ? null : schema;
+            const reorder = el('div', { className: 'fm-row-reorder', 'aria-label': 'Reorder property' }, [
+                el('button', { className: 'fm-row-btn fm-row-move-up', type: 'button', text: '↑', disabled: isFirst ? '' : null, title: 'Move up', 'aria-label': 'Move property up', onclick: () => this.moveKey(row.id, -1) }),
+                el('button', { className: 'fm-row-btn fm-row-move-down', type: 'button', text: '↓', disabled: isLast ? '' : null, title: 'Move down', 'aria-label': 'Move property down', onclick: () => this.moveKey(row.id, 1) }),
             ]);
             const keyLabel = schema
                 ? el('span', { className: 'fm-row-key', text: schema.label, title: schema.description || '' })
                 : this._renderEditableKey(row);
-            const widget = this._renderWidget(row, schema);
-            const remove = el('button', { className: 'fm-row-btn fm-row-remove', type: 'button', text: '✕', title: 'Remove key', onclick: () => this.removeKey(row.id) });
-            const rowEl = el('div', { className: 'fm-row', 'data-row-id': String(row.id) }, [reorder, keyLabel, widget, remove]);
-            if (schema && schema.description) rowEl.title = schema.description;
+            const widget = this._renderWidget(row, widgetSchema);
+            const remove = el('button', { className: 'fm-row-btn fm-row-remove', type: 'button', text: '×', title: 'Remove property', 'aria-label': 'Remove property', onclick: () => this.removeKey(row.id) });
+            const actions = el('div', { className: 'fm-row-actions' }, [reorder, remove]);
+            const rowEl = el('div', { className: 'fm-row', 'data-row-id': String(row.id) }, [keyLabel, widget, actions]);
+            if (widgetSchema && widgetSchema.description) rowEl.title = widgetSchema.description;
             return rowEl;
         }
 
@@ -372,10 +423,43 @@ const FrontMatterPanel = (function () {
         _renderWidget(row, schema) {
             const kind = schema ? schema.kind : (row.kind === 'block' ? 'block-raw' : 'text');
             if (row.kind === 'kv' && kind === 'select') return this._renderSelectWidget(row, schema);
+            if (row.kind === 'kv' && kind === 'calendar-select') return this._renderCalendarSelectWidget(row);
             if (row.kind === 'kv' && kind === 'flow-list') return this._renderFlowListWidget(row);
             if (row.kind === 'kv') return this._renderTextWidget(row);
             if (row.kind === 'block' && NoodleFrontMatter.LIST_KINDS[kind]) return this._renderListWidget(row, NoodleFrontMatter.LIST_KINDS[kind], kind);
-            return this._renderBlockRawWidget(row);
+            return this._renderBlockListWidget(row);
+        }
+
+        // The set of declared calendar names, read from the `calendars:`
+        // block row if present -- Standard always counts, even undeclared,
+        // since that is the implicit default every plan schedules against.
+        _declaredCalendarNames() {
+            const calendarsRow = this.rows.find(r => r.kind === 'block' && r.key === 'calendars');
+            const names = new Set(['Standard']);
+            if (calendarsRow) {
+                const sourceLines = (calendarsRow.dirty && calendarsRow.childTexts)
+                    ? this._childTextsAsLines(calendarsRow) : calendarsRow.children;
+                for (const entry of NoodleFrontMatter.CalendarList.parse(sourceLines)) {
+                    if (entry.name) names.add(entry.name);
+                }
+            }
+            return Array.from(names);
+        }
+
+        _renderCalendarSelectWidget(row) {
+            const options = this._declaredCalendarNames();
+            if (row.value && !options.includes(row.value)) options.push(row.value);
+            const select = el('select', { className: 'fm-value-select' }, [
+                el('option', { value: '', text: '(unset — Standard)' }),
+                ...options.map(o => el('option', { value: o, text: o })),
+            ]);
+            select.value = row.value || '';
+            select.addEventListener('change', () => {
+                NoodleFrontMatter.setScalarValue(row, select.value);
+                this.commit();
+                this.updateSummary();
+            });
+            return select;
         }
 
         _renderTextWidget(row) {
@@ -444,12 +528,14 @@ const FrontMatterPanel = (function () {
         _renderListWidget(row, listKind, kindName) {
             const sourceLines = (row.dirty && row.childTexts) ? this._childTextsAsLines(row) : row.children;
             const entries = listKind.parse(sourceLines);
-            const wrap = el('div', { className: 'fm-list-widget' });
+            const wrap = el('div', { className: `fm-list-widget fm-list-${kindName}` });
             const fields = kindName === 'resource-list' ? ['shortName', 'description']
                 : kindName === 'dependency-list' ? ['from', 'task', 'to_task', 'type', 'lag']
+                : kindName === 'calendar-list' ? ['name', 'pattern', 'hours', 'exceptions']
                 : ['name', 'start', 'finish'];
             const labels = kindName === 'resource-list' ? { shortName: '@shortname', description: 'Description' }
                 : kindName === 'dependency-list' ? { from: 'From project', task: 'Source task', to_task: 'This task', type: 'Type', lag: 'Lag (days)' }
+                : kindName === 'calendar-list' ? { name: 'Name', pattern: 'Week pattern (Mon-Fri)', hours: 'Hours (HH:MM-HH:MM)', exceptions: 'Exceptions (Name: date[:date], …)' }
                 : { name: 'Name', start: 'Start (YYYY-MM-DD)', finish: 'Finish (optional)' };
 
             const commitEntries = () => {
@@ -469,7 +555,7 @@ const FrontMatterPanel = (function () {
                         entryEl.appendChild(input);
                     });
                     entryEl.appendChild(el('button', {
-                        className: 'fm-row-btn fm-row-remove', type: 'button', text: '✕', title: 'Remove entry',
+                        className: 'fm-row-btn fm-row-remove', type: 'button', text: '×', title: 'Remove entry', 'aria-label': 'Remove entry',
                         onclick: () => { entries.splice(idx, 1); commitEntries(); renderEntries(); },
                     }));
                     wrap.appendChild(entryEl);
@@ -493,14 +579,53 @@ const FrontMatterPanel = (function () {
             return (row.childTexts || []).map(t => ({ text: t, eol: '\n' }));
         }
 
-        _renderBlockRawWidget(row) {
-            const textarea = el('textarea', { className: 'fm-block-raw-textarea', spellcheck: 'false' });
-            textarea.value = (row.childTexts || row.children.map(c => c.text)).join('\n');
-            textarea.addEventListener('input', () => {
-                NoodleFrontMatter.setBlockChildTexts(row, textarea.value.split('\n'));
+        _renderBlockListWidget(row) {
+            const texts = (row.childTexts || row.children.map(c => c.text)).slice();
+            const wrap = el('div', { className: 'fm-block-list-widget' });
+
+            const splitLine = (text) => {
+                const match = /^(\s*(?:-\s*)?)(.*)$/.exec(text || '');
+                return { prefix: match ? match[1] : '', value: match ? match[2] : text };
+            };
+            const commitLines = () => {
+                NoodleFrontMatter.setBlockChildTexts(row, texts);
                 this.scheduleCommit();
-            });
-            return textarea;
+            };
+            const renderLines = () => {
+                wrap.innerHTML = '';
+                texts.forEach((text, index) => {
+                    const parts = splitLine(text);
+                    const line = el('div', { className: 'fm-block-line' });
+                    if (parts.prefix.includes('-')) {
+                        line.appendChild(el('span', { className: 'fm-block-bullet', text: '•', 'aria-hidden': 'true' }));
+                    }
+                    const input = el('input', { type: 'text', className: 'fm-block-line-input', 'aria-label': `${row.displayKey || row.key} item ${index + 1}` });
+                    input.value = parts.value;
+                    input.addEventListener('input', () => {
+                        texts[index] = parts.prefix + input.value;
+                        commitLines();
+                    });
+                    line.appendChild(input);
+                    line.appendChild(el('button', {
+                        className: 'fm-line-remove', type: 'button', text: '×', title: 'Remove item', 'aria-label': 'Remove item',
+                        onclick: () => { texts.splice(index, 1); commitLines(); renderLines(); },
+                    }));
+                    wrap.appendChild(line);
+                });
+                wrap.appendChild(el('button', {
+                    className: 'fm-add-line-btn', type: 'button', text: '+ Add item',
+                    onclick: () => {
+                        const previous = texts.length ? splitLine(texts[texts.length - 1]).prefix : '- ';
+                        texts.push(previous || '- ');
+                        commitLines();
+                        renderLines();
+                        const inputs = wrap.querySelectorAll('.fm-block-line-input');
+                        if (inputs.length) inputs[inputs.length - 1].focus();
+                    },
+                }));
+            };
+            renderLines();
+            return wrap;
         }
     }
 
@@ -522,5 +647,6 @@ const FrontMatterPanel = (function () {
     return {
         init,
         get instance() { return instance; },
+        revealCalendars() { return instance ? instance.revealCalendars() : null; },
     };
 })();

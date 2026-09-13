@@ -329,14 +329,14 @@
     color: #155724;
 }
 
-/* Month names row above day numbers */
-.gantt-month-row {
+/* Week commencing row above weekday initials in daily view */
+.gantt-week-row {
     display: flex;
     width: 100%;
     border-bottom: 1px solid var(--np-border);
 }
 
-.gantt-month-label {
+.gantt-week-label {
     border-right: 1px solid var(--np-border);
     padding: 4px 2px;
     text-align: center;
@@ -553,6 +553,22 @@
     top: 26px;
     z-index: 0;
     pointer-events: none;
+}
+
+/* Deadline slippage marker: a downward red arrow at the deadline date (#877).
+   Independent of the task bar -- a deadline never moves the schedule, it
+   only marks where it sits on the timeline. */
+.gantt-deadline-marker {
+    position: absolute;
+    top: -1px;
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 10px solid #e03131;
+    transform: translateX(-6px);
+    cursor: default;
+    z-index: 6;
 }
 
 /* Critical path highlighting */
@@ -1029,6 +1045,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    width: auto;
     border: 1px solid rgba(255, 255, 255, 0.10);
     background: rgba(30, 30, 30, 0.96);
     color: #f3f4f6;
@@ -1037,40 +1054,24 @@
     font-family: 'Courier New', monospace;
     font-size: 14px;
     line-height: 1.5;
+    text-align: left;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    pointer-events: none;
+    cursor: pointer;
+    pointer-events: auto;
 }
 
 .section-fold-header-row.is-expanded {
     background: rgba(45, 45, 45, 0.96);
 }
 
-.section-fold-header-btn {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    min-width: 28px;
-    border: none;
-    background: transparent;
-    color: #f3f4f6;
-    border-radius: 4px;
-    padding: 0;
-    font-family: 'Courier New', monospace;
-    font-size: 14px;
-    line-height: 1.5;
-    pointer-events: auto;
-}
-
-.section-fold-header-btn:hover,
-.section-fold-header-btn:focus-visible {
+.section-fold-header-row:hover,
+.section-fold-header-row:focus-visible {
     background: rgba(23, 42, 51, 0.98);
     outline: none;
 }
 
 .section-fold-chevron {
-    width: 12px;
+    width: 18px;
     text-align: center;
     color: #7dd3fc;
     flex: 0 0 auto;
@@ -1129,6 +1130,11 @@
 
 .syntax-date {
     color: #dcdcaa;
+}
+
+.syntax-deadline {
+    color: #f48771;
+    font-weight: 600;
 }
 
 .syntax-dependency {
@@ -1190,6 +1196,7 @@
    element, so this can never alter text, length, or caret position. */
 body.hl-off-duration .syntax-duration,
 body.hl-off-duration .syntax-date,
+body.hl-off-duration .syntax-deadline,
 body.hl-off-duration .syntax-effort,
 body.hl-off-duration .syntax-recurrence,
 body.hl-off-duration .syntax-lag-lead {

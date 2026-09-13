@@ -36,10 +36,11 @@ _EFFORT = re.compile(r'~(\d+(?:\.\d+)?)(h|d)(?:/(\d+(?:\.\d+)?)(h|d))?')
 _PERCENT = re.compile(r'(\d{1,3})%')
 _LEGACY_PERCENT = re.compile(r'\bp(\d{1,3})\b')
 _LEVELLED = re.compile(r'\[levelled\s+@?(\S+)\s+(\d{4}-\d{2}-\d{2})\s*\]', re.IGNORECASE)
+_DEADLINE = re.compile(r'\bD(\d{4}-\d{2}-\d{2})\b')
 _DATE = re.compile(r'(\d{4}-\d{2}-\d{2})')
 _DURATION = re.compile(r'(?<!~)(?<![~/])\b(\d+)([dwmy])\b')
 _LEGACY_DURATION = re.compile(r':p(\d+)d')
-_DESCRIPTION = re.compile(r"\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|\"|{|\[|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)")
+_DESCRIPTION = re.compile(r"\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|\"|{|\[|D\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)")
 _PERCENT_TOKEN = re.compile(r'\s*\b\d{1,3}%')
 
 
@@ -392,20 +393,32 @@ def extract_metadata(task_str, task_name=None):
         if total_hours > 0:
             meta['percent'] = max(0, min(100, round(completed_hours / total_hours * 100)))
 
+    # Extract deadline marker using D prefix: D2026-09-10. Unlike the plain
+    # start-date token below, a deadline never drives scheduling -- it's a
+    # fixed marker compared against the computed finish date later (see
+    # exporters.calculate_rag_status). The token is stripped from the string
+    # used for start-date/description extraction so its embedded YYYY-MM-DD
+    # isn't picked up twice and the leading "D" doesn't leak into the
+    # description.
+    task_str_for_dates = task_str
+    deadline_match = _DEADLINE.search(task_str)
+    if deadline_match:
+        meta['deadline'] = deadline_match.group(1)
+        task_str_for_dates = _DEADLINE.sub('', task_str_for_dates)
+
     # Extract resource levelling flag: [levelled @shortname YYYY-MM-DD]
     # The date inside the flag overrides any other start so the scheduler
     # honours the levelled start. The flag is stripped from the string
     # used for other date matching so the embedded YYYY-MM-DD isn't picked
     # up twice.
-    levelled_match = _LEVELLED.search(task_str)
-    task_str_for_dates = task_str
+    levelled_match = _LEVELLED.search(task_str_for_dates)
     if levelled_match:
         meta['levelled'] = {
             'resource': levelled_match.group(1).lstrip('@'),
             'start': levelled_match.group(2),
         }
         task_str_for_dates = (
-            task_str[:levelled_match.start()] + task_str[levelled_match.end():]
+            task_str_for_dates[:levelled_match.start()] + task_str_for_dates[levelled_match.end():]
         )
         meta['start'] = parse_date(levelled_match.group(2))
         meta['due'] = levelled_match.group(2)

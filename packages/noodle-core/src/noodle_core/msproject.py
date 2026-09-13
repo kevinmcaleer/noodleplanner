@@ -39,9 +39,10 @@ Field mapping:
     nesting level → OutlineLevel (both are 1-based)
 """
 
+import dataclasses
 import logging
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import datetime, time as _time, timedelta
 from typing import Optional
 from xml.dom import minidom
 
@@ -49,7 +50,16 @@ from .format_converter import convert_plan_format_to_standard
 from .scheduling_engine import (
     natural_language_to_yaml,
     parse_resource_mappings,
+    parse_resource_calendars,
     schedule_tasks,
+)
+from .front_matter_parser import FrontMatterParser
+from .calendar_model import (
+    Calendar,
+    CalendarFormatError,
+    STANDARD_CALENDAR,
+    ROTATION_EPOCH,
+    parse_calendar_entry,
 )
 
 logger = logging.getLogger(__name__)
@@ -266,6 +276,136 @@ def _resolve_predecessor_links(tasks: list, task_name_to_uid: dict):
     return links, dropped
 
 
+# ---------------------------------------------------------------------------
+# Calendar export (issue #1133): a NoodlePlanner Calendar -> one MSPDI
+# <Calendar>. Every declared calendar becomes its own independent base
+# calendar (IsBaseCalendar=1, BaseCalendarUID=-1) rather than a derived
+# calendar layered on Standard -- simpler, and NoodlePlanner calendars are
+# already self-contained (a week pattern plus its own exceptions), not
+# defined as deltas from another calendar the way MS Project's non-base
+# calendars are.
+# ---------------------------------------------------------------------------
+
+# MSPDI WeekDay/DayType: 1=Sunday .. 7=Saturday. Calendar.week_pattern uses
+# Python's date.weekday(): 0=Monday .. 6=Sunday.
+_MSP_DAYTYPE_TO_PY_WEEKDAY = {1: 6, 2: 0, 3: 1, 4: 2, 5: 3, 6: 4, 7: 5}
+
+
+def _write_working_times(day_el, hours):
+    """<WorkingTimes> for one working day: the calendar's own hours if set,
+    otherwise the same two-block day (08:00-12:00, 13:00-17:00) every
+    calendar defaulted to before named calendars existed."""
+    times_el = ET.SubElement(day_el, "WorkingTimes")
+    if hours:
+        start, end = hours
+        time_el = ET.SubElement(times_el, "WorkingTime")
+        ET.SubElement(time_el, "FromTime").text = start.strftime("%H:%M:%S")
+        ET.SubElement(time_el, "ToTime").text = end.strftime("%H:%M:%S")
+    else:
+        for from_time, to_time in (
+            (WORK_DAY_START, "12:00:00"),
+            ("13:00:00", WORK_DAY_FINISH),
+        ):
+            time_el = ET.SubElement(times_el, "WorkingTime")
+            ET.SubElement(time_el, "FromTime").text = from_time
+            ET.SubElement(time_el, "ToTime").text = to_time
+
+
+def _write_week_days(calendar_el, week_pattern_week, hours):
+    """<WeekDays> for one (non-rotating, or rotation week 0) week pattern."""
+    week_days_el = ET.SubElement(calendar_el, "WeekDays")
+    for day_type in range(1, 8):
+        working = _MSP_DAYTYPE_TO_PY_WEEKDAY[day_type] in week_pattern_week
+        day_el = ET.SubElement(week_days_el, "WeekDay")
+        ET.SubElement(day_el, "DayType").text = str(day_type)
+        ET.SubElement(day_el, "DayWorking").text = "1" if working else "0"
+        if working:
+            _write_working_times(day_el, hours)
+
+
+def _exception_date_ranges(exceptions):
+    """Consecutive dates merged into (start, end) ranges, so a multi-day
+    shutdown becomes one <Exception>, not one per day."""
+    ranges = []
+    for day in sorted(exceptions):
+        if ranges and ranges[-1][1] == day - timedelta(days=1):
+            ranges[-1] = (ranges[-1][0], day)
+        else:
+            ranges.append((day, day))
+    return ranges
+
+
+def _write_exceptions(calendar_el, exceptions):
+    if not exceptions:
+        return
+    exceptions_el = ET.SubElement(calendar_el, "Exceptions")
+    for start, end in _exception_date_ranges(exceptions):
+        exc_el = ET.SubElement(exceptions_el, "Exception")
+        period_el = ET.SubElement(exc_el, "TimePeriod")
+        ET.SubElement(period_el, "FromDate").text = f"{start.isoformat()}T00:00:00"
+        ET.SubElement(period_el, "ToDate").text = f"{end.isoformat()}T00:00:00"
+        ET.SubElement(exc_el, "DayWorking").text = "0"
+
+
+def _rotation_week_start(week_index, project_start_monday):
+    return project_start_monday + timedelta(weeks=week_index)
+
+
+def _write_work_weeks(calendar_el, calendar, project_start, project_finish):
+    """<WorkWeeks>: date-bounded overrides for rotation weeks after week 0.
+
+    MSPDI has no concept of an abstract, infinitely-repeating rotation --
+    WorkWeeks overrides are always bounded to real dates. Week 0 of the
+    rotation is already covered by the calendar's own <WeekDays>, so this
+    only needs to override weeks 1..N-1 of the cycle across the project's
+    actual scheduled span (with a one-cycle pad on each side so a task
+    starting right at the project boundary still lands in an overridden
+    week rather than silently falling back to week 0's pattern).
+    """
+    if len(calendar.week_pattern) <= 1:
+        return
+    if project_start is None or project_finish is None:
+        return
+
+    cycle_weeks = len(calendar.week_pattern)
+    epoch_monday = ROTATION_EPOCH
+    start_date = (project_start.date() if hasattr(project_start, "date") else project_start)
+    finish_date = (project_finish.date() if hasattr(project_finish, "date") else project_finish)
+
+    first_week_index = ((start_date - epoch_monday).days // 7) - cycle_weeks
+    last_week_index = ((finish_date - epoch_monday).days // 7) + cycle_weeks
+
+    work_weeks_el = ET.SubElement(calendar_el, "WorkWeeks")
+    for week_index in range(first_week_index, last_week_index + 1):
+        pattern_index = week_index % cycle_weeks
+        if pattern_index == 0:
+            continue  # already covered by the base WeekDays
+        week_start = epoch_monday + timedelta(weeks=week_index)
+        week_end = week_start + timedelta(days=6)
+
+        work_week_el = ET.SubElement(work_weeks_el, "WorkWeek")
+        period_el = ET.SubElement(work_week_el, "TimePeriod")
+        ET.SubElement(period_el, "FromDate").text = f"{week_start.isoformat()}T00:00:00"
+        ET.SubElement(period_el, "ToDate").text = f"{week_end.isoformat()}T00:00:00"
+        ET.SubElement(work_week_el, "Name").text = f"{calendar.name} (week {pattern_index + 1})"
+        for day_type in range(1, 8):
+            working = _MSP_DAYTYPE_TO_PY_WEEKDAY[day_type] in calendar.week_pattern[pattern_index]
+            day_el = ET.SubElement(work_week_el, "WeekDay")
+            ET.SubElement(day_el, "DayType").text = str(day_type)
+            ET.SubElement(day_el, "DayWorking").text = "1" if working else "0"
+
+
+def _write_calendar(calendars_el, uid, calendar, project_start, project_finish):
+    calendar_el = ET.SubElement(calendars_el, "Calendar")
+    ET.SubElement(calendar_el, "UID").text = str(uid)
+    ET.SubElement(calendar_el, "Name").text = calendar.name
+    ET.SubElement(calendar_el, "IsBaseCalendar").text = "1"
+    ET.SubElement(calendar_el, "BaseCalendarUID").text = "-1"
+    _write_week_days(calendar_el, calendar.week_pattern[0], calendar.hours)
+    _write_exceptions(calendar_el, calendar.exceptions)
+    _write_work_weeks(calendar_el, calendar, project_start, project_finish)
+
+
 def export_to_msproject_xml(
     plan_text: str,
     output_path: str,
@@ -281,6 +421,14 @@ def export_to_msproject_xml(
     converted = convert_plan_format_to_standard(plan_text)
     resource_map, _ = parse_resource_mappings(plan_text)
 
+    fm_parser = FrontMatterParser(plan_text)
+    calendars_by_name = fm_parser.parse_calendars()
+    active_calendar = fm_parser.active_calendar()
+    resource_calendars = fm_parser.resource_calendars()
+    calendar_uid_map = {
+        name: uid for uid, name in enumerate(sorted(calendars_by_name), start=1)
+    }
+
     yaml_data = natural_language_to_yaml(converted, project_name)
     phases_raw = yaml_data[project_name]
 
@@ -291,7 +439,13 @@ def export_to_msproject_xml(
     else:
         phases = []
 
-    tasks = schedule_tasks(phases)
+    tasks = schedule_tasks(
+        phases,
+        holidays=fm_parser.parse_non_working_days(),
+        resource_non_working_days=fm_parser.parse_resource_non_working_days(),
+        calendar=active_calendar,
+        resource_calendars=resource_calendars,
+    )
 
     # Build XML document.
     #
@@ -325,7 +479,7 @@ def export_to_msproject_xml(
     ET.SubElement(root, "CurrencySymbol").text = "$"
     # CurrencyCode is one of only two elements the schema marks as required.
     ET.SubElement(root, "CurrencyCode").text = "USD"
-    ET.SubElement(root, "CalendarUID").text = "1"
+    ET.SubElement(root, "CalendarUID").text = str(calendar_uid_map[active_calendar.name])
     ET.SubElement(root, "DefaultStartTime").text = WORK_DAY_START
     ET.SubElement(root, "DefaultFinishTime").text = WORK_DAY_FINISH
     ET.SubElement(root, "MinutesPerDay").text = str(MINUTES_PER_DAY)
@@ -333,31 +487,28 @@ def export_to_msproject_xml(
     ET.SubElement(root, "DaysPerMonth").text = "20"
     ET.SubElement(root, "CurrentDate").text = _at_work_start(datetime.now())
 
-    # Calendar (standard working calendar)
-    calendars = ET.SubElement(root, "Calendars")
-    calendar = ET.SubElement(calendars, "Calendar")
-    ET.SubElement(calendar, "UID").text = "1"
-    ET.SubElement(calendar, "Name").text = "Standard"
-    ET.SubElement(calendar, "IsBaseCalendar").text = "1"
-    ET.SubElement(calendar, "BaseCalendarUID").text = "-1"
+    # Calendars (issue #1133): every calendar the plan declares becomes its
+    # own MSPDI base calendar. Without real working times MS Project cannot
+    # reconcile a task's Start, Finish and Duration and reschedules
+    # everything, so every calendar gets a full WeekDays block.
+    # Project-wide non-working-days/holidays apply to every calendar
+    # regardless of which one a task or resource uses (schedule_tasks layers
+    # them onto whichever calendar governs a task the same way) -- so MS
+    # Project needs to see them on every exported calendar too, or it would
+    # schedule straight through a declared shutdown its own engine wouldn't.
+    project_holidays = fm_parser.parse_non_working_days()
+    calendars_for_export = calendars_by_name
+    if project_holidays:
+        calendars_for_export = {
+            name: dataclasses.replace(cal, exceptions=cal.exceptions | project_holidays)
+            for name, cal in calendars_by_name.items()
+        }
 
-    # DayType 1=Sunday .. 7=Saturday.  Without working times MS Project cannot
-    # reconcile a task's Start, Finish and Duration and reschedules everything.
-    week_days_el = ET.SubElement(calendar, "WeekDays")
-    for day_type in range(1, 8):
-        working = 2 <= day_type <= 6  # Monday to Friday
-        day_el = ET.SubElement(week_days_el, "WeekDay")
-        ET.SubElement(day_el, "DayType").text = str(day_type)
-        ET.SubElement(day_el, "DayWorking").text = "1" if working else "0"
-        if working:
-            times_el = ET.SubElement(day_el, "WorkingTimes")
-            for from_time, to_time in (
-                (WORK_DAY_START, "12:00:00"),
-                ("13:00:00", WORK_DAY_FINISH),
-            ):
-                time_el = ET.SubElement(times_el, "WorkingTime")
-                ET.SubElement(time_el, "FromTime").text = from_time
-                ET.SubElement(time_el, "ToTime").text = to_time
+    calendars_el = ET.SubElement(root, "Calendars")
+    for name, uid in sorted(calendar_uid_map.items(), key=lambda kv: kv[1]):
+        _write_calendar(
+            calendars_el, uid, calendars_for_export[name], project_start, project_finish
+        )
 
     # Collect unique resources.  Lookups are case-insensitive, so fold on the
     # lowercased name and keep one display name per resource — otherwise
@@ -502,6 +653,11 @@ def export_to_msproject_xml(
         display_name = resource_map.get(key, resource_names[key])
         ET.SubElement(res_el, "Name").text = display_name
         ET.SubElement(res_el, "Type").text = "1"  # 1 = work resource
+        resource_calendar = resource_calendars.get(key)
+        if resource_calendar:
+            ET.SubElement(res_el, "CalendarUID").text = str(
+                calendar_uid_map[resource_calendar.name]
+            )
 
     # Write Assignments section.  Each assignment mirrors its task's dates
     # and work; an assignment with no dates of its own is what made MS
@@ -578,6 +734,122 @@ def _parse_iso8601_duration(duration_str: str) -> int:
     return 1
 
 
+def _parse_msp_time(text):
+    """"HH:MM:SS" -> datetime.time, or None."""
+    if not text:
+        return None
+    try:
+        parts = [int(p) for p in text.split(":")]
+        return _time(parts[0], parts[1] if len(parts) > 1 else 0)
+    except (ValueError, IndexError):
+        return None
+
+
+def _parse_msp_date(text):
+    """"YYYY-MM-DDTHH:MM:SS" (or just the date part) -> datetime.date, or None."""
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text).date()
+    except ValueError:
+        return None
+
+
+def _import_calendars(root, ns, find, findall, find_text):
+    """<Calendars> -> {uid: Calendar} (issue #1133).
+
+    WorkWeeks (a rotation override -- see ``_write_work_weeks``) is
+    reconstructed as a two-week ``[base; override]`` rotation only when
+    every ``WorkWeek`` block in the calendar shares one identical working-day
+    pattern -- exactly what this module's own export produces for a two-week
+    rotation. A calendar with irregular, varying WorkWeek overrides (plans
+    hand-authored in MS Project, not exported by us) falls back to its plain
+    ``WeekDays`` pattern rather than guessing at a cycle NoodlePlanner's
+    calendar model may not even be able to represent.
+    """
+    calendars_by_uid = {}
+    calendars_el = find(root, "Calendars")
+    if calendars_el is None:
+        return calendars_by_uid
+
+    default_hours = (_parse_msp_time(WORK_DAY_START), _parse_msp_time(WORK_DAY_FINISH))
+
+    for cal_el in findall(calendars_el, "Calendar"):
+        uid = find_text(cal_el, "UID")
+        name = find_text(cal_el, "Name") or (f"Calendar {uid}" if uid else "")
+        if not uid or not name:
+            continue
+
+        base_week = set()
+        hours = None
+        week_days_el = find(cal_el, "WeekDays")
+        if week_days_el is not None:
+            for wd_el in findall(week_days_el, "WeekDay"):
+                day_type = find_text(wd_el, "DayType")
+                if not day_type.isdigit():
+                    continue
+                py_weekday = _MSP_DAYTYPE_TO_PY_WEEKDAY.get(int(day_type))
+                if py_weekday is None or find_text(wd_el, "DayWorking") != "1":
+                    continue
+                base_week.add(py_weekday)
+                if hours is None:
+                    times_el = find(wd_el, "WorkingTimes")
+                    wt_els = findall(times_el, "WorkingTime") if times_el is not None else []
+                    # Two blocks is the lunch-split default every calendar
+                    # without its own `hours` gets written with (see
+                    # _write_working_times) -- NoodlePlanner's calendar model
+                    # only has one contiguous window, so that shape means "no
+                    # custom hours" regardless of the exact times, not a
+                    # genuine single-block override.
+                    if len(wt_els) == 1:
+                        start = _parse_msp_time(find_text(wt_els[0], "FromTime"))
+                        end = _parse_msp_time(find_text(wt_els[0], "ToTime"))
+                        if start and end and (start, end) != default_hours:
+                            hours = (start, end)
+        if not base_week:
+            base_week = set(STANDARD_CALENDAR.week_pattern[0])
+
+        exceptions = set()
+        exceptions_el = find(cal_el, "Exceptions")
+        if exceptions_el is not None:
+            for exc_el in findall(exceptions_el, "Exception"):
+                period_el = find(exc_el, "TimePeriod")
+                if period_el is None:
+                    continue
+                start = _parse_msp_date(find_text(period_el, "FromDate"))
+                end = _parse_msp_date(find_text(period_el, "ToDate")) or start
+                if not start:
+                    continue
+                current = start
+                while current <= end:
+                    exceptions.add(current)
+                    current += timedelta(days=1)
+
+        week_pattern = [base_week]
+        work_weeks_el = find(cal_el, "WorkWeeks")
+        if work_weeks_el is not None:
+            override_patterns = set()
+            for ww_el in findall(work_weeks_el, "WorkWeek"):
+                pattern = set()
+                for wd_el in findall(ww_el, "WeekDay"):
+                    day_type = find_text(wd_el, "DayType")
+                    if not day_type.isdigit():
+                        continue
+                    py_weekday = _MSP_DAYTYPE_TO_PY_WEEKDAY.get(int(day_type))
+                    if py_weekday is not None and find_text(wd_el, "DayWorking") == "1":
+                        pattern.add(py_weekday)
+                if pattern:
+                    override_patterns.add(frozenset(pattern))
+            if len(override_patterns) == 1:
+                week_pattern.append(set(next(iter(override_patterns))))
+
+        calendars_by_uid[uid] = Calendar(
+            name=name, week_pattern=week_pattern, hours=hours, exceptions=exceptions,
+        )
+
+    return calendars_by_uid
+
+
 def import_from_msproject_xml(xml_content: str) -> str:
     """Import an MS Project XML file and convert to NoodlePlanner markdown.
 
@@ -621,6 +893,29 @@ def import_from_msproject_xml(xml_content: str) -> str:
             if uid and name:
                 resource_map[uid] = name
 
+    # Calendars (issue #1133). Only surfaced as front matter when there is
+    # something to say: a single calendar named "Standard" with the plain
+    # implicit Mon-Fri pattern is exactly what a plan with no calendars: at
+    # all already schedules against, so writing it out would just be front
+    # matter for nothing on every import of a calendar-less file.
+    calendars_by_uid = _import_calendars(root, ns, find, findall, find_text)
+    active_calendar_obj = calendars_by_uid.get(find_text(root, "CalendarUID"))
+    only_calendar_is_default = len(calendars_by_uid) <= 1 and all(
+        cal == STANDARD_CALENDAR for cal in calendars_by_uid.values()
+    )
+
+    # A resource's own CalendarUID (issue #1136), when it names a calendar
+    # we actually parsed -- shortname matches whatever the task @mentions
+    # below derive from the same resource_map entry (first word of the
+    # full name), so the two agree.
+    resource_calendar_names = {}
+    if resources_el is not None and not only_calendar_is_default:
+        for res in findall(resources_el, "Resource"):
+            uid = find_text(res, "UID")
+            cal_uid = find_text(res, "CalendarUID")
+            if uid in resource_map and cal_uid in calendars_by_uid:
+                resource_calendar_names[uid] = calendars_by_uid[cal_uid].name
+
     # Build task UID → assigned resource shortnames map
     task_resources = {}
     assignments_el = find(root, "Assignments")
@@ -647,6 +942,19 @@ def import_from_msproject_xml(xml_content: str) -> str:
     lines = []
     lines.append(f"---")
     lines.append(f"title: {project_name}")
+    if not only_calendar_is_default:
+        if active_calendar_obj:
+            lines.append(f"calendar: {active_calendar_obj.name}")
+        if calendars_by_uid:
+            lines.append("calendars:")
+            for cal in calendars_by_uid.values():
+                lines.append(f"  {cal.to_front_matter_line()}")
+    if resource_calendar_names:
+        lines.append("Resources:")
+        for uid, cal_name in resource_calendar_names.items():
+            full_name = resource_map[uid]
+            shortname = full_name.split()[0] if full_name else uid
+            lines.append(f"- @{shortname}: {full_name} calendar {cal_name}")
     lines.append(f"---")
     lines.append("")
 
