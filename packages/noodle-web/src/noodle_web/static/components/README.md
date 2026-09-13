@@ -28,17 +28,46 @@ switches `data-theme` so components preview in both themes.
 
 ## Using a component in the app
 
-Nothing under `static/components/` is wired into the live app yet — this
-is a pilot (`components/button/`) proving the extraction pattern, not a
-migration. To use one:
+Nothing under `static/components/` is wired into the live app yet — these
+are pilots proving the extraction pattern, not a migration. To use one:
 
 ```html
 <script type="module" src="/static/components/button/np-button.js"></script>
 <np-button variant="primary">Save</np-button>
+
+<script type="module" src="/static/components/card/np-card.js"></script>
+<np-card title="Design the onboarding flow" duration="3 days"
+         resources="AB,CD" tags="UX, Design" percent="40"></np-card>
+
+<script type="module" src="/static/components/board/np-board.js"></script>
+<np-board></np-board>
+<script type="module">
+  document.querySelector('np-board').columns = [
+    { title: 'To Do', cards: [{ title: 'Plan the sprint' }] },
+    { title: 'In Progress', colour: '#108BB9', cards: [] },
+  ];
+</script>
+
+<script type="module" src="/static/components/note/np-note.js"></script>
+<np-note title="Launch checklist" colour="#EDB52A" progress="1/3"
+         avatars="AB,CD"></np-note>
+<script type="module">
+  document.querySelector('np-note').rows = [
+    { name: 'Draft copy', done: true },
+    { name: 'Review with legal', done: false },
+  ];
+</script>
 ```
 
-Swapping the ~130 existing `.btn-primary` / `.btn-secondary` / `.btn-danger`
-usages across `templates/index.html` and the view CSS over to `<np-button>`
-is deliberately out of scope here — see the "Storybook" section of
-`docs/design/consolidation-and-handoff.md` for the state of that work and
-what extracting the next component should look like.
+`<np-board>` composes `<np-card>` internally for each column's cards, the
+same relationship `.kanban-board` / `.kanban-card` have in
+`static/views/kanban.css` and `static/kanban-board.js`. `<np-note>`
+extracts `.wb-note-card` from `static/views/whiteboard.css` /
+`static/whiteboard-notes.js` — the whiteboard's post-it note, including
+its `title-only` (zoomed-out) and `freeform` (no checklist) variants.
+
+Swapping the existing `.btn-primary` / `.kanban-card` / `.wb-note-card`
+usages across `templates/index.html` and the view CSS over to these
+components is deliberately out of scope here — see the "Storybook" section
+of `docs/design/consolidation-and-handoff.md` for the state of that work
+and what extracting the next component should look like.
