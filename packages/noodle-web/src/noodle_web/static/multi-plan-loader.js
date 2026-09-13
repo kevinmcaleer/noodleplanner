@@ -116,6 +116,10 @@ async function loadProjectIntoEditor(projectId) {
         if (planEditor._updateFrontMatterPanel) {
             planEditor._updateFrontMatterPanel();
         }
+        // Same reasoning for the back-matter panel (#1203).
+        if (planEditor._updateBackMatterPanel) {
+            planEditor._updateBackMatterPanel();
+        }
     }
 
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
