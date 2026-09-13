@@ -1,5 +1,5 @@
 /**
- * <np-button> — pilot component module (issue: Storybook extraction).
+ * <np-button> — pilot component module (issue #1193: standardise components).
  *
  * Consolidates the app's four independently-styled `.btn-primary` /
  * `.btn-secondary` / `.btn-danger` rules (base `components.css`, plus
@@ -14,19 +14,42 @@
  *   <script type="module" src="/static/components/button/np-button.js"></script>
  *   <np-button variant="primary">Save</np-button>
  *   <np-button variant="danger" size="small" disabled>Delete</np-button>
+ *   <np-button variant="danger" outline>Remove</np-button>
+ *   <np-button variant="neutral">Back</np-button>
+ *
+ * Two independent axes cover the standardisation candidates found by
+ * auditing the app's 131 `*btn*` classes (docs/design/standardisation-backlog.md,
+ * issue #1193):
+ *
+ * - `variant` ("primary" | "secondary" | "neutral" | "danger" | "link",
+ *   default "primary") is the colour/tone axis.
+ *   - "neutral" is new: a plain bordered/transparent button with no accent
+ *     colour, for a "Back"/"Skip" role. It's what `.plan-wizard-back-btn`
+ *     and `.plan-wizard-skip-btn` actually are — proof: with the tokens
+ *     applied, the two are byte-identical to each other and only ever
+ *     differed from `.plan-wizard-next-btn` (→ `variant="primary"`) by
+ *     colour, never shape.
+ * - `outline` (boolean, default off) renders `variant="primary"` or
+ *   `variant="danger"` as a transparent/bordered button in that colour
+ *   instead of filled — this is what the audit found `.status-bar-fix-btn`
+ *   and the app's own Bootstrap `.btn-outline-primary` / `.btn-outline-secondary`
+ *   classes already reach for by hand. It has no additional effect on
+ *   "secondary" (already border-forward), "neutral" or "link".
  *
  * `size` ("small" | "medium" | "large", default "medium") maps onto the
  * padding/font-size pairs already in use for compact buttons across the app
  * (`.btn-sm` / `.btn-small`: 6-14px padding, 0.85em) plus a matching large
  * step; there was no existing "large" button to match against, so its
- * values are extrapolated from the same scale.
+ * values are extrapolated from the same scale. Font size and weight step
+ * together with size rather than as a separate control: every family in the
+ * audit that varied type also varied size in lockstep, never independently.
  *
  * A click on the internal <button> is a real DOM click event, composed
  * across the shadow boundary, so existing code can listen on the host
  * element exactly as it would on a plain <button>.
  */
 
-const VARIANTS = new Set(['primary', 'secondary', 'danger', 'link']);
+const VARIANTS = new Set(['primary', 'secondary', 'neutral', 'danger', 'link']);
 const SIZES = new Set(['small', 'medium', 'large']);
 
 const TEMPLATE = document.createElement('template');
@@ -93,6 +116,15 @@ TEMPLATE.innerHTML = `
       background: var(--np-accent-tint, #FBEFCE);
     }
 
+    :host([variant='neutral']) button {
+      background: transparent;
+      color: var(--np-text-secondary, #666666);
+      border-color: var(--np-border-control, var(--np-border, #dee2e6));
+    }
+    :host([variant='neutral']) button:not(:disabled):hover {
+      background: var(--np-bg-hover, #f0f1f4);
+    }
+
     :host([variant='danger']) button {
       background: var(--np-danger, #C21D1D);
       color: #fff;
@@ -100,6 +132,30 @@ TEMPLATE.innerHTML = `
     :host([variant='danger']) button:not(:disabled):hover {
       background: var(--np-danger-hover, #a01717);
       transform: translateY(-1px);
+    }
+
+    /* outline flips a filled tone (primary/danger) to transparent +
+       coloured border/text. Secondary and neutral are already
+       border-forward, so this attribute has nothing to add there. */
+    :host([variant='primary'][outline]) button {
+      background: transparent;
+      color: var(--np-accent-ink, var(--np-accent, #EDB52A));
+      border-color: var(--np-accent, #EDB52A);
+    }
+    :host([variant='primary'][outline]) button:not(:disabled):hover {
+      background: var(--np-accent-tint, #FBEFCE);
+      transform: none;
+    }
+
+    :host([variant='danger'][outline]) button {
+      background: transparent;
+      color: var(--np-danger, #C21D1D);
+      border-color: var(--np-danger, #C21D1D);
+    }
+    :host([variant='danger'][outline]) button:not(:disabled):hover {
+      background: var(--np-danger, #C21D1D);
+      color: #fff;
+      transform: none;
     }
 
     :host([variant='link']) {
@@ -175,6 +231,14 @@ export class NpButton extends HTMLElement {
 
   set disabled(value) {
     this.toggleAttribute('disabled', Boolean(value));
+  }
+
+  get outline() {
+    return this.hasAttribute('outline');
+  }
+
+  set outline(value) {
+    this.toggleAttribute('outline', Boolean(value));
   }
 
   _syncDisabled() {

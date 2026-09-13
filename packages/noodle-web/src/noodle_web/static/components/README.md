@@ -34,6 +34,8 @@ are pilots proving the extraction pattern, not a migration. To use one:
 ```html
 <script type="module" src="/static/components/button/np-button.js"></script>
 <np-button variant="primary" size="small">Save</np-button>
+<np-button variant="neutral">Back</np-button>
+<np-button variant="danger" outline>Remove</np-button>
 
 <script type="module" src="/static/components/card/np-card.js"></script>
 <np-card title="Design the onboarding flow" duration="3 days"
