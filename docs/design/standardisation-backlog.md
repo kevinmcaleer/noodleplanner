@@ -195,7 +195,7 @@ forms, 3 wizard steps, 2 standalone forms.
 | | # | Item | Issue |
 |---|---|---|---|
 | ✅ | 4.1 | Adopt the spacing scale — 1,358 of 1,606 declarations now use a token, and 5 off-grid values remain | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
-| ☐ | 4.2 | Migrate the 33 colour-carrying inline `style=""` attributes in the templates | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ◐ | 4.2 | Migrate the colour-carrying inline `style=""` attributes in the templates | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ☐ | 4.3 | Migrate static colour literals in JS-generated markup (214 lines, 22 files), leaving genuinely dynamic colour alone | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ✅ | 4.4 | Penpot screen audit board | [#1196](https://github.com/kevinmcaleer/noodleplanner/issues/1196) |
 | ✅ | 4.5 | Recover the 54 components stranded in the unlinked `style.css` | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
@@ -254,6 +254,59 @@ The 5 that remain are the ones that should: `padding: 330px 20px 200px` on the
 welcome screen and `padding: 250px 0 150px` on the timeline wrapper are
 vertical-centring constants, and `margin-left: -6px` / `-5px` are the negative
 overlap that stacks resource avatars.
+
+**4.2 is partly done.** `index.html`'s inline `style=""` attributes carried two
+different classes of problem, and only the first is finished.
+
+*Six unconditional dividers/labels* — `border-top`/`border-bottom: 1px solid
+#dee2e6` (6 uses) and `color: #666` (6 uses) — didn't follow the theme: a
+divider or muted label rendered dark-grey-on-white stays exactly that colour
+in dark theme, landing dark-on-dark. Mapped onto `var(--np-border)` and
+`var(--np-faint)` under the same rule `adopt-neutral-colours.mjs` already uses
+for CSS (literal within 1.1:1 of the token in the light theme, and the token's
+role matches the property). One more, `background: #f8f9fa` on the kanban
+breadcrumb, went to `var(--np-paper)` the same way.
+
+*Six `color: white` overrides were a real bug, not a style question.* Five
+modal/detail-pane `<h2>` titles ("Add/Edit Resource", "Project Settings",
+"Version History", "Conditional Formatting", "Task Inspector") and the
+`#projectTitle` input hardcoded white text from when `.modal-header` had a
+dark accent background. #998 moved `.modal-header`/`.detail-pane-header` onto
+`--np-surface-alt` (light cream in light theme) but these six never got the
+matching text-colour update, so they rendered white-on-cream — close to
+invisible — in light theme. Every *other* modal header (23 of 28, with no
+inline override) already renders correctly, which is what made this a bug to
+fix rather than a design call: removing the six overrides (plus a
+`#projectTitle { color: white; }` ID-selector rule and a
+`.modal-header input { color: white !important; }` rule, both stale for the
+same reason) lets the existing `--np-ink` cascade every other header already
+uses take over. Verified with `getComputedStyle` in both themes across all six
+elements.
+
+**Fixing a regression the fix itself surfaced.** Re-running
+`scripts/check_rendered_contrast.py` against `ci/rendered-contrast-baseline.json`
+to confirm the above didn't introduce a new failure caught one from the
+earlier band-2 colour merge instead: `#1971c2`-on-`#e7f5ff` (kanban's
+duration badge and dependency label) measured 4.52:1 before band 2, and
+merged into that cluster's winner, `#1976d2`-on-`#e3f2fd`, at 4.03:1 — both
+colours nudged the same direction by a ΔE2000-tolerance merge, closing a gap
+that was already tight. ΔE tells you a colour looks the same in isolation; it
+says nothing about a *pairing*'s contrast ratio. Reverted those two
+declarations and excluded the pair from `consolidate-tokens.mjs` so a future
+re-run won't reintroduce it. The baseline is down 54 → 53 (the header fix
+resolved one of the pre-existing failures) with zero new ones.
+
+**What's left in 4.2**: two "tip box" callouts with a fixed dark background
+(`background: #3a3a3a`/`#2a2a2a` with a coloured left border, in the AI chat
+and lessons prompts) and a third using `rgba(111, 66, 193, 0.08)` the same
+way; three form fields (`taskPriority`, `taskBucket`, `taskComment`) that
+hardcode `background: white; color: black` and are missing the `form-control`
+class their sibling fields have; a decorative accent border
+(`#667eea`), a disabled-input background (`#f0f0f0`), and a semantic danger
+button's red text/border (`#d9534f`). Each needs the same "does this element's
+background flip with the theme" judgement as the raw-colour backlog below,
+and the form-field one needs visual verification against real form state
+before touching it — neither was done here rather than guessed at.
 
 ## Governance — runs alongside, from the end of band 1
 
