@@ -74,9 +74,9 @@ jobs:
     name: pytest (ui)
     runs-on: ubuntu-latest
     # A real gate, unlike `usability` below, because it is fast enough to block
-    # on and green enough to mean something. The three ported files take ~9m54s
-    # under Selenium and ~25s here; see tests/ui/README.md for where the
-    # difference comes from and what is left to port.
+    # on and green enough to mean something. On this runner the three ported
+    # files cost ~135.7s under Selenium and ~43.5s here; see tests/ui/README.md
+    # for where the difference comes from and what is left to port.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

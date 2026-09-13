@@ -14,16 +14,38 @@ uv run pytest tests/ui -q -n auto      # ~2x faster again on 4 cores
 
 The Selenium suite takes about 18 minutes, which is long enough that nobody
 runs it while developing — it lives in its own `continue-on-error` CI job and
-gets looked at afterwards, if at all. The ported files run in about a minute,
-or 25 seconds in parallel. Measured on the same machine, same assertions:
+gets looked at afterwards, if at all.
 
-| File | Selenium | Playwright | |
-|---|---:|---:|---:|
-| `test_settings_panel.py` (9 tests) | 119.6s | 6.2s | 19x |
-| `test_visual_system.py` (8 tests) | 115.0s | 22.0s | 5.2x |
-| `test_task_peek.py` (20/21 tests) | 359.8s | 41.0s | 8.8x |
-| **total** | **9m 54s** | **1m 08s** | **8.8x** |
-| **total, `-n 4`** | | **25.1s** | **24x** |
+**On CI**, where the third-party CDNs resolve normally, these three files cost
+135.7s under Selenium and 43.5s here. That figure is by subtraction of two
+`pytest (usability)` runs on the same runner class: 1122.6s for 263 tests on
+`main`, 986.9s for the 226 that remain once these three are removed. Per test,
+Selenium averages 4.27s across the whole suite and 4.37s across what is left of
+it, so the arithmetic is stable.
+
+| | CI, 2-core runner |
+|---|---:|
+| three files, Selenium | 135.7s |
+| three files, Playwright, `-n auto` | **43.5s** |
+| | **3.1x** |
+
+Per test that is 3.67s → 1.14s wall clock, or → ~2.29s if you take the
+parallelism back out. Extrapolated across all thirteen files, a full port
+should put the 18m 42s suite somewhere around **6 minutes** on a 2-core CI
+runner, and well under two on a developer machine with more cores.
+
+**Locally the gap looks far larger, and that number is not representative.**
+On a sandboxed machine that cannot reach `cdn.jsdelivr.net` at all, the same
+three files are 9m 54s under Selenium against 1m 08s here (25.1s with `-n 4`) —
+an 8.8x that is really measuring a 12.5s connect timeout on every page load.
+It is a fair picture of a bad network and a misleading one of a good one. Quote
+the CI numbers.
+
+What is unambiguous either way is the edit loop, which is the point of the
+exercise: one file, locally, is **6.2s** for `test_settings_panel.py`, 22.0s for
+`test_visual_system.py`, 41.0s for `test_task_peek.py`. Their Selenium
+equivalents cannot get near that, because each one launches its own Chrome and
+its own uvicorn before running anything.
 
 ## Where the time actually went
 
@@ -46,7 +68,9 @@ never touches the network.
 
 That 12.5s figure is specific to a machine where the CDN is unreachable; a CI
 runner with working DNS pays real latency instead, less per load but still on
-every load. Either way the fix is the same and the floor is a local-only page.
+every load — which is exactly why the CI speedup (3.1x) is so much smaller than
+the local one (8.8x). Either way the fix is the same and the floor is a
+local-only page.
 
 The other three wins, in rough order of size:
 
