@@ -349,3 +349,22 @@ svg.icon {
 .nav-menu-item.active:hover {
     background: var(--np-bg-hover, #d4e5fc);
 }
+
+/* Project breadcrumb in the header. Recovered from static/style.css, which
+   #571 stopped linking -- see the note in components.css. */
+.project-breadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--np-space-4);
+    margin-left: var(--np-space-4);
+    font-size: var(--np-text-85);
+    color: var(--np-muted);
+}
+.breadcrumb-project-name {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--np-body);
+    font-weight: var(--np-weight-medium);
+}

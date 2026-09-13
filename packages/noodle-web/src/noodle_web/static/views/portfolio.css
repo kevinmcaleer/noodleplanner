@@ -2385,3 +2385,11 @@
     }
 }
 
+
+/* Recovered from static/style.css, which #571 stopped linking -- see the
+   note in components.css. */
+.portfolio-scope-label {
+    margin: 0 0 var(--np-space-16) 0;
+    color: var(--np-muted);
+    font-size: var(--np-text-95);
+}

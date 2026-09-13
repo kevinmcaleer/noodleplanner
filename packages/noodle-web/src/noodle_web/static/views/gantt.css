@@ -1243,6 +1243,39 @@ body.hl-off-dependency .syntax-star {
     font-style: italic;
 }
 
+/* Front-matter / YAML highlighting. Recovered from static/style.css, which
+   #571 stopped linking -- see the note in components.css -- so the editor has
+   been rendering YAML front matter as undifferentiated body text since.
+
+   Left on the raw VS Code Dark+ values rather than tokenised, deliberately:
+   these are six members of a 30-rule syntax theme whose other 24 rules use the
+   same literals a few lines above, and the editor surface is dark in both app
+   themes. Tokenising this palette is worth doing as a set, not piecemeal. */
+.syntax-frontmatter-delimiter {
+    color: #569cd6;
+    font-weight: 600;
+}
+
+.syntax-frontmatter {
+    color: #808080;
+}
+
+.syntax-yaml-key {
+    color: #569cd6;
+}
+
+.syntax-yaml-colon {
+    color: #808080;
+}
+
+.syntax-yaml-value {
+    color: #ce9178;
+}
+
+.syntax-yaml-list {
+    color: #808080;
+}
+
 .line-numbers {
     background: #2d2d2d;
     color: #858585;
@@ -1711,4 +1744,62 @@ input[type="checkbox"] {
 .gantt-info-table tbody tr.drag-over-below,
 .tasks-table tbody tr.drag-over-below {
     border-bottom: 2px solid var(--np-accent);
+}
+
+/* Baseline dialog (issue #1112): create/list/clear/delete baselines.
+   Recovered from static/style.css, which #571 stopped linking -- see the
+   note in components.css. */
+.gantt-manage-baselines-btn {
+    align-self: center;
+}
+.baseline-history-list {
+    max-height: 320px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--np-space-8);
+}
+.baseline-dialog-empty {
+    color: var(--np-muted);
+    font-style: italic;
+    padding: var(--np-space-12) 0;
+}
+.baseline-history-row-active {
+    border-color: var(--np-sage);
+    background: var(--np-sage-tint);
+}
+.baseline-history-info {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-8);
+    flex-wrap: wrap;
+    min-width: 0;
+}
+.baseline-history-name {
+    font-weight: var(--np-weight-semibold);
+    overflow-wrap: anywhere;
+}
+.baseline-active-badge {
+    background: var(--np-sage-tint);
+    color: var(--np-sage-ink);
+    font-size: var(--np-text-75);
+    font-weight: var(--np-weight-semibold);
+    padding: var(--np-space-2) var(--np-space-8);
+    border-radius: var(--np-radius-pill);
+    white-space: nowrap;
+}
+.baseline-history-date {
+    color: var(--np-muted);
+    font-size: var(--np-text-85);
+    white-space: nowrap;
+}
+.baseline-history-actions {
+    display: flex;
+    gap: var(--np-space-8);
+    flex-shrink: 0;
+}
+.baseline-history-actions button {
+    padding: var(--np-space-8) var(--np-space-12);
+    min-height: 36px;
+    white-space: nowrap;
 }

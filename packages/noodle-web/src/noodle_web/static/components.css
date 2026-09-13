@@ -8208,3 +8208,296 @@ button.ribbon-breadcrumb-rung:hover {
     color: #fff;
     transform: none;
 }
+
+/* ============================================================================
+   Recovered from static/style.css (#1194)
+
+   #571 split the monolithic style.css into the modular stylesheets and
+   switched index.html over to loading them, but these rules were left behind.
+   Nothing links style.css any more -- tests/test_collab_session.py asserts
+   that -- so every component below has been rendering unstyled in the live
+   app since that split: a progress toast with no position, a suggestion bar
+   with no border, a table with no cell padding.
+
+   Because there was no styling to regress, these are tokenised to the #1191
+   scales rather than ported verbatim; the original raw values are in
+   style.css's history if a comparison is ever needed.
+   ============================================================================ */
+
+/* Progress toast: a persistent toast with a status line and progress bar,
+   for long-running operations (e.g. portfolio PowerPoint export) that run
+   off the main thread and report progress back as they go. */
+.progress-toast {
+    position: fixed;
+    top: var(--np-space-16);
+    left: 50%;
+    transform: translateX(-50%) translateY(-60px);
+    min-width: 280px;
+    max-width: 420px;
+    padding: var(--np-space-12) var(--np-space-20);
+    border-radius: var(--np-radius-lg);
+    font-size: var(--np-text-85);
+    z-index: 10000;
+    opacity: 0;
+    background: var(--np-surface);
+    color: var(--np-ink);
+    border: 1px solid var(--np-border);
+    transition: opacity var(--np-anim-duration-slow) var(--np-anim-easing),
+                transform var(--np-anim-duration-slow) var(--np-anim-easing);
+    pointer-events: none;
+    box-shadow: var(--np-elevation-3);
+}
+.progress-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.progress-toast-text {
+    margin-bottom: var(--np-space-8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.progress-toast-bar-track {
+    height: var(--np-space-8);
+    border-radius: var(--np-radius-sm);
+    background: var(--np-sunken);
+    overflow: hidden;
+}
+.progress-toast-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--np-accent);
+    border-radius: var(--np-radius-sm);
+    transition: width 0.25s ease;
+}
+.progress-toast-success .progress-toast-bar-fill {
+    background: var(--np-sage);
+}
+.progress-toast-error {
+    border-color: var(--np-danger-ink);
+}
+.progress-toast-error .progress-toast-bar-fill {
+    background: var(--np-danger-ink);
+}
+
+/* Smart-tag date suggestions (issue #1161, part of epic #878): a small
+   bar under the task-details form's Comment field, populated by
+   smart-date-tags.js when it finds a date-like phrase in that text.
+   Hidden (no `.active` class) whenever there is nothing to suggest --
+   see #878's "suggestion layer, never silent assumption" -- so an empty
+   bar never reserves visible space under the textarea. */
+.task-date-suggestions {
+    display: none;
+    flex-direction: column;
+    gap: var(--np-space-8);
+    margin-top: var(--np-space-8);
+}
+.task-date-suggestions.active {
+    display: flex;
+}
+.task-date-suggestion {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
+    border: 1px solid var(--np-border);
+    border-radius: var(--np-radius-md);
+    background: var(--np-surface-alt);
+}
+.task-date-suggestion-label {
+    font-size: var(--np-text-80);
+    color: var(--np-muted);
+    margin-right: var(--np-space-2);
+}
+.task-date-suggestion-btn {
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-sm);
+    background: var(--np-surface);
+    color: var(--np-ink);
+    font-size: var(--np-text-80);
+    padding: var(--np-space-4) var(--np-space-12);
+    cursor: pointer;
+}
+.task-date-suggestion-btn:hover {
+    background: var(--np-accent-tint);
+    border-color: var(--np-accent);
+}
+.task-date-suggestion-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--np-focus-ring);
+}
+.task-date-suggestion-dismiss {
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: var(--np-muted);
+    font-size: var(--np-text-80);
+    cursor: pointer;
+    padding: var(--np-space-4) var(--np-space-8);
+    line-height: 1;
+}
+.task-date-suggestion-dismiss:hover {
+    color: var(--np-ink);
+}
+.task-date-suggestion-dismiss:focus-visible {
+    outline: none;
+    color: var(--np-ink);
+    box-shadow: var(--np-focus-ring);
+}
+
+/* Non-working days exceptions table (calendar settings). */
+.nwd-exceptions-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--np-text-85);
+    margin-bottom: var(--np-space-8);
+}
+.nwd-exceptions-table thead th {
+    background: var(--np-surface-alt);
+    font-weight: var(--np-weight-semibold);
+    font-size: var(--np-text-80);
+    text-align: left;
+    padding: var(--np-space-4) var(--np-space-8);
+    border: 1px solid var(--np-border);
+    color: var(--np-body);
+}
+.nwd-exceptions-table tbody td {
+    padding: 0;
+    border: 1px solid var(--np-border);
+    vertical-align: middle;
+    height: 32px;
+}
+.nwd-exceptions-table tbody td input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: var(--np-space-4) var(--np-space-8);
+    font-size: var(--np-text-85);
+    color: var(--np-ink);
+    height: 100%;
+    box-sizing: border-box;
+    outline: none;
+}
+/* An inset ring, because a cell input fills its cell edge to edge and an
+   offset ring would be clipped by the neighbouring cells. */
+.nwd-exceptions-table tbody td input:focus-visible {
+    background: var(--np-accent-tint);
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: calc(-1 * var(--np-focus-ring-width));
+}
+.nwd-exceptions-table tbody td input[type="date"] {
+    max-width: 160px;
+}
+.nwd-exceptions-table .nwd-actions-col {
+    width: 32px;
+    text-align: center;
+}
+.nwd-exceptions-table .nwd-delete-btn {
+    background: none;
+    border: none;
+    color: var(--np-muted);
+    cursor: pointer;
+    font-size: var(--np-text-85);
+    line-height: 1;
+    padding: var(--np-space-4);
+    min-width: 28px;
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--np-radius-sm);
+    opacity: 0;
+    transition: opacity var(--np-anim-duration-fast),
+                color var(--np-anim-duration-fast),
+                background var(--np-anim-duration-fast);
+}
+.nwd-exceptions-table tbody tr:hover .nwd-delete-btn {
+    opacity: 1;
+}
+.nwd-exceptions-table .nwd-delete-btn:hover {
+    color: var(--np-danger-ink);
+    background: var(--np-danger-tint);
+}
+/* Opacity as well as a ring: the button is invisible until its row is
+   hovered, and a keyboard user never hovers anything. */
+.nwd-exceptions-table .nwd-delete-btn:focus-visible {
+    opacity: 1;
+    outline: none;
+    box-shadow: var(--np-focus-ring);
+}
+.nwd-exceptions-table tbody tr.nwd-blank-row td {
+    background: var(--np-paper);
+}
+.nwd-exceptions-table tbody tr.nwd-blank-row td input::placeholder {
+    color: var(--np-faint);
+    font-style: italic;
+}
+
+/* Dependency-type select inside the dependencies table. */
+.dependencies-table select.dependency-type {
+    width: 100%;
+    padding: var(--np-space-8);
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-sm);
+    background: var(--np-surface);
+    color: var(--np-ink);
+    font-size: var(--np-text-85);
+}
+.dependencies-table select.dependency-type:focus-visible {
+    outline: none;
+    box-shadow: var(--np-focus-ring);
+}
+
+/* Analysis actions section. */
+.analysis-actions {
+    max-width: 900px;
+    margin: var(--np-space-32) auto 0;
+}
+.analysis-actions-title {
+    font-size: var(--np-text-125);
+    font-weight: var(--np-weight-semibold);
+    color: var(--np-ink);
+    margin: 0 0 var(--np-space-16) 0;
+    padding-bottom: var(--np-space-8);
+    border-bottom: 2px solid var(--np-accent);
+}
+.analysis-actions-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.analysis-action-item {
+    background: var(--np-surface);
+    border-radius: var(--np-radius-md);
+    padding: var(--np-space-16) var(--np-space-20);
+    margin-bottom: var(--np-space-8);
+    box-shadow: var(--np-elevation-1);
+    line-height: var(--np-leading-snug);
+    color: var(--np-body);
+    border-left: var(--np-space-4) solid var(--np-border-strong);
+}
+.action-severity-badge {
+    display: inline-block;
+    padding: var(--np-space-2) var(--np-space-8);
+    border-radius: var(--np-radius-sm);
+    font-size: var(--np-text-75);
+    font-weight: var(--np-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+    margin-right: var(--np-space-8);
+}
+
+.inspector-help-text {
+    margin: 0 0 var(--np-space-8);
+    color: var(--np-muted);
+    font-size: var(--np-text-90);
+    line-height: var(--np-leading-snug);
+}
+
+.benefit-link-tag-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
