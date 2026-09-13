@@ -13,7 +13,13 @@
  * Usage:
  *   <script type="module" src="/static/components/button/np-button.js"></script>
  *   <np-button variant="primary">Save</np-button>
- *   <np-button variant="danger" disabled>Delete</np-button>
+ *   <np-button variant="danger" size="small" disabled>Delete</np-button>
+ *
+ * `size` ("small" | "medium" | "large", default "medium") maps onto the
+ * padding/font-size pairs already in use for compact buttons across the app
+ * (`.btn-sm` / `.btn-small`: 6-14px padding, 0.85em) plus a matching large
+ * step; there was no existing "large" button to match against, so its
+ * values are extrapolated from the same scale.
  *
  * A click on the internal <button> is a real DOM click event, composed
  * across the shadow boundary, so existing code can listen on the host
@@ -21,6 +27,7 @@
  */
 
 const VARIANTS = new Set(['primary', 'secondary', 'danger', 'link']);
+const SIZES = new Set(['small', 'medium', 'large']);
 
 const TEMPLATE = document.createElement('template');
 TEMPLATE.innerHTML = `
@@ -55,6 +62,17 @@ TEMPLATE.innerHTML = `
     button:focus-visible {
       outline: var(--np-focus-ring-width, 2px) solid var(--np-focus-ring-color, currentColor);
       outline-offset: var(--np-focus-ring-offset, 2px);
+    }
+
+    /* size="medium" is the default already set on button above; only the
+       small/large steps need an override. */
+    :host([size='small']) button {
+      padding: 6px 14px;
+      font-size: 0.85em;
+    }
+    :host([size='large']) button {
+      padding: 14px 32px;
+      font-size: 1.15em;
     }
 
     :host([variant='primary']) button {
@@ -93,7 +111,9 @@ TEMPLATE.innerHTML = `
       border: none;
       background: none;
       color: var(--np-accent, #EDB52A);
-      font-size: 1.1em;
+      /* font-size comes from the size="..." rules above — this selector's
+         equal specificity and later position only need to win on the
+         properties it actually sets (padding/border/background/color). */
     }
     :host([variant='link']) button:not(:disabled):hover {
       color: var(--np-accent-hover, #D9A31C);
@@ -107,7 +127,7 @@ TEMPLATE.innerHTML = `
 
 export class NpButton extends HTMLElement {
   static get observedAttributes() {
-    return ['variant', 'disabled', 'type'];
+    return ['variant', 'size', 'disabled', 'type'];
   }
 
   constructor() {
@@ -120,6 +140,9 @@ export class NpButton extends HTMLElement {
   connectedCallback() {
     if (!VARIANTS.has(this.getAttribute('variant'))) {
       this.setAttribute('variant', 'primary');
+    }
+    if (!SIZES.has(this.getAttribute('size'))) {
+      this.setAttribute('size', 'medium');
     }
     this._syncDisabled();
     this._syncType();
@@ -136,6 +159,14 @@ export class NpButton extends HTMLElement {
 
   set variant(value) {
     if (VARIANTS.has(value)) this.setAttribute('variant', value);
+  }
+
+  get size() {
+    return this.getAttribute('size') || 'medium';
+  }
+
+  set size(value) {
+    if (SIZES.has(value)) this.setAttribute('size', value);
   }
 
   get disabled() {
