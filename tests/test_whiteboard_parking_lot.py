@@ -268,6 +268,27 @@ def parking_lot_item_texts(driver):
     )
 
 
+def click_restore_for(driver, text_substring):
+    """Click the "Restore" button on the parking lot row whose text
+    contains `text_substring` (matches parking_lot_item_texts()'s own
+    values). Assumes the panel is already open."""
+    clicked = driver.execute_script(
+        """
+        const items = document.querySelectorAll('#wbParkingLotList .wb-parking-lot-item');
+        for (const item of items) {
+            const textEl = item.querySelector('.wb-parking-lot-item-text');
+            if (textEl && textEl.textContent.includes(arguments[0])) {
+                item.querySelector('.wb-parking-lot-item-restore').click();
+                return true;
+            }
+        }
+        return false;
+        """,
+        text_substring,
+    )
+    assert clicked, f"no parking lot row found containing {text_substring!r}"
+
+
 class TestSendToParkingLot:
     def test_sends_a_free_form_note_and_removes_it_from_the_board_and_outline(self, browser, app_server):
         open_app(browser, app_server)
@@ -377,6 +398,172 @@ class TestParkingLotPanel:
         time.sleep(0.3)
         assert browser.find_elements(By.ID, "wbParkingLotDialog") == []
 
+    def test_each_parked_item_offers_a_restore_button(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        click_send_to_parking_lot(browser, "Loose Idea")
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        open_parking_lot_panel(browser)
+        restore_buttons = browser.find_elements(By.CSS_SELECTOR, "#wbParkingLotList .wb-parking-lot-item-restore")
+        assert len(restore_buttons) == 1
+
+
+class TestParkingLotDetailAndRestore:
+    """Issue #1110: sending a note to the parking lot now snapshots its
+    exact title, resolved colour, and (for a checklist note) every direct
+    child's name and completion state into the parked row's `detail`
+    field, and the panel's "Restore" button rebuilds the note -- task,
+    children and whiteboard row, colour included -- from that snapshot.
+    """
+
+    def test_checklist_note_is_parked_with_colour_and_children_in_detail(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        click_send_to_parking_lot(browser, "Discovery")
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        detail = browser.execute_script(
+            "const items = parseParkingLotMarkdown(extractParkingLotFromPlanText(document.getElementById('planEditor').value));"
+            "const item = items.find(i => i.text.startsWith('Discovery'));"
+            "return item ? item.detail : null;"
+        )
+        assert detail is not None, "the parked row carries a detail snapshot"
+        assert detail["title"] == "Discovery"
+        assert detail["colour"].startswith("#")
+        assert detail["checklist"] == [{"name": "Research", "done": True}]
+
+    def test_restore_brings_a_freeform_note_back_with_comment_and_colour_intact(self, browser, app_server):
+        from selenium.webdriver.common.keys import Keys
+
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        click_send_to_parking_lot(browser, "Loose Idea")
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        open_parking_lot_panel(browser)
+        click_restore_for(browser, "Loose Idea")
+        after_text = wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        outline = after_text.split("---whiteboard---")[0]
+        assert "Loose Idea" in outline
+        assert "A stray thought worth keeping." in outline
+
+        # Restoring doesn't close the panel (it stays open, now showing the
+        # narrowed list) -- close it before reopening below, same as
+        # TestParkingLotPanel::test_escape_closes_the_panel, otherwise its
+        # still-visible overlay physically covers the toolbar button
+        # underneath and intercepts the next click.
+        browser.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        time.sleep(0.3)
+
+        switch_to_whiteboard(browser)
+        assert "Loose Idea" in rendered_note_task_names(browser)
+
+        open_parking_lot_panel(browser)
+        assert parking_lot_item_texts(browser) == [], "the restored item left the parking lot"
+
+    def test_restore_brings_a_checklist_note_back_with_children_and_completion_state_intact(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        click_send_to_parking_lot(browser, "Discovery")
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        open_parking_lot_panel(browser)
+        click_restore_for(browser, "Discovery")
+        after_text = wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        outline = after_text.split("---whiteboard---")[0]
+        assert "Discovery" in outline
+        assert "Research" in outline
+        assert "100%" in outline
+
+        switch_to_whiteboard(browser)
+        assert "Discovery" in rendered_note_task_names(browser)
+
+    def test_restore_is_a_single_undo_step(self, browser, app_server):
+        from selenium.webdriver.common.keys import Keys
+
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        click_send_to_parking_lot(browser, "Loose Idea")
+        before_restore = wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        open_parking_lot_panel(browser)
+        click_restore_for(browser, "Loose Idea")
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        editor = browser.find_element(By.ID, "planEditor")
+        browser.execute_script("arguments[0].focus()", editor)
+        undo_key = Keys.COMMAND if browser.execute_script("return navigator.platform.includes('Mac')") else Keys.CONTROL
+        editor.send_keys(undo_key, "z")
+        time.sleep(0.5)
+        assert get_plan_text(browser) == before_restore, "a single undo fully reverts the restore"
+
+    def test_restore_uniquifies_a_name_collision_instead_of_overwriting(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        click_send_to_parking_lot(browser, "Loose Idea")
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        # Something new now occupies the parked note's old name.
+        browser.execute_script(
+            "const editor = document.getElementById('planEditor');"
+            "editor.value = editor.value.replace('Phase 1\\n', 'Phase 1\\n  Loose Idea 1d\\n');"
+            "editor.dispatchEvent(new Event('input', {bubbles: true}));"
+        )
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        open_parking_lot_panel(browser)
+        click_restore_for(browser, "Loose Idea")
+        after_text = wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        assert "Loose Idea 2" in after_text.split("---whiteboard---")[0]
+
+    def test_restore_of_a_legacy_item_with_no_detail_falls_back_to_splitting_its_flat_text(self, browser, app_server):
+        """A row parked before #1110 (or hand-typed) has no `detail` --
+        Restore still works, by splitting its flat Text back apart on the
+        " — " separator it was joined with (see wbRestoreParkedItem()'s
+        own doc comment)."""
+        open_app(browser, app_server)
+        legacy_plan = """---
+title: Legacy Parking Lot Plan
+---
+
+Phase 1
+  Other Task 2d
+
+---parking lot---
+| ID | Text | Date Parked |
+|----|------|-------------|
+| 1  | Old Idea — An old comment |  |
+"""
+        load_plan(browser, legacy_plan)
+        switch_to_whiteboard(browser)
+
+        open_parking_lot_panel(browser)
+        click_restore_for(browser, "Old Idea")
+        after_text = wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        outline = after_text.split("---whiteboard---")[0]
+        assert "Old Idea" in outline
+        assert "An old comment" in outline
+
+        switch_to_whiteboard(browser)
+        assert "Old Idea" in rendered_note_task_names(browser)
+
 
 class TestParkingLotRoundTrip:
     def test_parked_item_survives_a_page_reload(self, browser, app_server):
@@ -404,3 +591,36 @@ class TestParkingLotRoundTrip:
         open_parking_lot_panel(browser)
         texts = parking_lot_item_texts(browser)
         assert any("Loose Idea" in t for t in texts), texts
+
+    def test_parked_detail_survives_a_page_reload_and_can_still_be_restored(self, browser, app_server):
+        """Issue #1110: the richer detail snapshot (colour, checklist)
+        round-trips through a reload exactly like the flat text already
+        did, and Restore still works afterwards."""
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN, with_project=True)
+        switch_to_whiteboard(browser)
+
+        click_send_to_parking_lot(browser, "Discovery")
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+        time.sleep(0.6)  # let the debounced project-store save settle
+
+        browser.refresh()
+        dismiss_tour(browser)
+        time.sleep(0.5)
+        WebDriverWait(browser, 5).until(
+            EC.presence_of_element_located((By.ID, "planEditor"))
+        )
+        wait_for_stable_plan_text(browser, timeout=10.0, quiet=1.0)
+
+        reloaded_text = get_plan_text(browser)
+        assert "parking-lot-detail" in reloaded_text.split("---parking lot---")[1]
+        assert "Research" in reloaded_text.split("---parking lot---")[1]
+
+        switch_to_whiteboard(browser)
+        open_parking_lot_panel(browser)
+        click_restore_for(browser, "Discovery")
+        after_text = wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        outline = after_text.split("---whiteboard---")[0]
+        assert "Discovery" in outline
+        assert "Research" in outline

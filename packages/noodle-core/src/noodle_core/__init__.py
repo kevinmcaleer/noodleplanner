@@ -85,6 +85,8 @@ from .format_converter import (
     parse_parking_lot_markdown,
     generate_parking_lot_text,
     update_plan_parking_lot,
+    generate_parking_lot_detail_comment,
+    extract_parking_lot_detail,
 )
 
 from .excel_importer import (
@@ -197,6 +199,8 @@ __all__ = [
     "parse_parking_lot_markdown",
     "generate_parking_lot_text",
     "update_plan_parking_lot",
+    "generate_parking_lot_detail_comment",
+    "extract_parking_lot_detail",
     # Excel importer
     "analyze_workbook",
     "convert_excel_to_markdown",
