@@ -28,16 +28,25 @@
  * skipped) persists in localStorage so closing and reopening the wizard
  * resumes where it left off.
  *
- * Known gap, honestly scoped rather than faked: the Scheduling stage
- * hosts the Tasks view, which already colour-codes tasks by schedule
- * health (RAG) and flags hierarchy/dependency conflicts server-side --
- * but there is no deadline field yet (#877, not started), so this stage
- * cannot "run the scheduler against entered deadlines" as the issue's
- * acceptance criteria describe. It surfaces what the app can show today
- * and says so in its own stage copy, rather than pretending to compute
- * something #877 hasn't built yet. Likewise the Design stage's Backstage
- * host only creates a blank plan today -- template instantiation is
- * itself an open follow-up (#945/#946), not something to duplicate here.
+ * The Scheduling stage is the one stage whose content this shell owns
+ * outright ("run the scheduler against the entered deadlines and show
+ * what breaks"). When the shell first landed it could not: there was no
+ * deadline field at all (#877), so the stage said so in its own copy
+ * rather than faking a check it could not run. #877 has since landed -- a
+ * task line carries a `D2026-09-10` marker and the task form writes one --
+ * so the stage now renders a real report (schedule-check.js) over the
+ * scheduler's own output, listing every missed or passed deadline,
+ * dependency conflict and unplaceable task, each row clicking through to
+ * the task it names. It still *hosts* the Tasks view underneath, where
+ * deadlines are entered and fixed. The Design stage's Backstage host,
+ * meanwhile, still only creates a blank plan -- template instantiation is
+ * an open follow-up (#945/#946), not something to duplicate here.
+ *
+ * A stage can therefore carry optional `content`: a function handed the
+ * panel's content element, called on entry and on every re-render of the
+ * plan underneath (refreshStageContent(), called from script.js's
+ * updateGlobalState). Stages without one -- every stage but Scheduling
+ * today -- render nothing extra and keep the panel at its old size.
  *
  * The Design stage's host (Backstage) is the one exception to "entering a
  * stage switches the app to the view that covers it" (#1107): Backstage is
@@ -70,7 +79,8 @@
         },
         {
             key: 'scheduling', label: 'Scheduling', view: 'tasks', preset: 'scheduling',
-            description: 'Tasks are colour-coded by schedule health; deadline-based conflict checks are coming separately.',
+            description: 'Set a deadline on a task in the Tasks view; anything that breaks shows up here.',
+            content: renderSchedulingReport,
         },
         {
             key: 'risks', label: 'Risks', view: 'raid', preset: 'risks',
@@ -81,6 +91,35 @@
             description: 'Build your communications plan from the plan’s milestones.',
         },
     ];
+
+    // ---- Stage content (Scheduling only, today) ----
+
+    /**
+     * The Scheduling stage's "what breaks" report. Reads the scheduler's
+     * own last output (lastRenderedTasks, set by script.js's
+     * updateGlobalState from /api/parse) rather than scheduling anything
+     * itself, and hands a clicked row to the Task Inspector so the user
+     * lands on the task that broke. Degrades to nothing if either
+     * collaborator is absent -- the shell must still work in a page that
+     * has not loaded schedule-check.js.
+     */
+    function renderSchedulingReport(container) {
+        if (!container) return;
+        if (typeof ScheduleCheck === 'undefined') { container.innerHTML = ''; return; }
+        const tasks = (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks) ? lastRenderedTasks : [];
+        ScheduleCheck.render(container, ScheduleCheck.analyse(tasks), {
+            onSelect: taskName => {
+                if (typeof openTaskInspectorByName === 'function') openTaskInspectorByName(taskName);
+            },
+            // Re-checking means re-running the plan through the scheduler,
+            // which is what the app's own render path already does -- there
+            // is nothing to recompute locally.
+            onRecheck: () => {
+                if (typeof renderPlan === 'function') renderPlan();
+                else refreshStageContent();
+            },
+        });
+    }
 
     // ---- Pure state transitions (no DOM, no globals) ----
 
@@ -233,6 +272,7 @@
             </div>
             <div class="plan-wizard-steps" id="planWizardStepsRow"></div>
             <div class="plan-wizard-description" id="planWizardDescription"></div>
+            <div class="plan-wizard-content" id="planWizardStageContent"></div>
             <div class="plan-wizard-footer">
                 <button type="button" class="plan-wizard-back-btn">Back</button>
                 <button type="button" class="plan-wizard-skip-btn">Skip</button>
@@ -278,6 +318,7 @@
         });
 
         panelEl.querySelector('#planWizardDescription').textContent = currentStage().description;
+        renderStageContent();
 
         const backBtn = panelEl.querySelector('.plan-wizard-back-btn');
         backBtn.disabled = state.currentIndex === 0;
@@ -286,9 +327,31 @@
         nextBtn.textContent = isLastStage(state.currentIndex) ? 'Finish' : 'Next';
     }
 
+    /** Draw the current stage's own content, if it has any. */
+    function renderStageContent() {
+        if (!panelEl) return;
+        const container = panelEl.querySelector('#planWizardStageContent');
+        if (!container) return;
+        const stage = currentStage();
+        if (typeof stage.content === 'function') stage.content(container);
+        else container.innerHTML = '';
+    }
+
+    /**
+     * Re-draw the current stage's content against the plan as it now
+     * stands. Called from script.js's updateGlobalState() after every
+     * parse, so the Scheduling stage's report tracks the plan the user is
+     * editing underneath the panel instead of going stale. A no-op when
+     * the wizard is closed or the stage has no content of its own.
+     */
+    function refreshStageContent() {
+        if (!panelEl) return;
+        renderStageContent();
+    }
+
     const api = {
         STAGES, defaultState, clampIndex, isLastStage, markVisited, markSkipped, normaliseState,
-        loadState, open, close, isOpen, next, back, skip, jumpTo, applyStageHost,
+        loadState, open, close, isOpen, next, back, skip, jumpTo, applyStageHost, refreshStageContent,
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     root.PlanWizard = api;
