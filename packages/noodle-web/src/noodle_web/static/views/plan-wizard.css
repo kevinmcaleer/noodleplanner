@@ -26,7 +26,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 14px;
+    padding: var(--np-space-12) var(--np-space-16);
     font-weight: 600;
     border-bottom: 1px solid var(--np-border);
     cursor: default;
@@ -47,7 +47,7 @@
     display: flex;
     overflow-x: auto;
     gap: var(--np-space-2);
-    padding: 10px 8px;
+    padding: var(--np-space-12) var(--np-space-8);
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -59,7 +59,7 @@
     border: none;
     background: transparent;
     cursor: pointer;
-    padding: 4px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     min-width: 56px;
     flex: 1 0 auto;
     /* Touch target per docs/how-to/use-touch-controls.rst's 44px convention. */
@@ -108,7 +108,7 @@
 }
 
 .plan-wizard-description {
-    padding: 10px 14px;
+    padding: var(--np-space-12) var(--np-space-16);
     font-size: 13px;
     color: var(--np-text-secondary);
     overflow-y: auto;
@@ -118,14 +118,14 @@
     display: flex;
     justify-content: space-between;
     gap: var(--np-space-8);
-    padding: 10px 14px;
+    padding: var(--np-space-12) var(--np-space-16);
     border-top: 1px solid var(--np-border);
 }
 
 .plan-wizard-back-btn,
 .plan-wizard-skip-btn,
 .plan-wizard-next-btn {
-    padding: 8px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 6px;
     cursor: pointer;
     font-size: 13px;
@@ -173,14 +173,14 @@
 }
 
 .plan-wizard-content {
-    padding: 0 14px 10px;
+    padding: 0 var(--np-space-16) var(--np-space-12);
     overflow-y: auto;
 }
 
 .schedule-check-summary {
     font-size: 13px;
     font-weight: 600;
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     border-radius: 6px;
     border-left: 3px solid var(--np-border);
 }
@@ -211,7 +211,7 @@
     gap: var(--np-space-2);
     width: 100%;
     text-align: left;
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 6px;
     background: transparent;
@@ -252,7 +252,7 @@
 
 .schedule-check-recheck {
     margin-top: var(--np-space-8);
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     font-size: 12px;
     border: 1px solid var(--np-border);
     border-radius: 6px;

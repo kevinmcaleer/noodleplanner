@@ -7,7 +7,7 @@
 .ribbon-banner {
     display: inline-block;
     position: relative;
-    padding: 6px 20px 6px 12px;
+    padding: var(--np-space-8) var(--np-space-20) var(--np-space-8) var(--np-space-12);
     margin-right: var(--np-space-8);
     background: var(--ribbon-bg, var(--np-blue-subtle));
     border-left: 4px solid var(--ribbon-color, var(--np-blue));

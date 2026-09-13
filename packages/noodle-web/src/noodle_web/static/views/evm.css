@@ -42,7 +42,7 @@
     background: var(--evm-card-bg);
     border: 1px solid var(--evm-card-border);
     border-radius: 8px;
-    padding: 14px 16px;
+    padding: var(--np-space-16) var(--np-space-16);
     text-align: center;
     transition: border-color 0.2s;
 }
@@ -64,7 +64,7 @@
     color: var(--evm-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 6px;
+    margin-bottom: var(--np-space-8);
 }
 
 .evm-kpi-value {
@@ -106,7 +106,7 @@
 .evm-legend-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     font-size: 0.85em;
     color: var(--evm-text-secondary);
 }
@@ -139,7 +139,7 @@
 .evm-metrics-table th {
     background: var(--evm-table-header-bg);
     color: var(--evm-text-primary);
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     text-align: left;
     border-bottom: 2px solid var(--evm-table-border);
     font-weight: 600;
@@ -149,7 +149,7 @@
 }
 
 .evm-metrics-table td {
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     border-bottom: 1px solid var(--evm-table-border);
     color: var(--evm-text-primary);
 }
@@ -176,7 +176,7 @@
     }
 
     .evm-kpi-card {
-        padding: 10px 12px;
+        padding: var(--np-space-12) var(--np-space-12);
     }
 
     .evm-kpi-value {
@@ -216,7 +216,7 @@
     border: 1px solid var(--evm-card-border);
     border-left: 4px solid var(--evm-card-border);
     border-radius: 8px;
-    padding: 18px 20px;
+    padding: var(--np-space-20) var(--np-space-20);
 }
 
 .forecast-summary-item.evm-kpi-positive {
@@ -251,7 +251,7 @@
 }
 
 .forecast-summary-sub {
-    margin-top: 6px;
+    margin-top: var(--np-space-8);
     font-size: 0.85em;
     color: var(--evm-text-secondary);
 }
@@ -259,7 +259,7 @@
 @media (max-width: 768px) {
     .forecast-summary {
         grid-template-columns: 1fr;
-        gap: 10px;
+        gap: var(--np-space-12);
     }
 
     .forecast-summary-value {

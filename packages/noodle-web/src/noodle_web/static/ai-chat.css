@@ -49,10 +49,10 @@
 .ai-chat-header {
     background: var(--np-info-gradient);
     color: #fff;
-    padding: 14px 16px;
+    padding: var(--np-space-16) var(--np-space-16);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     flex-shrink: 0;
 }
 
@@ -104,8 +104,8 @@
 
 .ai-agent-selector {
     display: flex;
-    gap: 6px;
-    padding: 10px 16px;
+    gap: var(--np-space-8);
+    padding: var(--np-space-12) var(--np-space-16);
     overflow-x: auto;
     border-bottom: 1px solid var(--np-border);
     flex-shrink: 0;
@@ -117,7 +117,7 @@
     display: inline-flex;
     align-items: center;
     gap: var(--np-space-4);
-    padding: 6px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     background: var(--np-surface-alt);
     border: 1px solid var(--np-border);
     border-radius: 20px;
@@ -162,7 +162,7 @@
 
 .ai-chat-bubble {
     max-width: 85%;
-    padding: 10px 14px;
+    padding: var(--np-space-12) var(--np-space-16);
     border-radius: 12px;
     font-size: 0.92em;
     line-height: 1.5;
@@ -225,10 +225,10 @@
 
 .ai-chat-bubble.assistant pre {
     background: rgba(0, 0, 0, 0.06);
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     border-radius: 6px;
     overflow-x: auto;
-    margin: 6px 0;
+    margin: var(--np-space-8) 0;
 }
 
 .ai-chat-bubble.assistant pre code {
@@ -256,7 +256,7 @@
     display: flex;
     align-items: center;
     gap: var(--np-space-4);
-    padding: 10px 16px;
+    padding: var(--np-space-12) var(--np-space-16);
     background: var(--np-surface-alt);
     border-radius: 12px;
     border-bottom-left-radius: 4px;
@@ -301,7 +301,7 @@
     width: 100%;
     border: 1px solid var(--np-input-border);
     border-radius: 8px;
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     font-size: 0.92em;
     line-height: 1.4;
     resize: none;
@@ -376,7 +376,7 @@
 
 .ai-chat-setup-btn {
     min-height: 44px;
-    padding: 10px 24px;
+    padding: var(--np-space-12) var(--np-space-24);
     border: none;
     border-radius: 8px;
     background: var(--np-accent);
@@ -471,8 +471,8 @@
 .ai-tool-call {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
+    gap: var(--np-space-8);
+    padding: var(--np-space-4) var(--np-space-12);
     margin: var(--np-space-4) 0;
     font-size: 12px;
     color: var(--np-text-secondary);

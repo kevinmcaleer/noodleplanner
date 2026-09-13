@@ -92,7 +92,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 20px;
+    padding: var(--np-space-12) var(--np-space-20);
     background: var(--np-paper);
     border-bottom: 2px solid var(--np-border);
     flex-shrink: 0;
@@ -102,7 +102,7 @@
 .kanban-view-switcher {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
 }
 
 .kanban-view-switcher label {
@@ -124,7 +124,7 @@
 .kanban-sort-toggle label {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     margin: 0;
     font-size: 14px;
     color: #495057;
@@ -136,7 +136,7 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    padding: 10px 20px;
+    padding: var(--np-space-12) var(--np-space-20);
     border-radius: 6px;
     font-weight: 500;
     z-index: 10;
@@ -225,7 +225,7 @@
 }
 
 .kanban-column-header {
-    padding: 15px;
+    padding: var(--np-space-16);
     background: var(--np-info-gradient);
     color: white;
     border-radius: 8px 8px 0 0;
@@ -253,7 +253,7 @@
     flex: 1;
     border: 1px solid var(--bs-primary, #0d6efd);
     border-radius: 4px;
-    padding: 2px 6px;
+    padding: var(--np-space-2) var(--np-space-8);
     outline: none;
     width: 100%;
     box-sizing: border-box;
@@ -274,7 +274,7 @@
     font-size: 24px;
     line-height: 1;
     cursor: pointer;
-    padding: 0 5px;
+    padding: 0 var(--np-space-4);
     margin-left: var(--np-space-8);
     opacity: 0.7;
     transition: opacity 0.2s;
@@ -350,8 +350,8 @@
 .theme-colour-clear-btn {
     display: block;
     width: 100%;
-    margin-top: 10px;
-    padding: 6px 12px;
+    margin-top: var(--np-space-12);
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 4px;
     background: var(--np-paper);
@@ -369,7 +369,7 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 10px;
+    padding: var(--np-space-12);
     min-height: 0;
 }
 
@@ -394,7 +394,7 @@
 }
 
 .kanban-column-footer {
-    padding: 10px;
+    padding: var(--np-space-12);
     background: var(--np-paper);
     border-radius: 0 0 8px 8px;
     flex-shrink: 0;
@@ -469,7 +469,7 @@
     background: white;
     border-radius: 6px;
     padding: var(--np-space-12);
-    margin-bottom: 10px;
+    margin-bottom: var(--np-space-12);
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
     transition: all 0.2s;
     border: 1px solid #e9ecef;
@@ -511,12 +511,12 @@
 
 .kanban-card.drop-before {
     border-top: 3px solid var(--np-accent);
-    margin-top: 3px;
+    margin-top: var(--np-space-4);
 }
 
 .kanban-card.drop-after {
     border-bottom: 3px solid var(--np-accent);
-    margin-bottom: 3px;
+    margin-bottom: var(--np-space-4);
 }
 
 .kanban-column-body.drag-over {
@@ -652,7 +652,7 @@
 }
 
 .subtask-item .mini-piechart {
-    margin-right: 10px;
+    margin-right: var(--np-space-12);
 }
 
 /* Card Controls Row (checkbox + move dropdown + up/down buttons) */
@@ -779,7 +779,7 @@
     display: flex;
     gap: var(--np-space-12);
     flex-wrap: wrap;
-    margin-bottom: 6px;
+    margin-bottom: var(--np-space-8);
 }
 
 .kanban-meta-duration {
@@ -795,7 +795,7 @@
     font-size: 12px;
     color: var(--np-muted);
     font-style: italic;
-    margin: 6px 0 0 0;
+    margin: var(--np-space-8) 0 0 0;
     line-height: 1.4;
 }
 
@@ -809,7 +809,7 @@
 .kanban-card-labels {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: var(--np-space-4);
 }
 
 .label {
@@ -843,7 +843,7 @@
 
 .kanban-empty-state h3 {
     color: #495057;
-    margin-bottom: 10px;
+    margin-bottom: var(--np-space-12);
     font-size: 1.5em;
 }
 
@@ -855,7 +855,7 @@
 
 .kanban-empty-actions {
     display: flex;
-    gap: 15px;
+    gap: var(--np-space-16);
     justify-content: center;
     margin-top: var(--np-space-20);
 }
@@ -874,8 +874,8 @@
 
 .kanban-add-task-btn {
     width: 100%;
-    padding: 10px;
-    margin-top: 10px;
+    padding: var(--np-space-12);
+    margin-top: var(--np-space-12);
     background: var(--np-paper);
     border: 2px dashed var(--np-border);
     border-radius: 6px;
@@ -904,7 +904,7 @@
 
     .kanban-header {
         flex-direction: column;
-        gap: 15px;
+        gap: var(--np-space-16);
         align-items: stretch;
     }
 
@@ -914,8 +914,8 @@
 
     .kanban-board {
         flex-direction: column;
-        gap: 15px;
-        padding: 15px;
+        gap: var(--np-space-16);
+        padding: var(--np-space-16);
     }
 
     .kanban-column {
@@ -933,7 +933,7 @@
     }
 
     .kanban-card {
-        padding: 10px;
+        padding: var(--np-space-12);
     }
 
     .kanban-card-title {

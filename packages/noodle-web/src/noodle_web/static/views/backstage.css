@@ -68,9 +68,9 @@ body.backstage-fullscreen {
 .backstage-rail-btn {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     width: 100%;
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     border: none;
     border-radius: 6px;
     background: transparent;
@@ -102,7 +102,7 @@ body.backstage-fullscreen {
 }
 
 .backstage-main-title {
-    margin: 0 0 18px;
+    margin: 0 0 var(--np-space-20);
     font-size: 1.3em;
     font-weight: 600;
     color: var(--np-text);
@@ -112,7 +112,7 @@ body.backstage-fullscreen {
     display: flex;
     align-items: center;
     gap: var(--np-space-16);
-    margin-bottom: 18px;
+    margin-bottom: var(--np-space-20);
 }
 
 .backstage-main-header .backstage-main-title {
@@ -122,8 +122,8 @@ body.backstage-fullscreen {
 .backstage-back-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 6px;
     background: var(--np-surface);
@@ -149,7 +149,7 @@ body.backstage-fullscreen {
    even at 4-5 cards, sized to sit above the fold ahead of Recent. */
 .backstage-template-strip {
     display: flex;
-    gap: 14px;
+    gap: var(--np-space-16);
     margin-bottom: var(--np-space-32);
     overflow-x: auto;
 }
@@ -193,7 +193,7 @@ body.backstage-fullscreen {
 .backstage-template-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 14px;
+    gap: var(--np-space-16);
     max-width: 900px;
 }
 
@@ -202,7 +202,7 @@ body.backstage-fullscreen {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     aspect-ratio: 3 / 4;
     padding: var(--np-space-16);
     border: 1px solid var(--np-border);
@@ -248,7 +248,7 @@ body.backstage-fullscreen {
 }
 
 .backstage-recent-empty p {
-    margin: 0 0 6px;
+    margin: 0 0 var(--np-space-8);
 }
 
 .backstage-recent-empty-hint {
@@ -267,7 +267,7 @@ body.backstage-fullscreen {
     display: flex;
     align-items: center;
     gap: var(--np-space-12);
-    padding: 14px;
+    padding: var(--np-space-16);
     border: 1px solid var(--np-border);
     border-radius: 8px;
     background: var(--np-surface);

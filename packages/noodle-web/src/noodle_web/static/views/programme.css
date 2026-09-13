@@ -41,7 +41,7 @@
 }
 
 .programme-stub-banner p + p {
-    margin-top: 6px;
+    margin-top: var(--np-space-8);
 }
 
 .programme-stub-banner a {
@@ -57,7 +57,7 @@
 }
 
 .programme-section h3 {
-    margin: 0 0 10px;
+    margin: 0 0 var(--np-space-12);
     font-size: 1.05em;
     font-weight: 600;
     color: var(--np-text);
@@ -73,13 +73,13 @@
 .programme-stat-tile {
     flex: 1 1 180px;
     min-width: 180px;
-    padding: 14px 16px;
+    padding: var(--np-space-16) var(--np-space-16);
     border: 1px solid var(--np-border);
     border-radius: 8px;
     background: var(--np-surface);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--np-space-8);
 }
 
 .programme-stat-tile--stub {
@@ -123,7 +123,7 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--np-space-8);
 }
 
 .programme-milestone {
@@ -181,7 +181,7 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--np-space-8);
 }
 
 .programme-escalated-item {
@@ -217,12 +217,12 @@
 .programme-deps-toolbar {
     display: flex;
     justify-content: flex-end;
-    margin-bottom: 10px;
+    margin-bottom: var(--np-space-12);
 }
 
 .programme-dep-scope {
     display: inline-block;
-    padding: 3px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.78em;
     font-weight: 600;
@@ -247,7 +247,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--np-space-20);
-    margin-bottom: 14px;
+    margin-bottom: var(--np-space-16);
 }
 
 .programme-resourcing-summary-item {
@@ -281,7 +281,7 @@
 
 .programme-resourcing-table th,
 .programme-resourcing-table td {
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     text-align: left;
     border-bottom: 1px solid var(--np-border);
     vertical-align: middle;
@@ -339,7 +339,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--np-space-8);
-    margin-top: 10px;
+    margin-top: var(--np-space-12);
 }
 
 .programme-outcome-add input {
@@ -353,7 +353,7 @@
 .programme-outcome-rollup h4 {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     margin: 0 0 var(--np-space-8);
     font-size: 0.95em;
     font-weight: 600;

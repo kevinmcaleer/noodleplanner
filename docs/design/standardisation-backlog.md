@@ -129,7 +129,7 @@ forms, 3 wizard steps, 2 standalone forms.
 
 | | # | Item | Issue |
 |---|---|---|---|
-| 🔶 | 4.1 | Adopt spacing tokens per view. The on-scale half is done; the off-scale half is the judgement | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 4.1 | Adopt the spacing scale — 1,358 of 1,606 declarations now use a token, and 5 off-grid values remain | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ☐ | 4.2 | Migrate the 33 colour-carrying inline `style=""` attributes in the templates | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ☐ | 4.3 | Migrate static colour literals in JS-generated markup (214 lines, 22 files), leaving genuinely dynamic colour alone | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ✅ | 4.4 | Penpot screen audit board | [#1196](https://github.com/kevinmcaleer/noodleplanner/issues/1196) |
@@ -142,23 +142,53 @@ nothing links, so the progress toast, baseline dialog, AI settings modal and
 the editor's front-matter highlighting had been rendering unstyled in
 production ever since.
 
-4.1 split cleanly in two once the distinction was made explicit.
+4.1 was done in two passes, and the second one is the interesting one.
 
-**The on-scale half is done.** 783 declarations whose every value was already
-on the scale now use the token — `padding: 8px` is `padding: var(--np-space-8)`,
-the same number, named. Indirected spacing declarations went from 47 to 689 of
-1,606. Verified pixel-identical across all 39 views at 1600px and 480px.
+**Pass one tokenised what could not move.** 783 declarations whose every value
+was already on the scale — `padding: 8px` became `padding: var(--np-space-8)`,
+the same number, named. All-or-nothing per declaration, because tokenising only
+the on-scale half of `padding: 14px 16px` leaves
+`padding: 14px var(--np-space-16)`, which reads as a half-finished edit and
+hides that the `14px` is the part still needing a decision.
 
-The migration is all-or-nothing per declaration on purpose: tokenising only the
-on-scale half of `padding: 14px 16px` leaves `padding: 14px var(--np-space-16)`,
-which reads as a half-finished edit and hides that the `14px` is the part still
-needing a decision.
+**Pass two moved things**, which is what this item was always really about.
+751 off-grid values snapped to the nearest multiple of 4, ties rounding up.
+`10px → 12px` (266), `6px → 8px` (191), `15px → 16px` (92), `14px → 16px` (55),
+`5px → 4px` (54), and eight smaller groups.
 
-**The off-scale half is the remaining work**, and it is 803 declarations of
-real judgement rather than substitution. What this pass buys is that they are
-now *findable*: a bare pixel value in a spacing property is, by construction,
-one of them, and `node scripts/lint-design-system.mjs --list off-scale-spacing`
-enumerates every one with its file and line.
+Two decisions in that, both of which changed the outcome:
+
+- **The rule is the 4px grid, not the eleven named steps.** Values on the grid
+  but outside `--np-space-*` are frequently load-bearing rather than sloppy:
+  `padding-bottom: 36px` matches the fixed status bar's height, and
+  `padding-right: 44px` is clearance for the icon inside a search input.
+  Snapping either to the nearest named step misaligns it against the thing it
+  was measured against. A first attempt did exactly that to 20 declarations
+  before the values were looked at.
+- **Ties round up.** 6 sits between 4 and 8, 10 between 8 and 12, 14 between 12
+  and 16, so the direction is a real decision. Up, because rounding down
+  compounds — a control with `padding: 6px` in a row with `gap: 6px` in a panel
+  with `padding: 10px` loses 6px of breathing room at once, and cramped is
+  harder to spot in a screenshot than roomy.
+
+Every view moved, which was expected and is the point. The check was not "did
+anything change" but "did anything break": all 39 views were inspected in both
+themes, with the dense table views (`raid`, `stakeholders`, `user-workload`),
+the most layout-sensitive one (`gantt`) and the positional one (`kanban`) read
+side by side against their before shots. Nothing clipped, overflowed or
+rewrapped. The one wrap that does exist — "Critical Path" over two lines in the
+Gantt toolbar — was checked against the before shot and predates this.
+
+| | Before 4.1 | After |
+|---|---|---|
+| Spacing declarations using a token | 1 of 1,606 | **1,358 of 1,606** |
+| Uses off the 4px grid | 894 | **28** |
+| `off-scale-spacing` lint findings | 803 | **5** |
+
+The 5 that remain are the ones that should: `padding: 330px 20px 200px` on the
+welcome screen and `padding: 250px 0 150px` on the timeline wrapper are
+vertical-centring constants, and `margin-left: -6px` / `-5px` are the negative
+overlap that stacks resource avatars.
 
 ## Governance — runs alongside, from the end of band 1
 
@@ -280,11 +310,11 @@ counted the dead `style.css`; these are the linked stylesheets only:
 
 | Category | Now | After band 2 (predicted) | Token count |
 |---|---|---|---|
-| Colours | 549 | ~360 | ~40 |
+| Colours | 519 | ~340 | ~40 |
 | Font sizes | 68 | 44 | 11 |
 | Radii | 36 | 30 | 7 |
 | Shadows | 98 | 60 | 5 |
-| Spacing values | 48 | 48 (band 4) | 12 |
+| Spacing values | 36 | — done | 12 |
 
 **Lint findings** — `npm run lint:design`, against
 `ci/design-system-baseline.json`. This is the one CI enforces, and it only ever
@@ -293,9 +323,14 @@ goes down:
 | Rule | Now |
 |---|---|
 | `raw-colour` | 1,090 |
-| `off-scale-spacing` | 803 |
+| `off-scale-spacing` | 5 |
 | `token-outside-canonical` | 0 |
 | `unpaired-outline-none` | 0 |
+
+The `off-scale-spacing` rule now tests the **4px grid** rather than membership
+of the eleven named steps, for the reason given under band 4: a rule that flags
+`padding-bottom: 36px` where 36px is the status bar's height can never reach
+zero, and a rule that can never be satisfied gets ignored.
 
 `token-outside-canonical` reached 0 when the identity palette, the motion
 tokens and the status ramp moved from `base.css` and `dark-mode.css` into
@@ -305,8 +340,9 @@ nothing about where they resolve — a custom property resolves from the cascade
 value on the element, not from where in the file it was declared — and that was
 confirmed pixel-identical across all 39 views in both themes.
 
-The two rules that remain are the two that need a person, and between them they
-are the whole of what is left.
+`raw-colour` is now the only rule with real numbers behind it, and it is the
+palette decision described below — the one thing in this epic that a person has
+to make rather than verify.
 
 Band 2 alone does not get these near the token counts, and it is not supposed
 to — it removes the duplicates so that band 4's judgement calls are made

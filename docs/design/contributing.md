@@ -50,18 +50,21 @@ would not be.
 
 ### 3. Spacing comes from the scale
 
-`--np-space-0` through `--np-space-64`, on a 4px grid. `margin`, `padding` and
-`gap` in raw pixels off that scale are violations.
+Use `--np-space-0` through `--np-space-64`. `margin`, `padding` and `gap` in
+pixels **off the 4px grid** are violations.
 
-`em`, `rem` and percentage spacing are not checked — those track their
-container by design, and forcing them onto a pixel grid would defeat the point.
+The rule is the grid, not the eleven named steps. Values on the grid but
+outside `--np-space-*` are allowed, because plenty of them are load-bearing:
+`padding-bottom: 36px` matches the fixed status bar's height, and
+`padding-right: 44px` is clearance for the icon inside a search input. Prefer a
+named step; reach past it when you are measuring against something real.
 
-**`10px`, `6px` and `15px` are not on the scale**, and that is deliberate even
-though they are among the most-used values in the app. NoodlePlanner carries
-two interleaved half-scales — 4/8/12/16 and 5/10/15/25/30 — from different
-authors. New code picks the 4px one. Existing code is migrated per surface, by
-eye, not by find-and-replace: snapping 267 uses of `10px` to `8px` in one
-commit would visibly move a quarter of the app's layout.
+`0`, `1px` and `2px` are finer than the grid and fine. `em`, `rem` and
+percentage spacing are not checked — those track their container by design.
+
+The app used to carry two interleaved half-scales, 4/8/12/16 and 5/10/15/25/30,
+from different authors. #1194 collapsed the second onto the first (nearest
+multiple of 4, ties up), so there is now one. Don't reintroduce the other.
 
 ### 4. Removing a focus outline means replacing it
 

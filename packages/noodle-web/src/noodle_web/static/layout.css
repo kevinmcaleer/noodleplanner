@@ -15,7 +15,7 @@
 
 h1 {
     font-size: 2.5em;
-    margin-bottom: 10px;
+    margin-bottom: var(--np-space-12);
 }
 
 .subtitle {
@@ -61,7 +61,7 @@ svg.icon {
     position: absolute;
     left: 0;
     top: 100%;
-    margin-top: 5px;
+    margin-top: var(--np-space-4);
     background: var(--np-surface);
     border: 1px solid var(--np-border);
     border-radius: 5px;
@@ -75,12 +75,12 @@ svg.icon {
 }
 
 .nav-menu-item {
-    padding: 10px 15px;
+    padding: var(--np-space-12) var(--np-space-16);
     cursor: pointer;
     border-bottom: 1px solid var(--np-border-light);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     color: var(--np-text);
     white-space: nowrap;
     min-height: 44px;
@@ -226,7 +226,7 @@ svg.icon {
 .splitter-grip {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--np-space-4);
     pointer-events: none;
 }
 
@@ -274,7 +274,7 @@ svg.icon {
     display: inline-flex;
     align-items: center;
     gap: var(--np-space-4);
-    padding: 5px 12px;
+    padding: var(--np-space-4) var(--np-space-12);
     border: none;
     background: transparent;
     color: var(--np-text-secondary);

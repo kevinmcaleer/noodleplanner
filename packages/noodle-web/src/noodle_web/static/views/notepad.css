@@ -37,7 +37,7 @@
 
 .notepad-kanban-btn {
     flex-shrink: 0;
-    padding: 6px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     border: 1px solid var(--np-border);
     border-radius: 6px;
     background: var(--np-surface);
@@ -63,7 +63,7 @@
 .notepad-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     min-height: 34px;
     margin-bottom: var(--np-space-2);
     border: none;
@@ -130,7 +130,7 @@
     color: var(--np-text);
     font-size: 15px;
     font-family: inherit;
-    padding: 6px 4px;
+    padding: var(--np-space-8) var(--np-space-4);
     border-radius: 4px;
 }
 

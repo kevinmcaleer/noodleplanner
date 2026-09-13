@@ -29,7 +29,7 @@
     justify-content: center;
     min-height: 28px;
     min-width: 44px;
-    padding: 2px 10px;
+    padding: var(--np-space-2) var(--np-space-12);
     border: 1px solid #c0c0c0;
     border-radius: 3px;
     background: var(--np-surface);
@@ -179,14 +179,14 @@
     font-size: 10px;
     color: var(--np-muted);
     line-height: 1;
-    padding-top: 3px;
+    padding-top: var(--np-space-4);
 }
 
 .ns-col-name {
     font-size: 11px;
     font-weight: 600;
     color: var(--np-ink);
-    padding: 1px 6px 4px;
+    padding: 1px var(--np-space-8) var(--np-space-4);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -222,7 +222,7 @@
 .ns-cell {
     border-right: 1px solid var(--np-border);
     border-bottom: 1px solid var(--np-border);
-    padding: 2px 6px;
+    padding: var(--np-space-2) var(--np-space-8);
     height: 24px;
     max-height: 24px;
     white-space: nowrap;
@@ -335,7 +335,7 @@
     border: none;
     outline: 2px solid #217346;
     outline-offset: -1px;
-    padding: 2px 6px;
+    padding: var(--np-space-2) var(--np-space-8);
     font-family: inherit;
     font-size: 13px;
     background: var(--np-surface);
@@ -447,7 +447,7 @@ input[type="date"].ns-cell-editor {
 .ns-ctx-item {
     display: block;
     width: 100%;
-    padding: 6px 16px;
+    padding: var(--np-space-8) var(--np-space-16);
     border: none;
     background: none;
     text-align: left;
@@ -583,7 +583,7 @@ input[type="date"].ns-cell-editor {
 
     .ns-tab {
         min-width: 60px;
-        padding: 0 10px;
+        padding: 0 var(--np-space-12);
         font-size: 11px;
     }
 

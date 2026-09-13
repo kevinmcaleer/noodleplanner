@@ -195,7 +195,7 @@
     display: flex;
     align-items: center;
     gap: var(--np-space-4);
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     background: var(--np-surface-alt);
     border-bottom: 1px solid var(--np-border);
 }
@@ -242,7 +242,7 @@
 
 .deliverables-table th {
     text-align: center;
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     background: var(--np-surface-alt);
     color: var(--np-text-muted);
     font-weight: 600;
@@ -257,7 +257,7 @@
 }
 
 .deliverables-table td {
-    padding: 5px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     border: 1px solid var(--np-border);
     color: var(--np-text);
     vertical-align: middle;
@@ -507,7 +507,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     border-bottom: 1px solid var(--np-border-light);
     font-size: 13px;
 }
@@ -546,7 +546,7 @@
     display: flex;
     visibility: hidden;
     gap: var(--np-space-4);
-    margin-left: 6px;
+    margin-left: var(--np-space-8);
     flex-shrink: 0;
 }
 
@@ -579,7 +579,7 @@
 
 .product-type-btn {
     flex: 1;
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: none;
     background: var(--np-surface-alt);
     color: var(--np-text-secondary);
@@ -605,7 +605,7 @@
 .product-comp-add {
     display: flex;
     align-items: center;
-    padding: 4px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
 }
 
 /* Borderless input style for product form fields */
@@ -620,7 +620,7 @@
     background: transparent;
     font-size: 13px;
     outline: none;
-    padding: 4px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     color: var(--np-text);
     transition: border-color 0.15s;
 }
@@ -646,7 +646,7 @@
 .product-qa-roles {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--np-space-8);
 }
 
 .product-qa-role-row {
@@ -694,10 +694,10 @@
 .product-deps-container {
     border: 1px solid var(--np-border);
     border-radius: 4px;
-    padding: 6px 8px;
+    padding: var(--np-space-8) var(--np-space-8);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--np-space-8);
     position: relative;
     background: var(--np-surface);
     min-height: 36px;
@@ -720,7 +720,7 @@
 .product-dep-tag {
     display: inline-flex;
     align-items: center;
-    padding: 3px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     border-radius: 4px;
     font-size: 11px;
     font-weight: bold;
@@ -752,7 +752,7 @@ input[type="text"].product-deps-input {
     background: transparent;
     font-size: 13px;
     width: 100%;
-    padding: 4px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     color: var(--np-text);
     box-sizing: border-box;
     transition: border-color 0.15s;
@@ -783,7 +783,7 @@ input[type="text"].product-deps-input {
 }
 
 .product-deps-autocomplete-item {
-    padding: 6px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     cursor: pointer;
     font-size: 12px;
     display: flex;
@@ -805,7 +805,7 @@ input[type="text"].product-deps-input {
 
 .product-resource-badge {
     display: inline-block;
-    padding: 3px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 12px;
     background: rgba(74, 144, 217, 0.15);
@@ -818,7 +818,7 @@ input[type="text"].product-deps-input {
 }
 
 .product-readonly-field {
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     background: var(--np-surface-alt);
     border-radius: 4px;
     font-size: 13px;
@@ -848,7 +848,7 @@ input[type="text"].product-deps-input {
 }
 
 .pf-mini-node {
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border-radius: 6px;
     font-size: 11px;
     font-weight: bold;
@@ -886,7 +886,7 @@ input[type="text"].product-deps-input {
 .product-resources-list {
     border: 1px solid var(--np-border);
     border-radius: 4px;
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     max-height: 200px;
     overflow-y: auto;
     font-size: 14px;

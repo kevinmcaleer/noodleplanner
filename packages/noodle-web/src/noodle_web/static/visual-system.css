@@ -444,14 +444,14 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 :root body .templates-hero h1 { font-family: var(--np-font-heading); font-weight: 300; }
 /* Keep navigation and quick commands reachable when the body is compact. */
 @media (max-width: 900px) {
-    :root body .ribbon-titlebar { height: auto; min-height: 38px; flex-wrap: wrap; gap: 6px; padding: 6px 8px; }
-    :root body .ribbon-scope-btn { padding-inline: 7px; }
+    :root body .ribbon-titlebar { height: auto; min-height: 38px; flex-wrap: wrap; gap: var(--np-space-8); padding: var(--np-space-8) var(--np-space-8); }
+    :root body .ribbon-scope-btn { padding-inline: var(--np-space-8); }
     :root body .ribbon-titlebar-sep, :root body .ribbon-titlebar-spacer { display: none; }
     :root body .ribbon-quick-actions { flex-shrink: 0; }
     :root body .ribbon-doc-title { flex: 1 1 100px; }
     :root body .ribbon-search-wrap { flex: 1 1 140px; }
     :root body .ribbon-tabstrip { height: auto; min-height: 34px; flex-wrap: wrap; }
-    :root body .ribbon-tab-btn { padding-inline: 10px; }
+    :root body .ribbon-tab-btn { padding-inline: var(--np-space-12); }
     :root body .ribbon-tab-btn.contextual { margin-left: 0; }
 }
 @media (max-width: 700px) {

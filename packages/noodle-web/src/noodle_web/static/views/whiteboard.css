@@ -153,8 +153,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 6px;
-    padding: 8px 10px;
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
     background: transparent;
     color: var(--wb-note-text);
     border-bottom: 1px solid var(--np-border);
@@ -203,7 +203,7 @@
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 4px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     scrollbar-width: none; /* revealed on hover, see below */
 }
 
@@ -227,7 +227,7 @@
 }
 
 .wb-note-empty {
-    padding: 10px 6px;
+    padding: var(--np-space-12) var(--np-space-8);
     font-size: 12px;
     color: var(--wb-note-text);
     opacity: 0.65;
@@ -238,7 +238,7 @@
 .wb-note-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     padding: var(--np-space-4) var(--np-space-4);
     border-radius: 4px;
     min-width: 0;
@@ -290,7 +290,7 @@
     background: var(--np-bg-alt);
     color: var(--np-text-secondary);
     font-size: 10px;
-    padding: 1px 6px;
+    padding: 1px var(--np-space-8);
     cursor: pointer;
     line-height: 1.5;
 }
@@ -419,7 +419,7 @@
 .wb-note-add-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     padding: var(--np-space-4) var(--np-space-4);
     border-radius: 4px;
     min-width: 0;
@@ -463,7 +463,7 @@
 
 .wb-note-menu-empty {
     display: block;
-    padding: 6px 8px;
+    padding: var(--np-space-8) var(--np-space-8);
     color: var(--np-text-secondary);
     font-size: 12px;
 }
@@ -472,8 +472,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 6px;
-    padding: 6px 10px;
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
     border-top: 1px solid var(--np-border);
     flex-shrink: 0;
 }
@@ -537,7 +537,7 @@
     border: 1px solid var(--np-border);
     border-radius: 8px;
     box-shadow: 0 4px 16px var(--np-shadow);
-    padding: 6px;
+    padding: var(--np-space-8);
     font-size: 12px;
 }
 
@@ -566,7 +566,7 @@
     display: block;
     width: 100%;
     text-align: left;
-    padding: 6px 8px;
+    padding: var(--np-space-8) var(--np-space-8);
     border: 1px solid var(--np-border);
     border-radius: 6px;
     background: var(--np-bg-alt);
@@ -648,7 +648,7 @@
    Left unstyled-empty (no placeholder) when there is no comment, per
    #885's "nothing prompts for detail". */
 .wb-note-freetext {
-    padding: 8px 6px;
+    padding: var(--np-space-8) var(--np-space-8);
     font-size: 12px;
     line-height: 1.5;
     color: var(--wb-note-text);
@@ -849,7 +849,7 @@ body.wb-note-drag-active * {
 
 .wb-toolbar-btn-add {
     width: auto;
-    gap: 6px;
+    gap: var(--np-space-8);
     padding: 0 var(--np-space-12);
     font-size: 12px;
     font-weight: 600;
@@ -866,7 +866,7 @@ body.wb-note-drag-active * {
     display: block;
     width: 100%;
     text-align: left;
-    padding: 6px 8px;
+    padding: var(--np-space-8) var(--np-space-8);
     border: 1px solid transparent;
     border-radius: 6px;
     background: transparent;
@@ -917,7 +917,7 @@ body.wb-note-drag-active * {
 }
 
 .wb-empty-state-body {
-    margin: 0 0 18px;
+    margin: 0 0 var(--np-space-20);
     font-size: 13px;
     line-height: 1.5;
     color: var(--np-text-secondary);
@@ -988,7 +988,7 @@ body.wb-note-drag-active * {
     align-items: center;
     justify-content: space-between;
     gap: var(--np-space-8);
-    padding: 14px 16px;
+    padding: var(--np-space-16) var(--np-space-16);
     border-bottom: 1px solid var(--np-border);
     flex-shrink: 0;
 }
@@ -1023,7 +1023,7 @@ body.wb-note-drag-active * {
 
 .wb-add-note-search {
     margin: var(--np-space-12) var(--np-space-16) var(--np-space-8);
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 6px;
     background: var(--np-bg-alt);
@@ -1049,7 +1049,7 @@ body.wb-note-drag-active * {
 .wb-add-note-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     padding: var(--np-space-8);
     border-radius: 6px;
     cursor: pointer;
@@ -1110,7 +1110,7 @@ body.wb-note-drag-active * {
 }
 
 .wb-add-note-create-toggle {
-    margin-top: 10px;
+    margin-top: var(--np-space-12);
     padding: var(--np-space-4) var(--np-space-2);
     border: none;
     background: transparent;
@@ -1126,7 +1126,7 @@ body.wb-note-drag-active * {
 }
 
 .wb-add-note-create-intro {
-    margin: 10px 0 6px;
+    margin: var(--np-space-12) 0 var(--np-space-8);
     font-size: 12px;
     color: var(--np-text-secondary);
 }
@@ -1144,7 +1144,7 @@ body.wb-note-drag-active * {
 .wb-add-note-create-input {
     flex: 1;
     min-width: 0;
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 6px;
     background: var(--np-bg-alt);
@@ -1159,7 +1159,7 @@ body.wb-note-drag-active * {
 
 .wb-add-note-create-btn {
     flex-shrink: 0;
-    padding: 8px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     border: 1px solid var(--np-accent);
     border-radius: 6px;
     background: var(--np-accent);
@@ -1225,7 +1225,7 @@ body.wb-note-drag-active * {
 @media (pointer: coarse) {
     .wb-toolbar-btn-add {
         width: auto;
-        padding: 0 14px;
+        padding: 0 var(--np-space-16);
     }
 }
 
@@ -1258,7 +1258,7 @@ body.wb-note-drag-active * {
 .wb-parking-lot-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     padding: var(--np-space-8);
     border-radius: 6px;
 }
@@ -1284,7 +1284,7 @@ body.wb-note-drag-active * {
 .wb-parking-lot-item-restore,
 .wb-parking-lot-item-remove {
     flex-shrink: 0;
-    padding: 4px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 6px;
     background: var(--np-bg-alt);
@@ -1410,7 +1410,7 @@ body.wb-note-drag-active * {
 /* ── Note: "under X" caption and the linked-children summary ───────── */
 .wb-note-parent {
     flex-shrink: 0;
-    padding: 3px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -1425,7 +1425,7 @@ body.wb-note-drag-active * {
 
 .wb-note-linked-summary {
     margin-top: var(--np-space-4);
-    padding: 4px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     font-size: 11px;
     font-style: italic;
     color: var(--np-text-muted);
@@ -1681,7 +1681,7 @@ body.wb-linking * {
     bottom: 20px;
     transform: translateX(-50%) translateY(6px);
     max-width: min(420px, calc(100% - 32px));
-    padding: 9px 16px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 999px;
     background: var(--np-text);
     color: var(--np-surface);
@@ -1728,8 +1728,8 @@ body.wb-linking * {
 .wb-outline-header {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 9px 8px 9px 12px;
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-8) var(--np-space-8) var(--np-space-12);
     border-bottom: 1px solid var(--np-border);
     background: var(--np-bg-alt);
     flex-shrink: 0;
@@ -1781,7 +1781,7 @@ body.wb-linking * {
 }
 
 .wb-outline-search {
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     border-bottom: 1px solid var(--np-border);
     flex-shrink: 0;
 }
@@ -1789,7 +1789,7 @@ body.wb-linking * {
 .wb-outline-search-input {
     width: 100%;
     box-sizing: border-box;
-    padding: 5px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     font-size: 12px;
     font-family: inherit;
     color: var(--np-text);
@@ -1813,7 +1813,7 @@ body.wb-linking * {
 }
 
 .wb-outline-empty {
-    margin: 12px 10px;
+    margin: var(--np-space-12) var(--np-space-12);
     font-size: 12px;
     line-height: 1.45;
     color: var(--np-text-muted);
@@ -1922,7 +1922,7 @@ body.wb-linking * {
     min-width: 0;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     padding: var(--np-space-2) var(--np-space-2);
     border: none;
     background: transparent;
@@ -2017,8 +2017,8 @@ body.wb-linking * {
     left: 12px;
     display: none;
     align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 8px;
     background: var(--np-surface);

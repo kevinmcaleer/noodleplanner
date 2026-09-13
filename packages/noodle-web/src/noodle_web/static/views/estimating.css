@@ -23,7 +23,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 16px;
+    padding: var(--np-space-16) var(--np-space-16);
     font-weight: 600;
     border-bottom: 1px solid var(--np-border);
 }
@@ -40,7 +40,7 @@
 .estimate-popup-mode-tabs {
     display: flex;
     gap: var(--np-space-4);
-    padding: 10px 16px 0;
+    padding: var(--np-space-12) var(--np-space-16) 0;
 }
 
 .estimate-mode-btn {
@@ -48,7 +48,7 @@
     border: 1px solid var(--np-border);
     background: transparent;
     border-radius: 6px;
-    padding: 6px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     cursor: pointer;
     font-size: 13px;
 }
@@ -60,13 +60,13 @@
 }
 
 .estimate-popup-body {
-    padding: 14px 16px;
+    padding: var(--np-space-16) var(--np-space-16);
 }
 
 .estimate-duration-fields {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--np-space-12);
 }
 
 .estimate-duration-fields label {
@@ -78,7 +78,7 @@
 }
 
 .estimate-duration-fields input {
-    padding: 6px 8px;
+    padding: var(--np-space-8) var(--np-space-8);
     border: 1px solid var(--np-border);
     border-radius: 6px;
     font-size: 14px;
@@ -86,7 +86,7 @@
 
 .estimate-tshirt-fields {
     display: flex;
-    gap: 6px;
+    gap: var(--np-space-8);
 }
 
 .estimate-tshirt-btn {
@@ -94,7 +94,7 @@
     border: 1px solid var(--np-border);
     background: transparent;
     border-radius: 6px;
-    padding: 10px 0;
+    padding: var(--np-space-12) 0;
     cursor: pointer;
     font-weight: 600;
 }
@@ -121,7 +121,7 @@
 
 .estimate-popup-cancel,
 .estimate-popup-save {
-    padding: 7px 16px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 6px;
     cursor: pointer;
     font-size: 14px;
@@ -145,7 +145,7 @@
     border: 1px solid var(--np-border);
     background: transparent;
     border-radius: 6px;
-    padding: 3px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     font-size: 12px;
     cursor: pointer;
     color: inherit;

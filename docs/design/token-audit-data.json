@@ -1757,14 +1757,14 @@
   ],
   "spacing": {
     "declarations": 1606,
-    "indirectedDeclarations": 689,
-    "totalUniqueValues": 47,
-    "offGridUniqueValues": 24,
-    "offGridUses": 813,
+    "indirectedDeclarations": 1358,
+    "totalUniqueValues": 36,
+    "offGridUniqueValues": 13,
+    "offGridUses": 28,
     "top": [
       {
         "value": "0",
-        "uses": 283,
+        "uses": 186,
         "onGrid": true,
         "props": [
           "gap",
@@ -1776,192 +1776,18 @@
           "padding",
           "padding-bottom"
         ],
-        "fileCount": 23
-      },
-      {
-        "value": "10px",
-        "uses": 267,
-        "onGrid": false,
-        "props": [
-          "gap",
-          "margin",
-          "margin-bottom",
-          "margin-right",
-          "margin-top",
-          "padding",
-          "padding-bottom",
-          "padding-inline"
-        ],
-        "fileCount": 23
-      },
-      {
-        "value": "6px",
-        "uses": 193,
-        "onGrid": false,
-        "props": [
-          "gap",
-          "margin",
-          "margin-bottom",
-          "margin-left",
-          "margin-right",
-          "margin-top",
-          "padding",
-          "padding-bottom"
-        ],
-        "fileCount": 23
-      },
-      {
-        "value": "15px",
-        "uses": 92,
-        "onGrid": false,
-        "props": [
-          "gap",
-          "margin",
-          "margin-bottom",
-          "margin-top",
-          "padding",
-          "padding-bottom"
-        ],
-        "fileCount": 6
-      },
-      {
-        "value": "8px",
-        "uses": 61,
-        "onGrid": true,
-        "props": [
-          "padding"
-        ],
-        "fileCount": 14
-      },
-      {
-        "value": "12px",
-        "uses": 58,
-        "onGrid": true,
-        "props": [
-          "gap",
-          "margin",
-          "padding"
-        ],
-        "fileCount": 17
-      },
-      {
-        "value": "5px",
-        "uses": 55,
-        "onGrid": false,
-        "props": [
-          "gap",
-          "margin",
-          "margin-bottom",
-          "margin-left",
-          "margin-top",
-          "padding",
-          "padding-left"
-        ],
-        "fileCount": 10
-      },
-      {
-        "value": "14px",
-        "uses": 55,
-        "onGrid": false,
-        "props": [
-          "gap",
-          "margin-bottom",
-          "margin-left",
-          "margin-top",
-          "padding",
-          "padding-bottom",
-          "padding-left"
-        ],
-        "fileCount": 13
-      },
-      {
-        "value": "4px",
-        "uses": 43,
-        "onGrid": true,
-        "props": [
-          "padding"
-        ],
-        "fileCount": 13
-      },
-      {
-        "value": "3px",
-        "uses": 35,
-        "onGrid": false,
-        "props": [
-          "gap",
-          "margin",
-          "margin-bottom",
-          "margin-top",
-          "padding",
-          "padding-top"
-        ],
-        "fileCount": 13
-      },
-      {
-        "value": "20px",
-        "uses": 28,
-        "onGrid": true,
-        "props": [
-          "margin",
-          "padding"
-        ],
-        "fileCount": 8
-      },
-      {
-        "value": "2px",
-        "uses": 27,
-        "onGrid": false,
-        "props": [
-          "margin",
-          "padding"
-        ],
-        "fileCount": 7
-      },
-      {
-        "value": "30px",
-        "uses": 22,
-        "onGrid": false,
-        "props": [
-          "gap",
-          "margin",
-          "margin-bottom",
-          "padding",
-          "padding-bottom"
-        ],
-        "fileCount": 4
-      },
-      {
-        "value": "16px",
-        "uses": 21,
-        "onGrid": true,
-        "props": [
-          "padding"
-        ],
-        "fileCount": 11
+        "fileCount": 22
       },
       {
         "value": "1px",
-        "uses": 18,
+        "uses": 13,
         "onGrid": false,
         "props": [
           "gap",
           "padding",
           "padding-top"
         ],
-        "fileCount": 6
-      },
-      {
-        "value": "25px",
-        "uses": 14,
-        "onGrid": false,
-        "props": [
-          "margin",
-          "margin-bottom",
-          "margin-top",
-          "padding",
-          "padding-left"
-        ],
-        "fileCount": 3
+        "fileCount": 5
       },
       {
         "value": "60px",
@@ -1973,26 +1799,13 @@
         "fileCount": 5
       },
       {
-        "value": "7px",
-        "uses": 9,
-        "onGrid": false,
+        "value": "20px",
+        "uses": 12,
+        "onGrid": true,
         "props": [
-          "gap",
-          "padding",
-          "padding-inline"
-        ],
-        "fileCount": 6
-      },
-      {
-        "value": "18px",
-        "uses": 7,
-        "onGrid": false,
-        "props": [
-          "margin",
-          "margin-bottom",
           "padding"
         ],
-        "fileCount": 5
+        "fileCount": 4
       },
       {
         "value": "0.5rem",
@@ -2006,23 +1819,13 @@
         "fileCount": 1
       },
       {
-        "value": "9px",
-        "uses": 5,
-        "onGrid": false,
-        "props": [
-          "padding"
-        ],
-        "fileCount": 3
-      },
-      {
-        "value": "28px",
+        "value": "4px",
         "uses": 5,
         "onGrid": true,
         "props": [
-          "margin-left",
           "padding"
         ],
-        "fileCount": 5
+        "fileCount": 4
       },
       {
         "value": "0.25rem",
@@ -2046,13 +1849,25 @@
         "fileCount": 2
       },
       {
-        "value": "24px",
+        "value": "28px",
         "uses": 4,
         "onGrid": true,
         "props": [
+          "margin-left",
           "padding"
         ],
         "fileCount": 4
+      },
+      {
+        "value": "12px",
+        "uses": 4,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "margin",
+          "padding"
+        ],
+        "fileCount": 3
       },
       {
         "value": "-4px",
@@ -2094,6 +1909,16 @@
         "fileCount": 2
       },
       {
+        "value": "2px",
+        "uses": 2,
+        "onGrid": false,
+        "props": [
+          "margin",
+          "padding"
+        ],
+        "fileCount": 2
+      },
+      {
         "value": "1rem",
         "uses": 2,
         "onGrid": true,
@@ -2102,73 +1927,142 @@
           "padding"
         ],
         "fileCount": 1
+      },
+      {
+        "value": "1.25rem",
+        "uses": 2,
+        "onGrid": true,
+        "props": [
+          "margin-top",
+          "padding"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "-8px",
+        "uses": 2,
+        "onGrid": true,
+        "props": [
+          "margin"
+        ],
+        "fileCount": 2
+      },
+      {
+        "value": "24px",
+        "uses": 2,
+        "onGrid": true,
+        "props": [
+          "padding"
+        ],
+        "fileCount": 2
+      },
+      {
+        "value": "-1px",
+        "uses": 2,
+        "onGrid": false,
+        "props": [
+          "margin",
+          "margin-bottom"
+        ],
+        "fileCount": 2
+      },
+      {
+        "value": "44px",
+        "uses": 2,
+        "onGrid": true,
+        "props": [
+          "padding",
+          "padding-right"
+        ],
+        "fileCount": 2
+      },
+      {
+        "value": "16px",
+        "uses": 2,
+        "onGrid": true,
+        "props": [
+          "padding"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "1.5rem",
+        "uses": 1,
+        "onGrid": true,
+        "props": [
+          "margin-top"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "0.4rem",
+        "uses": 1,
+        "onGrid": false,
+        "props": [
+          "padding"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "0.85rem",
+        "uses": 1,
+        "onGrid": false,
+        "props": [
+          "padding"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "0.35rem",
+        "uses": 1,
+        "onGrid": false,
+        "props": [
+          "padding"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "330px",
+        "uses": 1,
+        "onGrid": false,
+        "props": [
+          "padding"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "200px",
+        "uses": 1,
+        "onGrid": true,
+        "props": [
+          "padding"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "-6px",
+        "uses": 1,
+        "onGrid": false,
+        "props": [
+          "margin-left"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "-5px",
+        "uses": 1,
+        "onGrid": false,
+        "props": [
+          "margin-left"
+        ],
+        "fileCount": 1
       }
     ],
     "offGridTop": [
       {
-        "value": "10px",
-        "uses": 267,
-        "fileCount": 23
-      },
-      {
-        "value": "6px",
-        "uses": 193,
-        "fileCount": 23
-      },
-      {
-        "value": "15px",
-        "uses": 92,
-        "fileCount": 6
-      },
-      {
-        "value": "5px",
-        "uses": 55,
-        "fileCount": 10
-      },
-      {
-        "value": "14px",
-        "uses": 55,
-        "fileCount": 13
-      },
-      {
-        "value": "3px",
-        "uses": 35,
-        "fileCount": 13
-      },
-      {
-        "value": "2px",
-        "uses": 27,
-        "fileCount": 7
-      },
-      {
-        "value": "30px",
-        "uses": 22,
-        "fileCount": 4
-      },
-      {
         "value": "1px",
-        "uses": 18,
-        "fileCount": 6
-      },
-      {
-        "value": "25px",
-        "uses": 14,
-        "fileCount": 3
-      },
-      {
-        "value": "7px",
-        "uses": 9,
-        "fileCount": 6
-      },
-      {
-        "value": "18px",
-        "uses": 7,
+        "uses": 13,
         "fileCount": 5
-      },
-      {
-        "value": "9px",
-        "uses": 5,
-        "fileCount": 3
       },
       {
         "value": "-2px",
@@ -2176,9 +2070,9 @@
         "fileCount": 2
       },
       {
-        "value": "11px",
+        "value": "2px",
         "uses": 2,
-        "fileCount": 1
+        "fileCount": 2
       },
       {
         "value": "-1px",
@@ -2222,6 +2116,11 @@
       },
       {
         "value": "150px",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
+        "value": "5px",
         "uses": 1,
         "fileCount": 1
       }

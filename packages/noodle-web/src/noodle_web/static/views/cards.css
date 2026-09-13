@@ -26,7 +26,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 16px;
+    padding: var(--np-space-16) var(--np-space-16);
     font-weight: 600;
     border-bottom: 1px solid var(--np-border);
 }
@@ -41,20 +41,20 @@
 }
 
 .card-popup-body {
-    padding: 14px 16px;
+    padding: var(--np-space-16) var(--np-space-16);
     overflow-y: auto;
 }
 
 .card-save-section {
-    padding-bottom: 14px;
-    margin-bottom: 14px;
+    padding-bottom: var(--np-space-16);
+    margin-bottom: var(--np-space-16);
     border-bottom: 1px solid var(--np-border);
 }
 
 .card-save-label {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--np-space-8);
     font-size: 13px;
     color: var(--np-text-secondary);
 }
@@ -66,14 +66,14 @@
 
 .card-save-row input {
     flex: 1;
-    padding: 6px 8px;
+    padding: var(--np-space-8) var(--np-space-8);
     border: 1px solid var(--np-border);
     border-radius: 6px;
     font-size: 14px;
 }
 
 .card-save-btn {
-    padding: 6px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 6px;
     border: 1px solid var(--np-blue);
     background: var(--np-blue);
@@ -91,7 +91,7 @@
 .card-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--np-space-8);
 }
 
 .card-list-empty {
@@ -105,7 +105,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--np-space-8);
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 8px;
 }
@@ -123,13 +123,13 @@
 .card-list-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     flex-shrink: 0;
 }
 
 .card-insert-tasks-btn,
 .card-insert-text-btn {
-    padding: 5px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 6px;
     border: 1px solid var(--np-border);
     background: transparent;
@@ -155,7 +155,7 @@
 }
 
 .card-popup-cancel {
-    padding: 7px 16px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 6px;
     border: 1px solid var(--np-border);
     background: transparent;

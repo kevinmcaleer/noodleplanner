@@ -139,8 +139,18 @@ const SPACING_PROPS = new Set([
 	'padding-block', 'padding-inline',
 	'gap', 'row-gap', 'column-gap',
 ])
-// The #1191 scale. 0 is grid-agnostic and always fine.
-const SCALE_PX = new Set([0, 2, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64])
+// The rule is the 4px grid, which is what the epic actually asked for, not the
+// named --np-space-* steps. Those are the preferred vocabulary and cover the
+// common cases, but plenty of on-grid values outside them are load-bearing
+// rather than sloppy: `padding-bottom: 36px` matches the fixed status bar's
+// height and `padding-right: 44px` is clearance for the icon inside a search
+// input. Flagging those forever would mean the count could never reach zero,
+// and a rule that can never be satisfied gets ignored.
+//
+// 0, 1px and 2px are finer than the grid and legitimately so -- a hairline gap
+// is not a spacing step, and rounding it to 4px doubles it.
+const FINE_PX = new Set([0, 1, 2])
+const onGrid = (n) => FINE_PX.has(Math.abs(n)) || Math.abs(n) % 4 === 0
 
 function isAllowed(context) {
 	return ALLOW.find((a) => a.match(context))
@@ -184,7 +194,7 @@ function lint() {
 					for (const m of value.matchAll(/(-?\d*\.?\d+)(px)?\b/g)) {
 						const n = parseFloat(m[1])
 						if (m[2] !== 'px' && n !== 0) continue // em/rem/unitless: not this rule's business
-						if (!SCALE_PX.has(Math.abs(n))) {
+						if (!onGrid(n)) {
 							findings.push({ rule: 'off-scale-spacing', file, line: rule.line, detail: `${prop}: ${value.slice(0, 40)} (${m[0]})`, selector: rule.selector })
 						}
 					}
