@@ -401,6 +401,8 @@ function wbClearTextSelection() {
 // single statusBarHistoryPopup convention), so this is a single slot
 // rather than a map.
 let wbNoteMenuState = null; // { taskName, btn } while open, else null
+let wbCoachingMenuState = null; // { taskName, trigger, popup }
+let wbSmartMenuState = null; // { taskName, trigger, popup } for date/resource bubbles
 
 /** Last header press, for the double-press rename gesture. See
  * wbIsRepeatHeaderPress(). */
@@ -490,6 +492,203 @@ function wbGetInitials(name) {
 function wbResourceList(resources) {
     if (!resources) return [];
     return String(resources).split(',').map(r => r.trim()).filter(Boolean);
+}
+
+// ── Natural-language smart tags (#878) ────────────────────────────────
+
+const WB_MONTHS = {
+    january: 1, jan: 1, february: 2, feb: 2, march: 3, mar: 3,
+    april: 4, apr: 4, may: 5, june: 6, jun: 6, july: 7, jul: 7,
+    august: 8, aug: 8, september: 9, sept: 9, sep: 9,
+    october: 10, oct: 10, november: 11, nov: 11, december: 12, dec: 12,
+};
+
+function wbIsoDate(year, month, day) {
+    const candidate = new Date(Date.UTC(year, month - 1, day));
+    if (candidate.getUTCFullYear() !== year || candidate.getUTCMonth() !== month - 1 || candidate.getUTCDate() !== day) return null;
+    return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/** Find explicit dates people naturally put in sticky-note prose. The
+ * reference year is injected for deterministic tests and yearless dates. */
+function wbDetectNaturalDates(value, referenceDate = new Date()) {
+    const text = String(value || '');
+    const found = [];
+    const patterns = [
+        { re: /\b(\d{4})-(\d{2})-(\d{2})\b/g, parts: m => [+m[1], +m[2], +m[3]] },
+        { re: /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+(\d{4}))?\b/gi,
+            parts: m => [m[3] ? +m[3] : referenceDate.getFullYear(), WB_MONTHS[m[2].toLowerCase()], +m[1]] },
+        { re: /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?\b/gi,
+            parts: m => [m[3] ? +m[3] : referenceDate.getFullYear(), WB_MONTHS[m[1].toLowerCase()], +m[2]] },
+        { re: /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, parts: m => [+m[3], +m[2], +m[1]] },
+    ];
+    for (const pattern of patterns) {
+        pattern.re.lastIndex = 0;
+        let match;
+        while ((match = pattern.re.exec(text))) {
+            if (found.some(item => match.index >= item.start && match.index < item.end)) continue;
+            const [year, month, day] = pattern.parts(match);
+            const date = wbIsoDate(year, month, day);
+            if (date) found.push({ raw: match[0], date, start: match.index, end: match.index + match[0].length });
+        }
+    }
+    return found.sort((a, b) => a.start - b.start);
+}
+
+function wbTaskDateSuggestions(task) {
+    const text = `${task && task.name || ''} ${task && task.comment || ''}`;
+    const attached = new Set([
+        task && (task.startDate || task.start),
+        task && (task.finishDate || task.finish),
+        task && task.deadline,
+    ].filter(Boolean).map(value => String(value).slice(0, 10)));
+    return wbDetectNaturalDates(text).filter(item => !attached.has(item.date));
+}
+
+function wbReplaceTokenRanges(line, tokens, replacement = '') {
+    let result = String(line || '');
+    [...tokens].sort((a, b) => b.start - a.start).forEach(token => {
+        result = result.slice(0, token.start) + replacement + result.slice(token.end);
+    });
+    return result.replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+$/g, '');
+}
+
+/** Apply a confirmed suggestion to the canonical task syntax. */
+function wbApplyDateChoiceToLine(line, kind, date) {
+    const parsed = TaskLineTokenizer.tokenize(String(line || ''));
+    const dates = parsed.filter(token => token.type === 'date');
+    if (kind === 'deadline') {
+        // Canonical deadline syntax is the D-prefixed token (D2026-09-10),
+        // the form engine/tokeniser.js and metadata.py both parse and
+        // exporters.calculate_rag_status compares against.
+        const without = String(line || '').replace(/\s*\bD\d{4}-\d{2}-\d{2}\b/g, '');
+        return `${without.trimEnd()} D${date}`;
+    }
+    if (kind === 'milestone') {
+        const removable = parsed.filter(token => token.type === 'date' || token.type === 'duration');
+        return `${wbReplaceTokenRanges(line, removable).trimEnd()} 0d ${date}`;
+    }
+    if (kind === 'start') {
+        if (dates[0]) return String(line).slice(0, dates[0].start) + date + String(line).slice(dates[0].end);
+        return `${String(line).trimEnd()} ${date}`;
+    }
+    if (kind === 'finish') {
+        if (dates[1]) return String(line).slice(0, dates[1].start) + date + String(line).slice(dates[1].end);
+        if (dates[0]) return `${String(line).trimEnd()} ${date}`;
+        return `${String(line).trimEnd()} ${date} ${date}`;
+    }
+    return line;
+}
+
+function wbApplyDateChoiceToPlanText(planText, taskName, kind, date) {
+    if (typeof NoodlePlanModel === 'undefined') return planText;
+    const model = NoodlePlanModel.PlanModel.parse(planText);
+    const task = model.tasks.find(node => String(node.name || '').toLowerCase() === String(taskName || '').toLowerCase());
+    if (!task) return planText;
+    model.updateLine(task, line => wbApplyDateChoiceToLine(line, kind, date));
+    return model.serialize();
+}
+
+function wbResourceOptionsFromPlanText(planText) {
+    const result = [];
+    const match = /^---\s*$([\s\S]*?)^---\s*$/m.exec(String(planText || ''));
+    if (!match) return result;
+    const re = /^\s*-\s*@([A-Za-z0-9_]+):\s*([^,\n]+)(?:,\s*([^\n]+))?/gm;
+    let item;
+    while ((item = re.exec(match[1]))) result.push({ shortname: item[1], name: item[2].trim(), role: (item[3] || '').trim() });
+    return result;
+}
+
+function wbApplyResourceToLine(line, shortname, assigned) {
+    const token = `@${shortname}`;
+    const resources = TaskLineTokenizer.tokenize(String(line || '')).filter(item =>
+        item.type === 'resource' && item.text.slice(1).toLowerCase() === String(shortname).toLowerCase());
+    const result = wbReplaceTokenRanges(line, resources);
+    return assigned ? `${result.trimEnd()} ${token}` : result;
+}
+
+function wbApplyResourceToPlanText(planText, taskName, shortname, assigned) {
+    if (typeof NoodlePlanModel === 'undefined') return planText;
+    const model = NoodlePlanModel.PlanModel.parse(planText);
+    const task = model.tasks.find(node => String(node.name || '').toLowerCase() === String(taskName || '').toLowerCase());
+    if (!task) return planText;
+    model.updateLine(task, line => wbApplyResourceToLine(line, shortname, assigned));
+    return model.serialize();
+}
+
+// ── Facilitator coaching (#875) ───────────────────────────────────────
+
+const WB_ACTIVITY_VERBS = new Set([
+    'approve', 'build', 'configure', 'coordinate', 'create', 'deploy',
+    'design', 'develop', 'draft', 'implement', 'install', 'manage',
+    'migrate', 'prepare', 'produce', 'review', 'run', 'update',
+]);
+
+/** A deliberately small, explainable language heuristic. It only suggests;
+ * it never changes a task. "Test plan" is explicitly kept as a product-like
+ * noun phrase while "test the plan" remains an activity-shaped phrase. */
+function wbActivityLanguageHint(value) {
+    const text = String(value || '').trim();
+    if (!text) return null;
+    const words = text.toLowerCase().match(/[a-z][a-z'-]*/g) || [];
+    if (!words.length) return null;
+    const first = words[0];
+    if (/^[a-z]{4,}ing$/.test(first)) {
+        return { kind: 'gerund', word: first };
+    }
+    if (first === 'test') {
+        const second = words[1] || '';
+        if (!['a', 'an', 'the', 'this', 'that', 'our', 'their'].includes(second)) return null;
+        return { kind: 'verb', word: first };
+    }
+    return WB_ACTIVITY_VERBS.has(first) ? { kind: 'verb', word: first } : null;
+}
+
+function wbTaskPlanningType(task) {
+    const labels = String((task && task.labels) || '').split(',')
+        .map(label => label.trim().toLowerCase()).filter(Boolean);
+    if (labels.includes('product')) return 'product';
+    if (labels.includes('activity')) return 'activity';
+    return null;
+}
+
+/** Replace only unquoted #activity/#product tokens, preserving comments. */
+function wbReplacePlanningTypeToken(line, type) {
+    const wanted = type === 'activity' || type === 'product' ? type : null;
+    const segments = String(line || '').split(/("[^"]*")/g);
+    for (let i = 0; i < segments.length; i += 2) {
+        segments[i] = segments[i].replace(/(^|\s)#(?:activity|product)(?=\s|$)/gi, '$1')
+            .replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+$/g, '');
+    }
+    let result = segments.join('');
+    if (wanted) result += ` #${wanted}`;
+    return result;
+}
+
+function wbApplyPlanningTypeToPlanText(planText, taskName, type) {
+    if (typeof NoodlePlanModel === 'undefined') return planText;
+    const model = NoodlePlanModel.PlanModel.parse(planText);
+    const key = String(taskName || '').toLowerCase();
+    const task = model.tasks.find(node => String(node.name || '').toLowerCase() === key);
+    if (!task) return planText;
+    model.updateLine(task, line => wbReplacePlanningTypeToken(line, type));
+    return model.serialize();
+}
+
+function wbAddNamedDependencyToPlanText(planText, taskName, predecessorName) {
+    if (typeof NoodlePlanModel === 'undefined') return planText;
+    const model = NoodlePlanModel.PlanModel.parse(planText);
+    const key = String(taskName || '').toLowerCase();
+    const task = model.tasks.find(node => String(node.name || '').toLowerCase() === key);
+    if (!task) return planText;
+    model.updateLine(task, line => {
+        const block = /\[depends\s*:?[\s]*([^\]]*)\]/i.exec(line);
+        if (!block) return `${line} [depends ${predecessorName}]`;
+        const current = block[1].trim();
+        const replacement = `[depends ${current ? `${current}, ` : ''}${predecessorName}]`;
+        return line.slice(0, block.index) + replacement + line.slice(block.index + block[0].length);
+    });
+    return model.serialize();
 }
 
 /**
@@ -1552,8 +1751,49 @@ function wbCreateNoteNode() {
     }, { passive: false });
     linkHandle.addEventListener('click', (e) => e.stopPropagation());
 
+    const coachBtn = document.createElementNS(XHTML_NS, 'button');
+    coachBtn.setAttribute('class', 'wb-note-coach-btn');
+    coachBtn.setAttribute('type', 'button');
+    coachBtn.setAttribute('aria-label', 'Planning prompts');
+    coachBtn.setAttribute('aria-haspopup', 'dialog');
+    coachBtn.textContent = '✦';
+    coachBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const taskName = fo.dataset.wbTask;
+        if (taskName) wbToggleCoachingMenu(taskName, coachBtn);
+    });
+
+    const dateBtn = document.createElementNS(XHTML_NS, 'button');
+    dateBtn.setAttribute('class', 'wb-note-smart-btn wb-note-date-btn');
+    dateBtn.setAttribute('type', 'button');
+    dateBtn.setAttribute('aria-label', 'Attach detected date');
+    dateBtn.textContent = 'Date';
+    dateBtn.style.display = 'none';
+    dateBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const taskName = fo.dataset.wbTask;
+        const task = wbLastTasks.find(item => item && item.name === taskName);
+        const suggestion = wbTaskDateSuggestions(task)[0];
+        if (taskName && suggestion) wbToggleDateMenu(taskName, suggestion, dateBtn);
+    });
+
+    const resourceBtn = document.createElementNS(XHTML_NS, 'button');
+    resourceBtn.setAttribute('class', 'wb-note-smart-btn wb-note-resource-btn');
+    resourceBtn.setAttribute('type', 'button');
+    resourceBtn.setAttribute('aria-label', 'Assign a resource');
+    resourceBtn.textContent = '＋';
+    resourceBtn.title = 'Quick assign';
+    resourceBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const taskName = fo.dataset.wbTask;
+        if (taskName) wbToggleResourceMenu(taskName, resourceBtn);
+    });
+
     header.appendChild(title);
+    header.appendChild(dateBtn);
+    header.appendChild(resourceBtn);
     header.appendChild(linkHandle);
+    header.appendChild(coachBtn);
     header.appendChild(promoteBtn);
     header.appendChild(menuBtn);
 
@@ -1594,7 +1834,7 @@ function wbCreateNoteNode() {
     const entry = {
         fo,
         refs: {
-            card, header, title, menuBtn, linkHandle, promoteBtn, parentCaption,
+            card, header, title, menuBtn, linkHandle, coachBtn, dateBtn, resourceBtn, promoteBtn, parentCaption,
             body, footer, progress, avatars, resizeHandle,
         },
     };
@@ -1672,6 +1912,22 @@ function wbUpdateNoteNode(entry, vm) {
     if (!refs.title.isContentEditable) {
         wbSetText(refs.title, vm.task.name);
         refs.title.setAttribute('title', vm.task.name + ' — double-click to rename');
+    }
+    const planningType = wbTaskPlanningType(vm.task);
+    const languageHint = wbActivityLanguageHint(vm.task && vm.task.name);
+    refs.coachBtn.classList.toggle('suspected-activity', !!languageHint && !planningType);
+    refs.coachBtn.classList.toggle('typed', !!planningType);
+    refs.coachBtn.textContent = planningType === 'product' ? 'P' : planningType === 'activity' ? 'A' : '✦';
+    refs.coachBtn.title = planningType
+        ? `Planning type: ${planningType}`
+        : languageHint
+            ? 'This sounds activity-shaped — open a gentle planning hint'
+            : 'Open facilitator prompts';
+    const dateSuggestion = wbTaskDateSuggestions(vm.task)[0];
+    refs.dateBtn.style.display = dateSuggestion ? '' : 'none';
+    if (dateSuggestion) {
+        refs.dateBtn.textContent = dateSuggestion.raw;
+        refs.dateBtn.title = `Attach ${dateSuggestion.date} to this task`;
     }
 
     // "under Discovery" caption: only when the parent has a note of its
@@ -2159,6 +2415,8 @@ function wbNoteHeaderMouseDown(e, entry) {
     // The menu button (issue #849, not this issue's to build or wire) is
     // a sibling inside the same header -- never hijack its own click.
     if (e.target && e.target.closest && e.target.closest('.wb-note-menu-btn')) return;
+    if (e.target && e.target.closest && e.target.closest('.wb-note-coach-btn')) return;
+    if (e.target && e.target.closest && e.target.closest('.wb-note-smart-btn')) return;
     // Nor the noodle handle, nor a title mid-rename: both are their own
     // gestures that happen to start inside the drag handle.
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
@@ -2201,6 +2459,8 @@ function wbNoteDragMouseUp(e) {
 function wbNoteHeaderTouchStart(e, entry) {
     if (wbActiveDrag || e.touches.length !== 1) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-menu-btn')) return;
+    if (e.target && e.target.closest && e.target.closest('.wb-note-coach-btn')) return;
+    if (e.target && e.target.closest && e.target.closest('.wb-note-smart-btn')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-promote-btn')) return;
 
@@ -2755,6 +3015,49 @@ function wbBuildChildRow(childVm) {
     name.setAttribute('title', child.name);
     row.appendChild(name);
 
+    const planningType = wbTaskPlanningType(child);
+    const languageHint = wbActivityLanguageHint(child.name);
+    if (languageHint || planningType) {
+        const coach = document.createElementNS(XHTML_NS, 'button');
+        coach.setAttribute('type', 'button');
+        coach.setAttribute('class', 'wb-note-row-coach' + (languageHint && !planningType ? ' suspected-activity' : ''));
+        coach.setAttribute('aria-label', `Planning hint for ${child.name}`);
+        coach.textContent = planningType === 'product' ? 'P' : planningType === 'activity' ? 'A' : '✦';
+        coach.title = planningType ? `Planning type: ${planningType}` : 'This wording may describe an activity';
+        coach.addEventListener('click', (e) => {
+            e.stopPropagation();
+            wbToggleCoachingMenu(child.name, coach);
+        });
+        row.appendChild(coach);
+    }
+
+    const dateSuggestion = wbTaskDateSuggestions(child)[0];
+    if (dateSuggestion) {
+        const date = document.createElementNS(XHTML_NS, 'button');
+        date.setAttribute('type', 'button');
+        date.setAttribute('class', 'wb-note-row-smart wb-note-row-date');
+        date.setAttribute('aria-label', `Attach detected date ${dateSuggestion.raw} to ${child.name}`);
+        date.textContent = dateSuggestion.raw;
+        date.title = `Attach ${dateSuggestion.date}`;
+        date.addEventListener('click', (e) => {
+            e.stopPropagation();
+            wbToggleDateMenu(child.name, dateSuggestion, date);
+        });
+        row.appendChild(date);
+    }
+
+    const assign = document.createElementNS(XHTML_NS, 'button');
+    assign.setAttribute('type', 'button');
+    assign.setAttribute('class', 'wb-note-row-smart wb-note-row-resource');
+    assign.setAttribute('aria-label', `Assign a resource to ${child.name}`);
+    assign.textContent = '＋';
+    assign.title = 'Quick assign';
+    assign.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbToggleResourceMenu(child.name, assign);
+    });
+    row.appendChild(assign);
+
     if (childVm.hasChildren) {
         const badge = document.createElementNS(XHTML_NS, 'button');
         badge.setAttribute('type', 'button');
@@ -3143,6 +3446,293 @@ function wbCommitMarkdown(nextText) {
         });
     }
     return true;
+}
+
+function wbCloseSmartMenu() {
+    if (!wbSmartMenuState) return;
+    const { popup, trigger } = wbSmartMenuState;
+    if (popup && popup.parentNode) popup.remove();
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    wbSmartMenuState = null;
+    document.removeEventListener('mousedown', wbSmartMenuOutsideClick, true);
+    document.removeEventListener('keydown', wbSmartMenuEscape, true);
+}
+
+function wbSmartMenuOutsideClick(event) {
+    if (!wbSmartMenuState) return;
+    if (wbSmartMenuState.popup.contains(event.target) || wbSmartMenuState.trigger.contains(event.target)) return;
+    wbCloseSmartMenu();
+}
+
+function wbSmartMenuEscape(event) {
+    if (event.key !== 'Escape' || !wbSmartMenuState) return;
+    const trigger = wbSmartMenuState.trigger;
+    wbCloseSmartMenu();
+    if (trigger) trigger.focus();
+}
+
+function wbOpenSmartMenu(taskName, trigger, popup) {
+    wbCloseSmartMenu();
+    if (wbCoachingMenuState) wbCloseCoachingMenu();
+    document.body.appendChild(popup);
+    const rect = trigger.getBoundingClientRect();
+    const width = Math.max(240, popup.offsetWidth || 0);
+    popup.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, rect.left))}px`;
+    popup.style.top = `${Math.max(8, Math.min(window.innerHeight - popup.offsetHeight - 8, rect.bottom + 6))}px`;
+    trigger.setAttribute('aria-expanded', 'true');
+    wbSmartMenuState = { taskName, trigger, popup };
+    setTimeout(() => {
+        document.addEventListener('mousedown', wbSmartMenuOutsideClick, true);
+        document.addEventListener('keydown', wbSmartMenuEscape, true);
+    }, 0);
+}
+
+function wbToggleDateMenu(taskName, suggestion, trigger) {
+    if (wbSmartMenuState && wbSmartMenuState.taskName === taskName && wbSmartMenuState.popup.classList.contains('wb-date-menu')) {
+        wbCloseSmartMenu();
+        return;
+    }
+    const popup = document.createElement('section');
+    popup.className = 'wb-smart-menu wb-date-menu';
+    popup.setAttribute('role', 'dialog');
+    popup.setAttribute('aria-label', `Attach ${suggestion.raw} to ${taskName}`);
+    const heading = document.createElement('strong');
+    heading.textContent = `${suggestion.raw} → ${suggestion.date}`;
+    popup.appendChild(heading);
+    const copy = document.createElement('p');
+    copy.textContent = 'What kind of date is this?';
+    popup.appendChild(copy);
+    const choices = [
+        ['start', 'Start'], ['finish', 'Finish'], ['milestone', 'Milestone'], ['deadline', 'Deadline'],
+    ];
+    const buttons = document.createElement('div');
+    buttons.className = 'wb-date-choices';
+    for (const [kind, label] of choices) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.dateKind = kind;
+        button.textContent = label;
+        button.addEventListener('click', () => {
+            wbCommitMarkdown(wbApplyDateChoiceToPlanText(wbLastPlanText, taskName, kind, suggestion.date));
+            wbCloseSmartMenu();
+        });
+        buttons.appendChild(button);
+    }
+    popup.appendChild(buttons);
+    wbOpenSmartMenu(taskName, trigger, popup);
+}
+
+function wbTaskHasResource(taskName, shortname) {
+    if (typeof NoodlePlanModel === 'undefined') return false;
+    const model = NoodlePlanModel.PlanModel.parse(wbLastPlanText);
+    const task = model.tasks.find(node => String(node.name || '').toLowerCase() === String(taskName || '').toLowerCase());
+    if (!task) return false;
+    return TaskLineTokenizer.metadata(task.content).values.resources
+        .some(value => value.toLowerCase() === String(shortname).toLowerCase());
+}
+
+function wbToggleResourceMenu(taskName, trigger) {
+    if (wbSmartMenuState && wbSmartMenuState.taskName === taskName && wbSmartMenuState.popup.classList.contains('wb-resource-menu')) {
+        wbCloseSmartMenu();
+        return;
+    }
+    const popup = document.createElement('section');
+    popup.className = 'wb-smart-menu wb-resource-menu';
+    popup.setAttribute('role', 'dialog');
+    popup.setAttribute('aria-label', `Assign resources to ${taskName}`);
+    const heading = document.createElement('strong');
+    heading.textContent = 'Quick assign';
+    popup.appendChild(heading);
+    const resources = wbResourceOptionsFromPlanText(wbLastPlanText);
+    if (!resources.length) {
+        const empty = document.createElement('p');
+        empty.textContent = 'No resources in plan front matter.';
+        popup.appendChild(empty);
+    }
+    for (const resource of resources) {
+        const assigned = wbTaskHasResource(taskName, resource.shortname);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'wb-resource-choice';
+        button.setAttribute('aria-pressed', assigned ? 'true' : 'false');
+        button.textContent = `${assigned ? '✓ ' : ''}${resource.name}`;
+        button.title = resource.role ? `${resource.name} — ${resource.role}` : resource.name;
+        button.addEventListener('click', () => {
+            wbCommitMarkdown(wbApplyResourceToPlanText(wbLastPlanText, taskName, resource.shortname, !assigned));
+            wbCloseSmartMenu();
+        });
+        popup.appendChild(button);
+    }
+    wbOpenSmartMenu(taskName, trigger, popup);
+}
+
+// ── Contextual facilitator menu (issue #875) ──────────────────────────
+
+function wbCloseCoachingMenu() {
+    if (!wbCoachingMenuState) return;
+    const { popup, trigger } = wbCoachingMenuState;
+    if (popup && popup.parentNode) popup.remove();
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    wbCoachingMenuState = null;
+    document.removeEventListener('mousedown', wbCoachingOutsideClick, true);
+    document.removeEventListener('keydown', wbCoachingEscape, true);
+}
+
+function wbCoachingOutsideClick(event) {
+    if (!wbCoachingMenuState) return;
+    if (wbCoachingMenuState.popup.contains(event.target) || wbCoachingMenuState.trigger.contains(event.target)) return;
+    wbCloseCoachingMenu();
+}
+
+function wbCoachingEscape(event) {
+    if (event.key !== 'Escape' || !wbCoachingMenuState) return;
+    const trigger = wbCoachingMenuState.trigger;
+    wbCloseCoachingMenu();
+    if (trigger) trigger.focus();
+}
+
+function wbToggleCoachingMenu(taskName, trigger) {
+    if (wbCoachingMenuState && wbCoachingMenuState.taskName === taskName) {
+        wbCloseCoachingMenu();
+        return;
+    }
+    wbCloseCoachingMenu();
+    const task = wbLastTasks.find(item => item && item.name === taskName);
+    if (!task) return;
+
+    const popup = document.createElement('section');
+    popup.className = 'wb-coaching-menu';
+    popup.setAttribute('role', 'dialog');
+    popup.setAttribute('aria-label', `Planning prompts for ${taskName}`);
+
+    const heading = document.createElement('strong');
+    heading.textContent = taskName;
+    popup.appendChild(heading);
+
+    const hint = wbActivityLanguageHint(taskName);
+    if (hint && !wbTaskPlanningType(task)) {
+        const question = document.createElement('p');
+        question.className = 'wb-coaching-hint';
+        question.textContent = 'This looks like something you are doing rather than something you are making. Is the real deliverable the thing it produces?';
+        popup.appendChild(question);
+    }
+
+    const typeRow = document.createElement('div');
+    typeRow.className = 'wb-coaching-types';
+    const currentType = wbTaskPlanningType(task);
+    for (const type of ['product', 'activity']) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = type === 'product' ? 'Product' : 'Activity';
+        button.classList.toggle('selected', currentType === type);
+        button.addEventListener('click', () => {
+            const nextType = currentType === type ? null : type;
+            wbCommitMarkdown(wbApplyPlanningTypeToPlanText(wbLastPlanText, taskName, nextType));
+            wbCloseCoachingMenu();
+        });
+        typeRow.appendChild(button);
+    }
+    popup.appendChild(typeRow);
+
+    const promptHeading = document.createElement('span');
+    promptHeading.className = 'wb-coaching-label';
+    promptHeading.textContent = 'Ask a useful question';
+    popup.appendChild(promptHeading);
+
+    const prompts = [
+        { label: 'Does this need approval?', relation: 'predecessor', suggested: `Approval for ${taskName}` },
+        { label: 'What does this produce?', relation: 'successor', suggested: `${taskName} output` },
+        { label: 'What must be true before this can start?', relation: 'predecessor', suggested: `${taskName} prerequisite` },
+    ];
+    for (const item of prompts) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'wb-coaching-prompt';
+        button.textContent = item.label;
+        button.addEventListener('click', () => {
+            wbCloseCoachingMenu();
+            wbSpawnCoachingNote(taskName, item.relation, item.suggested);
+        });
+        popup.appendChild(button);
+    }
+
+    const owner = document.createElement('button');
+    owner.type = 'button';
+    owner.className = 'wb-coaching-prompt';
+    owner.textContent = 'Who owns it?';
+    owner.addEventListener('click', () => {
+        wbCloseCoachingMenu();
+        wbOpenChildTask(taskName);
+        setTimeout(() => {
+            const field = document.getElementById('taskResources');
+            if (field) field.focus();
+        }, 0);
+    });
+    popup.appendChild(owner);
+
+    document.body.appendChild(popup);
+    const rect = trigger.getBoundingClientRect();
+    const width = 300;
+    popup.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, rect.left))}px`;
+    popup.style.top = `${Math.min(window.innerHeight - popup.offsetHeight - 8, rect.bottom + 6)}px`;
+    trigger.setAttribute('aria-expanded', 'true');
+    wbCoachingMenuState = { taskName, trigger, popup };
+    setTimeout(() => {
+        document.addEventListener('mousedown', wbCoachingOutsideClick, true);
+        document.addEventListener('keydown', wbCoachingEscape, true);
+    }, 0);
+}
+
+function wbBoardRowForTaskOrAncestor(items, taskName) {
+    let current = wbLastTasks.find(task => task && task.name === taskName);
+    while (current) {
+        const row = items.find(item => item && item.task && item.task.toLowerCase() === current.name.toLowerCase());
+        if (row) return row;
+        current = current.parent
+            ? wbLastTasks.find(task => task && task.name === current.parent)
+            : null;
+    }
+    return null;
+}
+
+/** Turn one facilitator answer into a real task and scheduling edge, and
+ * place its new post-it beside the note that prompted it. */
+function wbSpawnCoachingNote(sourceTaskName, relation, suggestedName) {
+    const editor = document.getElementById('planEditor');
+    if (!editor || typeof wbAppendTopLevelTask !== 'function') return null;
+    const answer = prompt('Name the new linked note:', suggestedName || 'New note');
+    if (!answer || !answer.trim()) return null;
+    const existingNames = typeof wbOutlineTaskNames === 'function'
+        ? wbOutlineTaskNames(editor.value)
+        : wbLastTasks.map(task => task && task.name).filter(Boolean);
+    const name = wbUniqueTaskName(existingNames, answer.trim().replace(/[\r\n]+/g, ' '));
+    let nextText = wbAppendTopLevelTask(editor.value, name);
+    nextText = relation === 'successor'
+        ? wbAddNamedDependencyToPlanText(nextText, name, sourceTaskName)
+        : wbAddNamedDependencyToPlanText(nextText, sourceTaskName, name);
+
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(nextText));
+    const source = wbBoardRowForTaskOrAncestor(items, sourceTaskName);
+    const width = WB_NOTE_DEFAULT_WIDTH;
+    const height = WB_NOTE_DEFAULT_HEIGHT;
+    let x = source ? (source.x || 0) + (relation === 'successor' ? width + 60 : -width - 60) : 80;
+    let y = source ? (source.y || 0) : 80;
+    const wanted = { x, y, width, height };
+    if (items.some(item => wbRectsOverlap(wanted, {
+        x: item.x || 0, y: item.y || 0,
+        width: item.width || WB_NOTE_DEFAULT_WIDTH,
+        height: item.height || WB_NOTE_DEFAULT_HEIGHT,
+    }, 8)) && typeof wbFindFreeSpacePosition === 'function' && typeof wbCurrentViewportBoardRect === 'function') {
+        const free = wbFindFreeSpacePosition(items.map(item => ({
+            x: item.x || 0, y: item.y || 0,
+            width: item.width || WB_NOTE_DEFAULT_WIDTH,
+            height: item.height || WB_NOTE_DEFAULT_HEIGHT,
+        })), wbCurrentViewportBoardRect(), width, height);
+        if (free) { x = free.x; y = free.y; }
+    }
+    items.push({ task: name, x: Math.round(x), y: Math.round(y), colour: '', width, height, collapsed: false });
+    wbCommitMarkdown(updatePlanWhiteboardText(nextText, items));
+    return name;
 }
 
 // ── Quick resource-assign bubble (issue #1162, part of epic #878) ───────

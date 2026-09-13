@@ -53,6 +53,24 @@ Live editing covers:
 Your own typing goes out to everyone too, so the session works whether the
 change starts with you or with someone else.
 
+Using Session Chat
+--------------------
+
+While you are hosting, a chat icon appears in the status bar immediately
+to the left of the notification bell. Select it for a compact popup, or
+use **Expand chat** to make it a full-height panel on the right. Joiners
+have the same chat at the bottom of their session page.
+
+Chat messages and the activity feed use the same end-to-end encrypted
+channel as plan edits. The feed records useful session actions such as a
+participant adding or updating a task. It is ephemeral: closing the
+session discards it from every browser, and the relay never stores it.
+
+Use **Download chat** if you deliberately want a text transcript. On the
+host, **Add to task** promotes one message into the chosen task's comment;
+this explicit action is the only way a chat message becomes part of the
+saved plan.
+
 When Two People Edit the Same Thing
 -------------------------------------
 
@@ -115,6 +133,9 @@ Security
   encryption keys come from an exchange between the two browsers,
   authenticated by the token in the holding link.
 * The relay only ever sees ciphertext. It cannot read your plan.
+* Session chat and activity entries are ciphertext too, and are kept only
+  in the participants' browser memory unless the host explicitly downloads
+  a transcript or promotes a message to a task comment.
 * Session addresses are long and unguessable, and repeated **wrong** code
   attempts from one place are rate limited. Correct ones are not, so a
   whole team behind one office connection can join.
