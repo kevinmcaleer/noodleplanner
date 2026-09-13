@@ -13,6 +13,14 @@ dev-dependencies = [
     "xlwt>=1.3.0",
     "selenium>=4.25.0",
     "webdriver-manager>=4.0.2",
+    # The Playwright UI suite (tests/ui). It is replacing the Selenium browser
+    # tests file by file -- see tests/ui/README.md -- so both drivers are
+    # dev dependencies until the last tests/test_*.py Selenium file is ported.
+    # Needs a browser as well as the package: `uv run playwright install chromium`.
+    "pytest-playwright>=0.5.0",
+    # tests/ui is isolated per test (a browser context each), so it parallelises
+    # cleanly; `-n auto` is roughly another 2x on a 4-core machine.
+    "pytest-xdist>=3.6.0",
     # Dev-only: used exclusively by tests/helpers/collab_crypto_stub.py, a
     # Python port of static/collab-crypto.js (#964) that drives the
     # server-side relay-opacity test. Production encryption/decryption for
