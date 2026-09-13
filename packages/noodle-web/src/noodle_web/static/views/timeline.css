@@ -1,7 +1,7 @@
 
 /* Timeline Styling - Milestone View */
 .timeline-content {
-    padding: 40px;
+    padding: var(--np-space-40);
     overflow-x: auto;
 }
 
@@ -206,7 +206,7 @@
     text-align: center;
     font-size: 0.75em;
     color: var(--np-text-secondary);
-    margin-top: 4px;
+    margin-top: var(--np-space-4);
     white-space: nowrap;
     min-width: 60px; /* Ensure labels have consistent spacing */
 }
@@ -215,7 +215,7 @@
     font-weight: 600;
     font-size: 0.9em;
     color: var(--np-text);
-    margin-bottom: 4px;
+    margin-bottom: var(--np-space-4);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -373,7 +373,7 @@
 .minimal-date-scale {
     position: relative;
     height: 18px;
-    margin: 4px auto 0 auto;
+    margin: var(--np-space-4) auto 0 auto;
 }
 
 .minimal-date-label {

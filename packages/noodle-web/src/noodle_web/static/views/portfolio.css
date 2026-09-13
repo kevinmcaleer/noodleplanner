@@ -18,25 +18,25 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 10px;
-    padding: 8px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     background: white;
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    gap: 12px;
+    gap: var(--np-space-12);
     flex-wrap: wrap;
 }
 
 .portfolio-header-left {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: var(--np-space-16);
     flex: 1;
     min-width: 0;
 }
 
 .portfolio-actions {
     display: flex;
-    gap: 8px;
+    gap: var(--np-space-8);
     align-items: center;
 }
 
@@ -76,7 +76,7 @@
     position: absolute;
     right: 0;
     top: 100%;
-    margin-top: 4px;
+    margin-top: var(--np-space-4);
     background: white;
     border: 1px solid var(--np-border);
     border-radius: 6px;
@@ -141,13 +141,13 @@
 .portfolio-projects-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 20px;
+    gap: var(--np-space-20);
 }
 
 .portfolio-project-card {
     background: white;
     border-radius: 8px;
-    padding: 20px;
+    padding: var(--np-space-20);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: all 0.2s;
     border: 2px solid transparent;
@@ -181,14 +181,14 @@
 .portfolio-active-badge {
     background: var(--np-accent);
     color: var(--np-on-accent);
-    padding: 4px 12px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.8em;
     font-weight: 600;
 }
 
 .portfolio-project-meta {
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
 }
 
 .portfolio-meta-item {
@@ -199,7 +199,7 @@
 
 .portfolio-project-actions {
     display: flex;
-    gap: 8px;
+    gap: var(--np-space-8);
     flex-wrap: wrap;
 }
 
@@ -264,7 +264,7 @@
 /* Portfolio Sub-Navigation (inline in header row) */
 .portfolio-subnav {
     display: flex;
-    gap: 2px;
+    gap: var(--np-space-2);
     align-items: center;
 }
 
@@ -302,7 +302,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 25px;
-    padding: 20px;
+    padding: var(--np-space-20);
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -532,7 +532,7 @@
 /* Portfolio Resources View */
 .portfolio-resources-header {
     margin-bottom: 25px;
-    padding: 20px;
+    padding: var(--np-space-20);
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -625,7 +625,7 @@
     display: inline-block;
     background: var(--np-accent);
     color: var(--np-on-accent);
-    padding: 4px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     border-radius: 10px;
     font-size: 0.85em;
     font-weight: 600;
@@ -743,7 +743,7 @@
 }
 
 #resourceDetailsBody h2 {
-    margin: 0 0 20px 0;
+    margin: 0 0 var(--np-space-20) 0;
     color: var(--np-ink);
     font-size: 1.8em;
 }
@@ -764,7 +764,7 @@
     display: flex;
     gap: 30px;
     margin-bottom: 25px;
-    padding: 20px;
+    padding: var(--np-space-20);
     background: var(--np-paper);
     border-radius: 8px;
 }
@@ -904,7 +904,7 @@
 }
 
 .portfolio-timeline-container {
-    padding: 12px 12px 24px 12px;
+    padding: var(--np-space-12) var(--np-space-12) var(--np-space-24) var(--np-space-12);
 }
 
 .portfolio-timeline-container .timeline-scale {
@@ -968,7 +968,7 @@
     left: -20px;
     background: #dc3545;
     color: white;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 4px;
     font-size: 0.75em;
     font-weight: 600;
@@ -1072,13 +1072,13 @@
     .portfolio-header {
         flex-direction: column;
         align-items: flex-start;
-        gap: 8px;
+        gap: var(--np-space-8);
     }
 
     .portfolio-header-left {
         flex-direction: column;
         align-items: flex-start;
-        gap: 8px;
+        gap: var(--np-space-8);
         width: 100%;
     }
 
@@ -1088,7 +1088,7 @@
 
     .portfolio-project-actions button {
         font-size: 0.85em;
-        padding: 8px 12px;
+        padding: var(--np-space-8) var(--np-space-12);
     }
 
     .portfolio-subnav {
@@ -1181,7 +1181,7 @@
 }
 
 .portfolio-projects-table th {
-    padding: 16px 12px;
+    padding: var(--np-space-16) var(--np-space-12);
     text-align: left;
     font-weight: 600;
     color: #495057;
@@ -1254,7 +1254,7 @@
 .active-indicator {
     color: var(--np-accent);
     font-size: 1.2em;
-    margin-right: 4px;
+    margin-right: var(--np-space-4);
 }
 
 /* Project table action buttons */
@@ -1266,7 +1266,7 @@
     cursor: pointer;
     color: var(--np-muted);
     transition: all 0.2s;
-    margin: 0 2px;
+    margin: 0 var(--np-space-2);
     vertical-align: middle;
     line-height: 1;
 }
@@ -1288,7 +1288,7 @@
 /* Status badges */
 .status-badge {
     display: inline-block;
-    padding: 4px 12px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 600;
@@ -1366,7 +1366,7 @@
 .programme-badge {
     display: inline-block;
     margin-left: 6px;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 10px;
     font-size: 0.78em;
     font-weight: 600;
@@ -1387,7 +1387,7 @@
     align-items: center;
     gap: 10px;
     padding: 10px 14px;
-    margin-bottom: 12px;
+    margin-bottom: var(--np-space-12);
     background: var(--np-surface-alt);
     border: 1px solid var(--np-border);
     border-radius: 8px;
@@ -1396,7 +1396,7 @@
 .portfolio-selection-count {
     font-weight: 600;
     color: var(--np-text);
-    margin-right: 4px;
+    margin-right: var(--np-space-4);
 }
 
 .portfolio-selection-clear {
@@ -1407,7 +1407,7 @@
     line-height: 1;
     color: var(--np-text-secondary);
     cursor: pointer;
-    padding: 0 4px;
+    padding: 0 var(--np-space-4);
 }
 
 .portfolio-selection-clear:hover {
@@ -1436,7 +1436,7 @@
 
     .portfolio-projects-table th,
     .portfolio-projects-table td {
-        padding: 12px 8px;
+        padding: var(--np-space-12) var(--np-space-8);
     }
 
     .highlight-cell {
@@ -1467,7 +1467,7 @@
 
     .portfolio-projects-table th,
     .portfolio-projects-table td {
-        padding: 16px 12px;
+        padding: var(--np-space-16) var(--np-space-12);
     }
 
     .highlight-cell {
@@ -1484,7 +1484,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 25px;
-    padding: 20px;
+    padding: var(--np-space-20);
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -1508,7 +1508,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .actions-summary-item .summary-label {
@@ -1629,7 +1629,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 25px;
-    padding: 20px;
+    padding: var(--np-space-20);
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -1653,7 +1653,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .risks-summary-item .summary-label {
@@ -1700,7 +1700,7 @@
 .portfolio-risks-new {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
 }
 
 .portfolio-risks-new select {
@@ -1808,7 +1808,7 @@
 
 .risk-score-badge {
     display: inline-block;
-    padding: 4px 12px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 700;
@@ -1841,7 +1841,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 25px;
-    padding: 20px;
+    padding: var(--np-space-20);
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -1865,7 +1865,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .lookahead-summary-item .summary-label {
@@ -1891,7 +1891,7 @@
 .lookahead-filter-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
 }
 
 .portfolio-lookahead-filters label {
@@ -2155,7 +2155,7 @@
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    padding: 20px;
+    padding: var(--np-space-20);
 }
 
 .resource-heatmap-container h3 {
@@ -2174,7 +2174,7 @@
    scroll horizontally; the label column stays pinned on the left. */
 .resource-heatmap-grid {
     display: grid;
-    gap: 2px;
+    gap: var(--np-space-2);
     overflow-x: auto;
     max-width: 100%;
     padding-bottom: 6px;
@@ -2255,8 +2255,8 @@
 .resource-heatmap-legend {
     display: flex;
     gap: 15px;
-    margin-top: 12px;
-    padding-top: 12px;
+    margin-top: var(--np-space-12);
+    padding-top: var(--np-space-12);
     border-top: 1px solid var(--np-border);
     font-size: 0.85em;
     color: var(--np-muted);
@@ -2284,7 +2284,7 @@
     height: 20px;
     background: var(--np-sunken);
     border-radius: 4px;
-    margin: 8px 0;
+    margin: var(--np-space-8) 0;
     overflow: hidden;
 }
 
@@ -2306,14 +2306,14 @@
    ========================================= */
 
 .programme-deps-view {
-    padding: 12px;
+    padding: var(--np-space-12);
 }
 
 .programme-deps-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: var(--np-space-12);
+    margin-bottom: var(--np-space-16);
     padding-bottom: 10px;
     border-bottom: 1px solid var(--np-border);
 }

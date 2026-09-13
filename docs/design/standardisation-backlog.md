@@ -114,7 +114,7 @@ forms, 3 wizard steps, 2 standalone forms.
 
 | | # | Item | Issue |
 |---|---|---|---|
-| ☐ | 4.1 | Adopt spacing tokens per view, eyeballing each — **not** a find-and-replace, see the spacing audit | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| 🔶 | 4.1 | Adopt spacing tokens per view. The on-scale half is done; the off-scale half is the judgement | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ☐ | 4.2 | Migrate the 33 colour-carrying inline `style=""` attributes in the templates | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ☐ | 4.3 | Migrate static colour literals in JS-generated markup (214 lines, 22 files), leaving genuinely dynamic colour alone | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ✅ | 4.4 | Penpot screen audit board | [#1196](https://github.com/kevinmcaleer/noodleplanner/issues/1196) |
@@ -127,8 +127,23 @@ nothing links, so the progress toast, baseline dialog, AI settings modal and
 the editor's front-matter highlighting had been rendering unstyled in
 production ever since.
 
-4.1 is the item with real judgement in it. 803 off-scale spacing values, and
-each one is a question about that surface rather than a substitution.
+4.1 split cleanly in two once the distinction was made explicit.
+
+**The on-scale half is done.** 783 declarations whose every value was already
+on the scale now use the token — `padding: 8px` is `padding: var(--np-space-8)`,
+the same number, named. Indirected spacing declarations went from 47 to 689 of
+1,606. Verified pixel-identical across all 39 views at 1600px and 480px.
+
+The migration is all-or-nothing per declaration on purpose: tokenising only the
+on-scale half of `padding: 14px 16px` leaves `padding: 14px var(--np-space-16)`,
+which reads as a half-finished edit and hides that the `14px` is the part still
+needing a decision.
+
+**The off-scale half is the remaining work**, and it is 803 declarations of
+real judgement rather than substitution. What this pass buys is that they are
+now *findable*: a bare pixel value in a spacing property is, by construction,
+one of them, and `node scripts/lint-design-system.mjs --list off-scale-spacing`
+enumerates every one with its file and line.
 
 ## Governance — runs alongside, from the end of band 1
 
@@ -220,12 +235,24 @@ The 18 kept are load-bearing: the `--mm-*` mind-map tokens are declared at
 component scope rather than `:root`, plus `--bs-primary` from Bootstrap's CDN
 stylesheet and `--wb-outline-depth` set inline by JS.
 
-**Docs screenshots.** `docs/_static/img/how-to/cp-01-editor-frontmatter.png`
-shows the editor's front matter and predates the highlighting fix, so it is now
-wrong. Re-capturing needs `cd docs && make screenshots` in an environment that
-can reach the CDN — and note that `docs/capture_screenshots.py` is still
-Selenium, so it also needs a chromedriver matching the installed Chrome, which
-is the version-skew problem that moved `tests/ui` to Playwright.
+**One docs screenshot.** `docs/_static/img/how-to/kb-01-kanban-phase.png`
+shows the editor pane with YAML front matter in flat grey, from before the
+highlighting fix. It is the only affected image — `cp-01-editor-frontmatter.png`
+shows the structured front-matter *panel*, not raw YAML, so the fix does not
+touch it.
+
+Re-capturing needs `cd docs && make screenshots` somewhere with real network
+access. It could not be done in the sandbox this work was carried out in:
+`cdn.jsdelivr.net` is blocked by policy, and while Google Fonts is reachable by
+`curl` it is not reachable from the browser, so a capture renders without
+Bootstrap, without icons and in fallback fonts. Stubbing all of that from local
+copies is possible but would risk a screenshot that differs from the rest of
+the set for reasons unrelated to the change, which is worse than one slightly
+stale image.
+
+Note also that `docs/capture_screenshots.py` is still Selenium, so it needs a
+chromedriver matching the installed Chrome — the version-skew problem that
+moved `tests/ui` to Playwright, and which bit this work too.
 
 ## Convergence metric
 

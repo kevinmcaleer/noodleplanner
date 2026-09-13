@@ -46,7 +46,7 @@
 .plan-wizard-steps {
     display: flex;
     overflow-x: auto;
-    gap: 2px;
+    gap: var(--np-space-2);
     padding: 10px 8px;
     border-bottom: 1px solid var(--np-border);
 }
@@ -55,7 +55,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
     border: none;
     background: transparent;
     cursor: pointer;
@@ -117,7 +117,7 @@
 .plan-wizard-footer {
     display: flex;
     justify-content: space-between;
-    gap: 8px;
+    gap: var(--np-space-8);
     padding: 10px 14px;
     border-top: 1px solid var(--np-border);
 }
@@ -197,18 +197,18 @@
 
 .schedule-check-issues {
     list-style: none;
-    margin: 8px 0 0;
+    margin: var(--np-space-8) 0 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .schedule-check-issue-btn {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
+    gap: var(--np-space-2);
     width: 100%;
     text-align: left;
     padding: 8px 10px;
@@ -251,7 +251,7 @@
 }
 
 .schedule-check-recheck {
-    margin-top: 8px;
+    margin-top: var(--np-space-8);
     padding: 6px 12px;
     font-size: 12px;
     border: 1px solid var(--np-border);

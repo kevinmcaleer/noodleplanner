@@ -15,9 +15,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--np-space-12);
     min-height: 38px;
-    padding: 0 12px;
+    padding: 0 var(--np-space-12);
 }
 
 .fm-panel-absent { color: #a6a6a6; }
@@ -64,7 +64,7 @@
     align-items: center;
 }
 
-.fm-panel-controls { gap: 8px; }
+.fm-panel-controls { gap: var(--np-space-8); }
 
 .fm-mode-toggle {
     padding: 0;
@@ -72,7 +72,7 @@
 }
 
 .fm-mode-btn {
-    padding: 4px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     border: 0;
     border-radius: 4px;
     background: transparent;
@@ -126,7 +126,7 @@
     display: grid;
     grid-template-columns: minmax(92px, 31%) minmax(0, 1fr) auto;
     align-items: start;
-    gap: 8px;
+    gap: var(--np-space-8);
     min-height: 34px;
     padding: 3px 5px;
     border-radius: 5px;
@@ -268,7 +268,7 @@
     align-items: center;
     gap: 5px;
     min-width: 0;
-    padding: 2px 0;
+    padding: var(--np-space-2) 0;
 }
 
 .fm-tag {
@@ -299,7 +299,7 @@
 .fm-block-list-widget {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--np-space-2);
     min-width: 0;
 }
 
@@ -307,7 +307,7 @@
 .fm-block-line {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
     min-width: 0;
 }
 
@@ -339,7 +339,7 @@
 .fm-add-entry-btn,
 .fm-add-line-btn {
     align-self: flex-start;
-    margin-top: 2px;
+    margin-top: var(--np-space-2);
     padding: 3px 6px;
     color: #999;
     font-size: 12px;
@@ -349,7 +349,7 @@
 .fm-raw-textarea {
     box-sizing: border-box;
     width: 100%;
-    padding: 8px;
+    padding: var(--np-space-8);
     border: 1px solid #4b4b4d;
     border-radius: 5px;
     background: #1e1e1f;
@@ -369,7 +369,7 @@
 .fm-warning-line { color: #e6b94f; }
 
 .fm-warning-title {
-    margin-bottom: 2px;
+    margin-bottom: var(--np-space-2);
     font-weight: 600;
 }
 
@@ -383,7 +383,7 @@
     .fm-panel-header {
         align-items: flex-start;
         flex-direction: column;
-        gap: 2px;
+        gap: var(--np-space-2);
         padding: 5px 8px;
     }
 

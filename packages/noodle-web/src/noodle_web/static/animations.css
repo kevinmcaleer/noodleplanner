@@ -8,7 +8,7 @@
     display: inline-block;
     position: relative;
     padding: 6px 20px 6px 12px;
-    margin-right: 8px;
+    margin-right: var(--np-space-8);
     background: var(--ribbon-bg, var(--np-blue-subtle));
     border-left: 4px solid var(--ribbon-color, var(--np-blue));
     color: var(--ribbon-text, #333);

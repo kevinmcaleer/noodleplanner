@@ -162,10 +162,10 @@
 /* Kanban Board Layout */
 .kanban-board {
     display: flex;
-    gap: 20px;
+    gap: var(--np-space-20);
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 20px;
+    padding: var(--np-space-20);
     flex: 1;
     background: #f0f2f5;
     align-items: stretch;
@@ -216,12 +216,12 @@
 
 .kanban-column.drop-left {
     border-left: 4px solid var(--np-accent);
-    margin-left: 4px;
+    margin-left: var(--np-space-4);
 }
 
 .kanban-column.drop-right {
     border-right: 4px solid var(--np-accent);
-    margin-right: 4px;
+    margin-right: var(--np-space-4);
 }
 
 .kanban-column-header {
@@ -263,7 +263,7 @@
     font-size: 12px;
     opacity: 0.9;
     background: rgba(255, 255, 255, 0.2);
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 12px;
 }
 
@@ -275,7 +275,7 @@
     line-height: 1;
     cursor: pointer;
     padding: 0 5px;
-    margin-left: 8px;
+    margin-left: var(--np-space-8);
     opacity: 0.7;
     transition: opacity 0.2s;
 }
@@ -293,8 +293,8 @@
     letter-spacing: 1px;
     line-height: 1;
     cursor: pointer;
-    padding: 0 4px;
-    margin-left: 8px;
+    padding: 0 var(--np-space-4);
+    margin-left: var(--np-space-8);
     opacity: 0.7;
     transition: opacity 0.2s;
     color: inherit;
@@ -306,7 +306,7 @@
 
 .kanban-column-order-actions {
     display: flex;
-    gap: 2px;
+    gap: var(--np-space-2);
 }
 
 .kanban-column-order-btn {
@@ -331,7 +331,7 @@
     background: var(--np-surface);
     border: 1px solid var(--np-border);
     border-radius: 8px;
-    padding: 12px;
+    padding: var(--np-space-12);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     max-width: 280px;
 }
@@ -340,7 +340,7 @@
     font-size: 12px;
     font-weight: 600;
     color: var(--np-body);
-    margin: 8px 0 4px 0;
+    margin: var(--np-space-8) 0 var(--np-space-4) 0;
 }
 
 .theme-colour-label:first-child {
@@ -388,7 +388,7 @@
 
 .kanban-column-empty {
     text-align: center;
-    padding: 40px 20px;
+    padding: var(--np-space-40) var(--np-space-20);
     color: #adb5bd;
     font-style: italic;
 }
@@ -402,7 +402,7 @@
 
 .kanban-add-card-btn {
     width: 100%;
-    padding: 8px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     background: transparent;
     border: 2px dashed var(--np-border);
     border-radius: 4px;
@@ -433,13 +433,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: var(--np-space-20);
 }
 
 .kanban-add-column-btn {
     width: 100%;
     height: 100px;
-    padding: 20px;
+    padding: var(--np-space-20);
     background: transparent;
     border: 3px dashed var(--np-border);
     border-radius: 8px;
@@ -468,7 +468,7 @@
 .kanban-card {
     background: white;
     border-radius: 6px;
-    padding: 12px;
+    padding: var(--np-space-12);
     margin-bottom: 10px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
     transition: all 0.2s;
@@ -627,8 +627,8 @@
     border-radius: 6px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.18);
     display: flex;
-    gap: 2px;
-    padding: 4px;
+    gap: var(--np-space-2);
+    padding: var(--np-space-4);
 }
 
 .piechart-popup-btn {
@@ -660,8 +660,8 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: var(--np-space-8);
+    margin-bottom: var(--np-space-8);
 }
 
 .kanban-card-move-select {
@@ -678,7 +678,7 @@
 
 .kanban-card-order-actions {
     display: flex;
-    gap: 2px;
+    gap: var(--np-space-2);
 }
 
 .kanban-card-order-btn {
@@ -705,7 +705,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 8px;
+    gap: var(--np-space-8);
     flex: 1;
     min-width: 0;
 }
@@ -777,14 +777,14 @@
 
 .kanban-card-meta {
     display: flex;
-    gap: 12px;
+    gap: var(--np-space-12);
     flex-wrap: wrap;
     margin-bottom: 6px;
 }
 
 .kanban-meta-duration {
     font-size: 12px;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 4px;
     font-weight: 500;
     background: #e7f5ff;
@@ -801,8 +801,8 @@
 
 /* Card Footer */
 .kanban-card-footer {
-    margin-top: 8px;
-    padding-top: 8px;
+    margin-top: var(--np-space-8);
+    padding-top: var(--np-space-8);
     border-top: 1px solid #f1f3f5;
 }
 
@@ -814,7 +814,7 @@
 
 .label {
     background: #e9ecef;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 12px;
     font-size: 11px;
     color: #495057;
@@ -849,7 +849,7 @@
 
 .kanban-empty-state p {
     font-size: 14px;
-    margin: 0 0 20px 0;
+    margin: 0 0 var(--np-space-20) 0;
     color: var(--np-muted);
 }
 
@@ -857,7 +857,7 @@
     display: flex;
     gap: 15px;
     justify-content: center;
-    margin-top: 20px;
+    margin-top: var(--np-space-20);
 }
 
 .kanban-empty-actions button {
@@ -866,7 +866,7 @@
 
 .kanban-column-empty {
     text-align: center;
-    padding: 40px 20px;
+    padding: var(--np-space-40) var(--np-space-20);
     color: #adb5bd;
     font-size: 0.9em;
     font-style: italic;
@@ -925,7 +925,7 @@
     }
 
     .kanban-column-header {
-        padding: 12px;
+        padding: var(--np-space-12);
     }
 
     .kanban-column-title {

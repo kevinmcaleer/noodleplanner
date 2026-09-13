@@ -33,7 +33,7 @@ body.backstage-fullscreen {
     justify-content: center;
     width: 40px;
     height: 40px;
-    margin: 8px 0 0 12px;
+    margin: var(--np-space-8) 0 0 var(--np-space-12);
     border: none;
     border-radius: 50%;
     background: var(--np-bg-alt);
@@ -59,8 +59,8 @@ body.backstage-fullscreen {
     flex: 0 0 240px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 24px 12px;
+    gap: var(--np-space-2);
+    padding: var(--np-space-24) var(--np-space-12);
     background: var(--np-bg-alt);
     border-right: 1px solid var(--np-border);
 }
@@ -111,7 +111,7 @@ body.backstage-fullscreen {
 .backstage-main-header {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: var(--np-space-16);
     margin-bottom: 18px;
 }
 
@@ -150,7 +150,7 @@ body.backstage-fullscreen {
 .backstage-template-strip {
     display: flex;
     gap: 14px;
-    margin-bottom: 32px;
+    margin-bottom: var(--np-space-32);
     overflow-x: auto;
 }
 
@@ -171,7 +171,7 @@ body.backstage-fullscreen {
     font-weight: 600;
     font-size: 0.9em;
     cursor: pointer;
-    padding: 4px;
+    padding: var(--np-space-4);
 }
 
 .backstage-more-templates-btn:hover {
@@ -187,7 +187,7 @@ body.backstage-fullscreen {
 }
 
 .backstage-recent-title {
-    margin-top: 4px;
+    margin-top: var(--np-space-4);
 }
 
 .backstage-template-grid {
@@ -204,7 +204,7 @@ body.backstage-fullscreen {
     justify-content: center;
     gap: 10px;
     aspect-ratio: 3 / 4;
-    padding: 16px;
+    padding: var(--np-space-16);
     border: 1px solid var(--np-border);
     border-radius: 8px;
     background: var(--np-surface);
@@ -238,7 +238,7 @@ body.backstage-fullscreen {
 }
 
 .backstage-recent-empty {
-    padding: 40px 20px;
+    padding: var(--np-space-40) var(--np-space-20);
     text-align: center;
     color: var(--np-text-secondary);
     border: 1px dashed var(--np-border);
@@ -259,14 +259,14 @@ body.backstage-fullscreen {
 .backstage-recent-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 12px;
+    gap: var(--np-space-12);
     max-width: 900px;
 }
 
 .backstage-recent-item {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--np-space-12);
     padding: 14px;
     border: 1px solid var(--np-border);
     border-radius: 8px;
@@ -302,7 +302,7 @@ body.backstage-fullscreen {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--np-space-2);
 }
 
 .backstage-recent-item-name {
@@ -324,7 +324,7 @@ body.backstage-fullscreen {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 10px;
     background: var(--np-accent);
     color: var(--np-on-accent);
@@ -339,5 +339,5 @@ body.backstage-fullscreen {
         border-bottom: 1px solid var(--np-border);
     }
     .backstage-rail-btn { width: auto; }
-    .backstage-main { padding: 20px; }
+    .backstage-main { padding: var(--np-space-20); }
 }

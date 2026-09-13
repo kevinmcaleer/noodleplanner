@@ -47,7 +47,7 @@
     }
 
     header {
-        padding: 20px;
+        padding: var(--np-space-20);
     }
 
     .container-fluid {
@@ -117,7 +117,7 @@
     }
 
     .plan-subnav-btn {
-        padding: 4px 8px;
+        padding: var(--np-space-4) var(--np-space-8);
         font-size: 0.8em;
     }
 
@@ -256,7 +256,7 @@
 
     /* Upload / drop zone */
     .upload-area {
-        padding: 20px;
+        padding: var(--np-space-20);
     }
 
     .upload-icon {
@@ -332,12 +332,12 @@
     .quad-add-btn {
         min-width: 44px;
         min-height: 44px;
-        padding: 8px 12px;
+        padding: var(--np-space-8) var(--np-space-12);
     }
 
     .plan-subnav-btn {
         min-height: 44px;
-        padding: 8px 12px;
+        padding: var(--np-space-8) var(--np-space-12);
     }
 
     /* Tour popup: constrain width */
@@ -460,7 +460,7 @@
     z-index: 1000;
     justify-content: center;
     align-items: center;
-    padding: 20px;
+    padding: var(--np-space-20);
 }
 
 .modal-overlay.active {

@@ -43,7 +43,7 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 2px;
+    gap: var(--np-space-2);
     padding: 8px 10px 0;
     font-size: 11px;
 }
@@ -51,7 +51,7 @@
 .task-peek-crumb {
     border: none;
     background: none;
-    padding: 2px 4px;
+    padding: var(--np-space-2) var(--np-space-4);
     border-radius: 4px;
     color: var(--np-accent);
     cursor: pointer;
@@ -107,7 +107,7 @@
     background: var(--np-bg-alt);
     color: var(--np-text);
     font-size: 11px;
-    padding: 4px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     cursor: pointer;
     white-space: nowrap;
 }

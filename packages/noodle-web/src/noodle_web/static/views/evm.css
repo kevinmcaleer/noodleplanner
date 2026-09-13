@@ -3,7 +3,7 @@
  * ================================================================= */
 
 #evm-view {
-    padding: 20px;
+    padding: var(--np-space-20);
     overflow-y: auto;
 }
 
@@ -15,14 +15,14 @@
 
 .evm-placeholder h3 {
     color: var(--evm-text-secondary);
-    margin-bottom: 12px;
+    margin-bottom: var(--np-space-12);
 }
 
 .evm-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
 }
 
 .evm-title {
@@ -34,8 +34,8 @@
 .evm-kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
-    margin-bottom: 24px;
+    gap: var(--np-space-12);
+    margin-bottom: var(--np-space-24);
 }
 
 .evm-kpi-card {
@@ -86,8 +86,8 @@
     background: var(--evm-chart-bg);
     border: 1px solid var(--evm-chart-border);
     border-radius: 8px;
-    padding: 16px;
-    margin-bottom: 24px;
+    padding: var(--np-space-16);
+    margin-bottom: var(--np-space-24);
 }
 
 .evm-chart-svg {
@@ -98,8 +98,8 @@
 .evm-chart-legend {
     display: flex;
     justify-content: center;
-    gap: 20px;
-    padding-top: 12px;
+    gap: var(--np-space-20);
+    padding-top: var(--np-space-12);
     flex-wrap: wrap;
 }
 
@@ -120,13 +120,13 @@
 
 /* EVM Metrics Table */
 .evm-metrics-wrapper {
-    margin-top: 8px;
+    margin-top: var(--np-space-8);
 }
 
 .evm-section-title {
     font-size: 1em;
     color: var(--evm-text-primary);
-    margin-bottom: 12px;
+    margin-bottom: var(--np-space-12);
     font-weight: 600;
 }
 
@@ -172,7 +172,7 @@
 @media (max-width: 768px) {
     .evm-kpi-grid {
         grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-        gap: 8px;
+        gap: var(--np-space-8);
     }
 
     .evm-kpi-card {
@@ -189,7 +189,7 @@
 
     .evm-metrics-table td,
     .evm-metrics-table th {
-        padding: 8px;
+        padding: var(--np-space-8);
     }
 }
 
@@ -200,15 +200,15 @@
  * ================================================================= */
 
 #forecast-view {
-    padding: 20px;
+    padding: var(--np-space-20);
     overflow-y: auto;
 }
 
 .forecast-summary {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
+    gap: var(--np-space-16);
+    margin-bottom: var(--np-space-24);
 }
 
 .forecast-summary-item {
@@ -232,7 +232,7 @@
     color: var(--evm-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 8px;
+    margin-bottom: var(--np-space-8);
 }
 
 .forecast-summary-value {

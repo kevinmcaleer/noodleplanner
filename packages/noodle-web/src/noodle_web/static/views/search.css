@@ -18,14 +18,14 @@
     padding: 24px 28px 60px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: var(--np-space-20);
     color: var(--np-text);
 }
 
 .search-view-header {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--np-space-12);
 }
 
 .search-view-title {
@@ -100,7 +100,7 @@
     font-size: 1.4em;
     line-height: 1;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     border-radius: 4px;
 }
 
@@ -120,11 +120,11 @@
 .search-view-body {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: var(--np-space-20);
 }
 
 .search-view-empty {
-    padding: 40px 20px;
+    padding: var(--np-space-40) var(--np-space-20);
     text-align: center;
     color: var(--np-text-secondary);
     border: 1px dashed var(--np-border);
@@ -151,7 +151,7 @@
 .search-view-group-header {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
     padding: 10px 14px;
     background: var(--np-bg-alt);
     border-bottom: 1px solid var(--np-border);
@@ -169,7 +169,7 @@
 
 .search-view-result {
     display: flex;
-    gap: 12px;
+    gap: var(--np-space-12);
     align-items: flex-start;
     padding: 12px 14px;
     border-bottom: 1px solid var(--np-border-light);
@@ -207,7 +207,7 @@
     color: var(--np-text-secondary);
     min-width: 70px;
     text-align: center;
-    margin-top: 2px;
+    margin-top: var(--np-space-2);
 }
 
 .search-view-result-body {
@@ -218,7 +218,7 @@
 .search-view-result-title {
     font-weight: 600;
     color: var(--np-text);
-    margin: 0 0 4px;
+    margin: 0 0 var(--np-space-4);
     word-break: break-word;
 }
 
@@ -232,7 +232,7 @@
 .search-view-result-snippet mark {
     background: rgba(255, 214, 65, 0.55);
     color: inherit;
-    padding: 0 2px;
+    padding: 0 var(--np-space-2);
     border-radius: 2px;
 }
 
@@ -256,6 +256,6 @@
 }
 
 @media (max-width: 600px) {
-    .search-view-container { padding: 16px; }
+    .search-view-container { padding: var(--np-space-16); }
     .search-view-result-badge { min-width: 56px; font-size: 0.65em; }
 }

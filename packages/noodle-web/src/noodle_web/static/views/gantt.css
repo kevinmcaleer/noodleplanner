@@ -6,7 +6,7 @@
 
 /* Gantt Chart Styling */
 .gantt-content {
-    padding: 20px;
+    padding: var(--np-space-20);
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -30,7 +30,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 10px 0;
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
     flex-shrink: 0;
 }
 
@@ -69,13 +69,13 @@
 .gantt-toolbar-controls {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: var(--np-space-20);
 }
 
 .gantt-checkbox-group {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: var(--np-space-16);
 }
 
 .gantt-dependency-toggle {
@@ -86,7 +86,7 @@
 .gantt-dependency-toggle label {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
     font-size: 0.85rem;
     color: #495057;
     cursor: pointer;
@@ -110,7 +110,7 @@
 }
 
 .tasks-content {
-    padding: 20px;
+    padding: var(--np-space-20);
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -189,7 +189,7 @@
 .gantt-info-table {
     border-collapse: collapse;
     font-size: 0.9em;
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
 }
 
 .gantt-info-table thead {
@@ -209,7 +209,7 @@
 }
 
 .gantt-info-table td {
-    padding: 8px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border-bottom: 1px solid var(--np-hairline);
     white-space: nowrap;
     cursor: default;
@@ -228,7 +228,7 @@
     width: 30px;
     min-width: 30px;
     max-width: 30px;
-    padding: 8px 4px !important;
+    padding: var(--np-space-8) var(--np-space-4) !important;
 }
 
 /* Gantt checkboxes use .round-checkbox class - these are kept for specificity */
@@ -259,7 +259,7 @@
 
 .gantt-info-table td.editing input {
     width: 100%;
-    padding: 8px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: 2px solid var(--np-accent);
     outline: none;
     font-family: inherit;
@@ -338,7 +338,7 @@
 
 .gantt-week-label {
     border-right: 1px solid var(--np-border);
-    padding: 4px 2px;
+    padding: var(--np-space-4) var(--np-space-2);
     text-align: center;
     font-weight: 600;
     color: #495057;
@@ -368,7 +368,7 @@
 
 .gantt-body {
     position: relative;
-    padding-bottom: 20px;
+    padding-bottom: var(--np-space-20);
 }
 
 .gantt-bar-row {
@@ -626,14 +626,14 @@
 .gantt-baseline-controls {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-left: 8px;
+    gap: var(--np-space-12);
+    margin-left: var(--np-space-8);
 }
 
 .baseline-toggle-label {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
     font-size: 0.85rem;
     cursor: pointer;
     white-space: nowrap;
@@ -648,7 +648,7 @@
     display: flex;
     justify-content: flex-end;
     padding: 6px 12px;
-    gap: 12px;
+    gap: var(--np-space-12);
 }
 
 /* Baseline columns in milestone table */
@@ -773,14 +773,14 @@
 
 .panel-header-buttons {
     display: flex;
-    gap: 8px;
+    gap: var(--np-space-8);
 }
 
 /* Editor Toolbar */
 .editor-toolbar {
     display: flex;
-    gap: 4px;
-    padding: 4px 8px;
+    gap: var(--np-space-4);
+    padding: var(--np-space-4) var(--np-space-8);
     background: #252526;
     border-bottom: 1px solid #3a3a3a;
     flex-shrink: 0;
@@ -790,7 +790,7 @@
     background: transparent;
     color: #d4d4d4;
     border: 1px solid transparent;
-    padding: 4px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     border-radius: 3px;
     cursor: pointer;
     font-size: 1em;
@@ -814,7 +814,7 @@
 .toolbar-separator {
     width: 1px;
     background: #3a3a3a;
-    margin: 0 4px;
+    margin: 0 var(--np-space-4);
 }
 
 /* Project selector dropdown — editor toolbar (dark theme) */
@@ -828,7 +828,7 @@
     height: 28px;
     max-width: 180px;
     cursor: pointer;
-    margin-right: 4px;
+    margin-right: var(--np-space-4);
 }
 
 .editor-toolbar .project-selector-dropdown:hover {
@@ -893,7 +893,7 @@
 .upload-area {
     border: 3px dashed var(--np-accent);
     border-radius: 10px;
-    padding: 40px;
+    padding: var(--np-space-40);
     text-align: center;
     background: #f8f9ff;
     transition: all 0.3s;
@@ -908,7 +908,7 @@
 
 .upload-icon {
     font-size: 3em;
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
 }
 
 .editor-wrapper {
@@ -989,8 +989,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
+    gap: var(--np-space-12);
+    padding: var(--np-space-8) var(--np-space-12);
     background: #252525;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     color: #d4d4d4;
@@ -999,7 +999,7 @@
 
 .section-fold-toolbar-group {
     display: flex;
-    gap: 8px;
+    gap: var(--np-space-8);
     flex-wrap: wrap;
 }
 
@@ -1023,7 +1023,7 @@
 .section-fold-toolbar-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
     margin: 0;
     white-space: nowrap;
 }
@@ -1050,7 +1050,7 @@
     background: rgba(30, 30, 30, 0.96);
     color: #f3f4f6;
     border-radius: 6px;
-    padding: 0 12px 0 8px;
+    padding: 0 var(--np-space-12) 0 var(--np-space-8);
     font-family: 'Courier New', monospace;
     font-size: 14px;
     line-height: 1.5;
@@ -1294,7 +1294,7 @@ body.hl-off-dependency .syntax-star {
 .line-number {
     line-height: 1.5;
     position: relative;
-    padding-right: 8px;
+    padding-right: var(--np-space-8);
 }
 
 .line-number.active {
@@ -1319,7 +1319,7 @@ body.hl-off-dependency .syntax-star {
 .line-number.manually-scheduled {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .line-number .pin-icon {
@@ -1483,8 +1483,8 @@ textarea:hover {
 .options {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    margin: 20px 0;
+    gap: var(--np-space-20);
+    margin: var(--np-space-20) 0;
 }
 
 .option-group {
@@ -1538,7 +1538,7 @@ input[type="checkbox"] {
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
     width: 100%;
-    margin-top: 20px;
+    margin-top: var(--np-space-20);
 }
 
 .btn:hover {
@@ -1559,13 +1559,13 @@ input[type="checkbox"] {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
-    margin-top: 20px;
+    margin-top: var(--np-space-20);
 }
 
 .message {
     padding: 15px;
     border-radius: 5px;
-    margin: 20px 0;
+    margin: var(--np-space-20) 0;
     display: none;
 }
 
@@ -1583,7 +1583,7 @@ input[type="checkbox"] {
 
 .syntax-guide {
     background: var(--np-paper);
-    padding: 40px;
+    padding: var(--np-space-40);
     width: 100%;
     box-sizing: border-box;
 }
@@ -1602,11 +1602,11 @@ input[type="checkbox"] {
 
 .syntax-guide ul {
     list-style-position: inside;
-    margin-left: 20px;
+    margin-left: var(--np-space-20);
 }
 
 .syntax-guide li {
-    margin: 8px 0;
+    margin: var(--np-space-8) 0;
 }
 
 .syntax-guide pre {
@@ -1626,7 +1626,7 @@ input[type="checkbox"] {
     width: 40px;
     height: 40px;
     animation: spin 1s linear infinite;
-    margin: 20px auto;
+    margin: var(--np-space-20) auto;
     position: absolute;
     top: 50%;
     left: 50%;
