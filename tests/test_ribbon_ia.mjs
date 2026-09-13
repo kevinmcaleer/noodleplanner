@@ -163,6 +163,23 @@ test("contextualTabFor resolves a mapped view and returns null for an unmapped o
   assert.equal(contextualTabFor(null), null);
 });
 
+test("the editor syntax-highlight toggles (#1051) sit in a group labelled for what they actually affect (#1111)", () => {
+  // #1111: the group used to be called plain "Highlight", which read as a
+  // whiteboard/Gantt display option -- these are markdown-editor syntax
+  // highlighting toggles (see ribbon.js's LABEL_HELP for the tooltips that
+  // now say so explicitly).
+  const plan = TABS.find((t) => t.id === "plan");
+  const group = plan.groups.find((g) =>
+    (g.cols || []).some((col) => col.some((b) => b[1] === "Show Durations"))
+  );
+  assert.ok(group, "no group in the Plan tab contains the highlight-toggle buttons");
+  assert.equal(group.name, "Editor Highlighting");
+  const labels = (group.cols || []).flat().map((b) => b[1]);
+  assert.deepEqual(labels, [
+    "Show Durations", "Show Resources", "Show Tags", "Show Comments", "Show Dependencies", "Highlight Preset",
+  ]);
+});
+
 test("a caret button is always a small (cols) button, never a large one", () => {
   // The design's large buttons are single-purpose (README: lg = 0-2 per
   // group, first in the row) -- caret/gallery behaviour is only specified

@@ -225,15 +225,53 @@ tags (labels, buckets, product references), comments, and dependencies each
 get their own colour, purely as an editing aid — it has no effect on the
 saved Markdown.
 
+.. note::
+
+   These toggles only affect the **markdown editor's** own colour-coding —
+   they are not a whiteboard, Gantt, or Kanban display option, and have no
+   effect while one of those views is open. Each button's tooltip says so.
+   Because that makes the effect easy to miss if the editor panel happens
+   to be collapsed or a different view is current, using any of them
+   switches to the plan editor and opens its panel automatically, so the
+   colour change is always visible right away.
+
 Each category can be switched off independently from the ribbon's **Plan**
-tab, in the **Highlight** group (**Show Durations** / **Show Resources** /
-**Show Tags** / **Show Comments** / **Show Dependencies**), so you can focus
-on the field relevant to what you're doing — for example, turning everything
-off except dependencies while working through a plan's dependency chain. The
-group's **Highlight Preset** button offers a few ready-made combinations,
-including **Plain (no highlighting)**. The choice is a per-browser display
-preference — like ribbon density — never written into plan text or front
-matter.
+tab, in the **Editor Highlighting** group (**Show Durations** / **Show
+Resources** / **Show Tags** / **Show Comments** / **Show Dependencies**), so
+you can focus on the field relevant to what you're doing — for example,
+turning everything off except dependencies while working through a plan's
+dependency chain.
+
+The group's **Highlight Preset** button offers a few ready-made combinations
+of categories to switch on at once:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Preset
+     - Categories highlighted
+   * - All
+     - Every category (the default)
+   * - Plain (no highlighting)
+     - None
+   * - Design
+     - None
+   * - Add Tasks
+     - None
+   * - Dependencies
+     - Dependencies only
+   * - Estimating
+     - Durations only
+   * - Scheduling
+     - Durations and dependencies
+   * - Risks
+     - None
+   * - Comms
+     - None
+
+The choice is a per-browser display preference — like ribbon density — never
+written into plan text or front matter.
 
 RAID Log Section
 -----------------
