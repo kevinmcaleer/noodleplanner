@@ -379,6 +379,13 @@
     white-space: pre-wrap;
 }
 
+/* Back-matter panel (#1203): the same design as front matter, but placed
+   below the editor instead of above it, so the divider belongs on top. */
+.bm-panel {
+    border-bottom: none;
+    border-top: 1px solid #3a3a3a;
+}
+
 @media (max-width: 768px) {
     .fm-panel-header {
         align-items: flex-start;
