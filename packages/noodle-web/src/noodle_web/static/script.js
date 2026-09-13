@@ -16317,7 +16317,7 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
         // Explain the driving dependency
         const drivingDep = depDetails.find(d => d.isDriving);
         if (drivingDep) {
-            html += '    <div style="font-size: 0.85em; color: #555; margin-top: 8px;">';
+            html += '    <div style="font-size: 0.85em; color: var(--np-body); margin-top: 8px;">';
             const drivingRefDate = drivingDep.refDate || drivingDep.finishDate;
             const drivingVerb = (drivingDep.depType === 'SS' || drivingDep.depType === 'SF') ? 'starting' : 'finishing';
             const drivingRelation = drivingDep.depType === 'SS' ? 'start when it starts'

@@ -196,7 +196,7 @@ forms, 3 wizard steps, 2 standalone forms.
 |---|---|---|---|
 | ✅ | 4.1 | Adopt the spacing scale — 1,358 of 1,606 declarations now use a token, and 5 off-grid values remain | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ◐ | 4.2 | Migrate the colour-carrying inline `style=""` attributes in the templates | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
-| ☐ | 4.3 | Migrate static colour literals in JS-generated markup (214 lines, 22 files), leaving genuinely dynamic colour alone | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ◐ | 4.3 | Migrate static colour literals in JS-generated markup (214 lines, 22 files), leaving genuinely dynamic colour alone | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ✅ | 4.4 | Penpot screen audit board | [#1196](https://github.com/kevinmcaleer/noodleplanner/issues/1196) |
 | ✅ | 4.5 | Recover the 54 components stranded in the unlinked `style.css` | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ✅ | 4.6 | Substitute the 21 hex literals that exactly equal a theme-invariant identity token | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
@@ -347,6 +347,50 @@ button's red text/border (`#d9534f`). Each needs the same "does this element's
 background flip with the theme" judgement as the raw-colour backlog below,
 and the form-field one needs visual verification against real form state
 before touching it — neither was done here rather than guessed at.
+
+**4.3 got the same audit, and confirms band 2.4's conclusion about the raw
+colours rather than getting further with them.** 22 declarations across 8
+files carry a literal inside a `style="…"` string built in JS (measuring
+where `style=` actually appears, rather than grepping bare `#`-prefixed
+tokens, which mostly matches issue numbers and other non-colour text — the
+naive count is misleadingly large). Checked each against the same bar as
+everywhere else in this epic: neutrals within 1.1:1 contrast of the
+candidate token, chromatic colours within ΔE 3 of an identity token.
+
+Only one cleared it: `color: #555` (a task-comment label in `script.js`) is
+1.05:1 from `--np-body`. Migrated.
+
+Everything else is a real miss, not a near one:
+
+- `#999`, `#888`, `#444` (muted/empty-state text, 5 uses) sit 1.8–2.5:1 from
+  the nearest text token — clearly the same *role* as `--np-faint`/`--np-body`,
+  clearly not close enough to be "the same colour, differently spelled."
+  Choosing which one each becomes is the palette decision already open below,
+  not a mechanical substitution.
+- `#6c757d` (Bootstrap's own default muted grey, 2 uses) is 30+ ΔE from every
+  identity hue and 1.1–1.5:1 from the text tokens — a different grey family
+  entirely, left over from before the app had its own palette.
+- The "Went Well" / "Needs to Change" / "Mixed" / "Total Lessons" tint boxes
+  in `portfolio-lessons.js` (green/amber/grey/purple) and the risk-severity
+  counts in `portfolio-risks.js` (red/amber/green) are categorical colour
+  coding — RAG-shaped, the same exception `lint-design-system.mjs` already
+  carries for `.rag-badge`/`.status-badge` in CSS. `#28a745` (the "Went Well"
+  green) is the closest anything chromatic gets to an identity token, at ΔE
+  3.84 against `--np-green` -- just over this epic's own ΔE-3 bar for calling
+  two colours "the same design decision," so left as a literal rather than
+  waved through on a technicality.
+- The resource heatmap's five-step legend (`#f0f0f0` through `#ffcdd2`) is a
+  data encoding — the same category as chart series colours — not a surface.
+- `var(--text-muted, #999)` in `portfolio-lessons.js`: `--text-muted` has no
+  declaration anywhere (unlike `--text-secondary`/`--border-color`/
+  `--bg-secondary`, aliased in `visual-system.css` and cleaned up as dead
+  fallbacks above), so this fallback is load-bearing, not dead. Defining the
+  alias would change what renders and is the same palette decision as
+  everything else here, not a fallback strip.
+
+So 4.3, like band 2.4 and the raw-colour item below, converges on: the
+mechanical pass is exhausted, and what is left needs someone to choose a
+palette rather than a script to spell-check one.
 
 ## Governance — runs alongside, from the end of band 1
 
