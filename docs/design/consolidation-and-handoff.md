@@ -163,24 +163,46 @@ cannot silently disagree.
 
 ## Storybook
 
-Storybook is **not** set up in this repo, and it is not the tool for the
-consolidation question — it renders components you already have; it does not
-analyse a stylesheet for duplicate values.
+**Set up in #1197**, as `@storybook/html-vite`. Run it with:
 
-It is also a poor fit for the app as it stands. NoodlePlanner has no bundler
-(see the note in `package.json`) and no component modules: the UI is one
-4,828-line `index.html` plus vanilla-JS files that mutate it by `id`. There is
-no `Button` to write a story for. Getting to a first useful story means
-extracting components and adding a build step — a large architectural change
-that should be justified on its own merits, not adopted as a side effect of a
-token cleanup.
+```sh
+npm run storybook          # dev server on :6006
+npm run storybook:build    # static build into .storybook-static/
+```
 
-If that extraction happens later, the token files are already in the right
-shape: run `docs/design/tokens/*.json` through
-[Style Dictionary](https://styledictionary.com/) v4+ (which reads DTCG
-`$type`/`$value` natively) to emit CSS custom properties or a JS token module
-for a theme decorator. Treat `core.json`'s `shadow` as a string-typed token —
-it stores the raw multi-layer `box-shadow` rather than a decomposed object.
+This section previously argued Storybook was a poor fit, and the reasoning
+still holds for the version of it that was being imagined. NoodlePlanner has no
+bundler and no component modules: the UI is one large `index.html` plus
+vanilla-JS files that mutate it by `id`. There is no `Button` to write a story
+for, and extracting one is a large architectural change that should be
+justified on its own merits rather than adopted as a side effect of a token
+cleanup.
+
+What changed is the target, not the constraint. Storybook is pointed at what
+*does* exist -- the app's real class names against the app's real stylesheets,
+rendered as HTML. `@storybook/html-vite` needs no framework and no build step
+in the app itself, and nothing about how NoodlePlanner is served changes. The
+cost is 92 dev dependencies.
+
+Two things make it trustworthy rather than decorative:
+
+- **`.storybook/main.js` reads the stylesheet list out of `index.html`** rather
+  than carrying a copy. Load order decides which of two equal-specificity rules
+  wins, which is the exact bug this epic exists to fix, so a Storybook
+  rendering components under a stale order would be worse than none.
+- **The variants come from `static/component-gallery.js`**, the same module the
+  `/components` page renders from. One spec, two consumers.
+
+CSF reads static named exports, so a story cannot be generated per variant in a
+loop -- there is one story per *section*, written out. That single
+hand-maintained list is the only place the two consumers can drift, and
+`tests/test_storybook_stories.py` fails when a section has no story. Adding a
+variant needs no change anywhere.
+
+The token files are also ready for a theme decorator if one is ever wanted: run
+`docs/design/tokens/*.json` through [Style Dictionary](https://styledictionary.com/)
+v4+, which reads DTCG `$type`/`$value` natively. Not needed today -- the
+preview loads the app's own CSS, so the tokens are simply there.
 
 ## Suggested order of work
 

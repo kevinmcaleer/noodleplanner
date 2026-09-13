@@ -10,6 +10,10 @@
  * real stylesheets. Nothing here defines styling of its own -- if a component
  * looks wrong in the gallery, it looks wrong in the app.
  *
+ * This is an ES module, imported by both consumers -- `<script type="module">`
+ * on the gallery page and a Vite import in Storybook. That is the reason the
+ * page's own script is a module too.
+ *
  * A note on states. CSS pseudo-classes cannot be forced from script, so the
  * gallery renders live elements and you exercise :hover with the pointer and
  * :focus-visible with Tab. Only `disabled` is a real attribute and is rendered
@@ -18,7 +22,7 @@
  * keyboard; this page is for looking at.
  */
 
-const GALLERY = [
+export const GALLERY = [
     {
         id: 'buttons',
         title: 'Buttons',
@@ -197,7 +201,7 @@ const GALLERY = [
 ]
 
 /** Every token the app declares, grouped for the gallery's token tables. */
-const TOKEN_GROUPS = [
+export const TOKEN_GROUPS = [
     { id: 'space', title: 'Spacing', match: /^--np-space-/, kind: 'size' },
     { id: 'text', title: 'Type scale', match: /^--np-text-\d+$/, kind: 'text' },
     { id: 'radius', title: 'Radius', match: /^--np-radius-/, kind: 'radius' },
@@ -207,7 +211,3 @@ const TOKEN_GROUPS = [
     { id: 'accent', title: 'Accent and status', match: /^--np-(accent|accent-hover|accent-tint|accent-ink|sage|sage-tint|sage-ink|danger-tint|danger-ink)$/, kind: 'colour' },
     { id: 'line', title: 'Borders and focus', match: /^--np-(border|border-strong|border-control|hairline|focus-ring-color)$/, kind: 'colour' },
 ]
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { GALLERY, TOKEN_GROUPS }
-}

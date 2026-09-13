@@ -230,3 +230,6 @@ templates/mpp-template.mpp
 .ci-logs/
 # The self-hosted runner's PAT. ci/runner/.env.example is the committed one.
 ci/runner/.env
+
+# Storybook build output
+.storybook-static/

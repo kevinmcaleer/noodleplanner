@@ -15,6 +15,8 @@
     "audit:tokens": "node scripts/token-audit.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "lint:design": "node scripts/lint-design-system.mjs",
+    "storybook": "storybook dev -p 6006 --no-open",
+    "storybook:build": "storybook build -o .storybook-static",
     "design:consolidation": "node scripts/token-consolidation.mjs",
     "design:map": "node scripts/ui-structure-map.mjs",
     "design:explorer": "node scripts/design-system-explorer.mjs",
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@projectwallace/css-analyzer": "^9.9.3",
     "@projectwallace/css-design-tokens": "^0.11.11",
+    "@storybook/html-vite": "^10.6.0",
     "dejavu-fonts-ttf": "2.37.3",
     "docx": "9.7.1",
     "exceljs": "4.4.0",
@@ -33,7 +36,8 @@
     "jszip": "3.10.1",
     "mppwriter": "0.4.0",
     "pdfjs-dist": "6.3.289",
-    "pptxgenjs": "4.0.1"
+    "pptxgenjs": "4.0.1",
+    "storybook": "^10.6.0"
   },
   "overrides": {
     "uuid": "11.1.1"

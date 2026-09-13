@@ -114,8 +114,15 @@ def gallery(page, app_server):
 
 
 def test_gallery_renders_every_section(gallery):
-    """Each section in the spec produces a section on the page."""
-    spec_ids = gallery.evaluate("GALLERY.map((s) => s.id)")
+    """Each section in the spec produces a section on the page.
+
+    The spec is imported rather than read off a global: component-gallery.js is
+    an ES module so Storybook can import the same file, which means it exports
+    bindings rather than leaking names onto window.
+    """
+    spec_ids = gallery.evaluate(
+        "async () => (await import('/static/component-gallery.js')).GALLERY.map((s) => s.id)"
+    )
     assert spec_ids, "component-gallery.js exposed no sections"
     for section_id in spec_ids:
         assert gallery.locator(f"section#{section_id}").count() == 1, (

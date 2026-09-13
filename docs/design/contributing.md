@@ -140,6 +140,16 @@ If your component is worth a story, it is worth an entry there. If it has a
 known problem, put it in the entry's `issues` list rather than leaving the
 gallery to imply it is finished.
 
+A new **variant** needs nothing else. A new **section** also needs one line in
+`.storybook/stories/components.stories.js`, because Storybook's CSF reads
+static named exports and cannot generate a story in a loop.
+`tests/test_storybook_stories.py` fails until it is there.
+
+```sh
+npm run storybook          # dev server on :6006
+npm run storybook:build    # static build
+```
+
 ## Where things are
 
 | | |

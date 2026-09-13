@@ -164,8 +164,9 @@
     <div class="gallery-grid" id="tokens"></div>
 </section>
 
-<script src="/static/component-gallery.js?v={{ v }}"></script>
-<script>
+<script type="module">
+import { GALLERY, TOKEN_GROUPS } from '/static/component-gallery.js?v={{ v }}';
+
 (function () {
     'use strict';
 
