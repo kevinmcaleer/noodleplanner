@@ -29,14 +29,14 @@
     "packages/noodle-web/src/noodle_web/static/visual-system.css"
   ],
   "stylesheet": {
-    "sourceLinesOfCode": 26187,
-    "complexity": 74656
+    "sourceLinesOfCode": 26251,
+    "complexity": 74891
   },
   "rules": {
-    "total": 5805
+    "total": 5809
   },
   "selectors": {
-    "totalUnique": 3871,
+    "totalUnique": 3875,
     "maxSpecificity": [
       2,
       1,
@@ -44,8 +44,8 @@
     ]
   },
   "customProperties": {
-    "totalDeclarations": 483,
-    "totalUniqueNames": 147,
+    "totalDeclarations": 535,
+    "totalUniqueNames": 195,
     "unused": [
       "--active",
       "--evm-axis-label",
@@ -66,15 +66,56 @@
       "--mm-progress-bg",
       "--mm-root-text",
       "--mm-selection-stroke",
+      "--np-border-control",
+      "--np-elevation-1",
+      "--np-elevation-2",
+      "--np-elevation-3",
+      "--np-elevation-4",
+      "--np-focus-ring",
       "--np-font-mono",
       "--np-info",
       "--np-ink-hover",
+      "--np-leading-normal",
+      "--np-leading-snug",
+      "--np-leading-tight",
       "--np-radius-card",
+      "--np-radius-circle",
+      "--np-radius-md",
+      "--np-radius-pill",
+      "--np-radius-sm",
+      "--np-radius-xs",
       "--np-sage",
+      "--np-space-0",
+      "--np-space-12",
+      "--np-space-16",
+      "--np-space-2",
+      "--np-space-20",
+      "--np-space-24",
+      "--np-space-32",
+      "--np-space-4",
+      "--np-space-40",
+      "--np-space-48",
+      "--np-space-64",
+      "--np-space-8",
       "--np-success-hover",
+      "--np-text-100",
+      "--np-text-110",
+      "--np-text-125",
+      "--np-text-150",
+      "--np-text-180",
+      "--np-text-200",
+      "--np-text-75",
+      "--np-text-80",
+      "--np-text-85",
+      "--np-text-90",
+      "--np-text-95",
       "--np-warning",
       "--np-warning-gradient",
-      "--np-warning-hover"
+      "--np-warning-hover",
+      "--np-weight-bold",
+      "--np-weight-medium",
+      "--np-weight-regular",
+      "--np-weight-semibold"
     ],
     "unknown": [
       "--bs-primary",
@@ -1199,11 +1240,22 @@
       }
     ]
   },
-  "canonicalTokenCount": 73,
+  "canonicalTokenCount": 121,
   "colors": {
-    "totalUnique": 586,
-    "duplicateOfTokenCount": 9,
+    "totalUnique": 592,
+    "duplicateOfTokenCount": 10,
     "duplicateOfToken": [
+      {
+        "id": "orange-d53e8ee5",
+        "hex": "#EDB52A",
+        "authoredAs": "#edb52a",
+        "usage": 3,
+        "props": [
+          "--np-accent",
+          "--np-focus-ring-color"
+        ],
+        "matchedToken": "--np-focus-ring-color"
+      },
       {
         "id": "orange-9b8cd054",
         "hex": "#FAF8F4",
@@ -1238,14 +1290,15 @@
         "matchedToken": "--np-summary-row-hover"
       },
       {
-        "id": "orange-d53e8ee5",
-        "hex": "#EDB52A",
-        "authoredAs": "#edb52a",
+        "id": "orange-be38ba13",
+        "hex": "#8A6205",
+        "authoredAs": "#8a6205",
         "usage": 2,
         "props": [
-          "--np-accent"
+          "--np-accent-ink",
+          "--np-focus-ring-color"
         ],
-        "matchedToken": "--np-accent-gradient"
+        "matchedToken": "--np-focus-ring-color"
       },
       {
         "id": "orange-d5f5546b",
@@ -1672,7 +1725,7 @@
         "id": "blue-3536229b",
         "hex": "#F0F1F4",
         "authoredAs": "#f0f1f4",
-        "usage": 31,
+        "usage": 32,
         "props": [
           "background",
           "--np-bg-hover",
@@ -2834,5 +2887,1298 @@
       "authoredAs": "0 0 0 3px var(--np-accent-tint)",
       "usage": 1
     }
-  ]
+  ],
+  "spacing": {
+    "declarations": 2522,
+    "indirectedDeclarations": 1,
+    "totalUniqueValues": 49,
+    "offGridUniqueValues": 25,
+    "offGridUses": 1444,
+    "top": [
+      {
+        "value": "0",
+        "uses": 646,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "margin-left",
+          "margin-right",
+          "margin-top",
+          "padding",
+          "padding-bottom"
+        ],
+        "fileCount": 25
+      },
+      {
+        "value": "10px",
+        "uses": 449,
+        "onGrid": false,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "margin-right",
+          "margin-top",
+          "padding",
+          "padding-bottom",
+          "padding-inline"
+        ],
+        "fileCount": 24
+      },
+      {
+        "value": "8px",
+        "uses": 405,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "margin-left",
+          "margin-right",
+          "margin-top",
+          "padding",
+          "padding-bottom",
+          "padding-left",
+          "padding-right",
+          "padding-top"
+        ],
+        "fileCount": 24
+      },
+      {
+        "value": "4px",
+        "uses": 314,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "margin-left",
+          "margin-right",
+          "margin-top",
+          "padding",
+          "padding-bottom"
+        ],
+        "fileCount": 22
+      },
+      {
+        "value": "6px",
+        "uses": 286,
+        "onGrid": false,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "margin-left",
+          "margin-right",
+          "margin-top",
+          "padding",
+          "padding-bottom"
+        ],
+        "fileCount": 24
+      },
+      {
+        "value": "12px",
+        "uses": 281,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "margin-top",
+          "padding",
+          "padding-bottom",
+          "padding-top"
+        ],
+        "fileCount": 22
+      },
+      {
+        "value": "20px",
+        "uses": 278,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "margin-left",
+          "margin-top",
+          "padding",
+          "padding-bottom",
+          "padding-left",
+          "padding-top"
+        ],
+        "fileCount": 16
+      },
+      {
+        "value": "15px",
+        "uses": 182,
+        "onGrid": false,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "margin-top",
+          "padding",
+          "padding-bottom"
+        ],
+        "fileCount": 7
+      },
+      {
+        "value": "2px",
+        "uses": 157,
+        "onGrid": false,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "margin-left",
+          "margin-right",
+          "margin-top",
+          "padding",
+          "padding-right",
+          "padding-top"
+        ],
+        "fileCount": 16
+      },
+      {
+        "value": "16px",
+        "uses": 119,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "padding"
+        ],
+        "fileCount": 18
+      },
+      {
+        "value": "5px",
+        "uses": 92,
+        "onGrid": false,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "margin-left",
+          "margin-top",
+          "padding",
+          "padding-left"
+        ],
+        "fileCount": 11
+      },
+      {
+        "value": "14px",
+        "uses": 81,
+        "onGrid": false,
+        "props": [
+          "gap",
+          "margin-bottom",
+          "margin-left",
+          "margin-top",
+          "padding",
+          "padding-bottom",
+          "padding-left"
+        ],
+        "fileCount": 14
+      },
+      {
+        "value": "3px",
+        "uses": 53,
+        "onGrid": false,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "margin-top",
+          "padding",
+          "padding-top"
+        ],
+        "fileCount": 14
+      },
+      {
+        "value": "30px",
+        "uses": 48,
+        "onGrid": false,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "padding",
+          "padding-bottom"
+        ],
+        "fileCount": 5
+      },
+      {
+        "value": "40px",
+        "uses": 41,
+        "onGrid": true,
+        "props": [
+          "margin-bottom",
+          "padding"
+        ],
+        "fileCount": 7
+      },
+      {
+        "value": "24px",
+        "uses": 37,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "padding",
+          "padding-left"
+        ],
+        "fileCount": 10
+      },
+      {
+        "value": "25px",
+        "uses": 29,
+        "onGrid": false,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "margin-top",
+          "padding",
+          "padding-left"
+        ],
+        "fileCount": 4
+      },
+      {
+        "value": "60px",
+        "uses": 24,
+        "onGrid": true,
+        "props": [
+          "padding"
+        ],
+        "fileCount": 6
+      },
+      {
+        "value": "1px",
+        "uses": 21,
+        "onGrid": false,
+        "props": [
+          "gap",
+          "padding",
+          "padding-top"
+        ],
+        "fileCount": 7
+      },
+      {
+        "value": "18px",
+        "uses": 11,
+        "onGrid": false,
+        "props": [
+          "margin",
+          "margin-bottom",
+          "padding"
+        ],
+        "fileCount": 6
+      },
+      {
+        "value": "7px",
+        "uses": 11,
+        "onGrid": false,
+        "props": [
+          "gap",
+          "padding",
+          "padding-inline"
+        ],
+        "fileCount": 7
+      },
+      {
+        "value": "0.5rem",
+        "uses": 7,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "margin",
+          "padding"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "0.75rem",
+        "uses": 6,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "margin",
+          "padding",
+          "padding-top"
+        ],
+        "fileCount": 3
+      },
+      {
+        "value": "28px",
+        "uses": 6,
+        "onGrid": true,
+        "props": [
+          "margin-left",
+          "padding"
+        ],
+        "fileCount": 6
+      },
+      {
+        "value": "80px",
+        "uses": 6,
+        "onGrid": true,
+        "props": [
+          "margin-bottom",
+          "padding"
+        ],
+        "fileCount": 4
+      },
+      {
+        "value": "32px",
+        "uses": 5,
+        "onGrid": true,
+        "props": [
+          "margin-bottom",
+          "padding"
+        ],
+        "fileCount": 4
+      },
+      {
+        "value": "9px",
+        "uses": 5,
+        "onGrid": false,
+        "props": [
+          "padding"
+        ],
+        "fileCount": 3
+      },
+      {
+        "value": "0.25rem",
+        "uses": 5,
+        "onGrid": true,
+        "props": [
+          "margin"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "-4px",
+        "uses": 4,
+        "onGrid": true,
+        "props": [
+          "margin",
+          "margin-left"
+        ],
+        "fileCount": 4
+      },
+      {
+        "value": "-2px",
+        "uses": 2,
+        "onGrid": false,
+        "props": [
+          "margin",
+          "margin-bottom"
+        ],
+        "fileCount": 2
+      }
+    ],
+    "offGridTop": [
+      {
+        "value": "10px",
+        "uses": 449,
+        "fileCount": 24
+      },
+      {
+        "value": "6px",
+        "uses": 286,
+        "fileCount": 24
+      },
+      {
+        "value": "15px",
+        "uses": 182,
+        "fileCount": 7
+      },
+      {
+        "value": "2px",
+        "uses": 157,
+        "fileCount": 16
+      },
+      {
+        "value": "5px",
+        "uses": 92,
+        "fileCount": 11
+      },
+      {
+        "value": "14px",
+        "uses": 81,
+        "fileCount": 14
+      },
+      {
+        "value": "3px",
+        "uses": 53,
+        "fileCount": 14
+      },
+      {
+        "value": "30px",
+        "uses": 48,
+        "fileCount": 5
+      },
+      {
+        "value": "25px",
+        "uses": 29,
+        "fileCount": 4
+      },
+      {
+        "value": "1px",
+        "uses": 21,
+        "fileCount": 7
+      },
+      {
+        "value": "18px",
+        "uses": 11,
+        "fileCount": 6
+      },
+      {
+        "value": "7px",
+        "uses": 11,
+        "fileCount": 7
+      },
+      {
+        "value": "9px",
+        "uses": 5,
+        "fileCount": 3
+      },
+      {
+        "value": "-2px",
+        "uses": 2,
+        "fileCount": 2
+      },
+      {
+        "value": "11px",
+        "uses": 2,
+        "fileCount": 1
+      },
+      {
+        "value": "-1px",
+        "uses": 2,
+        "fileCount": 2
+      },
+      {
+        "value": "250px",
+        "uses": 2,
+        "fileCount": 2
+      },
+      {
+        "value": "150px",
+        "uses": 2,
+        "fileCount": 2
+      },
+      {
+        "value": "330px",
+        "uses": 2,
+        "fileCount": 2
+      },
+      {
+        "value": "-6px",
+        "uses": 2,
+        "fileCount": 2
+      },
+      {
+        "value": "0.4rem",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
+        "value": "0.85rem",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
+        "value": "0.35rem",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
+        "value": "50px",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
+        "value": "-5px",
+        "uses": 1,
+        "fileCount": 1
+      }
+    ]
+  },
+  "components": [
+    {
+      "family": "table",
+      "rules": 1176,
+      "uniqueSelectors": 706,
+      "spreadAcrossFiles": 19,
+      "files": [
+        "packages/noodle-web/src/noodle_web/static/components.css",
+        "packages/noodle-web/src/noodle_web/static/dark-mode.css",
+        "packages/noodle-web/src/noodle_web/static/front-matter-panel.css",
+        "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
+        "packages/noodle-web/src/noodle_web/static/responsive.css",
+        "packages/noodle-web/src/noodle_web/static/status-bar.css",
+        "packages/noodle-web/src/noodle_web/static/style.css",
+        "packages/noodle-web/src/noodle_web/static/task-peek.css",
+        "packages/noodle-web/src/noodle_web/static/views/backstage.css",
+        "packages/noodle-web/src/noodle_web/static/views/cards.css",
+        "packages/noodle-web/src/noodle_web/static/views/evm.css",
+        "packages/noodle-web/src/noodle_web/static/views/gantt.css",
+        "packages/noodle-web/src/noodle_web/static/views/kanban.css",
+        "packages/noodle-web/src/noodle_web/static/views/notepad.css",
+        "packages/noodle-web/src/noodle_web/static/views/portfolio.css",
+        "packages/noodle-web/src/noodle_web/static/views/products.css",
+        "packages/noodle-web/src/noodle_web/static/views/programme.css",
+        "packages/noodle-web/src/noodle_web/static/views/whiteboard.css",
+        "packages/noodle-web/src/noodle_web/static/visual-system.css"
+      ],
+      "stateRules": {
+        "hover": 178,
+        "focus": 23,
+        "active": 0,
+        "disabled": 2
+      },
+      "distinctClassNames": 214,
+      "topClassNames": [
+        {
+          "name": "timesheet-table",
+          "rules": 45
+        },
+        {
+          "name": "gantt-info-table",
+          "rules": 40
+        },
+        {
+          "name": "milestones-table",
+          "rules": 37
+        },
+        {
+          "name": "resources-table",
+          "rules": 37
+        },
+        {
+          "name": "budget-table",
+          "rules": 33
+        },
+        {
+          "name": "raid-table",
+          "rules": 31
+        },
+        {
+          "name": "portfolio-projects-table",
+          "rules": 27
+        },
+        {
+          "name": "dependencies-table",
+          "rules": 23
+        },
+        {
+          "name": "actions-table",
+          "rules": 23
+        },
+        {
+          "name": "portfolio-lookahead-table",
+          "rules": 23
+        },
+        {
+          "name": "lookahead-table",
+          "rules": 22
+        },
+        {
+          "name": "stakeholders-table",
+          "rules": 22
+        },
+        {
+          "name": "portfolio-status-table",
+          "rules": 22
+        },
+        {
+          "name": "portfolio-resources-table",
+          "rules": 22
+        },
+        {
+          "name": "portfolio-actions-table",
+          "rules": 22
+        }
+      ]
+    },
+    {
+      "family": "button",
+      "rules": 693,
+      "uniqueSelectors": 443,
+      "spreadAcrossFiles": 22,
+      "files": [
+        "packages/noodle-web/src/noodle_web/static/ai-chat.css",
+        "packages/noodle-web/src/noodle_web/static/components.css",
+        "packages/noodle-web/src/noodle_web/static/dark-mode.css",
+        "packages/noodle-web/src/noodle_web/static/front-matter-panel.css",
+        "packages/noodle-web/src/noodle_web/static/layout.css",
+        "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
+        "packages/noodle-web/src/noodle_web/static/responsive.css",
+        "packages/noodle-web/src/noodle_web/static/status-bar.css",
+        "packages/noodle-web/src/noodle_web/static/style.css",
+        "packages/noodle-web/src/noodle_web/static/task-peek.css",
+        "packages/noodle-web/src/noodle_web/static/views/backstage.css",
+        "packages/noodle-web/src/noodle_web/static/views/cards.css",
+        "packages/noodle-web/src/noodle_web/static/views/estimating.css",
+        "packages/noodle-web/src/noodle_web/static/views/gantt.css",
+        "packages/noodle-web/src/noodle_web/static/views/kanban.css",
+        "packages/noodle-web/src/noodle_web/static/views/notepad.css",
+        "packages/noodle-web/src/noodle_web/static/views/plan-wizard.css",
+        "packages/noodle-web/src/noodle_web/static/views/portfolio.css",
+        "packages/noodle-web/src/noodle_web/static/views/products.css",
+        "packages/noodle-web/src/noodle_web/static/views/search.css",
+        "packages/noodle-web/src/noodle_web/static/views/whiteboard.css",
+        "packages/noodle-web/src/noodle_web/static/visual-system.css"
+      ],
+      "stateRules": {
+        "hover": 242,
+        "focus": 45,
+        "active": 9,
+        "disabled": 34
+      },
+      "distinctClassNames": 137,
+      "topClassNames": [
+        {
+          "name": "btn-primary",
+          "rules": 31
+        },
+        {
+          "name": "btn-secondary",
+          "rules": 24
+        },
+        {
+          "name": "close-btn",
+          "rules": 22
+        },
+        {
+          "name": "toolbar-btn",
+          "rules": 18
+        },
+        {
+          "name": "plan-subnav-btn",
+          "rules": 18
+        },
+        {
+          "name": "ribbon-tab-btn",
+          "rules": 14
+        },
+        {
+          "name": "mindmap-toolbar-btn",
+          "rules": 11
+        },
+        {
+          "name": "task-context-btn",
+          "rules": 10
+        },
+        {
+          "name": "actions-action-btn",
+          "rules": 10
+        },
+        {
+          "name": "mm-collapse-btn",
+          "rules": 10
+        },
+        {
+          "name": "ribbon-simple-btn",
+          "rules": 10
+        },
+        {
+          "name": "task-row-add-btn",
+          "rules": 10
+        },
+        {
+          "name": "copy-image-btn",
+          "rules": 9
+        },
+        {
+          "name": "export-btn",
+          "rules": 9
+        },
+        {
+          "name": "fix-it-btn",
+          "rules": 9
+        }
+      ]
+    },
+    {
+      "family": "nav",
+      "rules": 488,
+      "uniqueSelectors": 351,
+      "spreadAcrossFiles": 18,
+      "files": [
+        "packages/noodle-web/src/noodle_web/static/animations.css",
+        "packages/noodle-web/src/noodle_web/static/components.css",
+        "packages/noodle-web/src/noodle_web/static/dark-mode.css",
+        "packages/noodle-web/src/noodle_web/static/layout.css",
+        "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
+        "packages/noodle-web/src/noodle_web/static/responsive.css",
+        "packages/noodle-web/src/noodle_web/static/style.css",
+        "packages/noodle-web/src/noodle_web/static/task-peek.css",
+        "packages/noodle-web/src/noodle_web/static/views/backstage.css",
+        "packages/noodle-web/src/noodle_web/static/views/estimating.css",
+        "packages/noodle-web/src/noodle_web/static/views/gantt.css",
+        "packages/noodle-web/src/noodle_web/static/views/notepad.css",
+        "packages/noodle-web/src/noodle_web/static/views/portfolio.css",
+        "packages/noodle-web/src/noodle_web/static/views/products.css",
+        "packages/noodle-web/src/noodle_web/static/views/programme.css",
+        "packages/noodle-web/src/noodle_web/static/views/search.css",
+        "packages/noodle-web/src/noodle_web/static/views/whiteboard.css",
+        "packages/noodle-web/src/noodle_web/static/visual-system.css"
+      ],
+      "stateRules": {
+        "hover": 66,
+        "focus": 13,
+        "active": 3,
+        "disabled": 13
+      },
+      "distinctClassNames": 130,
+      "topClassNames": [
+        {
+          "name": "toolbar-btn",
+          "rules": 18
+        },
+        {
+          "name": "raid-toolbar",
+          "rules": 14
+        },
+        {
+          "name": "nav-menu-item",
+          "rules": 14
+        },
+        {
+          "name": "ribbon-tab-btn",
+          "rules": 14
+        },
+        {
+          "name": "ns-tab",
+          "rules": 13
+        },
+        {
+          "name": "mindmap-toolbar-btn",
+          "rules": 11
+        },
+        {
+          "name": "editor-toolbar",
+          "rules": 11
+        },
+        {
+          "name": "ribbon-banner",
+          "rules": 10
+        },
+        {
+          "name": "tab-content",
+          "rules": 10
+        },
+        {
+          "name": "ribbon-simple-btn",
+          "rules": 10
+        },
+        {
+          "name": "breadcrumb-item",
+          "rules": 8
+        },
+        {
+          "name": "ribbon-file-btn",
+          "rules": 8
+        },
+        {
+          "name": "ribbon-group",
+          "rules": 8
+        },
+        {
+          "name": "ribbon-display-toggle-btn",
+          "rules": 8
+        },
+        {
+          "name": "nav-menu",
+          "rules": 8
+        }
+      ]
+    },
+    {
+      "family": "badge",
+      "rules": 351,
+      "uniqueSelectors": 227,
+      "spreadAcrossFiles": 22,
+      "files": [
+        "packages/noodle-web/src/noodle_web/static/ai-chat.css",
+        "packages/noodle-web/src/noodle_web/static/components.css",
+        "packages/noodle-web/src/noodle_web/static/dark-mode.css",
+        "packages/noodle-web/src/noodle_web/static/front-matter-panel.css",
+        "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
+        "packages/noodle-web/src/noodle_web/static/responsive.css",
+        "packages/noodle-web/src/noodle_web/static/status-bar.css",
+        "packages/noodle-web/src/noodle_web/static/style.css",
+        "packages/noodle-web/src/noodle_web/static/task-peek.css",
+        "packages/noodle-web/src/noodle_web/static/views/backstage.css",
+        "packages/noodle-web/src/noodle_web/static/views/cards.css",
+        "packages/noodle-web/src/noodle_web/static/views/evm.css",
+        "packages/noodle-web/src/noodle_web/static/views/gantt.css",
+        "packages/noodle-web/src/noodle_web/static/views/kanban.css",
+        "packages/noodle-web/src/noodle_web/static/views/plan-wizard.css",
+        "packages/noodle-web/src/noodle_web/static/views/portfolio.css",
+        "packages/noodle-web/src/noodle_web/static/views/products.css",
+        "packages/noodle-web/src/noodle_web/static/views/programme.css",
+        "packages/noodle-web/src/noodle_web/static/views/search.css",
+        "packages/noodle-web/src/noodle_web/static/views/timeline.css",
+        "packages/noodle-web/src/noodle_web/static/views/whiteboard.css",
+        "packages/noodle-web/src/noodle_web/static/visual-system.css"
+      ],
+      "stateRules": {
+        "hover": 14,
+        "focus": 4,
+        "active": 0,
+        "disabled": 0
+      },
+      "distinctClassNames": 119,
+      "topClassNames": [
+        {
+          "name": "report-rag-badge",
+          "rules": 16
+        },
+        {
+          "name": "search-view-result-badge",
+          "rules": 11
+        },
+        {
+          "name": "summary-label",
+          "rules": 10
+        },
+        {
+          "name": "raid-sync-kind-badge",
+          "rules": 10
+        },
+        {
+          "name": "timeline-project-label",
+          "rules": 10
+        },
+        {
+          "name": "hl-off-tag",
+          "rules": 10
+        },
+        {
+          "name": "status-badge",
+          "rules": 10
+        },
+        {
+          "name": "workload-badge",
+          "rules": 10
+        },
+        {
+          "name": "ai-agent-chip",
+          "rules": 9
+        },
+        {
+          "name": "msp-sync-kind-badge",
+          "rules": 8
+        },
+        {
+          "name": "rag-badge",
+          "rules": 8
+        },
+        {
+          "name": "task-status-badge",
+          "rules": 8
+        },
+        {
+          "name": "risk-score-badge",
+          "rules": 8
+        },
+        {
+          "name": "minimal-date-label",
+          "rules": 7
+        },
+        {
+          "name": "inspector-dep-badge",
+          "rules": 6
+        }
+      ]
+    },
+    {
+      "family": "modal",
+      "rules": 292,
+      "uniqueSelectors": 191,
+      "spreadAcrossFiles": 15,
+      "files": [
+        "packages/noodle-web/src/noodle_web/static/ai-chat.css",
+        "packages/noodle-web/src/noodle_web/static/components.css",
+        "packages/noodle-web/src/noodle_web/static/dark-mode.css",
+        "packages/noodle-web/src/noodle_web/static/layout.css",
+        "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
+        "packages/noodle-web/src/noodle_web/static/responsive.css",
+        "packages/noodle-web/src/noodle_web/static/status-bar.css",
+        "packages/noodle-web/src/noodle_web/static/style.css",
+        "packages/noodle-web/src/noodle_web/static/views/cards.css",
+        "packages/noodle-web/src/noodle_web/static/views/estimating.css",
+        "packages/noodle-web/src/noodle_web/static/views/gantt.css",
+        "packages/noodle-web/src/noodle_web/static/views/portfolio.css",
+        "packages/noodle-web/src/noodle_web/static/views/products.css",
+        "packages/noodle-web/src/noodle_web/static/views/whiteboard.css",
+        "packages/noodle-web/src/noodle_web/static/visual-system.css"
+      ],
+      "stateRules": {
+        "hover": 34,
+        "focus": 21,
+        "active": 0,
+        "disabled": 0
+      },
+      "distinctClassNames": 86,
+      "topClassNames": [
+        {
+          "name": "modal-header",
+          "rules": 22
+        },
+        {
+          "name": "task-context-menu-item",
+          "rules": 16
+        },
+        {
+          "name": "project-selector-dropdown",
+          "rules": 15
+        },
+        {
+          "name": "nav-menu-item",
+          "rules": 14
+        },
+        {
+          "name": "dm-role-dropdown-item",
+          "rules": 10
+        },
+        {
+          "name": "modal-body",
+          "rules": 9
+        },
+        {
+          "name": "portfolio-more-menu-item",
+          "rules": 9
+        },
+        {
+          "name": "export-menu-item",
+          "rules": 8
+        },
+        {
+          "name": "nav-menu",
+          "rules": 8
+        },
+        {
+          "name": "export-menu",
+          "rules": 7
+        },
+        {
+          "name": "ribbon-more-popover",
+          "rules": 7
+        },
+        {
+          "name": "ribbon-display-menu-item",
+          "rules": 6
+        },
+        {
+          "name": "templates-modal",
+          "rules": 5
+        },
+        {
+          "name": "modal-overlay",
+          "rules": 5
+        },
+        {
+          "name": "portfolio-more-menu",
+          "rules": 5
+        }
+      ]
+    },
+    {
+      "family": "card",
+      "rules": 287,
+      "uniqueSelectors": 184,
+      "spreadAcrossFiles": 17,
+      "files": [
+        "packages/noodle-web/src/noodle_web/static/ai-chat.css",
+        "packages/noodle-web/src/noodle_web/static/components.css",
+        "packages/noodle-web/src/noodle_web/static/dark-mode.css",
+        "packages/noodle-web/src/noodle_web/static/front-matter-panel.css",
+        "packages/noodle-web/src/noodle_web/static/layout.css",
+        "packages/noodle-web/src/noodle_web/static/responsive.css",
+        "packages/noodle-web/src/noodle_web/static/style.css",
+        "packages/noodle-web/src/noodle_web/static/views/backstage.css",
+        "packages/noodle-web/src/noodle_web/static/views/cards.css",
+        "packages/noodle-web/src/noodle_web/static/views/evm.css",
+        "packages/noodle-web/src/noodle_web/static/views/gantt.css",
+        "packages/noodle-web/src/noodle_web/static/views/kanban.css",
+        "packages/noodle-web/src/noodle_web/static/views/plan-wizard.css",
+        "packages/noodle-web/src/noodle_web/static/views/portfolio.css",
+        "packages/noodle-web/src/noodle_web/static/views/programme.css",
+        "packages/noodle-web/src/noodle_web/static/views/whiteboard.css",
+        "packages/noodle-web/src/noodle_web/static/visual-system.css"
+      ],
+      "stateRules": {
+        "hover": 29,
+        "focus": 8,
+        "active": 3,
+        "disabled": 2
+      },
+      "distinctClassNames": 94,
+      "topClassNames": [
+        {
+          "name": "editor-panel",
+          "rules": 21
+        },
+        {
+          "name": "kanban-card",
+          "rules": 20
+        },
+        {
+          "name": "kanban-editor-panel",
+          "rules": 15
+        },
+        {
+          "name": "fm-panel",
+          "rules": 12
+        },
+        {
+          "name": "wizard-panel",
+          "rules": 10
+        },
+        {
+          "name": "template-card",
+          "rules": 10
+        },
+        {
+          "name": "wb-note-card",
+          "rules": 10
+        },
+        {
+          "name": "evm-kpi-card",
+          "rules": 10
+        },
+        {
+          "name": "qa-check-card",
+          "rules": 8
+        },
+        {
+          "name": "output-panel",
+          "rules": 8
+        },
+        {
+          "name": "kanban-add-card-btn",
+          "rules": 8
+        },
+        {
+          "name": "portfolio-project-card",
+          "rules": 8
+        },
+        {
+          "name": "report-highlight-card",
+          "rules": 6
+        },
+        {
+          "name": "kanban-card-title",
+          "rules": 6
+        },
+        {
+          "name": "backstage-template-card",
+          "rules": 6
+        }
+      ]
+    },
+    {
+      "family": "input",
+      "rules": 253,
+      "uniqueSelectors": 170,
+      "spreadAcrossFiles": 18,
+      "files": [
+        "packages/noodle-web/src/noodle_web/static/ai-chat.css",
+        "packages/noodle-web/src/noodle_web/static/components.css",
+        "packages/noodle-web/src/noodle_web/static/dark-mode.css",
+        "packages/noodle-web/src/noodle_web/static/front-matter-panel.css",
+        "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
+        "packages/noodle-web/src/noodle_web/static/responsive.css",
+        "packages/noodle-web/src/noodle_web/static/style.css",
+        "packages/noodle-web/src/noodle_web/static/task-peek.css",
+        "packages/noodle-web/src/noodle_web/static/views/estimating.css",
+        "packages/noodle-web/src/noodle_web/static/views/gantt.css",
+        "packages/noodle-web/src/noodle_web/static/views/kanban.css",
+        "packages/noodle-web/src/noodle_web/static/views/notepad.css",
+        "packages/noodle-web/src/noodle_web/static/views/portfolio.css",
+        "packages/noodle-web/src/noodle_web/static/views/products.css",
+        "packages/noodle-web/src/noodle_web/static/views/programme.css",
+        "packages/noodle-web/src/noodle_web/static/views/search.css",
+        "packages/noodle-web/src/noodle_web/static/views/whiteboard.css",
+        "packages/noodle-web/src/noodle_web/static/visual-system.css"
+      ],
+      "stateRules": {
+        "hover": 16,
+        "focus": 40,
+        "active": 0,
+        "disabled": 0
+      },
+      "distinctClassNames": 68,
+      "topClassNames": [
+        {
+          "name": "form-group",
+          "rules": 38
+        },
+        {
+          "name": "round-checkbox",
+          "rules": 13
+        },
+        {
+          "name": "editor-textarea",
+          "rules": 10
+        },
+        {
+          "name": "form-row",
+          "rules": 8
+        },
+        {
+          "name": "form-actions",
+          "rules": 7
+        },
+        {
+          "name": "form-grid-2col",
+          "rules": 7
+        },
+        {
+          "name": "form-grid-3col",
+          "rules": 7
+        },
+        {
+          "name": "settings-theme-radio",
+          "rules": 7
+        },
+        {
+          "name": "ribbon-search-input",
+          "rules": 7
+        },
+        {
+          "name": "form-control",
+          "rules": 7
+        },
+        {
+          "name": "task-form-inspect-btn",
+          "rules": 6
+        },
+        {
+          "name": "fm-list-field",
+          "rules": 6
+        },
+        {
+          "name": "ai-settings-field",
+          "rules": 6
+        },
+        {
+          "name": "product-deps-input",
+          "rules": 5
+        },
+        {
+          "name": "product-qa-role-select",
+          "rules": 5
+        }
+      ]
+    }
+  ],
+  "outOfBandStyles": {
+    "templates": [
+      {
+        "file": "packages/noodle-web/src/noodle_web/templates/index.html",
+        "inlineStyleAttributes": 267,
+        "containingColourLiteral": 32
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/templates/templates.html",
+        "inlineStyleAttributes": 3,
+        "containingColourLiteral": 1
+      }
+    ],
+    "templateInlineStyleTotal": 270,
+    "templateInlineStyleWithColour": 33,
+    "scriptFilesWithColourLiterals": 22,
+    "scriptColourLineTotal": 214,
+    "topScripts": [
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/script.js",
+        "lines": 50
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/views-products.js",
+        "lines": 41
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/views-tables.js",
+        "lines": 18
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/benefits.js",
+        "lines": 14
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/mindmap.js",
+        "lines": 12
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/whiteboard-notes.js",
+        "lines": 12
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/portfolio-resources.js",
+        "lines": 10
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/portfolio-benefits.js",
+        "lines": 9
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/portfolio-timeline.js",
+        "lines": 7
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/views-timeline.js",
+        "lines": 7
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/kanban.js",
+        "lines": 5
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/portfolio-lessons.js",
+        "lines": 5
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/portfolio-report.js",
+        "lines": 5
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/status-bar.js",
+        "lines": 5
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/views-gantt.js",
+        "lines": 4
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/portfolio-risks.js",
+        "lines": 3
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/editor-sync.js",
+        "lines": 2
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/noodle-edges.js",
+        "lines": 1
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/portfolio-actions.js",
+        "lines": 1
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/portfolio-dependencies.js",
+        "lines": 1
+      }
+    ]
+  }
 }

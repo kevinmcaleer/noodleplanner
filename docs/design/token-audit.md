@@ -1,7 +1,10 @@
 # Token audit — NoodlePlanner web app
 
-**Scope:** `packages/noodle-web/src/noodle_web/static/**/*.css` (27 files, 26,045
-lines of CSS). The Obsidian plugin's stylesheet
+**Scope:** `packages/noodle-web/src/noodle_web/static/**/*.css` (27 files, 26,199
+lines of CSS), plus — since the second pass — the Jinja templates under
+`packages/noodle-web/src/noodle_web/templates/` and the app's own JavaScript,
+both of which author styles that a CSS-only audit cannot see. The Obsidian
+plugin's stylesheet
 (`packages/obsidian-noodle-planner/styles/styles.css`) is a separate surface
 and is not covered by this pass.
 
@@ -85,17 +88,19 @@ follow-up, not done in this pass (see "Recommendations").
 | Metric | Value |
 |---|---|
 | Files scanned | 27 |
-| Source lines of CSS | 26,045 |
-| Rules | 5,772 |
-| Unique selectors | 3,847 |
+| Source lines of CSS | 26,199 |
+| Rules | 5,809 |
+| Unique selectors | 3,875 |
 | Max selector specificity | `(2,1,0)` |
 | Custom property declarations | 483 (147 unique names) |
-| Unique colors in use | 583 |
+| Unique colors in use | 586 |
 | Unique font-size values | 67 |
 | Unique font-family stacks | 4 |
 | Unique line-height values | 16 |
 | Unique border-radius values | 32 |
-| Unique box-shadow values | 104 |
+| Unique box-shadow values | 105 |
+| Unique spacing values | 49 (25 off a 4px grid) |
+| Distinct component class names | 848 across 7 families |
 
 For comparison, the canonical `visual-system.css` token set is **73 tokens**
 total (colors, 3 fonts, 3 radii, 1 shadow) across light and dark. A healthy
@@ -114,7 +119,7 @@ times in `visual-system.css` itself, yet `css-analyzer` still reports
 `--np-font-heading` as unused. Treat this report's numbers as the reliable
 ones for this specific question.
 
-**29 custom properties are defined but never referenced anywhere**
+**28 custom properties are defined but never referenced anywhere**
 (`docs/design/token-audit-data.json` → `customProperties.unused`), mostly
 `--evm-line-*` chart-series colors, `--mm-*` mind-map tokens, and dead
 `dark-mode.css` tokens like `--np-warning*`/`--np-info`/`--np-sage`/
@@ -185,6 +190,113 @@ predate both design passes. Full ranked list (top 25) in
   already, once `dark-mode.css`'s shadowed `--np-font-heading`/`--np-font-ui`
   values are deleted.
 
+## Spacing audit
+
+There are **no spacing tokens at all** today — `visual-system.css` defines
+colours, three fonts, three radii and one shadow, and nothing for the box
+model. Every margin, padding and gap in the app is therefore a raw literal.
+
+Across 2,522 spacing declarations (`margin*`, `padding*`, `gap`/`row-gap`/
+`column-gap` and their logical variants), exactly **one** is indirected
+through `var()`/`calc()`. The rest resolve to **49 distinct values**, of which
+**25 sit off a 4px grid**, accounting for **1,444 uses** — well over half the
+total.
+
+| Value | Uses | On 4px grid | Files |
+|---|---|---|---|
+| `0` | 646 | ✅ | 25 |
+| `10px` | 449 | ❌ | 24 |
+| `8px` | 405 | ✅ | 24 |
+| `4px` | 314 | ✅ | 22 |
+| `6px` | 286 | ❌ | 24 |
+| `12px` | 281 | ✅ | 22 |
+| `20px` | 278 | ✅ | 16 |
+| `15px` | 182 | ❌ | 7 |
+| `2px` | 157 | ❌ | 16 |
+| `16px` | 119 | ✅ | 18 |
+| `5px` | 92 | ❌ | 11 |
+| `14px` | 81 | ❌ | 14 |
+
+The shape of this is worth reading carefully, because it changes what the fix
+should be. `10px` and `6px` are not stragglers — they are the 2nd and 5th most
+used values, spread across 24 of the 27 files, i.e. as evenly distributed as
+`8px` and `4px` are. This is not a grid with a few violations; it is **two
+interleaved half-scales**, a 4/8/12/16 one and a 5/10/15/(20)/25/30 one, laid
+down by different authors at different times.
+
+That rules out a mechanical find-and-replace. Snapping `10px → 8px` and
+`15px → 16px` across 631 declarations would visibly move a quarter of the
+app's layout in one commit. The migration has to be per-surface and eyeballed,
+which is why it belongs in the page-by-page rollout rather than the
+foundations pass.
+
+`0` leading the table is expected and healthy — it is the reset value, is
+grid-agnostic, and needs no token.
+
+## Component inventory
+
+Grouped by the component family a rule's class names imply. A selector is
+matched on its **hyphen-separated segments**, not on substrings, so
+`.kanban-btn` and `.btn-primary` both count as buttons while `.subtotal` does
+not count as a total. A selector naming two families (`.modal-header .btn`)
+counts once in each.
+
+| Family | Rules | Distinct class names | Files | `:hover` | `:focus` | `:active` | disabled |
+|---|---|---|---|---|---|---|---|
+| table | 1,176 | 214 | 19 | 178 | 23 | 0 | 2 |
+| button | 693 | 137 | 22 | 242 | 45 | 9 | 34 |
+| nav | 488 | 130 | 18 | 66 | 13 | 3 | 13 |
+| badge | 351 | 119 | 22 | 14 | 4 | 0 | 0 |
+| modal | 292 | 86 | 15 | 34 | 21 | 0 | 0 |
+| card | 287 | 94 | 17 | 29 | 8 | 3 | 2 |
+| input | 253 | 68 | 18 | 16 | 40 | 0 | 0 |
+
+**848 distinct component class names** for what a design system would express
+in perhaps a dozen components with variants. The button row is the clearest
+case: 137 differently-named button classes spread over 22 files, led by
+`btn-primary` (31 rules), `btn-secondary` (24), `close-btn` (22),
+`toolbar-btn` (18), `plan-subnav-btn` (18), `ribbon-tab-btn` (14),
+`mindmap-toolbar-btn` (11). Most of these are the *same button* re-specified
+per view.
+
+The state columns are the accessibility half of the story, and they are the
+more urgent finding. Against 693 button rules there are 242 `:hover` rules but
+only **45** `:focus`/`:focus-visible` ones — hover is styled roughly 5× more
+often than focus. Badges are worse in relative terms (119 class names, 4 focus
+rules), and no family styles `:active` more than a handful of times. A
+keyboard user cannot see where they are on most of this UI.
+
+Read the `:hover`-to-`:focus` ratio as an indicator, not as a defect count:
+plenty of these rules are on non-interactive elements that correctly have
+neither state, and some interactive elements inherit a focus ring from a
+shared base rule rather than declaring their own. The number says where to
+look, and #1193 is where each family gets checked properly.
+
+## Styles authored outside CSS
+
+The stylesheets are not the whole surface. Two other places author style, and
+neither is visible to a CSS-only audit:
+
+| Source | Count |
+|---|---|
+| `style="…"` attributes in Jinja templates | 270 (267 in `index.html`, 3 in `templates.html`) |
+| …of those, containing a colour literal | 33 |
+| JS files containing colour literals in style-shaped code | 22 |
+| Lines of such JS | 214 |
+
+The JS concentration is in `script.js` (50 lines), `views-products.js` (41),
+`views-tables.js` (18), `benefits.js` (14), `mindmap.js` (12) and
+`whiteboard-notes.js` (12).
+
+Not all of these are defects. Some are genuinely dynamic — `whiteboard-notes.js`
+computes a WCAG-contrasting text colour for a user-chosen note background at
+runtime, which is exactly the sort of thing that *should* live in JS and is
+documented as deliberate in `visual-system.css`. Chart and canvas code
+similarly has to hand real colour strings to a drawing API rather than a
+`var()`. The rest — static colours baked into generated markup — are the ones
+that belong behind tokens, and any linter added in #1195 needs an allowlist
+for the legitimate cases rather than a blanket ban.
+
 ## Exported design tokens
 
 `docs/design/tokens/` contains the canonical **73 tokens from
@@ -236,7 +348,7 @@ follow-ups, roughly in priority order:
 5. **Consolidate `box-shadow` one-offs** onto `--np-shadow`/
    `--np-shadow-strong`/`--np-floating-shadow`, or add 1–2 more tokens if the
    existing three don't cover legitimate variants (e.g. focus rings).
-6. **Delete the 29 unused custom properties** (after confirming none are read
+6. **Delete the 28 unused custom properties** (after confirming none are read
    from JS).
 7. Re-run `npm run audit:tokens` after each pass to track convergence —
    the "unique values found" numbers in the CSS health snapshot are the

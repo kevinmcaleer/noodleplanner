@@ -23,18 +23,22 @@ const STATIC_DIR = join(ROOT, 'packages/noodle-web/src/noodle_web/static')
 const VISUAL_SYSTEM = join(STATIC_DIR, 'visual-system.css')
 const OUT_DIR = join(ROOT, 'docs/design/tokens')
 
-function walkCssFiles(dir) {
+function walkFiles(dir, ext) {
 	const out = []
 	for (const entry of readdirSync(dir)) {
 		const full = join(dir, entry)
 		const stats = statSync(full)
 		if (stats.isDirectory()) {
-			out.push(...walkCssFiles(full))
-		} else if (entry.endsWith('.css')) {
+			out.push(...walkFiles(full, ext))
+		} else if (entry.endsWith(ext)) {
 			out.push(full)
 		}
 	}
 	return out
+}
+
+function walkCssFiles(dir) {
+	return walkFiles(dir, '.css')
 }
 
 // --- Minimal brace-depth CSS parser, used only to pull top-level custom
@@ -160,13 +164,16 @@ function extractCanonicalTokens() {
 	}
 
 	function resolve(value, map, seen = new Set()) {
-		const m = value.match(/^var\((--[a-zA-Z0-9-]+)\)$/)
-		if (!m) return value
-		const ref = m[1]
-		if (seen.has(ref)) return value // cycle guard
-		if (!(ref in map)) return value
-		seen.add(ref)
-		return resolve(map[ref], map, seen)
+		if (typeof value !== 'string' || !value.includes('var(')) return value
+		// Substitutes every var() in the value, including inside a composite
+		// like `0 2px 4px var(--np-shadow-tint)`. A var() with a fallback
+		// (`var(--x, #fff)`) keeps the fallback if --x is unknown, which is
+		// what the browser does.
+		return value.replace(/var\(\s*(--[a-zA-Z0-9-]+)\s*(?:,([^()]*(?:\([^()]*\)[^()]*)*))?\)/g, (whole, ref, fallback) => {
+			if (seen.has(ref)) return whole // cycle guard
+			if (!(ref in map)) return fallback === undefined ? whole : fallback.trim()
+			return resolve(map[ref], map, new Set([...seen, ref]))
+		})
 	}
 
 	const resolvedLight = {}
@@ -179,10 +186,23 @@ function extractCanonicalTokens() {
 	return { light: resolvedLight, dark: resolvedDark, rawLight: light, rawDark: dark }
 }
 
+// Category drives both which token set a name lands in (colours are themed,
+// everything else is not) and its DTCG $type. Order matters: --np-focus-ring-color
+// is a colour, --np-focus-ring-width is a dimension, and --np-focus-ring itself is
+// a composite shadow, so the specific tests come before the general ones.
 function categorize(name) {
-	if (name.includes('font')) return 'typography'
-	if (name.includes('radius')) return 'radius'
-	if (name.includes('shadow')) return 'shadow'
+	if (name.endsWith('-color') || name.includes('-tint')) return 'color'
+	if (name.includes('font-')) return 'fontFamily'
+	if (/^--np-text-\d+$/.test(name)) return 'fontSize'
+	if (name.includes('leading')) return 'lineHeight'
+	if (name.includes('weight')) return 'fontWeight'
+	if (name.includes('radius')) return 'dimension'
+	if (name.includes('space')) return 'dimension'
+	if (name.includes('width') || name.includes('offset')) return 'dimension'
+	// --np-focus-ring is a composite box-shadow, not a colour; its -color and
+	// -width halves are already caught above.
+	if (name.includes('focus-ring')) return 'shadow'
+	if (name.includes('shadow') || name.includes('elevation')) return 'shadow'
 	return 'color'
 }
 
@@ -287,6 +307,209 @@ function summarizeRawGroup(group) {
 		.sort((a, b) => b.usage - a.usage)
 }
 
+// --- 4. Spacing audit. css-design-tokens has no spacing group, so collect
+// the individual length values out of the box-model properties ourselves.
+// The design-system question is "how many distinct spacing steps exist, and
+// how many sit off the 4px grid" - both are counts of *authored lengths*, so
+// a shorthand like `padding: 4px 8px` contributes two values, not one.
+const SPACING_PROPS = new Set([
+	'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+	'margin-block', 'margin-inline', 'margin-block-start', 'margin-block-end',
+	'margin-inline-start', 'margin-inline-end',
+	'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+	'padding-block', 'padding-inline', 'padding-block-start', 'padding-block-end',
+	'padding-inline-start', 'padding-inline-end',
+	'gap', 'row-gap', 'column-gap', 'grid-gap', 'grid-row-gap', 'grid-column-gap',
+])
+
+// A length token: number + optional unit. Deliberately excludes values inside
+// var()/calc()/clamp() - those are already indirected and are not the drift
+// this audit is looking for.
+const LENGTH_RE = /(-?\d*\.?\d+)(px|rem|em|%|vh|vw|ch|ex)?\b/g
+
+function collectSpacing(files) {
+	const counts = new Map() // "8px" -> {value, unit, uses, props:Set, files:Set}
+	let declarations = 0
+	let indirected = 0 // declarations already using var()/calc()
+	for (const file of files) {
+		const rel = relative(ROOT, file)
+		const text = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+		for (const m of text.matchAll(/([a-z-]+)\s*:\s*([^;{}]+)[;}]/g)) {
+			const prop = m[1].trim()
+			if (!SPACING_PROPS.has(prop)) continue
+			declarations++
+			const value = m[2].trim()
+			if (/var\(|calc\(|clamp\(|min\(|max\(/.test(value)) {
+				indirected++
+				continue
+			}
+			for (const lm of value.matchAll(LENGTH_RE)) {
+				const num = parseFloat(lm[1])
+				const unit = lm[2] ?? (num === 0 ? '' : 'px')
+				if (unit === '%' || unit === 'vh' || unit === 'vw') continue // not a spacing step
+				const key = num === 0 ? '0' : `${num}${unit}`
+				const entry = counts.get(key) ?? { value: key, num, unit, uses: 0, props: new Set(), files: new Set() }
+				entry.uses++
+				entry.props.add(prop)
+				entry.files.add(rel)
+				counts.set(key, entry)
+			}
+		}
+	}
+	// Off-grid = a px value that is not a multiple of 4. em/rem are judged
+	// against a 0.25 step, the em equivalent of a 4px grid at a 16px root.
+	const onGrid = (e) => {
+		if (e.num === 0) return true
+		if (e.unit === 'px') return e.num % 4 === 0
+		if (e.unit === 'rem' || e.unit === 'em') return Math.abs((e.num * 100) % 25) < 1e-6
+		return true
+	}
+	const all = [...counts.values()].sort((a, b) => b.uses - a.uses)
+	return {
+		declarations,
+		indirectedDeclarations: indirected,
+		totalUniqueValues: all.length,
+		offGridUniqueValues: all.filter((e) => !onGrid(e)).length,
+		offGridUses: all.filter((e) => !onGrid(e)).reduce((n, e) => n + e.uses, 0),
+		top: all.slice(0, 30).map((e) => ({
+			value: e.value, uses: e.uses, onGrid: onGrid(e),
+			props: [...e.props].sort(), fileCount: e.files.size,
+		})),
+		offGridTop: all.filter((e) => !onGrid(e)).slice(0, 25)
+			.map((e) => ({ value: e.value, uses: e.uses, fileCount: e.files.size })),
+	}
+}
+
+// --- 5. Component inventory. Groups selectors by the component family their
+// class names imply, so "how many competing button implementations exist"
+// has a number behind it. Families are matched on the *class* portion of a
+// selector only, so `.card-body td` counts once, under card.
+// Matched against the hyphen/underscore-separated segments of a class name,
+// not a substring: `.kanban-btn` and `.btn-primary` are both buttons, while
+// `.subtotal` is not a total and `.grid` in `.gridline` is not a table.
+const COMPONENT_FAMILIES = [
+	['button', ['btn', 'btns', 'button', 'buttons']],
+	['badge', ['badge', 'badges', 'chip', 'chips', 'pill', 'pills', 'tag', 'tags', 'label']],
+	['input', ['input', 'inputs', 'field', 'fields', 'select', 'textarea', 'checkbox', 'radio', 'form', 'control']],
+	['card', ['card', 'cards', 'tile', 'tiles', 'panel', 'panels']],
+	['modal', ['modal', 'modals', 'dialog', 'popover', 'dropdown', 'tooltip', 'menu', 'overlay', 'drawer']],
+	['table', ['table', 'tables', 'grid', 'row', 'rows', 'cell', 'cells', 'col', 'cols', 'column', 'columns', 'th', 'td']],
+	['nav', ['nav', 'navbar', 'tab', 'tabs', 'ribbon', 'toolbar', 'sidebar', 'breadcrumb', 'crumb']],
+].map(([name, words]) => [name, new Set(words)])
+
+// The interactive states a component is expected to define. Missing states are
+// the accessibility half of the component story (#1193).
+const STATE_RE = {
+	hover: /:hover\b/,
+	focus: /:focus(-visible)?\b/,
+	active: /:active\b/,
+	disabled: /(:disabled\b|\[disabled\]|\.disabled\b)/,
+}
+
+function collectComponents(files) {
+	const fams = new Map(COMPONENT_FAMILIES.map(([name]) => [name, {
+		name, selectors: new Set(), files: new Set(), rules: 0,
+		classNames: new Map(), // distinct class names -> rule count
+		states: { hover: 0, focus: 0, active: 0, disabled: 0 },
+	}]))
+	for (const file of files) {
+		const rel = relative(ROOT, file)
+		const text = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+		// Selector preludes: text before a `{` that isn't an at-rule or a declaration.
+		for (const m of text.matchAll(/(^|[};])\s*([^{};@]+?)\s*\{/g)) {
+			const prelude = m[2].trim()
+			if (!prelude || prelude.startsWith('@')) continue
+			for (const sel of prelude.split(',').map((s) => s.trim()).filter(Boolean)) {
+				const classes = [...sel.matchAll(/\.([a-zA-Z0-9_-]+)/g)].map((c) => c[1])
+				if (classes.length === 0) continue
+				const segments = new Set(classes.flatMap((c) => c.split(/[-_]/).filter(Boolean)))
+				for (const [name, words] of COMPONENT_FAMILIES) {
+					if (![...segments].some((seg) => words.has(seg))) continue
+					const f = fams.get(name)
+					f.selectors.add(sel)
+					f.files.add(rel)
+					f.rules++
+					for (const c of classes) {
+						if (!c.split(/[-_]/).some((seg) => words.has(seg))) continue
+						f.classNames.set(c, (f.classNames.get(c) ?? 0) + 1)
+					}
+					for (const [state, sre] of Object.entries(STATE_RE)) {
+						if (sre.test(sel)) f.states[state]++
+					}
+				}
+			}
+		}
+	}
+	return [...fams.values()]
+		.map((f) => ({
+			family: f.name,
+			rules: f.rules,
+			uniqueSelectors: f.selectors.size,
+			spreadAcrossFiles: f.files.size,
+			files: [...f.files].sort(),
+			stateRules: f.states,
+			distinctClassNames: f.classNames.size,
+			topClassNames: [...f.classNames.entries()]
+				.sort((a, b) => b[1] - a[1])
+				.slice(0, 15)
+				.map(([name, rules]) => ({ name, rules })),
+		}))
+		.sort((a, b) => b.rules - a.rules)
+}
+
+// --- 6. Styles authored outside CSS. The CSS files are only part of the
+// surface: templates carry inline style="" attributes and the JS builds
+// markup with style strings. Both are invisible to a CSS-only audit and
+// both are places a hardcoded colour can hide.
+const COLOR_LITERAL_RE = /#[0-9a-fA-F]{3,8}\b|\brgba?\s*\(|\bhsla?\s*\(/
+
+function collectOutOfBandStyles() {
+	const templates = walkFiles(join(ROOT, 'packages/noodle-web/src/noodle_web/templates'), '.html')
+	const scripts = walkFiles(STATIC_DIR, '.js').filter((f) => !f.includes('/vendor/'))
+
+	const inlineAttr = []
+	for (const file of templates) {
+		const rel = relative(ROOT, file)
+		const text = readFileSync(file, 'utf8')
+		let total = 0
+		let withColor = 0
+		for (const m of text.matchAll(/\bstyle\s*=\s*"([^"]*)"/g)) {
+			total++
+			if (COLOR_LITERAL_RE.test(m[1])) withColor++
+		}
+		if (total > 0) inlineAttr.push({ file: rel, inlineStyleAttributes: total, containingColourLiteral: withColor })
+	}
+
+	// In JS, count colour literals that land in something style-shaped:
+	// a style property assignment, a setProperty call, or a style="" string
+	// inside generated markup.
+	const jsColour = []
+	for (const file of scripts) {
+		const rel = relative(ROOT, file)
+		const text = readFileSync(file, 'utf8')
+		let hits = 0
+		for (const line of text.split('\n')) {
+			if (!COLOR_LITERAL_RE.test(line)) continue
+			if (/\.style\b|setProperty\s*\(|style\s*=\s*["'`]|background|colour|color|border|shadow|fill|stroke/i.test(line)) hits++
+		}
+		if (hits > 0) jsColour.push({ file: rel, lines: hits })
+	}
+	jsColour.sort((a, b) => b.lines - a.lines)
+
+	return {
+		templates: inlineAttr,
+		templateInlineStyleTotal: inlineAttr.reduce((n, t) => n + t.inlineStyleAttributes, 0),
+		templateInlineStyleWithColour: inlineAttr.reduce((n, t) => n + t.containingColourLiteral, 0),
+		scriptFilesWithColourLiterals: jsColour.length,
+		scriptColourLineTotal: jsColour.reduce((n, f) => n + f.lines, 0),
+		topScripts: jsColour.slice(0, 20),
+	}
+}
+
+const spacing = collectSpacing(cssFiles)
+const components = collectComponents(cssFiles)
+const outOfBandStyles = collectOutOfBandStyles()
+
 const summary = {
 	filesScanned: cssFiles.map((f) => relative(ROOT, f)),
 	stylesheet: {
@@ -317,6 +540,9 @@ const summary = {
 	lineHeights: summarizeRawGroup(rawTokens.line_height).slice(0, 20),
 	radii: summarizeRawGroup(rawTokens.radius),
 	boxShadows: summarizeRawGroup(rawTokens.box_shadow),
+	spacing,
+	components,
+	outOfBandStyles,
 }
 
 mkdirSync(OUT_DIR, { recursive: true })
@@ -327,13 +553,23 @@ const core = {}
 const colorLight = {}
 const colorDark = {}
 
-const DTCG_TYPE = { typography: 'fontFamily', radius: 'dimension', shadow: 'shadow' }
+const DTCG_TYPE = {
+	fontFamily: 'fontFamily',
+	fontSize: 'fontSize',
+	lineHeight: 'number',
+	fontWeight: 'fontWeight',
+	dimension: 'dimension',
+	shadow: 'shadow',
+}
 
 for (const name of canonicalNames) {
 	const shortName = name.replace(/^--np-/, '').replace(/^--/, '')
 	const category = categorize(name)
-	const lightValue = canonical.light[name]
-	const darkValue = canonical.dark[name]
+	// A multi-line declaration keeps its newlines and indentation through the
+	// parser; a design tool wants one line.
+	const flatten = (v) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : v)
+	const lightValue = flatten(canonical.light[name])
+	const darkValue = flatten(canonical.dark[name])
 
 	if (category === 'color') {
 		colorLight[shortName] = { $type: 'color', $value: lightValue, $description: name }

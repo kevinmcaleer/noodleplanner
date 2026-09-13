@@ -13,6 +13,7 @@
     "vendor:pptxgenjs": "node scripts/vendor-pptxgenjs.mjs",
     "vendor": "npm run vendor:mppwriter && npm run vendor:jspdf && npm run vendor:docx && npm run vendor:dejavu && npm run vendor:exceljs && npm run vendor:jszip && npm run vendor:pptxgenjs",
     "audit:tokens": "node scripts/token-audit.mjs",
+    "check:contrast": "node scripts/check-contrast.mjs",
     "design:consolidation": "node scripts/token-consolidation.mjs",
     "design:map": "node scripts/ui-structure-map.mjs",
     "design:explorer": "node scripts/design-system-explorer.mjs",
