@@ -34,7 +34,7 @@ migration. To use one:
 
 ```html
 <script type="module" src="/static/components/button/np-button.js"></script>
-<np-button variant="primary">Save</np-button>
+<np-button variant="primary" size="small">Save</np-button>
 ```
 
 Swapping the ~130 existing `.btn-primary` / `.btn-secondary` / `.btn-danger`
