@@ -40,20 +40,20 @@ set +e
 # for the same slots and make a pull request slower, not faster. Cores inside a
 # job are free by comparison.
 #
-# `--dist loadfile` rather than the default, for two reasons. Each file owns a
-# module-scoped Chrome and uvicorn, so per-test distribution would stand up a
-# second browser for the same file. More importantly, some of these tests only
-# pass in file order: test_usability.py's
-# TestPlanRendering::test_render_does_not_show_error fails run on its own and
-# passes as part of its file, so it depends on state an earlier test leaves
-# behind. Per-test distribution reorders exactly that -- measured 1 failed, 49
-# passed -- where loadfile hands a whole file to one worker in collection order
-# and the suite stays green: 51 tests over four files at four workers, all
-# passing.
+# `--dist loadfile` rather than the default, because each file owns a
+# module-scoped Chrome and uvicorn: per-test distribution would stand up a
+# second browser for the same file for no benefit.
 #
-# That also sets the ceiling. The largest file is 50 of the 217 remaining
-# tests, so no amount of parallelism takes this job below the time that one
-# file needs. Porting it to tests/ui is what lifts that, not more workers.
+# It used to be load bearing for a second and worse reason -- test_usability.py
+# held a test that only passed in file order, so per-test distribution turned
+# the file red (1 failed, 49 passed). That file is now ported to tests/ui and
+# the dependency went with it: it was Selenium's `get_log("browser")` draining
+# one buffer shared by the whole module, and the port reads the console per
+# page. The eight files left have not been audited for the same thing, so
+# loadfile stays -- it costs nothing here and is the safe default for tests
+# that share a browser.
+#
+# The largest remaining file is 35 of 168 tests, which is what bounds this job.
 ci_step "pytest -m usability" \
   ci_pytest -p no:cacheprovider -m usability -n auto --dist loadfile "$@" 2>&1 | tee "$log"
 # [0] is pytest, [1] is tee. tee all but always succeeds, so reading [1] here

@@ -148,6 +148,26 @@ def _new_page(browser, block_external, timeout_ms):
     page = context.new_page()
     page.set_default_timeout(timeout_ms)
     page.set_default_navigation_timeout(timeout_ms)
+
+    # Console output, collected per page rather than per driver.
+    #
+    # This is what makes the console assertions independent. Selenium's
+    # `get_log("browser")` drains one buffer shared by every test in a module,
+    # so a test asserting "no errors" could pass only because an earlier test
+    # in the file had already drained what it would otherwise have seen -- and
+    # fail when run on its own. That is exactly the order dependency that
+    # forces ci/jobs/usability.sh to use `--dist loadfile`. A listener on a
+    # page that belongs to one test has no such history.
+    page.console_errors = []
+    page.on(
+        "console",
+        lambda message: (
+            page.console_errors.append(message.text)
+            if message.type == "error"
+            else None
+        ),
+    )
+    page.on("pageerror", lambda error: page.console_errors.append(str(error)))
     return context, page
 
 
