@@ -198,23 +198,27 @@ stylesheet, showing up as intended.
 blocked the app renders without Bootstrap or any icon — harmless for an A/B
 comparison, misleading as a board.
 
-## Also found, not done
+## Also found
 
-**667 dead `var()` fallbacks.** 685 `var()` references carry a literal
-fallback; 667 of them name a token that is always defined at `:root`, so the
-fallback can never fire. Most encode the superseded #1024 blue identity
-(`var(--np-accent, #108BB9)`), which means they are both dead and misleading:
-if the token ever went missing, the app would silently revert to the old
-palette rather than failing visibly. Removing them is provably zero-change and
-would delete 667 stale colour literals.
+**667 dead `var()` fallbacks — now removed.** Of 685 `var()` references
+carrying a literal fallback, 667 named a token declared at `:root`, so the
+fallback could never fire. Most encoded the superseded #1024 blue identity
+(`var(--np-accent, #108BB9)`), which made them worse than merely dead: if a
+token had ever gone missing, the app would have silently reverted to the old
+palette rather than failing visibly.
 
-Not done here because it is a 667-line diff across 20 files with a legitimate
-counter-argument — a fallback is cheap insurance — and that is a maintainer's
-call, not a refactor's.
+`scripts/strip-dead-fallbacks.mjs` removes them. The safety rule is `:root`
+specifically, not "declared anywhere" — `:root` applies in both themes, so a
+`[data-theme="dark"]` override changes the value but never leaves it
+undefined, whereas a token declared *only* under `[data-theme="dark"]` needs
+its fallback because that is what paints in the light theme.
 
-The 12 exceptions are load-bearing and must keep theirs: the `--mm-*` mind-map
-tokens are declared at component scope rather than `:root`, plus `--bs-primary`
-from Bootstrap and `--wb-outline-depth` set inline by JS.
+Verified pixel-identical across all 39 views in both themes. Unique colours in
+use fell 549 → 519: 30 colours existed *only* inside dead fallbacks.
+
+The 18 kept are load-bearing: the `--mm-*` mind-map tokens are declared at
+component scope rather than `:root`, plus `--bs-primary` from Bootstrap's CDN
+stylesheet and `--wb-outline-depth` set inline by JS.
 
 **Docs screenshots.** `docs/_static/img/how-to/cp-01-editor-frontmatter.png`
 shows the editor's front matter and predates the highlighting fix, so it is now

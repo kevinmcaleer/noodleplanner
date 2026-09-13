@@ -150,7 +150,7 @@
 
 .pf-buried-detail-marker {
     fill: var(--np-yellow);
-    stroke: var(--np-dark-blue, #02384d);
+    stroke: var(--np-dark-blue);
     stroke-width: 1;
     animation: pf-orphan-pulse 2s ease-in-out infinite;
 }
@@ -409,7 +409,7 @@
     background: var(--np-surface);
     border: 1px solid var(--np-border);
     border-radius: 6px;
-    box-shadow: 0 4px 12px var(--np-shadow-strong, rgba(0,0,0,0.15));
+    box-shadow: 0 4px 12px var(--np-shadow-strong);
     min-width: 140px;
     overflow: hidden;
 }
@@ -775,7 +775,7 @@ input[type="text"].product-deps-input {
     max-height: 150px;
     overflow-y: auto;
     z-index: 100;
-    box-shadow: 0 4px 8px var(--np-shadow, rgba(0,0,0,0.1));
+    box-shadow: 0 4px 8px var(--np-shadow);
 }
 
 [data-theme="dark"] .product-deps-autocomplete {

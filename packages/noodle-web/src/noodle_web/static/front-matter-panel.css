@@ -354,7 +354,7 @@
     border-radius: 5px;
     background: #1e1e1f;
     color: #d4d4d4;
-    font-family: var(--np-font-data, 'Courier New', monospace);
+    font-family: var(--np-font-data);
     font-size: 12px;
     resize: vertical;
 }
@@ -374,7 +374,7 @@
 }
 
 .fm-warning-line {
-    font-family: var(--np-font-data, 'Courier New', monospace);
+    font-family: var(--np-font-data);
     font-size: 11px;
     white-space: pre-wrap;
 }

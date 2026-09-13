@@ -62,8 +62,8 @@ svg.icon {
     left: 0;
     top: 100%;
     margin-top: 5px;
-    background: var(--np-surface, white);
-    border: 1px solid var(--np-border, #e0e0e0);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 5px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     min-width: 180px;
@@ -77,11 +77,11 @@ svg.icon {
 .nav-menu-item {
     padding: 10px 15px;
     cursor: pointer;
-    border-bottom: 1px solid var(--np-border-light, #f0f0f0);
+    border-bottom: 1px solid var(--np-border-light);
     display: flex;
     align-items: center;
     gap: 10px;
-    color: var(--np-text, #333);
+    color: var(--np-text);
     white-space: nowrap;
     min-height: 44px;
 }
@@ -91,7 +91,7 @@ svg.icon {
 }
 
 .nav-menu-item:hover {
-    background: var(--np-accent-soft, #f8f9ff);
+    background: var(--np-accent-soft);
 }
 
 .tab-content {
@@ -163,7 +163,7 @@ svg.icon {
     min-width: 200px;
     max-width: 70%;
     overflow: hidden;
-    background: var(--np-editor-bg, #1e1e1e);
+    background: var(--np-editor-bg);
     transition: width 0.3s ease;
 }
 
@@ -199,7 +199,7 @@ svg.icon {
 
 .editor-splitter {
     width: 8px;
-    background: var(--np-splitter-bg, #dee2e6);
+    background: var(--np-splitter-bg);
     cursor: col-resize;
     position: relative;
     flex-shrink: 0;
@@ -210,7 +210,7 @@ svg.icon {
 }
 
 .editor-splitter:hover {
-    background: var(--np-splitter-hover, #c0c4c8);
+    background: var(--np-splitter-hover);
 }
 
 .editor-splitter.collapsed {
@@ -234,12 +234,12 @@ svg.icon {
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: var(--np-splitter-dot, #999);
+    background: var(--np-splitter-dot);
     transition: background 0.2s ease;
 }
 
 .editor-splitter:hover .splitter-grip-dot {
-    background: var(--np-text-secondary, #666);
+    background: var(--np-text-secondary);
 }
 
 .editor-splitter.collapsed .splitter-grip {
@@ -252,7 +252,7 @@ svg.icon {
     flex: 1;
     min-width: 200px;
     overflow: hidden;
-    background: var(--np-surface, white);
+    background: var(--np-surface);
 }
 
 /* Plan Sub-Navigation Bar */
@@ -261,8 +261,8 @@ svg.icon {
     align-items: center;
     gap: 2px;
     padding: 4px 12px;
-    background: var(--np-subnav-bg, #f0f1f4);
-    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    background: var(--np-subnav-bg);
+    border-bottom: 1px solid var(--np-border);
     flex-shrink: 0;
 }
 
@@ -277,7 +277,7 @@ svg.icon {
     padding: 5px 12px;
     border: none;
     background: transparent;
-    color: var(--np-text-secondary, #666);
+    color: var(--np-text-secondary);
     font-size: 0.85em;
     cursor: pointer;
     border-radius: 4px;
@@ -287,8 +287,8 @@ svg.icon {
 }
 
 .plan-subnav-btn:hover {
-    background: var(--np-subnav-hover, #e2e3e8);
-    color: var(--np-text, #333);
+    background: var(--np-subnav-hover);
+    color: var(--np-text);
 }
 
 .plan-subnav-btn.active {
@@ -341,13 +341,13 @@ svg.icon {
 
 /* Active state for dropdown menu items (current view indicator) */
 .nav-menu-item.active {
-    background: var(--np-accent-soft, #e8f0fe);
+    background: var(--np-accent-soft);
     font-weight: 600;
     color: var(--np-accent);
 }
 
 .nav-menu-item.active:hover {
-    background: var(--np-bg-hover, #d4e5fc);
+    background: var(--np-bg-hover);
 }
 
 /* Project breadcrumb in the header. Recovered from static/style.css, which

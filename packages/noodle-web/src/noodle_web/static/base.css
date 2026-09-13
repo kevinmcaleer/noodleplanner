@@ -81,7 +81,7 @@
     top: -100%;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--np-accent, var(--np-blue));
+    background: var(--np-accent);
     color: var(--np-on-accent);
     padding: 10px 20px;
     border-radius: 0 0 6px 6px;
@@ -100,10 +100,10 @@ html {
 }
 
 body {
-    font-family: var(--np-font-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif);
+    font-family: var(--np-font-ui);
     line-height: 1.6;
-    color: var(--np-text, #333);
-    background: var(--np-bg, white);
+    color: var(--np-text);
+    background: var(--np-bg);
     height: 100%;
     margin: 0;
     padding: 0;
@@ -111,6 +111,6 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-    font-family: var(--np-font-heading, var(--np-font-ui));
+    font-family: var(--np-font-heading);
     font-weight: 700;
 }

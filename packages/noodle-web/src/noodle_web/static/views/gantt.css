@@ -887,7 +887,7 @@
 }
 
 .save-btn:hover {
-    background: var(--np-accent-hover, #5568d3);
+    background: var(--np-accent-hover);
 }
 
 .upload-area {
@@ -914,7 +914,7 @@
 .editor-wrapper {
     display: flex;
     flex: 1;
-    background: var(--np-editor-bg, #1e1e1e);
+    background: var(--np-editor-bg);
     overflow: hidden;
     min-height: 0;
     position: relative;
@@ -1382,8 +1382,8 @@ textarea {
 }
 
 #planEditor {
-    background: var(--np-editor-bg, #1e1e1e);
-    color: var(--np-editor-tip-text, #d4d4d4);
+    background: var(--np-editor-bg);
+    color: var(--np-editor-tip-text);
 }
 
 textarea:focus:not(:focus-visible) {
@@ -1529,7 +1529,7 @@ input[type="checkbox"] {
 }
 
 .btn {
-    background: var(--np-accent-gradient, linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%));
+    background: var(--np-accent-gradient);
     color: var(--np-on-accent);
     padding: 15px 30px;
     border: none;
@@ -1610,8 +1610,8 @@ input[type="checkbox"] {
 }
 
 .syntax-guide pre {
-    background: var(--np-editor-bg, #1e1e1e);
-    color: var(--np-editor-tip-text, #d4d4d4);
+    background: var(--np-editor-bg);
+    color: var(--np-editor-tip-text);
     padding: 15px;
     border-radius: 5px;
     overflow-x: auto;

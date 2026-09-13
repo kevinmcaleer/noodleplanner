@@ -35,7 +35,7 @@
   ],
   "stylesheet": {
     "sourceLinesOfCode": 17610,
-    "complexity": 50978
+    "complexity": 50977
   },
   "rules": {
     "total": 3932
@@ -76,7 +76,7 @@
   },
   "canonicalTokenCount": 122,
   "colors": {
-    "totalUnique": 549,
+    "totalUnique": 519,
     "duplicateOfTokenCount": 10,
     "duplicateOfToken": [
       {
@@ -195,16 +195,15 @@
         "id": "white-edecb6ba",
         "hex": "#FFFFFF",
         "authoredAs": "white",
-        "usage": 242,
+        "usage": 184,
         "props": [
-          "color",
-          "background",
           "stroke",
+          "background",
+          "color",
           "border",
-          "box-shadow",
           "text-shadow",
-          "border-bottom",
           "border-color",
+          "border-bottom",
           "--mm-btn-bg",
           "--mm-btn-hover-text",
           "--mm-node-text",
@@ -212,8 +211,7 @@
           "--mm-selection-stroke",
           "--mm-inline-input-bg",
           "--mm-canvas-bg",
-          "--mm-node-fill",
-          "fill"
+          "--mm-node-fill"
         ]
       },
       {
@@ -222,203 +220,54 @@
         "authoredAs": "transparent",
         "usage": 132,
         "props": [
-          "color",
           "background",
-          "border",
-          "border-bottom",
+          "color",
           "background-color",
           "border-right",
-          "border-left"
-        ]
-      },
-      {
-        "id": "grey-fdb1d2f4",
-        "hex": "#E0E0E0",
-        "authoredAs": "#e0e0e0",
-        "usage": 97,
-        "props": [
-          "--evm-chart-border",
-          "--evm-grid-line",
-          "color",
-          "background",
-          "border",
           "border-bottom",
-          "background-color",
-          "border-right",
-          "--mm-node-text",
-          "--mm-plus-btn-fill",
-          "--mm-inline-input-text",
-          "fill",
-          "border-top",
-          "--wb-note-accent"
-        ]
-      },
-      {
-        "id": "grey-bd8d7f37",
-        "hex": "#333333",
-        "authoredAs": "#333",
-        "usage": 85,
-        "props": [
-          "--evm-grid-line",
-          "color",
-          "box-shadow",
-          "border-color",
-          "--mm-toolbar-border",
-          "--mm-btn-text",
-          "--mm-root-text",
-          "--mm-selection-stroke",
-          "--mm-plus-btn-fill",
-          "--mm-inline-input-text",
-          "--mm-placeholder-heading",
-          "border-bottom-color",
-          "border-top-color",
-          "background",
-          "--wb-note-text"
-        ]
-      },
-      {
-        "id": "grey-8d6c0835",
-        "hex": "#666666",
-        "authoredAs": "#666",
-        "usage": 60,
-        "props": [
-          "color",
-          "background",
-          "stroke",
-          "border-color",
-          "--mm-zoom-label-text",
-          "--mm-hint-text",
-          "fill"
-        ]
-      },
-      {
-        "id": "blue-96b82a9b",
-        "hex": "#108BB9",
-        "authoredAs": "#108bb9",
-        "usage": 51,
-        "props": [
-          "--np-blue",
-          "color",
-          "background",
-          "stroke",
-          "border",
-          "box-shadow",
-          "border-color",
-          "fill",
-          "outline"
+          "border-left",
+          "border"
         ]
       },
       {
         "id": "black-23d68dbd",
         "hex": "#000000",
         "authoredAs": "rgba(0, 0, 0, 0.1)",
-        "usage": 44,
+        "usage": 41,
         "props": [
-          "background",
-          "border",
           "box-shadow",
-          "--np-shadow"
-        ]
-      },
-      {
-        "id": "grey-d8c560c3",
-        "hex": "#888888",
-        "authoredAs": "#888",
-        "usage": 43,
-        "props": [
-          "--evm-bac-line",
-          "color",
-          "background",
-          "border-color",
-          "--mm-hint-text",
-          "--mm-placeholder-text"
-        ]
-      },
-      {
-        "id": "blue-cfa3ecb7",
-        "hex": "#DEE2E6",
-        "authoredAs": "#dee2e6",
-        "usage": 38,
-        "props": [
-          "color",
           "background",
           "border",
-          "border-bottom",
-          "border-color",
-          "border-left",
-          "border-top"
+          "--np-shadow"
         ]
       },
       {
         "id": "blue-798a2377",
         "hex": "#E9ECEF",
         "authoredAs": "#e9ecef",
-        "usage": 34,
+        "usage": 33,
         "props": [
           "background",
-          "border",
-          "border-bottom"
+          "border-bottom",
+          "border"
         ]
       },
       {
-        "id": "blue-3536229b",
-        "hex": "#F0F1F4",
-        "authoredAs": "#f0f1f4",
-        "usage": 30,
-        "props": [
-          "background"
-        ]
-      },
-      {
-        "id": "blue-fb2da22a",
-        "hex": "#F8F9FA",
-        "authoredAs": "#f8f9fa",
-        "usage": 25,
-        "props": [
-          "background",
-          "background-color"
-        ]
-      },
-      {
-        "id": "blue-2fbce37e",
-        "hex": "#6C757D",
-        "authoredAs": "#6c757d",
+        "id": "grey-fdb1d2f4",
+        "hex": "#E0E0E0",
+        "authoredAs": "#e0e0e0",
         "usage": 24,
         "props": [
-          "color",
-          "background"
-        ]
-      },
-      {
-        "id": "grey-5d4a9133",
-        "hex": "#999999",
-        "authoredAs": "#999",
-        "usage": 24,
-        "props": [
-          "--evm-axis-line",
-          "--evm-bac-line",
-          "color",
+          "--evm-chart-border",
+          "--evm-grid-line",
           "background",
+          "color",
+          "background-color",
           "border",
-          "border-color",
-          "--mm-zoom-label-text",
-          "--mm-hint-text",
+          "--mm-node-text",
+          "--mm-plus-btn-fill",
+          "--mm-inline-input-text",
           "fill"
-        ]
-      },
-      {
-        "id": "grey-2d291a31",
-        "hex": "#CCCCCC",
-        "authoredAs": "#ccc",
-        "usage": 24,
-        "props": [
-          "color",
-          "background",
-          "border",
-          "border-right",
-          "--mm-btn-border",
-          "--mm-btn-text",
-          "--mm-plus-btn-hover-fill"
         ]
       },
       {
@@ -427,43 +276,42 @@
         "authoredAs": "#dc3545",
         "usage": 24,
         "props": [
-          "color",
           "background",
+          "color",
           "border-color",
           "border-left"
-        ]
-      },
-      {
-        "id": "blue-24327fbf",
-        "hex": "#495057",
-        "authoredAs": "#495057",
-        "usage": 22,
-        "props": [
-          "color"
         ]
       },
       {
         "id": "green-4abf4310",
         "hex": "#28A745",
         "authoredAs": "#28a745",
-        "usage": 22,
+        "usage": 21,
         "props": [
-          "color",
           "background",
-          "border",
+          "color",
           "border-color",
-          "border-left"
+          "border-left",
+          "border"
+        ]
+      },
+      {
+        "id": "blue-24327fbf",
+        "hex": "#495057",
+        "authoredAs": "#495057",
+        "usage": 20,
+        "props": [
+          "color"
         ]
       },
       {
         "id": "black-56fb2a18",
         "hex": "#000000",
         "authoredAs": "rgba(0,0,0,0.15)",
-        "usage": 20,
+        "usage": 18,
         "props": [
-          "background",
           "box-shadow",
-          "border",
+          "background",
           "--np-shadow-strong"
         ]
       },
@@ -471,13 +319,12 @@
         "id": "grey-ad92bd37",
         "hex": "#444444",
         "authoredAs": "#444",
-        "usage": 19,
+        "usage": 17,
         "props": [
-          "color",
           "background",
-          "border",
           "border-color",
           "border-left",
+          "border",
           "--mm-toolbar-border",
           "--mm-btn-border",
           "--mm-btn-text",
@@ -486,64 +333,205 @@
         ]
       },
       {
-        "id": "red-1e3bca99",
-        "hex": "#C62828",
-        "authoredAs": "#c62828",
-        "usage": 17,
-        "props": [
-          "color",
-          "background",
-          "border",
-          "border-color",
-          "border-left"
-        ]
-      },
-      {
-        "id": "grey-f0e137da",
-        "hex": "#F0F0F0",
-        "authoredAs": "#f0f0f0",
+        "id": "grey-2d291a31",
+        "hex": "#CCCCCC",
+        "authoredAs": "#ccc",
         "usage": 16,
         "props": [
           "background",
-          "border-bottom",
-          "--mm-toolbar-bg"
+          "color",
+          "border-right",
+          "border",
+          "--mm-btn-border",
+          "--mm-btn-text",
+          "--mm-plus-btn-hover-fill"
         ]
       },
       {
-        "id": "orange-8fa89704",
-        "hex": "#FF7B01",
-        "authoredAs": "#ff7b01",
-        "usage": 14,
+        "id": "red-1e3bca99",
+        "hex": "#C62828",
+        "authoredAs": "#c62828",
+        "usage": 16,
         "props": [
-          "--np-orange",
-          "color",
           "background",
-          "stroke",
+          "color",
+          "border-color",
+          "border-left",
+          "border"
+        ]
+      },
+      {
+        "id": "grey-5d4a9133",
+        "hex": "#999999",
+        "authoredAs": "#999",
+        "usage": 13,
+        "props": [
+          "--evm-axis-line",
+          "--evm-bac-line",
+          "color",
+          "border-color",
+          "--mm-zoom-label-text",
+          "--mm-hint-text",
           "fill"
         ]
       },
       {
-        "id": "red-4ead1e92",
-        "hex": "#D32F2F",
-        "authoredAs": "#d32f2f",
-        "usage": 14,
+        "id": "grey-bd8d7f37",
+        "hex": "#333333",
+        "authoredAs": "#333",
+        "usage": 13,
         "props": [
+          "--evm-grid-line",
           "color",
+          "--mm-toolbar-border",
+          "--mm-btn-text",
+          "--mm-root-text",
+          "--mm-selection-stroke",
+          "--mm-plus-btn-fill",
+          "--mm-inline-input-text",
+          "--mm-placeholder-heading",
+          "border-bottom-color",
+          "border-top-color"
+        ]
+      },
+      {
+        "id": "grey-a2b90ae0",
+        "hex": "#DDDDDD",
+        "authoredAs": "#ddd",
+        "usage": 13,
+        "props": [
           "background",
-          "border",
-          "border-color"
+          "color",
+          "border-bottom",
+          "--mm-toolbar-border",
+          "--mm-btn-text",
+          "--mm-placeholder-heading"
         ]
       },
       {
         "id": "blue-9a5958c1",
         "hex": "#ADB5BD",
         "authoredAs": "#adb5bd",
-        "usage": 13,
+        "usage": 12,
         "props": [
-          "color",
           "background",
+          "color",
+          "border-color",
+          "border"
+        ]
+      },
+      {
+        "id": "orange-4d7dd578",
+        "hex": "#FFC107",
+        "authoredAs": "#ffc107",
+        "usage": 12,
+        "props": [
+          "background",
+          "color",
+          "border-left",
+          "border"
+        ]
+      },
+      {
+        "id": "grey-200d8c6c",
+        "hex": "#3A3A3A",
+        "authoredAs": "#3a3a3a",
+        "usage": 12,
+        "props": [
+          "--evm-chart-border",
+          "background",
+          "border-bottom",
+          "--mm-btn-bg",
+          "--mm-btn-hover-bg",
+          "fill"
+        ]
+      },
+      {
+        "id": "black-23d68dbf",
+        "hex": "#000000",
+        "authoredAs": "rgba(0, 0, 0, 0.3)",
+        "usage": 12,
+        "props": [
+          "box-shadow",
+          "background",
+          "--np-shadow"
+        ]
+      },
+      {
+        "id": "grey-4f4ac23d",
+        "hex": "#555555",
+        "authoredAs": "#555",
+        "usage": 11,
+        "props": [
+          "--evm-card-hover-border",
+          "--evm-axis-line",
+          "border-color",
           "border",
-          "border-color"
+          "--mm-btn-border",
+          "--mm-placeholder-heading"
+        ]
+      },
+      {
+        "id": "grey-5392f67",
+        "hex": "#D4D4D4",
+        "authoredAs": "#d4d4d4",
+        "usage": 11,
+        "props": [
+          "background",
+          "color",
+          "--mm-btn-hover-bg",
+          "caret-color"
+        ]
+      },
+      {
+        "id": "grey-c7bb258e",
+        "hex": "#D0D0D0",
+        "authoredAs": "#d0d0d0",
+        "usage": 11,
+        "props": [
+          "border-right",
+          "border-bottom",
+          "border-left",
+          "border",
+          "--mm-toolbar-border",
+          "--mm-progress-bg",
+          "border-top"
+        ]
+      },
+      {
+        "id": "blue-fd5c9b17",
+        "hex": "#1976D2",
+        "authoredAs": "#1976d2",
+        "usage": 10,
+        "props": [
+          "background",
+          "color",
+          "border-left"
+        ]
+      },
+      {
+        "id": "blue-9eec6537",
+        "hex": "#233A45",
+        "authoredAs": "#233a45",
+        "usage": 10,
+        "props": [
+          "border-color",
+          "border-left-color",
+          "border-bottom-color",
+          "border-right-color"
+        ]
+      },
+      {
+        "id": "grey-d8c560c3",
+        "hex": "#888888",
+        "authoredAs": "#888",
+        "usage": 10,
+        "props": [
+          "--evm-bac-line",
+          "color",
+          "border-color",
+          "--mm-hint-text",
+          "--mm-placeholder-text"
         ]
       }
     ]
@@ -1205,7 +1193,7 @@
     {
       "id": "boxShadow-f6beb62c",
       "authoredAs": "0 4px 12px var(--np-shadow-strong)",
-      "usage": 6
+      "usage": 7
     },
     {
       "id": "boxShadow-5b04875",
@@ -1233,6 +1221,11 @@
       "usage": 4
     },
     {
+      "id": "boxShadow-838589bb",
+      "authoredAs": "0 1px 3px var(--np-shadow)",
+      "usage": 4
+    },
+    {
       "id": "boxShadow-f692dcbc",
       "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.1)",
       "usage": 3
@@ -1243,13 +1236,13 @@
       "usage": 3
     },
     {
-      "id": "boxShadow-2f7fa9f7",
-      "authoredAs": "0 1px 3px rgba(0, 0, 0, 0.08)",
+      "id": "boxShadow-366c9bb7",
+      "authoredAs": "0 2px 6px var(--np-shadow)",
       "usage": 3
     },
     {
-      "id": "boxShadow-838589bb",
-      "authoredAs": "0 1px 3px var(--np-shadow)",
+      "id": "boxShadow-2f7fa9f7",
+      "authoredAs": "0 1px 3px rgba(0, 0, 0, 0.08)",
       "usage": 3
     },
     {
@@ -1298,8 +1291,8 @@
       "usage": 2
     },
     {
-      "id": "boxShadow-1a1299bd",
-      "authoredAs": "0 2px 6px var(--np-shadow, rgba(0, 0, 0, 0.1))",
+      "id": "boxShadow-fdb36633",
+      "authoredAs": "0 4px 8px var(--np-shadow)",
       "usage": 2
     },
     {
@@ -1313,8 +1306,8 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-70c54ee3",
-      "authoredAs": "0 0 0 2px var(--np-surface, white), 0 0 0 4px var(--np-text, #333)",
+      "id": "boxShadow-d47d93ea",
+      "authoredAs": "0 0 0 2px var(--np-surface), 0 0 0 4px var(--np-text)",
       "usage": 1
     },
     {
@@ -1373,8 +1366,8 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-8cf518e7",
-      "authoredAs": "0 1px 0 var(--np-border, #bbb)",
+      "id": "boxShadow-83e0dfda",
+      "authoredAs": "0 1px 0 var(--np-border)",
       "usage": 1
     },
     {
@@ -1448,28 +1441,28 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-d070308b",
-      "authoredAs": "0 6px 16px var(--np-shadow, rgba(0, 0, 0, 0.22))",
+      "id": "boxShadow-264eb700",
+      "authoredAs": "0 6px 16px var(--np-shadow)",
       "usage": 1
     },
     {
-      "id": "boxShadow-5d80b774",
-      "authoredAs": "0 4px 16px var(--np-shadow, rgba(0, 0, 0, 0.18))",
+      "id": "boxShadow-1dee1cfe",
+      "authoredAs": "0 4px 16px var(--np-shadow)",
       "usage": 1
     },
     {
-      "id": "boxShadow-1924d407",
-      "authoredAs": "0 4px 20px var(--np-shadow, rgba(0, 0, 0, 0.12))",
+      "id": "boxShadow-bcbc0c45",
+      "authoredAs": "0 4px 20px var(--np-shadow)",
       "usage": 1
     },
     {
-      "id": "boxShadow-fe6d6d1c",
-      "authoredAs": "0 12px 40px var(--np-shadow, rgba(0, 0, 0, 0.3))",
+      "id": "boxShadow-7f1c3814",
+      "authoredAs": "0 12px 40px var(--np-shadow)",
       "usage": 1
     },
     {
-      "id": "boxShadow-b55e5a5e",
-      "authoredAs": "0 0 0 5px rgba(16, 139, 185, 0.55), 0 6px 18px var(--np-shadow, rgba(0, 0, 0, 0.25))",
+      "id": "boxShadow-90e89e70",
+      "authoredAs": "0 0 0 5px rgba(16, 139, 185, 0.55), 0 6px 18px var(--np-shadow)",
       "usage": 1
     },
     {
@@ -1478,13 +1471,13 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-4440c6cd",
-      "authoredAs": "0 4px 14px var(--np-shadow, rgba(0, 0, 0, 0.24))",
+      "id": "boxShadow-4eaa7040",
+      "authoredAs": "0 4px 14px var(--np-shadow)",
       "usage": 1
     },
     {
-      "id": "boxShadow-a554544b",
-      "authoredAs": "0 6px 22px var(--np-shadow, rgba(0, 0, 0, 0.16))",
+      "id": "boxShadow-94605305",
+      "authoredAs": "0 6px 22px var(--np-shadow)",
       "usage": 1
     },
     {
@@ -1493,28 +1486,28 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-45bd7b65",
-      "authoredAs": "inset 0 2px 0 0 var(--np-blue, #108BB9)",
+      "id": "boxShadow-861ed51e",
+      "authoredAs": "inset 0 2px 0 0 var(--np-blue)",
       "usage": 1
     },
     {
-      "id": "boxShadow-b102bb9e",
-      "authoredAs": "inset 0 -2px 0 0 var(--np-blue, #108BB9)",
+      "id": "boxShadow-c7fac0c5",
+      "authoredAs": "inset 0 -2px 0 0 var(--np-blue)",
       "usage": 1
     },
     {
-      "id": "boxShadow-319180e6",
-      "authoredAs": "inset 3px 0 0 0 var(--np-blue, #108BB9)",
+      "id": "boxShadow-5ce36a7d",
+      "authoredAs": "inset 3px 0 0 0 var(--np-blue)",
       "usage": 1
     },
     {
-      "id": "boxShadow-71886ecd",
-      "authoredAs": "0 3px 12px var(--np-shadow, rgba(0, 0, 0, 0.14))",
+      "id": "boxShadow-fb367681",
+      "authoredAs": "0 3px 12px var(--np-shadow)",
       "usage": 1
     },
     {
-      "id": "boxShadow-8063c00e",
-      "authoredAs": "0 6px 20px var(--np-shadow, rgba(0, 0, 0, 0.2))",
+      "id": "boxShadow-c51ca647",
+      "authoredAs": "0 6px 20px var(--np-shadow)",
       "usage": 1
     },
     {
@@ -1573,23 +1566,8 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-e7bf1e78",
-      "authoredAs": "0 1px 3px var(--np-shadow, rgba(0, 0, 0, 0.08))",
-      "usage": 1
-    },
-    {
       "id": "boxShadow-a04bc820",
       "authoredAs": "0 0 0 1px rgba(0, 0, 0, 0.15)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-9e902af9",
-      "authoredAs": "0 4px 12px var(--np-shadow-strong, rgba(0,0,0,0.15))",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-d755b895",
-      "authoredAs": "0 4px 8px var(--np-shadow, rgba(0,0,0,0.1))",
       "usage": 1
     },
     {
@@ -1618,11 +1596,6 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-fdb36633",
-      "authoredAs": "0 4px 8px var(--np-shadow)",
-      "usage": 1
-    },
-    {
       "id": "boxShadow-e65e366e",
       "authoredAs": "0 2px 12px var(--np-shadow-strong)",
       "usage": 1
@@ -1635,11 +1608,6 @@
     {
       "id": "boxShadow-5c07da5b",
       "authoredAs": "0 4px 8px var(--np-shadow-strong)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-366c9bb7",
-      "authoredAs": "0 2px 6px var(--np-shadow)",
       "usage": 1
     },
     {
@@ -2883,7 +2851,7 @@
     "templateInlineStyleTotal": 272,
     "templateInlineStyleWithColour": 33,
     "scriptFilesWithColourLiterals": 22,
-    "scriptColourLineTotal": 214,
+    "scriptColourLineTotal": 215,
     "topScripts": [
       {
         "file": "packages/noodle-web/src/noodle_web/static/script.js",
@@ -2954,15 +2922,15 @@
         "lines": 2
       },
       {
+        "file": "packages/noodle-web/src/noodle_web/static/ribbon.js",
+        "lines": 2
+      },
+      {
         "file": "packages/noodle-web/src/noodle_web/static/noodle-edges.js",
         "lines": 1
       },
       {
         "file": "packages/noodle-web/src/noodle_web/static/portfolio-actions.js",
-        "lines": 1
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/portfolio-dependencies.js",
         "lines": 1
       }
     ]

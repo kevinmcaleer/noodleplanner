@@ -222,7 +222,7 @@
 }
 
 .btn-primary:hover {
-    background: var(--np-accent-hover, #5568d3);
+    background: var(--np-accent-hover);
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(16, 139, 185, 0.4);
 }
@@ -686,7 +686,7 @@
 }
 
 .btn-small:hover {
-    background: var(--np-accent-hover, #5568d3);
+    background: var(--np-accent-hover);
     transform: translateY(-1px);
 }
 
@@ -1356,11 +1356,11 @@
 }
 
 .project-table-row.project-row-selected {
-    background: var(--np-bg-hover, #e7f3ff);
+    background: var(--np-bg-hover);
 }
 
 .project-table-row.project-row-selected:hover {
-    background: var(--np-bg-hover, #d0e7ff);
+    background: var(--np-bg-hover);
 }
 
 .programme-badge {
@@ -1370,8 +1370,8 @@
     border-radius: 10px;
     font-size: 0.78em;
     font-weight: 600;
-    background: var(--np-badge-bg, #e0e0e0);
-    color: var(--np-text-secondary, #495057);
+    background: var(--np-badge-bg);
+    color: var(--np-text-secondary);
     vertical-align: middle;
     cursor: pointer;
 }
@@ -1388,14 +1388,14 @@
     gap: 10px;
     padding: 10px 14px;
     margin-bottom: 12px;
-    background: var(--np-surface-alt, #eef1fb);
-    border: 1px solid var(--np-border, #dee2e6);
+    background: var(--np-surface-alt);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
 }
 
 .portfolio-selection-count {
     font-weight: 600;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
     margin-right: 4px;
 }
 
@@ -1405,13 +1405,13 @@
     border: none;
     font-size: 1.3em;
     line-height: 1;
-    color: var(--np-text-secondary, #6c757d);
+    color: var(--np-text-secondary);
     cursor: pointer;
     padding: 0 4px;
 }
 
 .portfolio-selection-clear:hover {
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .portfolio-lasso-box {
@@ -2315,39 +2315,39 @@
     gap: 12px;
     margin-bottom: 16px;
     padding-bottom: 10px;
-    border-bottom: 1px solid var(--np-border, #dee2e6);
+    border-bottom: 1px solid var(--np-border);
 }
 
 .dep-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9em;
-    background: var(--np-surface, #fff);
+    background: var(--np-surface);
     border-radius: 6px;
     overflow: hidden;
-    box-shadow: 0 1px 3px var(--np-shadow, rgba(0, 0, 0, 0.08));
+    box-shadow: 0 1px 3px var(--np-shadow);
 }
 
 .dep-table th,
 .dep-table td {
     padding: 10px 12px;
     text-align: left;
-    border-bottom: 1px solid var(--np-border-light, #f0f0f0);
+    border-bottom: 1px solid var(--np-border-light);
     vertical-align: middle;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .dep-table th {
-    background: var(--np-bg-alt, #f8f9fa);
+    background: var(--np-bg-alt);
     font-weight: 600;
-    color: var(--np-text-secondary, #495057);
+    color: var(--np-text-secondary);
     font-size: 0.82em;
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
 
 .dep-table tbody tr:hover {
-    background: var(--np-table-hover, #f8f9fa);
+    background: var(--np-table-hover);
 }
 
 .dep-table tbody tr:last-child td {

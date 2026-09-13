@@ -36,23 +36,23 @@ body.backstage-fullscreen {
     margin: 8px 0 0 12px;
     border: none;
     border-radius: 50%;
-    background: var(--np-bg-alt, #f8f9fa);
-    color: var(--np-text, #333);
+    background: var(--np-bg-alt);
+    color: var(--np-text);
     font-size: 1.2em;
     cursor: pointer;
-    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .backstage-back-arrow:hover,
 .backstage-back-arrow:focus-visible {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
     outline: none;
 }
 
 .backstage-container {
     display: flex;
     min-height: 100%;
-    background: var(--np-surface, #ffffff);
+    background: var(--np-surface);
 }
 
 .backstage-rail {
@@ -61,8 +61,8 @@ body.backstage-fullscreen {
     flex-direction: column;
     gap: 2px;
     padding: 24px 12px;
-    background: var(--np-bg-alt, #f8f9fa);
-    border-right: 1px solid var(--np-border, #e0e0e0);
+    background: var(--np-bg-alt);
+    border-right: 1px solid var(--np-border);
 }
 
 .backstage-rail-btn {
@@ -74,12 +74,12 @@ body.backstage-fullscreen {
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--np-text, #333);
+    color: var(--np-text);
     font-size: 0.95em;
     font: inherit;
     text-align: left;
     cursor: pointer;
-    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .backstage-rail-btn svg.icon {
@@ -90,7 +90,7 @@ body.backstage-fullscreen {
 
 .backstage-rail-btn:hover,
 .backstage-rail-btn:focus-visible {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
     outline: none;
 }
 
@@ -105,7 +105,7 @@ body.backstage-fullscreen {
     margin: 0 0 18px;
     font-size: 1.3em;
     font-weight: 600;
-    color: var(--np-text, #333);
+    color: var(--np-text);
 }
 
 .backstage-main-header {
@@ -124,20 +124,20 @@ body.backstage-fullscreen {
     align-items: center;
     gap: 6px;
     padding: 6px 10px;
-    border: 1px solid var(--np-border, #e0e0e0);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
-    background: var(--np-surface, #ffffff);
-    color: var(--np-text-secondary, #666);
+    background: var(--np-surface);
+    color: var(--np-text-secondary);
     font: inherit;
     font-size: 0.9em;
     cursor: pointer;
-    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease),
-                border-color var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing),
+                border-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .backstage-back-btn:hover,
 .backstage-back-btn:focus-visible {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
     border-color: var(--np-accent);
     outline: none;
 }
@@ -205,20 +205,20 @@ body.backstage-fullscreen {
     gap: 10px;
     aspect-ratio: 3 / 4;
     padding: 16px;
-    border: 1px solid var(--np-border, #e0e0e0);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
-    background: var(--np-surface, #ffffff);
+    background: var(--np-surface);
     color: inherit;
     font: inherit;
     cursor: pointer;
     text-align: center;
-    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease),
-                border-color var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing),
+                border-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .backstage-template-card:hover,
 .backstage-template-card:focus-visible {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
     border-color: var(--np-accent);
     outline: none;
 }
@@ -234,16 +234,16 @@ body.backstage-fullscreen {
 
 .backstage-template-card-name {
     font-weight: 600;
-    color: var(--np-text, #333);
+    color: var(--np-text);
 }
 
 .backstage-recent-empty {
     padding: 40px 20px;
     text-align: center;
-    color: var(--np-text-secondary, #666);
-    border: 1px dashed var(--np-border, #e0e0e0);
+    color: var(--np-text-secondary);
+    border: 1px dashed var(--np-border);
     border-radius: 8px;
-    background: var(--np-bg-alt, #f8f9fa);
+    background: var(--np-bg-alt);
     max-width: 480px;
 }
 
@@ -253,7 +253,7 @@ body.backstage-fullscreen {
 
 .backstage-recent-empty-hint {
     font-size: 0.9em;
-    color: var(--np-text-muted, #888);
+    color: var(--np-text-muted);
 }
 
 .backstage-recent-list {
@@ -268,21 +268,21 @@ body.backstage-fullscreen {
     align-items: center;
     gap: 12px;
     padding: 14px;
-    border: 1px solid var(--np-border, #e0e0e0);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
-    background: var(--np-surface, #ffffff);
+    background: var(--np-surface);
     cursor: pointer;
     text-align: left;
     width: 100%;
     font: inherit;
     color: inherit;
-    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease),
-                border-color var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing),
+                border-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .backstage-recent-item:hover,
 .backstage-recent-item:focus-visible {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
     border-color: var(--np-accent);
     outline: none;
 }
@@ -307,7 +307,7 @@ body.backstage-fullscreen {
 
 .backstage-recent-item-name {
     font-weight: 600;
-    color: var(--np-text, #333);
+    color: var(--np-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -315,7 +315,7 @@ body.backstage-fullscreen {
 
 .backstage-recent-item-meta {
     font-size: 0.85em;
-    color: var(--np-text-secondary, #666);
+    color: var(--np-text-secondary);
 }
 
 .backstage-recent-item-badge {
@@ -336,7 +336,7 @@ body.backstage-fullscreen {
         flex-direction: row;
         flex-wrap: wrap;
         border-right: none;
-        border-bottom: 1px solid var(--np-border, #e0e0e0);
+        border-bottom: 1px solid var(--np-border);
     }
     .backstage-rail-btn { width: auto; }
     .backstage-main { padding: 20px; }

@@ -15,28 +15,28 @@
     margin: 0 0 4px;
     font-size: 1.3em;
     font-weight: 600;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .programme-landing-meta {
     margin: 0;
-    color: var(--np-text-secondary, #666666);
+    color: var(--np-text-secondary);
     font-size: 0.9em;
 }
 
 .programme-stub-banner {
     margin: 16px 0;
     padding: 12px 16px;
-    border: 1px solid var(--np-border, #e0e0e0);
-    border-left: 3px solid var(--np-yellow, #ffd641);
+    border: 1px solid var(--np-border);
+    border-left: 3px solid var(--np-yellow);
     border-radius: 6px;
-    background: var(--np-surface-alt, #f0f0f0);
+    background: var(--np-surface-alt);
 }
 
 .programme-stub-banner p {
     margin: 0;
     font-size: 0.85em;
-    color: var(--np-text-secondary, #666666);
+    color: var(--np-text-secondary);
     line-height: 1.5;
 }
 
@@ -45,7 +45,7 @@
 }
 
 .programme-stub-banner a {
-    color: var(--np-blue, #108bb9);
+    color: var(--np-blue);
 }
 
 .programme-stub-value {
@@ -60,7 +60,7 @@
     margin: 0 0 10px;
     font-size: 1.05em;
     font-weight: 600;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .programme-stat-tiles {
@@ -74,9 +74,9 @@
     flex: 1 1 180px;
     min-width: 180px;
     padding: 14px 16px;
-    border: 1px solid var(--np-border, #e0e0e0);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
-    background: var(--np-surface, #ffffff);
+    background: var(--np-surface);
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -92,28 +92,28 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.4px;
-    color: var(--np-text-secondary, #666666);
+    color: var(--np-text-secondary);
 }
 
 .programme-stat-value {
     font-size: 1.4em;
     font-weight: 700;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .programme-stat-sub {
     font-size: 0.78em;
-    color: var(--np-text-muted, #888888);
+    color: var(--np-text-muted);
 }
 
 .programme-rag-loading {
-    background: var(--np-surface-alt, #f0f0f0);
-    color: var(--np-text-muted, #888888);
+    background: var(--np-surface-alt);
+    color: var(--np-text-muted);
 }
 
 .programme-empty-hint {
     margin: 0;
-    color: var(--np-text-secondary, #666666);
+    color: var(--np-text-secondary);
     font-size: 0.9em;
 }
 
@@ -131,42 +131,42 @@
     align-items: center;
     gap: 12px;
     padding: 8px 12px;
-    border: 1px solid var(--np-border, #e0e0e0);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
-    background: var(--np-surface, #ffffff);
+    background: var(--np-surface);
     font-size: 0.9em;
 }
 
 .programme-milestone--overdue {
-    border-left: 3px solid var(--np-red, #c21d1d);
+    border-left: 3px solid var(--np-red);
 }
 
 .programme-milestone-date {
     font-variant-numeric: tabular-nums;
-    color: var(--np-text-secondary, #666666);
+    color: var(--np-text-secondary);
     min-width: 90px;
 }
 
 .programme-milestone-name {
     flex: 1;
     font-weight: 600;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .programme-milestone-project {
-    color: var(--np-text-muted, #888888);
+    color: var(--np-text-muted);
     font-size: 0.9em;
 }
 
 .programme-milestone-done {
-    color: var(--np-green, #1c9e41);
+    color: var(--np-green);
     font-size: 0.8em;
     font-weight: 600;
     text-transform: uppercase;
 }
 
 .programme-milestone-overdue-flag {
-    color: var(--np-red, #c21d1d);
+    color: var(--np-red);
     font-size: 0.8em;
     font-weight: 600;
     text-transform: uppercase;
@@ -189,25 +189,25 @@
     align-items: center;
     gap: 12px;
     padding: 8px 12px;
-    border: 1px solid var(--np-border, #e0e0e0);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
-    background: var(--np-surface, #ffffff);
+    background: var(--np-surface);
     font-size: 0.9em;
     cursor: pointer;
 }
 
 .programme-escalated-item:hover {
-    background: var(--np-surface-alt, #f0f0f0);
+    background: var(--np-surface-alt);
 }
 
 .programme-escalated-title {
     flex: 1;
     font-weight: 600;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .programme-escalated-project {
-    color: var(--np-text-muted, #888888);
+    color: var(--np-text-muted);
     font-size: 0.9em;
 }
 
@@ -259,11 +259,11 @@
 .programme-resourcing-summary-value {
     font-size: 1.3em;
     font-weight: 700;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .programme-resourcing-summary-value--warn {
-    color: var(--np-red, #c21d1d);
+    color: var(--np-red);
 }
 
 .programme-resourcing-table-wrapper {
@@ -274,7 +274,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9em;
-    background: var(--np-surface, #ffffff);
+    background: var(--np-surface);
     border-radius: 6px;
     overflow: hidden;
 }
@@ -283,15 +283,15 @@
 .programme-resourcing-table td {
     padding: 10px 12px;
     text-align: left;
-    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    border-bottom: 1px solid var(--np-border);
     vertical-align: middle;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .programme-resourcing-table th {
     font-weight: 600;
-    color: var(--np-text-secondary, #666666);
-    background: var(--np-surface-alt, #f0f0f0);
+    color: var(--np-text-secondary);
+    background: var(--np-surface-alt);
 }
 
 .programme-resourcing-table tbody tr:last-child td {
@@ -303,7 +303,7 @@
 }
 
 .programme-resourcing-row--over td:first-child {
-    border-left: 3px solid var(--np-red, #c21d1d);
+    border-left: 3px solid var(--np-red);
 }
 
 /* SRO/vision/outcomes editor (#954/#735, replacing #734's stub banner)
@@ -321,17 +321,17 @@
     margin-bottom: 4px;
     font-size: 0.85em;
     font-weight: 600;
-    color: var(--np-text-secondary, #666666);
+    color: var(--np-text-secondary);
 }
 
 .programme-outcome-name {
     flex: 1;
     font-weight: 600;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .programme-outcome-desc {
-    color: var(--np-text-muted, #888888);
+    color: var(--np-text-muted);
     font-size: 0.9em;
 }
 
@@ -357,17 +357,17 @@
     margin: 0 0 8px;
     font-size: 0.95em;
     font-weight: 600;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .programme-outcome-total {
     font-size: 0.78em;
     font-weight: 600;
-    color: var(--np-text-secondary, #666666);
+    color: var(--np-text-secondary);
     text-transform: none;
 }
 
 .programme-benefit-link--stale td {
-    color: var(--np-text-muted, #888888);
+    color: var(--np-text-muted);
     font-style: italic;
 }

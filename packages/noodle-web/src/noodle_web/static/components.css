@@ -1121,8 +1121,8 @@
     bottom: 0;
     right: 0;
     padding: 0 8px 0 24px;
-    background: linear-gradient(to right, transparent, var(--np-surface, #fff) 40%);
-    color: var(--np-text-muted, #999);
+    background: linear-gradient(to right, transparent, var(--np-surface) 40%);
+    color: var(--np-text-muted);
     font-weight: 600;
 }
 
@@ -1575,8 +1575,8 @@ tr:hover .task-context-btn,
 .task-context-menu {
     display: none;
     position: fixed;
-    background: var(--np-surface, white);
-    border: 1px solid var(--np-border, #dee2e6);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     min-width: 200px;
@@ -1597,7 +1597,7 @@ tr:hover .task-context-btn,
     padding: 9px 14px;
     background: none;
     border: none;
-    color: var(--np-text, #333);
+    color: var(--np-text);
     font-size: 0.9em;
     cursor: pointer;
     transition: background 0.15s;
@@ -1606,13 +1606,13 @@ tr:hover .task-context-btn,
 }
 
 .task-context-menu-item:hover {
-    background: var(--np-accent-soft, #f0f4ff);
+    background: var(--np-accent-soft);
 }
 
 .task-context-menu-item:focus-visible {
     outline: 2px solid var(--np-accent);
     outline-offset: -2px;
-    background: var(--np-accent-soft, #f0f4ff);
+    background: var(--np-accent-soft);
 }
 
 @media (max-width: 768px) {
@@ -1626,12 +1626,12 @@ tr:hover .task-context-btn,
     width: 18px;
     text-align: center;
     flex-shrink: 0;
-    color: var(--np-text-secondary, #6c757d);
+    color: var(--np-text-secondary);
 }
 
 .task-context-menu-separator {
     height: 1px;
-    background: var(--np-border, #dee2e6);
+    background: var(--np-border);
     margin: 4px 0;
 }
 
@@ -1644,8 +1644,8 @@ tr:hover .task-context-btn,
     position: absolute;
     left: 100%;
     top: 0;
-    background: var(--np-surface, white);
-    border: 1px solid var(--np-border, #dee2e6);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     min-width: 120px;
@@ -1659,7 +1659,7 @@ tr:hover .task-context-btn,
 
 .task-context-menu-item .menu-arrow {
     margin-left: auto;
-    color: var(--np-text-muted, #adb5bd);
+    color: var(--np-text-muted);
     font-size: 0.8em;
 }
 
@@ -1670,12 +1670,12 @@ tr:hover .task-context-btn,
 }
 
 .task-context-menu-item.completion-item:hover {
-    background: var(--np-accent-soft, #e8f4ff);
+    background: var(--np-accent-soft);
 }
 
 .task-context-menu-item.completion-active {
-    background: var(--np-accent-soft, #e8f4ff);
-    color: var(--np-accent, #0d6efd);
+    background: var(--np-accent-soft);
+    color: var(--np-accent);
     font-weight: 600;
 }
 
@@ -1749,8 +1749,8 @@ tr:hover .task-context-btn,
 }
 
 .cf-colour-picker {
-    background: var(--np-surface, white);
-    border: 1px solid var(--np-border, #dee2e6);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
     padding: 12px;
     margin-top: 8px;
@@ -1779,12 +1779,12 @@ tr:hover .task-context-btn,
 
 .cf-colour-grid .cf-colour-option:hover {
     transform: scale(1.2);
-    border-color: var(--np-text, #333);
+    border-color: var(--np-text);
 }
 
 .cf-colour-grid .cf-colour-option.selected {
-    border-color: var(--np-text, #333);
-    box-shadow: 0 0 0 2px var(--np-surface, white), 0 0 0 4px var(--np-text, #333);
+    border-color: var(--np-text);
+    box-shadow: 0 0 0 2px var(--np-surface), 0 0 0 4px var(--np-text);
 }
 
 .modal-header {
@@ -1799,7 +1799,7 @@ tr:hover .task-context-btn,
 
 .modal-header h2 {
     margin: 0;
-    font-family: var(--np-font-heading, var(--np-font-ui));
+    font-family: var(--np-font-heading);
     font-size: 1.5em;
     padding: 5px;
     border-radius: 4px;
@@ -1883,7 +1883,7 @@ tr:hover .task-context-btn,
     display: block;
     font-weight: 600;
     margin-bottom: 8px;
-    color: var(--np-text, #333);
+    color: var(--np-text);
 }
 
 .form-group input[type="text"],
@@ -1894,12 +1894,12 @@ tr:hover .task-context-btn,
 .form-group select {
     width: 100%;
     padding: 10px;
-    border: 2px solid var(--np-input-border, #e0e0e0);
+    border: 2px solid var(--np-input-border);
     border-radius: 5px;
     font-size: 14px;
     font-family: inherit;
-    background: var(--np-input-bg, white);
-    color: var(--np-text, black);
+    background: var(--np-input-bg);
+    color: var(--np-text);
     transition: border-color 0.2s;
 }
 
@@ -1925,7 +1925,7 @@ tr:hover .task-context-btn,
 .form-group small {
     display: block;
     margin-top: 5px;
-    color: var(--np-text-secondary, #666);
+    color: var(--np-text-secondary);
     font-size: 0.9em;
 }
 
@@ -1982,7 +1982,7 @@ tr:hover .task-context-btn,
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: var(--np-ink, #111);
+    color: var(--np-ink);
     margin: 0 0 16px 0;
     padding-bottom: 8px;
     border-bottom: 1px solid var(--np-hairline);
@@ -2132,8 +2132,8 @@ tr:hover .task-context-btn,
     padding: 8px 10px;
     border: 1px solid var(--np-border);
     border-radius: 4px;
-    background: var(--np-input-bg, #fff);
-    color: var(--np-text, #333);
+    background: var(--np-input-bg);
+    color: var(--np-text);
 }
 
 .form-actions {
@@ -2498,8 +2498,8 @@ tr:hover .task-context-btn,
     right: 0;
     top: 100%;
     margin-top: 5px;
-    background: var(--np-surface, white);
-    border: 1px solid var(--np-border, #e0e0e0);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 5px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     min-width: 200px;
@@ -2513,7 +2513,7 @@ tr:hover .task-context-btn,
 .export-menu-item {
     padding: 10px 15px;
     cursor: pointer;
-    border-bottom: 1px solid var(--np-border-light, #f0f0f0);
+    border-bottom: 1px solid var(--np-border-light);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -2524,7 +2524,7 @@ tr:hover .task-context-btn,
 }
 
 .export-menu-item:hover {
-    background: var(--np-accent-soft, #f8f9ff);
+    background: var(--np-accent-soft);
 }
 
 .export-menu-item input[type="checkbox"] {
@@ -2541,7 +2541,7 @@ tr:hover .task-context-btn,
     top: 100%;
     left: 0;
     right: 0;
-    background: var(--np-surface, white);
+    background: var(--np-surface);
     border: 2px solid var(--np-accent);
     border-top: none;
     border-radius: 0 0 5px 5px;
@@ -2555,7 +2555,7 @@ tr:hover .task-context-btn,
 .autocomplete-item {
     padding: 10px;
     cursor: pointer;
-    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    border-bottom: 1px solid var(--np-border);
 }
 
 .autocomplete-item:last-child {
@@ -2564,7 +2564,7 @@ tr:hover .task-context-btn,
 
 .autocomplete-item:hover,
 .autocomplete-item.selected {
-    background-color: var(--np-accent-soft, #e8f4f8);
+    background-color: var(--np-accent-soft);
 }
 
 @media (max-width: 480px) {
@@ -3048,7 +3048,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-toolbar .btn-secondary {
-    background: var(--np-surface, white);
+    background: var(--np-surface);
     color: var(--np-accent);
     border: 2px solid var(--np-accent);
     padding: 6px 14px;
@@ -3700,12 +3700,12 @@ tr:hover .task-context-btn,
 }
 
 .lookahead-section-title.overdue {
-    background: var(--np-danger-gradient, linear-gradient(135deg, #d32f2f 0%, #c62828 100%));
+    background: var(--np-danger-gradient);
     color: #fff;
 }
 
 .lookahead-section-title.upcoming {
-    background: var(--np-info-gradient, linear-gradient(135deg, #1976d2 0%, #1565c0 100%));
+    background: var(--np-info-gradient);
     color: #fff;
 }
 
@@ -3818,7 +3818,7 @@ tr:hover .task-context-btn,
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
-    color: var(--np-ink, #111);
+    color: var(--np-ink);
 }
 
 .link-button {
@@ -4150,7 +4150,7 @@ tr:hover .task-context-btn,
 .template-hero {
     height: 160px;
     overflow: hidden;
-    background: var(--np-bg-alt, #e9ecef);
+    background: var(--np-bg-alt);
 }
 
 .template-hero img {
@@ -4229,7 +4229,7 @@ tr:hover .task-context-btn,
 }
 
 .template-use-btn:disabled {
-    background: var(--np-text-secondary, #666);
+    background: var(--np-text-secondary);
     cursor: not-allowed;
     transform: none;
 }
@@ -5467,12 +5467,12 @@ tr:hover .task-context-btn,
     height: 100%;
     text-align: center;
     padding: 40px 20px;
-    color: var(--text-secondary, #aaa);
+    color: var(--text-secondary);
 }
 
 .benefits-placeholder h3 {
     margin-bottom: 8px;
-    color: var(--text-primary, #ccc);
+    color: var(--text-primary);
 }
 
 #benefits-view .benefits-placeholder {
@@ -5796,7 +5796,7 @@ tr:hover .task-context-btn,
     left: 0;
     width: 100%;
     height: 100%;
-    background: var(--np-overlay, rgba(0, 0, 0, 0.6));
+    background: var(--np-overlay);
     z-index: 2000;
     justify-content: center;
     align-items: center;
@@ -5808,7 +5808,7 @@ tr:hover .task-context-btn,
 }
 
 .shortcuts-modal {
-    background: var(--np-modal-bg, white);
+    background: var(--np-modal-bg);
     border-radius: 10px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     max-width: 540px;
@@ -5830,7 +5830,7 @@ tr:hover .task-context-btn,
 
 .shortcuts-modal-header h2 {
     margin: 0;
-    font-family: var(--np-font-heading, var(--np-font-ui));
+    font-family: var(--np-font-heading);
     font-size: 18px;
     font-weight: 600;
 }
@@ -5848,10 +5848,10 @@ tr:hover .task-context-btn,
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: var(--np-text-muted, #888);
+    color: var(--np-text-muted);
     margin-bottom: 8px;
     padding-bottom: 4px;
-    border-bottom: 1px solid var(--np-border-light, #eee);
+    border-bottom: 1px solid var(--np-border-light);
 }
 
 .shortcut-row {
@@ -5862,7 +5862,7 @@ tr:hover .task-context-btn,
 }
 
 .shortcut-row .shortcut-desc {
-    color: var(--np-text, #444);
+    color: var(--np-text);
     font-size: 14px;
 }
 
@@ -5878,17 +5878,17 @@ tr:hover .task-context-btn,
     font-family: inherit;
     font-size: 12px;
     font-weight: 600;
-    color: var(--np-text, #444);
-    background: var(--np-code-bg, #f4f4f4);
-    border: 1px solid var(--np-input-border, #ccc);
+    color: var(--np-text);
+    background: var(--np-code-bg);
+    border: 1px solid var(--np-input-border);
     border-radius: 4px;
-    box-shadow: 0 1px 0 var(--np-border, #bbb);
+    box-shadow: 0 1px 0 var(--np-border);
     min-width: 24px;
     text-align: center;
 }
 
 .shortcut-row .shortcut-plus {
-    color: var(--np-text-muted, #999);
+    color: var(--np-text-muted);
     font-size: 12px;
 }
 
@@ -7056,8 +7056,8 @@ tr:hover .task-context-btn,
     padding: 32px 40px;
     border: 3px dashed var(--np-accent);
     border-radius: 12px;
-    background: var(--np-bg, #ffffff);
-    color: var(--np-text, #333333);
+    background: var(--np-bg);
+    color: var(--np-text);
     text-align: center;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
 }
@@ -7069,7 +7069,7 @@ tr:hover .task-context-btn,
 
 #windowDropOverlay .window-drop-panel p {
     margin: 0;
-    color: var(--np-text-muted, #666666);
+    color: var(--np-text-muted);
 }
 
 /* Settings → Storage tab (issue #794) */
@@ -7095,9 +7095,9 @@ tr:hover .task-context-btn,
     align-items: flex-start;
     gap: 12px;
     padding: 10px 12px;
-    border: 1px solid var(--border-color, #e0e0e0);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
-    background: var(--bg-secondary, #f8f9fa);
+    background: var(--bg-secondary);
 }
 
 .raid-sync-entry.raid-sync-kind-conflict {
@@ -7136,12 +7136,12 @@ tr:hover .task-context-btn,
 .raid-sync-entry-title {
     font-weight: 600;
     margin-bottom: 4px;
-    color: var(--text-primary, #212529);
+    color: var(--text-primary);
 }
 
 .raid-sync-entry-detail {
     font-size: 0.85em;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
 }
 
 .raid-sync-entry-sides {
@@ -7155,13 +7155,13 @@ tr:hover .task-context-btn,
 .raid-sync-entry-side {
     padding: 6px 8px;
     border-radius: 4px;
-    background: var(--bg-primary, #fff);
-    border: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
 }
 
 .raid-sync-entry-side-label {
     font-weight: 600;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
     font-size: 0.8em;
     text-transform: uppercase;
     margin-bottom: 2px;
@@ -7196,9 +7196,9 @@ tr:hover .task-context-btn,
     justify-content: space-between;
     gap: 12px;
     padding: 12px 14px;
-    border: 1px solid var(--border-color, #e0e0e0);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
-    background: var(--bg-secondary, #f8f9fa);
+    background: var(--bg-secondary);
 }
 
 .sync-target-info {
@@ -7209,11 +7209,11 @@ tr:hover .task-context-btn,
 }
 
 .sync-target-info strong {
-    color: var(--text-primary, #212529);
+    color: var(--text-primary);
 }
 
 .sync-target-info small {
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
 }
 
 /* Honest status colouring (issue #761's sync-file-linking follow-up): a
@@ -7225,7 +7225,7 @@ tr:hover .task-context-btn,
 }
 
 .sync-target-status-unsupported {
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
     font-style: italic;
 }
 
@@ -7256,9 +7256,9 @@ tr:hover .task-context-btn,
     align-items: flex-start;
     gap: 12px;
     padding: 10px 12px;
-    border: 1px solid var(--border-color, #e0e0e0);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
-    background: var(--bg-secondary, #f8f9fa);
+    background: var(--bg-secondary);
 }
 
 .msp-sync-entry.msp-sync-kind-removed { border-left: 4px solid #c62828; }
@@ -7287,12 +7287,12 @@ tr:hover .task-context-btn,
 .msp-sync-entry-title {
     font-weight: 600;
     margin-bottom: 4px;
-    color: var(--text-primary, #212529);
+    color: var(--text-primary);
 }
 
 .msp-sync-entry-detail {
     font-size: 0.85em;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
 }
 
 .msp-sync-entry-sides {
@@ -7306,8 +7306,8 @@ tr:hover .task-context-btn,
 .msp-sync-entry-side {
     padding: 6px 8px;
     border-radius: 4px;
-    background: var(--bg-primary, #fff);
-    border: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
     font-family: monospace;
     white-space: pre-wrap;
     word-break: break-word;
@@ -7315,7 +7315,7 @@ tr:hover .task-context-btn,
 
 .msp-sync-entry-side-label {
     font-weight: 600;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
     font-size: 0.8em;
     text-transform: uppercase;
     margin-bottom: 2px;
@@ -8166,7 +8166,7 @@ button.ribbon-breadcrumb-rung:hover {
     align-items: center;
     gap: 8px;
     padding: 6px 0;
-    border-bottom: 1px solid var(--np-border-light, #f0f0f0);
+    border-bottom: 1px solid var(--np-border-light);
     font-size: 0.9em;
 }
 
@@ -8179,7 +8179,7 @@ button.ribbon-breadcrumb-rung:hover {
     height: 9px;
     border-radius: 50%;
     flex-shrink: 0;
-    background: var(--np-text-muted, #888888);
+    background: var(--np-text-muted);
 }
 
 .collab-presence-dot.active {
@@ -8194,7 +8194,7 @@ button.ribbon-breadcrumb-rung:hover {
 }
 
 .collab-presence-status {
-    color: var(--np-text-muted, #888888);
+    color: var(--np-text-muted);
     font-size: 0.85em;
 }
 
