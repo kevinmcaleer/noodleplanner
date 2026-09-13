@@ -277,29 +277,6 @@
                 <div id="joinNotepadContainer"></div>
             </section>
 
-            <!-- #1036: the other editable back-matter sections, driven by
-                 the same host-authoritative op model as the RAID log. -->
-            <h2 class="section-heading">Benefits</h2>
-            <div id="benefitsRows"></div>
-            <div class="row">
-                <input id="newBenefitsTitle" placeholder="Add a benefit">
-                <button type="button" id="addBenefitsBtn">Add</button>
-            </div>
-
-            <h2 class="section-heading">Comms plan</h2>
-            <div id="commsRows"></div>
-            <div class="row">
-                <input id="newCommsTitle" placeholder="Add a comms activity">
-                <button type="button" id="addCommsBtn">Add</button>
-            </div>
-
-            <h2 class="section-heading">Weekly updates</h2>
-            <div id="highlightsRows"></div>
-            <div class="row">
-                <input id="newHighlightsTitle" placeholder="Your name">
-                <button type="button" id="addHighlightsBtn">Add</button>
-            </div>
-
             <h2 class="section-heading">Session chat</h2>
             <div id="relayLog" aria-live="polite"></div>
             <div class="row">
@@ -784,26 +761,6 @@
                         // explains the bounce rather than being an error.
                         showPlanNotice(parsed.reason === 'stale'
                             ? 'That task changed while you were editing — try again.'
-                            : 'The host could not apply that change.');
-                        return;
-                    }
-                    if (parsed && parsed.type === 'raid_snapshot') {
-                        renderRaidSnapshot(parsed);
-                        return;
-                    }
-                    if (parsed && parsed.type === 'backmatter_snapshot') {
-                        // #1036: benefits and comms. One frame type
-                        // carrying the section name, so a fourth
-                        // section needs no new frame type here.
-                        renderSectionSnapshot(parsed);
-                        return;
-                    }
-                    if (parsed && parsed.type === 'backmatter_op_rejected') {
-                        // #969: the RAID counterpart of plan_op_rejected
-                        // above -- 'unknown_row' means someone else
-                        // deleted or renamed it out from under us.
-                        showPlanNotice(parsed.reason === 'unknown_row'
-                            ? 'That RAID item changed while you were editing — try again.'
                             : 'The host could not apply that change.');
                         return;
                     }
