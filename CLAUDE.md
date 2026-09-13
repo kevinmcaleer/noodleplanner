@@ -12,7 +12,7 @@ Documentation is built with Sphinx and lives in `docs/`.
 - `docs/` — Sphinx documentation (tutorials, how-to, reference, explanation)
 - `tests/` — pytest test suite including Selenium usability tests
 
-## Working on a goal: always a branch, normally a worktree
+## Working on a goal: always use a worktree
 
 **Never do the work in `/home/kev/noodleplanner` itself.** When you pick up a
 goal, an issue, or any change beyond a read, create your own worktree first:
@@ -42,36 +42,6 @@ Two independent reasons, both of which have bitten real sessions:
 Branch naming follows the repo's history: `feat/842-msproject-sync-preserve-sections`,
 `fix/minimal-timeline-sub-summary-parent-rows`, `docs/cloudflare-tunnel-credentials`.
 
-### Branch or worktree?
-
-**A branch is never optional. A worktree usually isn't either**, because the
-main checkout can't hold one safely — see reason 1 above.
-
-- **Worktree** for anything you will build, run or test: it gets its own
-  working files, so a long task can't be disturbed by, and can't disturb,
-  whatever else is happening in the main checkout. This is the default.
-- **A plain branch** is only sensible where you already have a scratch
-  checkout that is not `/home/kev/noodleplanner` — a second clone, or an
-  existing worktree whose work is finished and merged. Never
-  `git checkout -b` inside the main checkout.
-
-One worktree per goal. Don't reuse a worktree whose PR has merged: start a
-fresh one from `origin/main` so you aren't carrying a stale base (see drift,
-below).
-
-### Never push to `main`
-
-`main` only ever receives changes through a merged pull request. Concretely:
-
-- No `git push origin main`, no committing on a local `main`, no
-  `git checkout main` to "just fix one thing".
-- The main checkout stays on `main` purely for reading and for `git pull`.
-- The only moment your work reaches `main` is `gh pr merge`, after review.
-
-This is what keeps `main` a base you can branch from with confidence. It also
-matters more here than in most repos, because that checkout is served to
-production live — a direct push is a deploy.
-
 ### Check for drift before you push
 
 `main` can move underneath you mid-task. Before opening a PR:
@@ -98,26 +68,6 @@ has since rewritten what you touched.
   ```
 
   Pure-JS changes tested with `node --test` are unaffected.
-- **Add `-m "not usability"` for a fast run.** The Selenium tests are the whole
-  cost of the suite: ~18 minutes with them, seconds without. They skip anyway
-  wherever no browser is reachable, so deselecting them explicitly costs
-  nothing locally and makes the run usable as a quick check. CI runs them in
-  its own non-blocking `pytest (usability)` job, and only on runners we own --
-  see `ci/README.md`.
-- **Add `-n auto` to any run you are waiting on.** The tests are independent
-  and the plugin is already a dev dependency, so this is free: the non-browser
-  suite goes from 15.8s to 6.2s on four cores. It is deliberately not in
-  `pytest.ini`'s `addopts`, because xdist swallows the live per-test output and
-  breaks `--pdb`, which is exactly what you want when you are debugging one
-  test rather than waiting on all of them. Reach for it when you want the
-  answer, leave it off when you want the detail.
-- **The Selenium suite needs `--dist loadfile`, not the default.** Each file
-  keeps one browser per module, so per-test distribution would start a second
-  browser for the same file -- and, worse, some of these tests only pass in
-  file order. `test_usability.py`'s
-  `TestPlanRendering::test_render_does_not_show_error` fails run on its own and
-  passes as part of its file. `ci/jobs/usability.sh` passes `--dist loadfile`
-  for both reasons and explains them.
 - **`git add -A` stages the `node_modules` symlink.** `.gitignore` has
   `node_modules/` with a trailing slash, which does not match a symlink of that
   name. Check `git status --short` for an `A node_modules` line before
@@ -137,43 +87,6 @@ git branch -d <branch>
 ```
 
 Leave `/home/kev/noodleplanner` on a clean `main` at all times.
-
-## Session naming for `/goal`
-
-When a session's `/goal` condition names a GitHub issue number (e.g. "complete 777"),
-rename the Claude session to that issue's title so it's identifiable in the desktop/web
-session manager instead of showing only the issue number or a generic auto-generated name:
-
-1. Look up the issue with `mcp__github__issue_read` (`method: "get"`) to get its title.
-2. Get this session's id with `mcp__Claude_Code_Remote__get_session` (omit `session_id` to
-   target the current session).
-3. Call `mcp__Claude_Code_Remote__set_session_title` with that id and a title of the form
-   `#<issue> <issue title>` (e.g. `#777 Multiple named baselines with a management UI`).
-
-Do this once, early — right after picking up the goal, before starting the actual work —
-not on every `/goal` tick. These `Claude_Code_Remote` MCP tools are only available when the
-session is running through Claude Code on the web/desktop (cloud sessions); skip this step
-if they aren't present.
-
-## Running the checks
-
-CI is ours: the jobs are shell scripts in `ci/jobs/` and the GitHub workflows are
-one-line wrappers around them. Set the `CI_RUNS_ON` repository variable to
-`["self-hosted","linux","noodle"]` to run them on our own runners (`ci/runner/`)
-and stop burning metered Actions minutes; unset, they run on `ubuntu-latest`.
-`ci/README.md` has the detail and says why that is the default.
-
-```bash
-ci/run.sh            # the four gating jobs in parallel, ~45s
-ci/run.sh --all      # plus the browser suites (reporting only)
-ci/run.sh -j1 python # one job, output live
-```
-
-Prefer this over a bare `pytest` when you want to know whether a branch is green:
-`ci/lib.sh` already applies the worktree `PYTHONPATH` fix and the
-`-m "not usability"` deselection described above, so `ci/run.sh` cannot
-accidentally test `main`'s Python or sit through 18 minutes of browser tests.
-Reach for `pytest` directly when you are iterating on one test.
 
 ## Documentation screenshots
 
@@ -195,19 +108,10 @@ The screenshot script uses headless Chrome via Selenium — the same setup as
 
 ## Reminders
 
-- **Work on a branch, in a worktree, never in `/home/kev/noodleplanner`.** See
-  the section above — that checkout is bind-mounted into the live production
-  container, and `main` moves fast enough that a stale branch means rework.
-- **Never push to `main`.** It only ever changes through a merged PR. On this
-  repo a direct push to `main` is a deploy.
+- **Work in a worktree, never in `/home/kev/noodleplanner`.** See the section
+  above — that checkout is bind-mounted into the live production container,
+  and `main` moves fast enough that a stale branch means rework.
 - **Update screenshots when features change.** If you modify a view, add a
   navigation element, or change the editor, re-run `make screenshots` so the
   docs stay accurate. Check the RST files under `docs/` for `.. figure::`
   directives that reference screenshots.
-- **Check a branch with `ci/run.sh`, not a bare `pytest`.** It runs exactly what
-  the CI runners run, and it already handles the worktree `PYTHONPATH` trap and
-  the browser-test deselection. `ci/install-hooks.sh` makes `git push` run it
-  first.
-- **Name the session after the issue when `/goal` targets one.** See
-  "Session naming for `/goal`" above — rename the session to `#<issue> <title>`
-  so it's easy to find in the session manager.
