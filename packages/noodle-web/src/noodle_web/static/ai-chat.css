@@ -631,11 +631,6 @@
     background: var(--np-input-bg);
     color: var(--np-ink);
 }
-.ai-settings-field input:focus-visible {
-    outline: none;
-    box-shadow: var(--np-focus-ring);
-}
-
 .ai-key-input-wrapper {
     position: relative;
     display: flex;
@@ -659,10 +654,6 @@
     align-items: center;
     justify-content: center;
     color: var(--np-muted);
-}
-.ai-key-toggle:focus-visible {
-    outline: none;
-    box-shadow: var(--np-focus-ring);
 }
 
 .ai-settings-actions {

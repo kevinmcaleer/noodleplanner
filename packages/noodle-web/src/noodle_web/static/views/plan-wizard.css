@@ -132,7 +132,8 @@
     min-height: 40px;
 }
 
-.plan-wizard-back-btn {
+.plan-wizard-back-btn,
+.plan-wizard-skip-btn {
     border: 1px solid var(--np-border);
     background: transparent;
 }
@@ -143,8 +144,6 @@
 }
 
 .plan-wizard-skip-btn {
-    border: 1px solid var(--np-border);
-    background: transparent;
     margin-right: auto;
 }
 

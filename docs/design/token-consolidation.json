@@ -36,17 +36,17 @@
 		"shadowGeometryPxTolerance": 2
 	},
 	"totals": {
-		"colors": 418,
+		"colors": 420,
 		"fontSizes": 63,
 		"radii": 31,
 		"boxShadows": 70
 	},
 	"savings": {
 		"colors": {
-			"clusters": 43,
-			"valuesInvolved": 117,
-			"valuesRemovable": 74,
-			"declarationsTouched": 438
+			"clusters": 44,
+			"valuesInvolved": 119,
+			"valuesRemovable": 75,
+			"declarationsTouched": 456
 		},
 		"fontSizes": {
 			"clusters": 1,
@@ -58,7 +58,7 @@
 			"clusters": 2,
 			"valuesInvolved": 4,
 			"valuesRemovable": 2,
-			"declarationsTouched": 117
+			"declarationsTouched": 116
 		},
 		"boxShadows": {
 			"clusters": 0,
@@ -319,6 +319,41 @@
 		},
 		{
 			"kind": "color",
+			"seedHex": "#388E3C",
+			"alpha": 1,
+			"memberCount": 2,
+			"totalUsage": 20,
+			"existingToken": null,
+			"recommendation": "#388e3c",
+			"recommendationKind": "highest-traffic-value",
+			"members": [
+				{
+					"authoredAs": "#388e3c",
+					"hex": "#388E3C",
+					"alpha": 1,
+					"usage": 19,
+					"props": [
+						"background",
+						"color",
+						"border-color",
+						"border-left"
+					],
+					"deltaE": 0
+				},
+				{
+					"authoredAs": "#2b8a3e",
+					"hex": "#2B8A3E",
+					"alpha": 1,
+					"usage": 1,
+					"props": [
+						"color"
+					],
+					"deltaE": 2.23
+				}
+			]
+		},
+		{
+			"kind": "color",
 			"seedHex": "#E9ECEF",
 			"alpha": 1,
 			"memberCount": 3,
@@ -423,7 +458,7 @@
 			"seedHex": "#1976D2",
 			"alpha": 1,
 			"memberCount": 2,
-			"totalUsage": 18,
+			"totalUsage": 17,
 			"existingToken": null,
 			"recommendation": "#1976d2",
 			"recommendationKind": "highest-traffic-value",
@@ -432,7 +467,7 @@
 					"authoredAs": "#1976d2",
 					"hex": "#1976D2",
 					"alpha": 1,
-					"usage": 16,
+					"usage": 14,
 					"props": [
 						"background",
 						"color",
@@ -444,7 +479,7 @@
 					"authoredAs": "#1971c2",
 					"hex": "#1971C2",
 					"alpha": 1,
-					"usage": 2,
+					"usage": 3,
 					"props": [
 						"color"
 					],
@@ -1019,39 +1054,6 @@
 		},
 		{
 			"kind": "color",
-			"seedHex": "#2E7D32",
-			"alpha": 1,
-			"memberCount": 2,
-			"totalUsage": 7,
-			"existingToken": null,
-			"recommendation": "#2e7d32",
-			"recommendationKind": "highest-traffic-value",
-			"members": [
-				{
-					"authoredAs": "#2e7d32",
-					"hex": "#2E7D32",
-					"alpha": 1,
-					"usage": 6,
-					"props": [
-						"background",
-						"color"
-					],
-					"deltaE": 0
-				},
-				{
-					"authoredAs": "#16812f",
-					"hex": "#16812F",
-					"alpha": 1,
-					"usage": 1,
-					"props": [
-						"--np-success-gradient"
-					],
-					"deltaE": 2.22
-				}
-			]
-		},
-		{
-			"kind": "color",
 			"seedHex": "#D94A4A",
 			"alpha": 1,
 			"memberCount": 2,
@@ -1093,6 +1095,38 @@
 						"--np-danger"
 					],
 					"deltaE": 2.53
+				}
+			]
+		},
+		{
+			"kind": "color",
+			"seedHex": "#2E7D32",
+			"alpha": 1,
+			"memberCount": 2,
+			"totalUsage": 6,
+			"existingToken": null,
+			"recommendation": "#2e7d32",
+			"recommendationKind": "highest-traffic-value",
+			"members": [
+				{
+					"authoredAs": "#2e7d32",
+					"hex": "#2E7D32",
+					"alpha": 1,
+					"usage": 5,
+					"props": [
+						"color"
+					],
+					"deltaE": 0
+				},
+				{
+					"authoredAs": "#16812f",
+					"hex": "#16812F",
+					"alpha": 1,
+					"usage": 1,
+					"props": [
+						"--np-success-gradient"
+					],
+					"deltaE": 2.22
 				}
 			]
 		},
@@ -2173,13 +2207,13 @@
 			"unit": "px",
 			"seed": "12px",
 			"memberCount": 2,
-			"totalUsage": 39,
+			"totalUsage": 38,
 			"recommendation": "12px",
 			"recommendationKind": "highest-traffic-value",
 			"members": [
 				{
 					"authoredAs": "12px",
-					"usage": 38,
+					"usage": 37,
 					"props": []
 				},
 				{

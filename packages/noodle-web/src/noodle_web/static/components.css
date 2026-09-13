@@ -4831,7 +4831,8 @@ tr:hover .task-context-btn,
 }
 
 /* Badges */
-.actions-priority-badge {
+.actions-priority-badge,
+.actions-status-badge {
     display: inline-block;
     padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
@@ -4853,15 +4854,6 @@ tr:hover .task-context-btn,
 .actions-priority-low {
     background: #e3f2fd;
     color: #1565c0;
-}
-
-.actions-status-badge {
-    display: inline-block;
-    padding: var(--np-space-4) var(--np-space-12);
-    border-radius: 12px;
-    font-size: 0.85em;
-    font-weight: 600;
-    text-transform: capitalize;
 }
 
 .actions-status-open {
@@ -5144,13 +5136,6 @@ tr:hover .task-context-btn,
     position: relative;
     outline: none;
     cursor: grab;
-}
-
-/* The wrapper is focusable so the canvas can take keyboard input. It needs a
-   ring like anything else; only the UA's own outline is being replaced. */
-.mindmap-canvas-wrapper:focus-visible {
-    outline: none;
-    box-shadow: var(--np-focus-ring);
 }
 
 .mindmap-canvas-wrapper:active {
@@ -7103,7 +7088,8 @@ tr:hover .task-context-btn,
     border-left: 4px solid #e67700;
 }
 
-.raid-sync-kind-badge {
+.raid-sync-kind-badge,
+.msp-sync-kind-badge {
     display: inline-block;
     padding: var(--np-space-2) var(--np-space-8);
     border-radius: 10px;
@@ -7114,8 +7100,10 @@ tr:hover .task-context-btn,
     white-space: nowrap;
 }
 .raid-sync-kind-badge.raid-sync-kind-conflict { background: #ffe0e0; color: #c62828; }
-.raid-sync-kind-badge.raid-sync-kind-added { background: #d3f9d8; color: #388e3c; }
-.raid-sync-kind-badge.raid-sync-kind-updated { background: #d0ebff; color: #1976d2; }
+.raid-sync-kind-badge.raid-sync-kind-added,
+.msp-sync-kind-badge.msp-sync-kind-added { background: #d3f9d8; color: #2b8a3e; }
+.raid-sync-kind-badge.raid-sync-kind-updated,
+.msp-sync-kind-badge.msp-sync-kind-updated { background: #d0ebff; color: #1971c2; }
 .raid-sync-kind-badge.raid-sync-kind-removed { background: #fff3bf; color: #e67700; }
 
 .raid-sync-entry-body {
@@ -7255,19 +7243,7 @@ tr:hover .task-context-btn,
 .msp-sync-entry.msp-sync-kind-added { border-left: 4px solid #388e3c; }
 .msp-sync-entry.msp-sync-kind-updated { border-left: 4px solid #1976d2; }
 
-.msp-sync-kind-badge {
-    display: inline-block;
-    padding: var(--np-space-2) var(--np-space-8);
-    border-radius: 10px;
-    font-size: 0.8em;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    white-space: nowrap;
-}
 .msp-sync-kind-badge.msp-sync-kind-removed { background: #ffe0e0; color: #c62828; }
-.msp-sync-kind-badge.msp-sync-kind-added { background: #d3f9d8; color: #388e3c; }
-.msp-sync-kind-badge.msp-sync-kind-updated { background: #d0ebff; color: #1976d2; }
 
 .msp-sync-entry-body {
     flex: 1;
@@ -7522,11 +7498,6 @@ button.ribbon-breadcrumb-rung:hover {
 
 .ribbon-search-input::placeholder {
     color: var(--np-dark-blue-subtle);
-}
-
-.ribbon-search-input:focus-visible {
-    outline: none;
-    box-shadow: var(--np-focus-ring);
 }
 
 .ribbon-search-input::-webkit-search-cancel-button {
@@ -8323,10 +8294,6 @@ button.ribbon-breadcrumb-rung:hover {
     background: var(--np-accent-tint);
     border-color: var(--np-accent);
 }
-.task-date-suggestion-btn:focus-visible {
-    outline: none;
-    box-shadow: var(--np-focus-ring);
-}
 .task-date-suggestion-dismiss {
     margin-left: auto;
     border: none;
@@ -8444,11 +8411,6 @@ button.ribbon-breadcrumb-rung:hover {
     color: var(--np-ink);
     font-size: var(--np-text-85);
 }
-.dependencies-table select.dependency-type:focus-visible {
-    outline: none;
-    box-shadow: var(--np-focus-ring);
-}
-
 /* Analysis actions section. */
 .analysis-actions {
     max-width: 900px;

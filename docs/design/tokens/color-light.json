@@ -456,8 +456,8 @@
   },
   "text-muted": {
     "$type": "color",
-    "$value": "#635E55",
-    "$description": "--np-text-muted"
+    "$value": "#736C60",
+    "$description": "--text-muted"
   },
   "text-secondary": {
     "$type": "color",
