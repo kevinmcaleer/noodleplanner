@@ -1,0 +1,486 @@
+{
+	"source": {
+		"template": "packages/noodle-web/src/noodle_web/templates/index.html",
+		"navConstants": "packages/noodle-web/src/noodle_web/static/state.js"
+	},
+	"shells": [
+		"backstage",
+		"search",
+		"portfolio",
+		"programme",
+		"upload",
+		"editor"
+	],
+	"viewGroups": {
+		"Plan": [
+			"project-report",
+			"tasks",
+			"notepad",
+			"gantt",
+			"kanban",
+			"calendar",
+			"milestones",
+			"timeline",
+			"mindmap",
+			"whiteboard",
+			"pbs",
+			"deliverables",
+			"product-flow",
+			"benefits",
+			"guide"
+		],
+		"Tracking": [
+			"raid",
+			"actions",
+			"highlights",
+			"lookahead",
+			"escalations",
+			"analysis",
+			"budget",
+			"evm",
+			"forecast",
+			"comms"
+		],
+		"Resources": [
+			"resources",
+			"timesheet",
+			"user-workload",
+			"resource-sheet",
+			"stakeholders"
+		]
+	},
+	"portfolioViews": [
+		"Status",
+		"Resources",
+		"Timeline",
+		"Actions",
+		"Risks",
+		"LookAhead",
+		"Dependencies",
+		"Benefits",
+		"Lessons"
+	],
+	"viewsWiredInNavButNotGrouped": [
+		"lessons"
+	],
+	"viewsGroupedButNotWiredInNav": [
+		"escalations"
+	],
+	"surfaces": {
+		"slideIns": [
+			{
+				"id": "aiChatPanel",
+				"kind": "slide-in",
+				"tag": "aside",
+				"classes": [
+					"ai-chat-panel"
+				],
+				"label": "Ai Chat Panel"
+			},
+			{
+				"id": "collabPresencePanel",
+				"kind": "slide-in",
+				"tag": "div",
+				"classes": [],
+				"label": "Collab Presence Panel"
+			},
+			{
+				"id": "detailPane",
+				"kind": "slide-in",
+				"tag": "div",
+				"classes": [
+					"detail-pane"
+				],
+				"label": "Detail Pane"
+			},
+			{
+				"id": "frontMatterPanel",
+				"kind": "slide-in",
+				"tag": "div",
+				"classes": [
+					"fm-panel"
+				],
+				"label": "Welcome to Noodle Planner"
+			},
+			{
+				"id": "kanbanEditorPanel",
+				"kind": "slide-in",
+				"tag": "div",
+				"classes": [
+					"kanban-editor-panel",
+					"collapsed"
+				],
+				"label": "Start Your Project"
+			}
+		],
+		"detailForms": [
+			{
+				"id": "actionFormSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "New Action"
+			},
+			{
+				"id": "benefitsFormSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "New Benefit Item"
+			},
+			{
+				"id": "budgetFormSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "New Budget Item"
+			},
+			{
+				"id": "commsFormSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "New Comms Item"
+			},
+			{
+				"id": "conditionalFormattingSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "Conditional Formatting"
+			},
+			{
+				"id": "highlightFormSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "New Highlight"
+			},
+			{
+				"id": "lessonsFormSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "New Lesson Learned"
+			},
+			{
+				"id": "productFormSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "Product Details"
+			},
+			{
+				"id": "projectDetailsSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "Project Details Section"
+			},
+			{
+				"id": "raidFormSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "New RAID Item"
+			},
+			{
+				"id": "resourceFormSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "Add/Edit Resource"
+			},
+			{
+				"id": "settingsSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "Gantt Chart"
+			},
+			{
+				"id": "stakeholderFormSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "New Stakeholder"
+			},
+			{
+				"id": "taskFormSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "Task Name"
+			},
+			{
+				"id": "taskInspectorSection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "Task Inspector"
+			},
+			{
+				"id": "versionHistorySection",
+				"kind": "detail-form",
+				"tag": "div",
+				"classes": [
+					"detail-pane-section"
+				],
+				"label": "Version History Section"
+			}
+		],
+		"overlays": [
+			{
+				"id": "aiChatOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"ai-chat-overlay"
+				],
+				"label": "Ai Chat Overlay"
+			},
+			{
+				"id": "aiSettingsOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Provider"
+			},
+			{
+				"id": "baselineDialogOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Baseline Dialog Overlay"
+			},
+			{
+				"id": "budgetDeleteConfirmOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Delete Budget Item"
+			},
+			{
+				"id": "collabSessionOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Collab Session Overlay"
+			},
+			{
+				"id": "commsDeleteConfirmOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Delete Comms Item"
+			},
+			{
+				"id": "detailPaneOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"detail-pane-overlay"
+				],
+				"label": "Detail Pane Overlay"
+			},
+			{
+				"id": "excelWizardOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Import Excel File"
+			},
+			{
+				"id": "keyboardShortcutsOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Keyboard Shortcuts"
+			},
+			{
+				"id": "lessonsDeleteConfirmOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Delete Lesson Learned"
+			},
+			{
+				"id": "mspSyncOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Sync MS Project Schedule"
+			},
+			{
+				"id": "raidDeleteConfirmOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Delete RAID Item"
+			},
+			{
+				"id": "raidSyncOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Sync RAID with Excel"
+			},
+			{
+				"id": "shortcutsOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"shortcuts-modal-overlay"
+				],
+				"label": "Keyboard Shortcuts"
+			},
+			{
+				"id": "statusLogOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Status Message Log"
+			},
+			{
+				"id": "templatesModalOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay",
+					"templates-overlay"
+				],
+				"label": "📋 Project Templates"
+			},
+			{
+				"id": "tourOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"tour-overlay"
+				],
+				"label": "Tour Overlay"
+			},
+			{
+				"id": "trendReportOverlay",
+				"kind": "overlay",
+				"tag": "div",
+				"classes": [
+					"modal-overlay"
+				],
+				"label": "Trend Report Overlay"
+			}
+		],
+		"modals": [],
+		"wizardSteps": [
+			{
+				"id": "wizardStep1",
+				"kind": "wizard-step",
+				"tag": "div",
+				"classes": [
+					"wizard-panel"
+				],
+				"label": "Wizard Step1"
+			},
+			{
+				"id": "wizardStep2",
+				"kind": "wizard-step",
+				"tag": "div",
+				"classes": [
+					"wizard-panel"
+				],
+				"label": "Wizard Step2"
+			},
+			{
+				"id": "wizardStep3",
+				"kind": "wizard-step",
+				"tag": "div",
+				"classes": [
+					"wizard-panel"
+				],
+				"label": "Wizard Step3"
+			}
+		],
+		"forms": [
+			{
+				"id": "projectDetailsForm",
+				"kind": "form",
+				"tag": "form",
+				"classes": [],
+				"label": "Project Details Form"
+			},
+			{
+				"id": "resourceForm",
+				"kind": "form",
+				"tag": "form",
+				"classes": [],
+				"label": "Resource Form"
+			}
+		],
+		"panels": []
+	},
+	"counts": {
+		"projectViews": 30,
+		"portfolioViews": 9,
+		"slideIns": 5,
+		"detailForms": 16,
+		"overlays": 18,
+		"modals": 0,
+		"wizardSteps": 3,
+		"forms": 2,
+		"panels": 0
+	}
+}
