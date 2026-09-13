@@ -5148,13 +5148,6 @@ tr:hover .task-context-btn,
     cursor: grab;
 }
 
-/* The wrapper is focusable so the canvas can take keyboard input. It needs a
-   ring like anything else; only the UA's own outline is being replaced. */
-.mindmap-canvas-wrapper:focus-visible {
-    outline: none;
-    box-shadow: var(--np-focus-ring);
-}
-
 .mindmap-canvas-wrapper:active {
     cursor: grabbing;
 }
@@ -7517,11 +7510,6 @@ button.ribbon-breadcrumb-rung:hover {
     color: var(--np-dark-blue-subtle);
 }
 
-.ribbon-search-input:focus-visible {
-    outline: none;
-    box-shadow: var(--np-focus-ring);
-}
-
 .ribbon-search-input::-webkit-search-cancel-button {
     -webkit-appearance: none;
     appearance: none;
@@ -8316,10 +8304,6 @@ button.ribbon-breadcrumb-rung:hover {
     background: var(--np-accent-tint);
     border-color: var(--np-accent);
 }
-.task-date-suggestion-btn:focus-visible {
-    outline: none;
-    box-shadow: var(--np-focus-ring);
-}
 .task-date-suggestion-dismiss {
     margin-left: auto;
     border: none;
@@ -8437,11 +8421,6 @@ button.ribbon-breadcrumb-rung:hover {
     color: var(--np-ink);
     font-size: var(--np-text-85);
 }
-.dependencies-table select.dependency-type:focus-visible {
-    outline: none;
-    box-shadow: var(--np-focus-ring);
-}
-
 /* Analysis actions section. */
 .analysis-actions {
     max-width: 900px;

@@ -137,13 +137,31 @@ separate from `msp`'s, despite matching colours in one case — they are
 different states that happen to share a colour, not the same state twice, and
 merging on colour alone would silently couple them.
 
-That is the full set: every rule that was actually the same component
-declared twice now has one definition. What is left across the 116 button and
-119 badge class names is not duplication, it is 116 buttons and 119 badges
-that mostly look different on purpose or by history, and choosing to make
-groups of them look the same — the button-role question below — remains a
-design decision for a person, not a refactor this epic can complete on its
-own authority.
+**A second category of real duplicate turned up alongside those two: focus
+rules left behind by 3.1 itself.** Six components restated the exact
+`outline: none; box-shadow: var(--np-focus-ring);` pair that
+`visual-system.css`'s blanket focus-visible rule (3.1) already applies to
+their element type — `.ai-settings-field input`, `.ai-key-toggle` (a
+`<button>`), `.ribbon-search-input` (an `<input>`), `.mindmap-canvas-wrapper`
+(a `[tabindex="0"]` div), `.task-date-suggestion-btn` (a `<button>`) and
+`.dependencies-table select.dependency-type` (a `<select>`) all matched one of
+the element/attribute selectors the global rule already covers, with nothing
+extra in the local rule. These predate 3.1 and nobody removed them once the
+blanket rule made them no-ops. Removed outright rather than merged, since the
+canonical definition already existed — this *is* what "single canonical
+implementation" means for a cross-cutting concern like focus state, not just
+for a single component's own shell. The same pass merged
+`.plan-wizard-back-btn`/`.plan-wizard-skip-btn`'s shared border/background
+declaration (the two are the same neutral button shape; only
+`.plan-wizard-skip-btn`'s `margin-right: auto` layout hook differs).
+
+That is the full set found this way: every rule that was actually the same
+component, or the same already-canonical concern, declared twice now has one
+definition. What is left across the 116 button and 119 badge class names is
+not duplication, it is 116 buttons and 119 badges that mostly look different
+on purpose or by history, and choosing to make groups of them look the same —
+the button-role question below — remains a design decision for a person, not
+a refactor this epic can complete on its own authority.
 
 What would make *that* tractable, in order: pick the two or three button roles
 the system should actually have (primary, secondary, icon-only?), build them
