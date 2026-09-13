@@ -224,3 +224,9 @@ node_modules/
 
 # a local MS Project template for the CLI/library tests (NOODLE_MPP_TEMPLATE); the app ships its own in static/
 templates/mpp-template.mpp
+
+# --- CI (ci/) --------------------------------------------------------------
+# Per-job logs from ci/run.sh.
+.ci-logs/
+# The self-hosted runner's PAT. ci/runner/.env.example is the committed one.
+ci/runner/.env

@@ -5268,6 +5268,56 @@ tr:hover .task-context-btn,
     box-shadow: 0 5px 15px rgba(16, 139, 185, 0.4);
 }
 
+/* Completion % progress bar (task details form) -- clicking it jumps the
+   task straight to 100% complete */
+.percent-progress-clickable {
+    cursor: pointer;
+    transition: box-shadow var(--np-anim-duration) var(--np-anim-easing);
+}
+
+.percent-progress-clickable:hover {
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.35);
+}
+
+.percent-progress-clickable.percent-control-disabled {
+    cursor: not-allowed;
+}
+
+.percent-progress-clickable.percent-control-disabled:hover {
+    box-shadow: none;
+}
+
+/* Completion % quick-set mini-toolbar (0/25/50/75/100) */
+.percent-quick-toolbar {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.percent-quick-btn {
+    flex: 1;
+    border: 1px solid #e0e0e0;
+    background: #f0f0f0;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #333;
+    padding: 5px 0;
+    transition: background var(--np-anim-duration) var(--np-anim-easing), color var(--np-anim-duration) var(--np-anim-easing);
+}
+
+.percent-quick-btn:hover:not(:disabled) {
+    background: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.percent-quick-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
 /* Subtasks list in task form */
 .subtasks-list {
     border: 2px solid #e0e0e0;

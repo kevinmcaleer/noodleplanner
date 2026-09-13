@@ -140,6 +140,26 @@ not on every `/goal` tick. These `Claude_Code_Remote` MCP tools are only availab
 session is running through Claude Code on the web/desktop (cloud sessions); skip this step
 if they aren't present.
 
+## Running the checks
+
+CI is ours: the jobs are shell scripts in `ci/jobs/` and the GitHub workflows are
+one-line wrappers around them. Set the `CI_RUNS_ON` repository variable to
+`["self-hosted","linux","noodle"]` to run them on our own runners (`ci/runner/`)
+and stop burning metered Actions minutes; unset, they run on `ubuntu-latest`.
+`ci/README.md` has the detail and says why that is the default.
+
+```bash
+ci/run.sh            # the four gating jobs in parallel, ~45s
+ci/run.sh --all      # plus the browser suites (reporting only)
+ci/run.sh -j1 python # one job, output live
+```
+
+Prefer this over a bare `pytest` when you want to know whether a branch is green:
+`ci/lib.sh` already applies the worktree `PYTHONPATH` fix and the
+`-m "not usability"` deselection described above, so `ci/run.sh` cannot
+accidentally test `main`'s Python or sit through 18 minutes of browser tests.
+Reach for `pytest` directly when you are iterating on one test.
+
 ## Documentation screenshots
 
 Screenshots used in the Sphinx docs are stored in `docs/_static/img/` and are
@@ -169,6 +189,10 @@ The screenshot script uses headless Chrome via Selenium — the same setup as
   navigation element, or change the editor, re-run `make screenshots` so the
   docs stay accurate. Check the RST files under `docs/` for `.. figure::`
   directives that reference screenshots.
+- **Check a branch with `ci/run.sh`, not a bare `pytest`.** It runs exactly what
+  the CI runners run, and it already handles the worktree `PYTHONPATH` trap and
+  the browser-test deselection. `ci/install-hooks.sh` makes `git push` run it
+  first.
 - **Name the session after the issue when `/goal` targets one.** See
   "Session naming for `/goal`" above — rename the session to `#<issue> <title>`
   so it's easy to find in the session manager.
