@@ -30,6 +30,22 @@ This requires a running NoodlePlanner instance at `http://localhost:8007`
 The screenshot script uses headless Chrome via Selenium — the same setup as
 `tests/test_usability.py`.
 
+## Running the tests
+
+The suite is split in two. The Selenium tests drive a real headless Chrome
+and take ~13 minutes; everything else takes ~8 seconds. The browser tests
+carry `@pytest.mark.usability` and are **deselected by default**:
+
+```bash
+uv run pytest                  # everything except the browser tests (~8s)
+uv run pytest -m usability     # only the browser tests (~13min)
+uv run pytest -m ""            # everything
+```
+
+Run the fast suite constantly; run `-m usability` before pushing anything
+that touches the UI, and remember a green `uv run pytest` alone has not
+exercised the browser.
+
 ## Reminders
 
 - **Update screenshots when features change.** If you modify a view, add a
