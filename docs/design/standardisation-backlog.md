@@ -296,6 +296,46 @@ declarations and excluded the pair from `consolidate-tokens.mjs` so a future
 re-run won't reintroduce it. The baseline is down 54 → 53 (the header fix
 resolved one of the pre-existing failures) with zero new ones.
 
+**A second, larger contrast bug turned up one level deeper.** Verifying the
+first fix meant opening the task form (the single most-opened panel in the
+app) in both themes, which showed its header — `.detail-pane-header` — as a
+stale teal-to-green gradient (`linear-gradient(135deg, #0d7096 0%, #2e7d32
+100%)`) in *both* themes, from a `dark-mode.css` rule with no
+`[data-theme="dark"]` guard at all. It predates #998's warm palette entirely.
+Removing it let `.detail-pane-header` fall back to its real rule
+(`background: var(--np-accent-gradient)`, the accent gold) — which then
+exposed three more places tuned for the old dark background:
+
+- `.detail-pane-title` (the editable task/product title) had its own
+  `color: white` — 1.87:1 on gold. Changed to `color: inherit`, matching
+  `.modal-header h2`'s existing pattern.
+- `.task-form-inspect-btn` ("Inspect"/"Edit"/"Product"/"Task Details") had
+  `color: white` and white-tinted border/hover states. Changed to
+  `var(--np-on-accent)` with on-accent-tinted states instead, and
+  ALLOW-listed in `lint-design-system.mjs` as a genuine fixed-on-accent
+  category (a themed token like `--np-shadow-tint` would be a *different*
+  colour in dark theme, detuning the effect exactly when this surface does
+  not change).
+- `#taskInspectorSection .close-btn { color: #fff; }` was the same
+  compensate-for-the-broken-background pattern, and would have gone from
+  merely stale to actively wrong (1.17:1 in dark theme) once the background
+  was corrected. Removed; `.detail-pane-header .close-btn` now has its own
+  `var(--np-on-accent)` rule instead of the themed default every other
+  `.close-btn` correctly uses.
+- `#inspectorTaskTitle` itself: the *first* fix (removing its inline
+  `color: white`) put it on the general `var(--np-ink)` rule every other
+  heading correctly uses — right for a themed surface, wrong here since this
+  header's background does not flip. 1.76:1 in dark theme, caught by
+  re-verifying after the background fix rather than trusting the first pass.
+  Pinned to `var(--np-on-accent)` directly.
+
+Verified with `getComputedStyle` across both headers in both themes (all
+settle on `rgb(35,32,28)` on the accent gold, every time), screenshots, and a
+before/after `capture_screen_audit.py` + `compare_screens.py` pass across all
+39 views (zero visible change — none of the 39 has one of these panels open
+by default, and `check_rendered_contrast.py`'s own view walk doesn't open
+modals either, which is why neither tool caught this on its own).
+
 **What's left in 4.2**: two "tip box" callouts with a fixed dark background
 (`background: #3a3a3a`/`#2a2a2a` with a coloured left border, in the AI chat
 and lessons prompts) and a third using `rgba(111, 66, 193, 0.08)` the same
