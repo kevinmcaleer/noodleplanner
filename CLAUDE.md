@@ -142,10 +142,11 @@ if they aren't present.
 
 ## Running the checks
 
-CI is ours: the jobs are shell scripts in `ci/jobs/`, the GitHub workflows are
-one-line wrappers around them, and a self-hosted runner in `ci/runner/` executes
-them so the repository stops burning metered Actions minutes. `ci/README.md` has
-the detail.
+CI is ours: the jobs are shell scripts in `ci/jobs/` and the GitHub workflows are
+one-line wrappers around them. Set the `CI_RUNS_ON` repository variable to
+`["self-hosted","linux","noodle"]` to run them on our own runners (`ci/runner/`)
+and stop burning metered Actions minutes; unset, they run on `ubuntu-latest`.
+`ci/README.md` has the detail and says why that is the default.
 
 ```bash
 ci/run.sh            # the four gating jobs in parallel, ~45s

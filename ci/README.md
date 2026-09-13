@@ -141,13 +141,28 @@ the site with it. The containers are capped at 2 CPUs and 4 GB for the same
 reason: CI and production share the host, and a test run should never be why the
 site got slow.
 
-### Falling back to GitHub-hosted runners
+### Switching the workflows onto them
 
-If the runner host is down, jobs queue indefinitely rather than failing. Set the
-repository variable `CI_RUNS_ON` to `["ubuntu-latest"]` (Settings → Secrets and
-variables → Actions → Variables) and every workflow switches back without a pull
-request. Unset it to return. That costs metered minutes again, so it is a
-get-unstuck lever, not a setting.
+Where the workflow jobs run is one repository variable, not a property of any
+file. Once the runners are up, set `CI_RUNS_ON` to
+`["self-hosted","linux","noodle"]` (Settings → Secrets and variables → Actions →
+Variables). Unset it and everything goes back to `ubuntu-latest`.
+
+**GitHub-hosted is the fallback rather than the goal, deliberately**, because the
+failure modes are not symmetric. A job with no matching runner does not fail — it
+queues forever. Defaulting to self-hosted would mean that from the moment this
+merged, every pull request and every push to `main` stopped being testable until
+the runner host happened to be up. Defaulting to `ubuntu-latest` costs metered
+minutes while the variable is unset, and nothing else.
+
+So the order is: stand the runners up, then set the variable. Unset it while the
+host is down or being rebuilt, rather than waiting on a queue.
+
+`.github/actions/setup` is what lets one workflow serve both. Our image already
+carries uv, Python 3.12, Node 22 and a Chromium; a GitHub-hosted runner has Node
+and Chrome but no uv at all, and without that step every job would die on
+`ci/lib.sh`'s "uv is not installed" before running a test. It provisions the
+machine; `ci/jobs/` defines the checks, and neither knows about the other.
 
 ### Dropping GitHub Actions entirely
 

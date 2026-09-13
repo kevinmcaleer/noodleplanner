@@ -18,10 +18,12 @@ concurrency:
 
 jobs:
   roundtrip:
-    # Ours, not GitHub's -- see the note in tests.yml. Set the CI_RUNS_ON
-    # repository variable to ["ubuntu-latest"] to fall back.
-    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["self-hosted","linux","noodle"]') }}
+    # Set the CI_RUNS_ON repository variable to
+    # ["self-hosted","linux","noodle"] to run this on our own runners -- see the
+    # note in tests.yml for why GitHub-hosted is the fallback and not the goal.
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
       - run: ./ci/run.sh -j1 --strict roundtrip

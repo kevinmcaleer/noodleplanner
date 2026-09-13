@@ -19,18 +19,27 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# The runners are ours (ci/runner/), which is what takes these suites off the
-# metered GitHub-hosted minutes this repository kept running out of -- minutes
-# are not billed for self-hosted runners, even on a private repository.
+# Where these jobs run is one repository variable, not a property of this file.
+# Set CI_RUNS_ON to ["self-hosted","linux","noodle"] and they run on our own
+# runners (ci/runner/), which is what takes them off the metered GitHub-hosted
+# minutes this repository kept running out of -- minutes are not billed for
+# self-hosted runners, even on a private repository. Unset, they run on
+# ubuntu-latest.
 #
-# Set the CI_RUNS_ON repository variable to ["ubuntu-latest"] to fall back to
-# GitHub-hosted runners without editing any of this: if the machine hosting the
-# runners is down, jobs queue indefinitely rather than failing, and flipping a
-# variable is a faster answer to that than three pull requests.
+# GitHub-hosted is the fallback rather than the goal, because the failure modes
+# are not symmetric. A job with no matching runner does not fail, it queues
+# forever -- so defaulting to self-hosted would mean that the moment this merged,
+# every pull request and every push to main stopped being testable until the
+# runner host happened to be up. Defaulting to ubuntu-latest costs minutes when
+# the variable is unset, and nothing else. It also means this file can be merged
+# before the runners exist, which is the situation it was written in.
+#
+# So: stand the runners up (ci/README.md), then set the variable. Unset it to
+# get back to GitHub-hosted while the host is down or being rebuilt.
 jobs:
   pytest:
     name: pytest
-    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["self-hosted","linux","noodle"]') }}
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
     # Seconds, not minutes, now that the browser tests run in their own job: the
     # same suite that took ~19 minutes with them finishes in under a minute
     # without. The ceiling stays generous enough to absorb a busy runner, and
@@ -40,11 +49,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
       - run: ./ci/run.sh -j1 --strict python
 
   usability:
     name: pytest (usability)
-    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["self-hosted","linux","noodle"]') }}
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
     # Reporting, not gating. 13 test files drive a browser and they skip wherever
     # none is reachable, so on a developer machine they silently skip and only
     # ever really run here -- which is how this workflow found 42 of them
@@ -67,12 +77,14 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
       - run: ./ci/run.sh -j1 --strict usability
 
   js:
     name: npm run test:js
-    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["self-hosted","linux","noodle"]') }}
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
       - run: ./ci/run.sh -j1 --strict js
