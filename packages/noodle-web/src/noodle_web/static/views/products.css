@@ -149,7 +149,7 @@
 }
 
 .pf-buried-detail-marker {
-    fill: #ffd641;
+    fill: var(--np-yellow);
     stroke: var(--np-dark-blue, #02384d);
     stroke-width: 1;
     animation: pf-orphan-pulse 2s ease-in-out infinite;

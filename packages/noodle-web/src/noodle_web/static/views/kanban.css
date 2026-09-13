@@ -419,7 +419,7 @@
 }
 
 .kanban-add-card-btn:focus {
-    outline: 3px solid #108BB9;
+    outline: 3px solid var(--np-blue);
     outline-offset: 2px;
     background: #e9ecef;
     border-color: var(--np-accent);
@@ -457,7 +457,7 @@
 }
 
 .kanban-add-column-btn:focus {
-    outline: 3px solid #108BB9;
+    outline: 3px solid var(--np-blue);
     outline-offset: 2px;
     background: var(--np-paper);
     border-color: var(--np-accent);
@@ -489,7 +489,7 @@
 }
 
 .kanban-card:focus {
-    outline: 3px solid #108BB9;
+    outline: 3px solid var(--np-blue);
     outline-offset: 2px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }

@@ -2545,7 +2545,7 @@ body {
 
 [data-theme="dark"] .wb-toolbar-btn:hover:not(:disabled) {
     background: #3a3a3a;
-    border-color: #108BB9;
+    border-color: var(--np-blue);
     color: #fff;
 }
 

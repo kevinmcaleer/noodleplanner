@@ -27,6 +27,14 @@ Usage::
     python scripts/capture_screen_audit.py --only gantt,kanban
 
 Requires Playwright (already a dev dependency; ``tests/ui`` uses it).
+
+**Run it somewhere that can reach the CDN.** ``index.html`` pulls Bootstrap,
+Bootstrap Icons and three webfonts from ``cdn.jsdelivr.net`` and
+``fonts.googleapis.com``. Where those are blocked the app still renders, but in
+fallback fonts and without Bootstrap's styling or any icon -- fine for an
+A/B comparison, where both captures are equally affected, and misleading as a
+board someone makes design decisions from. The run does not detect this; check
+that the captures have icons before importing them anywhere.
 """
 
 from __future__ import annotations
@@ -43,7 +51,7 @@ from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parents[1]
 STRUCTURE = ROOT / "docs/design/ui-structure.json"
-OUT_DIR = ROOT / "penpot/screen-audit"
+DEFAULT_OUT = ROOT / "penpot/screen-audit"
 
 # Wide enough that a Gantt or a portfolio table is not artificially wrapped,
 # which is the whole point of a layout audit.
@@ -194,15 +202,16 @@ def _switch(page, group: str, view_id: str) -> bool:
     return True
 
 
-def capture(base_url: str, theme: str, only: set[str] | None) -> list[dict]:
+def capture(base_url: str, theme: str, only: set[str] | None, out_dir: Path, width: int) -> list[dict]:
     from playwright.sync_api import sync_playwright
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
     captured: list[dict] = []
+    viewport = {"width": width, "height": VIEWPORT["height"]}
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
-        context = browser.new_context(viewport=VIEWPORT, device_scale_factor=1)
+        context = browser.new_context(viewport=viewport, device_scale_factor=1)
         context.add_init_script("document.cookie = 'tourCompleted=true; path=/; max-age=31536000';")
         page = context.new_page()
         page.goto(base_url, wait_until="domcontentloaded")
@@ -226,7 +235,7 @@ def capture(base_url: str, theme: str, only: set[str] | None) -> list[dict]:
                 captured.append({"group": group, "view": view, "file": None, "note": "no switch function"})
                 continue
             name = f"{view}.png" if theme == "light" else f"{view}.{theme}.png"
-            path = OUT_DIR / name
+            path = out_dir / name
             page.screenshot(path=str(path))
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             duplicate_of = seen.get(digest)
@@ -244,10 +253,10 @@ def capture(base_url: str, theme: str, only: set[str] | None) -> list[dict]:
     return captured
 
 
-def write_board(captured: list[dict], theme: str) -> Path:
+def write_board(captured: list[dict], theme: str, out_dir: Path, width: int) -> Path:
     """Lay the screens out on one SVG board, grouped, labelled, in nav order."""
     cols = 4
-    tw, th = VIEWPORT["width"], VIEWPORT["height"]
+    tw, th = width, VIEWPORT["height"]
     scale = 0.5
     cw, ch = int(tw * scale), int(th * scale)
     pad, label_h, group_h = 40, 28, 64
@@ -294,7 +303,7 @@ def write_board(captured: list[dict], theme: str) -> Path:
         + "\n</svg>\n"
     )
     name = "board.svg" if theme == "light" else f"board.{theme}.svg"
-    path = OUT_DIR / name
+    path = out_dir / name
     path.write_text(svg)
     return path
 
@@ -304,6 +313,17 @@ def main() -> int:
     parser.add_argument("--base-url", help="an already-running instance; otherwise one is started")
     parser.add_argument("--theme", choices=["light", "dark"], default="light")
     parser.add_argument("--only", help="comma-separated view ids")
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=DEFAULT_OUT,
+        help="output directory (default: penpot/screen-audit). Capture to two of "
+             "these around a change and compare them with scripts/compare_screens.py.",
+    )
+    parser.add_argument(
+        "--width", type=int, default=VIEWPORT["width"],
+        help="viewport width; use 480 to check a change at mobile width",
+    )
     args = parser.parse_args()
 
     only = set(args.only.split(",")) if args.only else None
@@ -316,8 +336,8 @@ def main() -> int:
         print(f"Serving on {base_url}")
 
     try:
-        print(f"Capturing {args.theme} theme into {OUT_DIR.relative_to(ROOT)}/")
-        captured = capture(base_url, args.theme, only)
+        print(f"Capturing {args.theme} theme at {args.width}px into {args.out}/")
+        captured = capture(base_url, args.theme, only, args.out, args.width)
     finally:
         if server is not None:
             server.should_exit = True
@@ -326,11 +346,11 @@ def main() -> int:
     shot = [c for c in captured if c["file"]]
     dupes = [c for c in shot if c.get("duplicateOf")]
     missing = [c for c in captured if not c["file"]]
-    board = write_board(captured, args.theme)
-    (OUT_DIR / "manifest.json").write_text(json.dumps({"theme": args.theme, "screens": captured}, indent=2) + "\n")
+    board = write_board(captured, args.theme, args.out, args.width)
+    (args.out / "manifest.json").write_text(json.dumps({"theme": args.theme, "screens": captured}, indent=2) + "\n")
 
     print(f"\n{len(shot)}/{len(captured)} views captured")
-    print(f"Board: {board.relative_to(ROOT)}")
+    print(f"Board: {board}")
     if missing:
         print(f"\n{len(missing)} view(s) unreachable: {', '.join(c['view'] for c in missing)}")
     if dupes:

@@ -34,11 +34,11 @@
     }
   ],
   "stylesheet": {
-    "sourceLinesOfCode": 17606,
-    "complexity": 50966
+    "sourceLinesOfCode": 17610,
+    "complexity": 50978
   },
   "rules": {
-    "total": 3931
+    "total": 3932
   },
   "selectors": {
     "totalUnique": 3839,
@@ -277,23 +277,6 @@
         ]
       },
       {
-        "id": "blue-96b82a9b",
-        "hex": "#108BB9",
-        "authoredAs": "#108bb9",
-        "usage": 65,
-        "props": [
-          "--np-blue",
-          "color",
-          "background",
-          "stroke",
-          "border",
-          "box-shadow",
-          "border-color",
-          "fill",
-          "outline"
-        ]
-      },
-      {
         "id": "grey-8d6c0835",
         "hex": "#666666",
         "authoredAs": "#666",
@@ -306,6 +289,23 @@
           "--mm-zoom-label-text",
           "--mm-hint-text",
           "fill"
+        ]
+      },
+      {
+        "id": "blue-96b82a9b",
+        "hex": "#108BB9",
+        "authoredAs": "#108bb9",
+        "usage": 51,
+        "props": [
+          "--np-blue",
+          "color",
+          "background",
+          "stroke",
+          "border",
+          "box-shadow",
+          "border-color",
+          "fill",
+          "outline"
         ]
       },
       {
@@ -1200,7 +1200,7 @@
     {
       "id": "boxShadow-2ebeb8ba",
       "authoredAs": "var(--np-focus-ring)",
-      "usage": 8
+      "usage": 11
     },
     {
       "id": "boxShadow-f6beb62c",
@@ -1668,8 +1668,8 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-236350ca",
-      "authoredAs": "inset 0 0 0 2px #108BB9",
+      "id": "boxShadow-9301e81e",
+      "authoredAs": "inset 0 0 0 2px var(--np-blue)",
       "usage": 1
     },
     {

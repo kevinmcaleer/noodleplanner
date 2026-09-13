@@ -50,7 +50,7 @@
 }
 
 .ns-toolbar-btn:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-blue);
     outline-offset: 1px;
 }
 
@@ -115,7 +115,7 @@
 
 .ns-formula-input:focus {
     background: var(--np-surface);
-    box-shadow: inset 0 0 0 2px #108BB9;
+    box-shadow: inset 0 0 0 2px var(--np-blue);
 }
 
 /* ── Grid Container ────────────────────────────────────────────── */
@@ -128,7 +128,7 @@
 }
 
 .ns-grid-container:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-blue);
     outline-offset: -2px;
 }
 
@@ -413,7 +413,7 @@ input[type="date"].ns-cell-editor {
 }
 
 .ns-tab:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-blue);
     outline-offset: -2px;
 }
 
@@ -485,7 +485,7 @@ input[type="date"].ns-cell-editor {
 }
 
 .ns-ctx-item:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-blue);
     outline-offset: -2px;
 }
 

@@ -1913,7 +1913,7 @@
 }
 
 .portfolio-lookahead-filters select:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-blue);
     border-color: var(--np-accent);
 }
 
@@ -1954,7 +1954,7 @@
 }
 
 .lookahead-rag-toggle:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-blue);
     outline-offset: 2px;
 }
 

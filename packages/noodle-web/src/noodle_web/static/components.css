@@ -7425,7 +7425,7 @@ tr:hover .task-context-btn,
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    color: #cfe0e7;
+    color: var(--np-dark-blue-subtle);
 }
 
 .ribbon-quick-btn svg {
@@ -7503,7 +7503,7 @@ button.ribbon-breadcrumb-rung:hover {
     padding: 0 11px;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.12);
-    color: #cfe0e7;
+    color: var(--np-dark-blue-subtle);
     font-size: 11px;
     white-space: nowrap;
     max-width: 240px;
@@ -7531,7 +7531,7 @@ button.ribbon-breadcrumb-rung:hover {
 }
 
 .ribbon-search-input::placeholder {
-    color: #cfe0e7;
+    color: var(--np-dark-blue-subtle);
 }
 
 .ribbon-search-input:focus-visible {

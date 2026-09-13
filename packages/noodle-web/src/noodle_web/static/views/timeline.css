@@ -125,7 +125,7 @@
 .timeline-diamond.phase-diamond {
     width: 13px;
     height: 13px;
-    background: #1C9E41;
+    background: var(--np-green);
     border: none;
 }
 

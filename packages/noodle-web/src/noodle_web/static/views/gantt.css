@@ -243,7 +243,7 @@
 
 .gantt-info-table td.editable:focus-visible {
     background: #fff9e6;
-    outline: 2px solid #108bb9;
+    outline: 2px solid var(--np-blue);
     outline-offset: -2px;
 }
 
@@ -1511,7 +1511,7 @@ input[type="text"]:focus {
 }
 
 input[type="text"]:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-blue);
     outline-offset: 1px;
 }
 

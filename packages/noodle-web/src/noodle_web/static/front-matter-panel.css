@@ -187,7 +187,7 @@
 .fm-add-line-btn:hover,
 .fm-add-line-btn:focus-visible {
     background: #414142;
-    color: #f2f2f2;
+    color: var(--np-light-grey-subtle);
 }
 
 .fm-row-btn:disabled {

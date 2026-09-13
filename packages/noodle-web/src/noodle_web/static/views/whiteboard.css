@@ -83,7 +83,7 @@
 }
 
 .wb-canvas-wrapper:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-blue);
     outline-offset: -3px;
 }
 
@@ -275,7 +275,7 @@
     height: 15px;
     border-radius: 3px;
     background: var(--np-orange, #ff7b01);
-    /* #161616 on #ff7b01 measures ~6.97:1 -- comfortably past WCAG AA (4.5:1),
+    /* #161616 on var(--np-orange) measures ~6.97:1 -- comfortably past WCAG AA (4.5:1),
        confirmed by tests/test_whiteboard_notes.js's contrast-ratio checks. */
     color: #161616;
     font-size: 10px;
