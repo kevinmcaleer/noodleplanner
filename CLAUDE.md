@@ -66,9 +66,11 @@ npm run check:contrast   # WCAG AA across every token pairing the app renders
 ```
 
 Both are in CI as the gating `design` job. The linter is a ratchet against
-`ci/design-system-baseline.json`: it tolerates the ~1,950 existing violations
-and fails only on new ones, so a clean push cannot be blocked by pre-existing
-debt.
+`ci/design-system-baseline.json`: it tolerates whatever violations that file
+already records and fails only on new ones, so a clean push cannot be blocked
+by pre-existing debt. The count is deliberately not quoted here — it only goes
+down, and a number in prose is wrong the first time someone pays some off.
+`npm run lint:design` prints the current figure.
 
 `docs/design/contributing.md` explains the rules and when a raw value is
 legitimate. `/components` serves a gallery of every component in both themes.
