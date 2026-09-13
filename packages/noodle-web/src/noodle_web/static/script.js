@@ -3259,7 +3259,6 @@ function getIndentWidth(line, tabWidth = 4) {
 function findDirectChildLineNumbers(parentLineNumber, lines) {
     const parentLine = lines[parentLineNumber - 1];
     const parentIndent = getIndentWidth(parentLine);
-
     const childLineNumbers = [];
     const indentStack = [{ indent: parentIndent, level: 0 }];
     for (let i = parentLineNumber; i < lines.length; i++) {
@@ -3294,22 +3293,65 @@ function findDirectChildLineNumbers(parentLineNumber, lines) {
     return childLineNumbers;
 }
 
+/**
+ * Walk the outline beneath `parentLineNumber` and return EVERY descendant
+ * task -- direct children, grandchildren, and so on -- not just the
+ * immediate next level. A line belongs to the subtree as long as it stays
+ * more indented than the parent; that ends the moment a line comes back
+ * down to the parent's indent (or shallower), the same "contiguous run of
+ * more-indented lines" convention deleteTask() and moveTaskInEditor() use
+ * elsewhere in this file to find a task's full subtree.
+ *
+ * Each returned task also carries `depth` (1 = direct child, 2 = grandchild,
+ * ...), tracked with an indent stack the same way parseTaskOutline() does in
+ * msproject-task-diff.js -- this tolerates plans that mix tabs, 2-space,
+ * 4-space, and irregular post-import indent steps.
+ */
+function getTaskDescendants(parentLineNumber, lines) {
+    const parentLine = lines[parentLineNumber - 1];
+    if (parentLine === undefined) return [];
+    const parentIndent = getIndentWidth(parentLine);
+
+    const descendants = [];
+    const indentStack = [{ indent: parentIndent, level: 0 }];
+    for (let i = parentLineNumber; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        if (!trimmed) continue;
+        if (trimmed.startsWith('---') || trimmed.startsWith('#') || trimmed.includes('===')) break;
+
+        const indent = getIndentWidth(line);
+        if (indent <= parentIndent) break;
+
+        while (indentStack.length > 1 && indentStack[indentStack.length - 1].indent >= indent) {
+            indentStack.pop();
+        }
+        const depth = indentStack[indentStack.length - 1].level + 1;
+        indentStack.push({ indent, level: depth });
+
+        const task = parseTaskLine(line, i + 1);
+        if (task.name) {
+            descendants.push({
+                ...task,
+                lineNumber: i + 1,
+                depth
+            });
+        }
+    }
+    return descendants;
+}
+
 function populateSubtasks(parentLineNumber, lines) {
     const subtasksList = document.getElementById('subtasksList');
     if (!subtasksList) return;
 
     subtasksList.innerHTML = '';
 
-    const subtasks = [];
-    for (const lineNumber of findDirectChildLineNumbers(parentLineNumber, lines)) {
-        const task = parseTaskLine(lines[lineNumber - 1], lineNumber);
-        if (task.name) {
-            subtasks.push({
-                ...task,
-                lineNumber
-            });
-        }
-    }
+    // Every descendant of this task, at any depth (issue #979: the list
+    // previously only included direct children, so grandchildren and
+    // deeper descendants silently went missing here).
+    const subtasks = getTaskDescendants(parentLineNumber, lines);
 
     // Display subtasks
     if (subtasks.length === 0) {
@@ -3326,6 +3368,7 @@ function populateSubtasks(parentLineNumber, lines) {
         if (helperText) {
             helperText.style.display = 'none';
         }
+        syncPercentQuickControlsState();
         return subtasks;
     }
 
@@ -3336,6 +3379,12 @@ function populateSubtasks(parentLineNumber, lines) {
     subtasks.forEach(subtask => {
         const item = document.createElement('div');
         item.className = 'subtask-item';
+        // Indent grandchildren and deeper descendants so the flat list still
+        // reads as a hierarchy; direct children (depth 1) sit flush left,
+        // matching the pre-existing layout for plans with no nesting.
+        if (subtask.depth > 1) {
+            item.style.marginLeft = ((subtask.depth - 1) * 18) + 'px';
+        }
 
         const subtaskPercent = parseInt(subtask.percent) || 0;
         const piechart = createMiniPiechart(subtaskPercent, (newPercent) => {
@@ -3424,9 +3473,15 @@ function populateSubtasks(parentLineNumber, lines) {
         t => t.name === taskName && t.is_summary
     );
 
-    // Calculate average completion for summary tasks
-    const totalPercent = subtasks.reduce((sum, task) => sum + (parseInt(task.percent) || 0), 0);
-    const avgPercent = Math.round(totalPercent / subtasks.length);
+    // Calculate average completion for summary tasks -- based on DIRECT
+    // children only (depth 1). `subtasks` now includes every descendant, but
+    // each direct child's own percent already reflects its own descendants
+    // (a nested summary's percent is itself auto-calculated the same way
+    // when its form is open), so averaging over every depth would double
+    // count deeper levels instead of rolling up one level at a time.
+    const directChildren = subtasks.filter(task => task.depth === 1);
+    const totalPercent = directChildren.reduce((sum, task) => sum + (parseInt(task.percent) || 0), 0);
+    const avgPercent = directChildren.length ? Math.round(totalPercent / directChildren.length) : 0;
 
     // Update percent field — only override if backend confirms this is a summary
     const percentInput = document.getElementById('taskPercent');
@@ -3971,6 +4026,56 @@ function updateProgressBar() {
     } else {
         progressBar.classList.add('bg-secondary');
     }
+
+    syncPercentQuickControlsState();
+}
+
+/**
+ * Enable/disable the click-to-complete progress bar and the 0/25/50/75/100
+ * quick-set toolbar to match whether #taskPercent is currently editable.
+ * Percent is auto-calculated (and the input made readOnly) for summary
+ * tasks and for effort-driven tasks -- the quick controls must not be able
+ * to fight that calculated value. Called from updateProgressBar() (which
+ * already runs after every place that toggles readOnly) plus the couple of
+ * spots below that flip readOnly without also calling updateProgressBar().
+ */
+function syncPercentQuickControlsState() {
+    const percentInput = document.getElementById('taskPercent');
+    const isLocked = !!(percentInput && percentInput.readOnly);
+
+    const progressWrapper = document.getElementById('taskProgressBarWrapper');
+    if (progressWrapper) {
+        progressWrapper.classList.toggle('percent-control-disabled', isLocked);
+        progressWrapper.title = isLocked
+            ? 'Auto-calculated — not editable here'
+            : 'Click to mark 100% complete';
+    }
+
+    const quickToolbar = document.getElementById('percentQuickToolbar');
+    if (quickToolbar) {
+        quickToolbar.querySelectorAll('button').forEach(btn => {
+            btn.disabled = isLocked;
+        });
+    }
+}
+
+/**
+ * Quick-set the current task's completion percentage from the task details
+ * form. Backs both the click-to-complete progress bar (clicking jumps
+ * straight to 100%) and the 0/25/50/75/100 mini-toolbar buttons. Goes
+ * through the same saveTask()/updateRagDisplay()/updateProgressBar()
+ * sequence #taskPercent's own oninput handler uses, so the markdown
+ * write-back and RAG/progress-bar refresh are identical to typing a value
+ * by hand.
+ */
+function setTaskPercentQuick(percent) {
+    const percentInput = document.getElementById('taskPercent');
+    if (!percentInput || percentInput.readOnly) return;
+
+    percentInput.value = percent;
+    saveTask();
+    updateRagDisplay();
+    updateProgressBar();
 }
 
 function updateEffortTotal() {
@@ -4024,6 +4129,7 @@ function updateEffortTotal() {
             percentInput.style.fontStyle = 'normal';
         }
     }
+    syncPercentQuickControlsState();
 
     saveTask();
 }
