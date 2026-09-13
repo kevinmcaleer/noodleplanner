@@ -213,11 +213,32 @@ text at 4:1.
   surface with its own host theme. It should get the same treatment
   eventually, but its tokens are Obsidian's, not NoodlePlanner's.
 - **Vendored libraries** under `static/vendor/` — not ours to restyle.
-- **Adopting the warm palette wholesale.** The audit found the app's real
-  top-of-distribution greys are cool Bootstrap-era values that predate the
-  warm system entirely. Whether they convert is a design decision with a
-  visible result, and it wants a person looking at Penpot, not a refactor.
-  Bands 1–2 deliberately leave it open.
+- **Adopting the warm palette wholesale**, which is now the only substantial
+  item left and the reason `raw-colour` still stands at 1,090.
+
+  It is a design decision — the app's top-of-distribution greys are cool
+  Bootstrap-era values that predate the warm system entirely, so converting
+  them changes how the product looks and wants a person in Penpot. But there is
+  also a hard correctness reason it cannot be done mechanically, and that is
+  the more important one to know before anyone tries.
+
+  **The surface and text tokens invert between themes.** `--np-paper` is
+  `#FAF8F4` in light and `#201E1A` in dark; `--np-ink` is `#23201C` and
+  `#FAF8F4`. So a literal can only be replaced by a token when the element it
+  sits on *also* flips. `color: #fff` on a coloured button must stay light in
+  both themes — mapping it to `--np-paper` produces dark text on a dark button
+  in dark mode. The same literal, `#fff`, maps to a token in one rule and must
+  stay a literal in the next, and telling the two apart means knowing what the
+  element sits on.
+
+  So the work is: classify each of the 1,090 as *follows the theme* or *fixed
+  against a coloured background*, then substitute only the first group. The
+  classification is the judgement; the substitution after it is mechanical, and
+  `scripts/compare_screens.py` will prove each batch.
+
+  The theme-invariant subset — literals matching a token whose light and dark
+  values are identical, where the hazard does not exist — was already migrated.
+  That was 21 substitutions, and it is the whole of what is safely automatable.
 
 ## Two nav bugs found in passing
 
