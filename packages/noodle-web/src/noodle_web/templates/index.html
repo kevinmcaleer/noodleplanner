@@ -1867,7 +1867,7 @@ Press Enter to render..."></textarea>
 
                     <div style="display: flex; gap: 20px; align-items: flex-start; margin-bottom: 20px;">
                         <div style="flex: 1;">
-                            <p style="color: #666; font-size: 0.9em; margin-top: 10px;">
+                            <p style="color: var(--np-faint); font-size: 0.9em; margin-top: 10px;">
                                 After uploading, the plan will be loaded into the editor where you can render and export it.
                             </p>
                         </div>
@@ -1938,7 +1938,7 @@ Changes here are synced automatically."></textarea>
                                 </div>
                             </div>
 
-                            <div id="kanbanBreadcrumb" class="kanban-breadcrumb" style="padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; font-size: 14px;">
+                            <div id="kanbanBreadcrumb" class="kanban-breadcrumb" style="padding: 10px 20px; background: var(--np-paper); border-bottom: 1px solid var(--np-border); font-size: 14px;">
                                 <!-- Breadcrumb will be rendered here -->
                             </div>
 
@@ -2709,7 +2709,7 @@ Build
                             <div id="ragDisplay" style="padding: 8px; border-radius: 4px; font-weight: bold; text-align: center; margin-bottom: 5px;">
                                 -
                             </div>
-                            <small id="ragReasoning" style="display: block; color: #666;">-</small>
+                            <small id="ragReasoning" style="display: block; color: var(--np-faint);">-</small>
                         </div>
                     </div>
 
@@ -2752,7 +2752,7 @@ Build
                             <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(75)">75%</button>
                             <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(100)">100%</button>
                         </div>
-                        <small id="percentHelperText" style="display: none; color: #666;">Auto-calculated from subtasks</small>
+                        <small id="percentHelperText" style="display: none; color: var(--np-faint);">Auto-calculated from subtasks</small>
                     </div>
 
                     <div class="form-grid-3col">
@@ -3168,7 +3168,7 @@ Build
                         <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
 
-                    <div id="raidDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <div id="raidDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
                         <button type="button" class="btn-danger" onclick="confirmDeleteRaidItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this RAID item">
                             &#128465; Delete Item
                         </button>
@@ -3270,7 +3270,7 @@ Build
                         <button type="button" class="btn-primary" onclick="saveBenefitItemFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
 
-                    <div id="benefitDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <div id="benefitDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
                         <button type="button" class="btn-danger" onclick="deleteBenefitItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this benefit item">
                             &#128465; Delete Item
                         </button>
@@ -3342,7 +3342,7 @@ Build
                         <button type="button" class="btn-primary" onclick="saveCommsItemFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
 
-                    <div id="commsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <div id="commsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
                         <button type="button" class="btn-danger" onclick="confirmDeleteCommsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this comms item">
                             &#128465; Delete Item
                         </button>
@@ -3449,7 +3449,7 @@ Build
                         <button type="button" class="btn-primary" onclick="saveLessonsItemFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
 
-                    <div id="lessonsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <div id="lessonsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
                         <button type="button" class="btn-danger" onclick="confirmDeleteLessonsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this lesson">
                             &#128465; Delete Lesson
                         </button>
@@ -3542,7 +3542,7 @@ Build
                         <button type="button" class="btn-primary" onclick="saveBudgetItemFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
 
-                    <div id="budgetDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <div id="budgetDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
                         <button type="button" class="btn-danger" onclick="confirmDeleteBudgetItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this budget item">
                             &#128465; Delete Item
                         </button>
@@ -4162,14 +4162,14 @@ Build
 
                 <!-- Step 2: Map Columns -->
                 <div id="wizardStep2" class="wizard-panel" style="display:none;">
-                    <p style="color:#666; margin-bottom:15px;">Map your Excel columns to NoodlePlanner fields. Only Task Name is required.</p>
+                    <p style="color: var(--np-faint); margin-bottom:15px;">Map your Excel columns to NoodlePlanner fields. Only Task Name is required.</p>
                     <div class="wizard-mapping-grid" id="wizardMappingGrid"></div>
                 </div>
 
                 <!-- Step 3: Preview -->
                 <div id="wizardStep3" class="wizard-panel" style="display:none;">
                     <div id="wizardConvertWarnings" style="display:none;" class="alert alert-warning"></div>
-                    <div id="wizardConvertStats" style="margin-bottom:10px; color:#666;"></div>
+                    <div id="wizardConvertStats" style="margin-bottom:10px; color: var(--np-faint);"></div>
                     <label>Generated Plan</label>
                     <textarea id="wizardMarkdownPreview" class="form-control" rows="15" readonly style="font-family:monospace; font-size:0.85em;"></textarea>
                 </div>
