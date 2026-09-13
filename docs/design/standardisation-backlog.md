@@ -98,9 +98,24 @@ interactive ARIA role, as a `box-shadow` so a component's `outline: none`
 cannot suppress it. `tests/ui/test_component_gallery.py` drives a real keyboard
 and fails if any control looks the same focused and unfocused.
 
-3.2 and 3.3 are the part that is left, and they are larger than they look:
-collapsing 136 button class names reaches templates and JS, not just CSS. Doing
-it per view alongside band 4 is more tractable than as one sweep.
+**3.2 and 3.3 are not refactors, and the original framing of them was wrong.**
+The wording assumed the button classes are duplicates waiting to be merged.
+They are not. Across the 116 button class names in the linked stylesheets,
+exactly **one** group shares a byte-identical base rule — eight classes that
+each declare nothing but `min-height: 44px; min-width: 44px`, the WCAG 2.5.5
+touch target. 46 of the 116 have a single rule and no variants at all.
+
+So collapsing them is not deduplication; it is deciding that the toolbar
+button, the ribbon tab button, the kanban order button and the whiteboard
+promote button should all *look the same*, and then changing how they look
+across 21 stylesheets, the templates and the JS that sets their class names.
+That is a design decision with a visible result, in the same category as the
+palette question below — not something a refactor can settle.
+
+What would make it tractable, in order: pick the two or three button roles the
+system should actually have (primary, secondary, icon-only?), build them in the
+gallery so they can be seen side by side against the 116 that exist, and then
+migrate per view with `scripts/compare_screens.py` showing exactly what moved.
 
 3.4 and 3.5 share one source of truth — `static/component-gallery.js`, rendered
 by `/components` and by Storybook. Two hand-maintained galleries drift, and the
