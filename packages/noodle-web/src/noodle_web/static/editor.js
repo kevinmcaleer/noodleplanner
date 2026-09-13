@@ -56,7 +56,6 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             descriptors: getBackMatterFoldingDescriptors(),
             storageNamespace: 'back-matter',
             getProjectId: () => (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default',
-            showToolbar: true,
         })
         : null;
 
@@ -466,6 +465,9 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
     // Debounce timer for front-matter panel resync (#780)
     let fmPanelSyncTimer = null;
 
+    // Debounce timer for back-matter panel resync (#1203)
+    let bmPanelSyncTimer = null;
+
     // Update on input and auto-render with debounce (only for main editor)
     editor.addEventListener('input', function() {
         // Quietly replace curly/smart quotes with straight quotes
@@ -512,6 +514,17 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 fmPanelSyncTimer = setTimeout(() => {
                     editor._updateFrontMatterPanel();
                     fmPanelSyncTimer = null;
+                }, 500);
+            }
+
+            // Same as above for the back-matter panel (#1203): keep it in
+            // sync when the user types raw markdown directly into the
+            // textarea instead of using the panel's own raw editor.
+            if (editor._updateBackMatterPanel) {
+                if (bmPanelSyncTimer) clearTimeout(bmPanelSyncTimer);
+                bmPanelSyncTimer = setTimeout(() => {
+                    editor._updateBackMatterPanel();
+                    bmPanelSyncTimer = null;
                 }, 500);
             }
         }

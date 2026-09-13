@@ -150,7 +150,7 @@ static named exports and cannot generate a story in a loop.
 
 ```sh
 npm run storybook          # dev server on :6006
-npm run storybook:build    # static build
+npm run build-storybook    # static build
 ```
 
 ## Where things are

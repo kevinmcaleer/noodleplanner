@@ -35,8 +35,12 @@ function assertClose(actual, expected, msg, eps = 1e-6) {
     assert(Math.abs(actual - expected) < eps, `${msg} (actual=${actual}, expected=${expected})`);
 }
 
-const sandbox = { console };
+const NoodlePlanModel = require(path.join(__dirname, '..', 'packages', 'noodle-web', 'src',
+    'noodle_web', 'static', 'plan-model.js'));
+const sandbox = { console, NoodlePlanModel };
 vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'packages', 'noodle-web', 'src',
+    'noodle_web', 'static', 'task-tokenizer.js'), 'utf8'), sandbox);
 vm.runInContext(source, sandbox);
 
 const {
@@ -66,6 +70,17 @@ const {
     wbClampNoteHeight,
     wbExceedsMoveThreshold,
     wbMoveTaskToEnd,
+    wbActivityLanguageHint,
+    wbTaskPlanningType,
+    wbReplacePlanningTypeToken,
+    wbApplyPlanningTypeToPlanText,
+    wbAddNamedDependencyToPlanText,
+    wbDetectNaturalDates,
+    wbApplyDateChoiceToLine,
+    wbApplyDateChoiceToPlanText,
+    wbResourceOptionsFromPlanText,
+    wbApplyResourceToLine,
+    wbApplyResourceToPlanText,
     wbAddResourceToLine,
 } = sandbox;
 
@@ -160,6 +175,74 @@ const tasks = [
     const list = wbResourceList('Sam Smith, Jo Lee');
     assert(list.length === 2 && list[0] === 'Sam Smith' && list[1] === 'Jo Lee', 'resource list splits and trims');
     assert(wbResourceList('').length === 0, 'empty resources string yields an empty list');
+}
+
+// ── Parser-only facilitator hints and planning type (#875) ─────────────
+{
+    assert(wbActivityLanguageHint('Draft the business case').word === 'draft',
+        'curated leading producer verb gets a gentle activity hint');
+    assert(wbActivityLanguageHint('Installing the agent').kind === 'gerund',
+        'leading gerund gets an activity hint');
+    assert(wbActivityLanguageHint('Test plan') === null,
+        'product-shaped “Test plan” is not misclassified as an activity');
+    assert(wbActivityLanguageHint('Test the integration').word === 'test',
+        'verb-shaped “Test the integration” still gets a hint');
+    assert(wbActivityLanguageHint('Approved design') === null,
+        'ordinary product noun phrase remains untyped');
+
+    assert(wbTaskPlanningType({ labels: 'urgent, product' }) === 'product',
+        '#product is read from ordinary task labels');
+    assert(wbTaskPlanningType({ labels: 'activity' }) === 'activity',
+        '#activity is read from ordinary task labels');
+    assert(wbTaskPlanningType({ labels: '' }) === null, 'classification stays optional');
+
+    const typed = wbReplacePlanningTypeToken('  Draft case 2d #urgent #activity "say #product here"', 'product');
+    assert(typed.includes('#urgent') && typed.endsWith('#product'),
+        'changing planning type preserves other metadata and writes the new ordinary label');
+    assert(typed.includes('"say #product here"'), 'planning type tokens inside comments are never rewritten');
+    assert(!typed.includes('#activity'), 'old planning type is removed');
+
+    const plan = 'Phase\n  Draft case 2d #urgent\n  Review 1d\n';
+    const classified = wbApplyPlanningTypeToPlanText(plan, 'Draft case', 'activity');
+    assert(classified.includes('Draft case 2d #urgent #activity'), 'classification updates the canonical task line');
+    const linked = wbAddNamedDependencyToPlanText(classified, 'Review', 'Draft case');
+    assert(linked.includes('Review 1d [depends Draft case]'), 'facilitator-created relation is a real scheduling dependency');
+}
+
+// ── Natural-language dates and quick assignment (#878) ────────────────
+{
+    const reference = new Date(2026, 8, 10);
+    const detected = wbDetectNaturalDates('Go live 15th March; review March 20, 2027.', reference);
+    assert(detected.length === 2, 'day-first and month-first prose dates are detected');
+    assert(detected[0].date === '2026-03-15' && detected[1].date === '2027-03-20',
+        'yearless prose uses the reference year and an explicit year is preserved');
+    assert(wbDetectNaturalDates('Maybe on 31 February 2026', reference).length === 0,
+        'impossible prose dates are ignored');
+    assert(wbDetectNaturalDates('Ship 14/04/2027', reference)[0].date === '2027-04-14',
+        'unambiguous day/month numeric dates are detected');
+
+    assert(wbApplyDateChoiceToLine('Launch 2d', 'start', '2026-03-15') === 'Launch 2d 2026-03-15',
+        'start attaches through existing positional date syntax');
+    assert(wbApplyDateChoiceToLine('Launch 2d 2026-03-01', 'finish', '2026-03-15') === 'Launch 2d 2026-03-01 2026-03-15',
+        'finish becomes the second positional date');
+    const milestone = wbApplyDateChoiceToLine('Launch 4d 2026-03-01 @sam', 'milestone', '2026-03-15');
+    assert(milestone === 'Launch @sam 0d 2026-03-15', 'milestone replaces scheduling dates/duration while preserving other metadata');
+    const deadline = wbApplyDateChoiceToLine('Launch 2d', 'deadline', '2026-03-15');
+    assert(deadline === 'Launch 2d D2026-03-15', 'deadline is explicit and does not masquerade as a start date');
+
+    const datedPlan = wbApplyDateChoiceToPlanText('Phase\n  Go live 15th March 2d\n', 'Go live 15th March', 'start', '2026-03-15');
+    assert(datedPlan.includes('Go live 15th March 2d 2026-03-15'), 'confirmed smart tag updates the canonical task line');
+
+    const frontMatter = '---\nResources:\n  - @sam: Sam Smith, Developer\n  - @jo: Jo Lee\n---\nPhase\n  Build 2d\n';
+    const options = wbResourceOptionsFromPlanText(frontMatter);
+    assert(options.length === 2 && options[0].shortname === 'sam' && options[0].role === 'Developer',
+        'quick assignment reuses resources declared in front matter');
+    assert(wbApplyResourceToLine('Build 2d "ask @sam later"', 'sam', true) === 'Build 2d "ask @sam later" @sam',
+        'assignment preserves resource-like text inside comments');
+    const assigned = wbApplyResourceToPlanText(frontMatter, 'Build', 'sam', true);
+    assert(assigned.includes('Build 2d @sam'), 'quick assignment writes the ordinary resource token');
+    const removed = wbApplyResourceToPlanText(assigned, 'Build', 'sam', false);
+    assert(!removed.includes('Build 2d @sam'), 'clicking an assigned resource removes its ordinary token');
 }
 
 // ── WCAG contrast helpers ────────────────────────────────────────────────

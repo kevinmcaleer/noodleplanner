@@ -912,6 +912,7 @@ window.addEventListener('load', function() {
     initializeEditor();
     initializeKanbanEditor();
     if (typeof FrontMatterPanel !== 'undefined') FrontMatterPanel.init();
+    if (typeof BackMatterPanel !== 'undefined') BackMatterPanel.init();
     initializeUploadTab();
     initializeEditorDragDrop();
     initializeKanbanEditorDragDrop();

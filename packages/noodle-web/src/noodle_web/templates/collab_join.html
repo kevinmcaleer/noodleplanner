@@ -276,6 +276,14 @@
             <section id="notepadPanel" class="joiner-panel" aria-hidden="true">
                 <div id="joinNotepadContainer"></div>
             </section>
+
+            <h2 class="section-heading">Session chat</h2>
+            <div id="relayLog" aria-live="polite"></div>
+            <div class="row">
+                <input id="relayInput" maxlength="2000" autocomplete="off" placeholder="Message the session">
+                <button type="button" id="relaySend">Send</button>
+                <button type="button" id="relayDownload" title="Download chat">Download</button>
+            </div>
         </div>
     </div>
 
@@ -302,6 +310,9 @@
         const status = document.getElementById('status');
         const joinBtn = document.getElementById('joinBtn');
         const relay = document.getElementById('relay');
+        const relayLog = document.getElementById('relayLog');
+        const joinerChatEntries = [];
+        const joinerChatIds = new Set();
         const joinCard = document.getElementById('joinCard');
         const surfaceButtons = Array.from(document.querySelectorAll('.joiner-tab'));
         const whiteboardPanel = document.getElementById('whiteboardPanel');
@@ -327,6 +338,77 @@
             joinCard.classList.toggle('joined', joined);
         }
 
+        // Restored with the Session chat section: main's joiner-panel
+        // rewrite removed this helper, but submitJoinerChat() and the
+        // chat log still depend on it writing into #relayLog.
+        function log(line) {
+            const div = document.createElement('div');
+            div.textContent = line;
+            relayLog.appendChild(div);
+            relayLog.scrollTop = relayLog.scrollHeight;
+        }
+
+        function joinerChatId() {
+            if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+                return globalThis.crypto.randomUUID();
+            }
+            return `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        }
+
+        function normaliseJoinerChatEntry(value) {
+            if (!value || (value.type !== 'chat' && value.type !== 'activity')) return null;
+            const text = String(value.text || '').replace(/\0/g, '').trim().slice(0, 2000);
+            if (!text) return null;
+            return {
+                type: value.type,
+                id: String(value.id || joinerChatId()).slice(0, 120),
+                sender: String(value.sender || 'Participant').replace(/[\r\n\0]+/g, ' ').trim().slice(0, 100),
+                text,
+                timestamp: Number.isFinite(Number(value.timestamp)) ? Number(value.timestamp) : Date.now(),
+            };
+        }
+
+        function receiveJoinerChatEntry(value) {
+            const entry = normaliseJoinerChatEntry(value);
+            if (!entry || joinerChatIds.has(entry.id)) return false;
+            joinerChatIds.add(entry.id);
+            joinerChatEntries.push(entry);
+            const div = document.createElement('div');
+            const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            div.textContent = entry.type === 'activity'
+                ? `${time} · ${entry.sender} ${entry.text}`
+                : `${time} · ${entry.sender}: ${entry.text}`;
+            if (entry.type === 'activity') div.style.fontStyle = 'italic';
+            relayLog.appendChild(div);
+            relayLog.scrollTop = relayLog.scrollHeight;
+            return true;
+        }
+
+        function joinerChatTranscript() {
+            return joinerChatEntries.map(entry => {
+                const stamp = new Date(entry.timestamp).toISOString();
+                return entry.type === 'activity'
+                    ? `[${stamp}] * ${entry.sender} ${entry.text}`
+                    : `[${stamp}] ${entry.sender}: ${entry.text}`;
+            }).join('\n');
+        }
+
+        function downloadJoinerChat() {
+            const blob = new Blob([joinerChatTranscript()], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `noodleplanner-session-chat-${new Date().toISOString().slice(0, 10)}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        // ---- #967: live plan editing -------------------------------------
+
+        /** Show a transient message -- the "X also edited this" notice from
+         * the host's conflict rule, or an explanation for a bounced op. */
         function showPlanNotice(text) {
             const notice = document.getElementById('planNotice');
             if (!notice || !text) return;
@@ -672,6 +754,20 @@
                         }
                         return;
                     }
+                    if (parsed && parsed.type === 'plan_op_rejected') {
+                        // A stale op means someone else's edit landed
+                        // first and our snapshot was out of date; the
+                        // newer snapshot is already on its way, so this
+                        // explains the bounce rather than being an error.
+                        showPlanNotice(parsed.reason === 'stale'
+                            ? 'That task changed while you were editing — try again.'
+                            : 'The host could not apply that change.');
+                        return;
+                    }
+                    if (parsed && (parsed.type === 'chat' || parsed.type === 'activity')) {
+                        receiveJoinerChatEntry(parsed);
+                        return;
+                    }
                     if (parsed && parsed.type === 'whiteboard_snapshot') {
                         planRev = parsed.rev;
                         whiteboardState = {
@@ -708,6 +804,9 @@
                 sessionKey = null;
                 keyPair = null;
                 connectKey = null;
+                relayLog.innerHTML = '';
+                joinerChatEntries.length = 0;
+                joinerChatIds.clear();
                 joinBtn.disabled = false;
                 relay.style.display = 'none';
                 form.hidden = false;
@@ -742,6 +841,89 @@
                     : 'Lost connection to the session. Enter the code again to rejoin.';
             });
         });
+
+        // #967: add a task. Sent with no parent, so it lands at the end of
+        // the plan -- picking a parent is a structural choice the host's own
+        // outline is better at, and #970's whiteboard interface is where
+        // joiner-side structure editing belongs.
+        function submitNewTask() {
+            const input = document.getElementById('newTaskName');
+            const name = input.value.trim();
+            if (!name) return;
+            sendPlanOp({ op: 'add_task', parent_id: null, name });
+            input.value = '';
+        }
+        document.getElementById('addTaskBtn').addEventListener('click', submitNewTask);
+        document.getElementById('newTaskName').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') { event.preventDefault(); submitNewTask(); }
+        });
+
+        // #969: add a RAID row. Lands with the type/status defaults
+        // applyBackmatterOp gives a fresh row (risk, open) -- refining
+        // those is what the per-row dropdowns rendered above are for.
+        function submitNewRaidRow() {
+            const input = document.getElementById('newRaidTitle');
+            const title = input.value.trim();
+            if (!title) return;
+            sendBackmatterOp({ op: 'add_row', fields: { title } });
+            input.value = '';
+        }
+        document.getElementById('addRaidBtn').addEventListener('click', submitNewRaidRow);
+        document.getElementById('newRaidTitle').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') { event.preventDefault(); submitNewRaidRow(); }
+        });
+
+        // #1036: the same "add a row" wiring for benefits and comms, driven
+        // by SECTION_UI so a fourth section needs no new handler.
+        for (const [section, config] of Object.entries(SECTION_UI)) {
+            const capital = section.charAt(0).toUpperCase() + section.slice(1);
+            const input = document.getElementById(`new${capital}Title`);
+            const button = document.getElementById(`add${capital}Btn`);
+            if (!input || !button) continue;
+
+            const submit = () => {
+                const value = input.value.trim();
+                if (!value) return;
+                if (config.entries) {
+                    // A weekly update is dated by the host's clock rather
+                    // than a field the joiner types: the heading grammar
+                    // requires a strict ISO date, and asking a person to
+                    // hand-type one is a rejected op waiting to happen.
+                    const today = new Date().toISOString().slice(0, 10);
+                    sendSectionOp(section, {
+                        op: 'add_row', fields: { date: today, author: value, content: '' },
+                    });
+                } else {
+                    sendSectionOp(section, { op: 'add_row', fields: { [config.titleField]: value } });
+                }
+                input.value = '';
+            };
+            button.addEventListener('click', submit);
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') { event.preventDefault(); submit(); }
+            });
+        }
+
+        async function submitJoinerChat() {
+            const input = document.getElementById('relayInput');
+            if (!socket || socket.readyState !== WebSocket.OPEN || !input.value) return;
+            if (!sessionKey) {
+                log('(cannot send yet -- secure channel not established)');
+                return;
+            }
+            const entry = normaliseJoinerChatEntry({
+                type: 'chat', id: joinerChatId(), sender: '', text: input.value, timestamp: Date.now(),
+            });
+            const { encryptMessage } = await loadCollabCrypto();
+            const envelope = await encryptMessage(sessionKey, JSON.stringify(entry), sessionId);
+            socket.send(envelope);
+            input.value = '';
+        }
+        document.getElementById('relaySend').addEventListener('click', submitJoinerChat);
+        document.getElementById('relayInput').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') { event.preventDefault(); submitJoinerChat(); }
+        });
+        document.getElementById('relayDownload').addEventListener('click', downloadJoinerChat);
     </script>
 </body>
 </html>

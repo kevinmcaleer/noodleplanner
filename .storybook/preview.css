@@ -1,0 +1,13 @@
+/* Storybook's own chrome stays untouched; only the story canvas adopts the
+   app's paper background so components preview against a realistic ground. */
+.sb-show-main {
+  background: var(--np-paper, #FAF8F4);
+}
+
+/* The preview iframe's body carries no app class, so give it the ground the
+   app would -- otherwise a dark-theme component renders on white and every
+   contrast judgement made here is wrong. */
+.sb-show-main.sb-main-padded {
+  padding: var(--np-space-16);
+  color: var(--np-ink);
+}

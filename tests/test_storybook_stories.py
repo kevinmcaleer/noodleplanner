@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = ROOT / "packages/noodle-web/src/noodle_web/static/component-gallery.js"
 STORIES = ROOT / ".storybook/stories/components.stories.js"
-MAIN = ROOT / ".storybook/main.js"
+MAIN = ROOT / ".storybook/main.mjs"
 INDEX = ROOT / "packages/noodle-web/src/noodle_web/templates/index.html"
 
 
@@ -68,15 +68,15 @@ def test_storybook_reads_the_stylesheet_list_from_index_html():
     """
     main = MAIN.read_text()
     assert "templates/index.html" in main, (
-        "main.js should derive its stylesheet list from index.html, not hardcode one"
+        "main.mjs should derive its stylesheet list from index.html, not hardcode one"
     )
     assert not re.search(r"'\w[\w-]*\.css'", main), (
-        "main.js appears to hardcode a stylesheet name; read them from index.html instead"
+        "main.mjs appears to hardcode a stylesheet name; read them from index.html instead"
     )
 
 
 def test_the_app_still_links_stylesheets_the_way_both_consumers_expect():
-    """The shared assumption behind the gallery route and main.js."""
+    """The shared assumption behind the gallery route and main.mjs."""
     sheets = re.findall(r'href="/static/([^"?]+\.css)', INDEX.read_text())
     assert len(sheets) > 20, f"only found {len(sheets)} linked stylesheets in index.html"
     assert "visual-system.css" in sheets, "the canonical token layer is not linked"

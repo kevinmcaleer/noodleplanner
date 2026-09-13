@@ -198,46 +198,79 @@ silently disagree.
 
 ## Storybook
 
-**Set up in #1197**, as `@storybook/html-vite`. Run it with:
+**Set up in #1197.** Run it with:
 
 ```sh
 npm run storybook          # dev server on :6006
-npm run storybook:build    # static build into .storybook-static/
+npm run build-storybook    # static build into storybook-static/
 ```
 
-This section previously argued Storybook was a poor fit, and the reasoning
-still holds for the version of it that was being imagined. NoodlePlanner has no
-bundler and no component modules: the UI is one large `index.html` plus
-vanilla-JS files that mutate it by `id`. There is no `Button` to write a story
-for, and extracting one is a large architectural change that should be
-justified on its own merits rather than adopted as a side effect of a token
-cleanup.
+Storybook is still not the tool for the *consolidation* question — it renders
+components you already have; it does not analyse a stylesheet for duplicate
+values. What it answers is the question after that one: does this component,
+in this state, in this theme, look right.
 
-What changed is the target, not the constraint. Storybook is pointed at what
-*does* exist -- the app's real class names against the app's real stylesheets,
-rendered as HTML. `@storybook/html-vite` needs no framework and no build step
-in the app itself, and nothing about how NoodlePlanner is served changes. The
-cost is 92 dev dependencies.
+Two groups of thing are previewed, and they sit at opposite ends of the
+migration this epic describes. `.storybook/main.mjs` points at both.
 
-Two things make it trustworthy rather than decorative:
-
-- **`.storybook/main.js` reads the stylesheet list out of `index.html`** rather
-  than carrying a copy. Load order decides which of two equal-specificity rules
-  wins, which is the exact bug this epic exists to fix, so a Storybook
-  rendering components under a stale order would be worse than none.
-- **The variants come from `static/component-gallery.js`**, the same module the
-  `/components` page renders from. One spec, two consumers.
-
-CSF reads static named exports, so a story cannot be generated per variant in a
-loop -- there is one story per *section*, written out. That single
+**The app's existing class names.** There is no `Button` module to write a
+story for — the UI is one large `index.html` plus vanilla JS that mutates it
+by `id` — so the stories are generated from
+`static/component-gallery.js`, the same module the `/components` page renders
+from. One spec, two consumers. CSF reads static named exports, so a story
+cannot be generated per variant in a loop: there is one story per *section*,
+written out in `.storybook/stories/components.stories.js`. That single
 hand-maintained list is the only place the two consumers can drift, and
 `tests/test_storybook_stories.py` fails when a section has no story. Adding a
-variant needs no change anywhere.
+*variant* needs no change anywhere.
 
-The token files are also ready for a theme decorator if one is ever wanted: run
-`docs/design/tokens/*.json` through [Style Dictionary](https://styledictionary.com/)
-v4+, which reads DTCG `$type`/`$value` natively. Not needed today -- the
-preview loads the app's own CSS, so the tokens are simply there.
+**The extracted Web Components.** `static/components/button|card|board|note/`
+— framework-free custom elements (`<np-button>`, `<np-card>`, `<np-board>`,
+`<np-note>`) consolidating duplicated markup (the four independently-styled
+button variants, the Kanban board's card/column chrome, the whiteboard's
+post-it note) onto the canonical `--np-*` tokens, each with a colocated
+`*.stories.js`. None are wired into the live app yet — see
+`static/components/README.md` for how to run them and add the next one.
+
+The framework is `@storybook/web-components-vite`, because the second group
+needs a renderer that understands custom elements and it renders the first
+group's plain DOM nodes just as well. One config serves both.
+
+Two things make the preview trustworthy rather than decorative:
+
+- **`.storybook/main.mjs` reads the stylesheet list out of `index.html`**
+  rather than carrying a copy, and serves `static/` at `/static` so the paths
+  resolve as they do in the app. Load order decides which of two
+  equal-specificity rules wins, which is the exact bug this epic exists to
+  fix, so a Storybook rendering components under a stale order would be worse
+  than none. `tests/test_storybook_stories.py` enforces it.
+- **Nothing in the preview defines styling of its own.** A component that
+  looks wrong in Storybook looks wrong in NoodlePlanner.
+
+**Extracting the next component:** pick something duplicated across the HTML
+(search `templates/index.html` for repeated `class="..."` patterns the way
+`components.css` was grepped for `.btn-*` here), build it as a Web Component
+under `static/components/<name>/`, write a story, and — separately, as its
+own reviewable change — migrate the existing markup to use it. Keep those two
+steps apart: extraction is mechanical and low-risk, migration touches the live
+app and needs its own testing pass (`docs/capture_screenshots.py` after, per
+the root `CLAUDE.md`).
+
+**Colour tokens:** `static/components/tokens/color-tokens.stories.js` (the
+"Design Tokens/Colours" story) renders every token straight out of
+`docs/design/tokens/color-light.json` / `color-dark.json` — the exact JSON
+Penpot imports — as light/dark swatch pairs, so the palette handed to Penpot
+is visible in Storybook too, without hand-copying values into a second place.
+`.storybook/main.mjs` aliases `@design-tokens` to `docs/design/tokens/` for it.
+
+The token files fuel a further build step this doesn't attempt yet: run
+`docs/design/tokens/*.json` through
+[Style Dictionary](https://styledictionary.com/) v4+ (which reads DTCG
+`$type`/`$value` natively) to emit CSS custom properties or a JS token module
+for a theme decorator. Not needed for the preview — it loads the app's own CSS,
+so the tokens are simply there. Treat `core.json`'s `shadow` as a
+string-typed token — it stores the raw multi-layer `box-shadow` rather than a
+decomposed object.
 
 ## Suggested order of work
 

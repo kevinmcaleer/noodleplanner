@@ -122,6 +122,28 @@
     overflow: visible;
 }
 
+/* Dragged onto the open parking lot panel (issue #1201): a live cue, while
+   the drag is still in progress, that releasing here parks the note rather
+   than repositioning it. */
+.wb-note.wb-note-park-armed {
+    opacity: 0.55;
+}
+
+/* The park itself, once released over the panel (wbParkDraggedNote()):
+   shrinks and fades the note into nothing before its task -- and this DOM
+   node with it -- is actually deleted, so it visually "goes into" the
+   panel rather than just vanishing. transform-box/-origin pin the shrink
+   to the note's own centre; SVG elements otherwise transform around the
+   nearest viewport's origin, not their own box. */
+.wb-note.wb-note-parking {
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    transition: transform 180ms ease, opacity 180ms ease; /* keep in step with WB_NOTE_PARK_ANIM_MS */
+    transform: scale(0.1);
+    opacity: 0;
+    pointer-events: none;
+}
+
 .wb-note-card {
     --wb-note-accent: var(--np-border);
     --wb-note-text: var(--np-text);
@@ -198,6 +220,244 @@
     background: rgba(0, 0, 0, 0.08);
 }
 
+.wb-note-coach-btn,
+.wb-note-row-coach {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    opacity: 0.72;
+}
+
+.wb-note-smart-btn,
+.wb-note-row-smart {
+    flex: 0 0 auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 var(--np-space-4);
+    border: 1px solid currentColor;
+    border-radius: 10px;
+    background: transparent;
+    color: inherit;
+    font: 700 10px/1 inherit;
+    cursor: pointer;
+    opacity: 0.78;
+}
+
+.wb-note-date-btn,
+.wb-note-row-date {
+    max-width: 86px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: #e8f3ff;
+    color: #174c78;
+    border-color: #83b8e4;
+}
+
+.wb-note-resource-btn,
+.wb-note-row-resource {
+    width: 20px;
+    padding: 0;
+    border-style: dashed;
+}
+
+.wb-note-smart-btn:hover,
+.wb-note-smart-btn:focus-visible,
+.wb-note-row-smart:hover,
+.wb-note-row-smart:focus-visible {
+    opacity: 1;
+    box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.wb-note-row-smart {
+    height: 18px;
+    min-width: 18px;
+    color: var(--np-text-secondary, #666);
+}
+
+.wb-note-row-date {
+    color: #174c78;
+}
+
+.wb-smart-menu {
+    position: fixed;
+    z-index: 1400;
+    width: 260px;
+    padding: 12px;
+    border: 1px solid var(--np-border, #d8dce1);
+    border-radius: 9px;
+    background: var(--np-surface, #fff);
+    color: var(--np-text, #222);
+    box-shadow: 0 10px 28px var(--np-shadow, rgba(0, 0, 0, 0.22));
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.wb-smart-menu > strong {
+    display: block;
+    margin-bottom: var(--np-space-8);
+}
+
+.wb-smart-menu > p {
+    margin: 0 0 var(--np-space-8);
+    color: var(--np-text-muted, #777);
+}
+
+.wb-date-choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--np-space-8);
+}
+
+.wb-date-choices button,
+.wb-resource-choice {
+    border: 1px solid var(--np-border, #d8dce1);
+    border-radius: 6px;
+    background: var(--np-bg-alt, #f5f6f8);
+    color: inherit;
+    cursor: pointer;
+    padding: var(--np-space-8);
+}
+
+.wb-date-choices button:hover,
+.wb-date-choices button:focus-visible,
+.wb-resource-choice:hover,
+.wb-resource-choice:focus-visible {
+    border-color: var(--np-accent, #667eea);
+}
+
+.wb-resource-choice {
+    display: block;
+    width: 100%;
+    margin-top: var(--np-space-4);
+    text-align: left;
+}
+
+.wb-resource-choice[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--np-accent, #667eea) 16%, var(--np-surface, #fff));
+    border-color: var(--np-accent, #667eea);
+}
+
+.wb-note-coach-btn:hover,
+.wb-note-coach-btn:focus-visible,
+.wb-note-row-coach:hover,
+.wb-note-row-coach:focus-visible {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
+    border-color: currentColor;
+}
+
+.wb-note-coach-btn.suspected-activity,
+.wb-note-row-coach.suspected-activity {
+    opacity: 1;
+    background: #fff3b0;
+    color: #5b4300;
+    border-color: #d9b72f;
+}
+
+.wb-note-coach-btn.typed,
+.wb-note-row-coach:not(.suspected-activity) {
+    border-color: currentColor;
+}
+
+.wb-note-row-coach {
+    width: 18px;
+    height: 18px;
+    color: var(--np-text-secondary, #666);
+}
+
+.wb-coaching-menu {
+    position: fixed;
+    z-index: 1400;
+    width: 300px;
+    padding: 12px;
+    border: 1px solid var(--np-border, #d8dce1);
+    border-radius: 9px;
+    background: var(--np-surface, #fff);
+    color: var(--np-text, #222);
+    box-shadow: 0 10px 28px var(--np-shadow, rgba(0, 0, 0, 0.22));
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.wb-coaching-menu > strong {
+    display: block;
+    margin-bottom: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wb-coaching-hint {
+    margin: 0 0 var(--np-space-12);
+    padding: var(--np-space-8);
+    border-radius: 6px;
+    background: #fff8d8;
+    color: #4d3b00;
+    line-height: 1.35;
+}
+
+.wb-coaching-types {
+    display: flex;
+    gap: var(--np-space-8);
+    margin-bottom: var(--np-space-12);
+}
+
+.wb-coaching-types button,
+.wb-coaching-prompt {
+    border: 1px solid var(--np-border, #d8dce1);
+    border-radius: 6px;
+    background: var(--np-bg-alt, #f5f6f8);
+    color: inherit;
+    cursor: pointer;
+}
+
+.wb-coaching-types button {
+    flex: 1;
+    padding: var(--np-space-4) var(--np-space-8);
+}
+
+.wb-coaching-types button.selected {
+    border-color: var(--np-accent, #667eea);
+    background: var(--np-accent, #667eea);
+    color: var(--np-on-accent, #fff);
+}
+
+.wb-coaching-label {
+    display: block;
+    margin-bottom: var(--np-space-4);
+    color: var(--np-text-muted, #777);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.wb-coaching-prompt {
+    display: block;
+    width: 100%;
+    margin-top: var(--np-space-4);
+    padding: var(--np-space-8);
+    text-align: left;
+}
+
+.wb-coaching-prompt:hover,
+.wb-coaching-prompt:focus-visible {
+    border-color: var(--np-accent, #667eea);
+    background: var(--np-bg-hover, #eceef2);
+}
+
 .wb-note-body {
     flex: 1;
     min-height: 0;
@@ -239,7 +499,7 @@
     display: flex;
     align-items: center;
     gap: var(--np-space-8);
-    padding: var(--np-space-4) var(--np-space-4);
+    padding: var(--np-space-4);
     border-radius: 4px;
     min-width: 0;
 }
@@ -420,7 +680,7 @@
     display: flex;
     align-items: center;
     gap: var(--np-space-8);
-    padding: var(--np-space-4) var(--np-space-4);
+    padding: var(--np-space-4);
     border-radius: 4px;
     min-width: 0;
     cursor: text;
@@ -463,7 +723,7 @@
 
 .wb-note-menu-empty {
     display: block;
-    padding: var(--np-space-8) var(--np-space-8);
+    padding: var(--np-space-8);
     color: var(--np-text-secondary);
     font-size: 12px;
 }
@@ -566,7 +826,7 @@
     display: block;
     width: 100%;
     text-align: left;
-    padding: var(--np-space-8) var(--np-space-8);
+    padding: var(--np-space-8);
     border: 1px solid var(--np-border);
     border-radius: 6px;
     background: var(--np-bg-alt);
@@ -648,7 +908,7 @@
    Left unstyled-empty (no placeholder) when there is no comment, per
    #885's "nothing prompts for detail". */
 .wb-note-freetext {
-    padding: var(--np-space-8) var(--np-space-8);
+    padding: var(--np-space-8);
     font-size: 12px;
     line-height: 1.5;
     color: var(--wb-note-text);
@@ -866,7 +1126,7 @@ body.wb-note-drag-active * {
     display: block;
     width: 100%;
     text-align: left;
-    padding: var(--np-space-8) var(--np-space-8);
+    padding: var(--np-space-8);
     border: 1px solid transparent;
     border-radius: 6px;
     background: transparent;
@@ -988,7 +1248,7 @@ body.wb-note-drag-active * {
     align-items: center;
     justify-content: space-between;
     gap: var(--np-space-8);
-    padding: var(--np-space-16) var(--np-space-16);
+    padding: var(--np-space-16);
     border-bottom: 1px solid var(--np-border);
     flex-shrink: 0;
 }
@@ -1229,27 +1489,59 @@ body.wb-note-drag-active * {
     }
 }
 
-/* ── Parking lot panel (issue #1019) ────────────────────────────────────
-   Reuses the Add-note picker's overlay/dialog/header chrome (see
-   .wb-add-note-overlay/.wb-add-note-dialog/.wb-add-note-header above);
-   only the body -- a plain list, no search, no footer -- is new. */
+/* ── Parking lot panel (issue #1019; slide-out + drag/reorder #1201) ────
+   #1019 shipped this as a centred modal, reusing the Add-note picker's
+   overlay/dialog/header chrome. #1201 turns it into a non-modal panel
+   docked to the board's right edge instead -- still reusing
+   .wb-add-note-header for the title bar, but everything below (the panel
+   shell itself, the slide transition, and each row's drag affordances) is
+   new. See whiteboard-notes.js's "Parking lot panel" section header
+   comment for the interaction this styles. */
 
-.wb-parking-lot-dialog {
-    max-width: 420px;
+.wb-parking-lot-panel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: 300px;
+    max-width: calc(100% - 24px);
+    display: flex;
+    flex-direction: column;
+    background: var(--np-surface, #ffffff);
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 10px;
+    box-shadow: 0 6px 22px var(--np-shadow, rgba(0, 0, 0, 0.16));
+    overflow: hidden;
+    z-index: 5;
+    transform: translateX(calc(100% + 24px));
+    transition: transform 0.2s ease;
+}
+
+.wb-parking-lot-panel.open {
+    transform: translateX(0);
+}
+
+/* Live drop-target feedback while a note is being dragged over the panel
+   (wbUpdateParkingLotDropHint()) -- an accent ring, not a colour swap, so
+   it reads as "drop here" without fighting the panel's own chrome. */
+.wb-parking-lot-panel.wb-parking-lot-panel-drop-armed {
+    outline: 2px solid var(--np-accent, #4a90d9);
+    outline-offset: -2px;
 }
 
 .wb-parking-lot-intro {
     margin: 0;
-    padding: 0 var(--np-space-16) var(--np-space-8);
+    padding: var(--np-space-12) var(--np-space-16);
     font-size: 12px;
     color: var(--np-text-secondary);
+    border-bottom: 1px solid var(--np-border);
     flex-shrink: 0;
 }
 
 .wb-parking-lot-list {
     list-style: none;
     margin: 0;
-    padding: 0 var(--np-space-8) var(--np-space-12);
+    padding: var(--np-space-8);
     overflow-y: auto;
     flex: 1;
     min-height: 80px;
@@ -1258,13 +1550,40 @@ body.wb-note-drag-active * {
 .wb-parking-lot-item {
     display: flex;
     align-items: center;
-    gap: var(--np-space-12);
+    gap: var(--np-space-8);
     padding: var(--np-space-8);
     border-radius: 6px;
+    border-top: 2px solid transparent;
+    border-bottom: 2px solid transparent;
 }
 
 .wb-parking-lot-item:hover {
     background: var(--np-bg-hover);
+}
+
+/* Dragged-row and reorder-target feedback (issue #1201). The dragging row
+   itself fades so the row underneath it (its actual drop position once
+   released) stays legible; the target row grows a coloured rule on the
+   edge the drop will land against, cheaper to read at a glance than
+   reflowing the whole list on every dragover. */
+.wb-parking-lot-item-dragging {
+    opacity: 0.4;
+}
+
+.wb-parking-lot-item-drop-before {
+    border-top-color: var(--np-accent, #4a90d9);
+}
+
+.wb-parking-lot-item-drop-after {
+    border-bottom-color: var(--np-accent, #4a90d9);
+}
+
+.wb-parking-lot-item-handle {
+    flex-shrink: 0;
+    color: var(--np-text-muted, #888888);
+    font-size: 13px;
+    line-height: 1;
+    cursor: grab;
 }
 
 .wb-parking-lot-item-text {
@@ -1320,6 +1639,27 @@ body.wb-note-drag-active * {
     font-size: 12px;
     font-style: italic;
     color: var(--np-text-muted);
+}
+
+@media (max-width: 640px) {
+    /* Narrow viewport: a 300px right column would eat most of the board --
+       span the full width, docked to the bottom instead, matching the
+       outline panel's own narrow-viewport treatment (its @media block
+       further down this file). */
+    .wb-parking-lot-panel {
+        top: auto;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        width: auto;
+        max-width: none;
+        height: 60%;
+        transform: translateY(calc(100% + 24px));
+    }
+
+    .wb-parking-lot-panel.open {
+        transform: translateY(0);
+    }
 }
 
 /* ========================================
@@ -1813,7 +2153,7 @@ body.wb-linking * {
 }
 
 .wb-outline-empty {
-    margin: var(--np-space-12) var(--np-space-12);
+    margin: var(--np-space-12);
     font-size: 12px;
     line-height: 1.45;
     color: var(--np-text-muted);
@@ -1923,7 +2263,7 @@ body.wb-linking * {
     display: flex;
     align-items: center;
     gap: var(--np-space-8);
-    padding: var(--np-space-2) var(--np-space-2);
+    padding: var(--np-space-2);
     border: none;
     background: transparent;
     font-family: inherit;
