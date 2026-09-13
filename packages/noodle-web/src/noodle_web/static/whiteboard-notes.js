@@ -2022,6 +2022,14 @@ function wbUpdateNoteDragFromClient(clientX, clientY) {
     if (typeof wbRefreshDependencyNoodleGeometry === 'function') {
         wbRefreshDependencyNoodleGeometry(fo.dataset.wbTask);
     }
+
+    // Issue #1201: hint that dropping *here* would park the note instead of
+    // repositioning it -- the panel gets a highlight, the note itself gets a
+    // "this is about to leave the board" cue, mirroring wb-link-target's own
+    // live drop-target feedback.
+    if (drag.type === 'move') {
+        wbUpdateParkingLotDropHint(fo, wbPointOverParkingLotPanel(clientX, clientY));
+    }
 }
 
 /**
@@ -2058,14 +2066,32 @@ function wbCommitNoteChange(taskName, mutateItemFn) {
     return wbCommitMarkdown(nextText);
 }
 
-/** End the active drag/resize gesture and commit its result (if any). */
-function wbFinishDrag() {
+/**
+ * End the active drag/resize gesture and commit its result (if any).
+ *
+ * `clientX`/`clientY`, when given, are the pointer's position at release --
+ * used only to check whether a *move* drag ended over the open parking lot
+ * panel (issue #1201), in which case the note is parked (wbParkDraggedNote())
+ * instead of having its new board position committed. Omit them (as a plain
+ * tap/click, or a resize, does) to always fall through to the ordinary
+ * position/size commit below.
+ */
+function wbFinishDrag(clientX, clientY) {
     const drag = wbActiveDrag;
     if (!drag) return;
     wbActiveDrag = null;
     wbSetDragCursor('');
+    wbUpdateParkingLotDropHint(drag.entry.fo, false);
 
     const taskName = drag.entry.fo.dataset.wbTask;
+
+    if (drag.type === 'move' && drag.moved &&
+        typeof clientX === 'number' && typeof clientY === 'number' &&
+        wbPointOverParkingLotPanel(clientX, clientY)) {
+        wbParkDraggedNote(drag.entry, taskName);
+        return;
+    }
+
     const rect = wbNoteCurrentRect(drag.entry);
     wbCommitNoteChange(taskName, (item) => {
         if (drag.type === 'move') {
@@ -2158,7 +2184,7 @@ function wbNoteDragMouseMove(e) {
 function wbNoteDragMouseUp(e) {
     if (!wbActiveDrag || wbActiveDrag.touchId !== null) return;
     if (typeof e.button === 'number' && e.button !== 0) return;
-    wbFinishDrag();
+    wbFinishDrag(e.clientX, e.clientY);
 }
 
 // ── Touch entry points ───────────────────────────────────────────────────
@@ -2251,7 +2277,8 @@ function wbNoteDragTouchEnd(e) {
         wbFinishNoteTap(drag.entry);
         return;
     }
-    wbFinishDrag();
+    const touch = wbFindTouchById(e.changedTouches, drag.touchId);
+    wbFinishDrag(touch ? touch.clientX : undefined, touch ? touch.clientY : undefined);
 }
 
 if (typeof window !== 'undefined') {
@@ -5284,17 +5311,22 @@ function wbSendNoteToParkingLot(taskName) {
     return wbCommitMarkdown(next);
 }
 
-// ── Parking lot panel (issue #1019, restore added by #1110) ─────────────
+// ── Parking lot panel (issue #1019, restore added by #1110, slide-out +
+//    drag/reorder added by #1201) ─────────────────────────────────────
 //
 // The "viewable/manageable" half of #1019's acceptance criteria: a simple
 // list, deliberately no more than that (the issue's own words: "doesn't
-// have to be fancy"). Follows the Add-note picker's floating-dialog
-// convention (wbOpenAddNotePicker()/wbCloseAddNotePicker() above) --
-// single overlay appended to document.body, rebuilt fresh on each open so
-// it can never go stale across repeated opens in one session -- just
-// without that picker's search/multi-select machinery, since "manage"
-// here only means "see what's parked, remove one you no longer want, or
-// bring one back".
+// have to be fancy"). Originally a modal dialog cloned from the Add-note
+// picker's floating-dialog convention; #1201 turns it into a non-modal
+// slide-out panel docked to the board's right edge instead -- the board
+// stays interactive underneath it (no full-screen backdrop, no
+// `aria-modal`), and dragging a note's header onto it parks that note the
+// same way the note's own "..." menu does, with the note shrinking away
+// under it as visual confirmation. Rebuilt fresh on each open (like the
+// modal it replaces) so it can never go stale across repeated opens in one
+// session; unlike the modal, closing slides it back out rather than
+// removing it from the DOM instantly, so #wbParkingLotPanel stays attached
+// for the CSS transition's duration (see wbCloseParkingLotPanel()).
 //
 // #1019 originally shipped with no "restore to board" action here (a
 // parked item's text was flattened and one-way). #1110 closes that: every
@@ -5306,16 +5338,214 @@ function wbSendNoteToParkingLot(taskName) {
 // flat `text` back apart on wbBuildParkedItemText()'s own " — " separator
 // -- a plain task with that title (and comment, if the split found one),
 // no children -- rather than leaving old rows stuck with no way back onto
-// the board at all.
+// the board at all. #1201 adds a second way to restore: dragging a row out
+// of the panel and dropping it on the board restores it at the drop point
+// instead of the first free grid cell (see wbRestoreParkedItem()'s
+// `atPoint` parameter).
+//
+// #1201 also makes list order meaningful: each row is HTML5-draggable
+// (native drag and drop, not the note system's own custom mouse/touch
+// machinery -- these rows are plain list items, not SVG-positioned notes)
+// and dropping one on another reorders the underlying ---parking lot---
+// table via wbReorderParkedItem(), one wbCommitMarkdown() call like every
+// other action here.
 
-/** Close the panel, if open, and return focus to the toolbar button that
- * opened it. */
+const WB_PARK_ITEM_DRAG_MIME = 'application/x-noodleplanner-parked-item';
+const WB_NOTE_PARK_ANIM_MS = 180;
+const WB_PARKING_LOT_PANEL_ANIM_MS = 200; // keep in step with .wb-parking-lot-panel's transition-duration
+
+/** Whether the parking lot panel is currently open (slid in, not mid- or
+ * post-close). Every drag/drop hook below gates on this rather than just
+ * "does #wbParkingLotPanel exist", since the panel stays in the DOM for its
+ * closing transition (see wbCloseParkingLotPanel()) and must not accept
+ * drops during that time. */
+function wbParkingLotPanelEl() {
+    if (typeof document === 'undefined') return null;
+    const panel = document.getElementById('wbParkingLotPanel');
+    return (panel && panel.classList.contains('open')) ? panel : null;
+}
+
+/** Whether a screen point sits over the open parking lot panel -- what
+ * wbFinishDrag() checks to decide "reposition the note" vs. "park it". */
+function wbPointOverParkingLotPanel(clientX, clientY) {
+    const panel = wbParkingLotPanelEl();
+    if (!panel || typeof clientX !== 'number' || typeof clientY !== 'number') return false;
+    const rect = panel.getBoundingClientRect();
+    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+}
+
+/** Live drop-target feedback for a note drag in progress: highlights the
+ * panel and marks the dragged note itself while the pointer is over it, so
+ * releasing there doesn't surprise anyone. Cheap to call every drag frame
+ * (two classList toggles, no layout work beyond the containment check
+ * above) and always safe to call with `active: false` even when nothing was
+ * ever highlighted. */
+function wbUpdateParkingLotDropHint(fo, active) {
+    if (typeof document === 'undefined') return;
+    const panel = document.getElementById('wbParkingLotPanel');
+    if (panel) panel.classList.toggle('wb-parking-lot-panel-drop-armed', !!active);
+    if (fo) fo.classList.toggle('wb-note-park-armed', !!active);
+}
+
+/**
+ * Finish parking a note that was dropped on the open panel mid-drag (issue
+ * #1201): plays a brief shrink-and-fade on the note's own <foreignObject>
+ * (`.wb-note-parking`, see views/whiteboard.css) so it visually collapses
+ * into the panel it's about to appear in, *then* runs the exact same
+ * wbSendNoteToParkingLot() the note's "..." menu action does -- one
+ * wbCommitMarkdown() call, one undo step, identical result either way. The
+ * animation is cosmetic only: if `entry.fo` is somehow gone (or transitions
+ * are disabled) this still completes via the fallback timer.
+ */
+function wbParkDraggedNote(entry, taskName) {
+    const fo = entry && entry.fo;
+    const finishPark = () => {
+        wbSendNoteToParkingLot(taskName);
+        if (wbParkingLotPanelEl()) wbRenderParkingLotList();
+    };
+    if (!fo) {
+        finishPark();
+        return;
+    }
+    let done = false;
+    const finish = () => {
+        if (done) return;
+        done = true;
+        fo.removeEventListener('transitionend', finish);
+        clearTimeout(timer);
+        finishPark();
+    };
+    fo.classList.add('wb-note-parking');
+    fo.addEventListener('transitionend', finish);
+    // transitionend can be missed (reduced-motion, a tab backgrounded mid-
+    // gesture) -- the fallback timer guarantees the park still lands.
+    const timer = setTimeout(finish, WB_NOTE_PARK_ANIM_MS + 80);
+}
+
+/**
+ * Convert a screen point into board coordinates, for a drag-restore drop
+ * (see the canvas `drop` handler wired in wbWireParkingLotCanvasDropTarget()
+ * below). Inverse of the `translate(panX, panY) scale(zoom)` transform --
+ * see wbViewportToBoardRect()'s doc comment (whiteboard.js) for the same
+ * relationship. Returns null if the canvas isn't on screen.
+ */
+function wbBoardPointFromClient(clientX, clientY) {
+    if (typeof wbSvg === 'undefined' || !wbSvg) return null;
+    const rect = wbSvg.getBoundingClientRect();
+    const zoom = wbCurrentZoom();
+    const panX = (typeof wbPanX === 'number') ? wbPanX : 0;
+    const panY = (typeof wbPanY === 'number') ? wbPanY : 0;
+    return {
+        x: (clientX - rect.left - panX) / zoom,
+        y: (clientY - rect.top - panY) / zoom,
+    };
+}
+
+/** Whether a native drag carries a parked item (vs. a browser text/file
+ * drag, or nothing relevant) -- checked before preventDefault()-ing a
+ * dragover/drop on the canvas, so an unrelated drag onto the whiteboard is
+ * never hijacked. */
+function wbDragHasParkedItem(e) {
+    return !!(e.dataTransfer && e.dataTransfer.types &&
+        Array.prototype.includes.call(e.dataTransfer.types, WB_PARK_ITEM_DRAG_MIME));
+}
+
+/**
+ * Wire the whiteboard canvas as a drop target for a parked item dragged out
+ * of the panel (issue #1201's "and also back out"), restoring it at the
+ * drop point (wbRestoreParkedItem()'s `atPoint`) rather than the first free
+ * grid cell. Idempotent (guarded by a dataset flag) and cheap to call on
+ * every panel open -- the container only exists once the whiteboard view
+ * has been shown, which is the only place the panel can be opened from.
+ */
+function wbWireParkingLotCanvasDropTarget() {
+    if (typeof document === 'undefined') return;
+    const container = document.getElementById('whiteboardContainer');
+    if (!container || container.dataset.wbParkDropWired) return;
+    container.dataset.wbParkDropWired = '1';
+
+    container.addEventListener('dragover', (e) => {
+        if (!wbDragHasParkedItem(e)) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    });
+    container.addEventListener('drop', (e) => {
+        if (!wbDragHasParkedItem(e)) return;
+        e.preventDefault();
+        const itemId = parseInt(e.dataTransfer.getData(WB_PARK_ITEM_DRAG_MIME), 10);
+        if (Number.isNaN(itemId)) return;
+        const point = wbBoardPointFromClient(e.clientX, e.clientY);
+        wbRestoreParkedItem(itemId, point);
+    });
+}
+
+/**
+ * Reorder the parking lot (issue #1201's "allow items ... to be ordered"):
+ * moves the item `draggedId` to just before/after `targetId` (per
+ * `placeAfter`) and rewrites the ---parking lot--- table in that order --
+ * table order *is* display/restore order, so this is the whole of what
+ * "ordered" means here. One wbCommitMarkdown() call, one undo step, same as
+ * every other panel action. No-op (returns false, no commit) if either item
+ * can't be found or the drop is a no-op (dropped on itself).
+ */
+function wbReorderParkedItem(draggedId, targetId, placeAfter) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || typeof updatePlanParkingLotText !== 'function') return false;
+    if (draggedId === targetId) return false;
+
+    const items = wbCurrentParkingLotItems();
+    const fromIdx = items.findIndex(i => i && i.id === draggedId);
+    if (fromIdx === -1) return false;
+    const [moved] = items.splice(fromIdx, 1);
+
+    let toIdx = items.findIndex(i => i && i.id === targetId);
+    if (toIdx === -1) return false; // target vanished from underneath us -- nothing to persist
+    if (placeAfter) toIdx += 1;
+    items.splice(toIdx, 0, moved);
+
+    const nextText = updatePlanParkingLotText(editor.value, items);
+    const committed = wbCommitMarkdown(nextText);
+    if (committed) wbRenderParkingLotList();
+    return committed;
+}
+
+/** Close the panel, if open, sliding it back out before detaching it (the
+ * reverse of wbOpenParkingLotPanel()'s slide-in) and returning focus to the
+ * toolbar button that opened it. Safe to call when nothing is open, and
+ * when a close is already in flight (a second Escape, say). */
 function wbCloseParkingLotPanel() {
-    const overlay = document.getElementById('wbParkingLotOverlay');
-    if (overlay) overlay.remove();
+    const panel = document.getElementById('wbParkingLotPanel');
+    if (!panel) return;
     document.removeEventListener('keydown', wbParkingLotPanelKeydown, true);
-
     const btn = document.getElementById('whiteboardParkingLotBtn');
+    if (btn) btn.setAttribute('aria-pressed', 'false');
+
+    if (panel.dataset.wbClosing) return; // already mid-close
+    panel.dataset.wbClosing = '1';
+    panel.classList.remove('open');
+
+    let done = false;
+    const detach = () => {
+        if (done) return;
+        done = true;
+        panel.removeEventListener('transitionend', detach);
+        clearTimeout(panel._wbDetachTimer);
+        delete panel._wbDetachCleanup;
+        if (panel.isConnected) panel.remove();
+    };
+    panel.addEventListener('transitionend', detach);
+    panel._wbDetachTimer = setTimeout(detach, WB_PARKING_LOT_PANEL_ANIM_MS + 80);
+    // Reachable from wbOpenParkingLotPanel() if it's asked to reopen the
+    // panel while this close animation is still in flight -- cancels the
+    // pending detach without running it, so the panel already on screen
+    // (mid-slide-out) can just slide back in rather than being torn down
+    // and rebuilt from scratch.
+    panel._wbDetachCleanup = () => {
+        done = true;
+        panel.removeEventListener('transitionend', detach);
+        clearTimeout(panel._wbDetachTimer);
+    };
+
     if (btn) btn.focus();
 }
 
@@ -5396,10 +5626,19 @@ function wbSanitiseCommentText(text) {
  * pre-#1110 checklist note's item list can't be recovered (it was never
  * kept anywhere once flattened).
  *
+ * `atPoint` (issue #1201, `{x, y}` in board coordinates) places the
+ * restored note centred on that point instead of the first free grid cell
+ * -- what a drag out of the panel onto the board uses (see
+ * wbWireParkingLotCanvasDropTarget()), so the note lands exactly where it
+ * was dropped rather than wherever wbFindFreeSpacePosition() would have put
+ * it. Omitted (or given a non-finite point), this falls back to the
+ * original free-space placement -- the Restore button's own behaviour,
+ * unchanged.
+ *
  * Returns false (no-op, no commit) if the item can't be found or the
  * required helpers aren't loaded.
  */
-function wbRestoreParkedItem(itemId) {
+function wbRestoreParkedItem(itemId, atPoint) {
     const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
     if (!editor) return false;
     if (typeof wbAppendTopLevelTask !== 'function' ||
@@ -5458,11 +5697,22 @@ function wbRestoreParkedItem(itemId) {
     });
 
     const rowItems = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(next));
-    const viewport = (typeof wbCurrentViewportBoardRect === 'function') ? wbCurrentViewportBoardRect() : null;
-    const newRows = wbBuildAddNoteRows(rowItems, viewport, [name], {
-        width: WB_NOTE_DEFAULT_WIDTH,
-        height: WB_NOTE_DEFAULT_HEIGHT,
-    });
+    const hasDropPoint = atPoint && Number.isFinite(atPoint.x) && Number.isFinite(atPoint.y);
+    let newRows;
+    if (hasDropPoint) {
+        newRows = [{
+            task: name,
+            x: Math.round(atPoint.x - WB_NOTE_DEFAULT_WIDTH / 2),
+            y: Math.round(atPoint.y - WB_NOTE_DEFAULT_HEIGHT / 2),
+            colour: '', width: null, height: null, collapsed: false,
+        }];
+    } else {
+        const viewport = (typeof wbCurrentViewportBoardRect === 'function') ? wbCurrentViewportBoardRect() : null;
+        newRows = wbBuildAddNoteRows(rowItems, viewport, [name], {
+            width: WB_NOTE_DEFAULT_WIDTH,
+            height: WB_NOTE_DEFAULT_HEIGHT,
+        });
+    }
     if (colour) newRows.forEach(row => { row.colour = colour; });
     next = updatePlanWhiteboardText(next, rowItems.concat(newRows));
 
@@ -5474,7 +5724,13 @@ function wbRestoreParkedItem(itemId) {
     return committed;
 }
 
-/** Rebuild the panel's <ul> from the current parking lot items. */
+/**
+ * Rebuild the panel's <ul> from the current parking lot items. Each row is
+ * natively draggable (issue #1201): dragging it over another row and
+ * dropping reorders the list (wbReorderParkedItem()); dragging it out onto
+ * the board restores it at the drop point (wbWireParkingLotCanvasDropTarget()
+ * reads the same WB_PARK_ITEM_DRAG_MIME payload set in `dragstart` below).
+ */
 function wbRenderParkingLotList() {
     const list = document.getElementById('wbParkingLotList');
     if (!list) return;
@@ -5485,14 +5741,27 @@ function wbRenderParkingLotList() {
     if (!items.length) {
         const empty = document.createElement('li');
         empty.className = 'wb-parking-lot-empty';
-        empty.textContent = 'Nothing parked yet. Use a note\'s "..." menu to send an idea here.';
+        empty.textContent = 'Nothing parked yet. Drag a note here, or use its "..." menu, to send an idea over.';
         list.appendChild(empty);
         return;
     }
 
+    const clearDropIndicators = () => {
+        list.querySelectorAll('.wb-parking-lot-item-drop-before, .wb-parking-lot-item-drop-after')
+            .forEach(el => el.classList.remove('wb-parking-lot-item-drop-before', 'wb-parking-lot-item-drop-after'));
+    };
+
     items.forEach(item => {
         const li = document.createElement('li');
         li.className = 'wb-parking-lot-item';
+        li.draggable = true;
+        li.dataset.wbParkedId = String(item.id);
+
+        const handle = document.createElement('span');
+        handle.className = 'wb-parking-lot-item-handle';
+        handle.setAttribute('aria-hidden', 'true');
+        handle.textContent = '⠿';
+        li.appendChild(handle);
 
         const textEl = document.createElement('span');
         textEl.className = 'wb-parking-lot-item-text';
@@ -5522,30 +5791,82 @@ function wbRenderParkingLotList() {
         removeBtn.addEventListener('click', () => wbDeleteParkedItem(item.id));
         li.appendChild(removeBtn);
 
+        li.addEventListener('dragstart', (e) => {
+            if (!e.dataTransfer) return;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData(WB_PARK_ITEM_DRAG_MIME, String(item.id));
+            e.dataTransfer.setData('text/plain', item.text);
+            // Deferred a tick: adding the class synchronously would apply
+            // it to the drag image itself (most browsers snapshot the
+            // element before dragstart's own listeners run, but not all).
+            setTimeout(() => li.classList.add('wb-parking-lot-item-dragging'), 0);
+        });
+        li.addEventListener('dragend', () => {
+            li.classList.remove('wb-parking-lot-item-dragging');
+            clearDropIndicators();
+        });
+        li.addEventListener('dragover', (e) => {
+            if (!wbDragHasParkedItem(e)) return;
+            e.preventDefault();
+            e.stopPropagation(); // this is a reorder-in-progress, not a hover over the board
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+            const rect = li.getBoundingClientRect();
+            const after = (e.clientY - rect.top) > rect.height / 2;
+            li.classList.toggle('wb-parking-lot-item-drop-after', after);
+            li.classList.toggle('wb-parking-lot-item-drop-before', !after);
+        });
+        li.addEventListener('dragleave', () => {
+            li.classList.remove('wb-parking-lot-item-drop-before', 'wb-parking-lot-item-drop-after');
+        });
+        li.addEventListener('drop', (e) => {
+            if (!wbDragHasParkedItem(e)) return;
+            e.preventDefault();
+            // Never let this reach wbWireParkingLotCanvasDropTarget()'s own
+            // `drop` listener on #whiteboardContainer (the panel is a child
+            // of that same container): a reorder within the list is not a
+            // restore onto the board, and without stopping it here the
+            // event bubbles up and both handlers would fire on the exact
+            // same drop, restoring the item *and* reordering it.
+            e.stopPropagation();
+            const placeAfter = li.classList.contains('wb-parking-lot-item-drop-after');
+            clearDropIndicators();
+            const draggedId = parseInt(e.dataTransfer.getData(WB_PARK_ITEM_DRAG_MIME), 10);
+            if (!Number.isNaN(draggedId)) wbReorderParkedItem(draggedId, item.id, placeAfter);
+        });
+
         list.appendChild(li);
     });
 }
 
-/** Open the parking lot panel: a modal dialog listing every parked item
- * with per-row "Restore" and "Remove" actions -- see this section's header
- * comment for how Restore rebuilds a note from its preserved detail. */
+/**
+ * Open the slide-out parking lot panel -- non-modal, docked to the board's
+ * right edge (issue #1201, replacing the modal dialog #1019 originally
+ * shipped): every parked item with per-row "Restore" and "Remove" actions,
+ * draggable for reordering and for restoring by dragging back onto the
+ * board -- see this section's header comment for the full behaviour.
+ * Reopening while already open (or while a just-closed panel is still
+ * mid-slide-out) refreshes it in place rather than tearing it down.
+ */
 function wbOpenParkingLotPanel() {
-    wbCloseParkingLotPanel();
+    const existing = document.getElementById('wbParkingLotPanel');
+    if (existing) {
+        if (existing._wbDetachCleanup) {
+            existing._wbDetachCleanup();
+            delete existing._wbDetachCleanup;
+        }
+        delete existing.dataset.wbClosing;
+        existing.classList.add('open');
+        wbRenderParkingLotList();
+        const reopenBtn = document.getElementById('whiteboardParkingLotBtn');
+        if (reopenBtn) reopenBtn.setAttribute('aria-pressed', 'true');
+        return;
+    }
 
-    const overlay = document.createElement('div');
-    overlay.id = 'wbParkingLotOverlay';
-    overlay.className = 'wb-add-note-overlay';
-    overlay.addEventListener('mousedown', (e) => {
-        if (e.target === overlay) wbCloseParkingLotPanel();
-    });
-
-    const dialog = document.createElement('div');
-    dialog.id = 'wbParkingLotDialog';
-    dialog.className = 'wb-add-note-dialog wb-parking-lot-dialog';
-    dialog.setAttribute('role', 'dialog');
-    dialog.setAttribute('aria-modal', 'true');
-    dialog.setAttribute('aria-labelledby', 'wbParkingLotTitle');
-    dialog.addEventListener('mousedown', (e) => e.stopPropagation());
+    const panel = document.createElement('div');
+    panel.id = 'wbParkingLotPanel';
+    panel.className = 'wb-parking-lot-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-labelledby', 'wbParkingLotTitle');
 
     const header = document.createElement('div');
     header.className = 'wb-add-note-header';
@@ -5564,7 +5885,7 @@ function wbOpenParkingLotPanel() {
 
     const intro = document.createElement('p');
     intro.className = 'wb-parking-lot-intro';
-    intro.textContent = 'Good ideas, not now -- sent here from the whiteboard, kept in your plan file.';
+    intro.textContent = 'Good ideas, not now. Drag a note onto this panel to park it, or drag a row back onto the board to restore it.';
 
     const list = document.createElement('ul');
     list.id = 'wbParkingLotList';
@@ -5572,13 +5893,37 @@ function wbOpenParkingLotPanel() {
     list.setAttribute('role', 'list');
     list.setAttribute('aria-label', 'Parked items');
 
-    dialog.appendChild(header);
-    dialog.appendChild(intro);
-    dialog.appendChild(list);
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
+    panel.appendChild(header);
+    panel.appendChild(intro);
+    panel.appendChild(list);
+
+    const container = document.getElementById('whiteboardContainer') || document.body;
+    container.appendChild(panel);
 
     wbRenderParkingLotList();
+    wbWireParkingLotCanvasDropTarget();
     document.addEventListener('keydown', wbParkingLotPanelKeydown, true);
+
+    const btn = document.getElementById('whiteboardParkingLotBtn');
+    if (btn) btn.setAttribute('aria-pressed', 'true');
+
+    // Slide in on the *next* frame: appending with .open already present
+    // would give the transition no "closed" state to animate from, so it
+    // would just appear in place instead of sliding.
+    requestAnimationFrame(() => panel.classList.add('open'));
     closeBtn.focus();
+}
+
+/** Toggle the panel open/closed -- what the toolbar button's click does
+ * (issue #1201). Replaces the old "always (re)open" modal behaviour: now
+ * that closing is a real, visible slide-out rather than just tearing down
+ * a one-shot dialog, a second press of the same button is the natural way
+ * to dismiss it. */
+function wbToggleParkingLotPanel() {
+    const panel = document.getElementById('wbParkingLotPanel');
+    if (panel && panel.classList.contains('open') && !panel.dataset.wbClosing) {
+        wbCloseParkingLotPanel();
+    } else {
+        wbOpenParkingLotPanel();
+    }
 }

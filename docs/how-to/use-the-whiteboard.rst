@@ -179,11 +179,11 @@ Adding the same task back later gives it a fresh position on the board — it do
 Send an Idea to the Parking Lot
 ----------------------------------
 
-Not every post-it is ready to become a task yet. For a "good idea, not now" — something worth keeping but not worth cluttering the board or the plan with — open the note's ``...`` menu and choose **Send to parking lot**.
+Not every post-it is ready to become a task yet. For a "good idea, not now" — something worth keeping but not worth cluttering the board or the plan with — open the note's ``...`` menu and choose **Send to parking lot**, or drag the note's header straight onto the open parking lot panel (see below) and drop it there.
 
-Unlike **Remove from board**, this genuinely takes the idea out of the working plan: the task (and any subtasks it has) is deleted from the outline, and the whiteboard row goes with it, but the note's own text — its title, plus its comment if it had one — is kept as a new entry in the parking lot rather than thrown away. There is no confirmation prompt and it is one ordinary undo step, the same as every other board action.
+Unlike **Remove from board**, this genuinely takes the idea out of the working plan: the task (and any subtasks it has) is deleted from the outline, and the whiteboard row goes with it, but the note's own text and appearance — its title, its comment if it had one, its colour, and (for a checklist note) every item and its completion state — is kept as a new entry in the parking lot rather than thrown away. There is no confirmation prompt and it is one ordinary undo step, the same as every other board action.
 
-Click **Parking lot** in the whiteboard toolbar to see what has been sent there. It is a simple list — the parked text and the date it was parked, with a **Remove** button to delete an entry for good once you are sure you do not need it. There is no way to send a parked item back onto the board from here; if the idea turns out to be worth doing after all, add it back as a new post-it.
+Click **Parking lot** in the whiteboard toolbar to slide the panel out from the board's right edge — a second click slides it back in. It lists everything sent there, each row showing the parked text and the date it was parked, with two actions per row: **Restore** rebuilds the note (and, for a checklist, every item on it) back onto the board, and **Remove** deletes the entry for good once you are sure you do not need it. Dragging a row out of the panel and dropping it on the board restores it at the exact spot you dropped it, rather than wherever free space happens to be, and dragging one row onto another reorders the list. The board stays interactive while the panel is open — it is a panel alongside your work, not a dialog blocking it.
 
 Keyboard and Pointer Reference
 --------------------------------

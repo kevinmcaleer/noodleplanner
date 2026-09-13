@@ -185,6 +185,7 @@ function makeSandbox() {
     'wbBuildAddNoteRows',
     'wbCurrentParkingLotItems',
     'wbDeleteParkedItem',
+    'wbReorderParkedItem',
   ]);
 
   return { sandbox, editor };
@@ -502,4 +503,129 @@ test('wbRestoreParkedItem: an unknown item id is a no-op', () => {
   const ok = sandbox.wbRestoreParkedItem(999999);
   assert.equal(ok, false);
   assert.equal(editor.value, before);
+});
+
+// ---------------------------------------------------------------------------
+// wbRestoreParkedItem(itemId, atPoint) -- restore at an exact board point
+// (issue #1201's drag-out-of-the-panel restore)
+// ---------------------------------------------------------------------------
+
+test('wbRestoreParkedItem: atPoint centres the restored row on that board point', () => {
+  const { sandbox, editor } = makeSandbox();
+  editor.value = FREEFORM_PLAN;
+  sandbox.wbLastPlanText = FREEFORM_PLAN;
+  sandbox.wbLastTasks = [
+    { name: 'Loose Idea', parent: 'Phase 1', comment: 'A stray thought worth keeping.' },
+    { name: 'Other Task', parent: 'Phase 1' },
+    { name: 'Phase 1', parent: null },
+  ];
+  sandbox.wbSendNoteToParkingLot('Loose Idea');
+  const parked = sandbox.wbCurrentParkingLotItems();
+
+  const ok = sandbox.wbRestoreParkedItem(parked[0].id, { x: 1000, y: 600 });
+  assert.equal(ok, true);
+
+  const wbItems = sandbox.parseWhiteboardMarkdown(sandbox.extractWhiteboardFromPlanText(editor.value));
+  const restoredRow = wbItems.find((i) => i.task === 'Loose Idea');
+  assert.ok(restoredRow, 'a whiteboard row was created for the restored note');
+  // Centred on (1000, 600): top-left is offset by half the default note
+  // size (WB_NOTE_DEFAULT_WIDTH/HEIGHT, seeded 260x220 above), exactly what
+  // wbBoardPointFromClient() -> wbRestoreParkedItem() computes for a drop.
+  assert.equal(restoredRow.x, 1000 - 260 / 2);
+  assert.equal(restoredRow.y, 600 - 220 / 2);
+});
+
+test('wbRestoreParkedItem: an invalid atPoint (missing/non-finite) falls back to free-space placement', () => {
+  const { sandbox, editor } = makeSandbox();
+  editor.value = FREEFORM_PLAN;
+  sandbox.wbLastPlanText = FREEFORM_PLAN;
+  sandbox.wbLastTasks = [
+    { name: 'Loose Idea', parent: 'Phase 1', comment: 'A stray thought worth keeping.' },
+    { name: 'Other Task', parent: 'Phase 1' },
+    { name: 'Phase 1', parent: null },
+  ];
+  sandbox.wbSendNoteToParkingLot('Loose Idea');
+  const parked = sandbox.wbCurrentParkingLotItems();
+
+  const ok = sandbox.wbRestoreParkedItem(parked[0].id, { x: NaN, y: 600 });
+  assert.equal(ok, true);
+
+  const wbItems = sandbox.parseWhiteboardMarkdown(sandbox.extractWhiteboardFromPlanText(editor.value));
+  const restoredRow = wbItems.find((i) => i.task === 'Loose Idea');
+  assert.ok(restoredRow);
+  // Free-space placement never lands exactly on the bogus point's y.
+  assert.notEqual(restoredRow.y, 600 - 220 / 2);
+});
+
+// ---------------------------------------------------------------------------
+// wbReorderParkedItem() -- persist a new list order (issue #1201)
+// ---------------------------------------------------------------------------
+
+function seedThreeParkedItems(sandbox, editor) {
+  const plan = [
+    'Phase 1',
+    '  Other Task 2d',
+    '',
+    '---parking lot---',
+    '| ID | Text | Date Parked |',
+    '|----|------|-------------|',
+    '| 1  | First idea | 2026-01-01 |',
+    '| 2  | Second idea | 2026-01-02 |',
+    '| 3  | Third idea | 2026-01-03 |',
+  ].join('\n');
+  editor.value = plan;
+  return sandbox.wbCurrentParkingLotItems();
+}
+
+test('wbReorderParkedItem: moving the first item after the last reorders the table', () => {
+  const { sandbox, editor } = makeSandbox();
+  seedThreeParkedItems(sandbox, editor);
+
+  const ok = sandbox.wbReorderParkedItem(1, 3, true); // First idea -> after Third idea
+  assert.equal(ok, true);
+
+  const order = sandbox.wbCurrentParkingLotItems().map((i) => i.text);
+  eqJSON(order, ['Second idea', 'Third idea', 'First idea']);
+});
+
+test('wbReorderParkedItem: dropping before a target places it ahead of that row', () => {
+  const { sandbox, editor } = makeSandbox();
+  seedThreeParkedItems(sandbox, editor);
+
+  const ok = sandbox.wbReorderParkedItem(3, 1, false); // Third idea -> before First idea
+  assert.equal(ok, true);
+
+  const order = sandbox.wbCurrentParkingLotItems().map((i) => i.text);
+  eqJSON(order, ['Third idea', 'First idea', 'Second idea']);
+});
+
+test('wbReorderParkedItem: dropping an item on itself is a no-op', () => {
+  const { sandbox, editor } = makeSandbox();
+  seedThreeParkedItems(sandbox, editor);
+  const before = editor.value;
+
+  const ok = sandbox.wbReorderParkedItem(2, 2, true);
+  assert.equal(ok, false);
+  assert.equal(editor.value, before);
+});
+
+test('wbReorderParkedItem: an unknown dragged or target id is a no-op', () => {
+  const { sandbox, editor } = makeSandbox();
+  seedThreeParkedItems(sandbox, editor);
+  const before = editor.value;
+
+  assert.equal(sandbox.wbReorderParkedItem(999, 1, true), false);
+  assert.equal(sandbox.wbReorderParkedItem(1, 999, true), false);
+  assert.equal(editor.value, before);
+});
+
+test('wbReorderParkedItem: reordering is a single Markdown commit (one undo step)', () => {
+  const { sandbox, editor } = makeSandbox();
+  seedThreeParkedItems(sandbox, editor);
+
+  let commitCount = 0;
+  sandbox.wbCommitMarkdown = (nextText) => { commitCount++; editor.value = nextText; return true; };
+
+  sandbox.wbReorderParkedItem(1, 3, true);
+  assert.equal(commitCount, 1);
 });
