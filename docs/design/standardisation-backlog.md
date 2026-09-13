@@ -33,9 +33,10 @@ band 1 lands, so bands 2–4 do not have to be re-policed by hand.
 
 Within a band, items are ordered by (declarations affected ÷ risk).
 
-**Status: bands 1 and 3 are done, governance is done and gating CI, and band 2
-is untouched. Band 4 has had its two provable pieces done and its judgement
-calls left.** The ✅/☐ column on each table below says which.
+**Status: bands 1, 2 and 3 are done, governance is done and gating CI. Band 4
+has had its provable pieces done (4.1, 4.4, 4.5, 4.6) and its remaining
+judgement calls left (4.2, 4.3, and the raw-colour palette decision).** The
+✅/☐ column on each table below says which.
 
 ---
 
@@ -73,14 +74,78 @@ judged perceptually identical (ΔE2000 thresholds in
 
 | | # | Item | Removes | Declarations | Issue |
 |---|---|---|---|---|---|
-| ☐ | 2.1 | Merge the 18 shadow clusters | 39 of 104 shadows | 198 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
-| ☐ | 2.2 | Merge the 4 radius clusters (`4px` absorbs `3px`/`5px`; `8px` absorbs `9px`; `12px` absorbs `11px`/`13px`) | 6 of 32 radii | 498 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
-| ☐ | 2.3 | Merge the 14 font-size clusters (`0.85em` absorbs 5 spellings, 176 declarations) | 23 of 67 sizes | 765 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
-| ☐ | 2.4 | Merge the 105 colour clusters onto one spelling each | 209 of 586 colours | 2,671 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 2.1 | Merge the shadow clusters | 29 of 99 shadows | 48 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 2.2 | Merge the radius clusters (`4px` absorbs `3px`/`5px`; `8px` absorbs `9px`; `12px` absorbs `11px`/`13px`; `0` absorbs a stray `1px`) | 7 of 37 radii | 62 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 2.3 | Merge the font-size clusters, `em` and `rem` kept separate | 8 of 69 sizes | 39 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 2.4 | Merge colour clusters onto one **literal** spelling each (token-valued recommendations deferred, see below) | 129 of 524 colours | 188 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 
-2.1 is first because it is the smallest and proves the workflow. 2.4 is last
-because it is the largest and benefits most from the other three having
-shaken out the review process.
+2.1 was first because it was the smallest and proved the workflow. 2.4 is the
+largest and is only partly done: `token-consolidation.mjs` also proposes
+merging 28 colour clusters onto an *existing token* rather than another
+literal, and those are deliberately not applied here — see "Why band 2.4
+stopped short of full colour consolidation" below.
+
+**Three bugs in `token-consolidation.mjs` itself were found and fixed before
+any of this was applied, because each one would have broken the "no visual
+change" guarantee the whole band depends on:**
+
+1. **Shadow clustering ignored colour.** It compared geometry and alpha only,
+   so it was merging `rgba(16, 139, 185, 0.4)` (a brand-blue tint) with
+   `rgba(0, 0, 0, 0.4)` (black) as "the same shadow" purely because their
+   offsets and opacity were close. Fixed to also require the RGB (or a shared
+   `var(--np-shadow...)` name) to match. This is why 2.1 removed 5 fewer
+   clusters than the original estimate — those clusters were spurious.
+2. **`em` and `rem` were treated as the same unit** ("same numeric scale,
+   different base"). They are not: `em` is relative to the parent's computed
+   font-size, `rem` to the root's, and they coincide only where nesting
+   happens to land back on the root size. A `0.9rem` merged into `0.9em`
+   inside a nested `0.85em` component would render at a different size than
+   intended. Fixed to keep the two unit buckets separate, which is why 2.3
+   removed roughly half of what the original (buggy) run reported.
+3. **The analysis scanned every `.css` file on disk**, including
+   `style.css` — 13k lines that #571's split left nothing linking to (see
+   band 4.5). `token-audit.mjs` already excludes it; `token-consolidation.mjs`
+   did not, so its usage counts (and therefore which spelling won a cluster as
+   "highest-traffic") were skewed by dead code. Fixed to read the same
+   `index.html`-linked file list as `token-audit.mjs` and the `adopt-*.mjs`
+   scripts.
+
+`scripts/consolidate-tokens.mjs` applies the corrected clusters: shadows and
+font-sizes as whole-declaration matches, radii component-by-component (for the
+rare shorthand like `border-radius: 0 0 5px 5px`), and colours as literal
+substrings routed by property so a colour inside a `box-shadow` is never
+touched twice by both the shadow and colour merges. Verified with
+`npm run lint:design` (no new violations after re-baselining — see the
+rebaseline note below), the full `uv run pytest` and `npm run test:js`
+suites, and a `scripts/capture_screen_audit.py` + `compare_screens.py`
+before/after across all 39 views: every view showed the same ~0.5% floor
+(the build-hash string in the footer differs between any two captures, since
+it is derived from the working tree) and two views (`calendar`, `whiteboard`)
+showed a little more, traced by pixel sampling to sub-pixel antialiasing
+shifts on dense small-text chips, not a colour or layout change — confirmed
+by 4x-zoomed crops showing no visible difference.
+
+**Re-baselining note.** `npm run lint:design`'s baseline is keyed on the exact
+finding text (file + declaration), so consolidating `#f8f9fa` into `#fff`
+makes one baseline entry disappear and a differently-worded one appear, even
+though the total `raw-colour` count does not change. That is the "refactor
+that moves code" case the linter's own message describes — `--update-baseline`
+was run to hold the (net-zero-count, real) improvement.
+
+### Why band 2.4 stopped short of full colour consolidation
+
+`token-consolidation.mjs` recommends 28 of its 124 colour clusters be merged
+onto an *existing `--np-*` token* rather than another literal spelling. Doing
+that blindly would reintroduce the exact hazard `adopt-neutral-colours.mjs`
+was built to reason about: a token's dark-theme value can differ from what the
+literal was chosen for, so whether a literal may become a token depends on
+the *property* it sits in (does `color` vs `background` flip with the theme)
+and the *element's role* (is this text on a coloured background, which does
+not flip) — not on ΔE alone. `adopt-neutral-colours.mjs` already does that
+classification and reports nothing left to map. Applying the 28
+`existing-token` clusters here via a blind text substitution would skip that
+check, so they are left alone; only the 96 `highest-traffic-value` clusters
+(literal replacing literal, safe under any property or theme) were applied.
 
 ## Band 3 — Components
 
@@ -250,7 +315,11 @@ text at 4:1.
   threshold of noticing. Both themes came back pixel-identical, and
   `check_rendered_contrast.py` reports no new failures.
 
-  The rest needs the decision. `raw-colour` stands at 1,053.
+  The rest needs the decision. `raw-colour` stands at 1,061 (band 2.4's colour
+  merges reduce how many *distinct* colours those declarations use, but a
+  literal replacing another literal is still a literal, so the finding count
+  itself does not move until a palette decision lets some of them become
+  tokens).
 
   **The dark theme is a second copy of this problem.** `dark-mode.css` carries
   480 per-component `[data-theme="dark"]` declarations: the app themes itself
@@ -373,21 +442,27 @@ Two numbers are worth watching, and they measure different things.
 **Unique values in use** — re-run `npm run audit:tokens`. The original figures
 counted the dead `style.css`; these are the linked stylesheets only:
 
-| Category | Now | After band 2 (predicted) | Token count |
+| Category | Before band 2 | After band 2 | Token count |
 |---|---|---|---|
-| Colours | 519 | ~340 | ~40 |
-| Font sizes | 68 | 44 | 11 |
-| Radii | 36 | 30 | 7 |
-| Shadows | 98 | 60 | 5 |
-| Spacing values | 36 | — done | 12 |
+| Colours | 524 | **416** | ~40 |
+| Font sizes | 69 | **63** | 11 |
+| Radii | 37 | **31** | 7 |
+| Shadows | 99 | **70** | 5 |
+| Spacing values | 38 | — done | 12 |
+
+Colours only fell by 108 rather than the ~176 the clusters name, because 28 of
+those clusters recommend an existing token rather than a literal and were
+deliberately not applied (see band 2.4 above) — they still count as separate
+"unique values" until that palette decision is made.
 
 **Lint findings** — `npm run lint:design`, against
 `ci/design-system-baseline.json`. This is the one CI enforces, and it only ever
-goes down:
+goes down (band 2 re-baselined the exact wording of ~161 findings without
+changing the count — see the re-baseline note above):
 
 | Rule | Now |
 |---|---|
-| `raw-colour` | 1,090 |
+| `raw-colour` | 1,061 |
 | `off-scale-spacing` | 5 |
 | `token-outside-canonical` | 0 |
 | `unpaired-outline-none` | 0 |

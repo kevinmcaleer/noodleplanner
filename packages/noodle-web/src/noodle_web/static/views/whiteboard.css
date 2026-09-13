@@ -22,7 +22,7 @@
     gap: var(--np-space-8);
     padding: var(--np-space-8) var(--np-space-16);
     background: var(--np-sunken);
-    border-bottom: 1px solid #d0d0d0;
+    border-bottom: 1px solid #ccc;
     flex-shrink: 0;
 }
 
@@ -38,7 +38,7 @@
     justify-content: center;
     width: 32px;
     height: 32px;
-    border: 1px solid #c0c0c0;
+    border: 1px solid #bbb;
     border-radius: 6px;
     background: #e4e4e4;
     color: var(--np-body);
@@ -100,7 +100,7 @@
 }
 
 .wb-grid-dot {
-    fill: #cfcfcf;
+    fill: #ccc;
 }
 
 /* ========================================
@@ -155,7 +155,7 @@
     color: var(--wb-note-text);
     border: 1px solid var(--wb-note-accent);
     border-radius: 8px;
-    box-shadow: 0 2px 6px var(--np-shadow);
+    box-shadow: 0 2px 4px var(--np-shadow);
     overflow: hidden;
     font-family: inherit;
     box-sizing: border-box;
@@ -226,7 +226,7 @@
 .wb-note-menu-btn:hover,
 .wb-note-menu-btn:focus-visible {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.1);
 }
 
 .wb-note-coach-btn,
@@ -269,7 +269,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    background: #e8f3ff;
+    background: #e3f2fd;
     color: #174c78;
     border-color: #83b8e4;
 }
@@ -305,7 +305,7 @@
     width: 260px;
     padding: 12px;
     border: 1px solid var(--np-border, #d8dce1);
-    border-radius: 9px;
+    border-radius: 8px;
     background: var(--np-surface, #fff);
     color: var(--np-text, #222);
     box-shadow: 0 10px 28px var(--np-shadow, rgba(0, 0, 0, 0.22));
@@ -372,7 +372,7 @@
     opacity: 1;
     background: #fff3b0;
     color: #5b4300;
-    border-color: #d9b72f;
+    border-color: #d4b030;
 }
 
 .wb-note-coach-btn.typed,
@@ -392,7 +392,7 @@
     width: 300px;
     padding: 12px;
     border: 1px solid var(--np-border, #d8dce1);
-    border-radius: 9px;
+    border-radius: 8px;
     background: var(--np-surface, #fff);
     color: var(--np-text, #222);
     box-shadow: 0 10px 28px var(--np-shadow, rgba(0, 0, 0, 0.22));
@@ -492,7 +492,7 @@
 
 .wb-note-body::-webkit-scrollbar-thumb {
     background: var(--np-scrollbar-thumb);
-    border-radius: 3px;
+    border-radius: 4px;
 }
 
 .wb-note-empty {
@@ -542,11 +542,11 @@
     justify-content: center;
     width: 15px;
     height: 15px;
-    border-radius: 3px;
+    border-radius: 4px;
     background: var(--np-orange);
     /* #161616 on var(--np-orange) measures ~6.97:1 -- comfortably past WCAG AA (4.5:1),
        confirmed by tests/test_whiteboard_notes.js's contrast-ratio checks. */
-    color: #161616;
+    color: #111;
     font-size: 10px;
     font-weight: 700;
     flex-shrink: 0;
@@ -645,7 +645,7 @@
 
 .wb-note-row-dep-handle:hover {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.1);
 }
 
 /* Touch has no hover, so the handle can never be revealed by one --
@@ -805,7 +805,7 @@
     background: var(--np-surface);
     border: 1px solid var(--np-border);
     border-radius: 8px;
-    box-shadow: 0 4px 16px var(--np-shadow);
+    box-shadow: 0 6px 16px var(--np-shadow);
     padding: var(--np-space-8);
     font-size: 12px;
 }
@@ -1174,7 +1174,7 @@ body.wb-note-drag-active * {
     background: var(--np-surface);
     border: 1px solid var(--np-border);
     border-radius: 12px;
-    box-shadow: 0 4px 20px var(--np-shadow);
+    box-shadow: 0 6px 20px var(--np-shadow);
     padding: 28px 24px;
 }
 
@@ -1708,7 +1708,7 @@ body.wb-note-drag-active * {
 
 .wb-note-link-handle:hover {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.1);
 }
 
 /* Touch has no hover, so the handle can never be revealed by one --
@@ -1746,7 +1746,7 @@ body.wb-note-drag-active * {
 .wb-note-promote-btn:hover,
 .wb-note-promote-btn:focus-visible {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.1);
 }
 
 @media (pointer: coarse) {
@@ -1795,7 +1795,7 @@ body.wb-note-drag-active * {
     cursor: text;
     outline: 2px solid var(--np-blue);
     outline-offset: 2px;
-    border-radius: 3px;
+    border-radius: 4px;
     background: var(--np-surface);
     color: var(--np-text);
     padding: 0 var(--np-space-2);
@@ -1825,7 +1825,7 @@ body.wb-note-drag-active * {
 }
 
 @keyframes wbNoteFlash {
-    0%, 100% { box-shadow: 0 2px 6px var(--np-shadow); }
+    0%, 100% { box-shadow: 0 2px 4px var(--np-shadow); }
     30%      { box-shadow: 0 0 0 5px rgba(16, 139, 185, 0.55), 0 6px 18px var(--np-shadow); }
 }
 
@@ -2034,10 +2034,10 @@ body.wb-linking * {
     border-radius: 999px;
     background: var(--np-text);
     color: var(--np-surface);
-    font-size: 12.5px;
+    font-size: 13px;
     line-height: 1.35;
     text-align: center;
-    box-shadow: 0 4px 14px var(--np-shadow);
+    box-shadow: 0 6px 16px var(--np-shadow);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.18s ease, transform 0.18s ease;
@@ -2065,7 +2065,7 @@ body.wb-linking * {
     background: var(--np-surface);
     border: 1px solid var(--np-border);
     border-radius: 10px;
-    box-shadow: 0 6px 22px var(--np-shadow);
+    box-shadow: 0 6px 20px var(--np-shadow);
     overflow: hidden;
     z-index: 5;
 }
@@ -2125,7 +2125,7 @@ body.wb-linking * {
 .wb-outline-btn:hover,
 .wb-outline-btn:focus-visible {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.07);
+    background: rgba(0, 0, 0, 0.1);
     color: var(--np-text);
 }
 
@@ -2144,7 +2144,7 @@ body.wb-linking * {
     color: var(--np-text);
     background: var(--np-bg);
     border: 1px solid var(--np-border);
-    border-radius: 5px;
+    border-radius: 4px;
 }
 
 .wb-outline-search-input:focus {
@@ -2233,7 +2233,7 @@ body.wb-linking * {
 }
 
 .wb-outline-row.wb-outline-drop-child {
-    background: rgba(16, 139, 185, 0.16);
+    background: rgba(16, 139, 185, 0.15);
     box-shadow: inset 3px 0 0 0 var(--np-blue);
 }
 
@@ -2252,7 +2252,7 @@ body.wb-linking * {
     background: transparent;
     color: var(--np-text-secondary);
     cursor: pointer;
-    border-radius: 3px;
+    border-radius: 4px;
     transform: rotate(90deg);
     transition: transform 0.12s ease;
 }
@@ -2262,7 +2262,7 @@ body.wb-linking * {
 }
 
 .wb-outline-chevron:hover {
-    background: rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.1);
     color: var(--np-text);
 }
 
@@ -2422,10 +2422,10 @@ body.wb-linking * {
     padding: 0 var(--np-space-4);
     border: 1px solid var(--np-border);
     border-bottom-width: 2px;
-    border-radius: 3px;
+    border-radius: 4px;
     background: var(--np-bg-alt);
     font-family: inherit;
-    font-size: 0.92em;
+    font-size: 0.9em;
     line-height: 1.4;
     color: inherit;
 }

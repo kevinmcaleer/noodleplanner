@@ -27,14 +27,14 @@
     /* Dot-grid canvas backdrop: dots stay subtle and legible on either
        theme's background rather than assuming a dark canvas. */
     background:
-        radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.08) 1px, transparent 0);
+        radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.1) 1px, transparent 0);
     background-size: 24px 24px;
     touch-action: none;
 }
 
 [data-theme="dark"] .pbs-canvas-wrapper {
     background:
-        radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.06) 1px, transparent 0);
+        radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.03) 1px, transparent 0);
     background-size: 24px 24px;
 }
 
@@ -347,7 +347,7 @@
     text-align: center;
     cursor: pointer;
     padding: var(--np-space-2);
-    border-radius: 3px;
+    border-radius: 4px;
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
@@ -371,14 +371,14 @@
 
 .dm-role-cell select.role-P { color: #fff; background: #4A90D9; border-radius: 4px; }
 .dm-role-cell select.role-R { color: #fff; background: #D94A4A; border-radius: 4px; }
-.dm-role-cell select.role-A { color: #fff; background: #2d8a2d; border-radius: 4px; }
+.dm-role-cell select.role-A { color: #fff; background: #388e3c; border-radius: 4px; }
 
 .dm-role-cell select.role-P:hover,
 .dm-role-cell select.role-P:focus { color: #4A90D9; background: var(--np-surface); }
 .dm-role-cell select.role-R:hover,
 .dm-role-cell select.role-R:focus { color: #D94A4A; background: var(--np-surface); }
 .dm-role-cell select.role-A:hover,
-.dm-role-cell select.role-A:focus { color: #2d8a2d; background: var(--np-surface); }
+.dm-role-cell select.role-A:focus { color: #388e3c; background: var(--np-surface); }
 
 /* Completed row highlight */
 .deliverables-table tr.dm-row-complete td {
@@ -436,12 +436,12 @@
 
 .dm-role-dropdown-item.dm-role-producer { color: #4A90D9; }
 .dm-role-dropdown-item.dm-role-reviewer { color: #D94A4A; }
-.dm-role-dropdown-item.dm-role-approver { color: #2d8a2d; }
+.dm-role-dropdown-item.dm-role-approver { color: #388e3c; }
 
 [data-theme="dark"] .dm-role-dropdown-item {
     color: #ddd;
 }
-[data-theme="dark"] .dm-role-dropdown-item.dm-role-producer { color: #6cb4ff; }
+[data-theme="dark"] .dm-role-dropdown-item.dm-role-producer { color: #6db3f0; }
 [data-theme="dark"] .dm-role-dropdown-item.dm-role-reviewer { color: #ff6b6b; }
 [data-theme="dark"] .dm-role-dropdown-item.dm-role-approver { color: #6fd66f; }
 
@@ -616,7 +616,7 @@
 .product-comp-add input {
     flex: 1;
     border: 1px solid transparent !important;
-    border-radius: 3px;
+    border-radius: 4px;
     background: transparent;
     font-size: 13px;
     outline: none;
@@ -664,7 +664,7 @@
 
 .product-qa-role-label.role-P { color: #4A90D9; }
 .product-qa-role-label.role-R { color: #D94A4A; }
-.product-qa-role-label.role-A { color: #2d8a2d; }
+.product-qa-role-label.role-A { color: #388e3c; }
 
 .product-qa-role-select {
     flex: 1;
@@ -747,7 +747,7 @@
 .product-deps-input,
 input[type="text"].product-deps-input {
     border: 1px solid transparent !important;
-    border-radius: 3px;
+    border-radius: 4px;
     outline: none;
     background: transparent;
     font-size: 13px;
@@ -775,7 +775,7 @@ input[type="text"].product-deps-input {
     max-height: 150px;
     overflow-y: auto;
     z-index: 100;
-    box-shadow: 0 4px 8px var(--np-shadow);
+    box-shadow: 0 2px 8px var(--np-shadow);
 }
 
 [data-theme="dark"] .product-deps-autocomplete {
@@ -799,7 +799,7 @@ input[type="text"].product-deps-input {
 .product-deps-autocomplete-item .dep-ac-swatch {
     width: 12px;
     height: 12px;
-    border-radius: 3px;
+    border-radius: 4px;
     flex-shrink: 0;
 }
 
@@ -809,12 +809,12 @@ input[type="text"].product-deps-input {
     border-radius: 12px;
     font-size: 12px;
     background: rgba(74, 144, 217, 0.15);
-    color: #2a6cb0;
+    color: #2171b5;
     margin: var(--np-space-2) var(--np-space-4) var(--np-space-2) 0;
 }
 
 [data-theme="dark"] .product-resource-badge {
-    color: #6cb4ff;
+    color: #6db3f0;
 }
 
 .product-readonly-field {
@@ -826,7 +826,7 @@ input[type="text"].product-deps-input {
 }
 
 [data-theme="dark"] .product-readonly-field {
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.03);
     color: #ddd;
 }
 

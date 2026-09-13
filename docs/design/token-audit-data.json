@@ -34,14 +34,14 @@
     }
   ],
   "stylesheet": {
-    "sourceLinesOfCode": 17576,
-    "complexity": 50861
+    "sourceLinesOfCode": 17904,
+    "complexity": 51749
   },
   "rules": {
-    "total": 3922
+    "total": 3978
   },
   "selectors": {
-    "totalUnique": 3831,
+    "totalUnique": 3897,
     "maxSpecificity": [
       1,
       4,
@@ -74,24 +74,14 @@
   },
   "canonicalTokenCount": 150,
   "colors": {
-    "totalUnique": 510,
-    "duplicateOfTokenCount": 20,
+    "totalUnique": 416,
+    "duplicateOfTokenCount": 19,
     "duplicateOfToken": [
-      {
-        "id": "blue-61a64a14",
-        "hex": "#108BB9",
-        "authoredAs": "rgba(16, 139, 185, 0.22)",
-        "usage": 5,
-        "props": [
-          "background"
-        ],
-        "matchedToken": "--np-blue"
-      },
       {
         "id": "blue-c957f1dd",
         "hex": "#108BB9",
         "authoredAs": "rgba(16, 139, 185, 0.1)",
-        "usage": 4,
+        "usage": 7,
         "props": [
           "background"
         ],
@@ -108,6 +98,27 @@
           "border-left"
         ],
         "matchedToken": "--np-dark-blue"
+      },
+      {
+        "id": "blue-61a64a14",
+        "hex": "#108BB9",
+        "authoredAs": "rgba(16, 139, 185, 0.22)",
+        "usage": 4,
+        "props": [
+          "background"
+        ],
+        "matchedToken": "--np-blue"
+      },
+      {
+        "id": "blue-61a649f8",
+        "hex": "#108BB9",
+        "authoredAs": "rgba(16, 139, 185, 0.15)",
+        "usage": 3,
+        "props": [
+          "box-shadow",
+          "background"
+        ],
+        "matchedToken": "--np-blue"
       },
       {
         "id": "blue-c957f1e0",
@@ -141,26 +152,6 @@
           "--np-danger"
         ],
         "matchedToken": "--np-danger"
-      },
-      {
-        "id": "blue-61a649f5",
-        "hex": "#108BB9",
-        "authoredAs": "rgba(16, 139, 185, 0.12)",
-        "usage": 2,
-        "props": [
-          "background"
-        ],
-        "matchedToken": "--np-blue"
-      },
-      {
-        "id": "blue-61a649f8",
-        "hex": "#108BB9",
-        "authoredAs": "rgba(16, 139, 185, 0.15)",
-        "usage": 2,
-        "props": [
-          "box-shadow"
-        ],
-        "matchedToken": "--np-blue"
       },
       {
         "id": "blue-c957f1e1",
@@ -299,13 +290,14 @@
         "id": "white-edecb6ba",
         "hex": "#FFFFFF",
         "authoredAs": "white",
-        "usage": 150,
+        "usage": 165,
         "props": [
           "stroke",
           "background",
           "color",
           "border",
           "text-shadow",
+          "background-color",
           "border-color",
           "border-bottom",
           "--mm-btn-bg",
@@ -322,27 +314,50 @@
         "id": "black-edec3e7a",
         "hex": "#000000",
         "authoredAs": "transparent",
-        "usage": 132,
+        "usage": 140,
         "props": [
+          "box-shadow",
           "background",
           "color",
           "background-color",
           "border-right",
           "border-bottom",
           "border-left",
-          "border"
+          "border",
+          "border-top"
         ]
       },
       {
         "id": "black-23d68dbd",
         "hex": "#000000",
         "authoredAs": "rgba(0, 0, 0, 0.1)",
-        "usage": 41,
+        "usage": 60,
         "props": [
           "box-shadow",
           "background",
           "border",
           "--np-shadow"
+        ]
+      },
+      {
+        "id": "grey-2d291a31",
+        "hex": "#CCCCCC",
+        "authoredAs": "#ccc",
+        "usage": 27,
+        "props": [
+          "background",
+          "color",
+          "border-right",
+          "border-bottom",
+          "border-left",
+          "border",
+          "--mm-toolbar-border",
+          "--mm-btn-border",
+          "--mm-btn-text",
+          "--mm-plus-btn-hover-fill",
+          "--mm-progress-bg",
+          "fill",
+          "border-top"
         ]
       },
       {
@@ -361,7 +376,7 @@
         "id": "grey-fdb1d2f4",
         "hex": "#E0E0E0",
         "authoredAs": "#e0e0e0",
-        "usage": 22,
+        "usage": 23,
         "props": [
           "--evm-chart-border",
           "--evm-grid-line",
@@ -376,12 +391,72 @@
         ]
       },
       {
+        "id": "blue-701c2c9f",
+        "hex": "#E3F2FD",
+        "authoredAs": "#e3f2fd",
+        "usage": 21,
+        "props": [
+          "background"
+        ]
+      },
+      {
+        "id": "green-79e79d6d",
+        "hex": "#388E3C",
+        "authoredAs": "#388e3c",
+        "usage": 21,
+        "props": [
+          "background",
+          "color",
+          "border-color",
+          "border-left"
+        ]
+      },
+      {
         "id": "blue-24327fbf",
         "hex": "#495057",
         "authoredAs": "#495057",
         "usage": 20,
         "props": [
           "color"
+        ]
+      },
+      {
+        "id": "grey-ad92bd37",
+        "hex": "#444444",
+        "authoredAs": "#444",
+        "usage": 19,
+        "props": [
+          "background",
+          "border-color",
+          "border-left",
+          "border",
+          "--mm-toolbar-border",
+          "--mm-btn-border",
+          "--mm-btn-text",
+          "--mm-plus-btn-hover-fill",
+          "--mm-progress-bg"
+        ]
+      },
+      {
+        "id": "blue-fd5c9b17",
+        "hex": "#1976D2",
+        "authoredAs": "#1976d2",
+        "usage": 18,
+        "props": [
+          "background",
+          "color",
+          "border-left"
+        ]
+      },
+      {
+        "id": "blue-798a2377",
+        "hex": "#E9ECEF",
+        "authoredAs": "#e9ecef",
+        "usage": 18,
+        "props": [
+          "background",
+          "border-bottom",
+          "border"
         ]
       },
       {
@@ -398,64 +473,10 @@
         ]
       },
       {
-        "id": "black-56fb2a18",
-        "hex": "#000000",
-        "authoredAs": "rgba(0,0,0,0.15)",
-        "usage": 18,
-        "props": [
-          "box-shadow",
-          "background",
-          "--np-shadow-strong"
-        ]
-      },
-      {
-        "id": "blue-798a2377",
-        "hex": "#E9ECEF",
-        "authoredAs": "#e9ecef",
-        "usage": 17,
-        "props": [
-          "background",
-          "border-bottom",
-          "border"
-        ]
-      },
-      {
-        "id": "grey-ad92bd37",
-        "hex": "#444444",
-        "authoredAs": "#444",
-        "usage": 17,
-        "props": [
-          "background",
-          "border-color",
-          "border-left",
-          "border",
-          "--mm-toolbar-border",
-          "--mm-btn-border",
-          "--mm-btn-text",
-          "--mm-plus-btn-hover-fill",
-          "--mm-progress-bg"
-        ]
-      },
-      {
-        "id": "grey-2d291a31",
-        "hex": "#CCCCCC",
-        "authoredAs": "#ccc",
-        "usage": 16,
-        "props": [
-          "background",
-          "color",
-          "border-right",
-          "border",
-          "--mm-btn-border",
-          "--mm-btn-text",
-          "--mm-plus-btn-hover-fill"
-        ]
-      },
-      {
         "id": "red-1e3bca99",
         "hex": "#C62828",
         "authoredAs": "#c62828",
-        "usage": 16,
+        "usage": 17,
         "props": [
           "background",
           "color",
@@ -468,12 +489,14 @@
         "id": "grey-5d4a9133",
         "hex": "#999999",
         "authoredAs": "#999",
-        "usage": 13,
+        "usage": 16,
         "props": [
           "--evm-axis-line",
           "--evm-bac-line",
+          "background",
           "color",
           "border-color",
+          "border-left",
           "--mm-zoom-label-text",
           "--mm-hint-text",
           "fill"
@@ -483,10 +506,12 @@
         "id": "grey-bd8d7f37",
         "hex": "#333333",
         "authoredAs": "#333",
-        "usage": 13,
+        "usage": 16,
         "props": [
           "--evm-grid-line",
+          "background",
           "color",
+          "background-color",
           "--mm-toolbar-border",
           "--mm-btn-text",
           "--mm-root-text",
@@ -496,6 +521,104 @@
           "--mm-placeholder-heading",
           "border-bottom-color",
           "border-top-color"
+        ]
+      },
+      {
+        "id": "grey-d8c560c3",
+        "hex": "#888888",
+        "authoredAs": "#888",
+        "usage": 16,
+        "props": [
+          "--evm-bac-line",
+          "background",
+          "color",
+          "border-color",
+          "--mm-hint-text",
+          "--mm-placeholder-text"
+        ]
+      },
+      {
+        "id": "orange-a61a6630",
+        "hex": "#E67700",
+        "authoredAs": "#e67700",
+        "usage": 15,
+        "props": [
+          "background",
+          "color",
+          "border-color",
+          "border-left",
+          "border"
+        ]
+      },
+      {
+        "id": "black-56fb2a18",
+        "hex": "#000000",
+        "authoredAs": "rgba(0, 0, 0, 0.15)",
+        "usage": 15,
+        "props": [
+          "box-shadow",
+          "background",
+          "--np-shadow-strong"
+        ]
+      },
+      {
+        "id": "red-4ead1e92",
+        "hex": "#D32F2F",
+        "authoredAs": "#d32f2f",
+        "usage": 14,
+        "props": [
+          "background",
+          "color",
+          "border-color",
+          "border-top"
+        ]
+      },
+      {
+        "id": "grey-4e51a38",
+        "hex": "#2A2A2A",
+        "authoredAs": "#2a2a2a",
+        "usage": 14,
+        "props": [
+          "background",
+          "--mm-toolbar-bg",
+          "--mm-btn-bg",
+          "--mm-node-fill"
+        ]
+      },
+      {
+        "id": "red-5a4cad58",
+        "hex": "#FFE0E0",
+        "authoredAs": "#ffe0e0",
+        "usage": 13,
+        "props": [
+          "background"
+        ]
+      },
+      {
+        "id": "grey-200d8c6c",
+        "hex": "#3A3A3A",
+        "authoredAs": "#3a3a3a",
+        "usage": 13,
+        "props": [
+          "--evm-chart-border",
+          "background",
+          "border-bottom",
+          "--mm-btn-bg",
+          "--mm-btn-hover-bg",
+          "fill",
+          "border-top"
+        ]
+      },
+      {
+        "id": "grey-8fc3cdd4",
+        "hex": "#777777",
+        "authoredAs": "#777",
+        "usage": 13,
+        "props": [
+          "background",
+          "color",
+          "--mm-hint-text",
+          "--mm-placeholder-text"
         ]
       },
       {
@@ -509,128 +632,6 @@
           "border-color",
           "border"
         ]
-      },
-      {
-        "id": "orange-4d7dd578",
-        "hex": "#FFC107",
-        "authoredAs": "#ffc107",
-        "usage": 12,
-        "props": [
-          "background",
-          "color",
-          "border-left",
-          "border"
-        ]
-      },
-      {
-        "id": "grey-200d8c6c",
-        "hex": "#3A3A3A",
-        "authoredAs": "#3a3a3a",
-        "usage": 12,
-        "props": [
-          "--evm-chart-border",
-          "background",
-          "border-bottom",
-          "--mm-btn-bg",
-          "--mm-btn-hover-bg",
-          "fill"
-        ]
-      },
-      {
-        "id": "grey-a2b90ae0",
-        "hex": "#DDDDDD",
-        "authoredAs": "#ddd",
-        "usage": 12,
-        "props": [
-          "background",
-          "color",
-          "border-bottom",
-          "--mm-toolbar-border",
-          "--mm-btn-text",
-          "--mm-placeholder-heading"
-        ]
-      },
-      {
-        "id": "black-23d68dbf",
-        "hex": "#000000",
-        "authoredAs": "rgba(0, 0, 0, 0.3)",
-        "usage": 12,
-        "props": [
-          "box-shadow",
-          "background",
-          "--np-shadow"
-        ]
-      },
-      {
-        "id": "grey-4f4ac23d",
-        "hex": "#555555",
-        "authoredAs": "#555",
-        "usage": 11,
-        "props": [
-          "--evm-card-hover-border",
-          "--evm-axis-line",
-          "border-color",
-          "border",
-          "--mm-btn-border",
-          "--mm-placeholder-heading"
-        ]
-      },
-      {
-        "id": "blue-fd5c9b17",
-        "hex": "#1976D2",
-        "authoredAs": "#1976d2",
-        "usage": 10,
-        "props": [
-          "background",
-          "color",
-          "border-left"
-        ]
-      },
-      {
-        "id": "blue-9eec6537",
-        "hex": "#233A45",
-        "authoredAs": "#233a45",
-        "usage": 10,
-        "props": [
-          "border-color",
-          "border-left-color",
-          "border-bottom-color",
-          "border-right-color"
-        ]
-      },
-      {
-        "id": "grey-d8c560c3",
-        "hex": "#888888",
-        "authoredAs": "#888",
-        "usage": 10,
-        "props": [
-          "--evm-bac-line",
-          "color",
-          "border-color",
-          "--mm-hint-text",
-          "--mm-placeholder-text"
-        ]
-      },
-      {
-        "id": "grey-5392f67",
-        "hex": "#D4D4D4",
-        "authoredAs": "#d4d4d4",
-        "usage": 10,
-        "props": [
-          "color",
-          "--mm-btn-hover-bg",
-          "caret-color"
-        ]
-      },
-      {
-        "id": "black-56fb29fc",
-        "hex": "#000000",
-        "authoredAs": "rgba(0, 0, 0, 0.08)",
-        "usage": 10,
-        "props": [
-          "box-shadow",
-          "background"
-        ]
       }
     ]
   },
@@ -638,22 +639,27 @@
     {
       "id": "fontSize-548b1f63",
       "authoredAs": "0.85em",
-      "usage": 79
-    },
-    {
-      "id": "fontSize-170fe9",
-      "authoredAs": "12px",
-      "usage": 78
+      "usage": 95
     },
     {
       "id": "fontSize-2ba33e3",
       "authoredAs": "0.9em",
-      "usage": 77
+      "usage": 88
+    },
+    {
+      "id": "fontSize-170fe9",
+      "authoredAs": "12px",
+      "usage": 76
     },
     {
       "id": "fontSize-1713aa",
       "authoredAs": "13px",
-      "usage": 59
+      "usage": 64
+    },
+    {
+      "id": "fontSize-2ba3022",
+      "authoredAs": "0.8em",
+      "usage": 43
     },
     {
       "id": "fontSize-17176b",
@@ -661,18 +667,13 @@
       "usage": 38
     },
     {
-      "id": "fontSize-548b93c2",
-      "authoredAs": "0.95em",
-      "usage": 33
-    },
-    {
-      "id": "fontSize-2ba3022",
-      "authoredAs": "0.8em",
-      "usage": 33
-    },
-    {
       "id": "fontSize-170c28",
       "authoredAs": "11px",
+      "usage": 34
+    },
+    {
+      "id": "fontSize-548b93c2",
+      "authoredAs": "0.95em",
       "usage": 33
     },
     {
@@ -683,7 +684,7 @@
     {
       "id": "fontSize-170867",
       "authoredAs": "10px",
-      "usage": 18
+      "usage": 20
     },
     {
       "id": "fontSize-2c847a3",
@@ -706,18 +707,13 @@
       "usage": 11
     },
     {
-      "id": "fontSize-2c8311d",
-      "authoredAs": "1.2em",
-      "usage": 10
-    },
-    {
-      "id": "fontSize-548ab647",
-      "authoredAs": "0.78em",
-      "usage": 10
-    },
-    {
       "id": "fontSize-2ba2c61",
       "authoredAs": "0.7em",
+      "usage": 11
+    },
+    {
+      "id": "fontSize-2c8311d",
+      "authoredAs": "1.2em",
       "usage": 10
     },
     {
@@ -731,28 +727,13 @@
       "usage": 9
     },
     {
-      "id": "fontSize-548b887f",
-      "authoredAs": "0.92em",
-      "usage": 9
-    },
-    {
       "id": "fontSize-548aab04",
       "authoredAs": "0.75em",
       "usage": 8
     },
     {
-      "id": "fontSize-548b1420",
-      "authoredAs": "0.82em",
-      "usage": 8
-    },
-    {
       "id": "fontSize-eab971f6",
       "authoredAs": "var(--np-text-85)",
-      "usage": 7
-    },
-    {
-      "id": "fontSize-548b2aa6",
-      "authoredAs": "0.88em",
       "usage": 7
     },
     {
@@ -811,6 +792,11 @@
       "usage": 4
     },
     {
+      "id": "fontSize-e401",
+      "authoredAs": "9px",
+      "usage": 4
+    },
+    {
       "id": "fontSize-eab9715b",
       "authoredAs": "var(--np-text-80)",
       "usage": 4
@@ -831,16 +817,6 @@
       "usage": 3
     },
     {
-      "id": "fontSize-5673cbb0",
-      "authoredAs": "12.5px",
-      "usage": 3
-    },
-    {
-      "id": "fontSize-e401",
-      "authoredAs": "9px",
-      "usage": 3
-    },
-    {
       "id": "fontSize-171b2c",
       "authoredAs": "15px",
       "usage": 3
@@ -858,6 +834,11 @@
     {
       "id": "fontSize-179ace",
       "authoredAs": "28px",
+      "usage": 2
+    },
+    {
+      "id": "fontSize-563e9724",
+      "authoredAs": "1.3rem",
       "usage": 2
     },
     {
@@ -906,23 +887,8 @@
       "usage": 1
     },
     {
-      "id": "fontSize-563e9724",
-      "authoredAs": "1.3rem",
-      "usage": 1
-    },
-    {
       "id": "fontSize-3ccae5be",
       "authoredAs": "0.75rem",
-      "usage": 1
-    },
-    {
-      "id": "fontSize-716aab7a",
-      "authoredAs": "1.25rem",
-      "usage": 1
-    },
-    {
-      "id": "fontSize-548a9fc1",
-      "authoredAs": "0.72em",
       "usage": 1
     },
     {
@@ -966,6 +932,11 @@
       "usage": 1
     },
     {
+      "id": "fontSize-5673cbb0",
+      "authoredAs": "12.5px",
+      "usage": 1
+    },
+    {
       "id": "fontSize-17f8a7",
       "authoredAs": "32px",
       "usage": 1
@@ -1001,13 +972,18 @@
       "id": "fontFamily-7bd1e4af",
       "authoredAs": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
       "usage": 1
+    },
+    {
+      "id": "fontFamily-740c90fb",
+      "authoredAs": "inherit",
+      "usage": 1
     }
   ],
   "lineHeights": [
     {
       "id": "lineHeight-31",
       "authoredAs": "1",
-      "usage": 44
+      "usage": 46
     },
     {
       "id": "lineHeight-bdb8",
@@ -1020,18 +996,23 @@
       "usage": 11
     },
     {
-      "id": "lineHeight-bdb6",
-      "authoredAs": "1.3",
-      "usage": 5
-    },
-    {
       "id": "lineHeight-bdb9",
       "authoredAs": "1.6",
       "usage": 4
     },
     {
+      "id": "lineHeight-bdb6",
+      "authoredAs": "1.3",
+      "usage": 4
+    },
+    {
       "id": "lineHeight-bdb5",
       "authoredAs": "1.2",
+      "usage": 3
+    },
+    {
+      "id": "lineHeight-16f93f",
+      "authoredAs": "1.35",
       "usage": 3
     },
     {
@@ -1052,11 +1033,6 @@
     {
       "id": "lineHeight-171eed",
       "authoredAs": "16px",
-      "usage": 2
-    },
-    {
-      "id": "lineHeight-16f93f",
-      "authoredAs": "1.35",
       "usage": 2
     },
     {
@@ -1085,6 +1061,11 @@
       "usage": 1
     },
     {
+      "id": "lineHeight-17176b",
+      "authoredAs": "14px",
+      "usage": 1
+    },
+    {
       "id": "lineHeight-177cc6",
       "authoredAs": "20px",
       "usage": 1
@@ -1094,52 +1075,42 @@
     {
       "id": "radius-d13c",
       "authoredAs": "4px",
-      "usage": 128
+      "usage": 182
     },
     {
       "id": "radius-d8be",
       "authoredAs": "6px",
-      "usage": 93
+      "usage": 96
     },
     {
       "id": "radius-e040",
       "authoredAs": "8px",
-      "usage": 72
+      "usage": 76
     },
     {
       "id": "radius-ccea",
       "authoredAs": "50%",
-      "usage": 37
+      "usage": 38
     },
     {
       "id": "radius-170fe9",
       "authoredAs": "12px",
-      "usage": 36
-    },
-    {
-      "id": "radius-cd7b",
-      "authoredAs": "3px",
-      "usage": 32
-    },
-    {
-      "id": "radius-d4fd",
-      "authoredAs": "5px",
-      "usage": 21
+      "usage": 38
     },
     {
       "id": "radius-170867",
       "authoredAs": "10px",
-      "usage": 19
+      "usage": 22
+    },
+    {
+      "id": "radius-30",
+      "authoredAs": "0",
+      "usage": 8
     },
     {
       "id": "radius-31df89e",
       "authoredAs": "var(--np-radius-sm)",
       "usage": 7
-    },
-    {
-      "id": "radius-30",
-      "authoredAs": "0",
-      "usage": 6
     },
     {
       "id": "radius-31de101",
@@ -1167,8 +1138,8 @@
       "usage": 2
     },
     {
-      "id": "radius-170c28",
-      "authoredAs": "11px",
+      "id": "radius-c1974478",
+      "authoredAs": "0 0 4px 4px",
       "usage": 2
     },
     {
@@ -1194,16 +1165,6 @@
     {
       "id": "radius-32b7337c",
       "authoredAs": "0 6px 6px 0",
-      "usage": 1
-    },
-    {
-      "id": "radius-f67d837a",
-      "authoredAs": "0 0 5px 5px",
-      "usage": 1
-    },
-    {
-      "id": "radius-1713aa",
-      "authoredAs": "13px",
       "usage": 1
     },
     {
@@ -1252,16 +1213,6 @@
       "usage": 1
     },
     {
-      "id": "radius-c5f9",
-      "authoredAs": "1px",
-      "usage": 1
-    },
-    {
-      "id": "radius-c1974478",
-      "authoredAs": "0 0 4px 4px",
-      "usage": 1
-    },
-    {
       "id": "radius-e8aec3d",
       "authoredAs": "var(--np-radius-control)",
       "usage": 1
@@ -1270,18 +1221,23 @@
       "id": "radius-ccd99f20",
       "authoredAs": "14px 14px 0 0",
       "usage": 1
+    },
+    {
+      "id": "radius-170c28",
+      "authoredAs": "11px",
+      "usage": 1
     }
   ],
   "boxShadows": [
     {
       "id": "boxShadow-dc7bf240",
       "authoredAs": "0 2px 4px rgba(0, 0, 0, 0.1)",
-      "usage": 22
+      "usage": 40
     },
     {
       "id": "boxShadow-6728eef9",
       "authoredAs": "0 2px 4px var(--np-shadow)",
-      "usage": 22
+      "usage": 29
     },
     {
       "id": "boxShadow-2ebeb8ba",
@@ -1289,43 +1245,28 @@
       "usage": 11
     },
     {
-      "id": "boxShadow-f6beb62c",
-      "authoredAs": "0 4px 12px var(--np-shadow-strong)",
-      "usage": 7
-    },
-    {
-      "id": "boxShadow-5b04875",
-      "authoredAs": "0 2px 8px var(--np-shadow)",
-      "usage": 5
-    },
-    {
-      "id": "boxShadow-f46d24e2",
-      "authoredAs": "0 4px 12px rgba(0,0,0,0.15)",
-      "usage": 4
-    },
-    {
       "id": "boxShadow-b6424a34",
       "authoredAs": "0 4px 12px rgba(0, 0, 0, 0.15)",
-      "usage": 4
-    },
-    {
-      "id": "boxShadow-d58de9c4",
-      "authoredAs": "0 2px 4px rgba(0,0,0,0.1)",
-      "usage": 4
-    },
-    {
-      "id": "boxShadow-541ce482",
-      "authoredAs": "0 1px 3px rgba(0, 0, 0, 0.1)",
-      "usage": 4
-    },
-    {
-      "id": "boxShadow-838589bb",
-      "authoredAs": "0 1px 3px var(--np-shadow)",
-      "usage": 4
+      "usage": 10
     },
     {
       "id": "boxShadow-f692dcbc",
       "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.1)",
+      "usage": 8
+    },
+    {
+      "id": "boxShadow-f6beb62c",
+      "authoredAs": "0 4px 12px var(--np-shadow-strong)",
+      "usage": 8
+    },
+    {
+      "id": "boxShadow-5b04875",
+      "authoredAs": "0 2px 8px var(--np-shadow)",
+      "usage": 7
+    },
+    {
+      "id": "boxShadow-dc7bf25f",
+      "authoredAs": "0 2px 4px rgba(0, 0, 0, 0.2)",
       "usage": 3
     },
     {
@@ -1334,13 +1275,18 @@
       "usage": 3
     },
     {
-      "id": "boxShadow-366c9bb7",
-      "authoredAs": "0 2px 6px var(--np-shadow)",
+      "id": "boxShadow-6bcc5bc6",
+      "authoredAs": "0 12px 32px rgba(0, 0, 0, 0.25)",
       "usage": 3
     },
     {
-      "id": "boxShadow-2f7fa9f7",
-      "authoredAs": "0 1px 3px rgba(0, 0, 0, 0.08)",
+      "id": "boxShadow-264eb700",
+      "authoredAs": "0 6px 16px var(--np-shadow)",
+      "usage": 3
+    },
+    {
+      "id": "boxShadow-c51ca647",
+      "authoredAs": "0 6px 20px var(--np-shadow)",
       "usage": 3
     },
     {
@@ -1354,13 +1300,8 @@
       "usage": 2
     },
     {
-      "id": "boxShadow-f0078d01",
-      "authoredAs": "0 1px 2px rgba(0,0,0,0.1)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-dc7bf25f",
-      "authoredAs": "0 2px 4px rgba(0, 0, 0, 0.2)",
+      "id": "boxShadow-f5c71668",
+      "authoredAs": "0 10px 30px rgba(0, 0, 0, 0.12)",
       "usage": 2
     },
     {
@@ -1374,34 +1315,29 @@
       "usage": 2
     },
     {
+      "id": "boxShadow-f692dcdb",
+      "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.2)",
+      "usage": 2
+    },
+    {
+      "id": "boxShadow-f692dcfa",
+      "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.3)",
+      "usage": 2
+    },
+    {
       "id": "boxShadow-541ce4c0",
       "authoredAs": "0 1px 3px rgba(0, 0, 0, 0.3)",
       "usage": 2
     },
     {
-      "id": "boxShadow-72b9c793",
-      "authoredAs": "0 4px 8px rgba(0,0,0,0.15)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-6bcc5bc6",
-      "authoredAs": "0 12px 32px rgba(0, 0, 0, 0.25)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-fdb36633",
-      "authoredAs": "0 4px 8px var(--np-shadow)",
+      "id": "boxShadow-b287b683",
+      "authoredAs": "0 10px 28px var(--np-shadow, rgba(0, 0, 0, 0.22))",
       "usage": 2
     },
     {
       "id": "boxShadow-f6f3040c",
       "authoredAs": "var(--np-floating-shadow)",
       "usage": 2
-    },
-    {
-      "id": "boxShadow-7ab6a9d5",
-      "authoredAs": "0 2px 8px rgba(0,0,0,0.15)",
-      "usage": 1
     },
     {
       "id": "boxShadow-d47d93ea",
@@ -1411,11 +1347,6 @@
     {
       "id": "boxShadow-ed287e7a",
       "authoredAs": "0 0 0 2px rgba(40, 167, 69, 0.35)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-545dfc8",
-      "authoredAs": "0 4px 6px rgba(0,0,0,0.1)",
       "usage": 1
     },
     {
@@ -1429,28 +1360,8 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-b30253f9",
-      "authoredAs": "0 2px 4px rgba(0, 0, 0, 0.08)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-f88be779",
-      "authoredAs": "0 1px 3px rgba(0,0,0,0.06)",
-      "usage": 1
-    },
-    {
       "id": "boxShadow-6743a45b",
       "authoredAs": "0 20px 60px var(--np-shadow-strong)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-f5c71668",
-      "authoredAs": "0 10px 30px rgba(0, 0, 0, 0.12)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-c3770c8",
-      "authoredAs": "0 2px 8px rgba(0,0,0,0.1)",
       "usage": 1
     },
     {
@@ -1474,11 +1385,6 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-718985cb",
-      "authoredAs": "0 8px 32px rgba(0, 0, 0, 0.18)",
-      "usage": 1
-    },
-    {
       "id": "boxShadow-740af899",
       "authoredAs": "0 14px 34px rgba(2, 20, 28, 0.35)",
       "usage": 1
@@ -1486,16 +1392,6 @@
     {
       "id": "boxShadow-ae8d5052",
       "authoredAs": "var(--np-elevation-1)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-f692dcdb",
-      "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.2)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-f692dcfa",
-      "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.3)",
       "usage": 1
     },
     {
@@ -1509,21 +1405,6 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-2f7fad5b",
-      "authoredAs": "0 1px 3px rgba(0, 0, 0, 0.15)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-f88beabe",
-      "authoredAs": "0 1px 3px rgba(0,0,0,0.12)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-ec0c8b3d",
-      "authoredAs": "0 2px 12px rgba(0,0,0,0.18)",
-      "usage": 1
-    },
-    {
       "id": "boxShadow-347f96ee",
       "authoredAs": "inset 0 2px 0 0 var(--np-accent)",
       "usage": 1
@@ -1534,28 +1415,18 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-6bcc5c23",
-      "authoredAs": "0 12px 32px rgba(0, 0, 0, 0.28)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-264eb700",
-      "authoredAs": "0 6px 16px var(--np-shadow)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-1dee1cfe",
-      "authoredAs": "0 4px 16px var(--np-shadow)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-bcbc0c45",
-      "authoredAs": "0 4px 20px var(--np-shadow)",
+      "id": "boxShadow-a30c91d9",
+      "authoredAs": "0 0 0 2px color-mix(in srgb, currentColor 20%, transparent)",
       "usage": 1
     },
     {
       "id": "boxShadow-7f1c3814",
       "authoredAs": "0 12px 40px var(--np-shadow)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-a554544b",
+      "authoredAs": "0 6px 22px var(--np-shadow, rgba(0, 0, 0, 0.16))",
       "usage": 1
     },
     {
@@ -1566,16 +1437,6 @@
     {
       "id": "boxShadow-a101559a",
       "authoredAs": "0 0 0 5px rgba(16, 139, 185, 0.55)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-4eaa7040",
-      "authoredAs": "0 4px 14px var(--np-shadow)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-94605305",
-      "authoredAs": "0 6px 22px var(--np-shadow)",
       "usage": 1
     },
     {
@@ -1604,11 +1465,6 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-c51ca647",
-      "authoredAs": "0 6px 20px var(--np-shadow)",
-      "usage": 1
-    },
-    {
       "id": "boxShadow-aa88e48b",
       "authoredAs": "0 0 8px rgba(40, 167, 69, 0.5)",
       "usage": 1
@@ -1621,16 +1477,6 @@
     {
       "id": "boxShadow-57ed9367",
       "authoredAs": "0 0 4px rgba(0, 0, 0, 0.4)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-b64249d7",
-      "authoredAs": "0 4px 12px rgba(0, 0, 0, 0.12)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-4e6adde3",
-      "authoredAs": "0 4px 8px rgba(0, 0, 0, 0.15)",
       "usage": 1
     },
     {
@@ -1649,21 +1495,6 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-fa458319",
-      "authoredAs": "0 4px 8px rgba(0, 0, 0, 0.2)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-fa458338",
-      "authoredAs": "0 4px 8px rgba(0, 0, 0, 0.3)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-e987679d",
-      "authoredAs": "0 2px 6px rgba(0, 0, 0, 0.2)",
-      "usage": 1
-    },
-    {
       "id": "boxShadow-a04bc820",
       "authoredAs": "0 0 0 1px rgba(0, 0, 0, 0.15)",
       "usage": 1
@@ -1671,6 +1502,11 @@
     {
       "id": "boxShadow-6c8aeacf",
       "authoredAs": "0 0 0 3px rgba(63, 182, 224, 0.25)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-6e2be99c",
+      "authoredAs": "0 10px 32px var(--np-shadow, rgba(0, 0, 0, 0.22))",
       "usage": 1
     },
     {
@@ -1691,11 +1527,6 @@
     {
       "id": "boxShadow-74ed9c09",
       "authoredAs": "0 4px 20px var(--np-shadow-strong)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-e65e366e",
-      "authoredAs": "0 2px 12px var(--np-shadow-strong)",
       "usage": 1
     },
     {
@@ -1750,11 +1581,11 @@
     }
   ],
   "spacing": {
-    "declarations": 1606,
-    "indirectedDeclarations": 1358,
-    "totalUniqueValues": 36,
-    "offGridUniqueValues": 13,
-    "offGridUses": 28,
+    "declarations": 1633,
+    "indirectedDeclarations": 1377,
+    "totalUniqueValues": 38,
+    "offGridUniqueValues": 15,
+    "offGridUses": 31,
     "top": [
       {
         "value": "0",
@@ -1802,6 +1633,16 @@
         "fileCount": 4
       },
       {
+        "value": "4px",
+        "uses": 7,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "padding"
+        ],
+        "fileCount": 5
+      },
+      {
         "value": "0.5rem",
         "uses": 7,
         "onGrid": true,
@@ -1813,10 +1654,12 @@
         "fileCount": 1
       },
       {
-        "value": "4px",
-        "uses": 5,
+        "value": "12px",
+        "uses": 6,
         "onGrid": true,
         "props": [
+          "gap",
+          "margin",
           "padding"
         ],
         "fileCount": 4
@@ -1853,17 +1696,6 @@
         "fileCount": 4
       },
       {
-        "value": "12px",
-        "uses": 4,
-        "onGrid": true,
-        "props": [
-          "gap",
-          "margin",
-          "padding"
-        ],
-        "fileCount": 3
-      },
-      {
         "value": "-4px",
         "uses": 3,
         "onGrid": true,
@@ -1893,22 +1725,32 @@
         "fileCount": 3
       },
       {
+        "value": "2px",
+        "uses": 3,
+        "onGrid": false,
+        "props": [
+          "margin",
+          "padding"
+        ],
+        "fileCount": 3
+      },
+      {
+        "value": "8px",
+        "uses": 3,
+        "onGrid": true,
+        "props": [
+          "margin-bottom",
+          "padding"
+        ],
+        "fileCount": 2
+      },
+      {
         "value": "-2px",
         "uses": 2,
         "onGrid": false,
         "props": [
           "margin",
           "margin-bottom"
-        ],
-        "fileCount": 2
-      },
-      {
-        "value": "2px",
-        "uses": 2,
-        "onGrid": false,
-        "props": [
-          "margin",
-          "padding"
         ],
         "fileCount": 2
       },
@@ -2041,15 +1883,6 @@
           "margin-left"
         ],
         "fileCount": 1
-      },
-      {
-        "value": "-5px",
-        "uses": 1,
-        "onGrid": false,
-        "props": [
-          "margin-left"
-        ],
-        "fileCount": 1
       }
     ],
     "offGridTop": [
@@ -2059,12 +1892,12 @@
         "fileCount": 5
       },
       {
-        "value": "-2px",
-        "uses": 2,
-        "fileCount": 2
+        "value": "2px",
+        "uses": 3,
+        "fileCount": 3
       },
       {
-        "value": "2px",
+        "value": "-2px",
         "uses": 2,
         "fileCount": 2
       },
@@ -2099,6 +1932,16 @@
         "fileCount": 1
       },
       {
+        "value": "6px",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
+        "value": "10px",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
         "value": "-5px",
         "uses": 1,
         "fileCount": 1
@@ -2123,8 +1966,8 @@
   "components": [
     {
       "family": "table",
-      "rules": 826,
-      "uniqueSelectors": 701,
+      "rules": 839,
+      "uniqueSelectors": 711,
       "spreadAcrossFiles": 18,
       "files": [
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -2147,12 +1990,12 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 127,
-        "focus": 23,
+        "hover": 129,
+        "focus": 25,
         "active": 0,
         "disabled": 2
       },
-      "distinctClassNames": 212,
+      "distinctClassNames": 216,
       "topClassNames": [
         {
           "name": "gantt-info-table",
@@ -2218,8 +2061,8 @@
     },
     {
       "family": "button",
-      "rules": 509,
-      "uniqueSelectors": 432,
+      "rules": 517,
+      "uniqueSelectors": 440,
       "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2245,12 +2088,12 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 169,
-        "focus": 37,
+        "hover": 170,
+        "focus": 38,
         "active": 5,
         "disabled": 24
       },
-      "distinctClassNames": 136,
+      "distinctClassNames": 140,
       "topClassNames": [
         {
           "name": "btn-primary",
@@ -2316,8 +2159,8 @@
     },
     {
       "family": "nav",
-      "rules": 384,
-      "uniqueSelectors": 346,
+      "rules": 377,
+      "uniqueSelectors": 339,
       "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/animations.css",
@@ -2339,12 +2182,12 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 53,
-        "focus": 10,
+        "hover": 52,
+        "focus": 9,
         "active": 2,
         "disabled": 12
       },
-      "distinctClassNames": 129,
+      "distinctClassNames": 125,
       "topClassNames": [
         {
           "name": "ribbon-tab-btn",
@@ -2410,8 +2253,8 @@
     },
     {
       "family": "badge",
-      "rules": 234,
-      "uniqueSelectors": 219,
+      "rules": 235,
+      "uniqueSelectors": 220,
       "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2442,7 +2285,7 @@
         "active": 0,
         "disabled": 0
       },
-      "distinctClassNames": 114,
+      "distinctClassNames": 115,
       "topClassNames": [
         {
           "name": "search-view-result-badge",
@@ -2508,8 +2351,8 @@
     },
     {
       "family": "modal",
-      "rules": 208,
-      "uniqueSelectors": 185,
+      "rules": 212,
+      "uniqueSelectors": 189,
       "spreadAcrossFiles": 14,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2533,7 +2376,7 @@
         "active": 0,
         "disabled": 0
       },
-      "distinctClassNames": 82,
+      "distinctClassNames": 83,
       "topClassNames": [
         {
           "name": "modal-header",
@@ -2599,9 +2442,9 @@
     },
     {
       "family": "card",
-      "rules": 196,
-      "uniqueSelectors": 171,
-      "spreadAcrossFiles": 16,
+      "rules": 204,
+      "uniqueSelectors": 178,
+      "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -2609,6 +2452,7 @@
         "packages/noodle-web/src/noodle_web/static/front-matter-panel.css",
         "packages/noodle-web/src/noodle_web/static/layout.css",
         "packages/noodle-web/src/noodle_web/static/responsive.css",
+        "packages/noodle-web/src/noodle_web/static/status-bar.css",
         "packages/noodle-web/src/noodle_web/static/views/backstage.css",
         "packages/noodle-web/src/noodle_web/static/views/cards.css",
         "packages/noodle-web/src/noodle_web/static/views/evm.css",
@@ -2626,7 +2470,7 @@
         "active": 2,
         "disabled": 1
       },
-      "distinctClassNames": 84,
+      "distinctClassNames": 88,
       "topClassNames": [
         {
           "name": "kanban-card",
@@ -2685,8 +2529,8 @@
           "rules": 4
         },
         {
-          "name": "report-highlight-card",
-          "rules": 3
+          "name": "wb-parking-lot-panel",
+          "rules": 4
         }
       ]
     },
@@ -2805,8 +2649,8 @@
     ],
     "templateInlineStyleTotal": 272,
     "templateInlineStyleWithColour": 33,
-    "scriptFilesWithColourLiterals": 22,
-    "scriptColourLineTotal": 215,
+    "scriptFilesWithColourLiterals": 30,
+    "scriptColourLineTotal": 314,
     "topScripts": [
       {
         "file": "packages/noodle-web/src/noodle_web/static/script.js",
@@ -2817,8 +2661,24 @@
         "lines": 41
       },
       {
+        "file": "packages/noodle-web/src/noodle_web/static/components/card/np-card.js",
+        "lines": 26
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/components/button/np-button.js",
+        "lines": 22
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/components/board/np-board.js",
+        "lines": 19
+      },
+      {
         "file": "packages/noodle-web/src/noodle_web/static/views-tables.js",
         "lines": 18
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/components/note/np-note.js",
+        "lines": 16
       },
       {
         "file": "packages/noodle-web/src/noodle_web/static/benefits.js",
@@ -2849,6 +2709,10 @@
         "lines": 7
       },
       {
+        "file": "packages/noodle-web/src/noodle_web/static/components/tokens/color-tokens.stories.js",
+        "lines": 6
+      },
+      {
         "file": "packages/noodle-web/src/noodle_web/static/kanban.js",
         "lines": 5
       },
@@ -2865,28 +2729,8 @@
         "lines": 5
       },
       {
-        "file": "packages/noodle-web/src/noodle_web/static/views-gantt.js",
+        "file": "packages/noodle-web/src/noodle_web/static/components/board/np-board.stories.js",
         "lines": 4
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/portfolio-risks.js",
-        "lines": 3
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/editor-sync.js",
-        "lines": 2
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/ribbon.js",
-        "lines": 2
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/noodle-edges.js",
-        "lines": 1
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/portfolio-actions.js",
-        "lines": 1
       }
     ]
   }
