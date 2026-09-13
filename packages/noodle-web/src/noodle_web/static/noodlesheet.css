@@ -46,7 +46,7 @@
 }
 
 .ns-toolbar-btn:active {
-    background: #d8d8d8;
+    background: var(--np-selected);
 }
 
 .ns-toolbar-btn:focus-visible {
@@ -80,7 +80,7 @@
     width: 60px;
     min-width: 60px;
     height: 100%;
-    border-right: 1px solid #d0d0d0;
+    border-right: 1px solid var(--np-border-strong);
     background: var(--np-surface);
     font-size: 12px;
     font-weight: 600;
@@ -298,7 +298,7 @@
 }
 
 .ns-totals-cell {
-    background: #f0f4e8 !important;
+    background: var(--np-surface-alt) !important;
     font-weight: 700;
     color: var(--np-ink);
     border-top: 2px solid #a0a0a0;
@@ -315,7 +315,7 @@
 /* ── Alternating Rows ──────────────────────────────────────────── */
 
 .ns-table tbody tr:nth-child(even) .ns-cell:not(.ns-selected) {
-    background: #f9fafb;
+    background: var(--np-paper);
 }
 
 .ns-table tbody tr:hover .ns-cell:not(.ns-selected):not(.ns-editing) {
@@ -377,8 +377,8 @@ input[type="date"].ns-cell-editor {
     min-width: 80px;
     min-height: 32px;
     border: none;
-    border-right: 1px solid #d0d0d0;
-    background: #e8e8e8;
+    border-right: 1px solid var(--np-border-strong);
+    background: var(--np-sunken);
     color: var(--np-body);
     font-size: 12px;
     font-family: inherit;
@@ -409,7 +409,7 @@ input[type="date"].ns-cell-editor {
 
 .ns-tab.ns-tab-add:hover {
     color: #217346;
-    background: #ddd;
+    background: var(--np-selected);
 }
 
 .ns-tab:focus-visible {

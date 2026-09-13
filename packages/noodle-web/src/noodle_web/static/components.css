@@ -151,7 +151,7 @@
 }
 
 .up-next-not-started {
-    background: #dee2e6;
+    background: var(--np-selected);
     color: #495057;
 }
 
@@ -186,7 +186,7 @@
 }
 
 .resources-table-wrapper {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     overflow: hidden;
@@ -270,7 +270,7 @@
 }
 
 .copy-image-btn:hover {
-    background: #e0e0e0;
+    background: var(--np-selected);
     border-color: #999;
     color: var(--np-body);
 }
@@ -335,7 +335,7 @@
 }
 
 .resource-sheet-wrapper {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     overflow: hidden;
@@ -438,7 +438,7 @@
     white-space: nowrap;
     position: sticky;
     left: 0;
-    background: white;
+    background: var(--np-surface);
     z-index: 1;
     font-weight: 500;
 }
@@ -700,7 +700,7 @@
     color: var(--np-body);
     margin-bottom: var(--np-space-16);
     padding-bottom: var(--np-space-8);
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--np-hairline);
 }
 
 .report-timeline-wrapper {
@@ -918,7 +918,7 @@
     color: var(--np-body);
     margin: 0 0 var(--np-space-12) 0;
     padding-bottom: var(--np-space-8);
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--np-hairline);
 }
 
 .quad-header {
@@ -2369,7 +2369,7 @@ tr:hover .task-context-btn,
 }
 
 .subtask-resource-picker-row.assigned {
-    background: #f0f7fa;
+    background: var(--np-paper);
 }
 
 .subtask-resource-remove {
@@ -2752,7 +2752,7 @@ tr:hover .task-context-btn,
 }
 
 .analysis-health-score {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
     padding: var(--np-space-32);
     text-align: center;
@@ -2779,7 +2779,7 @@ tr:hover .task-context-btn,
 }
 
 .analysis-insight {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
     padding: var(--np-space-20);
     margin-bottom: var(--np-space-20);
@@ -2861,7 +2861,7 @@ tr:hover .task-context-btn,
 }
 
 .analysis-success {
-    background: #f1f8f4;
+    background: var(--np-paper);
     border: 2px solid #4caf50;
     border-radius: 8px;
     padding: var(--np-space-32);
@@ -3067,7 +3067,7 @@ tr:hover .task-context-btn,
 .raid-toolbar-separator {
     width: 1px;
     height: 30px;
-    background: #dee2e6;
+    background: var(--np-selected);
 }
 
 .raid-filter-group {
@@ -3350,7 +3350,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-editor-actions .toolbar-btn:hover {
-    background: #e9ecef;
+    background: var(--np-sunken);
 }
 
 .raid-editor-body {
@@ -3383,7 +3383,7 @@ tr:hover .task-context-btn,
 
 .export-menu-divider {
     height: 1px;
-    background: #dee2e6;
+    background: var(--np-selected);
     margin: var(--np-space-4) 0;
 }
 
@@ -3439,7 +3439,7 @@ tr:hover .task-context-btn,
 .wizard-step-connector {
     width: 40px;
     height: 2px;
-    background: #e0e0e0;
+    background: var(--np-selected);
     margin: 0 var(--np-space-8);
 }
 
@@ -4770,7 +4770,7 @@ tr:hover .task-context-btn,
     padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 4px;
-    background: white;
+    background: var(--np-surface);
     cursor: pointer;
     font-size: 0.9em;
 }
@@ -6079,7 +6079,7 @@ tr:hover .task-context-btn,
 .budget-toolbar-separator {
     width: 1px;
     height: 30px;
-    background: #dee2e6;
+    background: var(--np-selected);
 }
 
 .budget-filter-group {
@@ -6307,7 +6307,7 @@ tr:hover .task-context-btn,
     border-radius: 12px;
     font-size: 0.8em;
     font-weight: 500;
-    background: #e9ecef;
+    background: var(--np-sunken);
     color: #495057;
 }
 
@@ -6367,7 +6367,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-editor-actions .toolbar-btn:hover {
-    background: #e9ecef;
+    background: var(--np-sunken);
 }
 
 .budget-editor-actions .toolbar-btn:focus-visible {
@@ -6417,7 +6417,7 @@ tr:hover .task-context-btn,
     padding: var(--np-space-12) var(--np-space-16);
     background: var(--np-paper);
     border-radius: 8px;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--np-hairline);
     text-align: center;
 }
 
@@ -6452,7 +6452,7 @@ tr:hover .task-context-btn,
 
 .budget-widget-bar-wrapper {
     height: 8px;
-    background: #e9ecef;
+    background: var(--np-sunken);
     border-radius: 4px;
     overflow: hidden;
 }
@@ -6587,7 +6587,7 @@ tr:hover .task-context-btn,
     flex-direction: column;
     gap: var(--np-space-16);
     padding: var(--np-space-20);
-    background: white;
+    background: var(--np-surface);
     border-radius: 12px;
     margin-bottom: var(--np-space-20);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -6640,7 +6640,7 @@ tr:hover .task-context-btn,
     border: 1px solid var(--np-border);
     border-radius: 8px;
     font-size: 0.9em;
-    background: white;
+    background: var(--np-surface);
     min-width: 140px;
     min-height: 44px;
 }
@@ -6650,7 +6650,7 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-benefits-table-wrapper {
-    background: white;
+    background: var(--np-surface);
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -6680,7 +6680,7 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-benefits-table th:hover {
-    background: #e9ecef;
+    background: var(--np-sunken);
 }
 
 .portfolio-benefits-table td {
@@ -6726,7 +6726,7 @@ tr:hover .task-context-btn,
 
 /* Consistency section */
 .portfolio-benefits-consistency {
-    background: white;
+    background: var(--np-surface);
     border-radius: 12px;
     padding: var(--np-space-20);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -6977,7 +6977,7 @@ tr:hover .task-context-btn,
 }
 
 .levelling-table th {
-    background: #f1f3f5;
+    background: var(--np-surface-alt);
     font-weight: 600;
 }
 
@@ -7566,7 +7566,7 @@ button.ribbon-breadcrumb-rung:hover {
     align-items: stretch;
     height: 34px;
     padding: 0 var(--np-space-8);
-    background: #f4f7f8;
+    background: var(--np-paper);
     border-bottom: 1px solid #d8e1e5;
     z-index: 4;
 }
@@ -7690,7 +7690,7 @@ button.ribbon-breadcrumb-rung:hover {
     align-items: stretch;
     height: 98px;
     padding: 0 var(--np-space-8);
-    background: #fbfdfd;
+    background: var(--np-surface);
     border-bottom: 1px solid #d8e1e5;
     overflow: hidden;
 }

@@ -167,7 +167,7 @@
     overflow-y: hidden;
     padding: var(--np-space-20);
     flex: 1;
-    background: #f0f2f5;
+    background: var(--np-surface-alt);
     align-items: stretch;
     min-height: 0;
     width: 100%; /* Ensure board uses full width */
@@ -178,7 +178,7 @@
 }
 
 .kanban-board::-webkit-scrollbar-track {
-    background: #e9ecef;
+    background: var(--np-sunken);
 }
 
 .kanban-board::-webkit-scrollbar-thumb {
@@ -378,7 +378,7 @@
 }
 
 .kanban-column-body::-webkit-scrollbar-track {
-    background: #f1f3f5;
+    background: var(--np-surface-alt);
 }
 
 .kanban-column-body::-webkit-scrollbar-thumb {
@@ -421,7 +421,7 @@
 .kanban-add-card-btn:focus {
     outline: 3px solid var(--np-blue);
     outline-offset: 2px;
-    background: #e9ecef;
+    background: var(--np-sunken);
     border-color: var(--np-accent);
     color: var(--np-accent-ink);
 }
@@ -623,7 +623,7 @@
 .piechart-popup {
     position: absolute;
     z-index: 9999;
-    background: white;
+    background: var(--np-surface);
     border-radius: 6px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.18);
     display: flex;

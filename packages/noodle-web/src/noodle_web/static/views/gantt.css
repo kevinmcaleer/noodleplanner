@@ -149,7 +149,7 @@
 
 .gantt-wrapper {
     display: flex;
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     flex: 1;
@@ -254,7 +254,7 @@
 
 .gantt-info-table td.editing {
     padding: 0;
-    background: white;
+    background: var(--np-surface);
 }
 
 .gantt-info-table td.editing input {
@@ -759,7 +759,7 @@
     padding: var(--np-space-12) var(--np-space-16);
     color: var(--np-accent);
     font-size: 1.1em;
-    background: white;
+    background: var(--np-surface);
     flex-shrink: 0;
     display: flex;
     justify-content: space-between;
@@ -1403,7 +1403,7 @@ textarea:hover {
 }
 
 .output-container {
-    background: white;
+    background: var(--np-surface);
     color: var(--np-ink);
     padding: var(--np-space-16);
     flex: 1;
@@ -1594,7 +1594,7 @@ input[type="checkbox"] {
 }
 
 .syntax-guide code {
-    background: #e9ecef;
+    background: var(--np-sunken);
     padding: var(--np-space-2) var(--np-space-8);
     border-radius: 3px;
     font-family: 'Courier New', monospace;
@@ -1620,7 +1620,7 @@ input[type="checkbox"] {
 
 .spinner {
     display: none;
-    border: 4px solid #f3f3f3;
+    border: 4px solid var(--np-hairline);
     border-top: 4px solid var(--np-accent);
     border-radius: 50%;
     width: 40px;
