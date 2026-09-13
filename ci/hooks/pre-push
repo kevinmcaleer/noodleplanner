@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Pre-push gate: run the same CI jobs a runner will, before the push leaves.
+#
+# Installed by ci/install-hooks.sh. Not installed by default -- a hook that
+# appears without being asked for is a hook people learn to bypass.
+#
+# Escape hatches, in order of how often you will want them:
+#   git push --no-verify      skip entirely, this once
+#   NOODLE_SKIP_CI=1 git push same thing, if --no-verify is awkward to reach
+#   NOODLE_CI_JOBS="python js" git push   run only these jobs
+#
+# Deleting a branch and pushing nothing both skip the hook on their own: there
+# is no new code to test in either case.
+
+set -uo pipefail
+
+if [ "${NOODLE_SKIP_CI:-}" = "1" ]; then
+  echo "pre-push: NOODLE_SKIP_CI=1, skipping CI" >&2
+  exit 0
+fi
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+RUN="$REPO_ROOT/ci/run.sh"
+[ -x "$RUN" ] || { echo "pre-push: $RUN is missing; skipping" >&2; exit 0; }
+
+# stdin is one line per ref being pushed: <local ref> <local sha> <remote ref>
+# <remote sha>. An all-zero local sha is a deletion, and nothing on stdin at
+# all means nothing to push -- neither needs testing.
+have_work=0
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  [ -z "${local_sha:-}" ] && continue
+  # An all-zero sha is a deletion. Matched by shape rather than against a
+  # 40-zero literal so it holds for a sha256 repository too.
+  case $local_sha in *[!0]*) have_work=1 ;; esac
+done
+[ "$have_work" = 1 ] || exit 0
+
+# shellcheck disable=SC2086  # deliberate word-splitting: a job list, not a path
+"$RUN" ${NOODLE_CI_JOBS:-} || {
+  cat >&2 <<'EOF'
+
+pre-push: CI failed, so nothing was pushed.
+
+  ci/run.sh -j1 <job>    re-run one job with its output live
+  .ci-logs/<job>.log     the full log from the run above
+  git push --no-verify   push anyway
+
+EOF
+  exit 1
+}
