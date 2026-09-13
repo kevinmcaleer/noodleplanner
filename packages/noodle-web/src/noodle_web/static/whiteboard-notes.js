@@ -2653,11 +2653,14 @@ function wbCreateTextObjectAt(boardX, boardY) {
 
     // Same reasoning as wbCreateNoteAt(): the commit's renderText() is
     // async, so poll briefly for the new node rather than guessing a delay.
+    // Budget is generous (3s) because renderText() awaits a full re-render
+    // (baseline/forecast/escalation views included), which can be slow
+    // under load -- see wbFocusAddRowWhenReady()'s comment below.
     let attempts = 0;
     const focusWhenReady = () => {
         const entry = wbTextNodes.get(id);
         if (entry) { wbBeginTextObjectEdit(entry); return; }
-        if (++attempts < 20) setTimeout(focusWhenReady, 50);
+        if (++attempts < 60) setTimeout(focusWhenReady, 50);
     };
     setTimeout(focusWhenReady, 50);
 
@@ -2915,6 +2918,10 @@ function wbBuildAddChildRow(taskName) {
  * wbCreateTextObjectAt()'s own focusWhenReady() helpers. Gives up quietly
  * (no focus, no error) if the note or its add-row never reappears -- e.g.
  * something else removed the note from the board in the same tick.
+ * Budget is generous (3s) because renderText() awaits a full re-render
+ * (baseline/forecast/escalation views included), which can be slow under
+ * load -- a short budget risks giving up before a real, finite render
+ * finishes rather than racing a hang.
  */
 function wbFocusAddRowWhenReady(taskName, previousInput = null, attempts = 0) {
     const entry = wbNoteNodes.get(taskName);
@@ -2922,7 +2929,7 @@ function wbFocusAddRowWhenReady(taskName, previousInput = null, attempts = 0) {
         ? entry.refs.body.querySelector('.wb-note-add-input')
         : null;
     if (input && input !== previousInput) { input.focus(); return; }
-    if (attempts < 20) setTimeout(() => wbFocusAddRowWhenReady(taskName, previousInput, attempts + 1), 50);
+    if (attempts < 60) setTimeout(() => wbFocusAddRowWhenReady(taskName, previousInput, attempts + 1), 50);
 }
 
 /**
@@ -3090,6 +3097,18 @@ function wbCommitMarkdown(nextText) {
         }
     }
     editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // The dispatch above also schedules editor.js's own 1s debounced
+    // auto-render (its 'input' listener does that unconditionally) -- on
+    // top of the immediate renderText() call below, that leaves a second,
+    // redundant render pending a second from now, which tears down and
+    // rebuilds view DOM this function's callers already finished with
+    // (e.g. a checklist add-row's caller focuses its freshly-rendered
+    // input right after this returns -- the debounced re-render a second
+    // later would silently steal that focus back off it). Cancel it: the
+    // immediate render below already reflects nextText, so there is
+    // nothing left for a later render of the same text to usefully do.
+    if (typeof editor._cancelPendingRender === 'function') editor._cancelPendingRender();
 
     if (typeof renderText === 'function') {
         Promise.resolve(renderText()).catch(error => {
@@ -4892,12 +4911,15 @@ function wbCreateNoteAt(boardX, boardY) {
     // The commit's renderText() is async, so the note's DOM does not exist
     // yet. Poll briefly for it rather than guessing a delay -- a slow
     // render must still land in "type the name straight away", and a
-    // render that never happens must not leave a dangling timer.
+    // render that never happens must not leave a dangling timer. Budget is
+    // generous (3s) because renderText() awaits a full re-render
+    // (baseline/forecast/escalation views included), which can be slow
+    // under load.
     let attempts = 0;
     const focusWhenReady = () => {
         const entry = wbNoteNodes.get(name);
         if (entry) { wbBeginTitleEdit(entry); return; }
-        if (++attempts < 20) setTimeout(focusWhenReady, 50);
+        if (++attempts < 60) setTimeout(focusWhenReady, 50);
     };
     setTimeout(focusWhenReady, 50);
 
