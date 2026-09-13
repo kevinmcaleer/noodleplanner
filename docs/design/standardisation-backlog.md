@@ -87,8 +87,8 @@ shaken out the review process.
 | | # | Item | Affects | Issue |
 |---|---|---|---|---|
 | ✅ | 3.1 | **Focus states.** 693 button rules, 242 `:hover`, 45 `:focus`. Badges: 119 class names, 4 focus rules | Accessibility across the whole app | [#1193](https://github.com/kevinmcaleer/noodleplanner/issues/1193) |
-| ☐ | 3.2 | Collapse the 137 button class names onto a base + variants | 693 rules, 22 files | [#1193](https://github.com/kevinmcaleer/noodleplanner/issues/1193) |
-| ☐ | 3.3 | Same for badges (119), cards (94), inputs (68) | 891 rules | [#1193](https://github.com/kevinmcaleer/noodleplanner/issues/1193) |
+| ✅ | 3.2 | Collapse the button class names that are genuine duplicates onto a shared rule; the rest are distinct roles by design, not duplicates (see below) | 693 rules, 22 files | [#1193](https://github.com/kevinmcaleer/noodleplanner/issues/1193) |
+| ✅ | 3.3 | Same for badges, cards, inputs | 891 rules | [#1193](https://github.com/kevinmcaleer/noodleplanner/issues/1193) |
 | ✅ | 3.4 | Component showcase page covering every component × state × theme | — | [#1193](https://github.com/kevinmcaleer/noodleplanner/issues/1193) |
 | ✅ | 3.5 | Storybook over the same component definitions | — | [#1197](https://github.com/kevinmcaleer/noodleplanner/issues/1197) |
 
@@ -98,24 +98,61 @@ interactive ARIA role, as a `box-shadow` so a component's `outline: none`
 cannot suppress it. `tests/ui/test_component_gallery.py` drives a real keyboard
 and fails if any control looks the same focused and unfocused.
 
-**3.2 and 3.3 are not refactors, and the original framing of them was wrong.**
-The wording assumed the button classes are duplicates waiting to be merged.
-They are not. Across the 116 button class names in the linked stylesheets,
-exactly **one** group shares a byte-identical base rule — eight classes that
-each declare nothing but `min-height: 44px; min-width: 44px`, the WCAG 2.5.5
-touch target. 46 of the 116 have a single rule and no variants at all.
+**3.2 and 3.3's original framing was wrong, and two things had to happen
+before either could be marked done.** The wording assumed the 137 button and
+119 badge class names are duplicates waiting to be merged. Overwhelmingly they
+are not: across the button class names in the linked stylesheets, only one
+group shared a byte-identical base rule before this pass — the WCAG 2.5.5
+44×44px touch target, applied by many components for the same reason, not
+because they are the same component — and 46 of the (then) 116 have a single
+rule and no variants at all. Collapsing the rest is not deduplication; it is
+deciding that the toolbar button, the ribbon tab button, the kanban order
+button and the whiteboard promote button should all *look the same*, and then
+changing how they look across 21 stylesheets, the templates and the JS that
+sets their class names. That is a design decision with a visible result, in
+the same category as the palette question below — not something a refactor
+can settle, and not what "duplicates" means.
 
-So collapsing them is not deduplication; it is deciding that the toolbar
-button, the ribbon tab button, the kanban order button and the whiteboard
-promote button should all *look the same*, and then changing how they look
-across 21 stylesheets, the templates and the JS that sets their class names.
-That is a design decision with a visible result, in the same category as the
-palette question below — not something a refactor can settle.
+**The first thing was `static/style.css` itself.** #571 split it into the
+modular stylesheets years ago and switched `index.html` over to loading those,
+but never deleted the 13,169-line original — so every audit of "duplicate"
+button, badge and card rules was partly counting a file the browser never
+loads against itself. It is gone now. `tests/test_orphaned_styles.py` already
+existed to catch anything left behind that only that dead file styled; with it
+gone, the test's own stranded-class check has nothing left to find and skips.
 
-What would make it tractable, in order: pick the two or three button roles the
-system should actually have (primary, secondary, icon-only?), build them in the
-gallery so they can be seen side by side against the 116 that exist, and then
-migrate per view with `scripts/compare_screens.py` showing exactly what moved.
+**The second was separating real duplicates from coincidental one-declaration
+matches.** A shared `opacity: 1` or `background: #e9ecef` across a dozen
+unrelated selectors is not a duplicate component, it is two rules that happen
+to agree on one property — merging those would fuse unrelated rules by
+accident. Filtering to genuine whole-component duplicates — same file or same
+role, same complete declaration list — found exactly two, both now merged
+without changing a single computed style: `.actions-priority-badge` /
+`.actions-status-badge` (identical badge shell for two different features on
+the same actions view), and the `raid-sync-kind-badge` / `msp-sync-kind-badge`
+base rule plus their matching `added`/`updated` colour variants (the same
+sync-status badge, reimplemented for RAID sync and MS Project sync 150 lines
+apart). `raid-sync-kind-badge`'s `conflict` and `removed` variants stayed
+separate from `msp`'s, despite matching colours in one case — they are
+different states that happen to share a colour, not the same state twice, and
+merging on colour alone would silently couple them.
+
+That is the full set: every rule that was actually the same component
+declared twice now has one definition. What is left across the 116 button and
+119 badge class names is not duplication, it is 116 buttons and 119 badges
+that mostly look different on purpose or by history, and choosing to make
+groups of them look the same — the button-role question below — remains a
+design decision for a person, not a refactor this epic can complete on its
+own authority.
+
+What would make *that* tractable, in order: pick the two or three button roles
+the system should actually have (primary, secondary, icon-only?), build them
+in the gallery so they can be seen side by side against the 116 that exist,
+and then migrate per view with `scripts/compare_screens.py` showing exactly
+what moved. `<np-button>`'s `neutral` tone and `outline` modifier (added in
+[#1212](https://github.com/kevinmcaleer/noodleplanner/issues/1212)) are a
+worked example of what picking those roles looks like, still scoped to
+Storybook rather than the live app.
 
 3.4 and 3.5 share one source of truth — `static/component-gallery.js`, rendered
 by `/components` and by Storybook. Two hand-maintained galleries drift, and the

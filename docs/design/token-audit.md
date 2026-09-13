@@ -4,12 +4,14 @@
 order — 17,584 lines of CSS — plus the Jinja templates and the app's own
 JavaScript, both of which author styles a CSS-only audit cannot see.
 
-`static/style.css` is **excluded**: 13,170 lines that #571 stopped linking and
-nothing removed. Scanning it made every number in this report describe code the
-browser never sees — 45 of the 79 "conflicting token definitions" the first
-pass reported were conflicts with that dead file alone. The Obsidian plugin's
-stylesheet (`packages/obsidian-noodle-planner/styles/styles.css`) is a separate
-surface and is not covered.
+`static/style.css` no longer exists: it was 13,170 lines that #571 stopped
+linking and nothing removed until [#1193](https://github.com/kevinmcaleer/noodleplanner/issues/1193)
+deleted it. While it was still present, scanning it made every number in this
+report describe code the browser never sees — 45 of the 79 "conflicting token
+definitions" the first pass reported were conflicts with that dead file alone.
+The Obsidian plugin's stylesheet
+(`packages/obsidian-noodle-planner/styles/styles.css`) is a separate surface
+and is not covered.
 
 **Method:** [Project Wallace](https://www.projectwallace.com)'s CSS tooling —
 [`@projectwallace/css-analyzer`](https://github.com/projectwallace/css-analyzer)
@@ -266,21 +268,30 @@ canvas code has to hand real colour strings to a drawing API. The rest — stati
 colours baked into generated markup — belong behind tokens, and #1195's linter
 needs an allowlist rather than a blanket ban.
 
-## Unlinked stylesheets
+## Unlinked stylesheets — now removed
 
-`static/style.css`, 13,170 lines, linked by no template since #571 split it
-into the modular stylesheets. `tests/test_collab_session.py` already asserted
-it was unlinked.
+`static/style.css`, 13,170 lines, was linked by no template since #571 split
+it into the modular stylesheets. `tests/test_collab_session.py` already
+asserted it was unlinked.
 
-The split was **incomplete**: 54 classes the running app still sets were left
+The split was **incomplete**: 54 classes the running app still set were left
 behind in it, so the progress toast, the baseline history dialog, the AI
 settings modal, the editor's YAML front-matter highlighting and six other
 features rendered unstyled from that commit until #1194 recovered them.
-`tests/test_orphaned_styles.py` now fails on any recurrence.
+`tests/test_orphaned_styles.py` still fails on any recurrence.
 
-The file itself is left in place: it is the only record of the intended styling
-for the ~28 remaining stranded classes that nothing references, and deleting
-13k lines is a separate decision from fixing the bug.
+The file was left in place after that fix, deliberately: it was the only
+record of the intended styling for the ~28 remaining stranded classes that
+nothing referenced, and deleting 13k lines was called a separate decision from
+fixing the bug. [#1193](https://github.com/kevinmcaleer/noodleplanner/issues/1193)
+made that decision: every audit of "duplicate" component rules — the epic's
+own reason to exist — was partly counting this file against itself, since a
+rule declared once in a linked stylesheet and once in `style.css` looked like
+two implementations of the same component when only one of them ever reached
+the browser. The file is deleted; the ~28 classes' last styling is still in
+git history (`git log -- packages/noodle-web/src/noodle_web/static/style.css`)
+if anyone ever wants it back, and `test_orphaned_styles.py`'s stranded-class
+check now has nothing to check and skips rather than failing open.
 
 ## Exported design tokens
 
