@@ -73,12 +73,6 @@ body {
     background: var(--np-editor-bg);
 }
 
-/* Editor tip bar */
-[data-theme="dark"] .editor-panel > div[style*="background: #3a3a3a"] {
-    background: var(--np-editor-tip-bg) !important;
-    color: var(--np-editor-tip-text) !important;
-}
-
 /* Splitter */
 .editor-splitter {
     background: var(--np-splitter-bg);
