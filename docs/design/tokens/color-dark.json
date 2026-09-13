@@ -119,6 +119,11 @@
     "$value": "#51493D",
     "$description": "--np-border"
   },
+  "border-control": {
+    "$type": "color",
+    "$value": "#8A8175",
+    "$description": "--np-border-control"
+  },
   "border-light": {
     "$type": "color",
     "$value": "#3E382F",
@@ -163,6 +168,11 @@
     "$type": "color",
     "$value": "#B8AD9B",
     "$description": "--np-faint"
+  },
+  "focus-ring-color": {
+    "$type": "color",
+    "$value": "#EDB52A",
+    "$description": "--np-focus-ring-color"
   },
   "hairline": {
     "$type": "color",
@@ -243,6 +253,16 @@
     "$type": "color",
     "$value": "#484033",
     "$description": "--np-selected"
+  },
+  "shadow-tint": {
+    "$type": "color",
+    "$value": "rgba(0,0,0,.35)",
+    "$description": "--np-shadow-tint"
+  },
+  "shadow-tint-strong": {
+    "$type": "color",
+    "$value": "rgba(0,0,0,.55)",
+    "$description": "--np-shadow-tint-strong"
   },
   "splitter-bg": {
     "$type": "color",
