@@ -34,8 +34,28 @@ log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 
 set +e
+# `-n auto --dist loadfile`: parallel within this one job, rather than split
+# across several. Runner replicas are the concurrency here (ci/runner), and
+# with three of them a matrix of shards would compete with the four gating jobs
+# for the same slots and make a pull request slower, not faster. Cores inside a
+# job are free by comparison.
+#
+# `--dist loadfile` rather than the default, for two reasons. Each file owns a
+# module-scoped Chrome and uvicorn, so per-test distribution would stand up a
+# second browser for the same file. More importantly, some of these tests only
+# pass in file order: test_usability.py's
+# TestPlanRendering::test_render_does_not_show_error fails run on its own and
+# passes as part of its file, so it depends on state an earlier test leaves
+# behind. Per-test distribution reorders exactly that -- measured 1 failed, 49
+# passed -- where loadfile hands a whole file to one worker in collection order
+# and the suite stays green: 51 tests over four files at four workers, all
+# passing.
+#
+# That also sets the ceiling. The largest file is 50 of the 217 remaining
+# tests, so no amount of parallelism takes this job below the time that one
+# file needs. Porting it to tests/ui is what lifts that, not more workers.
 ci_step "pytest -m usability" \
-  ci_pytest -p no:cacheprovider -m usability "$@" 2>&1 | tee "$log"
+  ci_pytest -p no:cacheprovider -m usability -n auto --dist loadfile "$@" 2>&1 | tee "$log"
 # [0] is pytest, [1] is tee. tee all but always succeeds, so reading [1] here
 # would report every failing run as a pass -- which, on the one job in this
 # directory that does not gate, nothing downstream would have caught.
