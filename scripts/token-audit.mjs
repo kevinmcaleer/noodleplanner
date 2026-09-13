@@ -164,13 +164,16 @@ function extractCanonicalTokens() {
 	}
 
 	function resolve(value, map, seen = new Set()) {
-		const m = value.match(/^var\((--[a-zA-Z0-9-]+)\)$/)
-		if (!m) return value
-		const ref = m[1]
-		if (seen.has(ref)) return value // cycle guard
-		if (!(ref in map)) return value
-		seen.add(ref)
-		return resolve(map[ref], map, seen)
+		if (typeof value !== 'string' || !value.includes('var(')) return value
+		// Substitutes every var() in the value, including inside a composite
+		// like `0 2px 4px var(--np-shadow-tint)`. A var() with a fallback
+		// (`var(--x, #fff)`) keeps the fallback if --x is unknown, which is
+		// what the browser does.
+		return value.replace(/var\(\s*(--[a-zA-Z0-9-]+)\s*(?:,([^()]*(?:\([^()]*\)[^()]*)*))?\)/g, (whole, ref, fallback) => {
+			if (seen.has(ref)) return whole // cycle guard
+			if (!(ref in map)) return fallback === undefined ? whole : fallback.trim()
+			return resolve(map[ref], map, new Set([...seen, ref]))
+		})
 	}
 
 	const resolvedLight = {}
@@ -183,10 +186,23 @@ function extractCanonicalTokens() {
 	return { light: resolvedLight, dark: resolvedDark, rawLight: light, rawDark: dark }
 }
 
+// Category drives both which token set a name lands in (colours are themed,
+// everything else is not) and its DTCG $type. Order matters: --np-focus-ring-color
+// is a colour, --np-focus-ring-width is a dimension, and --np-focus-ring itself is
+// a composite shadow, so the specific tests come before the general ones.
 function categorize(name) {
-	if (name.includes('font')) return 'typography'
-	if (name.includes('radius')) return 'radius'
-	if (name.includes('shadow')) return 'shadow'
+	if (name.endsWith('-color') || name.includes('-tint')) return 'color'
+	if (name.includes('font-')) return 'fontFamily'
+	if (/^--np-text-\d+$/.test(name)) return 'fontSize'
+	if (name.includes('leading')) return 'lineHeight'
+	if (name.includes('weight')) return 'fontWeight'
+	if (name.includes('radius')) return 'dimension'
+	if (name.includes('space')) return 'dimension'
+	if (name.includes('width') || name.includes('offset')) return 'dimension'
+	// --np-focus-ring is a composite box-shadow, not a colour; its -color and
+	// -width halves are already caught above.
+	if (name.includes('focus-ring')) return 'shadow'
+	if (name.includes('shadow') || name.includes('elevation')) return 'shadow'
 	return 'color'
 }
 
@@ -537,13 +553,23 @@ const core = {}
 const colorLight = {}
 const colorDark = {}
 
-const DTCG_TYPE = { typography: 'fontFamily', radius: 'dimension', shadow: 'shadow' }
+const DTCG_TYPE = {
+	fontFamily: 'fontFamily',
+	fontSize: 'fontSize',
+	lineHeight: 'number',
+	fontWeight: 'fontWeight',
+	dimension: 'dimension',
+	shadow: 'shadow',
+}
 
 for (const name of canonicalNames) {
 	const shortName = name.replace(/^--np-/, '').replace(/^--/, '')
 	const category = categorize(name)
-	const lightValue = canonical.light[name]
-	const darkValue = canonical.dark[name]
+	// A multi-line declaration keeps its newlines and indentation through the
+	// parser; a design tool wants one line.
+	const flatten = (v) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : v)
+	const lightValue = flatten(canonical.light[name])
+	const darkValue = flatten(canonical.dark[name])
 
 	if (category === 'color') {
 		colorLight[shortName] = { $type: 'color', $value: lightValue, $description: name }

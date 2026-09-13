@@ -29,8 +29,8 @@
     "packages/noodle-web/src/noodle_web/static/visual-system.css"
   ],
   "stylesheet": {
-    "sourceLinesOfCode": 26199,
-    "complexity": 74683
+    "sourceLinesOfCode": 26251,
+    "complexity": 74891
   },
   "rules": {
     "total": 5809
@@ -44,8 +44,8 @@
     ]
   },
   "customProperties": {
-    "totalDeclarations": 483,
-    "totalUniqueNames": 147,
+    "totalDeclarations": 535,
+    "totalUniqueNames": 195,
     "unused": [
       "--active",
       "--evm-axis-label",
@@ -66,15 +66,56 @@
       "--mm-progress-bg",
       "--mm-root-text",
       "--mm-selection-stroke",
+      "--np-border-control",
+      "--np-elevation-1",
+      "--np-elevation-2",
+      "--np-elevation-3",
+      "--np-elevation-4",
+      "--np-focus-ring",
       "--np-font-mono",
       "--np-info",
       "--np-ink-hover",
+      "--np-leading-normal",
+      "--np-leading-snug",
+      "--np-leading-tight",
       "--np-radius-card",
+      "--np-radius-circle",
+      "--np-radius-md",
+      "--np-radius-pill",
+      "--np-radius-sm",
+      "--np-radius-xs",
       "--np-sage",
+      "--np-space-0",
+      "--np-space-12",
+      "--np-space-16",
+      "--np-space-2",
+      "--np-space-20",
+      "--np-space-24",
+      "--np-space-32",
+      "--np-space-4",
+      "--np-space-40",
+      "--np-space-48",
+      "--np-space-64",
+      "--np-space-8",
       "--np-success-hover",
+      "--np-text-100",
+      "--np-text-110",
+      "--np-text-125",
+      "--np-text-150",
+      "--np-text-180",
+      "--np-text-200",
+      "--np-text-75",
+      "--np-text-80",
+      "--np-text-85",
+      "--np-text-90",
+      "--np-text-95",
       "--np-warning",
       "--np-warning-gradient",
-      "--np-warning-hover"
+      "--np-warning-hover",
+      "--np-weight-bold",
+      "--np-weight-medium",
+      "--np-weight-regular",
+      "--np-weight-semibold"
     ],
     "unknown": [
       "--bs-primary",
@@ -1199,11 +1240,22 @@
       }
     ]
   },
-  "canonicalTokenCount": 73,
+  "canonicalTokenCount": 121,
   "colors": {
-    "totalUnique": 586,
-    "duplicateOfTokenCount": 9,
+    "totalUnique": 592,
+    "duplicateOfTokenCount": 10,
     "duplicateOfToken": [
+      {
+        "id": "orange-d53e8ee5",
+        "hex": "#EDB52A",
+        "authoredAs": "#edb52a",
+        "usage": 3,
+        "props": [
+          "--np-accent",
+          "--np-focus-ring-color"
+        ],
+        "matchedToken": "--np-focus-ring-color"
+      },
       {
         "id": "orange-9b8cd054",
         "hex": "#FAF8F4",
@@ -1238,14 +1290,15 @@
         "matchedToken": "--np-summary-row-hover"
       },
       {
-        "id": "orange-d53e8ee5",
-        "hex": "#EDB52A",
-        "authoredAs": "#edb52a",
+        "id": "orange-be38ba13",
+        "hex": "#8A6205",
+        "authoredAs": "#8a6205",
         "usage": 2,
         "props": [
-          "--np-accent"
+          "--np-accent-ink",
+          "--np-focus-ring-color"
         ],
-        "matchedToken": "--np-accent-gradient"
+        "matchedToken": "--np-focus-ring-color"
       },
       {
         "id": "orange-d5f5546b",
