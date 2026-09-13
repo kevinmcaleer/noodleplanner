@@ -1816,9 +1816,6 @@ tr:hover .task-context-btn,
     background-color: rgba(255, 255, 255, 0.2);
 }
 
-.modal-header input {
-    color: white !important;
-}
 
 .close-btn {
     background: none;
@@ -2997,16 +2994,6 @@ tr:hover .task-context-btn,
     .qa-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-}
-
-/* Issue #66: Make project title placeholder white */
-#projectTitle::placeholder {
-    color: white;
-    opacity: 1;
-}
-
-#projectTitle {
-    color: white;
 }
 
 /* ========================================

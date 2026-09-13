@@ -539,8 +539,8 @@
         "background: #d1ecf1": 1,
         "background: #d4edda": 1,
         "background: #d8dce1": 1,
-        "background: #e3f2fd": 2,
         "background: #e4eef2": 1,
+        "background: #e7f5ff": 2,
         "background: #e9ecef": 4,
         "background: #f3e5f5": 1,
         "background: conic-gradient(#28a745 0% var(--percent), #e0e0e0 var(--perc": 1,
@@ -558,7 +558,7 @@
         "box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15)": 2,
         "color: #0c5460": 1,
         "color: #155724": 1,
-        "color: #1976d2": 2,
+        "color: #1971c2": 2,
         "color: #495057": 7,
         "color: #7b1fa2": 1,
         "color: #adb5bd": 3

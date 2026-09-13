@@ -76,6 +76,16 @@ const radiusMap = literalMap(data.radiusClusters)
 const fontSizeMap = literalMap(data.fontSizeClusters)
 const colorMap = literalMap(data.colorClusters, { onlyKind: 'highest-traffic-value' })
 
+// ΔE2000 tolerance says two colours look the same in isolation; it says
+// nothing about a *pairing*'s contrast ratio. #1971c2-on-#e7f5ff measured
+// 4.52:1 (passing) and the cluster's winner, #1976d2-on-#e3f2fd, measures
+// 4.03:1 -- both colours nudged the same direction, closing a gap that was
+// already tight. Verified with scripts/check_rendered_contrast.py against
+// ci/rendered-contrast-baseline.json; kept out of the merge rather than
+// re-litigated per run.
+const CONTRAST_EXCEPTIONS = new Set(['#e7f5ff', '#1971c2'])
+for (const lit of CONTRAST_EXCEPTIONS) colorMap.delete(lit)
+
 const RADIUS_PROP = /^(border(-top-left|-top-right|-bottom-left|-bottom-right)?-radius)$/
 const FONT_SIZE_PROP = /^font-size$/
 const SHADOW_PROP = /^box-shadow$/

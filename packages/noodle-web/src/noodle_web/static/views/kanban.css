@@ -787,8 +787,11 @@
     padding: var(--np-space-2) var(--np-space-8);
     border-radius: 4px;
     font-weight: 500;
-    background: #e3f2fd;
-    color: #1976d2;
+    /* Not the #1194 band-2 blue-cluster winner: that pairing measures 4.03:1,
+       below the 4.5:1 this text needs. This lighter/darker pair passes at
+       4.52:1, so it stays a deliberate exception to the merge. */
+    background: #e7f5ff;
+    color: #1971c2;
 }
 
 .kanban-card-comment {
@@ -822,8 +825,9 @@
 }
 
 .label-dependency {
-    background: #e3f2fd;
-    color: #1976d2;
+    /* See .kanban-meta-duration above: kept off the #1194 band-2 merge for contrast. */
+    background: #e7f5ff;
+    color: #1971c2;
 }
 
 .label-tag {

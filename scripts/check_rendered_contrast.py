@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import socket
 import sys
 import threading
@@ -194,7 +195,10 @@ def main() -> int:
     findings: dict[str, list[dict]] = {}
     try:
         with sync_playwright() as pw:
-            browser = pw.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
+            browser = pw.chromium.launch(
+                executable_path=os.environ.get("NOODLE_PW_CHROME") or None,
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
+            )
             for theme in themes:
                 context = browser.new_context(viewport=VIEWPORT)
                 context.add_init_script("document.cookie = 'tourCompleted=true; path=/; max-age=31536000';")

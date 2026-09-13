@@ -34,14 +34,14 @@
     }
   ],
   "stylesheet": {
-    "sourceLinesOfCode": 17904,
-    "complexity": 51749
+    "sourceLinesOfCode": 17897,
+    "complexity": 51730
   },
   "rules": {
-    "total": 3978
+    "total": 3975
   },
   "selectors": {
-    "totalUnique": 3897,
+    "totalUnique": 3894,
     "maxSpecificity": [
       1,
       4,
@@ -74,7 +74,7 @@
   },
   "canonicalTokenCount": 150,
   "colors": {
-    "totalUnique": 416,
+    "totalUnique": 418,
     "duplicateOfTokenCount": 19,
     "duplicateOfToken": [
       {
@@ -290,7 +290,7 @@
         "id": "white-edecb6ba",
         "hex": "#FFFFFF",
         "authoredAs": "white",
-        "usage": 165,
+        "usage": 162,
         "props": [
           "stroke",
           "background",
@@ -391,15 +391,6 @@
         ]
       },
       {
-        "id": "blue-701c2c9f",
-        "hex": "#E3F2FD",
-        "authoredAs": "#e3f2fd",
-        "usage": 21,
-        "props": [
-          "background"
-        ]
-      },
-      {
         "id": "green-79e79d6d",
         "hex": "#388E3C",
         "authoredAs": "#388e3c",
@@ -421,6 +412,15 @@
         ]
       },
       {
+        "id": "blue-701c2c9f",
+        "hex": "#E3F2FD",
+        "authoredAs": "#e3f2fd",
+        "usage": 19,
+        "props": [
+          "background"
+        ]
+      },
+      {
         "id": "grey-ad92bd37",
         "hex": "#444444",
         "authoredAs": "#444",
@@ -435,17 +435,6 @@
           "--mm-btn-text",
           "--mm-plus-btn-hover-fill",
           "--mm-progress-bg"
-        ]
-      },
-      {
-        "id": "blue-fd5c9b17",
-        "hex": "#1976D2",
-        "authoredAs": "#1976d2",
-        "usage": 18,
-        "props": [
-          "background",
-          "color",
-          "border-left"
         ]
       },
       {
@@ -483,6 +472,17 @@
           "border-color",
           "border-left",
           "border"
+        ]
+      },
+      {
+        "id": "blue-fd5c9b17",
+        "hex": "#1976D2",
+        "authoredAs": "#1976d2",
+        "usage": 16,
+        "props": [
+          "background",
+          "color",
+          "border-left"
         ]
       },
       {
@@ -2351,8 +2351,8 @@
     },
     {
       "family": "modal",
-      "rules": 212,
-      "uniqueSelectors": 189,
+      "rules": 211,
+      "uniqueSelectors": 188,
       "spreadAcrossFiles": 14,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2380,7 +2380,7 @@
       "topClassNames": [
         {
           "name": "modal-header",
-          "rules": 14
+          "rules": 13
         },
         {
           "name": "nav-menu-item",
@@ -2639,7 +2639,7 @@
       {
         "file": "packages/noodle-web/src/noodle_web/templates/index.html",
         "inlineStyleAttributes": 267,
-        "containingColourLiteral": 32
+        "containingColourLiteral": 17
       },
       {
         "file": "packages/noodle-web/src/noodle_web/templates/templates.html",
@@ -2648,17 +2648,17 @@
       }
     ],
     "templateInlineStyleTotal": 272,
-    "templateInlineStyleWithColour": 33,
+    "templateInlineStyleWithColour": 18,
     "scriptFilesWithColourLiterals": 30,
-    "scriptColourLineTotal": 314,
+    "scriptColourLineTotal": 311,
     "topScripts": [
       {
         "file": "packages/noodle-web/src/noodle_web/static/script.js",
-        "lines": 50
+        "lines": 48
       },
       {
         "file": "packages/noodle-web/src/noodle_web/static/views-products.js",
-        "lines": 41
+        "lines": 40
       },
       {
         "file": "packages/noodle-web/src/noodle_web/static/components/card/np-card.js",
