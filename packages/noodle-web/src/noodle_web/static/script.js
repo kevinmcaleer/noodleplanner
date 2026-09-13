@@ -6347,7 +6347,7 @@ function populateResourceAssignedTasks(shortname) {
     if (!el) return;
 
     if (!shortname || !lastRenderedTasks || lastRenderedTasks.length === 0) {
-        el.innerHTML = '<span style="color: var(--text-secondary, #888); font-style: italic;">No tasks assigned</span>';
+        el.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">No tasks assigned</span>';
         return;
     }
 
@@ -6362,7 +6362,7 @@ function populateResourceAssignedTasks(shortname) {
     });
 
     if (assigned.length === 0) {
-        el.innerHTML = '<span style="color: var(--text-secondary, #888); font-style: italic;">No tasks assigned</span>';
+        el.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">No tasks assigned</span>';
         return;
     }
 

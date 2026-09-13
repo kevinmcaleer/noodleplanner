@@ -3487,7 +3487,7 @@ function openProductForm(task) {
         }
 
         if (inputs.length === 0 && outputs.length === 0) {
-            html = `<div class="pf-mini-node" style="background:${currentColour};">${currentName}</div><span style="color: var(--text-secondary, #888); font-size: 11px; padding-left: 8px;">No connections</span>`;
+            html = `<div class="pf-mini-node" style="background:${currentColour};">${currentName}</div><span style="color: var(--text-secondary); font-size: 11px; padding-left: 8px;">No connections</span>`;
         }
 
         flowEl.innerHTML = html;
