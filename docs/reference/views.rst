@@ -1,13 +1,44 @@
 Views Reference
 ================
 
-NoodlePlanner provides multiple views of your project plan. All views are accessible from the sub-navigation bar below the main navigation, most of them grouped under the **Views** dropdown.
+NoodlePlanner provides multiple views of your project plan. They are reached
+from the ribbon, which replaced the older sub-navigation bar and its **Views**
+dropdown.
 
-.. figure:: /_static/img/reference/vw-02-views-menu.png
-   :alt: The Views dropdown expanded, listing Tasks, Notepad, Gantt, Board, Calendar, Milestones, Timeline, Mind Map and Whiteboard
-   :width: 100%
+.. figure:: /_static/img/reference/vw-01-ribbon-views-group.png
+   :alt: The Views group on the ribbon's Home tab, with buttons for Gantt, Board, Outline, Timeline, Calendar and Tasks
+   :width: 60%
 
-   The Views dropdown, showing every view including Whiteboard.
+   The **Views** group on the **Home** tab.
+
+No single group lists every view. The **Home** tab's **Views** group holds the
+six everyday ones — **Gantt**, **Board**, **Outline** (the notepad),
+**Timeline**, **Calendar** and **Tasks** — and the rest sit with the work they
+belong to:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - View
+     - Where to find it
+   * - Dashboard
+     - **Home** ▸ Plan
+   * - Milestones
+     - **View** ▸ Layout, or **Report** ▸ Reports (**Home** ▸ Plan's
+       **Milestone** button *creates* one)
+   * - Mind Map, Whiteboard
+     - **Plan** ▸ Model
+   * - PBS
+     - **Plan** ▸ Structure
+   * - Stakeholders
+     - **Resources** ▸ People
+   * - Resource Sheet, Timesheet, Workload
+     - **Resources** ▸ Effort
+   * - RAID Log, Actions, Highlights, Lookahead
+     - **Track**
+   * - Analysis, Budget, Benefits, Project Report
+     - **Report** ▸ Reports
 
 Project Views
 --------------

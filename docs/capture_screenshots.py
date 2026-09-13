@@ -12,9 +12,15 @@ Requirements:
 Usage:
     python docs/capture_screenshots.py
     python docs/capture_screenshots.py --base-url http://localhost:9000
+
+Behind a restricted network, serve the CDN assets locally and set
+NOODLE_CDN_MIRROR=127.0.0.1:<port> -- see create_driver(). Without it the
+capture silently loses Bootstrap, every icon and the webfonts.
 """
 
 import argparse
+import base64
+import hashlib
 import os
 import time
 from pathlib import Path
@@ -118,6 +124,11 @@ Discovery & Planning
 # Driver setup
 # ---------------------------------------------------------------------------
 
+# Every image in docs/_static/img/ is captured at 2x so it stays sharp on a
+# HiDPI screen and can be downscaled by the theme.
+DEVICE_SCALE = 2
+
+
 
 def create_driver():
     """Create a headless Chrome WebDriver with high-DPI settings."""
@@ -127,7 +138,25 @@ def create_driver():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1440,900")
-    options.add_argument("--force-device-scale-factor=2")
+    options.add_argument(f"--force-device-scale-factor={DEVICE_SCALE}")
+
+    # index.html pulls Bootstrap, Bootstrap Icons and three webfonts from
+    # cdn.jsdelivr.net and fonts.googleapis.com. Where those are unreachable the
+    # page still renders, but without Bootstrap's styling, without a single icon
+    # and in fallback typefaces -- and a screenshot like that is worse than a
+    # stale one, because it looks plausible.
+    #
+    # NOODLE_CDN_MIRROR points at a local HTTPS server standing in for all three
+    # hosts. The page's own URLs are untouched; Chrome simply resolves them
+    # here. Cert errors are ignored because the mirror is necessarily
+    # self-signed, and that is safe only because every request is being
+    # redirected to localhost -- do not set this against a real network.
+    mirror = os.environ.get("NOODLE_CDN_MIRROR")
+    if mirror:
+        hosts = ("cdn.jsdelivr.net", "fonts.googleapis.com", "fonts.gstatic.com")
+        rules = ",".join(f"MAP {h} {mirror}" for h in hosts)
+        options.add_argument(f"--host-resolver-rules={rules}")
+        options.add_argument("--ignore-certificate-errors")
 
     # Try system chromium/chromedriver first (e.g. Raspberry Pi / Debian),
     # then this sandbox's own pre-installed Playwright Chromium build (the
@@ -245,17 +274,51 @@ def switch_to_view(driver, view_id):
 
 
 def capture_element(driver, selector, output_path):
-    """Screenshot a specific DOM element and save to *output_path*."""
+    """Screenshot a specific DOM element and save to *output_path*.
+
+    Not `element.screenshot()`: current Chrome crops that out of the layout
+    bitmap *before* --force-device-scale-factor applies, so it returns a 1x
+    image while every full-page shot beside it is 2x. That is how
+    wb-04-plan-structure.png came back 260x298 where the committed one was
+    520x708 — half the resolution, in a figure whose whole point is that the
+    panel's small detail stays legible.
+
+    DevTools' own clip is captured after the scale factor, so ask for it there
+    and only fall back to Selenium's version if the protocol call is
+    unavailable. The clip's own `scale` is a further multiplier on top of
+    --force-device-scale-factor, not a replacement for it -- asking for 2 here
+    gives a 4x image -- so it stays at 1.
+    """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         element = WebDriverWait(driver, 8).until(
             EC.visibility_of_element_located((By.CSS_SELECTOR, selector))
         )
-        element.screenshot(str(output_path))
-        print(f"  [element] {output_path}")
     except (TimeoutException, NoSuchElementException) as exc:
         print(f"  [SKIP]    {output_path} — element not found: {selector} ({exc})")
+        return
+
+    try:
+        rect = driver.execute_script(
+            "const r = arguments[0].getBoundingClientRect();"
+            "return {x: r.left + window.scrollX, y: r.top + window.scrollY,"
+            " width: r.width, height: r.height};",
+            element,
+        )
+        shot = driver.execute_cdp_cmd(
+            "Page.captureScreenshot",
+            {
+                "format": "png",
+                "clip": {**rect, "scale": 1},
+                "captureBeyondViewport": True,
+            },
+        )
+        output_path.write_bytes(base64.b64decode(shot["data"]))
+    except WebDriverException as exc:
+        print(f"  [element] CDP clip unavailable ({type(exc).__name__}), falling back to 1x")
+        element.screenshot(str(output_path))
+    print(f"  [element] {output_path}")
 
 
 def dismiss_tour(driver):
@@ -349,7 +412,20 @@ def capture_how_to(driver, base_url):
     switch_to_view(driver, "timeline")
     capture_full(driver, section / "tl-01-timeline.png")
 
-    # cp-01: Editor showing front matter
+    # cp-01: the editor pane, showing the front matter.
+    #
+    # An element shot of the left column rather than the whole window, for two
+    # reasons. The figure is about the front matter, and at full-window scale
+    # the panel it is pointing at is a third of the frame. And a full-window
+    # shot here is defined by whatever the *right* pane happens to show, which
+    # nothing in this function controls: switchTab() moves the editor's own
+    # tab, not the view. Following tl-01 that produced a byte-identical copy of
+    # the timeline figure; forcing the dashboard instead produced a
+    # byte-identical copy of rs-01. The pane was never the subject.
+    #
+    # #frontMatterPanel alone would be tighter still, but the code below it is
+    # worth keeping in frame: the point the page is making is that the panel
+    # and the ``---`` block are two views of one thing.
     driver.execute_script(
         "if (typeof switchTab === 'function') switchTab('project');"
     )
@@ -358,7 +434,7 @@ def capture_how_to(driver, base_url):
     editor = driver.find_element(By.ID, "planEditor")
     driver.execute_script("arguments[0].scrollTop = 0;", editor)
     time.sleep(0.3)
-    capture_full(driver, section / "cp-01-editor-frontmatter.png")
+    capture_element(driver, ".editor-panel", section / "cp-01-editor-frontmatter.png")
 
     # mr-01: Resource table view
     switch_to_view(driver, "resources")
@@ -439,25 +515,27 @@ def capture_reference(driver, base_url):
     )
     time.sleep(0.5)
 
-    # vw-01: Sub-navigation bar
+    # vw-01: the ribbon's Views group.
+    #
+    # This replaces vw-01-subnav.png and vw-02-views-menu.png, which
+    # photographed `#planSubnav` and the `#viewsDropdownBtn` dropdown inside
+    # it. That bar computes to `display: none` now -- the ribbon took over
+    # (#1045) -- so clicking the button raised ElementNotInteractableException
+    # and the two files documented a UI the app no longer has. Re-capturing
+    # them was never the fix; there is nothing there to photograph.
+    #
+    # The Views group on the Home tab is where those entries went, so that is
+    # what the reference page shows instead. It does not hold all of them:
+    # Mind Map and Whiteboard are under Plan > Model and Dashboard under
+    # Home > Plan, which docs/reference/views.rst now says in prose rather
+    # than implying one menu lists everything.
     switch_to_view(driver, "project-report")
     time.sleep(0.5)
     capture_element(
         driver,
-        "#planSubnav",
-        section / "vw-01-subnav.png",
+        '.ribbon-group[data-group="Views"]',
+        section / "vw-01-ribbon-views-group.png",
     )
-
-    # vw-02: Views dropdown expanded — shows every entry in the Views
-    # menu, including Whiteboard (issue #845). toggleDropdownMenu() calls
-    # event.stopPropagation(), so it needs a real click (a synthetic JS
-    # call with no event would throw), not driver.execute_script().
-    views_btn = driver.find_element(By.ID, "viewsDropdownBtn")
-    views_btn.click()
-    time.sleep(0.5)
-    capture_full(driver, section / "vw-02-views-menu.png")
-    views_btn.click()
-    time.sleep(0.2)
 
 
 def capture_explanation(driver, base_url):
@@ -504,6 +582,31 @@ def main():
     finally:
         driver.quit()
 
+    return report_duplicates()
+
+
+def report_duplicates():
+    """Name any two figures that came out byte-identical.
+
+    A capture that fails to change the view does not raise -- it just shoots
+    whatever is still on screen, and the result is a plausible-looking image
+    filed under the wrong name. That is how cp-01 came back as a second copy
+    of tl-01. Two identical files are never intentional here, so say so and
+    exit non-zero rather than leaving it to be noticed in review.
+    """
+    by_digest = {}
+    for path in sorted(IMG_ROOT.rglob("*.png")):
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        by_digest.setdefault(digest, []).append(path.relative_to(IMG_ROOT))
+
+    clashes = [group for group in by_digest.values() if len(group) > 1]
+    if not clashes:
+        return 0
+    print("\nIdentical captures — a view switch did not take effect:")
+    for group in clashes:
+        print("  " + "  ==  ".join(str(x) for x in group))
+    return 1
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
