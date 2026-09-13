@@ -134,6 +134,11 @@ class TestSessionCreation:
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
         assert info["session_id"] in response.text
+        # #876: the joiner gets the real structured session-chat UI rather
+        # than the old developer-facing arbitrary relay input.
+        assert "Session chat" in response.text
+        assert 'id="relayDownload"' in response.text
+        assert "JSON.stringify(entry)" in response.text
 
     def test_join_page_uses_the_minimal_post_its_and_list_surface(self, client):
         info = _start_session(client)
@@ -869,6 +874,21 @@ class TestPresenceStylesAreReachable:
             f"presence classes used by collab-session.js but not defined in any "
             f"stylesheet index.html links: {sorted(used - defined)}"
         )
+
+    def test_chat_panel_is_in_the_status_bar_and_its_styles_are_reachable(self):
+        index = (STATIC_DIR.parent / "templates" / "index.html").read_text()
+        chat_pos = index.index('id="collabChatWrap"')
+        notification_pos = index.index('id="statusBarHistoryBtn"')
+        assert chat_pos < notification_pos, "chat must appear left of the notification icon"
+
+        js = (STATIC_DIR / "collab-session.js").read_text()
+        used = set(re.findall(r"collab-chat-[a-z-]+", js + index))
+        defined = set()
+        for sheet in self._linked_stylesheets():
+            path = STATIC_DIR / sheet
+            if path.exists():
+                defined |= set(re.findall(r"collab-chat-[a-z-]+", path.read_text()))
+        assert not (used - defined), f"unreachable chat styles: {sorted(used - defined)}"
 
 
 class TestMultiJoinerRouting:

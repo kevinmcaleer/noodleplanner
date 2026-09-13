@@ -607,6 +607,7 @@ Phase 1
 Press Enter to render..."></textarea>
                             </div>
                         </div>
+                        <div id="backMatterPanel" class="fm-panel"></div>
                         <div class="message" id="editorMessage" aria-live="polite"></div>
                     </div>
 
@@ -1484,7 +1485,7 @@ Press Enter to render..."></textarea>
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M8 12h12M12 18h8"/></svg>
                                             <span>Structure</span>
                                         </button>
-                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardParkingLotBtn" onclick="wbOpenParkingLotPanel()" title="View parked ideas -- items sent here from the board" aria-label="Open the parking lot">
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardParkingLotBtn" onclick="wbToggleParkingLotPanel()" title="View parked ideas -- items sent here from the board" aria-label="Show or hide the parking lot panel" aria-pressed="false">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                                             <span>Parking lot</span>
                                         </button>
@@ -4410,6 +4411,7 @@ Build
     <script src="/static/portfolio.js?v={{ v }}"></script>
     <script src="/static/multi-plan-loader.js?v={{ v }}"></script>
     <script src="/static/front-matter-panel.js?v={{ v }}"></script>
+    <script src="/static/back-matter-panel.js?v={{ v }}"></script>
     <script src="/static/portfolio-status.js?v={{ v }}"></script>
     <script src="/static/portfolio-resources.js?v={{ v }}"></script>
     <script src="/static/portfolio-leveling.js?v={{ v }}"></script>
@@ -4794,6 +4796,39 @@ Build
             <span class="status-bar-separator"></span>
         </div>
         <div class="status-bar-centre" id="statusBarMessage" aria-live="polite"></div>
+        <!-- #876: ephemeral, end-to-end encrypted session chat. The button
+             only appears while this browser is hosting a live session and
+             deliberately sits immediately left of the notification bell. -->
+        <div class="status-bar-chat-wrap" id="collabChatWrap" hidden>
+            <button class="status-bar-btn status-bar-chat-btn" id="collabChatBtn"
+                    onclick="toggleCollabChatPanel()" title="Planning session chat"
+                    aria-label="Planning session chat" aria-haspopup="dialog" aria-expanded="false">
+                <i class="bi bi-chat-dots"></i>
+                <span class="status-bar-chat-unread" id="collabChatUnread" hidden></span>
+            </button>
+            <section class="collab-chat-panel" id="collabChatPanel" role="dialog"
+                     aria-label="Planning session chat" hidden>
+                <header class="collab-chat-header">
+                    <strong>Session chat</strong>
+                    <div class="collab-chat-header-actions">
+                        <button type="button" onclick="toggleCollabChatExpanded()" title="Expand chat"
+                                aria-label="Expand chat"><i class="bi bi-arrows-fullscreen"></i></button>
+                        <button type="button" onclick="exportCollabChat()" title="Download chat"
+                                aria-label="Download chat"><i class="bi bi-download"></i></button>
+                        <button type="button" onclick="closeCollabChatPanel()" title="Close chat"
+                                aria-label="Close chat"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </header>
+                <div class="collab-chat-list" id="collabChatList" aria-live="polite"></div>
+                <form class="collab-chat-composer" onsubmit="submitCollabChat(event)">
+                    <input id="collabChatInput" maxlength="2000" autocomplete="off"
+                           placeholder="Message the session" aria-label="Chat message">
+                    <button type="submit" title="Send message" aria-label="Send message">
+                        <i class="bi bi-send"></i>
+                    </button>
+                </form>
+            </section>
+        </div>
         <div class="status-bar-history-wrap">
             <button class="status-bar-btn status-bar-history-btn" id="statusBarHistoryBtn" onclick="toggleStatusHistoryPopup()" title="Status message history" aria-label="Status message history" aria-haspopup="true" aria-expanded="false">
                 <i class="bi bi-bell"></i>

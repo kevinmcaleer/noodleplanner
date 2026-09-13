@@ -61,6 +61,7 @@ const TaskLineTokenizer = (() => {
             name: '', duration: '', startDate: '', finishDate: '', deadline: '', percent: '',
             resources: [], labels: [], comment: '', priority: 'Low', bucket: '',
             dependencies: [], recurrence: '', product_type: undefined, deliverable: undefined,
+            deadline: '',
             effortCompleted: '', effortCompletedUnit: 'h', effortRemaining: '',
             effortRemainingUnit: 'h', effortTotal: '', effortTotalUnit: 'h',
             hasStar: false, starLagLead: ''

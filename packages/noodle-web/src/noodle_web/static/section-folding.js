@@ -557,12 +557,10 @@
             this.lineNumbers = options.lineNumbers;
             this.highlightLayer = options.highlightLayer || null;
             this.editorArea = options.editorArea || (this.editor ? this.editor.parentElement : null);
-            this.toolbar = null;
             this.overlay = null;
             this.descriptors = Array.isArray(options.descriptors) ? options.descriptors.slice() : [];
             this.storageNamespace = options.storageNamespace || 'default';
             this.getProjectId = typeof options.getProjectId === 'function' ? options.getProjectId : function () { return 'default'; };
-            this.showToolbar = options.showToolbar !== false;
             this.projectId = null;
             this.state = { defaultExpanded: false, overrides: {} };
             this.hideLeadingFrontMatter = false;
@@ -620,30 +618,6 @@
         }
 
         ensureUi() {
-            if (this.showToolbar && this.editorArea && !this.toolbar) {
-                const wrapper = this.editor.closest('.editor-panel') || this.editorArea.parentElement;
-                const editorWrapper = this.editorArea.parentElement;
-                if (wrapper && editorWrapper) {
-                    const toolbar = document.createElement('div');
-                    toolbar.className = 'section-fold-toolbar';
-                    toolbar.innerHTML =
-                        '<div class="section-fold-toolbar-group">' +
-                        '<button type="button" class="section-fold-toolbar-btn" data-action="collapse-all">Collapse all back matter</button>' +
-                        '<button type="button" class="section-fold-toolbar-btn" data-action="expand-all">Expand all back matter</button>' +
-                        '</div>' +
-                        '<label class="section-fold-toolbar-toggle">' +
-                        '<input type="checkbox" data-action="default-expanded"> Expanded by default' +
-                        '</label>';
-                    toolbar.querySelector('[data-action="collapse-all"]').addEventListener('click', () => this.collapseAll());
-                    toolbar.querySelector('[data-action="expand-all"]').addEventListener('click', () => this.expandAll());
-                    toolbar.querySelector('[data-action="default-expanded"]').addEventListener('change', (event) => {
-                        this.setDefaultExpanded(!!event.target.checked);
-                    });
-                    wrapper.insertBefore(toolbar, editorWrapper);
-                    this.toolbar = toolbar;
-                }
-            }
-
             if (this.editorArea && !this.overlay) {
                 const overlay = document.createElement('div');
                 overlay.className = 'section-fold-overlay';
@@ -779,7 +753,6 @@
                 this.editor._updateLineNumbers();
             } else {
                 this.renderOverlay();
-                this.updateToolbar();
             }
         }
 
@@ -797,13 +770,6 @@
             this.hideLeadingFrontMatter = hideLeading;
             this.disableSectionFolding = disableFolding;
             this.refreshProjection();
-        }
-
-        updateToolbar() {
-            if (!this.toolbar) return;
-            const toggle = this.toolbar.querySelector('[data-action="default-expanded"]');
-            if (toggle) toggle.checked = !!this.state.defaultExpanded;
-            this.toolbar.style.display = this.projection.sections.length ? '' : 'none';
         }
 
         renderOverlay() {
@@ -872,42 +838,6 @@
             if (expanded && options && options.focus) {
                 this.revealRawLine(options.rawLineNumber || sfFindSectionStartLine(this.getRawText(), marker, this.descriptors));
             }
-        }
-
-        setDefaultExpanded(expanded) {
-            const keepStates = {};
-            this.projection.sections.forEach((section) => {
-                keepStates[section.normalisedMarker] = sfIsExpanded(this.state, section.marker);
-            });
-            this.state = { defaultExpanded: !!expanded, overrides: {} };
-            Object.keys(keepStates).forEach((normalisedMarker) => {
-                const section = this.projection.sections.find((item) => item.normalisedMarker === normalisedMarker);
-                if (section) {
-                    this.state = sfSetExpanded(this.state, section.marker, keepStates[normalisedMarker]);
-                }
-            });
-            this.saveState();
-            this.refreshProjection();
-        }
-
-        collapseAll() {
-            let next = { defaultExpanded: this.state.defaultExpanded, overrides: Object.assign({}, this.state.overrides) };
-            this.projection.sections.forEach((section) => {
-                next = sfSetExpanded(next, section.marker, false);
-            });
-            this.state = next;
-            this.saveState();
-            this.refreshProjection();
-        }
-
-        expandAll() {
-            let next = { defaultExpanded: this.state.defaultExpanded, overrides: Object.assign({}, this.state.overrides) };
-            this.projection.sections.forEach((section) => {
-                next = sfSetExpanded(next, section.marker, true);
-            });
-            this.state = next;
-            this.saveState();
-            this.refreshProjection();
         }
 
         revealRawLine(rawLineNumber) {
