@@ -15,9 +15,19 @@ a guess. `helpers.load_plan()` waits for the app to write the computed `rag:`
 key back into the front matter instead -- quicker, and an actual guarantee the
 parse finished.
 
+Issue #1201 turned the panel from a centred modal into a non-modal slide-out
+panel docked to the board's right edge, and added drag-and-drop: a note
+dragged onto the open panel parks it, a parked row dragged out onto the board
+restores it at the drop point, and dragging one row onto another reorders the
+list. `TestParkingLotPanel` and `TestParkingLotDetailAndRestore` below are
+the pre-#1201 suite, updated only for the renamed/non-modal panel DOM (see
+`DIALOG` and `open_parking_lot_panel()`); `TestParkingLotDragAndDrop` is new.
+
 Usage:
     uv run pytest tests/ui/test_whiteboard_parking_lot.py -q
 """
+
+import re
 
 import pytest
 
@@ -63,7 +73,7 @@ Phase 1
 | 1  | Old Idea \u2014 An old comment |  |
 """
 
-DIALOG = "#wbParkingLotDialog"
+DIALOG = "#wbParkingLotPanel"
 
 
 def send_to_parking_lot(page, task_name):
@@ -102,13 +112,32 @@ def wait_for_parked(page, task_name=None):
 def open_parking_lot_panel(page):
     page.click("#whiteboardParkingLotBtn")
     page.wait_for_selector(DIALOG, state="visible")
+    # The panel slides in over ~200ms (views/whiteboard.css's
+    # .wb-parking-lot-panel transition) rather than appearing instantly --
+    # wait for it to actually land at its docked position (not a fixed
+    # sleep) so a drag/drop test's first pointer move targets the panel's
+    # *final* rect, not one still mid-transition.
+    # .wb-parking-lot-panel is `right: 12px` within its positioning parent
+    # (#whiteboardContainer), which is usually narrower than the window
+    # itself (the editor/outline chrome takes the rest) -- compare against
+    # the container's own edge, not window.innerWidth.
+    page.wait_for_function(
+        "() => { const p = document.getElementById('wbParkingLotPanel');"
+        "        const c = document.getElementById('whiteboardContainer');"
+        "        if (!p || !c || !p.classList.contains('open')) return false;"
+        "        const pr = p.getBoundingClientRect();"
+        "        const cr = c.getBoundingClientRect();"
+        "        return pr.width > 0 && Math.abs(pr.right - (cr.right - 12)) < 2; }"
+    )
 
 
 def restore_parked(page, text_substring):
     """Click Restore on the parked row whose text contains `text_substring`.
 
-    Assumes the panel is open. The panel is a fixed overlay anchored to the
-    board, so this is dispatched for the same reason the note menu is.
+    Assumes the panel is open. Dispatched for the same reason the note menu
+    is: the row itself is drag-enabled (issue #1201), and drag-armed
+    elements are otherwise finicky for Playwright's own actionability
+    checks to click through reliably.
     """
     row = page.locator(f"{DIALOG} .wb-parking-lot-item").filter(
         has=page.locator(".wb-parking-lot-item-text", has_text=text_substring)
@@ -120,8 +149,9 @@ def restore_parked(page, text_substring):
 def close_parking_lot_panel(page):
     """Restore deliberately leaves the panel open, showing the narrowed list.
 
-    Its overlay then physically covers the toolbar button underneath, so
-    anything that reopens the panel has to close it first.
+    Docked over the board's top-right corner, close to the toolbar the
+    button sits in, so anything that reopens the panel closes it first
+    rather than assuming the button is still free to click.
     """
     page.keyboard.press("Escape")
     page.wait_for_selector(DIALOG, state="detached")
@@ -135,6 +165,67 @@ def parked_section(page):
     """Whatever sits below the `---parking lot---` marker, or ''."""
     text = plan_text(page)
     return text.split("---parking lot---")[1] if "---parking lot---" in text else ""
+
+
+def drag_note_to_panel(page, task_name):
+    """Mouse-drag `task_name`'s note header onto the open parking lot panel --
+    the board's own custom mouse-drag machinery (not native HTML5 DnD; see
+    wbNoteHeaderMouseDown()/wbFinishDrag() in whiteboard-notes.js), the same
+    gesture a board reposition uses. Assumes the panel is already open.
+    """
+    header_box = note(page, task_name).locator(".wb-note-header").bounding_box()
+    panel_box = page.locator(DIALOG).bounding_box()
+    assert header_box and panel_box, "note header or panel not on screen"
+
+    start_x = header_box["x"] + header_box["width"] / 2
+    start_y = header_box["y"] + header_box["height"] / 2
+    end_x = panel_box["x"] + panel_box["width"] / 2
+    end_y = panel_box["y"] + panel_box["height"] / 2
+
+    page.mouse.move(start_x, start_y)
+    page.mouse.down()
+    steps = 10
+    for i in range(1, steps + 1):
+        page.mouse.move(
+            start_x + (end_x - start_x) * i / steps,
+            start_y + (end_y - start_y) * i / steps,
+        )
+    page.mouse.up()
+
+
+def dispatch_html5_drag(page, source_selector, target_selector, client_x=None, client_y=None):
+    """Simulate a native HTML5 drag from `source_selector` to
+    `target_selector` by constructing real DragEvents with a DataTransfer,
+    rather than Playwright's mouse-based drag_to() -- Chromium's own OS-level
+    drag-gesture recognition that drag_to() relies on does not reliably
+    trigger custom dragover/drop handlers under headless CDP, where this
+    (dispatching the same events the browser would, directly) does.
+
+    `client_x`/`client_y`, when given, override the drop point -- used to
+    land above/below a parking lot row's midpoint (its before/after reorder
+    indicator) or at a specific point on the board (a restore's drop point).
+    Defaults to the target's own centre.
+    """
+    page.evaluate(
+        """({source, target, clientX, clientY}) => {
+            const src = document.querySelector(source);
+            const tgt = document.querySelector(target);
+            const dt = new DataTransfer();
+            const sRect = src.getBoundingClientRect();
+            const tRect = tgt.getBoundingClientRect();
+            const x = (clientX == null) ? (tRect.left + tRect.width / 2) : clientX;
+            const y = (clientY == null) ? (tRect.top + tRect.height / 2) : clientY;
+            const fire = (el, type, cx, cy) => el.dispatchEvent(new DragEvent(type, {
+                bubbles: true, cancelable: true, dataTransfer: dt, clientX: cx, clientY: cy,
+            }));
+            fire(src, 'dragstart', sRect.left + 5, sRect.top + 5);
+            fire(tgt, 'dragenter', x, y);
+            fire(tgt, 'dragover', x, y);
+            fire(tgt, 'drop', x, y);
+            fire(src, 'dragend', x, y);
+        }""",
+        {"source": source_selector, "target": target_selector, "clientX": client_x, "clientY": client_y},
+    )
 
 
 @pytest.fixture
@@ -239,6 +330,226 @@ class TestParkingLotPanel:
 
         open_parking_lot_panel(board)
         assert board.locator(f"{DIALOG} .wb-parking-lot-item-restore").count() == 1
+
+    def test_panel_is_non_modal_the_board_stays_interactive_underneath(self, board):
+        """Issue #1201: the panel is no longer a modal dialog -- there is no
+        full-screen backdrop, and a note behind it is still clickable."""
+        open_parking_lot_panel(board)
+
+        assert board.locator(f"{DIALOG}").get_attribute("aria-modal") is None
+        assert board.locator("#wbParkingLotOverlay").count() == 0
+
+        # A note not underneath the (top-right-docked) panel -- Discovery is
+        # the leftmost note in SAMPLE_PLAN's layout -- is still reachable:
+        # raising it to front via a plain click still works.
+        note(board, "Discovery").locator(".wb-note-header").click()
+        board.wait_for_function(
+            "() => { const n = document.querySelector("
+            "  '#whiteboardContainer .wb-note[data-wb-task=\"Discovery\"]');"
+            "  return !!n && n.parentElement.lastElementChild === n; }"
+        )
+
+    def test_toggle_button_closes_an_already_open_panel(self, board):
+        """Issue #1201: the toolbar button now toggles -- a second click
+        closes the panel instead of leaving a no-op modal-reopen."""
+        open_parking_lot_panel(board)
+        board.click("#whiteboardParkingLotBtn")
+        board.wait_for_selector(DIALOG, state="detached")
+
+
+class TestParkingLotDragAndDrop:
+    """Issue #1201: dragging a note onto the open panel parks it, dragging a
+    parked row back onto the board restores it at the drop point, and
+    dragging one row onto another reorders the list.
+    """
+
+    def test_dragging_a_note_onto_the_open_panel_parks_it(self, board):
+        open_parking_lot_panel(board)
+        assert "Loose Idea" in note_task_names(board)
+
+        drag_note_to_panel(board, "Loose Idea")
+        wait_for_parked(board, "Loose Idea")
+
+        assert "Loose Idea" not in note_task_names(board)
+        texts = parking_lot_item_texts(board)
+        assert any("Loose Idea" in t for t in texts), texts
+        # Unrelated notes are untouched.
+        assert "Discovery" in note_task_names(board)
+
+    def test_dragging_a_note_elsewhere_on_the_board_still_just_moves_it(self, board):
+        """The panel being open doesn't hijack *every* drag -- only one that
+        actually ends up over it (wbFinishDrag()'s own containment check)."""
+        open_parking_lot_panel(board)
+        header_box = note(board, "Loose Idea").locator(".wb-note-header").bounding_box()
+        assert header_box, "note header not on screen"
+        start_x = header_box["x"] + header_box["width"] / 2
+        start_y = header_box["y"] + header_box["height"] / 2
+
+        board.mouse.move(start_x, start_y)
+        board.mouse.down()
+        board.mouse.move(start_x + 60, start_y + 60, steps=5)
+        board.mouse.up()
+
+        assert "Loose Idea" in note_task_names(board)
+        assert "---parking lot---" not in plan_text(board)
+
+    def test_dragging_a_parked_item_onto_the_board_restores_it_at_the_drop_point(self, board):
+        send_to_parking_lot(board, "Loose Idea")
+        wait_for_parked(board, "Loose Idea")
+
+        open_parking_lot_panel(board)
+        row = board.locator(f"{DIALOG} .wb-parking-lot-item").filter(
+            has=board.locator(".wb-parking-lot-item-text", has_text="Loose Idea")
+        )
+        assert row.count() == 1
+        row_id = row.get_attribute("data-wb-parked-id")
+
+        # The expected board position for this screen drop point, computed
+        # the exact way wbBoardPointFromClient()/wbRestoreParkedItem() do
+        # (live pan/zoom, not an assumed default) -- so this test holds
+        # regardless of where the board happened to centre on load.
+        drop_x, drop_y = 300, 500
+        expected = board.evaluate(
+            """([clientX, clientY]) => {
+                const rect = wbSvg.getBoundingClientRect();
+                const zoom = wbCurrentZoom();
+                return {
+                    x: Math.round((clientX - rect.left - wbPanX) / zoom - WB_NOTE_DEFAULT_WIDTH / 2),
+                    y: Math.round((clientY - rect.top - wbPanY) / zoom - WB_NOTE_DEFAULT_HEIGHT / 2),
+                };
+            }""",
+            [drop_x, drop_y],
+        )
+
+        dispatch_html5_drag(
+            board,
+            f'{DIALOG} .wb-parking-lot-item[data-wb-parked-id="{row_id}"]',
+            "#whiteboardContainer",
+            client_x=drop_x,
+            client_y=drop_y,
+        )
+        board.wait_for_function(
+            "() => document.getElementById('planEditor').value"
+            "        .split('---whiteboard---')[0].includes('Loose Idea')"
+        )
+
+        outline = plan_text(board).split("---whiteboard---")[0]
+        assert "Loose Idea" in outline
+        assert "A stray thought worth keeping" in outline
+
+        close_parking_lot_panel(board)
+        switch_to_whiteboard(board, expected_notes=3)
+        assert "Loose Idea" in note_task_names(board)
+
+        whiteboard_section = plan_text(board).split("---whiteboard---")[-1]
+        row_match = re.search(r"\|\s*Loose Idea\s*\|\s*(-?\d+)\s*\|\s*(-?\d+)\s*\|", whiteboard_section)
+        assert row_match, whiteboard_section
+        x, y = int(row_match.group(1)), int(row_match.group(2))
+        assert abs(x - expected["x"]) <= 2, f"restored x={x}, expected ~{expected['x']}"
+        assert abs(y - expected["y"]) <= 2, f"restored y={y}, expected ~{expected['y']}"
+
+    def test_dragging_to_reorder_persists_the_new_order_in_plan_text(self, board):
+        send_to_parking_lot(board, "Loose Idea")
+        wait_for_parked(board, "Loose Idea")
+        send_to_parking_lot(board, "Discovery")
+        wait_for_parked(board, "Discovery")
+
+        open_parking_lot_panel(board)
+        assert [t.split(" — ")[0] for t in parking_lot_item_texts(board)] == [
+            "Loose Idea",
+            "Discovery",
+        ]
+
+        items = board.locator(f"{DIALOG} .wb-parking-lot-item")
+        first_id = items.nth(0).get_attribute("data-wb-parked-id")
+        second_id = items.nth(1).get_attribute("data-wb-parked-id")
+
+        # Drop the second row (Discovery) onto the top half of the first
+        # row (Loose Idea): wbRenderParkingLotList()'s before/after split is
+        # by which half of the target row the pointer is over.
+        first_box = items.nth(0).bounding_box()
+        dispatch_html5_drag(
+            board,
+            f'{DIALOG} .wb-parking-lot-item[data-wb-parked-id="{second_id}"]',
+            f'{DIALOG} .wb-parking-lot-item[data-wb-parked-id="{first_id}"]',
+            client_x=first_box["x"] + first_box["width"] / 2,
+            client_y=first_box["y"] + 2,
+        )
+
+        board.wait_for_function(
+            """expectedFirstId => {
+                const first = document.querySelector('#wbParkingLotList .wb-parking-lot-item');
+                return !!first && first.dataset.wbParkedId !== expectedFirstId;
+            }""",
+            arg=first_id,
+        )
+
+        assert [t.split(" — ")[0] for t in parking_lot_item_texts(board)] == [
+            "Discovery",
+            "Loose Idea",
+        ]
+        # The table order in the plan text itself changed, not just the DOM.
+        # Checked against the table rows only, past the parking-lot-detail
+        # JSON comment above them: that comment's keys are the parked items'
+        # *ids* ("1", "2", ...), and JS always serialises integer-like
+        # object keys in ascending numeric order regardless of insertion
+        # order -- so id 1 (Loose Idea) sorts first in the comment no matter
+        # what the table rows below it say, and searching the whole section
+        # would be asserting nothing about the actual reorder.
+        table_only = parked_section(board).split("-->")[-1]
+        assert table_only.index("Discovery") < table_only.index("Loose Idea")
+
+    def test_reorder_is_a_single_undo_step(self, board):
+        send_to_parking_lot(board, "Loose Idea")
+        wait_for_parked(board, "Loose Idea")
+        send_to_parking_lot(board, "Discovery")
+        wait_for_parked(board, "Discovery")
+
+        open_parking_lot_panel(board)
+        before_reorder = plan_text(board)
+        board.evaluate(
+            "() => EditorUndoManager.captureImmediate("
+            "  document.getElementById('planEditor').value)"
+        )
+
+        items = board.locator(f"{DIALOG} .wb-parking-lot-item")
+        first_id = items.nth(0).get_attribute("data-wb-parked-id")
+        second_id = items.nth(1).get_attribute("data-wb-parked-id")
+        first_box = items.nth(0).bounding_box()
+        dispatch_html5_drag(
+            board,
+            f'{DIALOG} .wb-parking-lot-item[data-wb-parked-id="{second_id}"]',
+            f'{DIALOG} .wb-parking-lot-item[data-wb-parked-id="{first_id}"]',
+            client_x=first_box["x"] + first_box["width"] / 2,
+            client_y=first_box["y"] + 2,
+        )
+        board.wait_for_function(
+            """expectedFirstId => {
+                const first = document.querySelector('#wbParkingLotList .wb-parking-lot-item');
+                return !!first && first.dataset.wbParkedId !== expectedFirstId;
+            }""",
+            arg=first_id,
+        )
+
+        # The reorder's own undo snapshot is debounced by 600ms, so pressing
+        # undo straight away lands before it exists (see the identical
+        # comment on test_restore_is_a_single_undo_step below). Taking it
+        # outright is what the debounce would have done, just
+        # deterministically.
+        board.evaluate(
+            "() => EditorUndoManager.captureImmediate("
+            "  document.getElementById('planEditor').value)"
+        )
+
+        board.focus("#planEditor")
+        modifier = "Meta" if board.evaluate("() => navigator.platform.includes('Mac')") else "Control"
+        board.keyboard.press(f"{modifier}+z")
+
+        board.wait_for_function(
+            "expected => document.getElementById('planEditor').value === expected",
+            arg=before_reorder,
+        )
+        assert plan_text(board) == before_reorder, "a single undo fully reverts the reorder"
 
 
 class TestParkingLotDetailAndRestore:
