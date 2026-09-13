@@ -3,7 +3,7 @@
     display: none;
     flex: 1;
     overflow-y: auto;
-    padding: 20px;
+    padding: var(--np-space-20);
 }
 
 .output-tab-content.active {
@@ -31,13 +31,13 @@
 .gantt-placeholder h3,
 .resources-placeholder h3,
 .placeholder-view h3 {
-    margin-bottom: 10px;
+    margin-bottom: var(--np-space-12);
     color: var(--np-accent);
 }
 
 /* Milestones Table Styling */
 .milestones-content {
-    padding: 20px;
+    padding: var(--np-space-20);
     overflow-x: auto;
 }
 
@@ -61,14 +61,14 @@
 }
 
 .milestones-table th {
-    padding: 12px;
+    padding: var(--np-space-12);
     text-align: left;
     font-weight: 600;
     border-bottom: 2px solid var(--np-border);
 }
 
 .milestones-table td {
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     border-bottom: 1px solid var(--np-hairline);
 }
 
@@ -128,7 +128,7 @@
 /* Up Next Status Badges */
 .up-next-status {
     display: inline-block;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 4px;
     font-size: 0.8em;
     font-weight: 600;
@@ -151,7 +151,7 @@
 }
 
 .up-next-not-started {
-    background: #dee2e6;
+    background: var(--np-selected);
     color: #495057;
 }
 
@@ -174,7 +174,7 @@
 
 /* Resources Table Styling */
 .resources-content {
-    padding: 20px;
+    padding: var(--np-space-20);
     max-width: 100%;
 }
 
@@ -182,11 +182,11 @@
     font-size: 1.8em;
     font-weight: 600;
     color: var(--np-ink);
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
 }
 
 .resources-table-wrapper {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     overflow: hidden;
@@ -204,14 +204,14 @@
 }
 
 .resources-table th {
-    padding: 14px;
+    padding: var(--np-space-16);
     text-align: left;
     font-weight: 600;
     border-bottom: 2px solid var(--np-border);
 }
 
 .resources-table td {
-    padding: 12px 14px;
+    padding: var(--np-space-12) var(--np-space-16);
     border-bottom: 1px solid var(--np-hairline);
 }
 
@@ -247,7 +247,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: var(--np-space-16);
 }
 
 .resources-toolbar .resources-title {
@@ -262,7 +262,7 @@
     background: var(--np-sunken);
     border: 1px solid var(--np-border-strong);
     border-radius: 4px;
-    padding: 4px;
+    padding: var(--np-space-4);
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
     line-height: 0;
@@ -270,7 +270,7 @@
 }
 
 .copy-image-btn:hover {
-    background: #e0e0e0;
+    background: var(--np-selected);
     border-color: #999;
     color: var(--np-body);
 }
@@ -294,7 +294,7 @@
 
 /* Resource Sheet Styling */
 .resource-sheet-content {
-    padding: 20px;
+    padding: var(--np-space-20);
     max-width: 100%;
 }
 
@@ -302,9 +302,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: var(--np-space-16);
     flex-wrap: wrap;
-    gap: 10px;
+    gap: var(--np-space-12);
 }
 
 .resource-sheet-title {
@@ -317,7 +317,7 @@
 .resource-sheet-filter {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
 }
 
 .resource-sheet-filter label {
@@ -327,7 +327,7 @@
 }
 
 .resource-sheet-filter select {
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border-strong);
     border-radius: 4px;
     font-size: 0.9em;
@@ -335,7 +335,7 @@
 }
 
 .resource-sheet-wrapper {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     overflow: hidden;
@@ -363,7 +363,7 @@
 }
 
 .resource-sheet-table th {
-    padding: 6px 8px;
+    padding: var(--np-space-8) var(--np-space-8);
     text-align: center;
     font-weight: 600;
     font-size: 0.85em;
@@ -398,7 +398,7 @@
 .resource-sheet-day-header {
     font-size: 0.75em;
     min-width: 24px;
-    padding: 3px 2px;
+    padding: var(--np-space-4) var(--np-space-2);
 }
 
 .resource-sheet-day-header.resource-sheet-weekend {
@@ -416,13 +416,13 @@
 .resource-sheet-group-name {
     font-weight: 700;
     color: var(--np-ink);
-    padding: 10px 8px;
+    padding: var(--np-space-12) var(--np-space-8);
     font-size: 0.95em;
     border-bottom: 2px solid var(--np-accent);
 }
 
 .resource-sheet-task-row td {
-    padding: 4px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     border-bottom: 1px solid var(--np-hairline);
 }
 
@@ -438,7 +438,7 @@
     white-space: nowrap;
     position: sticky;
     left: 0;
-    background: white;
+    background: var(--np-surface);
     z-index: 1;
     font-weight: 500;
 }
@@ -511,7 +511,7 @@
 }
 
 .timesheet-table th {
-    padding: 8px 6px;
+    padding: var(--np-space-8) var(--np-space-8);
     text-align: center;
     font-weight: 600;
     border-right: 1px solid rgba(255, 255, 255, 0.3);
@@ -519,21 +519,21 @@
 }
 
 .timesheet-table th.timesheet-month-header {
-    padding: 10px 8px;
+    padding: var(--np-space-12) var(--np-space-8);
     font-size: 0.95em;
     font-weight: 700;
     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .timesheet-table th.timesheet-day-header {
-    padding: 6px 4px;
+    padding: var(--np-space-8) var(--np-space-4);
     font-size: 0.9em;
     min-width: 32px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .timesheet-table th.timesheet-weekday-header {
-    padding: 6px 4px;
+    padding: var(--np-space-8) var(--np-space-4);
     font-size: 0.85em;
     min-width: 32px;
     font-weight: 500;
@@ -541,7 +541,7 @@
 
 .timesheet-table th.timesheet-resource-col {
     text-align: left;
-    padding-left: 14px;
+    padding-left: var(--np-space-16);
     min-width: 150px;
     position: sticky;
     left: 0;
@@ -559,7 +559,7 @@
 }
 
 .timesheet-table td {
-    padding: 10px 8px;
+    padding: var(--np-space-12) var(--np-space-8);
     border-bottom: 1px solid var(--np-hairline);
     border-right: 1px solid var(--np-hairline);
     text-align: center;
@@ -569,7 +569,7 @@
     font-weight: 500;
     color: var(--np-ink);
     text-align: left;
-    padding-left: 14px;
+    padding-left: var(--np-space-16);
     position: sticky;
     left: 0;
     background: white;
@@ -637,7 +637,7 @@
     font-size: 1.8em;
     font-weight: 600;
     color: var(--np-ink);
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
 }
 
 /* Project Report Styling */
@@ -651,12 +651,12 @@
 }
 
 .project-report-content {
-    padding: 30px;
+    padding: var(--np-space-32);
 }
 
 .project-report-header {
-    margin-bottom: 30px;
-    padding-bottom: 20px;
+    margin-bottom: var(--np-space-32);
+    padding-bottom: var(--np-space-20);
     border-bottom: 2px solid #e9ecef;
 }
 
@@ -664,19 +664,19 @@
     font-size: 2em;
     font-weight: 700;
     color: var(--np-ink);
-    margin: 0 0 12px 0;
+    margin: 0 0 var(--np-space-12) 0;
 }
 
 .project-report-details {
     display: flex;
-    gap: 24px;
+    gap: var(--np-space-24);
     flex-wrap: wrap;
 }
 
 .project-report-detail {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
 }
 
 .project-report-detail-label {
@@ -691,16 +691,16 @@
 }
 
 .project-report-section {
-    margin-bottom: 30px;
+    margin-bottom: var(--np-space-32);
 }
 
 .project-report-section h3 {
     font-size: 1.3em;
     font-weight: 600;
     color: var(--np-body);
-    margin-bottom: 15px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #e9ecef;
+    margin-bottom: var(--np-space-16);
+    padding-bottom: var(--np-space-8);
+    border-bottom: 1px solid var(--np-hairline);
 }
 
 .report-timeline-wrapper {
@@ -711,22 +711,22 @@
 /* Embedded Timeline in Tasks/Gantt Views */
 .embedded-timeline-section {
     border: none;
-    margin-bottom: 4px;
+    margin-bottom: var(--np-space-4);
     background: transparent;
 }
 
 .embedded-timeline-header {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 0;
+    gap: var(--np-space-8);
+    padding: var(--np-space-2) 0;
 }
 
 .embedded-timeline-toggle {
     font-size: 0.8rem;
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--np-space-4);
     color: var(--np-body);
     cursor: pointer;
     text-decoration: none;
@@ -756,7 +756,7 @@
 }
 
 .embedded-timeline-body {
-    padding: 0 8px 8px;
+    padding: 0 var(--np-space-8) var(--np-space-8);
 }
 
 .embedded-timeline-wrapper {
@@ -767,9 +767,9 @@
 /* Timeline + Donut Chart Row */
 .timeline-donut-row {
     display: flex;
-    gap: 15px;
+    gap: var(--np-space-16);
     align-items: stretch;
-    margin-bottom: 10px;
+    margin-bottom: var(--np-space-12);
 }
 
 .timeline-donut-timeline {
@@ -798,8 +798,8 @@
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding: 10px 0;
+    gap: var(--np-space-12);
+    padding: var(--np-space-12) 0;
 }
 
 .donut-chart-svg {
@@ -856,13 +856,13 @@
 .donut-chart-legend {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--np-space-8);
 }
 
 .donut-legend-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     font-size: 0.75em;
     color: var(--np-body);
 }
@@ -890,7 +890,7 @@
 @media (max-width: 768px) {
     .donut-chart-container {
         flex-direction: column;
-        gap: 20px;
+        gap: var(--np-space-20);
     }
 }
 
@@ -899,14 +899,14 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto;
-    gap: 20px;
-    margin-top: 10px;
+    gap: var(--np-space-20);
+    margin-top: var(--np-space-12);
 }
 
 .quad-cell {
     border: 1px solid #e9ecef;
     border-radius: 8px;
-    padding: 16px;
+    padding: var(--np-space-16);
     background: var(--np-surface);
     min-height: 200px;
     overflow: auto;
@@ -916,17 +916,17 @@
     font-size: 1.15em;
     font-weight: 600;
     color: var(--np-body);
-    margin: 0 0 12px 0;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #e9ecef;
+    margin: 0 0 var(--np-space-12) 0;
+    padding-bottom: var(--np-space-8);
+    border-bottom: 1px solid var(--np-hairline);
 }
 
 .quad-header {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
+    gap: var(--np-space-8);
+    margin-bottom: var(--np-space-12);
+    padding-bottom: var(--np-space-8);
     border-bottom: 1px solid #e9ecef;
 }
 
@@ -940,7 +940,7 @@
 .quad-header-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     margin-left: auto;
     flex-shrink: 0;
 }
@@ -952,7 +952,7 @@
     background: var(--np-sunken);
     border: 1px solid var(--np-border-strong);
     border-radius: 4px;
-    padding: 4px;
+    padding: var(--np-space-4);
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
     line-height: 0;
@@ -970,7 +970,7 @@
     background: var(--np-sunken);
     border: 1px solid var(--np-border-strong);
     border-radius: 4px;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
     color: var(--np-faint);
@@ -993,7 +993,7 @@
 
 .quad-table th,
 .quad-table td {
-    padding: 6px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
 }
 
 .quad-table .col-name {
@@ -1035,13 +1035,13 @@
     color: #adb5bd;
     font-style: italic;
     text-align: center;
-    padding: 30px 10px;
+    padding: var(--np-space-32) var(--np-space-12);
 }
 
 /* Report header status badge */
 .report-rag-badge {
     display: inline-block;
-    padding: 3px 12px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 600;
@@ -1072,9 +1072,9 @@
 
 /* Overall project RAG badge next to report date */
 #reportOverallRAG {
-    margin-left: 4px;
+    margin-left: var(--np-space-4);
     font-size: 0.8em;
-    padding: 2px 10px;
+    padding: var(--np-space-2) var(--np-space-12);
     text-transform: none;
 }
 
@@ -1086,7 +1086,7 @@
 .report-highlight-card.clickable {
     cursor: pointer;
     border-radius: 6px;
-    padding: 8px;
+    padding: var(--np-space-8);
     transition: background-color 0.15s ease;
 }
 
@@ -1096,8 +1096,8 @@
 
 .report-highlight-meta {
     display: flex;
-    gap: 12px;
-    margin-bottom: 10px;
+    gap: var(--np-space-12);
+    margin-bottom: var(--np-space-12);
     font-size: 0.9em;
     color: var(--np-body);
 }
@@ -1120,20 +1120,20 @@
     position: absolute;
     bottom: 0;
     right: 0;
-    padding: 0 8px 0 24px;
-    background: linear-gradient(to right, transparent, var(--np-surface, #fff) 40%);
-    color: var(--np-text-muted, #999);
+    padding: 0 var(--np-space-8) 0 var(--np-space-24);
+    background: linear-gradient(to right, transparent, var(--np-surface) 40%);
+    color: var(--np-text-muted);
     font-weight: 600;
 }
 
 .report-highlight-body p {
-    margin: 0 0 8px 0;
+    margin: 0 0 var(--np-space-8) 0;
 }
 
 .report-highlight-body ul,
 .report-highlight-body ol {
-    margin: 0 0 8px 0;
-    padding-left: 20px;
+    margin: 0 0 var(--np-space-8) 0;
+    padding-left: var(--np-space-20);
 }
 
 @media (max-width: 768px) {
@@ -1209,7 +1209,7 @@
 .detail-pane-header {
     background: var(--np-accent-gradient);
     color: var(--np-on-accent);
-    padding: 20px 30px;
+    padding: var(--np-space-20) var(--np-space-32);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1222,7 +1222,7 @@
     color: white;
     outline: none;
     cursor: text;
-    padding: 5px;
+    padding: var(--np-space-4);
     border-radius: 4px;
     min-height: 1.2em;
     transition: background-color 0.2s;
@@ -1252,7 +1252,7 @@ body.detail-pane-open {
     }
 
     .modal-body {
-        padding: 20px;
+        padding: var(--np-space-20);
     }
 
     .form-row {
@@ -1268,13 +1268,13 @@ body.detail-pane-open {
 /* Task Inspector */
 .inspector-empty-state {
     text-align: center;
-    padding: 40px 20px;
+    padding: var(--np-space-40) var(--np-space-20);
     color: var(--np-muted);
     font-size: 0.95em;
 }
 
 .inspector-section {
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
     border: 1px solid var(--np-border);
     border-radius: 8px;
     overflow: hidden;
@@ -1282,14 +1282,14 @@ body.detail-pane-open {
 
 .inspector-section-header {
     background: var(--np-surface-alt);
-    padding: 10px 15px;
+    padding: var(--np-space-12) var(--np-space-16);
     font-weight: 600;
     font-size: 0.9em;
     color: var(--np-ink);
     border-bottom: 1px solid var(--np-border);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
 }
 
 .inspector-section-header .inspector-icon {
@@ -1297,16 +1297,16 @@ body.detail-pane-open {
 }
 
 .inspector-section-body {
-    padding: 12px 15px;
+    padding: var(--np-space-12) var(--np-space-16);
 }
 
 .inspector-rag-banner {
-    padding: 14px 18px;
+    padding: var(--np-space-16) var(--np-space-20);
     border-radius: 8px;
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
     display: flex;
     align-items: flex-start;
-    gap: 14px;
+    gap: var(--np-space-16);
 }
 
 .inspector-rag-banner.rag-green {
@@ -1340,7 +1340,7 @@ body.detail-pane-open {
     height: 18px;
     border-radius: 50%;
     flex-shrink: 0;
-    margin-top: 2px;
+    margin-top: var(--np-space-2);
 }
 
 .inspector-rag-dot.rag-green { background: #4caf50; }
@@ -1356,7 +1356,7 @@ body.detail-pane-open {
 .inspector-rag-status {
     font-weight: 700;
     font-size: 1em;
-    margin-bottom: 4px;
+    margin-bottom: var(--np-space-4);
 }
 
 .inspector-rag-explanation {
@@ -1368,11 +1368,11 @@ body.detail-pane-open {
 .inspector-field-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: var(--np-space-12);
 }
 
 .inspector-field {
-    padding: 8px 0;
+    padding: var(--np-space-8) 0;
 }
 
 .inspector-field-label {
@@ -1380,7 +1380,7 @@ body.detail-pane-open {
     color: var(--np-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 2px;
+    margin-bottom: var(--np-space-2);
 }
 
 .inspector-field-value {
@@ -1396,11 +1396,11 @@ body.detail-pane-open {
 }
 
 .inspector-dep-item {
-    padding: 8px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border-bottom: 1px solid var(--np-hairline);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     font-size: 0.9em;
 }
 
@@ -1420,7 +1420,7 @@ body.detail-pane-open {
 
 .inspector-dep-badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 10px;
     font-size: 0.78em;
     font-weight: 600;
@@ -1439,8 +1439,8 @@ body.detail-pane-open {
 .inspector-hint {
     background: #fffde7;
     border-left: 4px solid #ffc107;
-    padding: 10px 14px;
-    margin-top: 12px;
+    padding: var(--np-space-12) var(--np-space-16);
+    margin-top: var(--np-space-12);
     border-radius: 0 6px 6px 0;
     font-size: 0.88em;
     color: var(--np-body);
@@ -1455,7 +1455,7 @@ body.detail-pane-open {
     color: var(--np-muted);
     font-size: 0.9em;
     font-style: italic;
-    padding: 6px 0;
+    padding: var(--np-space-8) 0;
 }
 
 .inspector-progress-bar-wrapper {
@@ -1463,7 +1463,7 @@ body.detail-pane-open {
     border-radius: 6px;
     height: 10px;
     overflow: hidden;
-    margin-top: 6px;
+    margin-top: var(--np-space-8);
 }
 
 .inspector-progress-bar-fill {
@@ -1478,8 +1478,8 @@ body.detail-pane-open {
 
 .inspector-open-task-btn {
     display: inline-block;
-    margin-top: 14px;
-    padding: 8px 18px;
+    margin-top: var(--np-space-16);
+    padding: var(--np-space-8) var(--np-space-20);
     background: var(--np-accent);
     color: var(--np-on-accent);
     border: none;
@@ -1508,7 +1508,7 @@ body.detail-pane-open {
     border: none;
     cursor: pointer;
     font-size: 1.1em;
-    padding: 2px 6px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 4px;
     opacity: 0;
     transition: opacity 0.2s;
@@ -1553,9 +1553,9 @@ tr:hover .task-context-btn,
     color: white;
     cursor: pointer;
     font-size: 0.85em;
-    padding: 4px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 4px;
-    margin-right: 8px;
+    margin-right: var(--np-space-8);
     white-space: nowrap;
     min-width: 44px;
     min-height: 32px;
@@ -1575,8 +1575,8 @@ tr:hover .task-context-btn,
 .task-context-menu {
     display: none;
     position: fixed;
-    background: var(--np-surface, white);
-    border: 1px solid var(--np-border, #dee2e6);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     min-width: 200px;
@@ -1592,12 +1592,12 @@ tr:hover .task-context-btn,
 .task-context-menu-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     width: 100%;
-    padding: 9px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     background: none;
     border: none;
-    color: var(--np-text, #333);
+    color: var(--np-text);
     font-size: 0.9em;
     cursor: pointer;
     transition: background 0.15s;
@@ -1606,19 +1606,19 @@ tr:hover .task-context-btn,
 }
 
 .task-context-menu-item:hover {
-    background: var(--np-accent-soft, #f0f4ff);
+    background: var(--np-accent-soft);
 }
 
 .task-context-menu-item:focus-visible {
     outline: 2px solid var(--np-accent);
     outline-offset: -2px;
-    background: var(--np-accent-soft, #f0f4ff);
+    background: var(--np-accent-soft);
 }
 
 @media (max-width: 768px) {
     .task-context-menu-item {
         min-height: 44px;
-        padding: 12px 14px;
+        padding: var(--np-space-12) var(--np-space-16);
     }
 }
 
@@ -1626,13 +1626,13 @@ tr:hover .task-context-btn,
     width: 18px;
     text-align: center;
     flex-shrink: 0;
-    color: var(--np-text-secondary, #6c757d);
+    color: var(--np-text-secondary);
 }
 
 .task-context-menu-separator {
     height: 1px;
-    background: var(--np-border, #dee2e6);
-    margin: 4px 0;
+    background: var(--np-border);
+    margin: var(--np-space-4) 0;
 }
 
 .task-context-submenu {
@@ -1644,8 +1644,8 @@ tr:hover .task-context-btn,
     position: absolute;
     left: 100%;
     top: 0;
-    background: var(--np-surface, white);
-    border: 1px solid var(--np-border, #dee2e6);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     min-width: 120px;
@@ -1659,23 +1659,23 @@ tr:hover .task-context-btn,
 
 .task-context-menu-item .menu-arrow {
     margin-left: auto;
-    color: var(--np-text-muted, #adb5bd);
+    color: var(--np-text-muted);
     font-size: 0.8em;
 }
 
 .task-context-menu-item.completion-item {
     justify-content: center;
-    padding: 7px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     font-weight: 500;
 }
 
 .task-context-menu-item.completion-item:hover {
-    background: var(--np-accent-soft, #e8f4ff);
+    background: var(--np-accent-soft);
 }
 
 .task-context-menu-item.completion-active {
-    background: var(--np-accent-soft, #e8f4ff);
-    color: var(--np-accent, #0d6efd);
+    background: var(--np-accent-soft);
+    color: var(--np-accent);
     font-weight: 600;
 }
 
@@ -1687,7 +1687,7 @@ tr:hover .task-context-btn,
 #cfRulesTable select,
 #cfRulesTable input[type="text"] {
     font-size: 0.85em;
-    padding: 2px 6px;
+    padding: var(--np-space-2) var(--np-space-8);
     border: 1px solid var(--np-border);
     border-radius: 4px;
     width: 100%;
@@ -1721,7 +1721,7 @@ tr:hover .task-context-btn,
     color: var(--np-muted);
     cursor: pointer;
     font-size: 0.7em;
-    padding: 0 3px;
+    padding: 0 var(--np-space-4);
     line-height: 1;
     vertical-align: middle;
 }
@@ -1741,7 +1741,7 @@ tr:hover .task-context-btn,
     color: #dc3545;
     cursor: pointer;
     font-size: 1.1em;
-    padding: 2px 6px;
+    padding: var(--np-space-2) var(--np-space-8);
 }
 
 #cfRulesTable .cf-delete-btn:hover {
@@ -1749,23 +1749,23 @@ tr:hover .task-context-btn,
 }
 
 .cf-colour-picker {
-    background: var(--np-surface, white);
-    border: 1px solid var(--np-border, #dee2e6);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
-    padding: 12px;
-    margin-top: 8px;
+    padding: var(--np-space-12);
+    margin-top: var(--np-space-8);
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .cf-colour-section {
-    margin-bottom: 4px;
+    margin-bottom: var(--np-space-4);
 }
 
 .cf-colour-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 4px;
+    gap: var(--np-space-8);
+    margin-top: var(--np-space-4);
 }
 
 .cf-colour-grid .cf-colour-option {
@@ -1779,18 +1779,18 @@ tr:hover .task-context-btn,
 
 .cf-colour-grid .cf-colour-option:hover {
     transform: scale(1.2);
-    border-color: var(--np-text, #333);
+    border-color: var(--np-text);
 }
 
 .cf-colour-grid .cf-colour-option.selected {
-    border-color: var(--np-text, #333);
-    box-shadow: 0 0 0 2px var(--np-surface, white), 0 0 0 4px var(--np-text, #333);
+    border-color: var(--np-text);
+    box-shadow: 0 0 0 2px var(--np-surface), 0 0 0 4px var(--np-text);
 }
 
 .modal-header {
     background: var(--np-accent-gradient);
     color: var(--np-on-accent);
-    padding: 20px 30px;
+    padding: var(--np-space-20) var(--np-space-32);
     border-radius: 10px 10px 0 0;
     display: flex;
     justify-content: space-between;
@@ -1799,9 +1799,9 @@ tr:hover .task-context-btn,
 
 .modal-header h2 {
     margin: 0;
-    font-family: var(--np-font-heading, var(--np-font-ui));
+    font-family: var(--np-font-heading);
     font-size: 1.5em;
-    padding: 5px;
+    padding: var(--np-space-4);
     border-radius: 4px;
     transition: background-color 0.2s;
     color: inherit;
@@ -1842,7 +1842,7 @@ tr:hover .task-context-btn,
 }
 
 .modal-body {
-    padding: 30px;
+    padding: var(--np-space-32);
 }
 
 /* ========================================
@@ -1851,13 +1851,13 @@ tr:hover .task-context-btn,
 .form-grid-2col {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 15px;
+    gap: var(--np-space-16);
 }
 
 .form-grid-3col {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 15px;
+    gap: var(--np-space-16);
 }
 
 .form-grid-2col > .form-group,
@@ -1866,13 +1866,13 @@ tr:hover .task-context-btn,
 }
 
 .form-group {
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
 }
 
 .form-row {
     display: flex;
-    gap: 15px;
-    margin-bottom: 20px;
+    gap: var(--np-space-16);
+    margin-bottom: var(--np-space-20);
 }
 
 .form-row .form-group {
@@ -1882,8 +1882,8 @@ tr:hover .task-context-btn,
 .form-group label {
     display: block;
     font-weight: 600;
-    margin-bottom: 8px;
-    color: var(--np-text, #333);
+    margin-bottom: var(--np-space-8);
+    color: var(--np-text);
 }
 
 .form-group input[type="text"],
@@ -1893,13 +1893,13 @@ tr:hover .task-context-btn,
 .form-group textarea,
 .form-group select {
     width: 100%;
-    padding: 10px;
-    border: 2px solid var(--np-input-border, #e0e0e0);
+    padding: var(--np-space-12);
+    border: 2px solid var(--np-input-border);
     border-radius: 5px;
     font-size: 14px;
     font-family: inherit;
-    background: var(--np-input-bg, white);
-    color: var(--np-text, black);
+    background: var(--np-input-bg);
+    color: var(--np-text);
     transition: border-color 0.2s;
 }
 
@@ -1924,8 +1924,8 @@ tr:hover .task-context-btn,
 
 .form-group small {
     display: block;
-    margin-top: 5px;
-    color: var(--np-text-secondary, #666);
+    margin-top: var(--np-space-4);
+    color: var(--np-text-secondary);
     font-size: 0.9em;
 }
 
@@ -1936,14 +1936,14 @@ tr:hover .task-context-btn,
    ======================================== */
 .settings-tabs {
     display: flex;
-    gap: 4px;
+    gap: var(--np-space-4);
     border-bottom: 2px solid var(--np-border);
-    margin-bottom: 24px;
+    margin-bottom: var(--np-space-24);
     overflow-x: auto;
 }
 
 .settings-tab-btn {
-    padding: 10px 16px;
+    padding: var(--np-space-12) var(--np-space-16);
     border: none;
     background: none;
     cursor: pointer;
@@ -1982,14 +1982,14 @@ tr:hover .task-context-btn,
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: var(--np-ink, #111);
-    margin: 0 0 16px 0;
-    padding-bottom: 8px;
+    color: var(--np-ink);
+    margin: 0 0 var(--np-space-16) 0;
+    padding-bottom: var(--np-space-8);
     border-bottom: 1px solid var(--np-hairline);
 }
 
 .settings-option {
-    padding: 14px 0;
+    padding: var(--np-space-16) 0;
     border-bottom: 1px solid var(--np-hairline);
 }
 
@@ -2000,7 +2000,7 @@ tr:hover .task-context-btn,
 .settings-option label {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
@@ -2016,7 +2016,7 @@ tr:hover .task-context-btn,
 
 .settings-option small {
     display: block;
-    margin-top: 4px;
+    margin-top: var(--np-space-4);
     margin-left: 28px;
     color: var(--np-body);
     font-size: 0.85em;
@@ -2025,15 +2025,15 @@ tr:hover .task-context-btn,
 .settings-theme-options {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: var(--np-space-12);
+    margin-bottom: var(--np-space-16);
 }
 
 .settings-theme-radio {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
+    gap: var(--np-space-12);
+    padding: var(--np-space-12) var(--np-space-16);
     border: 2px solid var(--np-border);
     border-radius: 8px;
     cursor: pointer;
@@ -2057,13 +2057,13 @@ tr:hover .task-context-btn,
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
 }
 
 .settings-ai-description {
     color: var(--np-body);
     font-size: 14px;
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
     line-height: 1.5;
 }
 
@@ -2081,14 +2081,14 @@ tr:hover .task-context-btn,
 
 .dependencies-table th {
     background: var(--np-paper);
-    padding: 10px;
+    padding: var(--np-space-12);
     text-align: left;
     font-weight: 600;
     border-bottom: 2px solid var(--np-border);
 }
 
 .dependencies-table td {
-    padding: 5px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -2099,7 +2099,7 @@ tr:hover .task-context-btn,
 .dependencies-table input[type="text"],
 .dependencies-table input[type="number"] {
     width: 100%;
-    padding: 8px;
+    padding: var(--np-space-8);
     border: 1px solid var(--np-border);
     border-radius: 4px;
 }
@@ -2109,7 +2109,7 @@ tr:hover .task-context-btn,
     color: white;
     border: none;
     border-radius: 4px;
-    padding: 6px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     cursor: pointer;
     font-size: 0.9em;
 }
@@ -2121,7 +2121,7 @@ tr:hover .task-context-btn,
 .dependencies-table tbody:empty::after {
     content: 'No dependencies. Add one below.';
     display: block;
-    padding: 20px;
+    padding: var(--np-space-20);
     text-align: center;
     color: var(--np-faint);
     font-style: italic;
@@ -2129,35 +2129,37 @@ tr:hover .task-context-btn,
 
 .dependency-add-input {
     width: 100%;
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 4px;
-    background: var(--np-input-bg, #fff);
-    color: var(--np-text, #333);
+    background: var(--np-input-bg);
+    color: var(--np-text);
 }
 
 .form-actions {
     display: flex;
-    gap: 10px;
+    gap: var(--np-space-12);
     justify-content: flex-end;
-    margin-top: 15px;
+    margin-top: var(--np-space-16);
 }
 
 .btn-primary {
     flex: 1;
     background: var(--np-accent-gradient);
     color: var(--np-on-accent);
-    padding: 12px 24px;
+    padding: var(--np-space-12) var(--np-space-24);
     border: none;
-    border-radius: 5px;
-    font-size: 1em;
+    border-radius: var(--np-radius-md);
+    font-size: var(--np-text-100);
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(16, 139, 185, 0.4);
+    /* Was a blue-tinted shadow left over from the #1024 identity, which read
+       as a stray blue glow under a marigold button (#1193). */
+    box-shadow: var(--np-elevation-3);
 }
 
 /* Completion % progress bar (task details form) -- clicking it jumps the
@@ -2182,8 +2184,8 @@ tr:hover .task-context-btn,
 /* Completion % quick-set mini-toolbar (0/25/50/75/100) */
 .percent-quick-toolbar {
     display: flex;
-    gap: 6px;
-    margin-top: 8px;
+    gap: var(--np-space-8);
+    margin-top: var(--np-space-8);
 }
 
 .percent-quick-btn {
@@ -2195,7 +2197,7 @@ tr:hover .task-context-btn,
     font-size: 0.8em;
     font-weight: 600;
     color: #333;
-    padding: 5px 0;
+    padding: var(--np-space-4) 0;
     transition: background 0.15s, color 0.15s;
 }
 
@@ -2214,7 +2216,7 @@ tr:hover .task-context-btn,
 .subtasks-list {
     border: 2px solid var(--np-border);
     border-radius: 5px;
-    padding: 10px;
+    padding: var(--np-space-12);
     max-height: 300px;
     overflow-y: auto;
     background: var(--np-paper);
@@ -2223,11 +2225,11 @@ tr:hover .task-context-btn,
 .subtask-item {
     display: flex;
     align-items: center;
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     background: white;
     border: 1px solid var(--np-border);
     border-radius: 4px;
-    margin-bottom: 6px;
+    margin-bottom: var(--np-space-8);
     transition: background 0.2s;
 }
 
@@ -2240,7 +2242,7 @@ tr:hover .task-context-btn,
 }
 
 .subtask-checkbox.round-checkbox {
-    margin-right: 10px;
+    margin-right: var(--np-space-12);
 }
 
 .subtask-label {
@@ -2251,7 +2253,7 @@ tr:hover .task-context-btn,
     color: var(--np-ink);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2266,7 +2268,7 @@ tr:hover .task-context-btn,
     display: inline-block;
     background: #fff3e0;
     color: #e65100;
-    padding: 2px 6px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 3px;
     font-size: 0.85em;
     font-weight: 600;
@@ -2276,7 +2278,7 @@ tr:hover .task-context-btn,
 .subtask-right-section {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
     flex-shrink: 0;
     margin-left: auto;
 }
@@ -2336,7 +2338,7 @@ tr:hover .task-context-btn,
 }
 
 .subtask-resource-picker-header {
-    padding: 8px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     font-weight: 600;
     font-size: 0.85em;
     color: var(--np-body);
@@ -2345,7 +2347,7 @@ tr:hover .task-context-btn,
 }
 
 .subtask-resource-picker-subheader {
-    padding: 6px 12px 4px;
+    padding: var(--np-space-8) var(--np-space-12) var(--np-space-4);
     font-size: 0.78em;
     color: var(--np-faint);
     text-transform: uppercase;
@@ -2353,7 +2355,7 @@ tr:hover .task-context-btn,
 }
 
 .subtask-resource-picker-row {
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     font-size: 0.9em;
     cursor: pointer;
     display: flex;
@@ -2367,7 +2369,7 @@ tr:hover .task-context-btn,
 }
 
 .subtask-resource-picker-row.assigned {
-    background: #f0f7fa;
+    background: var(--np-paper);
 }
 
 .subtask-resource-remove {
@@ -2375,7 +2377,7 @@ tr:hover .task-context-btn,
     font-size: 1.1em;
     font-weight: bold;
     cursor: pointer;
-    padding: 0 4px;
+    padding: 0 var(--np-space-4);
     line-height: 1;
 }
 
@@ -2384,7 +2386,7 @@ tr:hover .task-context-btn,
 }
 
 .subtask-resource-picker-empty {
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     font-size: 0.85em;
     color: var(--np-faint);
     text-align: center;
@@ -2397,7 +2399,7 @@ tr:hover .task-context-btn,
     font-size: 0.95em;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     cursor: pointer;
     transition: color 0.2s;
 }
@@ -2430,10 +2432,10 @@ tr:hover .task-context-btn,
     flex: 1;
     background: #6c757d;
     color: white;
-    padding: 12px 24px;
+    padding: var(--np-space-12) var(--np-space-24);
     border: none;
-    border-radius: 5px;
-    font-size: 1em;
+    border-radius: var(--np-radius-md);
+    font-size: var(--np-text-100);
     cursor: pointer;
     transition: transform 0.2s;
 }
@@ -2469,13 +2471,13 @@ tr:hover .task-context-btn,
     background: var(--np-accent);
     color: var(--np-on-accent);
     border: none;
-    padding: 8px 16px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 5px;
     cursor: pointer;
     font-size: 0.9em;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--np-space-4);
 }
 
 .export-btn:hover {
@@ -2495,9 +2497,9 @@ tr:hover .task-context-btn,
     position: absolute;
     right: 0;
     top: 100%;
-    margin-top: 5px;
-    background: var(--np-surface, white);
-    border: 1px solid var(--np-border, #e0e0e0);
+    margin-top: var(--np-space-4);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 5px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     min-width: 200px;
@@ -2509,12 +2511,12 @@ tr:hover .task-context-btn,
 }
 
 .export-menu-item {
-    padding: 10px 15px;
+    padding: var(--np-space-12) var(--np-space-16);
     cursor: pointer;
-    border-bottom: 1px solid var(--np-border-light, #f0f0f0);
+    border-bottom: 1px solid var(--np-border-light);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
 }
 
 .export-menu-item:last-child {
@@ -2522,7 +2524,7 @@ tr:hover .task-context-btn,
 }
 
 .export-menu-item:hover {
-    background: var(--np-accent-soft, #f8f9ff);
+    background: var(--np-accent-soft);
 }
 
 .export-menu-item input[type="checkbox"] {
@@ -2539,7 +2541,7 @@ tr:hover .task-context-btn,
     top: 100%;
     left: 0;
     right: 0;
-    background: var(--np-surface, white);
+    background: var(--np-surface);
     border: 2px solid var(--np-accent);
     border-top: none;
     border-radius: 0 0 5px 5px;
@@ -2551,9 +2553,9 @@ tr:hover .task-context-btn,
 }
 
 .autocomplete-item {
-    padding: 10px;
+    padding: var(--np-space-12);
     cursor: pointer;
-    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    border-bottom: 1px solid var(--np-border);
 }
 
 .autocomplete-item:last-child {
@@ -2562,12 +2564,12 @@ tr:hover .task-context-btn,
 
 .autocomplete-item:hover,
 .autocomplete-item.selected {
-    background-color: var(--np-accent-soft, #e8f4f8);
+    background-color: var(--np-accent-soft);
 }
 
 @media (max-width: 480px) {
     .modal-body {
-        padding: 20px;
+        padding: var(--np-space-20);
     }
 
     .form-actions {
@@ -2618,17 +2620,17 @@ tr:hover .task-context-btn,
 }
 
 .tour-popup-content {
-    padding: 24px;
+    padding: var(--np-space-24);
 }
 
 .tour-popup h3 {
-    margin: 0 0 12px 0;
+    margin: 0 0 var(--np-space-12) 0;
     color: var(--np-accent);
     font-size: 20px;
 }
 
 .tour-popup p {
-    margin: 0 0 20px 0;
+    margin: 0 0 var(--np-space-20) 0;
     color: var(--np-ink);
     line-height: 1.6;
 }
@@ -2637,7 +2639,7 @@ tr:hover .task-context-btn,
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    gap: var(--np-space-12);
 }
 
 .tour-progress {
@@ -2648,7 +2650,7 @@ tr:hover .task-context-btn,
 }
 
 .tour-actions button {
-    padding: 8px 16px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 6px;
     border: none;
     cursor: pointer;
@@ -2679,7 +2681,7 @@ tr:hover .task-context-btn,
 .kanban-breadcrumb {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--np-space-4);
     flex-wrap: wrap;
 }
 
@@ -2712,14 +2714,14 @@ tr:hover .task-context-btn,
     color: var(--np-on-accent);
     border: none;
     border-radius: 4px;
-    padding: 4px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     font-size: 12px;
     cursor: pointer;
     transition: background 0.2s;
-    margin-top: 6px;
+    margin-top: var(--np-space-8);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
     width: 100%;
     justify-content: center;
 }
@@ -2734,14 +2736,14 @@ tr:hover .task-context-btn,
 
 /* Analysis View Styles */
 .analysis-content {
-    padding: 20px;
+    padding: var(--np-space-20);
 }
 
 .analysis-title {
     font-size: 1.8em;
     font-weight: 600;
     color: var(--np-ink);
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
 }
 
 .analysis-insights {
@@ -2750,16 +2752,16 @@ tr:hover .task-context-btn,
 }
 
 .analysis-health-score {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
-    padding: 30px;
+    padding: var(--np-space-32);
     text-align: center;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    margin-bottom: 30px;
+    margin-bottom: var(--np-space-32);
 }
 
 .analysis-health-score h3 {
-    margin: 0 0 15px 0;
+    margin: 0 0 var(--np-space-16) 0;
     color: var(--np-body);
     font-size: 1.1em;
 }
@@ -2767,20 +2769,20 @@ tr:hover .task-context-btn,
 .health-score-value {
     font-size: 3em;
     font-weight: 700;
-    margin: 10px 0;
+    margin: var(--np-space-12) 0;
 }
 
 .health-score-status {
     font-size: 1.3em;
     font-weight: 600;
-    margin-top: 10px;
+    margin-top: var(--np-space-12);
 }
 
 .analysis-insight {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
+    padding: var(--np-space-20);
+    margin-bottom: var(--np-space-20);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     border-left: 4px solid var(--np-border-strong);
 }
@@ -2800,8 +2802,8 @@ tr:hover .task-context-btn,
 .insight-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: var(--np-space-12);
+    margin-bottom: var(--np-space-12);
 }
 
 .insight-icon {
@@ -2816,17 +2818,17 @@ tr:hover .task-context-btn,
 
 .insight-description {
     color: var(--np-body);
-    margin: 10px 0;
+    margin: var(--np-space-12) 0;
     line-height: 1.5;
 }
 
 .insight-items {
-    margin: 15px 0;
-    padding-left: 25px;
+    margin: var(--np-space-16) 0;
+    padding-left: var(--np-space-24);
 }
 
 .insight-items li {
-    margin: 8px 0;
+    margin: var(--np-space-8) 0;
     color: var(--np-body);
 }
 
@@ -2835,11 +2837,11 @@ tr:hover .task-context-btn,
     color: var(--np-on-accent);
     border: none;
     border-radius: 4px;
-    padding: 8px 20px;
+    padding: var(--np-space-8) var(--np-space-20);
     font-size: 0.95em;
     cursor: pointer;
     transition: all 0.2s;
-    margin-top: 15px;
+    margin-top: var(--np-space-16);
 }
 
 .fix-it-btn:hover {
@@ -2859,16 +2861,16 @@ tr:hover .task-context-btn,
 }
 
 .analysis-success {
-    background: #f1f8f4;
+    background: var(--np-paper);
     border: 2px solid #4caf50;
     border-radius: 8px;
-    padding: 30px;
+    padding: var(--np-space-32);
     text-align: center;
     color: #2e7d32;
 }
 
 .analysis-success h3 {
-    margin: 0 0 10px 0;
+    margin: 0 0 var(--np-space-12) 0;
     font-size: 1.5em;
 }
 
@@ -2883,8 +2885,8 @@ tr:hover .task-context-btn,
 
 .qa-section {
     max-width: 900px;
-    margin: 30px auto 0;
-    padding-top: 20px;
+    margin: var(--np-space-32) auto 0;
+    padding-top: var(--np-space-20);
     border-top: 2px solid var(--np-border);
 }
 
@@ -2892,31 +2894,31 @@ tr:hover .task-context-btn,
     font-size: 1.4em;
     font-weight: 600;
     color: var(--np-ink);
-    margin-bottom: 6px;
+    margin-bottom: var(--np-space-8);
 }
 
 .qa-section-desc {
     color: var(--np-body);
     font-size: 0.95em;
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
     line-height: 1.5;
 }
 
 .qa-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 14px;
+    gap: var(--np-space-16);
 }
 
 .qa-check-card {
     background: white;
     border-radius: 8px;
-    padding: 16px;
+    padding: var(--np-space-16);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
     border-left: 4px solid var(--np-border-strong);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--np-space-8);
     min-height: 44px;
 }
 
@@ -2969,7 +2971,7 @@ tr:hover .task-context-btn,
     display: inline-block;
     font-size: 0.7em;
     font-weight: 700;
-    padding: 2px 7px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 10px;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -3012,7 +3014,7 @@ tr:hover .task-context-btn,
    ======================================== */
 
 .raid-container {
-    padding: 20px;
+    padding: var(--np-space-20);
     flex: 1;
     min-height: 0;
     display: flex;
@@ -3022,9 +3024,9 @@ tr:hover .task-context-btn,
 
 .raid-toolbar {
     display: flex;
-    gap: 10px;
+    gap: var(--np-space-12);
     align-items: center;
-    padding: 10px 0;
+    padding: var(--np-space-12) 0;
     flex-wrap: wrap;
     flex-shrink: 0;
 }
@@ -3033,7 +3035,7 @@ tr:hover .task-context-btn,
     background: var(--np-accent);
     color: var(--np-on-accent);
     border: none;
-    padding: 8px 16px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 5px;
     cursor: pointer;
     font-size: 0.9em;
@@ -3046,10 +3048,10 @@ tr:hover .task-context-btn,
 }
 
 .raid-toolbar .btn-secondary {
-    background: var(--np-surface, white);
+    background: var(--np-surface);
     color: var(--np-accent);
     border: 2px solid var(--np-accent);
-    padding: 6px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 5px;
     cursor: pointer;
     font-size: 0.9em;
@@ -3065,13 +3067,13 @@ tr:hover .task-context-btn,
 .raid-toolbar-separator {
     width: 1px;
     height: 30px;
-    background: #dee2e6;
+    background: var(--np-selected);
 }
 
 .raid-filter-group {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
 }
 
 .raid-filter-group label {
@@ -3081,7 +3083,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-filter-group select {
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: 2px solid var(--np-accent);
     border-radius: 4px;
     background: white;
@@ -3097,7 +3099,7 @@ tr:hover .task-context-btn,
 .raid-table-wrapper {
     flex: 1;
     overflow: auto;
-    margin-top: 15px;
+    margin-top: var(--np-space-16);
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -3118,7 +3120,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-table th {
-    padding: 12px 10px;
+    padding: var(--np-space-12) var(--np-space-12);
     text-align: left;
     font-weight: 600;
     white-space: nowrap;
@@ -3132,12 +3134,12 @@ tr:hover .task-context-btn,
 }
 
 .raid-table th .sort-indicator {
-    margin-left: 4px;
+    margin-left: var(--np-space-4);
     opacity: 0.6;
 }
 
 .raid-table td {
-    padding: 10px;
+    padding: var(--np-space-12);
     border-bottom: 1px solid var(--np-hairline);
     max-width: 250px;
     overflow: hidden;
@@ -3159,7 +3161,7 @@ tr:hover .task-context-btn,
 /* Type badges */
 .raid-type-badge {
     display: inline-block;
-    padding: 3px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 600;
@@ -3176,7 +3178,7 @@ tr:hover .task-context-btn,
 /* Status badges */
 .raid-status-badge {
     display: inline-block;
-    padding: 3px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 500;
@@ -3191,8 +3193,8 @@ tr:hover .task-context-btn,
 /* Escalation badges (issue #736) */
 .raid-escalation-badge {
     display: inline-block;
-    margin-left: 4px;
-    padding: 3px 10px;
+    margin-left: var(--np-space-4);
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 600;
@@ -3211,7 +3213,7 @@ tr:hover .task-context-btn,
 /* Score coloring */
 .raid-score {
     display: inline-block;
-    padding: 4px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 6px;
     font-weight: 700;
     text-align: center;
@@ -3231,13 +3233,13 @@ tr:hover .task-context-btn,
 
 .raid-empty-state h3 {
     color: var(--np-accent);
-    margin-bottom: 10px;
+    margin-bottom: var(--np-space-12);
     font-size: 1.5em;
 }
 
 .raid-empty-state p {
     font-size: 1.05em;
-    margin: 5px 0;
+    margin: var(--np-space-4) 0;
 }
 
 /* Action buttons in table rows */
@@ -3245,7 +3247,7 @@ tr:hover .task-context-btn,
     background: transparent;
     border: none;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     border-radius: 4px;
     font-size: 1em;
     transition: background 0.2s;
@@ -3262,7 +3264,7 @@ tr:hover .task-context-btn,
 
 /* RAID form modal - reuses existing modal-overlay pattern */
 .raid-score-display {
-    padding: 10px;
+    padding: var(--np-space-12);
     text-align: center;
     font-size: 1.5em;
     font-weight: bold;
@@ -3304,7 +3306,7 @@ tr:hover .task-context-btn,
 
 /* RAID Markdown Editor */
 .raid-editor-section {
-    margin-top: 10px;
+    margin-top: var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 6px;
     overflow: hidden;
@@ -3313,7 +3315,7 @@ tr:hover .task-context-btn,
 .raid-editor-header {
     display: flex;
     align-items: center;
-    padding: 8px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     background: var(--np-paper);
     border-bottom: 1px solid var(--np-border);
     cursor: pointer;
@@ -3322,7 +3324,7 @@ tr:hover .task-context-btn,
 
 .raid-editor-toggle {
     font-size: 0.75em;
-    margin-right: 8px;
+    margin-right: var(--np-space-8);
     color: var(--np-muted);
 }
 
@@ -3335,11 +3337,11 @@ tr:hover .task-context-btn,
 
 .raid-editor-actions {
     display: flex;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .raid-editor-actions .toolbar-btn {
-    padding: 2px 6px;
+    padding: var(--np-space-2) var(--np-space-8);
     font-size: 0.9em;
     background: transparent;
     border: 1px solid var(--np-border);
@@ -3348,7 +3350,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-editor-actions .toolbar-btn:hover {
-    background: #e9ecef;
+    background: var(--np-sunken);
 }
 
 .raid-editor-body {
@@ -3368,7 +3370,7 @@ tr:hover .task-context-btn,
     width: 100%;
     min-height: 200px;
     max-height: 400px;
-    padding: 12px;
+    padding: var(--np-space-12);
     font-family: 'Courier New', Courier, monospace;
     font-size: 0.85em;
     border: none;
@@ -3381,8 +3383,8 @@ tr:hover .task-context-btn,
 
 .export-menu-divider {
     height: 1px;
-    background: #dee2e6;
-    margin: 4px 0;
+    background: var(--np-selected);
+    margin: var(--np-space-4) 0;
 }
 
 /* Excel Import Wizard */
@@ -3390,14 +3392,14 @@ tr:hover .task-context-btn,
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 25px;
+    margin-bottom: var(--np-space-24);
     gap: 0;
 }
 
 .wizard-step {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
     color: var(--np-faint);
     font-size: 0.9em;
 }
@@ -3437,20 +3439,20 @@ tr:hover .task-context-btn,
 .wizard-step-connector {
     width: 40px;
     height: 2px;
-    background: #e0e0e0;
-    margin: 0 8px;
+    background: var(--np-selected);
+    margin: 0 var(--np-space-8);
 }
 
 .wizard-mapping-grid {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--np-space-12);
 }
 
 .wizard-mapping-row {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: var(--np-space-16);
 }
 
 .wizard-mapping-row label {
@@ -3479,7 +3481,7 @@ tr:hover .task-context-btn,
 
 .wizard-panel .table-responsive th,
 .wizard-panel .table-responsive td {
-    padding: 6px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-hairline);
     white-space: nowrap;
 }
@@ -3495,27 +3497,27 @@ tr:hover .task-context-btn,
     background: #fff3cd;
     border: 1px solid #ffc107;
     border-radius: 4px;
-    padding: 10px 15px;
-    margin-bottom: 10px;
+    padding: var(--np-space-12) var(--np-space-16);
+    margin-bottom: var(--np-space-12);
     font-size: 0.9em;
     color: #856404;
 }
 
 .alert-warning ul {
-    margin: 5px 0 0;
-    padding-left: 20px;
+    margin: var(--np-space-4) 0 0;
+    padding-left: var(--np-space-20);
 }
 
 /* ===== Highlights ===== */
 .highlights-content {
-    padding: 20px;
+    padding: var(--np-space-20);
 }
 
 .highlights-toolbar {
     display: flex;
     align-items: center;
-    gap: 16px;
-    margin-bottom: 20px;
+    gap: var(--np-space-16);
+    margin-bottom: var(--np-space-20);
 }
 
 .highlights-toolbar .btn-primary,
@@ -3549,14 +3551,14 @@ tr:hover .task-context-btn,
 .highlights-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--np-space-16);
 }
 
 .highlight-card {
     background: var(--np-surface);
     border: 1px solid var(--np-border);
     border-radius: 8px;
-    padding: 16px 20px;
+    padding: var(--np-space-16) var(--np-space-20);
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
@@ -3564,15 +3566,15 @@ tr:hover .task-context-btn,
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
+    margin-bottom: var(--np-space-12);
+    padding-bottom: var(--np-space-8);
     border-bottom: 1px solid var(--np-hairline);
 }
 
 .highlight-meta {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--np-space-12);
 }
 
 .highlight-date {
@@ -3584,7 +3586,7 @@ tr:hover .task-context-btn,
 .highlight-author {
     background: #e7f5ff;
     color: #1971c2;
-    padding: 2px 10px;
+    padding: var(--np-space-2) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 500;
@@ -3592,7 +3594,7 @@ tr:hover .task-context-btn,
 
 .highlight-actions {
     display: flex;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .highlight-action-btn {
@@ -3600,7 +3602,7 @@ tr:hover .task-context-btn,
     border: none;
     cursor: pointer;
     font-size: 1em;
-    padding: 4px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     border-radius: 4px;
     opacity: 0.6;
     transition: opacity 0.15s;
@@ -3623,18 +3625,18 @@ tr:hover .task-context-btn,
 
 .highlight-body ul,
 .highlight-body ol {
-    margin: 4px 0;
-    padding-left: 24px;
+    margin: var(--np-space-4) 0;
+    padding-left: var(--np-space-24);
 }
 
 .highlight-body li {
-    margin-bottom: 4px;
+    margin-bottom: var(--np-space-4);
 }
 
 .highlight-body h1,
 .highlight-body h2,
 .highlight-body h3 {
-    margin: 8px 0 4px;
+    margin: var(--np-space-8) 0 var(--np-space-4);
     font-size: 1.1em;
 }
 
@@ -3644,12 +3646,12 @@ tr:hover .task-context-btn,
 .highlight-body hr {
     border: none;
     border-top: 1px solid var(--np-border);
-    margin: 10px 0;
+    margin: var(--np-space-12) 0;
 }
 
 .highlights-empty-state {
     text-align: center;
-    padding: 40px 20px;
+    padding: var(--np-space-40) var(--np-space-20);
     color: var(--np-body);
 }
 
@@ -3661,17 +3663,17 @@ tr:hover .task-context-btn,
 
 /* 2-Week Look-Ahead View Styles */
 .lookahead-content {
-    padding: 20px;
+    padding: var(--np-space-20);
 }
 
 .lookahead-title {
-    margin: 0 0 10px 0;
+    margin: 0 0 var(--np-space-12) 0;
     color: var(--np-ink);
 }
 
 .lookahead-info {
-    margin-bottom: 20px;
-    padding: 10px;
+    margin-bottom: var(--np-space-20);
+    padding: var(--np-space-12);
     background: var(--np-surface-alt);
     border-radius: 4px;
 }
@@ -3683,27 +3685,27 @@ tr:hover .task-context-btn,
 }
 
 .lookahead-sections {
-    margin-top: 20px;
+    margin-top: var(--np-space-20);
 }
 
 .lookahead-section {
-    margin-bottom: 30px;
+    margin-bottom: var(--np-space-32);
 }
 
 .lookahead-section-title {
-    margin: 0 0 15px 0;
-    padding: 10px 15px;
+    margin: 0 0 var(--np-space-16) 0;
+    padding: var(--np-space-12) var(--np-space-16);
     border-radius: 4px;
     font-size: 18px;
 }
 
 .lookahead-section-title.overdue {
-    background: var(--np-danger-gradient, linear-gradient(135deg, #d32f2f 0%, #c62828 100%));
+    background: var(--np-danger-gradient);
     color: #fff;
 }
 
 .lookahead-section-title.upcoming {
-    background: var(--np-info-gradient, linear-gradient(135deg, #1976d2 0%, #1565c0 100%));
+    background: var(--np-info-gradient);
     color: #fff;
 }
 
@@ -3725,14 +3727,14 @@ tr:hover .task-context-btn,
 }
 
 .lookahead-table th {
-    padding: 12px;
+    padding: var(--np-space-12);
     text-align: left;
     font-weight: 600;
     border-bottom: 2px solid #fff;
 }
 
 .lookahead-table td {
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -3759,24 +3761,24 @@ tr:hover .task-context-btn,
 
 /* User Workload View Styles */
 .user-workload-content {
-    padding: 20px;
+    padding: var(--np-space-20);
 }
 
 .user-workload-title {
     font-size: 1.8em;
     font-weight: 600;
     color: var(--np-ink);
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
 }
 
 .user-filter {
-    margin-bottom: 20px;
-    padding: 15px;
+    margin-bottom: var(--np-space-20);
+    padding: var(--np-space-16);
     background: var(--np-surface-alt);
     border-radius: 4px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
 }
 
 .user-filter label {
@@ -3786,7 +3788,7 @@ tr:hover .task-context-btn,
 }
 
 .user-filter select {
-    padding: 8px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border-strong);
     border-radius: 4px;
     background: var(--np-surface);
@@ -3802,35 +3804,39 @@ tr:hover .task-context-btn,
  * Workload view down to only overallocated resources, with a way back to
  * the unfiltered view without having to remember the ribbon button. */
 .user-workload-filter-notice {
-    margin-bottom: 16px;
-    padding: 10px 15px;
-    background: var(--np-warn-bg, #fff3cd);
-    border: 1px solid var(--np-warn-border, #ffe08a);
+    margin-bottom: var(--np-space-16);
+    padding: var(--np-space-12) var(--np-space-16);
+    /* --np-warn-bg / --np-warn-border were referenced but defined nowhere,
+       so this always rendered the fallbacks. Marigold is this palette's
+       warning colour and --np-accent-tint is within a hair of that fallback
+       (#FBEFCE against #fff3cd), so use the real tokens (#1192). */
+    background: var(--np-accent-tint);
+    border: 1px solid var(--np-accent);
     border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--np-space-12);
     flex-wrap: wrap;
-    color: var(--np-ink, #111);
+    color: var(--np-ink);
 }
 
 .link-button {
     background: none;
     border: none;
     padding: 0;
-    color: var(--np-link, #1976d2);
+    color: var(--np-link);
     text-decoration: underline;
     cursor: pointer;
     font: inherit;
 }
 
 .link-button:hover {
-    color: var(--np-link-hover, #0d47a1);
+    color: var(--np-link-hover);
 }
 
 .user-workload-section {
-    margin-bottom: 30px;
+    margin-bottom: var(--np-space-32);
     border: 1px solid var(--np-border);
     border-radius: 8px;
     overflow: hidden;
@@ -3840,24 +3846,24 @@ tr:hover .task-context-btn,
 .user-workload-header {
     background: var(--np-accent-gradient);
     color: var(--np-on-accent);
-    padding: 15px 20px;
+    padding: var(--np-space-16) var(--np-space-20);
 }
 
 .user-workload-header h3 {
-    margin: 0 0 10px 0;
+    margin: 0 0 var(--np-space-12) 0;
     font-size: 20px;
 }
 
 .user-stats {
     display: flex;
-    gap: 20px;
+    gap: var(--np-space-20);
     flex-wrap: wrap;
     font-size: 14px;
 }
 
 .user-stats .stat {
     background: rgba(255, 255, 255, 0.2);
-    padding: 4px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 4px;
 }
 
@@ -3876,7 +3882,7 @@ tr:hover .task-context-btn,
 }
 
 .user-workload-table th {
-    padding: 12px;
+    padding: var(--np-space-12);
     text-align: left;
     font-weight: 600;
     color: var(--np-body);
@@ -3884,7 +3890,7 @@ tr:hover .task-context-btn,
 }
 
 .user-workload-table td {
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -3912,14 +3918,14 @@ tr:hover .task-context-btn,
 .nav-menu-divider {
     height: 1px;
     background-color: #e0e0e0;
-    margin: 5px 0;
+    margin: var(--np-space-4) 0;
 }
 
 /* Mobile responsive for new views */
 @media (max-width: 768px) {
     .user-stats {
         flex-direction: column;
-        gap: 8px;
+        gap: var(--np-space-8);
     }
 
     .lookahead-table,
@@ -3931,7 +3937,7 @@ tr:hover .task-context-btn,
     .lookahead-table td,
     .user-workload-table th,
     .user-workload-table td {
-        padding: 8px 6px;
+        padding: var(--np-space-8) var(--np-space-8);
     }
 }
 
@@ -3953,7 +3959,7 @@ tr:hover .task-context-btn,
     align-items: stretch;
     z-index: 10000;
     overflow: hidden;
-    padding: 16px;
+    padding: var(--np-space-16);
     box-sizing: border-box;
 }
 
@@ -3977,7 +3983,7 @@ tr:hover .task-context-btn,
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 24px;
+    padding: var(--np-space-20) var(--np-space-24);
     border-bottom: 1px solid var(--np-border);
     flex-shrink: 0;
 }
@@ -4046,7 +4052,7 @@ tr:hover .task-context-btn,
     width: 200px;
     background: var(--np-bg-alt);
     border-right: 1px solid var(--np-border);
-    padding: 20px 0;
+    padding: var(--np-space-20) 0;
     overflow-y: auto;
     flex-shrink: 0;
 }
@@ -4054,7 +4060,7 @@ tr:hover .task-context-btn,
 .templates-sidebar h3 {
     color: var(--np-text);
     font-size: 1rem;
-    margin: 0 0 15px 20px;
+    margin: 0 0 var(--np-space-16) var(--np-space-20);
     font-weight: 600;
 }
 
@@ -4072,7 +4078,7 @@ tr:hover .task-context-btn,
     display: block;
     width: 100%;
     min-height: 44px;
-    padding: 10px 20px;
+    padding: var(--np-space-12) var(--np-space-20);
     color: var(--np-text-secondary);
     background: transparent;
     text-decoration: none;
@@ -4099,14 +4105,14 @@ tr:hover .task-context-btn,
 .templates-main {
     flex: 1;
     overflow-y: auto;
-    padding: 24px;
+    padding: var(--np-space-24);
     min-width: 0;
 }
 
 .templates-main h2 {
     color: var(--np-text);
     font-size: 1.3rem;
-    margin: 0 0 20px 0;
+    margin: 0 0 var(--np-space-20) 0;
     font-weight: 600;
 }
 
@@ -4114,14 +4120,14 @@ tr:hover .task-context-btn,
 .templates-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-    margin-bottom: 40px;
+    gap: var(--np-space-20);
+    margin-bottom: var(--np-space-40);
 }
 
 .popular-grid {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
-    margin-bottom: 20px;
+    gap: var(--np-space-16);
+    margin-bottom: var(--np-space-20);
 }
 
 /* Template cards */
@@ -4144,7 +4150,7 @@ tr:hover .task-context-btn,
 .template-hero {
     height: 160px;
     overflow: hidden;
-    background: var(--np-bg-alt, #e9ecef);
+    background: var(--np-bg-alt);
 }
 
 .template-hero img {
@@ -4159,12 +4165,12 @@ tr:hover .task-context-btn,
 }
 
 .template-info {
-    padding: 16px;
+    padding: var(--np-space-16);
 }
 
 .template-info h3 {
     color: var(--np-text);
-    margin: 0 0 8px 0;
+    margin: 0 0 var(--np-space-8) 0;
     font-size: 1.1rem;
     font-weight: 600;
 }
@@ -4173,7 +4179,7 @@ tr:hover .task-context-btn,
     color: var(--np-text-secondary);
     font-size: 0.9rem;
     line-height: 1.4;
-    margin: 0 0 12px 0;
+    margin: 0 0 var(--np-space-12) 0;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -4184,14 +4190,14 @@ tr:hover .task-context-btn,
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
-    gap: 8px;
+    margin-bottom: var(--np-space-16);
+    gap: var(--np-space-8);
 }
 
 .template-category {
     background: var(--np-accent);
     color: var(--np-on-accent);
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 12px;
     font-size: 0.75rem;
     font-weight: 500;
@@ -4209,7 +4215,7 @@ tr:hover .task-context-btn,
     background: var(--np-accent);
     color: var(--np-on-accent);
     border: none;
-    padding: 10px 16px;
+    padding: var(--np-space-12) var(--np-space-16);
     border-radius: 6px;
     cursor: pointer;
     font-size: 0.9rem;
@@ -4223,7 +4229,7 @@ tr:hover .task-context-btn,
 }
 
 .template-use-btn:disabled {
-    background: var(--np-text-secondary, #666);
+    background: var(--np-text-secondary);
     cursor: not-allowed;
     transform: none;
 }
@@ -4233,13 +4239,13 @@ tr:hover .task-context-btn,
     text-align: center;
     color: var(--np-text-secondary);
     font-size: 1.1rem;
-    padding: 40px;
+    padding: var(--np-space-40);
 }
 
 /* Start here section */
 .templates-start-here {
-    margin-bottom: 40px;
-    padding-bottom: 30px;
+    margin-bottom: var(--np-space-40);
+    padding-bottom: var(--np-space-32);
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -4267,7 +4273,7 @@ tr:hover .task-context-btn,
     }
 
     .templates-header {
-        padding: 16px;
+        padding: var(--np-space-16);
         border-bottom: 1px solid var(--np-border);
     }
 
@@ -4285,7 +4291,7 @@ tr:hover .task-context-btn,
         background: var(--np-paper);
         border-right: none;
         border-bottom: 1px solid var(--np-border);
-        padding: 16px;
+        padding: var(--np-space-16);
         overflow-x: auto;
         overflow-y: visible;
     }
@@ -4296,9 +4302,9 @@ tr:hover .task-context-btn,
 
     .category-list {
         display: flex;
-        gap: 8px;
+        gap: var(--np-space-8);
         white-space: nowrap;
-        padding-bottom: 8px;
+        padding-bottom: var(--np-space-8);
     }
 
     .category-list li {
@@ -4306,7 +4312,7 @@ tr:hover .task-context-btn,
     }
 
     .category-link {
-        padding: 8px 16px;
+        padding: var(--np-space-8) var(--np-space-16);
         border-radius: 20px;
         border: 1px solid #d0d0d0;
         border-left: 1px solid #d0d0d0;
@@ -4321,25 +4327,25 @@ tr:hover .task-context-btn,
 
     /* Main content */
     .templates-main {
-        padding: 16px;
+        padding: var(--np-space-16);
     }
 
     .templates-main h2 {
         font-size: 1.1rem;
-        margin-bottom: 16px;
+        margin-bottom: var(--np-space-16);
     }
 
     /* Single column grid on mobile */
     .templates-grid {
         grid-template-columns: 1fr;
-        gap: 16px;
-        margin-bottom: 24px;
+        gap: var(--np-space-16);
+        margin-bottom: var(--np-space-24);
     }
 
     .popular-grid {
         grid-template-columns: 1fr;
-        gap: 12px;
-        margin-bottom: 16px;
+        gap: var(--np-space-12);
+        margin-bottom: var(--np-space-16);
     }
 
     /* Smaller template cards on mobile */
@@ -4348,7 +4354,7 @@ tr:hover .task-context-btn,
     }
 
     .template-info {
-        padding: 12px;
+        padding: var(--np-space-12);
     }
 
     .template-info h3 {
@@ -4361,32 +4367,32 @@ tr:hover .task-context-btn,
     }
 
     .templates-start-here {
-        margin-bottom: 24px;
-        padding-bottom: 20px;
+        margin-bottom: var(--np-space-24);
+        padding-bottom: var(--np-space-20);
     }
 }
 
 @media (max-width: 480px) {
     .templates-header {
-        padding: 12px;
+        padding: var(--np-space-12);
     }
 
     .templates-main {
-        padding: 12px;
+        padding: var(--np-space-12);
     }
 
     .template-info {
-        padding: 10px;
+        padding: var(--np-space-12);
     }
 
     .template-meta {
         flex-direction: column;
         align-items: flex-start;
-        gap: 4px;
+        gap: var(--np-space-4);
     }
 
     .category-link {
-        padding: 6px 12px;
+        padding: var(--np-space-8) var(--np-space-12);
         font-size: 0.8rem;
     }
 }
@@ -4439,7 +4445,7 @@ tr:hover .task-context-btn,
 }
 
 .calendar-content {
-    padding: 16px;
+    padding: var(--np-space-16);
     flex: 1;
     min-height: 0;
     display: flex;
@@ -4449,15 +4455,15 @@ tr:hover .task-context-btn,
 .calendar-header {
     display: flex;
     align-items: center;
-    gap: 16px;
-    margin-bottom: 12px;
+    gap: var(--np-space-16);
+    margin-bottom: var(--np-space-12);
     flex-shrink: 0;
 }
 
 .calendar-nav {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .calendar-nav-btn {
@@ -4465,7 +4471,7 @@ tr:hover .task-context-btn,
     color: #e0e0e0;
     border: 1px solid #555;
     border-radius: 4px;
-    padding: 4px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     cursor: pointer;
     font-size: 0.9em;
     line-height: 1.4;
@@ -4478,7 +4484,7 @@ tr:hover .task-context-btn,
 
 .calendar-today-btn {
     font-weight: 600;
-    padding: 4px 14px;
+    padding: var(--np-space-4) var(--np-space-16);
 }
 
 .calendar-title {
@@ -4512,7 +4518,7 @@ tr:hover .task-context-btn,
     background: #3a3a3a;
     color: var(--np-muted);
     text-align: center;
-    padding: 6px 4px;
+    padding: var(--np-space-8) var(--np-space-4);
     font-size: 0.8em;
     font-weight: 600;
     text-transform: uppercase;
@@ -4522,7 +4528,7 @@ tr:hover .task-context-btn,
 .calendar-day-cell {
     background: #2d2d2d;
     min-height: 100px;
-    padding: 4px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     position: relative;
     vertical-align: top;
     transition: background 0.15s;
@@ -4546,7 +4552,7 @@ tr:hover .task-context-btn,
     font-size: 0.85em;
     font-weight: 600;
     color: var(--np-muted);
-    margin-bottom: 4px;
+    margin-bottom: var(--np-space-4);
 }
 
 .calendar-today .calendar-day-number {
@@ -4557,14 +4563,14 @@ tr:hover .task-context-btn,
 .calendar-task-list {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--np-space-2);
 }
 
 .calendar-task-item {
     display: flex;
     align-items: center;
-    gap: 3px;
-    padding: 2px 4px;
+    gap: var(--np-space-4);
+    padding: var(--np-space-2) var(--np-space-4);
     border-radius: 3px;
     background: #3a4a5a;
     cursor: default;
@@ -4616,7 +4622,7 @@ tr:hover .task-context-btn,
 .calendar-hidden-tasks {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--np-space-2);
 }
 
 .calendar-add-btn {
@@ -4686,7 +4692,7 @@ tr:hover .task-context-btn,
    ============================================================================== */
 
 .actions-container {
-    padding: 20px;
+    padding: var(--np-space-20);
     max-width: 1400px;
     margin: 0 auto;
     flex: 1;
@@ -4697,13 +4703,13 @@ tr:hover .task-context-btn,
 /* View Tabs */
 .actions-view-tabs {
     display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
+    gap: var(--np-space-12);
+    margin-bottom: var(--np-space-20);
     border-bottom: 2px solid var(--np-border);
 }
 
 .actions-view-tab {
-    padding: 10px 20px;
+    padding: var(--np-space-12) var(--np-space-20);
     background: none;
     border: none;
     border-bottom: 3px solid transparent;
@@ -4735,9 +4741,9 @@ tr:hover .task-context-btn,
 .actions-toolbar {
     display: flex;
     align-items: center;
-    gap: 15px;
-    margin-bottom: 20px;
-    padding: 15px;
+    gap: var(--np-space-16);
+    margin-bottom: var(--np-space-20);
+    padding: var(--np-space-16);
     background: var(--np-paper);
     border-radius: 8px;
 }
@@ -4751,7 +4757,7 @@ tr:hover .task-context-btn,
 .actions-filter-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
 }
 
 .actions-filter-group label {
@@ -4761,10 +4767,10 @@ tr:hover .task-context-btn,
 }
 
 .actions-filter-group select {
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 4px;
-    background: white;
+    background: var(--np-surface);
     cursor: pointer;
     font-size: 0.9em;
 }
@@ -4789,7 +4795,7 @@ tr:hover .task-context-btn,
 }
 
 .actions-table th {
-    padding: 12px;
+    padding: var(--np-space-12);
     text-align: left;
     font-weight: 600;
     cursor: pointer;
@@ -4801,12 +4807,12 @@ tr:hover .task-context-btn,
 }
 
 .actions-table th .sort-indicator {
-    margin-left: 5px;
+    margin-left: var(--np-space-4);
     opacity: 0.7;
 }
 
 .actions-table td {
-    padding: 12px;
+    padding: var(--np-space-12);
     border-bottom: 1px solid var(--np-hairline);
     vertical-align: middle;
     max-width: 200px;
@@ -4837,7 +4843,7 @@ tr:hover .task-context-btn,
 /* Badges */
 .actions-priority-badge {
     display: inline-block;
-    padding: 4px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 600;
@@ -4861,7 +4867,7 @@ tr:hover .task-context-btn,
 
 .actions-status-badge {
     display: inline-block;
-    padding: 4px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 600;
@@ -4880,8 +4886,8 @@ tr:hover .task-context-btn,
 
 /* Action Buttons */
 .actions-action-btn {
-    padding: 6px 10px;
-    margin: 0 3px;
+    padding: var(--np-space-8) var(--np-space-12);
+    margin: 0 var(--np-space-4);
     background: var(--np-accent);
     color: var(--np-on-accent);
     border: none;
@@ -4906,11 +4912,11 @@ tr:hover .task-context-btn,
 
 /* Report Section */
 #reportActionsTable {
-    margin-top: 10px;
+    margin-top: var(--np-space-12);
 }
 
 #reportActionsTable td {
-    padding: 8px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
 }
 
 
@@ -4941,7 +4947,7 @@ tr:hover .task-context-btn,
     left: -20px;
     background: #dc3545;
     color: white;
-    padding: 1px 6px;
+    padding: 1px var(--np-space-8);
     border-radius: 3px;
     font-size: 0.7em;
     font-weight: 600;
@@ -5041,8 +5047,8 @@ tr:hover .task-context-btn,
 .mindmap-toolbar {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 8px 16px;
+    gap: var(--np-space-16);
+    padding: var(--np-space-8) var(--np-space-16);
     background: var(--mm-toolbar-bg);
     border-bottom: 1px solid var(--mm-toolbar-border);
     flex-shrink: 0;
@@ -5051,12 +5057,12 @@ tr:hover .task-context-btn,
 .mindmap-toolbar-group {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .mindmap-toolbar-group + .mindmap-toolbar-group {
-    margin-left: 4px;
-    padding-left: 8px;
+    margin-left: var(--np-space-4);
+    padding-left: var(--np-space-8);
     border-left: 1px solid #444;
 }
 
@@ -5137,7 +5143,7 @@ tr:hover .task-context-btn,
     width: 1px;
     height: 20px;
     background: var(--mm-btn-border);
-    margin: 0 4px;
+    margin: 0 var(--np-space-4);
 }
 
 .mindmap-canvas-wrapper {
@@ -5150,8 +5156,11 @@ tr:hover .task-context-btn,
     cursor: grab;
 }
 
-.mindmap-canvas-wrapper:focus {
+/* The wrapper is focusable so the canvas can take keyboard input. It needs a
+   ring like anything else; only the UA's own outline is being replaced. */
+.mindmap-canvas-wrapper:focus-visible {
     outline: none;
+    box-shadow: var(--np-focus-ring);
 }
 
 .mindmap-canvas-wrapper:active {
@@ -5249,11 +5258,11 @@ tr:hover .task-context-btn,
     min-height: 300px;
     color: var(--mm-placeholder-text);
     text-align: center;
-    padding: 40px;
+    padding: var(--np-space-40);
 }
 
 .mindmap-placeholder h3 {
-    margin-bottom: 8px;
+    margin-bottom: var(--np-space-8);
     color: var(--mm-placeholder-heading);
 }
 
@@ -5271,7 +5280,7 @@ tr:hover .task-context-btn,
 
 #mindmap-view .mindmap-placeholder {
     flex: 1;
-    padding: 40px;
+    padding: var(--np-space-40);
 }
 
 #mindmap-view .mindmap-placeholder .mindmap-toolbar-btn {
@@ -5289,10 +5298,10 @@ tr:hover .task-context-btn,
 .mm-colour-picker-group {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 8px;
+    gap: var(--np-space-8);
+    padding: 0 var(--np-space-8);
     border-left: 1px solid #444;
-    margin-left: 4px;
+    margin-left: var(--np-space-4);
 }
 
 .mm-colour-picker-label-text {
@@ -5325,7 +5334,7 @@ tr:hover .task-context-btn,
     background: var(--np-surface-alt);
     border: 1px solid #555;
     border-radius: 8px;
-    padding: 12px;
+    padding: var(--np-space-12);
     box-shadow: 0 4px 16px rgba(0,0,0,0.4);
     max-width: 280px;
 }
@@ -5334,7 +5343,7 @@ tr:hover .task-context-btn,
     font-size: 12px;
     font-weight: 600;
     color: var(--np-faint);
-    margin: 8px 0 4px 0;
+    margin: var(--np-space-8) 0 var(--np-space-4) 0;
 }
 
 .mm-colour-picker-label:first-child {
@@ -5344,8 +5353,8 @@ tr:hover .task-context-btn,
 .mm-colour-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 4px;
+    gap: var(--np-space-8);
+    margin-top: var(--np-space-4);
 }
 
 .mm-colour-swatch-option {
@@ -5370,8 +5379,8 @@ tr:hover .task-context-btn,
 .mm-colour-clear-btn {
     display: block;
     width: 100%;
-    margin-top: 10px;
-    padding: 6px 12px;
+    margin-top: var(--np-space-12);
+    padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid #555;
     border-radius: 6px;
     background: var(--np-sunken);
@@ -5392,8 +5401,8 @@ tr:hover .task-context-btn,
     }
 
     .mindmap-toolbar {
-        gap: 8px;
-        padding: 6px 10px;
+        gap: var(--np-space-8);
+        padding: var(--np-space-8) var(--np-space-12);
     }
 
     .mm-colour-picker-label-text {
@@ -5442,8 +5451,8 @@ tr:hover .task-context-btn,
 .benefits-toolbar {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 8px 16px;
+    gap: var(--np-space-16);
+    padding: var(--np-space-8) var(--np-space-16);
     background: var(--mm-toolbar-bg);
     border-bottom: 1px solid var(--mm-toolbar-border);
     flex-shrink: 0;
@@ -5457,18 +5466,18 @@ tr:hover .task-context-btn,
     justify-content: center;
     height: 100%;
     text-align: center;
-    padding: 40px 20px;
-    color: var(--text-secondary, #aaa);
+    padding: var(--np-space-40) var(--np-space-20);
+    color: var(--text-secondary);
 }
 
 .benefits-placeholder h3 {
-    margin-bottom: 8px;
-    color: var(--text-primary, #ccc);
+    margin-bottom: var(--np-space-8);
+    color: var(--text-primary);
 }
 
 #benefits-view .benefits-placeholder {
     flex: 1;
-    padding: 40px;
+    padding: var(--np-space-40);
 }
 
 #benefits-view .benefits-placeholder .mindmap-toolbar-btn {
@@ -5479,13 +5488,13 @@ tr:hover .task-context-btn,
 .benefits-add-btn {
     width: auto !important;
     height: 32px;
-    padding: 0 10px !important;
-    gap: 4px;
+    padding: 0 var(--np-space-12) !important;
+    gap: var(--np-space-4);
 }
 
 .benefits-add-btn .ben-btn-label {
     font-size: 12px;
-    margin-left: 4px;
+    margin-left: var(--np-space-4);
 }
 
 .benefits-add-btn--enabler {
@@ -5562,15 +5571,15 @@ tr:hover .task-context-btn,
 .benefit-linked-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 8px;
+    gap: var(--np-space-8);
+    margin-bottom: var(--np-space-8);
 }
 
 .benefit-link-tag {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
+    gap: var(--np-space-4);
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 12px;
     background: var(--mm-btn-bg, #2a2a2a);
     border: 1px solid var(--mm-btn-border, #444);
@@ -5586,7 +5595,7 @@ tr:hover .task-context-btn,
     background: none;
     border: none;
     outline: none;
-    padding: 0 0 0 4px;
+    padding: 0 0 0 var(--np-space-4);
     color: inherit;
     -webkit-appearance: none;
     appearance: none;
@@ -5632,7 +5641,7 @@ tr:hover .task-context-btn,
 .ben-tracking-container {
     flex: 1;
     overflow: auto;
-    padding: 16px;
+    padding: var(--np-space-16);
     background: var(--mm-canvas-bg, #ffffff);
 }
 
@@ -5650,7 +5659,7 @@ tr:hover .task-context-btn,
 .ben-tracking-table th {
     background: var(--mm-toolbar-bg, #f5f5f5);
     border-bottom: 2px solid var(--mm-toolbar-border, #ddd);
-    padding: 8px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     font-size: 13px;
     font-weight: 600;
     color: var(--np-ink);
@@ -5659,7 +5668,7 @@ tr:hover .task-context-btn,
 }
 
 .ben-tracking-table td {
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     font-size: 13px;
     border-bottom: 1px solid var(--np-hairline);
     vertical-align: middle;
@@ -5686,7 +5695,7 @@ tr:hover .task-context-btn,
     border: none;
     background: transparent;
     font-size: 13px;
-    padding: 2px 0;
+    padding: var(--np-space-2) 0;
     color: inherit;
     outline: none;
 }
@@ -5697,7 +5706,7 @@ tr:hover .task-context-btn,
     border-radius: 4px;
     background: var(--np-surface);
     font-size: 13px;
-    padding: 2px 4px;
+    padding: var(--np-space-2) var(--np-space-4);
     color: var(--np-ink);
     cursor: pointer;
 }
@@ -5710,7 +5719,7 @@ tr:hover .task-context-btn,
 
 .ben-tracking-table .ben-status-badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 10px;
     font-size: 11px;
     font-weight: 600;
@@ -5744,7 +5753,7 @@ tr:hover .task-context-btn,
 
 .ben-tracking-empty {
     text-align: center;
-    padding: 40px 20px;
+    padding: var(--np-space-40) var(--np-space-20);
     color: var(--np-faint);
     font-size: 14px;
 }
@@ -5756,17 +5765,17 @@ tr:hover .task-context-btn,
     }
 
     .benefits-toolbar {
-        gap: 8px;
-        padding: 8px;
+        gap: var(--np-space-8);
+        padding: var(--np-space-8);
     }
 
     .ben-tracking-container {
-        padding: 8px;
+        padding: var(--np-space-8);
     }
 
     .ben-tracking-table th,
     .ben-tracking-table td {
-        padding: 4px 6px;
+        padding: var(--np-space-4) var(--np-space-8);
         font-size: 12px;
     }
 }
@@ -5787,11 +5796,11 @@ tr:hover .task-context-btn,
     left: 0;
     width: 100%;
     height: 100%;
-    background: var(--np-overlay, rgba(0, 0, 0, 0.6));
+    background: var(--np-overlay);
     z-index: 2000;
     justify-content: center;
     align-items: center;
-    padding: 20px;
+    padding: var(--np-space-20);
 }
 
 .shortcuts-modal-overlay.active {
@@ -5799,7 +5808,7 @@ tr:hover .task-context-btn,
 }
 
 .shortcuts-modal {
-    background: var(--np-modal-bg, white);
+    background: var(--np-modal-bg);
     border-radius: 10px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     max-width: 540px;
@@ -5813,7 +5822,7 @@ tr:hover .task-context-btn,
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px;
+    padding: var(--np-space-16) var(--np-space-20);
     background: var(--np-dark-blue);
     color: white;
     border-radius: 10px 10px 0 0;
@@ -5821,17 +5830,17 @@ tr:hover .task-context-btn,
 
 .shortcuts-modal-header h2 {
     margin: 0;
-    font-family: var(--np-font-heading, var(--np-font-ui));
+    font-family: var(--np-font-heading);
     font-size: 18px;
     font-weight: 600;
 }
 
 .shortcuts-modal-body {
-    padding: 16px 20px 20px;
+    padding: var(--np-space-16) var(--np-space-20) var(--np-space-20);
 }
 
 .shortcuts-section {
-    margin-bottom: 16px;
+    margin-bottom: var(--np-space-16);
 }
 
 .shortcuts-section h3 {
@@ -5839,47 +5848,47 @@ tr:hover .task-context-btn,
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: var(--np-text-muted, #888);
-    margin-bottom: 8px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid var(--np-border-light, #eee);
+    color: var(--np-text-muted);
+    margin-bottom: var(--np-space-8);
+    padding-bottom: var(--np-space-4);
+    border-bottom: 1px solid var(--np-border-light);
 }
 
 .shortcut-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 0;
+    padding: var(--np-space-8) 0;
 }
 
 .shortcut-row .shortcut-desc {
-    color: var(--np-text, #444);
+    color: var(--np-text);
     font-size: 14px;
 }
 
 .shortcut-row .shortcut-keys {
     display: flex;
-    gap: 4px;
+    gap: var(--np-space-4);
     align-items: center;
 }
 
 .shortcut-row kbd {
     display: inline-block;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     font-family: inherit;
     font-size: 12px;
     font-weight: 600;
-    color: var(--np-text, #444);
-    background: var(--np-code-bg, #f4f4f4);
-    border: 1px solid var(--np-input-border, #ccc);
+    color: var(--np-text);
+    background: var(--np-code-bg);
+    border: 1px solid var(--np-input-border);
     border-radius: 4px;
-    box-shadow: 0 1px 0 var(--np-border, #bbb);
+    box-shadow: 0 1px 0 var(--np-border);
     min-width: 24px;
     text-align: center;
 }
 
 .shortcut-row .shortcut-plus {
-    color: var(--np-text-muted, #999);
+    color: var(--np-text-muted);
     font-size: 12px;
 }
 
@@ -5897,7 +5906,7 @@ tr:hover .task-context-btn,
 /* ===== Stakeholder Interest/Influence Grid ===== */
 
 .stakeholders-container {
-    padding: 20px;
+    padding: var(--np-space-20);
     flex: 1;
     min-height: 0;
     display: flex;
@@ -5907,15 +5916,15 @@ tr:hover .task-context-btn,
 
 .stakeholders-toolbar {
     display: flex;
-    gap: 10px;
+    gap: var(--np-space-12);
     align-items: center;
-    padding: 10px 0;
+    padding: var(--np-space-12) 0;
     flex-shrink: 0;
 }
 
 .stakeholders-layout {
     display: flex;
-    gap: 24px;
+    gap: var(--np-space-24);
     flex: 1;
     min-height: 0;
     overflow: auto;
@@ -5940,7 +5949,7 @@ tr:hover .task-context-btn,
     background: var(--np-surface);
     border: 1px solid var(--np-border);
     border-radius: 8px;
-    padding: 4px;
+    padding: var(--np-space-4);
 }
 
 .stakeholder-grid-wrapper.stakeholder-grid-expanded {
@@ -5975,7 +5984,7 @@ tr:hover .task-context-btn,
 }
 
 .stakeholders-table th {
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     text-align: left;
     font-weight: 600;
     font-size: 0.85em;
@@ -5985,7 +5994,7 @@ tr:hover .task-context-btn,
 }
 
 .stakeholders-table td {
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     border-bottom: 1px solid var(--np-hairline);
     vertical-align: middle;
 }
@@ -6004,7 +6013,7 @@ tr:hover .task-context-btn,
 
 .stakeholder-level-badge {
     display: inline-block;
-    padding: 2px 10px;
+    padding: var(--np-space-2) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 500;
@@ -6022,12 +6031,12 @@ tr:hover .task-context-btn,
 
 .stakeholders-empty-state {
     text-align: center;
-    padding: 40px 20px;
+    padding: var(--np-space-40) var(--np-space-20);
     color: var(--np-muted);
 }
 
 .stakeholders-empty-state h3 {
-    margin-bottom: 10px;
+    margin-bottom: var(--np-space-12);
     color: var(--np-body);
 }
 
@@ -6050,7 +6059,7 @@ tr:hover .task-context-btn,
    ============================================= */
 
 .budget-container {
-    padding: 20px;
+    padding: var(--np-space-20);
     flex: 1;
     min-height: 0;
     display: flex;
@@ -6060,9 +6069,9 @@ tr:hover .task-context-btn,
 
 .budget-toolbar {
     display: flex;
-    gap: 10px;
+    gap: var(--np-space-12);
     align-items: center;
-    padding: 10px 0;
+    padding: var(--np-space-12) 0;
     flex-wrap: wrap;
     flex-shrink: 0;
 }
@@ -6070,13 +6079,13 @@ tr:hover .task-context-btn,
 .budget-toolbar-separator {
     width: 1px;
     height: 30px;
-    background: #dee2e6;
+    background: var(--np-selected);
 }
 
 .budget-filter-group {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
 }
 
 /* A solid, filled button -- like .export-btn elsewhere in the same toolbar
@@ -6087,8 +6096,8 @@ tr:hover .task-context-btn,
 .budget-view-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
     min-height: 44px;
     border: 2px solid var(--np-accent);
     border-radius: 4px;
@@ -6124,7 +6133,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-filter-group select {
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: 2px solid var(--np-accent);
     border-radius: 4px;
     background: white;
@@ -6146,7 +6155,7 @@ tr:hover .task-context-btn,
     display: block;
     box-sizing: border-box;
     width: 100%;
-    margin-top: 2px;
+    margin-top: var(--np-space-2);
     padding: 1px 2px;
     font-size: 10px;
     font-weight: 400;
@@ -6165,7 +6174,7 @@ tr:hover .task-context-btn,
 .budget-table-wrapper {
     flex: 1;
     overflow: auto;
-    margin-top: 15px;
+    margin-top: var(--np-space-16);
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -6186,7 +6195,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-table th {
-    padding: 12px 10px;
+    padding: var(--np-space-12) var(--np-space-12);
     text-align: left;
     font-weight: 600;
     white-space: nowrap;
@@ -6201,11 +6210,11 @@ tr:hover .task-context-btn,
 
 .budget-table th .sort-indicator {
     font-size: 0.7em;
-    margin-left: 4px;
+    margin-left: var(--np-space-4);
 }
 
 .budget-table td {
-    padding: 10px 10px;
+    padding: var(--np-space-12) var(--np-space-12);
     border-bottom: 1px solid #e9ecef;
     max-width: 200px;
     overflow: hidden;
@@ -6226,7 +6235,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-table tfoot td {
-    padding: 10px 10px;
+    padding: var(--np-space-12) var(--np-space-12);
     font-weight: 700;
     background: #f1f3f5;
     border-top: 2px solid var(--np-accent);
@@ -6236,7 +6245,7 @@ tr:hover .task-context-btn,
     background: none;
     border: none;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     font-size: 1em;
     border-radius: 3px;
     min-width: 44px;
@@ -6264,13 +6273,13 @@ tr:hover .task-context-btn,
 
 .budget-empty-state h3 {
     font-size: 1.3em;
-    margin-bottom: 10px;
+    margin-bottom: var(--np-space-12);
     color: #495057;
 }
 
 .budget-type-badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 12px;
     font-size: 0.8em;
     font-weight: 600;
@@ -6294,18 +6303,18 @@ tr:hover .task-context-btn,
 
 .budget-category-badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 12px;
     font-size: 0.8em;
     font-weight: 500;
-    background: #e9ecef;
+    background: var(--np-sunken);
     color: #495057;
 }
 
 /* Budget Markdown Editor (matching RAID editor) */
 .budget-editor-section {
     flex-shrink: 0;
-    margin-top: 15px;
+    margin-top: var(--np-space-16);
     border: 1px solid var(--np-border);
     border-radius: 8px;
     overflow: hidden;
@@ -6314,8 +6323,8 @@ tr:hover .task-context-btn,
 .budget-editor-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 15px;
+    gap: var(--np-space-8);
+    padding: var(--np-space-12) var(--np-space-16);
     background: var(--np-paper);
     cursor: pointer;
     user-select: none;
@@ -6340,11 +6349,11 @@ tr:hover .task-context-btn,
 
 .budget-editor-actions {
     display: flex;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .budget-editor-actions .toolbar-btn {
-    padding: 2px 6px;
+    padding: var(--np-space-2) var(--np-space-8);
     font-size: 0.9em;
     background: transparent;
     border: 1px solid var(--np-border);
@@ -6358,7 +6367,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-editor-actions .toolbar-btn:hover {
-    background: #e9ecef;
+    background: var(--np-sunken);
 }
 
 .budget-editor-actions .toolbar-btn:focus-visible {
@@ -6378,7 +6387,7 @@ tr:hover .task-context-btn,
 .budget-markdown-textarea {
     width: 100%;
     min-height: 200px;
-    padding: 12px;
+    padding: var(--np-space-12);
     border: none;
     font-family: 'Courier New', monospace;
     font-size: 0.85em;
@@ -6392,23 +6401,23 @@ tr:hover .task-context-btn,
 
 /* Budget Widget in Project Report */
 .budget-widget-content {
-    padding: 10px 0;
+    padding: var(--np-space-12) 0;
 }
 
 .budget-widget-cards {
     display: flex;
-    gap: 15px;
-    margin-bottom: 12px;
+    gap: var(--np-space-16);
+    margin-bottom: var(--np-space-12);
     flex-wrap: wrap;
 }
 
 .budget-widget-card {
     flex: 1;
     min-width: 120px;
-    padding: 12px 16px;
+    padding: var(--np-space-12) var(--np-space-16);
     background: var(--np-paper);
     border-radius: 8px;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--np-hairline);
     text-align: center;
 }
 
@@ -6417,7 +6426,7 @@ tr:hover .task-context-btn,
     font-size: 0.8em;
     font-weight: 600;
     color: var(--np-muted);
-    margin-bottom: 4px;
+    margin-bottom: var(--np-space-4);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -6443,7 +6452,7 @@ tr:hover .task-context-btn,
 
 .budget-widget-bar-wrapper {
     height: 8px;
-    background: #e9ecef;
+    background: var(--np-sunken);
     border-radius: 4px;
     overflow: hidden;
 }
@@ -6494,12 +6503,12 @@ tr:hover .task-context-btn,
 
 @media (max-width: 480px) {
     .budget-container {
-        padding: 10px;
+        padding: var(--np-space-12);
     }
 
     .budget-table td,
     .budget-table th {
-        padding: 8px 6px;
+        padding: var(--np-space-8) var(--np-space-8);
         font-size: 0.8em;
     }
 }
@@ -6508,15 +6517,15 @@ tr:hover .task-context-btn,
 .recurrence-days-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 4px;
+    gap: var(--np-space-8);
+    margin-top: var(--np-space-4);
 }
 
 .recurrence-day-label {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
+    gap: var(--np-space-4);
+    padding: var(--np-space-4) var(--np-space-8);
     border: 1px solid var(--np-border);
     border-radius: 4px;
     cursor: pointer;
@@ -6543,10 +6552,10 @@ tr:hover .task-context-btn,
     background: var(--np-accent-soft);
     color: var(--np-accent);
     border-radius: 3px;
-    padding: 1px 5px;
+    padding: 1px var(--np-space-4);
     font-size: 0.78em;
     font-weight: 600;
-    margin-left: 4px;
+    margin-left: var(--np-space-4);
     white-space: nowrap;
 }
 
@@ -6561,7 +6570,7 @@ tr:hover .task-context-btn,
 
 @media (max-width: 768px) {
     .recurrence-days-grid {
-        gap: 4px;
+        gap: var(--np-space-4);
     }
 
     .recurrence-day-label {
@@ -6576,11 +6585,11 @@ tr:hover .task-context-btn,
 .portfolio-benefits-header {
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    padding: 20px;
-    background: white;
+    gap: var(--np-space-16);
+    padding: var(--np-space-20);
+    background: var(--np-surface);
     border-radius: 12px;
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -6591,7 +6600,7 @@ tr:hover .task-context-btn,
 
 .portfolio-benefits-summary {
     display: flex;
-    gap: 20px;
+    gap: var(--np-space-20);
     flex-wrap: wrap;
 }
 
@@ -6616,7 +6625,7 @@ tr:hover .task-context-btn,
 
 .portfolio-benefits-filters {
     display: flex;
-    gap: 10px;
+    gap: var(--np-space-12);
     align-items: center;
     flex-wrap: wrap;
 }
@@ -6627,11 +6636,11 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-benefits-filters select {
-    padding: 8px 15px;
+    padding: var(--np-space-8) var(--np-space-16);
     border: 1px solid var(--np-border);
     border-radius: 8px;
     font-size: 0.9em;
-    background: white;
+    background: var(--np-surface);
     min-width: 140px;
     min-height: 44px;
 }
@@ -6641,11 +6650,11 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-benefits-table-wrapper {
-    background: white;
+    background: var(--np-surface);
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
 }
 
 .portfolio-benefits-table {
@@ -6658,7 +6667,7 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-benefits-table th {
-    padding: 15px;
+    padding: var(--np-space-16);
     text-align: left;
     font-weight: 600;
     font-size: 0.85em;
@@ -6671,11 +6680,11 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-benefits-table th:hover {
-    background: #e9ecef;
+    background: var(--np-sunken);
 }
 
 .portfolio-benefits-table td {
-    padding: 15px;
+    padding: var(--np-space-16);
     border-bottom: 1px solid var(--np-hairline);
 }
 
@@ -6707,7 +6716,7 @@ tr:hover .task-context-btn,
 
 .benefit-type-badge {
     display: inline-block;
-    padding: 3px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.8em;
     font-weight: 600;
@@ -6717,14 +6726,14 @@ tr:hover .task-context-btn,
 
 /* Consistency section */
 .portfolio-benefits-consistency {
-    background: white;
+    background: var(--np-surface);
     border-radius: 12px;
-    padding: 20px;
+    padding: var(--np-space-20);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .portfolio-benefits-consistency h3 {
-    margin: 0 0 12px 0;
+    margin: 0 0 var(--np-space-12) 0;
     font-size: 1.1em;
     color: #2c3e50;
 }
@@ -6742,7 +6751,7 @@ tr:hover .task-context-btn,
 /* Responsive */
 @media (max-width: 768px) {
     .portfolio-benefits-summary {
-        gap: 10px;
+        gap: var(--np-space-12);
     }
 
     .portfolio-benefits-filters {
@@ -6810,9 +6819,9 @@ tr:hover .task-context-btn,
 .completion-sparkline-container {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
-    margin-top: 4px;
+    gap: var(--np-space-8);
+    padding: var(--np-space-4) var(--np-space-8);
+    margin-top: var(--np-space-4);
     font-size: 12px;
     color: var(--np-body);
 }
@@ -6841,11 +6850,11 @@ tr:hover .task-context-btn,
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding: 1px 6px;
+    padding: 1px var(--np-space-8);
     border-radius: 8px;
     background: #f0ad4e;
     color: #fff;
-    margin-left: 6px;
+    margin-left: var(--np-space-8);
     vertical-align: middle;
     cursor: default;
 }
@@ -6968,7 +6977,7 @@ tr:hover .task-context-btn,
 }
 
 .levelling-table th {
-    background: #f1f3f5;
+    background: var(--np-surface-alt);
     font-weight: 600;
 }
 
@@ -6977,13 +6986,13 @@ tr:hover .task-context-btn,
 .portfolio-benefits-map-section {
     background: white;
     border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
+    padding: var(--np-space-20);
+    margin-bottom: var(--np-space-20);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .portfolio-benefits-map-section h3 {
-    margin: 0 0 12px 0;
+    margin: 0 0 var(--np-space-12) 0;
     font-size: 1.15em;
     font-weight: 600;
     color: var(--np-ink);
@@ -7043,24 +7052,24 @@ tr:hover .task-context-btn,
 }
 
 #windowDropOverlay .window-drop-panel {
-    margin: 24px;
-    padding: 32px 40px;
+    margin: var(--np-space-24);
+    padding: var(--np-space-32) var(--np-space-40);
     border: 3px dashed var(--np-accent);
     border-radius: 12px;
-    background: var(--np-bg, #ffffff);
-    color: var(--np-text, #333333);
+    background: var(--np-bg);
+    color: var(--np-text);
     text-align: center;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
 }
 
 #windowDropOverlay .window-drop-panel h2 {
-    margin: 0 0 8px 0;
+    margin: 0 0 var(--np-space-8) 0;
     font-size: 1.4em;
 }
 
 #windowDropOverlay .window-drop-panel p {
     margin: 0;
-    color: var(--np-text-muted, #666666);
+    color: var(--np-text-muted);
 }
 
 /* Settings → Storage tab (issue #794) */
@@ -7076,7 +7085,7 @@ tr:hover .task-context-btn,
 .raid-sync-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--np-space-12);
     max-height: 50vh;
     overflow-y: auto;
 }
@@ -7084,11 +7093,11 @@ tr:hover .task-context-btn,
 .raid-sync-entry {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    padding: 10px 12px;
-    border: 1px solid var(--border-color, #e0e0e0);
+    gap: var(--np-space-12);
+    padding: var(--np-space-12) var(--np-space-12);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
-    background: var(--bg-secondary, #f8f9fa);
+    background: var(--bg-secondary);
 }
 
 .raid-sync-entry.raid-sync-kind-conflict {
@@ -7106,7 +7115,7 @@ tr:hover .task-context-btn,
 
 .raid-sync-kind-badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 10px;
     font-size: 0.78em;
     font-weight: 700;
@@ -7126,85 +7135,85 @@ tr:hover .task-context-btn,
 
 .raid-sync-entry-title {
     font-weight: 600;
-    margin-bottom: 4px;
-    color: var(--text-primary, #212529);
+    margin-bottom: var(--np-space-4);
+    color: var(--text-primary);
 }
 
 .raid-sync-entry-detail {
     font-size: 0.85em;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
 }
 
 .raid-sync-entry-sides {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 6px;
+    gap: var(--np-space-8);
+    margin-top: var(--np-space-8);
     font-size: 0.85em;
 }
 
 .raid-sync-entry-side {
-    padding: 6px 8px;
+    padding: var(--np-space-8) var(--np-space-8);
     border-radius: 4px;
-    background: var(--bg-primary, #fff);
-    border: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
 }
 
 .raid-sync-entry-side-label {
     font-weight: 600;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
     font-size: 0.8em;
     text-transform: uppercase;
-    margin-bottom: 2px;
+    margin-bottom: var(--np-space-2);
 }
 
 .raid-sync-entry-choice {
     flex-shrink: 0;
-    padding-top: 2px;
+    padding-top: var(--np-space-2);
 }
 
 .raid-sync-entry-choice label {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     font-size: 0.85em;
     white-space: nowrap;
     cursor: pointer;
-    margin-bottom: 4px;
+    margin-bottom: var(--np-space-4);
 }
 
 /* Sync settings tab (issue #761) */
 .sync-settings-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-top: 15px;
+    gap: var(--np-space-12);
+    margin-top: var(--np-space-16);
 }
 
 .sync-target-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 12px 14px;
-    border: 1px solid var(--border-color, #e0e0e0);
+    gap: var(--np-space-12);
+    padding: var(--np-space-12) var(--np-space-16);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
-    background: var(--bg-secondary, #f8f9fa);
+    background: var(--bg-secondary);
 }
 
 .sync-target-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--np-space-2);
     min-width: 0;
 }
 
 .sync-target-info strong {
-    color: var(--text-primary, #212529);
+    color: var(--text-primary);
 }
 
 .sync-target-info small {
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
 }
 
 /* Honest status colouring (issue #761's sync-file-linking follow-up): a
@@ -7216,14 +7225,14 @@ tr:hover .task-context-btn,
 }
 
 .sync-target-status-unsupported {
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
     font-style: italic;
 }
 
 .sync-target-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
     flex-shrink: 0;
 }
 
@@ -7237,7 +7246,7 @@ tr:hover .task-context-btn,
 .msp-sync-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--np-space-12);
     max-height: 50vh;
     overflow-y: auto;
 }
@@ -7245,11 +7254,11 @@ tr:hover .task-context-btn,
 .msp-sync-entry {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    padding: 10px 12px;
-    border: 1px solid var(--border-color, #e0e0e0);
+    gap: var(--np-space-12);
+    padding: var(--np-space-12) var(--np-space-12);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
-    background: var(--bg-secondary, #f8f9fa);
+    background: var(--bg-secondary);
 }
 
 .msp-sync-entry.msp-sync-kind-removed { border-left: 4px solid #c62828; }
@@ -7258,7 +7267,7 @@ tr:hover .task-context-btn,
 
 .msp-sync-kind-badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 10px;
     font-size: 0.78em;
     font-weight: 700;
@@ -7277,28 +7286,28 @@ tr:hover .task-context-btn,
 
 .msp-sync-entry-title {
     font-weight: 600;
-    margin-bottom: 4px;
-    color: var(--text-primary, #212529);
+    margin-bottom: var(--np-space-4);
+    color: var(--text-primary);
 }
 
 .msp-sync-entry-detail {
     font-size: 0.85em;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
 }
 
 .msp-sync-entry-sides {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 6px;
+    gap: var(--np-space-8);
+    margin-top: var(--np-space-8);
     font-size: 0.85em;
 }
 
 .msp-sync-entry-side {
-    padding: 6px 8px;
+    padding: var(--np-space-8) var(--np-space-8);
     border-radius: 4px;
-    background: var(--bg-primary, #fff);
-    border: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
     font-family: monospace;
     white-space: pre-wrap;
     word-break: break-word;
@@ -7306,22 +7315,22 @@ tr:hover .task-context-btn,
 
 .msp-sync-entry-side-label {
     font-weight: 600;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
     font-size: 0.8em;
     text-transform: uppercase;
-    margin-bottom: 2px;
+    margin-bottom: var(--np-space-2);
     font-family: inherit;
 }
 
 .msp-sync-entry-choice {
     flex-shrink: 0;
-    padding-top: 2px;
+    padding-top: var(--np-space-2);
 }
 
 .msp-sync-entry-choice label {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     font-size: 0.85em;
     white-space: nowrap;
     cursor: pointer;
@@ -7342,9 +7351,9 @@ tr:hover .task-context-btn,
     position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     height: 38px;
-    padding: 0 10px;
+    padding: 0 var(--np-space-12);
     background: var(--np-dark-blue);
     color: #fff;
     z-index: 5;
@@ -7360,8 +7369,8 @@ tr:hover .task-context-btn,
 .ribbon-scope-track {
     display: flex;
     align-items: center;
-    gap: 2px;
-    padding: 2px;
+    gap: var(--np-space-2);
+    padding: var(--np-space-2);
     border-radius: 13px;
     background: rgba(255, 255, 255, 0.09);
 }
@@ -7369,9 +7378,9 @@ tr:hover .task-context-btn,
 .ribbon-scope-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     height: 22px;
-    padding: 0 11px;
+    padding: 0 var(--np-space-12);
     border: none;
     border-radius: 11px;
     cursor: pointer;
@@ -7411,12 +7420,12 @@ tr:hover .task-context-btn,
 
 .ribbon-quick-btn {
     display: flex;
-    padding: 5px;
+    padding: var(--np-space-4);
     background: transparent;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    color: #cfe0e7;
+    color: var(--np-dark-blue-subtle);
 }
 
 .ribbon-quick-btn svg {
@@ -7435,14 +7444,14 @@ tr:hover .task-context-btn,
 .ribbon-doc-title {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
     min-width: 0;
     font-weight: 400;
     font-size: 11.5px;
     line-height: 1;
     font-family: inherit;
     color: #a9c7d4;
-    margin-left: 4px;
+    margin-left: var(--np-space-4);
     white-space: nowrap;
     overflow: hidden;
 }
@@ -7489,12 +7498,12 @@ button.ribbon-breadcrumb-rung:hover {
 .ribbon-search-wrap {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     height: 23px;
-    padding: 0 11px;
+    padding: 0 var(--np-space-12);
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.12);
-    color: #cfe0e7;
+    color: var(--np-dark-blue-subtle);
     font-size: 11px;
     white-space: nowrap;
     max-width: 240px;
@@ -7522,11 +7531,12 @@ button.ribbon-breadcrumb-rung:hover {
 }
 
 .ribbon-search-input::placeholder {
-    color: #cfe0e7;
+    color: var(--np-dark-blue-subtle);
 }
 
-.ribbon-search-input:focus {
+.ribbon-search-input:focus-visible {
     outline: none;
+    box-shadow: var(--np-focus-ring);
 }
 
 .ribbon-search-input::-webkit-search-cancel-button {
@@ -7555,8 +7565,8 @@ button.ribbon-breadcrumb-rung:hover {
     display: flex;
     align-items: stretch;
     height: 34px;
-    padding: 0 8px;
-    background: #f4f7f8;
+    padding: 0 var(--np-space-8);
+    background: var(--np-paper);
     border-bottom: 1px solid #d8e1e5;
     z-index: 4;
 }
@@ -7565,10 +7575,10 @@ button.ribbon-breadcrumb-rung:hover {
     align-self: center;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     height: 24px;
-    margin-right: 10px;
-    padding: 0 12px;
+    margin-right: var(--np-space-12);
+    padding: 0 var(--np-space-12);
     border: none;
     border-radius: 4px;
     background: var(--np-red);
@@ -7586,7 +7596,7 @@ button.ribbon-breadcrumb-rung:hover {
 
 .ribbon-tab-btn {
     height: 34px;
-    padding: 0 14px;
+    padding: 0 var(--np-space-16);
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
@@ -7608,7 +7618,7 @@ button.ribbon-breadcrumb-rung:hover {
 }
 
 .ribbon-tab-btn.contextual {
-    margin-left: 14px;
+    margin-left: var(--np-space-16);
     color: #2c4a56;
     animation: ribbonCtxIn 0.22s ease both;
 }
@@ -7631,7 +7641,7 @@ button.ribbon-breadcrumb-rung:hover {
     top: 34px;
     left: 8px;
     width: 290px;
-    padding: 6px;
+    padding: var(--np-space-8);
     background: var(--np-dark-blue);
     border-radius: 0 6px 6px 6px;
     box-shadow: 0 14px 34px rgba(2, 20, 28, 0.35);
@@ -7642,9 +7652,9 @@ button.ribbon-breadcrumb-rung:hover {
 .ribbon-file-menu-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     width: 100%;
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     background: transparent;
     border: none;
     border-radius: 4px;
@@ -7679,8 +7689,8 @@ button.ribbon-breadcrumb-rung:hover {
     display: flex;
     align-items: stretch;
     height: 98px;
-    padding: 0 6px;
-    background: #fbfdfd;
+    padding: 0 var(--np-space-8);
+    background: var(--np-surface);
     border-bottom: 1px solid #d8e1e5;
     overflow: hidden;
 }
@@ -7689,7 +7699,7 @@ button.ribbon-breadcrumb-rung:hover {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 0 2px;
+    padding: 0 var(--np-space-2);
     border-right: 1px solid rgba(2, 56, 77, 0.13);
     flex-shrink: 0;
 }
@@ -7717,17 +7727,17 @@ button.ribbon-breadcrumb-rung:hover {
 .ribbon-group-row {
     display: flex;
     align-items: flex-start;
-    gap: 3px;
-    padding: 6px 8px 0;
+    gap: var(--np-space-4);
+    padding: var(--np-space-8) var(--np-space-8) 0;
 }
 
 .ribbon-lg-btn {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
+    gap: var(--np-space-4);
     width: 70px;
-    padding: 5px 3px;
+    padding: var(--np-space-4) var(--np-space-4);
     background: transparent;
     border: 1px solid transparent;
     border-radius: 4px;
@@ -7759,9 +7769,9 @@ button.ribbon-breadcrumb-rung:hover {
 .ribbon-sm-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     height: 23px;
-    padding: 0 7px;
+    padding: 0 var(--np-space-8);
     background: transparent;
     border: 1px solid transparent;
     border-radius: 3px;
@@ -7804,8 +7814,8 @@ button.ribbon-breadcrumb-rung:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    padding: 3px 10px 5px;
+    gap: var(--np-space-4);
+    padding: var(--np-space-4) var(--np-space-12) var(--np-space-4);
     font-weight: 400;
     font-size: 10px;
     line-height: 1;
@@ -7827,7 +7837,7 @@ button.ribbon-breadcrumb-rung:hover {
     justify-content: space-between;
     align-items: center;
     width: 74px;
-    padding: 6px 4px 5px;
+    padding: var(--np-space-8) var(--np-space-4) var(--np-space-4);
     margin-left: auto;
     border-left: 1px solid rgba(2, 56, 77, 0.13);
     flex-shrink: 0;
@@ -7837,9 +7847,9 @@ button.ribbon-breadcrumb-rung:hover {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
     width: 66px;
-    padding: 5px 3px;
+    padding: var(--np-space-4) var(--np-space-4);
     background: transparent;
     border: 1px solid #cfdde3;
     border-radius: 4px;
@@ -7877,7 +7887,7 @@ button.ribbon-breadcrumb-rung:hover {
     width: 220px;
     max-height: 320px;
     overflow-y: auto;
-    padding: 8px;
+    padding: var(--np-space-8);
     background: var(--np-surface);
     border: 1px solid #d8e1e5;
     border-radius: 6px;
@@ -7889,7 +7899,7 @@ button.ribbon-breadcrumb-rung:hover {
 .ribbon-more-popover .ribbon-group {
     border-right: none;
     border-bottom: 1px solid rgba(2, 56, 77, 0.13);
-    padding: 6px 0;
+    padding: var(--np-space-8) 0;
 }
 
 .ribbon-more-popover .ribbon-group:last-child {
@@ -7910,14 +7920,14 @@ button.ribbon-breadcrumb-rung:hover {
    renderSimpleGroup()/renderSimpleButton() for the markup this styles. */
 .ribbon-body.ribbon-body-simple {
     height: 40px;
-    padding: 0 6px;
+    padding: 0 var(--np-space-8);
 }
 
 .ribbon-simple-group {
     display: flex;
     align-items: center;
-    gap: 2px;
-    padding: 0 8px;
+    gap: var(--np-space-2);
+    padding: 0 var(--np-space-8);
     border-right: 1px solid rgba(2, 56, 77, 0.13);
     flex-shrink: 0;
 }
@@ -7940,9 +7950,9 @@ button.ribbon-breadcrumb-rung:hover {
 .ribbon-simple-btn {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--np-space-4);
     height: 28px;
-    padding: 0 6px;
+    padding: 0 var(--np-space-8);
     background: transparent;
     border: 1px solid transparent;
     border-radius: 4px;
@@ -8001,7 +8011,7 @@ button.ribbon-breadcrumb-rung:hover {
 .ribbon-simple-group-buttons {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--np-space-2);
 }
 
 /* A collapsed group's own compact dropdown trigger (#1026) -- fixed width
@@ -8042,7 +8052,7 @@ button.ribbon-breadcrumb-rung:hover {
 /* A collapsed group no longer needs the full group's horizontal padding --
    its trigger is a small square chip, not a row of buttons. */
 .ribbon-simple-group.ribbon-simple-group-collapsed {
-    padding: 0 3px;
+    padding: 0 var(--np-space-4);
 }
 
 /* The collapsed group's own flyout (#1026) -- positioned via inline style
@@ -8053,7 +8063,7 @@ button.ribbon-breadcrumb-rung:hover {
    .ribbon-more-popover does. */
 .ribbon-simple-group-popover {
     position: absolute;
-    padding: 8px;
+    padding: var(--np-space-8);
     background: var(--np-surface);
     border: 1px solid #d8e1e5;
     border-radius: 6px;
@@ -8078,7 +8088,7 @@ button.ribbon-breadcrumb-rung:hover {
     display: flex;
     align-items: center;
     height: 28px;
-    padding: 0 6px;
+    padding: 0 var(--np-space-8);
     background: transparent;
     border: none;
     cursor: pointer;
@@ -8097,7 +8107,7 @@ button.ribbon-breadcrumb-rung:hover {
 .ribbon-display-menu {
     position: absolute;
     width: 160px;
-    padding: 4px;
+    padding: var(--np-space-4);
     background: var(--np-surface);
     border: 1px solid #d8e1e5;
     border-radius: 6px;
@@ -8109,9 +8119,9 @@ button.ribbon-breadcrumb-rung:hover {
 .ribbon-display-menu-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
     width: 100%;
-    padding: 6px 8px;
+    padding: var(--np-space-8) var(--np-space-8);
     background: transparent;
     border: none;
     border-radius: 4px;
@@ -8148,15 +8158,15 @@ button.ribbon-breadcrumb-rung:hover {
 .collab-presence-heading {
     font-weight: 600;
     font-size: 0.9em;
-    margin-bottom: 6px;
+    margin-bottom: var(--np-space-8);
 }
 
 .collab-presence-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--np-border-light, #f0f0f0);
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) 0;
+    border-bottom: 1px solid var(--np-border-light);
     font-size: 0.9em;
 }
 
@@ -8169,7 +8179,7 @@ button.ribbon-breadcrumb-rung:hover {
     height: 9px;
     border-radius: 50%;
     flex-shrink: 0;
-    background: var(--np-text-muted, #888888);
+    background: var(--np-text-muted);
 }
 
 .collab-presence-dot.active {
@@ -8184,7 +8194,7 @@ button.ribbon-breadcrumb-rung:hover {
 }
 
 .collab-presence-status {
-    color: var(--np-text-muted, #888888);
+    color: var(--np-text-muted);
     font-size: 0.85em;
 }
 
@@ -8195,7 +8205,7 @@ button.ribbon-breadcrumb-rung:hover {
     flex: 0 0 auto;
     width: auto;
     margin-top: 0;
-    padding: 2px 10px;
+    padding: var(--np-space-2) var(--np-space-12);
     font-size: 0.85em;
     background: transparent;
     color: #b02a37;
@@ -8207,4 +8217,297 @@ button.ribbon-breadcrumb-rung:hover {
     background: #b02a37;
     color: #fff;
     transform: none;
+}
+
+/* ============================================================================
+   Recovered from static/style.css (#1194)
+
+   #571 split the monolithic style.css into the modular stylesheets and
+   switched index.html over to loading them, but these rules were left behind.
+   Nothing links style.css any more -- tests/test_collab_session.py asserts
+   that -- so every component below has been rendering unstyled in the live
+   app since that split: a progress toast with no position, a suggestion bar
+   with no border, a table with no cell padding.
+
+   Because there was no styling to regress, these are tokenised to the #1191
+   scales rather than ported verbatim; the original raw values are in
+   style.css's history if a comparison is ever needed.
+   ============================================================================ */
+
+/* Progress toast: a persistent toast with a status line and progress bar,
+   for long-running operations (e.g. portfolio PowerPoint export) that run
+   off the main thread and report progress back as they go. */
+.progress-toast {
+    position: fixed;
+    top: var(--np-space-16);
+    left: 50%;
+    transform: translateX(-50%) translateY(-60px);
+    min-width: 280px;
+    max-width: 420px;
+    padding: var(--np-space-12) var(--np-space-20);
+    border-radius: var(--np-radius-lg);
+    font-size: var(--np-text-85);
+    z-index: 10000;
+    opacity: 0;
+    background: var(--np-surface);
+    color: var(--np-ink);
+    border: 1px solid var(--np-border);
+    transition: opacity var(--np-anim-duration-slow) var(--np-anim-easing),
+                transform var(--np-anim-duration-slow) var(--np-anim-easing);
+    pointer-events: none;
+    box-shadow: var(--np-elevation-3);
+}
+.progress-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.progress-toast-text {
+    margin-bottom: var(--np-space-8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.progress-toast-bar-track {
+    height: var(--np-space-8);
+    border-radius: var(--np-radius-sm);
+    background: var(--np-sunken);
+    overflow: hidden;
+}
+.progress-toast-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--np-accent);
+    border-radius: var(--np-radius-sm);
+    transition: width 0.25s ease;
+}
+.progress-toast-success .progress-toast-bar-fill {
+    background: var(--np-sage);
+}
+.progress-toast-error {
+    border-color: var(--np-danger-ink);
+}
+.progress-toast-error .progress-toast-bar-fill {
+    background: var(--np-danger-ink);
+}
+
+/* Smart-tag date suggestions (issue #1161, part of epic #878): a small
+   bar under the task-details form's Comment field, populated by
+   smart-date-tags.js when it finds a date-like phrase in that text.
+   Hidden (no `.active` class) whenever there is nothing to suggest --
+   see #878's "suggestion layer, never silent assumption" -- so an empty
+   bar never reserves visible space under the textarea. */
+.task-date-suggestions {
+    display: none;
+    flex-direction: column;
+    gap: var(--np-space-8);
+    margin-top: var(--np-space-8);
+}
+.task-date-suggestions.active {
+    display: flex;
+}
+.task-date-suggestion {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
+    border: 1px solid var(--np-border);
+    border-radius: var(--np-radius-md);
+    background: var(--np-surface-alt);
+}
+.task-date-suggestion-label {
+    font-size: var(--np-text-80);
+    color: var(--np-muted);
+    margin-right: var(--np-space-2);
+}
+.task-date-suggestion-btn {
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-sm);
+    background: var(--np-surface);
+    color: var(--np-ink);
+    font-size: var(--np-text-80);
+    padding: var(--np-space-4) var(--np-space-12);
+    cursor: pointer;
+}
+.task-date-suggestion-btn:hover {
+    background: var(--np-accent-tint);
+    border-color: var(--np-accent);
+}
+.task-date-suggestion-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--np-focus-ring);
+}
+.task-date-suggestion-dismiss {
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: var(--np-muted);
+    font-size: var(--np-text-80);
+    cursor: pointer;
+    padding: var(--np-space-4) var(--np-space-8);
+    line-height: 1;
+}
+.task-date-suggestion-dismiss:hover {
+    color: var(--np-ink);
+}
+.task-date-suggestion-dismiss:focus-visible {
+    outline: none;
+    color: var(--np-ink);
+    box-shadow: var(--np-focus-ring);
+}
+
+/* Non-working days exceptions table (calendar settings). */
+.nwd-exceptions-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--np-text-85);
+    margin-bottom: var(--np-space-8);
+}
+.nwd-exceptions-table thead th {
+    background: var(--np-surface-alt);
+    font-weight: var(--np-weight-semibold);
+    font-size: var(--np-text-80);
+    text-align: left;
+    padding: var(--np-space-4) var(--np-space-8);
+    border: 1px solid var(--np-border);
+    color: var(--np-body);
+}
+.nwd-exceptions-table tbody td {
+    padding: 0;
+    border: 1px solid var(--np-border);
+    vertical-align: middle;
+    height: 32px;
+}
+.nwd-exceptions-table tbody td input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: var(--np-space-4) var(--np-space-8);
+    font-size: var(--np-text-85);
+    color: var(--np-ink);
+    height: 100%;
+    box-sizing: border-box;
+    outline: none;
+}
+/* An inset ring, because a cell input fills its cell edge to edge and an
+   offset ring would be clipped by the neighbouring cells. */
+.nwd-exceptions-table tbody td input:focus-visible {
+    background: var(--np-accent-tint);
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: calc(-1 * var(--np-focus-ring-width));
+}
+.nwd-exceptions-table tbody td input[type="date"] {
+    max-width: 160px;
+}
+.nwd-exceptions-table .nwd-actions-col {
+    width: 32px;
+    text-align: center;
+}
+.nwd-exceptions-table .nwd-delete-btn {
+    background: none;
+    border: none;
+    color: var(--np-muted);
+    cursor: pointer;
+    font-size: var(--np-text-85);
+    line-height: 1;
+    padding: var(--np-space-4);
+    min-width: 28px;
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--np-radius-sm);
+    opacity: 0;
+    transition: opacity var(--np-anim-duration-fast),
+                color var(--np-anim-duration-fast),
+                background var(--np-anim-duration-fast);
+}
+.nwd-exceptions-table tbody tr:hover .nwd-delete-btn {
+    opacity: 1;
+}
+.nwd-exceptions-table .nwd-delete-btn:hover {
+    color: var(--np-danger-ink);
+    background: var(--np-danger-tint);
+}
+/* Opacity as well as a ring: the button is invisible until its row is
+   hovered, and a keyboard user never hovers anything. */
+.nwd-exceptions-table .nwd-delete-btn:focus-visible {
+    opacity: 1;
+    outline: none;
+    box-shadow: var(--np-focus-ring);
+}
+.nwd-exceptions-table tbody tr.nwd-blank-row td {
+    background: var(--np-paper);
+}
+.nwd-exceptions-table tbody tr.nwd-blank-row td input::placeholder {
+    color: var(--np-faint);
+    font-style: italic;
+}
+
+/* Dependency-type select inside the dependencies table. */
+.dependencies-table select.dependency-type {
+    width: 100%;
+    padding: var(--np-space-8);
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-sm);
+    background: var(--np-surface);
+    color: var(--np-ink);
+    font-size: var(--np-text-85);
+}
+.dependencies-table select.dependency-type:focus-visible {
+    outline: none;
+    box-shadow: var(--np-focus-ring);
+}
+
+/* Analysis actions section. */
+.analysis-actions {
+    max-width: 900px;
+    margin: var(--np-space-32) auto 0;
+}
+.analysis-actions-title {
+    font-size: var(--np-text-125);
+    font-weight: var(--np-weight-semibold);
+    color: var(--np-ink);
+    margin: 0 0 var(--np-space-16) 0;
+    padding-bottom: var(--np-space-8);
+    border-bottom: 2px solid var(--np-accent);
+}
+.analysis-actions-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.analysis-action-item {
+    background: var(--np-surface);
+    border-radius: var(--np-radius-md);
+    padding: var(--np-space-16) var(--np-space-20);
+    margin-bottom: var(--np-space-8);
+    box-shadow: var(--np-elevation-1);
+    line-height: var(--np-leading-snug);
+    color: var(--np-body);
+    border-left: var(--np-space-4) solid var(--np-border-strong);
+}
+.action-severity-badge {
+    display: inline-block;
+    padding: var(--np-space-2) var(--np-space-8);
+    border-radius: var(--np-radius-sm);
+    font-size: var(--np-text-75);
+    font-weight: var(--np-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+    margin-right: var(--np-space-8);
+}
+
+.inspector-help-text {
+    margin: 0 0 var(--np-space-8);
+    color: var(--np-muted);
+    font-size: var(--np-text-90);
+    line-height: var(--np-leading-snug);
+}
+
+.benefit-link-tag-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }

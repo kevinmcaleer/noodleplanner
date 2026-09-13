@@ -7,8 +7,8 @@
 .ribbon-banner {
     display: inline-block;
     position: relative;
-    padding: 6px 20px 6px 12px;
-    margin-right: 8px;
+    padding: var(--np-space-8) var(--np-space-20) var(--np-space-8) var(--np-space-12);
+    margin-right: var(--np-space-8);
     background: var(--ribbon-bg, var(--np-blue-subtle));
     border-left: 4px solid var(--ribbon-color, var(--np-blue));
     color: var(--ribbon-text, #333);
@@ -179,8 +179,11 @@ body.no-animations .np-fade-in {
 }
 
 .np-context-loading-text {
-    font-size: 0.875rem;
-    color: var(--np-dark-grey);
+    font-size: var(--np-text-90);
+    /* Was var(--np-dark-grey), which is defined nowhere and had no fallback,
+       so the declaration was invalid at computed-value time and the text just
+       inherited its parent's colour (#1192). */
+    color: var(--np-muted);
 }
 
 @keyframes npContextSpin {

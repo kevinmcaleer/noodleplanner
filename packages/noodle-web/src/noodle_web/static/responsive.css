@@ -8,7 +8,7 @@
     }
 
     .plan-subnav-btn {
-        padding: 5px 8px;
+        padding: var(--np-space-4) var(--np-space-8);
         font-size: 0.82em;
     }
 
@@ -24,7 +24,7 @@
     }
 
     .plan-subnav-btn {
-        padding: 5px 12px;
+        padding: var(--np-space-4) var(--np-space-12);
         font-size: 0.85em;
     }
 }
@@ -47,7 +47,7 @@
     }
 
     header {
-        padding: 20px;
+        padding: var(--np-space-20);
     }
 
     .container-fluid {
@@ -67,7 +67,7 @@
     }
 
     .export-btn {
-        padding: 6px 10px;
+        padding: var(--np-space-8) var(--np-space-12);
         font-size: 0.8em;
     }
 
@@ -109,7 +109,7 @@
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
-        padding: 3px 8px;
+        padding: var(--np-space-4) var(--np-space-8);
     }
 
     .plan-subnav::-webkit-scrollbar {
@@ -117,7 +117,7 @@
     }
 
     .plan-subnav-btn {
-        padding: 4px 8px;
+        padding: var(--np-space-4) var(--np-space-8);
         font-size: 0.8em;
     }
 
@@ -143,17 +143,17 @@
 
     .options {
         grid-template-columns: 1fr;
-        gap: 15px;
+        gap: var(--np-space-16);
     }
 
     .btn-group {
         grid-template-columns: 1fr;
-        gap: 10px;
+        gap: var(--np-space-12);
     }
 
 
     .rag-item {
-        padding: 15px;
+        padding: var(--np-space-16);
     }
 
     .rag-count {
@@ -166,7 +166,7 @@
 
     /* Timeline: horizontal scroll on mobile */
     .timeline-content {
-        padding: 15px;
+        padding: var(--np-space-16);
     }
 
     .timeline-line-wrapper {
@@ -176,7 +176,7 @@
 
     /* Gantt: horizontal scroll on mobile */
     .gantt-content {
-        padding: 10px;
+        padding: var(--np-space-12);
     }
 
     .gantt-wrapper {
@@ -196,12 +196,12 @@
     .gantt-toolbar {
         flex-direction: column;
         align-items: flex-start;
-        gap: 10px;
+        gap: var(--np-space-12);
     }
 
     /* Resources table scroll */
     .resources-content {
-        padding: 10px;
+        padding: var(--np-space-12);
     }
 
     .resources-table-wrapper {
@@ -214,7 +214,7 @@
     }
 
     .resource-sheet-content {
-        padding: 10px;
+        padding: var(--np-space-12);
     }
 
     .resource-sheet-title {
@@ -228,7 +228,7 @@
 
     /* Milestones table scroll */
     .milestones-content {
-        padding: 10px;
+        padding: var(--np-space-12);
     }
 
     .milestones-table-wrapper {
@@ -238,7 +238,7 @@
 
     /* Timesheet: already has scroll container, just reduce padding */
     .timesheet-content {
-        padding: 10px;
+        padding: var(--np-space-12);
     }
 
     .timesheet-title {
@@ -247,7 +247,7 @@
 
     /* Analysis */
     .analysis-content {
-        padding: 10px;
+        padding: var(--np-space-12);
     }
 
     .analysis-title {
@@ -256,17 +256,17 @@
 
     /* Upload / drop zone */
     .upload-area {
-        padding: 20px;
+        padding: var(--np-space-20);
     }
 
     .upload-icon {
         font-size: 2em;
-        margin-bottom: 10px;
+        margin-bottom: var(--np-space-12);
     }
 
     #upload-tab.active,
     #guide-tab.active {
-        padding: 10px;
+        padding: var(--np-space-12);
     }
 
     /* Kanban layout: stack on mobile */
@@ -326,18 +326,18 @@
     .copy-image-btn {
         min-width: 44px;
         min-height: 44px;
-        padding: 10px;
+        padding: var(--np-space-12);
     }
 
     .quad-add-btn {
         min-width: 44px;
         min-height: 44px;
-        padding: 8px 12px;
+        padding: var(--np-space-8) var(--np-space-12);
     }
 
     .plan-subnav-btn {
         min-height: 44px;
-        padding: 8px 12px;
+        padding: var(--np-space-8) var(--np-space-12);
     }
 
     /* Tour popup: constrain width */
@@ -350,7 +350,7 @@
     .wizard-mapping-row {
         flex-direction: column;
         align-items: flex-start;
-        gap: 5px;
+        gap: var(--np-space-4);
     }
 
     .wizard-mapping-row label {
@@ -387,7 +387,7 @@
     }
 
     header {
-        padding: 15px;
+        padding: var(--np-space-16);
     }
 
     .content {
@@ -410,7 +410,7 @@
         /* Must match .editor-textarea font-size so line heights stay in sync */
         font-size: 16px;
         min-width: 35px;
-        padding: 15px 5px;
+        padding: var(--np-space-16) var(--np-space-4);
     }
 
     /* highlight layer must stay at left:0 to match the textarea position;
@@ -422,12 +422,12 @@
 
 
     .modal-body {
-        padding: 15px;
+        padding: var(--np-space-16);
     }
 
     .modal-header,
     .detail-pane-header {
-        padding: 15px 20px;
+        padding: var(--np-space-16) var(--np-space-20);
     }
 
     .modal-header h2,
@@ -442,7 +442,7 @@
     }
 
     .ribbon-banner {
-        padding: 4px 16px 4px 10px;
+        padding: var(--np-space-4) var(--np-space-16) var(--np-space-4) var(--np-space-12);
         font-size: 0.9em;
         white-space: normal;
     }
@@ -456,11 +456,11 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: var(--np-overlay, rgba(0, 0, 0, 0.6));
+    background: var(--np-overlay);
     z-index: 1000;
     justify-content: center;
     align-items: center;
-    padding: 20px;
+    padding: var(--np-space-20);
 }
 
 .modal-overlay.active {
@@ -468,7 +468,7 @@
 }
 
 .task-form-modal {
-    background: var(--np-modal-bg, white);
+    background: var(--np-modal-bg);
     border-radius: 10px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     max-width: 600px;

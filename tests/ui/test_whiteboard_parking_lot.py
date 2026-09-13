@@ -88,6 +88,27 @@ def send_to_parking_lot(page, task_name):
     page.wait_for_selector("#wbNoteMenu", state="detached")
 
 
+# The `board` page carries a 5s default timeout (tests/ui/conftest.py), which
+# is sized for "is this element on screen". A park is a whole commit-and-redraw
+# cycle, so it gets its own, longer one.
+#
+# This was first raised to chase a `test_dragging_a_note_onto_the_open_panel_parks_it`
+# failure, on the reasoning that the drop must have registered and only the
+# commit was slow. That reasoning was wrong, and the longer timeout did not fix
+# it: the drop had not registered at all. `.wb-note-header`'s gap and padding
+# had been rounded onto the 4px spacing scale, which walked the header's button
+# row ~2px left until `.wb-note-link-handle` sat under the header's own
+# midpoint -- the exact point `drag_note_to_panel()` grabs. Mousedown started a
+# *link* drag, `wbFinishDrag()`'s park branch requires `drag.type === 'move'`,
+# and so nothing was ever parked. The fix is in views/whiteboard.css, where
+# those two values are now marked as off-scale on purpose.
+#
+# The longer timeout stays because the load argument is independently true and
+# waiting costs nothing when the app is working. It is not what makes this
+# test pass.
+PARK_COMMIT_TIMEOUT_MS = 15_000
+
+
 def wait_for_parked(page, task_name=None):
     """Wait for the park to reach the plan text, and optionally the board.
 
@@ -99,13 +120,15 @@ def wait_for_parked(page, task_name=None):
     """
     page.wait_for_function(
         "() => document.getElementById('planEditor').value"
-        "        .includes('---parking lot---')"
+        "        .includes('---parking lot---')",
+        timeout=PARK_COMMIT_TIMEOUT_MS,
     )
     if task_name is not None:
         page.wait_for_function(
             "name => ![...document.querySelectorAll("
             "  '#whiteboardContainer .wb-note')].some(n => n.dataset.wbTask === name)",
             arg=task_name,
+            timeout=PARK_COMMIT_TIMEOUT_MS,
         )
 
 

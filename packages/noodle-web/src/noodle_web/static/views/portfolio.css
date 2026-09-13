@@ -9,7 +9,7 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     background: var(--np-paper);
 }
 
@@ -17,31 +17,31 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-    padding: 8px 12px;
+    margin-bottom: var(--np-space-12);
+    padding: var(--np-space-8) var(--np-space-12);
     background: white;
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    gap: 12px;
+    gap: var(--np-space-12);
     flex-wrap: wrap;
 }
 
 .portfolio-header-left {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: var(--np-space-16);
     flex: 1;
     min-width: 0;
 }
 
 .portfolio-actions {
     display: flex;
-    gap: 8px;
+    gap: var(--np-space-8);
     align-items: center;
 }
 
 .btn-sm {
-    padding: 6px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     font-size: 0.85em;
 }
 
@@ -76,8 +76,8 @@
     position: absolute;
     right: 0;
     top: 100%;
-    margin-top: 4px;
-    background: white;
+    margin-top: var(--np-space-4);
+    background: var(--np-surface);
     border: 1px solid var(--np-border);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
@@ -93,9 +93,9 @@
 .portfolio-more-menu-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     width: 100%;
-    padding: 10px 14px;
+    padding: var(--np-space-12) var(--np-space-16);
     background: none;
     border: none;
     color: var(--np-ink);
@@ -122,32 +122,32 @@
 .portfolio-empty-state {
     text-align: center;
     padding: 60px 20px;
-    background: white;
+    background: var(--np-surface);
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .portfolio-empty-state h3 {
     color: var(--np-accent);
-    margin-bottom: 15px;
+    margin-bottom: var(--np-space-16);
     font-size: 1.5em;
 }
 
 .portfolio-empty-state p {
     color: #adb5bd;
-    margin-bottom: 25px;
+    margin-bottom: var(--np-space-24);
 }
 
 .portfolio-projects-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 20px;
+    gap: var(--np-space-20);
 }
 
 .portfolio-project-card {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
-    padding: 20px;
+    padding: var(--np-space-20);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: all 0.2s;
     border: 2px solid transparent;
@@ -167,8 +167,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
-    padding-bottom: 15px;
+    margin-bottom: var(--np-space-16);
+    padding-bottom: var(--np-space-16);
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -181,25 +181,25 @@
 .portfolio-active-badge {
     background: var(--np-accent);
     color: var(--np-on-accent);
-    padding: 4px 12px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.8em;
     font-weight: 600;
 }
 
 .portfolio-project-meta {
-    margin-bottom: 20px;
+    margin-bottom: var(--np-space-20);
 }
 
 .portfolio-meta-item {
     color: var(--np-muted);
     font-size: 0.9em;
-    margin-bottom: 5px;
+    margin-bottom: var(--np-space-4);
 }
 
 .portfolio-project-actions {
     display: flex;
-    gap: 8px;
+    gap: var(--np-space-8);
     flex-wrap: wrap;
 }
 
@@ -213,7 +213,7 @@
     background: var(--np-accent);
     color: var(--np-on-accent);
     border: none;
-    padding: 10px 20px;
+    padding: var(--np-space-12) var(--np-space-20);
     border-radius: 6px;
     font-size: 0.95em;
     font-weight: 600;
@@ -222,7 +222,7 @@
 }
 
 .btn-primary:hover {
-    background: var(--np-accent-hover, #5568d3);
+    background: var(--np-accent-hover);
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(16, 139, 185, 0.4);
 }
@@ -231,7 +231,7 @@
     background: #6c757d;
     color: white;
     border: none;
-    padding: 10px 20px;
+    padding: var(--np-space-12) var(--np-space-20);
     border-radius: 6px;
     font-size: 0.95em;
     font-weight: 600;
@@ -248,7 +248,7 @@
     background: #dc3545;
     color: white;
     border: none;
-    padding: 10px 20px;
+    padding: var(--np-space-12) var(--np-space-20);
     border-radius: 6px;
     font-size: 0.95em;
     font-weight: 600;
@@ -264,15 +264,15 @@
 /* Portfolio Sub-Navigation (inline in header row) */
 .portfolio-subnav {
     display: flex;
-    gap: 2px;
+    gap: var(--np-space-2);
     align-items: center;
 }
 
 .portfolio-subnav-btn {
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 6px 12px;
+    gap: var(--np-space-4);
+    padding: var(--np-space-8) var(--np-space-12);
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
@@ -301,9 +301,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 25px;
-    padding: 20px;
-    background: white;
+    margin-bottom: var(--np-space-24);
+    padding: var(--np-space-20);
+    background: var(--np-surface);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -317,7 +317,7 @@
 .portfolio-status-filters {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
 }
 
 .portfolio-status-filters label {
@@ -326,10 +326,10 @@
 }
 
 .portfolio-status-filters select {
-    padding: 8px 15px;
+    padding: var(--np-space-8) var(--np-space-16);
     border: 2px solid var(--np-border);
     border-radius: 6px;
-    background: white;
+    background: var(--np-surface);
     color: var(--np-ink);
     font-size: 0.95em;
     cursor: pointer;
@@ -342,7 +342,7 @@
 }
 
 .portfolio-status-table-wrapper {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     overflow: hidden;
@@ -358,7 +358,7 @@
 }
 
 .portfolio-status-table th {
-    padding: 15px;
+    padding: var(--np-space-16);
     text-align: left;
     font-weight: 600;
     color: var(--np-ink);
@@ -369,11 +369,11 @@
 }
 
 .portfolio-status-table th:hover {
-    background: #e9ecef;
+    background: var(--np-sunken);
 }
 
 .portfolio-status-table td {
-    padding: 15px;
+    padding: var(--np-space-16);
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -398,7 +398,7 @@
 /* RAG Badges */
 .rag-badge {
     display: inline-block;
-    padding: 6px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 700;
@@ -424,7 +424,7 @@
 /* Status Badges */
 .status-badge {
     display: inline-block;
-    padding: 6px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 600;
@@ -450,7 +450,7 @@
     position: relative;
     width: 100%;
     height: 24px;
-    background: #e9ecef;
+    background: var(--np-sunken);
     border-radius: 12px;
     overflow: hidden;
 }
@@ -482,9 +482,9 @@
 /* RAG History Dots */
 .rag-history {
     display: inline-flex;
-    gap: 3px;
+    gap: var(--np-space-4);
     align-items: center;
-    margin-right: 6px;
+    margin-right: var(--np-space-8);
     vertical-align: middle;
 }
 
@@ -522,7 +522,7 @@
 /* Sort Indicator */
 .sort-indicator {
     opacity: 0.3;
-    margin-left: 5px;
+    margin-left: var(--np-space-4);
 }
 
 .sort-indicator::after {
@@ -531,29 +531,29 @@
 
 /* Portfolio Resources View */
 .portfolio-resources-header {
-    margin-bottom: 25px;
-    padding: 20px;
+    margin-bottom: var(--np-space-24);
+    padding: var(--np-space-20);
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .portfolio-resources-header h2 {
-    margin: 0 0 15px 0;
+    margin: 0 0 var(--np-space-16) 0;
     color: var(--np-ink);
     font-size: 1.8em;
 }
 
 .portfolio-resources-summary {
     display: flex;
-    gap: 30px;
+    gap: var(--np-space-32);
     flex-wrap: wrap;
 }
 
 .resource-summary-item {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--np-space-4);
 }
 
 .summary-label {
@@ -585,7 +585,7 @@
 }
 
 .portfolio-resources-table th {
-    padding: 15px;
+    padding: var(--np-space-16);
     text-align: left;
     font-weight: 600;
     color: var(--np-ink);
@@ -600,7 +600,7 @@
 }
 
 .portfolio-resources-table td {
-    padding: 15px;
+    padding: var(--np-space-16);
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -625,7 +625,7 @@
     display: inline-block;
     background: var(--np-accent);
     color: var(--np-on-accent);
-    padding: 4px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     border-radius: 10px;
     font-size: 0.85em;
     font-weight: 600;
@@ -644,7 +644,7 @@
 /* Workload Badges */
 .workload-badge {
     display: inline-block;
-    padding: 6px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 700;
@@ -677,7 +677,7 @@
     background: var(--np-accent);
     color: var(--np-on-accent);
     border: none;
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border-radius: 4px;
     font-size: 0.85em;
     font-weight: 600;
@@ -686,7 +686,7 @@
 }
 
 .btn-small:hover {
-    background: var(--np-accent-hover, #5568d3);
+    background: var(--np-accent-hover);
     transform: translateY(-1px);
 }
 
@@ -703,7 +703,7 @@
 }
 
 .resource-details-content {
-    background: white;
+    background: var(--np-surface);
     margin: 5% auto;
     padding: 0;
     border-radius: 8px;
@@ -739,32 +739,32 @@
 }
 
 #resourceDetailsBody {
-    padding: 30px;
+    padding: var(--np-space-32);
 }
 
 #resourceDetailsBody h2 {
-    margin: 0 0 20px 0;
+    margin: 0 0 var(--np-space-20) 0;
     color: var(--np-ink);
     font-size: 1.8em;
 }
 
 #resourceDetailsBody h3 {
-    margin: 25px 0 15px 0;
+    margin: var(--np-space-24) 0 var(--np-space-16) 0;
     color: var(--np-accent);
     font-size: 1.4em;
 }
 
 #resourceDetailsBody h4 {
-    margin: 15px 0 10px 0;
+    margin: var(--np-space-16) 0 var(--np-space-12) 0;
     color: var(--np-accent);
     font-size: 1.1em;
 }
 
 .resource-details-summary {
     display: flex;
-    gap: 30px;
-    margin-bottom: 25px;
-    padding: 20px;
+    gap: var(--np-space-32);
+    margin-bottom: var(--np-space-24);
+    padding: var(--np-space-20);
     background: var(--np-paper);
     border-radius: 8px;
 }
@@ -772,7 +772,7 @@
 .detail-stat {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--np-space-4);
 }
 
 .stat-label {
@@ -788,8 +788,8 @@
 }
 
 .project-assignments {
-    margin-bottom: 25px;
-    padding: 15px;
+    margin-bottom: var(--np-space-24);
+    padding: var(--np-space-16);
     background: var(--np-paper);
     border-radius: 8px;
 }
@@ -797,8 +797,8 @@
 .assignments-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 10px;
-    background: white;
+    margin-top: var(--np-space-12);
+    background: var(--np-surface);
     border-radius: 6px;
     overflow: hidden;
 }
@@ -806,13 +806,13 @@
 .assignments-table th {
     background: var(--np-accent);
     color: var(--np-on-accent);
-    padding: 10px;
+    padding: var(--np-space-12);
     text-align: left;
     font-weight: 600;
 }
 
 .assignments-table td {
-    padding: 10px;
+    padding: var(--np-space-12);
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -822,7 +822,7 @@
 
 .task-status-badge {
     display: inline-block;
-    padding: 4px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 10px;
     font-size: 0.8em;
     font-weight: 600;
@@ -849,9 +849,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-    padding: 10px 14px;
-    background: white;
+    margin-bottom: var(--np-space-12);
+    padding: var(--np-space-12) var(--np-space-16);
+    background: var(--np-surface);
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
@@ -865,7 +865,7 @@
 .timeline-controls {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
 }
 
 .timeline-controls label {
@@ -874,10 +874,10 @@
 }
 
 .timeline-controls select {
-    padding: 8px 15px;
+    padding: var(--np-space-8) var(--np-space-16);
     border: 2px solid var(--np-border);
     border-radius: 6px;
-    background: white;
+    background: var(--np-surface);
     color: var(--np-ink);
     font-size: 0.95em;
     cursor: pointer;
@@ -904,12 +904,12 @@
 }
 
 .portfolio-timeline-container {
-    padding: 12px 12px 24px 12px;
+    padding: var(--np-space-12) var(--np-space-12) var(--np-space-24) var(--np-space-12);
 }
 
 .portfolio-timeline-container .timeline-scale {
     display: flex;
-    margin-bottom: 10px;
+    margin-bottom: var(--np-space-12);
     border-bottom: 2px solid var(--np-border);
     position: relative;
     bottom: auto;
@@ -920,7 +920,7 @@
 
 .timeline-project-label {
     width: 200px;
-    padding: 10px;
+    padding: var(--np-space-12);
     font-weight: 600;
     color: var(--np-ink);
     white-space: nowrap;
@@ -945,7 +945,7 @@
     top: 0;
     height: 100%;
     border-right: 1px solid var(--np-border);
-    padding: 10px 5px;
+    padding: var(--np-space-12) var(--np-space-4);
     font-size: 0.85em;
     color: var(--np-muted);
     font-weight: 600;
@@ -968,7 +968,7 @@
     left: -20px;
     background: #dc3545;
     color: white;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 4px;
     font-size: 0.75em;
     font-weight: 600;
@@ -977,7 +977,7 @@
 
 .timeline-project-row {
     display: flex;
-    margin-bottom: 5px;
+    margin-bottom: var(--np-space-4);
     cursor: pointer;
     transition: background 0.2s;
     border-radius: 4px;
@@ -988,7 +988,7 @@
 }
 
 .timeline-project-row:nth-child(even) .timeline-project-label {
-    background: #eff1f3;
+    background: var(--np-surface-alt);
 }
 
 .timeline-project-row:hover {
@@ -1002,7 +1002,7 @@
 
 .timeline-project-track {
     border-left: 1px solid var(--np-border);
-    padding: 5px 0;
+    padding: var(--np-space-4) 0;
 }
 
 .timeline-task-bar {
@@ -1072,13 +1072,13 @@
     .portfolio-header {
         flex-direction: column;
         align-items: flex-start;
-        gap: 8px;
+        gap: var(--np-space-8);
     }
 
     .portfolio-header-left {
         flex-direction: column;
         align-items: flex-start;
-        gap: 8px;
+        gap: var(--np-space-8);
         width: 100%;
     }
 
@@ -1088,7 +1088,7 @@
 
     .portfolio-project-actions button {
         font-size: 0.85em;
-        padding: 8px 12px;
+        padding: var(--np-space-8) var(--np-space-12);
     }
 
     .portfolio-subnav {
@@ -1098,7 +1098,7 @@
     .portfolio-status-header {
         flex-direction: column;
         align-items: flex-start;
-        gap: 15px;
+        gap: var(--np-space-16);
     }
 
     .portfolio-status-table-wrapper {
@@ -1111,12 +1111,12 @@
 
     .portfolio-resources-summary {
         flex-direction: column;
-        gap: 15px;
+        gap: var(--np-space-16);
     }
 
     .resource-details-summary {
         flex-direction: column;
-        gap: 15px;
+        gap: var(--np-space-16);
     }
 
     .portfolio-resources-table-wrapper {
@@ -1135,7 +1135,7 @@
     .portfolio-timeline-header {
         flex-direction: column;
         align-items: flex-start;
-        gap: 15px;
+        gap: var(--np-space-16);
     }
 
     .timeline-project-label {
@@ -1163,7 +1163,7 @@
 
 /* Portfolio Projects Table View */
 .portfolio-table-container {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     overflow-x: auto;
@@ -1181,7 +1181,7 @@
 }
 
 .portfolio-projects-table th {
-    padding: 16px 12px;
+    padding: var(--np-space-16) var(--np-space-12);
     text-align: left;
     font-weight: 600;
     color: #495057;
@@ -1224,7 +1224,7 @@
 }
 
 .portfolio-projects-table td {
-    padding: 14px 12px;
+    padding: var(--np-space-16) var(--np-space-12);
     vertical-align: top;
 }
 
@@ -1245,7 +1245,7 @@
     background: var(--np-surface);
     border: 1px solid var(--np-accent);
     border-radius: 3px;
-    padding: 2px 6px;
+    padding: var(--np-space-2) var(--np-space-8);
     outline: none;
     width: 100%;
     box-sizing: border-box;
@@ -1254,7 +1254,7 @@
 .active-indicator {
     color: var(--np-accent);
     font-size: 1.2em;
-    margin-right: 4px;
+    margin-right: var(--np-space-4);
 }
 
 /* Project table action buttons */
@@ -1262,11 +1262,11 @@
     background: none;
     border: 1px solid var(--np-border);
     border-radius: 4px;
-    padding: 5px 7px;
+    padding: var(--np-space-4) var(--np-space-8);
     cursor: pointer;
     color: var(--np-muted);
     transition: all 0.2s;
-    margin: 0 2px;
+    margin: 0 var(--np-space-2);
     vertical-align: middle;
     line-height: 1;
 }
@@ -1288,7 +1288,7 @@
 /* Status badges */
 .status-badge {
     display: inline-block;
-    padding: 4px 12px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 600;
@@ -1316,7 +1316,7 @@
 }
 
 .status-badge-gray {
-    background: #e9ecef;
+    background: var(--np-sunken);
     color: var(--np-muted);
 }
 
@@ -1356,22 +1356,22 @@
 }
 
 .project-table-row.project-row-selected {
-    background: var(--np-bg-hover, #e7f3ff);
+    background: var(--np-bg-hover);
 }
 
 .project-table-row.project-row-selected:hover {
-    background: var(--np-bg-hover, #d0e7ff);
+    background: var(--np-bg-hover);
 }
 
 .programme-badge {
     display: inline-block;
-    margin-left: 6px;
-    padding: 2px 8px;
+    margin-left: var(--np-space-8);
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 10px;
     font-size: 0.78em;
     font-weight: 600;
-    background: var(--np-badge-bg, #e0e0e0);
-    color: var(--np-text-secondary, #495057);
+    background: var(--np-badge-bg);
+    color: var(--np-text-secondary);
     vertical-align: middle;
     cursor: pointer;
 }
@@ -1385,18 +1385,18 @@
 .portfolio-selection-toolbar {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    margin-bottom: 12px;
-    background: var(--np-surface-alt, #eef1fb);
-    border: 1px solid var(--np-border, #dee2e6);
+    gap: var(--np-space-12);
+    padding: var(--np-space-12) var(--np-space-16);
+    margin-bottom: var(--np-space-12);
+    background: var(--np-surface-alt);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
 }
 
 .portfolio-selection-count {
     font-weight: 600;
-    color: var(--np-text, #333333);
-    margin-right: 4px;
+    color: var(--np-text);
+    margin-right: var(--np-space-4);
 }
 
 .portfolio-selection-clear {
@@ -1405,13 +1405,13 @@
     border: none;
     font-size: 1.3em;
     line-height: 1;
-    color: var(--np-text-secondary, #6c757d);
+    color: var(--np-text-secondary);
     cursor: pointer;
-    padding: 0 4px;
+    padding: 0 var(--np-space-4);
 }
 
 .portfolio-selection-clear:hover {
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .portfolio-lasso-box {
@@ -1436,7 +1436,7 @@
 
     .portfolio-projects-table th,
     .portfolio-projects-table td {
-        padding: 12px 8px;
+        padding: var(--np-space-12) var(--np-space-8);
     }
 
     .highlight-cell {
@@ -1456,7 +1456,7 @@
 
     .portfolio-projects-table th,
     .portfolio-projects-table td {
-        padding: 10px 6px;
+        padding: var(--np-space-12) var(--np-space-8);
     }
 }
 
@@ -1467,7 +1467,7 @@
 
     .portfolio-projects-table th,
     .portfolio-projects-table td {
-        padding: 16px 12px;
+        padding: var(--np-space-16) var(--np-space-12);
     }
 
     .highlight-cell {
@@ -1483,12 +1483,12 @@
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 25px;
-    padding: 20px;
-    background: white;
+    margin-bottom: var(--np-space-24);
+    padding: var(--np-space-20);
+    background: var(--np-surface);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    gap: 15px;
+    gap: var(--np-space-16);
 }
 
 .portfolio-actions-header h2 {
@@ -1500,7 +1500,7 @@
 
 .portfolio-actions-summary {
     display: flex;
-    gap: 30px;
+    gap: var(--np-space-32);
     flex-wrap: wrap;
 }
 
@@ -1508,7 +1508,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .actions-summary-item .summary-label {
@@ -1527,7 +1527,7 @@
 .portfolio-actions-filters {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
 }
 
 .portfolio-actions-filters label {
@@ -1536,10 +1536,10 @@
 }
 
 .portfolio-actions-filters select {
-    padding: 8px 15px;
+    padding: var(--np-space-8) var(--np-space-16);
     border: 2px solid var(--np-border);
     border-radius: 6px;
-    background: white;
+    background: var(--np-surface);
     color: var(--np-ink);
     font-size: 0.95em;
     cursor: pointer;
@@ -1552,7 +1552,7 @@
 }
 
 .portfolio-actions-table-wrapper {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     overflow: hidden;
@@ -1568,7 +1568,7 @@
 }
 
 .portfolio-actions-table th {
-    padding: 15px;
+    padding: var(--np-space-16);
     text-align: left;
     font-weight: 600;
     color: var(--np-ink);
@@ -1579,11 +1579,11 @@
 }
 
 .portfolio-actions-table th:hover {
-    background: #e9ecef;
+    background: var(--np-sunken);
 }
 
 .portfolio-actions-table td {
-    padding: 15px;
+    padding: var(--np-space-16);
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -1628,12 +1628,12 @@
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 25px;
-    padding: 20px;
+    margin-bottom: var(--np-space-24);
+    padding: var(--np-space-20);
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    gap: 15px;
+    gap: var(--np-space-16);
 }
 
 .portfolio-risks-header h2 {
@@ -1645,7 +1645,7 @@
 
 .portfolio-risks-summary {
     display: flex;
-    gap: 30px;
+    gap: var(--np-space-32);
     flex-wrap: wrap;
 }
 
@@ -1653,7 +1653,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .risks-summary-item .summary-label {
@@ -1672,7 +1672,7 @@
 .portfolio-risks-filters {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     flex-wrap: wrap;
 }
 
@@ -1682,7 +1682,7 @@
 }
 
 .portfolio-risks-filters select {
-    padding: 8px 15px;
+    padding: var(--np-space-8) var(--np-space-16);
     border: 2px solid var(--np-border);
     border-radius: 6px;
     background: white;
@@ -1700,14 +1700,14 @@
 .portfolio-risks-new {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
 }
 
 .portfolio-risks-new select {
-    padding: 8px 15px;
+    padding: var(--np-space-8) var(--np-space-16);
     border: 2px solid var(--np-border);
     border-radius: 6px;
-    background: white;
+    background: var(--np-surface);
     color: var(--np-ink);
     font-size: 0.95em;
     cursor: pointer;
@@ -1720,7 +1720,7 @@
 }
 
 .new-risk-btn {
-    padding: 8px 18px;
+    padding: var(--np-space-8) var(--np-space-20);
     background: var(--np-accent);
     color: var(--np-on-accent);
     border: none;
@@ -1737,7 +1737,7 @@
 }
 
 .portfolio-risks-table-wrapper {
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     overflow: hidden;
@@ -1753,7 +1753,7 @@
 }
 
 .portfolio-risks-table th {
-    padding: 15px;
+    padding: var(--np-space-16);
     text-align: left;
     font-weight: 600;
     color: var(--np-ink);
@@ -1764,11 +1764,11 @@
 }
 
 .portfolio-risks-table th:hover {
-    background: #e9ecef;
+    background: var(--np-sunken);
 }
 
 .portfolio-risks-table td {
-    padding: 15px;
+    padding: var(--np-space-16);
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -1808,7 +1808,7 @@
 
 .risk-score-badge {
     display: inline-block;
-    padding: 4px 12px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 700;
@@ -1840,12 +1840,12 @@
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 25px;
-    padding: 20px;
+    margin-bottom: var(--np-space-24);
+    padding: var(--np-space-20);
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    gap: 15px;
+    gap: var(--np-space-16);
 }
 
 .portfolio-lookahead-header h2 {
@@ -1857,7 +1857,7 @@
 
 .portfolio-lookahead-summary {
     display: flex;
-    gap: 30px;
+    gap: var(--np-space-32);
     flex-wrap: wrap;
 }
 
@@ -1865,7 +1865,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .lookahead-summary-item .summary-label {
@@ -1884,14 +1884,14 @@
 .portfolio-lookahead-filters {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: var(--np-space-16);
     flex-wrap: wrap;
 }
 
 .lookahead-filter-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
 }
 
 .portfolio-lookahead-filters label {
@@ -1901,10 +1901,10 @@
 }
 
 .portfolio-lookahead-filters select {
-    padding: 8px 15px;
+    padding: var(--np-space-8) var(--np-space-16);
     border: 2px solid var(--np-border);
     border-radius: 6px;
-    background: white;
+    background: var(--np-surface);
     color: var(--np-ink);
     font-size: 0.95em;
     cursor: pointer;
@@ -1913,7 +1913,7 @@
 }
 
 .portfolio-lookahead-filters select:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-blue);
     border-color: var(--np-accent);
 }
 
@@ -1926,13 +1926,13 @@
 .lookahead-rag-toggle-buttons {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--np-space-8);
 }
 
 .lookahead-rag-toggle {
     display: inline-flex;
     align-items: center;
-    padding: 6px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 20px;
     font-size: 0.85em;
     font-weight: 600;
@@ -1954,7 +1954,7 @@
 }
 
 .lookahead-rag-toggle:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-blue);
     outline-offset: 2px;
 }
 
@@ -1988,12 +1988,12 @@
 }
 
 .portfolio-lookahead-section {
-    margin-bottom: 25px;
+    margin-bottom: var(--np-space-24);
 }
 
 .portfolio-lookahead-section-title {
-    margin: 0 0 10px 0;
-    padding: 10px 15px;
+    margin: 0 0 var(--np-space-12) 0;
+    padding: var(--np-space-12) var(--np-space-16);
     border-radius: 6px 6px 0 0;
     font-size: 1.1em;
     font-weight: 600;
@@ -2028,7 +2028,7 @@
 }
 
 .portfolio-lookahead-table th {
-    padding: 15px;
+    padding: var(--np-space-16);
     text-align: left;
     font-weight: 600;
     color: var(--np-ink);
@@ -2043,7 +2043,7 @@
 }
 
 .portfolio-lookahead-table td {
-    padding: 15px;
+    padding: var(--np-space-16);
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -2104,7 +2104,7 @@
         flex: 1 1 auto;
         justify-content: center;
         font-size: 0.8em;
-        padding: 5px 10px;
+        padding: var(--np-space-4) var(--np-space-12);
     }
 
     .portfolio-lookahead-table-wrapper {
@@ -2135,7 +2135,7 @@
     border-top-color: var(--np-accent);
     border-radius: 50%;
     animation: portfolio-spin 0.8s linear infinite;
-    margin-bottom: 15px;
+    margin-bottom: var(--np-space-16);
 }
 
 @keyframes portfolio-spin {
@@ -2151,15 +2151,15 @@
    Resource Heatmap
    ========================================= */
 .resource-heatmap-container {
-    margin-top: 25px;
+    margin-top: var(--np-space-24);
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    padding: 20px;
+    padding: var(--np-space-20);
 }
 
 .resource-heatmap-container h3 {
-    margin: 0 0 15px 0;
+    margin: 0 0 var(--np-space-16) 0;
     color: var(--np-ink);
     font-size: 1.3em;
 }
@@ -2174,15 +2174,15 @@
    scroll horizontally; the label column stays pinned on the left. */
 .resource-heatmap-grid {
     display: grid;
-    gap: 2px;
+    gap: var(--np-space-2);
     overflow-x: auto;
     max-width: 100%;
-    padding-bottom: 6px;
+    padding-bottom: var(--np-space-8);
     font-size: 0.8em;
 }
 
 .resource-heatmap-label {
-    padding: 6px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     font-weight: 600;
     color: var(--np-ink);
     white-space: nowrap;
@@ -2198,7 +2198,7 @@
 }
 
 .resource-heatmap-header-cell {
-    padding: 6px 4px;
+    padding: var(--np-space-8) var(--np-space-4);
     font-weight: 600;
     color: var(--np-muted);
     text-align: center;
@@ -2254,9 +2254,9 @@
 
 .resource-heatmap-legend {
     display: flex;
-    gap: 15px;
-    margin-top: 12px;
-    padding-top: 12px;
+    gap: var(--np-space-16);
+    margin-top: var(--np-space-12);
+    padding-top: var(--np-space-12);
     border-top: 1px solid var(--np-border);
     font-size: 0.85em;
     color: var(--np-muted);
@@ -2266,7 +2266,7 @@
 .resource-heatmap-legend-item {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--np-space-4);
 }
 
 .resource-heatmap-legend-swatch {
@@ -2284,7 +2284,7 @@
     height: 20px;
     background: var(--np-sunken);
     border-radius: 4px;
-    margin: 8px 0;
+    margin: var(--np-space-8) 0;
     overflow: hidden;
 }
 
@@ -2306,48 +2306,48 @@
    ========================================= */
 
 .programme-deps-view {
-    padding: 12px;
+    padding: var(--np-space-12);
 }
 
 .programme-deps-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--np-border, #dee2e6);
+    gap: var(--np-space-12);
+    margin-bottom: var(--np-space-16);
+    padding-bottom: var(--np-space-12);
+    border-bottom: 1px solid var(--np-border);
 }
 
 .dep-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9em;
-    background: var(--np-surface, #fff);
+    background: var(--np-surface);
     border-radius: 6px;
     overflow: hidden;
-    box-shadow: 0 1px 3px var(--np-shadow, rgba(0, 0, 0, 0.08));
+    box-shadow: 0 1px 3px var(--np-shadow);
 }
 
 .dep-table th,
 .dep-table td {
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     text-align: left;
-    border-bottom: 1px solid var(--np-border-light, #f0f0f0);
+    border-bottom: 1px solid var(--np-border-light);
     vertical-align: middle;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
 }
 
 .dep-table th {
-    background: var(--np-bg-alt, #f8f9fa);
+    background: var(--np-bg-alt);
     font-weight: 600;
-    color: var(--np-text-secondary, #495057);
+    color: var(--np-text-secondary);
     font-size: 0.82em;
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
 
 .dep-table tbody tr:hover {
-    background: var(--np-table-hover, #f8f9fa);
+    background: var(--np-table-hover);
 }
 
 .dep-table tbody tr:last-child td {
@@ -2385,3 +2385,11 @@
     }
 }
 
+
+/* Recovered from static/style.css, which #571 stopped linking -- see the
+   note in components.css. */
+.portfolio-scope-label {
+    margin: 0 0 var(--np-space-16) 0;
+    color: var(--np-muted);
+    font-size: var(--np-text-95);
+}

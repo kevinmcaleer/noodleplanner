@@ -1,10 +1,6 @@
-// Token order matches templates/index.html's <link> order: base.css defines
-// the raw palette primitives, dark-mode.css and visual-system.css layer
-// semantic --np-* tokens on top of them (see docs/design/consolidation-and-handoff.md
-// for why both currently define overlapping token names).
-import '../packages/noodle-web/src/noodle_web/static/base.css';
-import '../packages/noodle-web/src/noodle_web/static/dark-mode.css';
-import '../packages/noodle-web/src/noodle_web/static/visual-system.css';
+// The app's stylesheets are injected by main.mjs's `previewHead`, read out of
+// templates/index.html so the list and its order cannot drift from the app.
+// Only Storybook's own canvas styling is imported here.
 import './preview.css';
 
 /** @type {import('@storybook/web-components-vite').Preview} */

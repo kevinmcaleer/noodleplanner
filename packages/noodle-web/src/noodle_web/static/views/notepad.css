@@ -10,47 +10,47 @@
     height: 100%;
     max-width: 760px;
     margin: 0 auto;
-    padding: 24px 16px 48px;
+    padding: var(--np-space-24) var(--np-space-16) var(--np-space-48);
 }
 
 .notepad-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    gap: var(--np-space-12);
+    margin-bottom: var(--np-space-16);
+    padding-bottom: var(--np-space-12);
+    border-bottom: 1px solid var(--np-border);
 }
 
 .notepad-title {
     margin: 0;
-    color: var(--np-text, #333);
+    color: var(--np-text);
     font-size: 20px;
     font-weight: 600;
 }
 
 .notepad-hint {
     font-size: 13px;
-    color: var(--np-text-secondary, #666);
+    color: var(--np-text-secondary);
 }
 
 .notepad-kanban-btn {
     flex-shrink: 0;
-    padding: 6px 14px;
-    border: 1px solid var(--np-border, #e0e0e0);
+    padding: var(--np-space-8) var(--np-space-16);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
-    background: var(--np-surface, #ffffff);
-    color: var(--np-text, #333);
+    background: var(--np-surface);
+    color: var(--np-text);
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease),
-                border-color var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing),
+                border-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .notepad-kanban-btn:hover {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
     border-color: var(--np-accent);
 }
 
@@ -63,22 +63,22 @@
 .notepad-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--np-space-8);
     min-height: 34px;
-    margin-bottom: 2px;
+    margin-bottom: var(--np-space-2);
     border: none;
     border-radius: 4px;
-    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .notepad-estimate-btn {
     border: none;
     background: transparent;
-    color: var(--np-text-muted, #999);
+    color: var(--np-text-muted);
 }
 
 .notepad-row:hover {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
 }
 
 .notepad-drag-handle {
@@ -87,12 +87,12 @@
     text-align: center;
     font-size: 13px;
     line-height: 1;
-    color: var(--np-text-muted, #999);
+    color: var(--np-text-muted);
     cursor: grab;
     opacity: 0;
-    transition: opacity var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: opacity var(--np-anim-duration-fast) var(--np-anim-easing);
     /* A comfortably large touch target beyond the visible glyph. */
-    padding: 8px 4px;
+    padding: var(--np-space-8) var(--np-space-4);
     margin: -8px -4px;
 }
 
@@ -114,12 +114,12 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--np-text-muted, #999);
+    background: var(--np-text-muted);
 }
 
 .notepad-row--draft .notepad-bullet {
     background: transparent;
-    border: 1px solid var(--np-text-muted, #999);
+    border: 1px solid var(--np-text-muted);
 }
 
 .notepad-input {
@@ -127,21 +127,21 @@
     min-width: 0;
     border: none;
     background: transparent;
-    color: var(--np-text, #333);
+    color: var(--np-text);
     font-size: 15px;
     font-family: inherit;
-    padding: 6px 4px;
+    padding: var(--np-space-8) var(--np-space-4);
     border-radius: 4px;
 }
 
 .notepad-input:focus {
     outline: 2px solid var(--np-accent);
     outline-offset: -1px;
-    background: var(--np-surface, #ffffff);
+    background: var(--np-surface);
 }
 
 .notepad-row--draft .notepad-input::placeholder {
-    color: var(--np-text-muted, #999);
+    color: var(--np-text-muted);
 }
 
 .notepad-dragging {
@@ -158,7 +158,7 @@
 
 @media (max-width: 640px) {
     .notepad-surface {
-        padding: 16px 8px 32px;
+        padding: var(--np-space-16) var(--np-space-8) var(--np-space-32);
     }
 
     /* Touch users have no hover state -- the handle needs to be visible

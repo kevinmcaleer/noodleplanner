@@ -236,3 +236,9 @@ templates/mpp-template.mpp
 .ci-logs/
 # The self-hosted runner's PAT. ci/runner/.env.example is the committed one.
 ci/runner/.env
+
+# Storybook build output
+.storybook-static/
+
+# Screen-audit capture output (regenerate: uv run python scripts/capture_screen_audit.py)
+penpot/screen-audit/

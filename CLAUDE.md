@@ -54,6 +54,25 @@ Run the fast suite constantly; run the browser suites before pushing
 anything that touches the UI, and remember a green `uv run pytest` alone has
 not exercised the browser.
 
+## UI and design system
+
+The design tokens live in
+`packages/noodle-web/src/noodle_web/static/visual-system.css` and nowhere else.
+Before pushing a change that touches CSS, run the two design gates:
+
+```bash
+npm run lint:design      # hardcoded colours, off-scale spacing, focus, token placement
+npm run check:contrast   # WCAG AA across every token pairing the app renders
+```
+
+Both are in CI as the gating `design` job. The linter is a ratchet against
+`ci/design-system-baseline.json`: it tolerates the ~1,950 existing violations
+and fails only on new ones, so a clean push cannot be blocked by pre-existing
+debt.
+
+`docs/design/contributing.md` explains the rules and when a raw value is
+legitimate. `/components` serves a gallery of every component in both themes.
+
 ## Reminders
 
 - **Update screenshots when features change.** If you modify a view, add a

@@ -149,8 +149,8 @@
 }
 
 .pf-buried-detail-marker {
-    fill: #ffd641;
-    stroke: var(--np-dark-blue, #02384d);
+    fill: var(--np-yellow);
+    stroke: var(--np-dark-blue);
     stroke-width: 1;
     animation: pf-orphan-pulse 2s ease-in-out infinite;
 }
@@ -194,8 +194,8 @@
 .pbs-toolbar {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 6px 12px;
+    gap: var(--np-space-4);
+    padding: var(--np-space-8) var(--np-space-12);
     background: var(--np-surface-alt);
     border-bottom: 1px solid var(--np-border);
 }
@@ -205,7 +205,7 @@
     border: 1px solid transparent;
     color: var(--np-text-muted);
     cursor: pointer;
-    padding: 4px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     border-radius: 4px;
     display: flex;
     align-items: center;
@@ -226,7 +226,7 @@
 /* ── Deliverables Matrix ─────────────────────────────────────────── */
 
 .deliverables-container {
-    padding: 16px;
+    padding: var(--np-space-16);
     overflow: auto;
     max-height: calc(100vh - 200px);
     max-width: 100%;
@@ -242,7 +242,7 @@
 
 .deliverables-table th {
     text-align: center;
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     background: var(--np-surface-alt);
     color: var(--np-text-muted);
     font-weight: 600;
@@ -257,7 +257,7 @@
 }
 
 .deliverables-table td {
-    padding: 5px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     border: 1px solid var(--np-border);
     color: var(--np-text);
     vertical-align: middle;
@@ -312,7 +312,7 @@
     text-align: center;
     min-width: 36px;
     max-width: 36px;
-    padding: 4px 2px !important;
+    padding: var(--np-space-4) var(--np-space-2) !important;
     vertical-align: bottom;
 }
 
@@ -335,7 +335,7 @@
     vertical-align: middle;
     min-width: 36px;
     max-width: 36px;
-    padding: 4px 2px !important;
+    padding: var(--np-space-4) var(--np-space-2) !important;
 }
 
 .dm-role-cell select {
@@ -346,7 +346,7 @@
     font-weight: 700;
     text-align: center;
     cursor: pointer;
-    padding: 2px;
+    padding: var(--np-space-2);
     border-radius: 3px;
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -409,7 +409,7 @@
     background: var(--np-surface);
     border: 1px solid var(--np-border);
     border-radius: 6px;
-    box-shadow: 0 4px 12px var(--np-shadow-strong, rgba(0,0,0,0.15));
+    box-shadow: 0 4px 12px var(--np-shadow-strong);
     min-width: 140px;
     overflow: hidden;
 }
@@ -419,7 +419,7 @@
 }
 
 .dm-role-dropdown-item {
-    padding: 8px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     cursor: pointer;
     font-size: 13px;
     color: var(--np-text);
@@ -427,7 +427,7 @@
 }
 
 .dm-role-dropdown-item:hover {
-    background: var(--surface-hover, rgba(74, 144, 217, 0.1));
+    background: var(--np-bg-hover);
 }
 
 .dm-role-dropdown-item.active {
@@ -450,7 +450,7 @@
 .pbs-title,
 .deliverables-title,
 .product-flow-title {
-    margin: 12px 16px 8px;
+    margin: var(--np-space-12) var(--np-space-16) var(--np-space-8);
 }
 
 /* ── Product Flow View ───────────────────────────────────────────── */
@@ -507,7 +507,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     border-bottom: 1px solid var(--np-border-light);
     font-size: 13px;
 }
@@ -526,7 +526,7 @@
 .product-comp-pct {
     font-size: 12px;
     color: var(--np-text-muted);
-    margin-left: 8px;
+    margin-left: var(--np-space-8);
     flex-shrink: 0;
 }
 
@@ -534,7 +534,7 @@
     font-size: 11px;
     color: var(--np-text-muted);
     font-style: italic;
-    margin-left: 8px;
+    margin-left: var(--np-space-8);
     flex-shrink: 1;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -545,8 +545,8 @@
 .product-comp-actions {
     display: flex;
     visibility: hidden;
-    gap: 4px;
-    margin-left: 6px;
+    gap: var(--np-space-4);
+    margin-left: var(--np-space-8);
     flex-shrink: 0;
 }
 
@@ -558,7 +558,7 @@
     background: none;
     border: none;
     cursor: pointer;
-    padding: 2px;
+    padding: var(--np-space-2);
     font-size: 12px;
     opacity: 0.5;
     color: var(--np-text-muted);
@@ -579,7 +579,7 @@
 
 .product-type-btn {
     flex: 1;
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border: none;
     background: var(--np-surface-alt);
     color: var(--np-text-secondary);
@@ -605,7 +605,7 @@
 .product-comp-add {
     display: flex;
     align-items: center;
-    padding: 4px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
 }
 
 /* Borderless input style for product form fields */
@@ -620,7 +620,7 @@
     background: transparent;
     font-size: 13px;
     outline: none;
-    padding: 4px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     color: var(--np-text);
     transition: border-color 0.15s;
 }
@@ -646,13 +646,13 @@
 .product-qa-roles {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--np-space-8);
 }
 
 .product-qa-role-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
 }
 
 .product-qa-role-label {
@@ -668,7 +668,7 @@
 
 .product-qa-role-select {
     flex: 1;
-    padding: 4px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     border: 1px solid transparent !important;
     border-radius: 4px;
     font-size: 13px;
@@ -694,10 +694,10 @@
 .product-deps-container {
     border: 1px solid var(--np-border);
     border-radius: 4px;
-    padding: 6px 8px;
+    padding: var(--np-space-8) var(--np-space-8);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--np-space-8);
     position: relative;
     background: var(--np-surface);
     min-height: 36px;
@@ -710,7 +710,7 @@
 .product-deps-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .product-deps-tags:empty {
@@ -720,13 +720,13 @@
 .product-dep-tag {
     display: inline-flex;
     align-items: center;
-    padding: 3px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     border-radius: 4px;
     font-size: 11px;
     font-weight: bold;
     color: #fff;
     cursor: pointer;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .product-dep-tag:hover {
@@ -737,7 +737,7 @@
     cursor: pointer;
     font-size: 14px;
     opacity: 0.7;
-    margin-left: 2px;
+    margin-left: var(--np-space-2);
 }
 
 .product-dep-tag .dep-tag-remove:hover {
@@ -752,7 +752,7 @@ input[type="text"].product-deps-input {
     background: transparent;
     font-size: 13px;
     width: 100%;
-    padding: 4px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     color: var(--np-text);
     box-sizing: border-box;
     transition: border-color 0.15s;
@@ -775,7 +775,7 @@ input[type="text"].product-deps-input {
     max-height: 150px;
     overflow-y: auto;
     z-index: 100;
-    box-shadow: 0 4px 8px var(--np-shadow, rgba(0,0,0,0.1));
+    box-shadow: 0 4px 8px var(--np-shadow);
 }
 
 [data-theme="dark"] .product-deps-autocomplete {
@@ -783,12 +783,12 @@ input[type="text"].product-deps-input {
 }
 
 .product-deps-autocomplete-item {
-    padding: 6px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     cursor: pointer;
     font-size: 12px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--np-space-8);
 }
 
 .product-deps-autocomplete-item:hover,
@@ -805,12 +805,12 @@ input[type="text"].product-deps-input {
 
 .product-resource-badge {
     display: inline-block;
-    padding: 3px 10px;
+    padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
     font-size: 12px;
     background: rgba(74, 144, 217, 0.15);
     color: #2a6cb0;
-    margin: 2px 4px 2px 0;
+    margin: var(--np-space-2) var(--np-space-4) var(--np-space-2) 0;
 }
 
 [data-theme="dark"] .product-resource-badge {
@@ -818,7 +818,7 @@ input[type="text"].product-deps-input {
 }
 
 .product-readonly-field {
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     background: var(--np-surface-alt);
     border-radius: 4px;
     font-size: 13px;
@@ -836,7 +836,7 @@ input[type="text"].product-deps-input {
     border: 1px solid var(--np-border);
     border-radius: 4px;
     background: var(--np-surface);
-    padding: 8px;
+    padding: var(--np-space-8);
     display: flex;
     align-items: center;
     gap: 0;
@@ -848,7 +848,7 @@ input[type="text"].product-deps-input {
 }
 
 .pf-mini-node {
-    padding: 6px 12px;
+    padding: var(--np-space-8) var(--np-space-12);
     border-radius: 6px;
     font-size: 11px;
     font-weight: bold;
@@ -886,7 +886,7 @@ input[type="text"].product-deps-input {
 .product-resources-list {
     border: 1px solid var(--np-border);
     border-radius: 4px;
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     max-height: 200px;
     overflow-y: auto;
     font-size: 14px;

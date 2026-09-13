@@ -9,10 +9,13 @@ Define the Front Matter
 Every plan begins with an optional front matter block enclosed in ``---`` lines. This sets project-level metadata:
 
 .. figure:: /_static/img/how-to/cp-01-editor-frontmatter.png
-   :alt: Editor showing the front matter section of a plan
-   :width: 100%
+   :alt: The editor's Properties panel listing title, project manager, sponsor, budget, status and resources, above the plan text
+   :width: 60%
 
-   The editor with front matter defining project metadata at the top of the plan.
+   The editor pane. NoodlePlanner lifts the front matter out of the plan text
+   into the Properties panel above it, which is why the numbered lines below
+   start partway down the file. ``YAML`` switches the panel back to the raw
+   ``---`` block.
 
 .. code-block:: text
 

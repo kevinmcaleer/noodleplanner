@@ -13,7 +13,7 @@
     width: 360px;
     max-width: calc(100vw - 32px);
     max-height: min(70vh, 520px);
-    background: var(--np-surface, #fff);
+    background: var(--np-surface);
     border-radius: 12px;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
     z-index: 1800;
@@ -26,9 +26,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 14px;
+    padding: var(--np-space-12) var(--np-space-16);
     font-weight: 600;
-    border-bottom: 1px solid var(--np-border, #dee2e6);
+    border-bottom: 1px solid var(--np-border);
     cursor: default;
 }
 
@@ -38,7 +38,7 @@
     font-size: 20px;
     line-height: 1;
     cursor: pointer;
-    color: var(--np-text-secondary, #6c757d);
+    color: var(--np-text-secondary);
     min-width: 32px;
     min-height: 32px;
 }
@@ -46,20 +46,20 @@
 .plan-wizard-steps {
     display: flex;
     overflow-x: auto;
-    gap: 2px;
-    padding: 10px 8px;
-    border-bottom: 1px solid var(--np-border, #dee2e6);
+    gap: var(--np-space-2);
+    padding: var(--np-space-12) var(--np-space-8);
+    border-bottom: 1px solid var(--np-border);
 }
 
 .plan-wizard-step {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--np-space-4);
     border: none;
     background: transparent;
     cursor: pointer;
-    padding: 4px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     min-width: 56px;
     flex: 1 0 auto;
     /* Touch target per docs/how-to/use-touch-controls.rst's 44px convention. */
@@ -75,30 +75,30 @@
     justify-content: center;
     font-size: 12px;
     font-weight: 700;
-    border: 2px solid var(--np-border, #dee2e6);
-    color: var(--np-text-secondary, #6c757d);
+    border: 2px solid var(--np-border);
+    color: var(--np-text-secondary);
 }
 
 .plan-wizard-step.current .plan-wizard-step-bubble {
-    border-color: var(--np-blue, #108bb9);
-    background: var(--np-blue, #108bb9);
+    border-color: var(--np-blue);
+    background: var(--np-blue);
     color: #fff;
 }
 
 .plan-wizard-step.visited .plan-wizard-step-bubble {
-    border-color: var(--np-green, #2e9e5b);
-    background: var(--np-green, #2e9e5b);
+    border-color: var(--np-green);
+    background: var(--np-green);
     color: #fff;
 }
 
 .plan-wizard-step.skipped .plan-wizard-step-bubble {
-    border-color: var(--np-border, #dee2e6);
-    color: var(--np-text-secondary, #6c757d);
+    border-color: var(--np-border);
+    color: var(--np-text-secondary);
 }
 
 .plan-wizard-step-label {
     font-size: 10px;
-    color: var(--np-text-secondary, #6c757d);
+    color: var(--np-text-secondary);
     white-space: nowrap;
 }
 
@@ -108,24 +108,24 @@
 }
 
 .plan-wizard-description {
-    padding: 10px 14px;
+    padding: var(--np-space-12) var(--np-space-16);
     font-size: 13px;
-    color: var(--np-text-secondary, #6c757d);
+    color: var(--np-text-secondary);
     overflow-y: auto;
 }
 
 .plan-wizard-footer {
     display: flex;
     justify-content: space-between;
-    gap: 8px;
-    padding: 10px 14px;
-    border-top: 1px solid var(--np-border, #dee2e6);
+    gap: var(--np-space-8);
+    padding: var(--np-space-12) var(--np-space-16);
+    border-top: 1px solid var(--np-border);
 }
 
 .plan-wizard-back-btn,
 .plan-wizard-skip-btn,
 .plan-wizard-next-btn {
-    padding: 8px 14px;
+    padding: var(--np-space-8) var(--np-space-16);
     border-radius: 6px;
     cursor: pointer;
     font-size: 13px;
@@ -133,7 +133,7 @@
 }
 
 .plan-wizard-back-btn {
-    border: 1px solid var(--np-border, #dee2e6);
+    border: 1px solid var(--np-border);
     background: transparent;
 }
 
@@ -143,14 +143,14 @@
 }
 
 .plan-wizard-skip-btn {
-    border: 1px solid var(--np-border, #dee2e6);
+    border: 1px solid var(--np-border);
     background: transparent;
     margin-right: auto;
 }
 
 .plan-wizard-next-btn {
-    border: 1px solid var(--np-blue, #108bb9);
-    background: var(--np-blue, #108bb9);
+    border: 1px solid var(--np-blue);
+    background: var(--np-blue);
     color: #fff;
 }
 
@@ -173,46 +173,46 @@
 }
 
 .plan-wizard-content {
-    padding: 0 14px 10px;
+    padding: 0 var(--np-space-16) var(--np-space-12);
     overflow-y: auto;
 }
 
 .schedule-check-summary {
     font-size: 13px;
     font-weight: 600;
-    padding: 8px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     border-radius: 6px;
-    border-left: 3px solid var(--np-border, #dee2e6);
+    border-left: 3px solid var(--np-border);
 }
 
 .schedule-check-summary.ok {
-    border-left-color: var(--np-green, #1c9e41);
+    border-left-color: var(--np-green);
     background: rgba(28, 158, 65, 0.1);
 }
 
 .schedule-check-summary.breaks {
-    border-left-color: var(--np-red, #c21d1d);
+    border-left-color: var(--np-red);
     background: rgba(194, 29, 29, 0.1);
 }
 
 .schedule-check-issues {
     list-style: none;
-    margin: 8px 0 0;
+    margin: var(--np-space-8) 0 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--np-space-4);
 }
 
 .schedule-check-issue-btn {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
+    gap: var(--np-space-2);
     width: 100%;
     text-align: left;
-    padding: 8px 10px;
-    border: 1px solid var(--np-border, #dee2e6);
+    padding: var(--np-space-8) var(--np-space-12);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
     background: transparent;
     cursor: pointer;
@@ -221,7 +221,7 @@
 }
 
 .schedule-check-issue-btn:hover {
-    background: var(--np-light-grey-subtle, #f2f2f2);
+    background: var(--np-light-grey-subtle);
 }
 
 .schedule-check-issue-kind {
@@ -229,15 +229,15 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--np-text-secondary, #6c757d);
+    color: var(--np-text-secondary);
 }
 
 .schedule-check-issue.breach .schedule-check-issue-kind {
-    color: var(--np-red, #c21d1d);
+    color: var(--np-red);
 }
 
 .schedule-check-issue.conflict .schedule-check-issue-kind {
-    color: var(--np-orange, #ff7b01);
+    color: var(--np-orange);
 }
 
 .schedule-check-issue-task {
@@ -247,14 +247,14 @@
 
 .schedule-check-issue-message {
     font-size: 12px;
-    color: var(--np-text-secondary, #6c757d);
+    color: var(--np-text-secondary);
 }
 
 .schedule-check-recheck {
-    margin-top: 8px;
-    padding: 6px 12px;
+    margin-top: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
     font-size: 12px;
-    border: 1px solid var(--np-border, #dee2e6);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
     background: transparent;
     cursor: pointer;

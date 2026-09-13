@@ -3,117 +3,17 @@
    Applied via [data-theme="dark"] on <html>
    ======================================== */
 
-/* ---- Semantic colour tokens (light defaults) ----
-   NoodlePlanner identity tokens (issue #1024): built from the app's own
-   --np-red/orange/yellow/green/blue/dark-blue palette (base.css) rather
-   than the generic indigo/purple (var(--np-accent)/var(--np-accent-hover)) template gradient the
-   app previously shipped with. The approved design-handoff ZIP linked from
-   the parent epic (#998) 404s/403s for this session, so these are a
-   documented interim identity derived from the app's existing brand
-   colours -- swap the values below if/when the approved assets arrive. */
-:root {
-    --np-bg: #ffffff;
-    --np-bg-alt: #f8f9fa;
-    --np-bg-hover: #f0f1f4;
-    --np-surface: #ffffff;
-    --np-surface-alt: #f0f0f0;
-    --np-border: #e0e0e0;
-    --np-border-light: #f0f0f0;
-    --np-text: #333333;
-    --np-text-secondary: #666666;
-    --np-text-muted: #888888;
-    --np-accent: var(--np-blue);
-    --np-accent-hover: #0d7096;
-    --np-accent-soft: var(--np-blue-subtle);
-    --np-accent-gradient: linear-gradient(135deg, var(--np-blue) 0%, var(--np-green) 100%);
-    --np-danger: var(--np-red);
-    --np-danger-hover: #a01717;
-    --np-danger-gradient: linear-gradient(135deg, var(--np-red) 0%, #a01717 100%);
-    --np-warning: var(--np-orange);
-    --np-warning-hover: #e56a00;
-    --np-warning-gradient: linear-gradient(135deg, var(--np-orange) 0%, #e56a00 100%);
-    --np-success: var(--np-green);
-    --np-success-hover: #16812f;
-    --np-success-gradient: linear-gradient(135deg, var(--np-green) 0%, #16812f 100%);
-    --np-info: var(--np-blue);
-    --np-info-gradient: linear-gradient(135deg, var(--np-blue) 0%, #0d7096 100%);
-    --np-font-heading: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    --np-font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    --np-font-mono: 'Courier New', Courier, monospace;
-    --np-shadow: rgba(0, 0, 0, 0.1);
-    --np-shadow-strong: rgba(0, 0, 0, 0.15);
-    --np-overlay: rgba(0, 0, 0, 0.6);
-    --np-input-bg: #ffffff;
-    --np-input-border: #ccc;
-    --np-subnav-bg: #f0f1f4;
-    --np-subnav-hover: #e2e3e8;
-    --np-splitter-bg: #dee2e6;
-    --np-splitter-hover: #c0c4c8;
-    --np-splitter-dot: #999999;
-    --np-editor-bg: #1e1e1e;
-    --np-editor-tip-bg: #3a3a3a;
-    --np-editor-tip-text: #d4d4d4;
-    --np-modal-bg: #ffffff;
-    --np-table-stripe: #f9f9f9;
-    --np-table-hover: #f8f9fa;
-    --np-summary-row: #e8eaf6;
-    --np-summary-row-hover: #dde0f3;
-    --np-code-bg: #f5f5f5;
-    --np-badge-bg: #e0e0e0;
-    --np-scrollbar-thumb: #ccc;
-    --np-scrollbar-track: #f1f1f1;
-}
+/* ---- Dark theme component overrides ----
+   This file used to open with the #1024 "blue identity" token block: 50 names
+   that visual-system.css later redefined 34 of, leaving the rest reading as
+   authoritative while having no effect. #1192 deleted the shadowed 34 and the
+   7 nothing referenced; #1194 moved the surviving 9 to visual-system.css, so
+   that every --np-* token is declared in exactly one file.
 
+   What is below is what this file was always really for: ~575 component-level
+   [data-theme="dark"] .selector rules, none of which were ever shadowed. */
 /* ---- Dark theme overrides ---- */
 [data-theme="dark"] {
-    --np-bg: #1a1a2e;
-    --np-bg-alt: #16213e;
-    --np-bg-hover: #1f2b47;
-    --np-surface: #202040;
-    --np-surface-alt: #2a2a4a;
-    --np-border: #3a3a5a;
-    --np-border-light: #2e2e4e;
-    --np-text: #e0e0e0;
-    --np-text-secondary: #b0b0c0;
-    --np-text-muted: #888899;
-    --np-accent: #3fb6e0;
-    --np-accent-hover: #5cc4e8;
-    --np-accent-soft: #1c3a47;
-    --np-accent-gradient: linear-gradient(135deg, #3fb6e0 0%, #4ecb72 100%);
-    --np-danger: #e05252;
-    --np-danger-hover: #e87070;
-    --np-danger-gradient: linear-gradient(135deg, #e05252 0%, #c94040 100%);
-    --np-warning: #ffa64d;
-    --np-warning-hover: #ffb870;
-    --np-warning-gradient: linear-gradient(135deg, #ffa64d 0%, #ef9538 100%);
-    --np-success: #4ecb72;
-    --np-success-hover: #6ad68a;
-    --np-success-gradient: linear-gradient(135deg, #4ecb72 0%, #3aad5c 100%);
-    --np-info: #3fb6e0;
-    --np-info-gradient: linear-gradient(135deg, #3fb6e0 0%, #2a93b8 100%);
-    --np-shadow: rgba(0, 0, 0, 0.3);
-    --np-shadow-strong: rgba(0, 0, 0, 0.5);
-    --np-overlay: rgba(0, 0, 0, 0.75);
-    --np-input-bg: #2a2a4a;
-    --np-input-border: #4a4a6a;
-    --np-subnav-bg: #16213e;
-    --np-subnav-hover: #1f2b47;
-    --np-splitter-bg: #3a3a5a;
-    --np-splitter-hover: #4a4a6a;
-    --np-splitter-dot: #6a6a8a;
-    --np-editor-bg: #0f0f23;
-    --np-editor-tip-bg: #2a2a4a;
-    --np-editor-tip-text: #b0b0c0;
-    --np-modal-bg: #202040;
-    --np-table-stripe: #1e1e3a;
-    --np-table-hover: #252545;
-    --np-summary-row: #2a2a50;
-    --np-summary-row-hover: #333360;
-    --np-code-bg: #1a1a2e;
-    --np-badge-bg: #3a3a5a;
-    --np-scrollbar-thumb: #4a4a6a;
-    --np-scrollbar-track: #1a1a2e;
-
     color-scheme: dark;
 }
 
@@ -770,7 +670,6 @@ body {
 }
 
 [data-theme="dark"] .task-row-add-btn:hover {
-    background: var(--np-accent);
     color: var(--np-surface);
 }
 
@@ -1005,10 +904,6 @@ body {
     color: var(--np-accent);
 }
 
-[data-theme="dark"] .settings-tab-btn.active {
-    border-bottom-color: var(--np-accent);
-}
-
 [data-theme="dark"] .settings-tabs {
     border-bottom-color: var(--np-border);
 }
@@ -1056,23 +951,12 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .piechart-popup-btn:hover {
-    background: #28a745;
-    color: white;
-}
-
 /* Completion % quick-set toolbar + click-to-complete progress bar
    (task details form) */
 [data-theme="dark"] .percent-quick-btn {
     background: var(--np-surface-alt);
     border-color: var(--np-border);
     color: var(--np-text);
-}
-
-[data-theme="dark"] .percent-quick-btn:hover:not(:disabled) {
-    background: #28a745;
-    border-color: #28a745;
-    color: white;
 }
 
 /* Theme colour picker popup */
@@ -1126,10 +1010,6 @@ body {
     color: var(--np-text-secondary);
 }
 
-[data-theme="dark"] .timeline-scale-tick {
-    background: var(--np-text-muted);
-}
-
 [data-theme="dark"] .timeline-scale-label {
     color: var(--np-text-secondary);
 }
@@ -1151,10 +1031,6 @@ body {
 [data-theme="dark"] .minimal-timeline-mode .timeline-line::before,
 [data-theme="dark"] .minimal-timeline-mode .timeline-line::after {
     background: #ffffff;
-}
-
-[data-theme="dark"] .minimal-date-label {
-    color: var(--np-text-muted);
 }
 
 /* Dashboard report timeline */
@@ -1267,7 +1143,6 @@ body {
 }
 
 [data-theme="dark"] .highlight-card {
-    background: var(--np-surface);
     border-color: var(--np-border);
     color: var(--np-text);
 }
@@ -1330,10 +1205,6 @@ body {
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
-[data-theme="dark"] .lookahead-table {
-    background: var(--np-surface);
-}
-
 [data-theme="dark"] .lookahead-table td {
     border-bottom-color: var(--np-border-light);
     color: var(--np-text);
@@ -1349,7 +1220,6 @@ body {
 }
 
 [data-theme="dark"] .analysis-health-score {
-    background: var(--np-surface);
     box-shadow: 0 2px 8px var(--np-shadow);
     color: var(--np-text);
 }
@@ -1359,7 +1229,6 @@ body {
 }
 
 [data-theme="dark"] .analysis-insight {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
     color: var(--np-text);
 }
@@ -1482,7 +1351,6 @@ body {
 }
 
 [data-theme="dark"] .resources-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -1564,10 +1432,6 @@ body {
     color: #e06060;
 }
 
-[data-theme="dark"] .timesheet-weekend {
-    background: var(--np-surface-alt) !important;
-}
-
 [data-theme="dark"] .timesheet-holiday {
     background: #3a3020 !important;
     border-left-color: #e0a020;
@@ -1584,7 +1448,6 @@ body {
 }
 
 [data-theme="dark"] .resource-sheet-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -1677,7 +1540,6 @@ body {
 }
 
 [data-theme="dark"] .ns-cell-ref {
-    background: var(--np-surface);
     border-right-color: var(--np-border);
     color: var(--np-text);
 }
@@ -1688,7 +1550,6 @@ body {
 }
 
 [data-theme="dark"] .ns-formula-input {
-    background: var(--np-surface);
     color: var(--np-text);
 }
 
@@ -1722,9 +1583,9 @@ body {
 }
 
 [data-theme="dark"] .budget-sheet-col-filter {
-    background: var(--np-input-bg, var(--np-surface));
+    background: var(--np-input-bg);
     color: var(--np-text);
-    border-color: var(--np-input-border, var(--np-border));
+    border-color: var(--np-input-border);
 }
 
 [data-theme="dark"] .ns-row-num {
@@ -2151,7 +2012,6 @@ body {
 }
 
 [data-theme="dark"] .portfolio-actions-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -2262,10 +2122,6 @@ body {
 
 [data-theme="dark"] .project-assignments {
     background: var(--np-surface-alt);
-}
-
-[data-theme="dark"] .assignments-table {
-    background: var(--np-surface);
 }
 
 [data-theme="dark"] .assignments-table td {
@@ -2435,7 +2291,8 @@ body {
     --mm-placeholder-heading: #ddd;
 }
 
-[data-theme="dark"] .ben-connection { stroke: #9CA3AF; }
+[data-theme="dark"] .ben-connection { stroke: #9CA3AF;
+}
 [data-theme="dark"] .ben-arrow { fill: #9CA3AF; }
 
 [data-theme="dark"] .ben-tracking-table {
@@ -2466,7 +2323,6 @@ body {
 }
 
 [data-theme="dark"] .ben-tracking-table .ben-cell-select {
-    background: var(--np-surface);
     color: var(--np-text);
     border-color: var(--np-border);
 }
@@ -2609,7 +2465,7 @@ body {
 
 [data-theme="dark"] .wb-toolbar-btn:hover:not(:disabled) {
     background: #3a3a3a;
-    border-color: #108BB9;
+    border-color: var(--np-blue);
     color: #fff;
 }
 
@@ -2643,7 +2499,7 @@ body {
 /* ── Note colour menu (dark) — issue #849 ────────────────────────────────
    Already reads var(--np-*) tokens for everything except the "selected"
    swatch border, which needs an explicit light colour in dark mode (the
-   light-mode rule's var(--np-text, #333333) is too close to most swatch
+   light-mode rule's var(--np-text) is too close to most swatch
    colours to read as a highlight against a dark page). */
 
 [data-theme="dark"] .wb-note-menu-swatch.selected {
@@ -2695,10 +2551,6 @@ body {
 
 [data-theme="dark"] .ribbon-file-btn {
     background: #8f1717;
-}
-
-[data-theme="dark"] .ribbon-file-btn:hover {
-    background: #a81919;
 }
 
 [data-theme="dark"] .ribbon-file-menu {

@@ -120,6 +120,66 @@
        find: inputs, selects, textareas, secondary buttons. 3.44:1 on paper. */
     --np-border-control: #8C857A;
 
+    /* --np-link and --np-link-hover were referenced by components.css but
+       defined nowhere, so links rendered the hardcoded #1976d2 fallback -- a
+       cool blue in a warm palette. Aliased onto the accent family instead
+       (#1192). .link-button also carries text-decoration: underline, so
+       colour is not the only thing marking a link (WCAG 1.4.1). */
+    --np-link: var(--np-accent-ink);
+    --np-link-hover: var(--np-ink);
+
+    /* --- Identity palette (#1194, moved here from base.css).
+
+       The named hues predate the warm system and are not part of it: they are
+       the app's brand colours, used for RAG encodings, whiteboard note
+       categories and chart series, where the hue *is* the meaning. They live
+       here because every --np-* token does, not because they are surfaces.
+
+       Moving them changed nothing about where they resolve: a custom property
+       is resolved from the cascaded value on the element, not from where in the
+       file it was declared, so the var() references in base.css and the view
+       stylesheets -- all of which load earlier -- still pick them up. */
+    --np-red: #c21d1d;
+    --np-orange: #ff7b01;
+    --np-yellow: #ffd641;
+    --np-green: #1c9e41;
+    --np-blue: #108bb9;
+    --np-purple: #9b59b6;
+    --np-light-grey: #dbdbdb;
+    --np-dark-blue: #02384d;
+
+    --np-red-subtle: #f5d0d0;
+    --np-orange-subtle: #ffe4c8;
+    --np-yellow-subtle: #fff4d1;
+    --np-green-subtle: #d1f0da;
+    --np-blue-subtle: #d0eaf5;
+    --np-light-grey-subtle: #f2f2f2;
+    --np-dark-blue-subtle: #cfe0e7;
+
+    /* --- Motion (#1194, moved here from base.css). */
+    --np-anim-duration-fast: 0.15s;
+    --np-anim-duration: 0.2s;
+    --np-anim-duration-slow: 0.4s;
+    --np-anim-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+    /* --- Status ramp, overlay and shadow tints (#1194, moved here from
+       dark-mode.css, which is where the #1024 identity declared them).
+
+       Still the *blue* identity rather than the warm one -- --np-danger is
+       var(--np-red), --np-accent-soft is a blue tint. Reconciling these with
+       --np-danger-ink / --np-accent-tint is a palette decision, deliberately
+       left open. Moving them does not take it; it only means there is one
+       place to take it in. */
+    --np-accent-soft: var(--np-blue-subtle);
+    --np-danger: var(--np-red);
+    --np-danger-hover: #a01717;
+    --np-danger-gradient: linear-gradient(135deg, var(--np-red) 0%, #a01717 100%);
+    --np-success-gradient: linear-gradient(135deg, var(--np-green) 0%, #16812f 100%);
+    --np-info-gradient: linear-gradient(135deg, var(--np-blue) 0%, #0d7096 100%);
+    --np-shadow: rgba(0, 0, 0, 0.1);
+    --np-shadow-strong: rgba(0, 0, 0, 0.15);
+    --np-overlay: rgba(0, 0, 0, 0.6);
+
     /* --- Focus ring (#1191). The app has 67 `outline: none` declarations and
        five competing focus colours; buttons carry 242 :hover rules against 45
        :focus ones.
@@ -168,6 +228,17 @@
     /* Marigold clears 3:1 against every dark surface; the inner halo in
        --np-paper is what keeps it visible on a marigold button. */
     --np-focus-ring-color: #EDB52A;
+
+    /* Status ramp and overlay, moved from dark-mode.css (#1194). */
+    --np-accent-soft: #1c3a47;
+    --np-danger: #e05252;
+    --np-danger-hover: #e87070;
+    --np-danger-gradient: linear-gradient(135deg, #e05252 0%, #c94040 100%);
+    --np-success-gradient: linear-gradient(135deg, #4ecb72 0%, #3aad5c 100%);
+    --np-info-gradient: linear-gradient(135deg, #3fb6e0 0%, #2a93b8 100%);
+    --np-shadow: rgba(0, 0, 0, 0.3);
+    --np-shadow-strong: rgba(0, 0, 0, 0.5);
+    --np-overlay: rgba(0, 0, 0, 0.75);
 }
 /* Bridge existing semantic consumers, including chart/table surface tokens. */
 :root, [data-theme="dark"] {
@@ -200,7 +271,6 @@
     --text-primary: var(--np-ink);
     --text-secondary: var(--np-body);
     --border-color: var(--np-border);
-    --evm-bg: var(--np-paper);
     --evm-card-bg: var(--np-surface);
     --evm-card-border: var(--np-border);
     --evm-chart-bg: var(--np-surface);
@@ -211,6 +281,58 @@
     --evm-table-border: var(--np-border);
     --evm-axis-label: var(--np-faint);
 }
+/* ---------------------------------------------------------------------------
+   Global focus ring (#1193)
+
+   The audit found 513 button rules carrying 172 :hover rules and 37 :focus
+   ones, 114 badge class names with 3 focus rules between them, and five
+   controls whose `outline: none` had no replacement at all. Rather than add a
+   focus style to each of 825 component class names, every natively focusable
+   element gets the ring here and components override it only where they need
+   something different.
+
+   Delivered as box-shadow rather than outline on purpose: a component that
+   sets `outline: none` on its resting state -- there are nine -- would
+   suppress an outline-based ring, and box-shadow sidesteps that entirely
+   without needing those declarations changed.
+
+   :focus-visible, not :focus, so a mouse click on a button does not leave a
+   ring behind; keyboard and programmatic focus still get one.
+
+   Specificity is deliberately low: these are element and attribute selectors,
+   so any `.component:focus-visible` rule outranks them and keeps its own
+   treatment. visual-system.css also loads after every component stylesheet
+   except the last five, so this reaches elements that never had a focus style
+   without displacing the ones that did.
+   --------------------------------------------------------------------------- */
+a[href]:focus-visible,
+area[href]:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:not([tabindex^="-"]):focus-visible,
+[contenteditable="true"]:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="checkbox"]:focus-visible,
+[role="radio"]:focus-visible,
+[role="switch"]:focus-visible,
+[role="option"]:focus-visible {
+    outline: none;
+    box-shadow: var(--np-focus-ring);
+}
+
+/* A checkbox or radio is small enough that the 2px halo swallows the control
+   itself, so those get the ring tight against the box. */
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+    box-shadow: 0 0 0 var(--np-focus-ring-width) var(--np-focus-ring-color);
+}
+
 :root body, button, input, select, textarea { font-family: var(--np-font-ui); }
 :root body { background: var(--np-paper); color: var(--np-ink); }
 h1, h2, h3, .modal-title, .ribbon-doc-title { font-family: var(--np-font-heading); font-weight: 400; }
@@ -322,14 +444,14 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 :root body .templates-hero h1 { font-family: var(--np-font-heading); font-weight: 300; }
 /* Keep navigation and quick commands reachable when the body is compact. */
 @media (max-width: 900px) {
-    :root body .ribbon-titlebar { height: auto; min-height: 38px; flex-wrap: wrap; gap: 6px; padding: 6px 8px; }
-    :root body .ribbon-scope-btn { padding-inline: 7px; }
+    :root body .ribbon-titlebar { height: auto; min-height: 38px; flex-wrap: wrap; gap: var(--np-space-8); padding: var(--np-space-8) var(--np-space-8); }
+    :root body .ribbon-scope-btn { padding-inline: var(--np-space-8); }
     :root body .ribbon-titlebar-sep, :root body .ribbon-titlebar-spacer { display: none; }
     :root body .ribbon-quick-actions { flex-shrink: 0; }
     :root body .ribbon-doc-title { flex: 1 1 100px; }
     :root body .ribbon-search-wrap { flex: 1 1 140px; }
     :root body .ribbon-tabstrip { height: auto; min-height: 34px; flex-wrap: wrap; }
-    :root body .ribbon-tab-btn { padding-inline: 10px; }
+    :root body .ribbon-tab-btn { padding-inline: var(--np-space-12); }
     :root body .ribbon-tab-btn.contextual { margin-left: 0; }
 }
 @media (max-width: 700px) {

@@ -1,15 +1,15 @@
 
 /* Timeline Styling - Milestone View */
 .timeline-content {
-    padding: 40px;
+    padding: var(--np-space-40);
     overflow-x: auto;
 }
 
 .timeline-title {
     font-size: 1.8em;
     font-weight: 600;
-    font-family: var(--np-font-heading, inherit);
-    color: var(--np-text, #333);
+    font-family: var(--np-font-heading);
+    color: var(--np-text);
     margin-bottom: 80px;
     text-align: center;
 }
@@ -60,7 +60,7 @@
     /* Progress fill: green means "on track", tied to the app's success token
        so it still reads correctly in dark mode -- a data encoding, not
        decoration, so the hue itself is left alone. */
-    background: var(--np-success-gradient, linear-gradient(to right, #28a745, #20c997));
+    background: var(--np-success-gradient);
     z-index: 1;
     border-radius: 2px 0 0 2px;
     transition: width 0.5s ease;
@@ -92,13 +92,13 @@
 
 .timeline-milestone:hover .milestone-name {
     font-weight: 600;
-    color: var(--np-accent, #108bb9);
+    color: var(--np-accent);
 }
 
 .timeline-connector {
     position: absolute;
     width: 1px;
-    background: var(--np-border, #ccc);
+    background: var(--np-border);
     left: 50%;
     transform: translateX(-50%);
     z-index: 0; /* Behind labels and dates */
@@ -125,7 +125,7 @@
 .timeline-diamond.phase-diamond {
     width: 13px;
     height: 13px;
-    background: #1C9E41;
+    background: var(--np-green);
     border: none;
 }
 
@@ -154,7 +154,7 @@
     text-align: center;
     min-width: 150px;
     max-width: 200px;
-    padding: 6px 10px;
+    padding: var(--np-space-8) var(--np-space-12);
     background: none; /* Remove box background */
     border-radius: 0;
     box-shadow: none; /* Remove drop shadow */
@@ -169,7 +169,7 @@
     position: absolute;
     bottom: -75px; /* Moved further down to avoid overlap with scale markers */
     font-size: 0.9em;
-    color: var(--np-text-secondary, #666);
+    color: var(--np-text-secondary);
     font-weight: 500;
 }
 
@@ -198,15 +198,15 @@
 .timeline-scale-tick {
     width: 1px;
     height: 8px;
-    background: var(--np-text-muted, #999);
+    background: var(--np-text-muted);
     margin: 0 auto;
 }
 
 .timeline-scale-label {
     text-align: center;
     font-size: 0.75em;
-    color: var(--np-text-secondary, #666);
-    margin-top: 4px;
+    color: var(--np-text-secondary);
+    margin-top: var(--np-space-4);
     white-space: nowrap;
     min-width: 60px; /* Ensure labels have consistent spacing */
 }
@@ -214,8 +214,8 @@
 .milestone-name {
     font-weight: 600;
     font-size: 0.9em;
-    color: var(--np-text, #333);
-    margin-bottom: 4px;
+    color: var(--np-text);
+    margin-bottom: var(--np-space-4);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -223,7 +223,7 @@
 
 .milestone-date {
     font-size: 0.8em;
-    color: var(--np-text-secondary, #666);
+    color: var(--np-text-secondary);
 }
 
 /* Detailed Timeline Phase Blocks */
@@ -315,7 +315,7 @@
 
 /* Minimal Timeline View */
 .minimal-timeline-mode {
-    padding: 10px 0 30px 0 !important;
+    padding: var(--np-space-12) 0 var(--np-space-32) 0 !important;
 }
 
 .minimal-timeline-container {
@@ -351,14 +351,14 @@
 
 .minimal-timeline-mode .timeline-line {
     height: 2px;
-    background: var(--np-border, #ccc);
+    background: var(--np-border);
 }
 
 .minimal-timeline-mode .timeline-line::before,
 .minimal-timeline-mode .timeline-line::after {
     width: 6px;
     height: 6px;
-    background: var(--np-border, #ccc);
+    background: var(--np-border);
     top: -2px;
 }
 
@@ -373,13 +373,13 @@
 .minimal-date-scale {
     position: relative;
     height: 18px;
-    margin: 4px auto 0 auto;
+    margin: var(--np-space-4) auto 0 auto;
 }
 
 .minimal-date-label {
     position: absolute;
     font-size: 0.65em;
-    color: var(--np-text-muted, #888);
+    color: var(--np-text-muted);
     white-space: nowrap;
     top: 0;
     transform: translateX(-50%);

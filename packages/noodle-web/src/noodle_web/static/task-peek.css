@@ -31,10 +31,10 @@
     max-height: min(420px, calc(100vh - 16px));
     display: flex;
     flex-direction: column;
-    background: var(--np-surface, #ffffff);
-    border: 1px solid var(--np-border, #e0e0e0);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 10px;
-    box-shadow: 0 6px 20px var(--np-shadow, rgba(0, 0, 0, 0.2));
+    box-shadow: 0 6px 20px var(--np-shadow);
     font-size: 12px;
     overflow: hidden;
 }
@@ -43,15 +43,15 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 2px;
-    padding: 8px 10px 0;
+    gap: var(--np-space-2);
+    padding: var(--np-space-8) var(--np-space-12) 0;
     font-size: 11px;
 }
 
 .task-peek-crumb {
     border: none;
     background: none;
-    padding: 2px 4px;
+    padding: var(--np-space-2) var(--np-space-4);
     border-radius: 4px;
     color: var(--np-accent);
     cursor: pointer;
@@ -63,28 +63,28 @@
 
 .task-peek-crumb:hover,
 .task-peek-crumb:focus-visible {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
     outline: 2px solid var(--np-accent);
     outline-offset: 1px;
 }
 
 .task-peek-crumb[aria-current="true"] {
-    color: var(--np-text, #333333);
+    color: var(--np-text);
     font-weight: 700;
     cursor: default;
 }
 
 .task-peek-crumb-sep {
-    color: var(--np-text-secondary, #666666);
+    color: var(--np-text-secondary);
     font-size: 11px;
 }
 
 .task-peek-header {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
+    border-bottom: 1px solid var(--np-border);
     flex-shrink: 0;
 }
 
@@ -94,7 +94,7 @@
     min-width: 0;
     font-size: 13px;
     font-weight: 700;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -102,12 +102,12 @@
 
 .task-peek-open-details-btn {
     flex-shrink: 0;
-    border: 1px solid var(--np-border, #e0e0e0);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
-    background: var(--np-bg-alt, #f8f9fa);
-    color: var(--np-text, #333333);
+    background: var(--np-bg-alt);
+    color: var(--np-text);
     font-size: 11px;
-    padding: 4px 8px;
+    padding: var(--np-space-4) var(--np-space-8);
     cursor: pointer;
     white-space: nowrap;
 }
@@ -129,7 +129,7 @@
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: var(--np-text-secondary, #666666);
+    color: var(--np-text-secondary);
     font-size: 16px;
     line-height: 1;
     cursor: pointer;
@@ -137,22 +137,22 @@
 
 .task-peek-close-btn:hover,
 .task-peek-close-btn:focus-visible {
-    background: var(--np-bg-hover, #f0f1f4);
-    color: var(--np-text, #333333);
+    background: var(--np-bg-hover);
+    color: var(--np-text);
 }
 
 .task-peek-list {
     list-style: none;
     margin: 0;
-    padding: 4px 6px;
+    padding: var(--np-space-4) var(--np-space-8);
     overflow-y: auto;
     min-height: 0;
 }
 
 .task-peek-empty {
-    padding: 10px 6px;
+    padding: var(--np-space-12) var(--np-space-8);
     font-size: 12px;
-    color: var(--np-text-muted, #888888);
+    color: var(--np-text-muted);
     font-style: italic;
     text-align: center;
 }
@@ -160,14 +160,14 @@
 .task-peek-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 4px;
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-4);
     border-radius: 6px;
     min-width: 0;
 }
 
 .task-peek-row:hover {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
 }
 
 .task-peek-row-drillable {
@@ -185,7 +185,7 @@
 .task-peek-row-name {
     flex: 1;
     min-width: 0;
-    color: var(--np-text, #333333);
+    color: var(--np-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

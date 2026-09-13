@@ -1,46 +1,27 @@
 /* ========================================
-   Colour Palette Custom Properties
+   EVM chart tokens
+
+   The identity palette (--np-red/orange/yellow/green/blue/purple and their
+   -subtle variants) and the animation timings used to be declared here. #1194
+   moved them to visual-system.css, which is the only place a --np-* token is
+   declared. Nothing about where they resolve changed: a custom property is
+   resolved from the cascaded value on the element, not from where in the file
+   it was declared, so a var() in this file still picks them up.
    ======================================== */
 :root {
-    /* Primary colours */
-    --np-red: #c21d1d;
-    --np-orange: #ff7b01;
-    --np-yellow: #ffd641;
-    --np-green: #1c9e41;
-    --np-blue: #108bb9;
-    --np-light-grey: #dbdbdb;
-    --np-dark-blue: #02384d;
 
-    /* Subtle / muted variants for backgrounds */
-    --np-red-subtle: #f5d0d0;
-    --np-orange-subtle: #ffe4c8;
-    --np-yellow-subtle: #fff4d1;
-    --np-green-subtle: #d1f0da;
-    --np-blue-subtle: #d0eaf5;
-    --np-light-grey-subtle: #f2f2f2;
-    --np-dark-blue-subtle: #cfe0e7;
+    /* EVM chart series and axis colours.
 
-    /* Animation timing */
-    --np-anim-duration-fast: 0.15s;
-    --np-anim-duration: 0.2s;
-    --np-anim-duration-slow: 0.4s;
-    --np-anim-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-
-    /* EVM colour scheme (light theme) */
-    --evm-bg: #ffffff;
-    --evm-card-bg: #ffffff;
-    --evm-card-border: #e0e0e0;
+       The surface half of this block -- backgrounds, borders, table chrome and
+       the four text roles -- was deleted in #1192: visual-system.css loads
+       later and bridges all ten onto the warm palette, so the declarations
+       here had no effect. What remains is the part visual-system.css does not
+       touch: the plotted series colours, the grid and axis lines, and the
+       positive/negative variance pair. */
     --evm-card-hover-border: #bbb;
-    --evm-chart-bg: #f8f9fa;
     --evm-chart-border: #e0e0e0;
-    --evm-text-primary: #333;
-    --evm-text-secondary: #666;
-    --evm-text-muted: #888;
     --evm-grid-line: #e0e0e0;
     --evm-axis-line: #999;
-    --evm-axis-label: #666;
-    --evm-table-header-bg: #f0f0f0;
-    --evm-table-border: #e0e0e0;
     --evm-line-pv: #2171b5;
     --evm-line-ev: #2ca02c;
     --evm-line-ac: #d62728;
@@ -51,22 +32,12 @@
     --evm-value-color: #4A90D9;
 }
 
-/* EVM dark mode overrides */
+/* EVM dark mode overrides (series and axis only, as above) */
 [data-theme="dark"] {
-    --evm-bg: #1a1a1a;
-    --evm-card-bg: #2a2a2a;
-    --evm-card-border: #3a3a3a;
     --evm-card-hover-border: #555;
-    --evm-chart-bg: #1e1e1e;
     --evm-chart-border: #3a3a3a;
-    --evm-text-primary: #e0e0e0;
-    --evm-text-secondary: #bbb;
-    --evm-text-muted: #999;
     --evm-grid-line: #333;
     --evm-axis-line: #555;
-    --evm-axis-label: #999;
-    --evm-table-header-bg: #2a2a2a;
-    --evm-table-border: #333;
     --evm-line-pv: #4A90D9;
     --evm-line-ev: #50C878;
     --evm-line-ac: #E8744F;
@@ -91,9 +62,9 @@
     top: -100%;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--np-accent, var(--np-blue));
+    background: var(--np-accent);
     color: var(--np-on-accent);
-    padding: 10px 20px;
+    padding: var(--np-space-12) var(--np-space-20);
     border-radius: 0 0 6px 6px;
     z-index: 9999;
     font-weight: 600;
@@ -110,10 +81,10 @@ html {
 }
 
 body {
-    font-family: var(--np-font-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif);
+    font-family: var(--np-font-ui);
     line-height: 1.6;
-    color: var(--np-text, #333);
-    background: var(--np-bg, white);
+    color: var(--np-text);
+    background: var(--np-bg);
     height: 100%;
     margin: 0;
     padding: 0;
@@ -121,6 +92,6 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-    font-family: var(--np-font-heading, var(--np-font-ui));
+    font-family: var(--np-font-heading);
     font-weight: 700;
 }

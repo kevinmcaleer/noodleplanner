@@ -33,53 +33,53 @@ body.backstage-fullscreen {
     justify-content: center;
     width: 40px;
     height: 40px;
-    margin: 8px 0 0 12px;
+    margin: var(--np-space-8) 0 0 var(--np-space-12);
     border: none;
     border-radius: 50%;
-    background: var(--np-bg-alt, #f8f9fa);
-    color: var(--np-text, #333);
+    background: var(--np-bg-alt);
+    color: var(--np-text);
     font-size: 1.2em;
     cursor: pointer;
-    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .backstage-back-arrow:hover,
 .backstage-back-arrow:focus-visible {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
     outline: none;
 }
 
 .backstage-container {
     display: flex;
     min-height: 100%;
-    background: var(--np-surface, #ffffff);
+    background: var(--np-surface);
 }
 
 .backstage-rail {
     flex: 0 0 240px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 24px 12px;
-    background: var(--np-bg-alt, #f8f9fa);
-    border-right: 1px solid var(--np-border, #e0e0e0);
+    gap: var(--np-space-2);
+    padding: var(--np-space-24) var(--np-space-12);
+    background: var(--np-bg-alt);
+    border-right: 1px solid var(--np-border);
 }
 
 .backstage-rail-btn {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     width: 100%;
-    padding: 10px 12px;
+    padding: var(--np-space-12) var(--np-space-12);
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--np-text, #333);
+    color: var(--np-text);
     font-size: 0.95em;
     font: inherit;
     text-align: left;
     cursor: pointer;
-    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .backstage-rail-btn svg.icon {
@@ -90,7 +90,7 @@ body.backstage-fullscreen {
 
 .backstage-rail-btn:hover,
 .backstage-rail-btn:focus-visible {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
     outline: none;
 }
 
@@ -102,17 +102,17 @@ body.backstage-fullscreen {
 }
 
 .backstage-main-title {
-    margin: 0 0 18px;
+    margin: 0 0 var(--np-space-20);
     font-size: 1.3em;
     font-weight: 600;
-    color: var(--np-text, #333);
+    color: var(--np-text);
 }
 
 .backstage-main-header {
     display: flex;
     align-items: center;
-    gap: 16px;
-    margin-bottom: 18px;
+    gap: var(--np-space-16);
+    margin-bottom: var(--np-space-20);
 }
 
 .backstage-main-header .backstage-main-title {
@@ -122,22 +122,22 @@ body.backstage-fullscreen {
 .backstage-back-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    border: 1px solid var(--np-border, #e0e0e0);
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
-    background: var(--np-surface, #ffffff);
-    color: var(--np-text-secondary, #666);
+    background: var(--np-surface);
+    color: var(--np-text-secondary);
     font: inherit;
     font-size: 0.9em;
     cursor: pointer;
-    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease),
-                border-color var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing),
+                border-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .backstage-back-btn:hover,
 .backstage-back-btn:focus-visible {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
     border-color: var(--np-accent);
     outline: none;
 }
@@ -149,8 +149,8 @@ body.backstage-fullscreen {
    even at 4-5 cards, sized to sit above the fold ahead of Recent. */
 .backstage-template-strip {
     display: flex;
-    gap: 14px;
-    margin-bottom: 32px;
+    gap: var(--np-space-16);
+    margin-bottom: var(--np-space-32);
     overflow-x: auto;
 }
 
@@ -171,23 +171,29 @@ body.backstage-fullscreen {
     font-weight: 600;
     font-size: 0.9em;
     cursor: pointer;
-    padding: 4px;
+    padding: var(--np-space-4);
 }
 
-.backstage-more-templates-btn:hover,
+.backstage-more-templates-btn:hover {
+    text-decoration: underline;
+}
+
+/* Underline alone was the focus treatment, which made focus and hover
+   indistinguishable; the ring is what tells a keyboard user where they are. */
 .backstage-more-templates-btn:focus-visible {
     text-decoration: underline;
     outline: none;
+    box-shadow: var(--np-focus-ring);
 }
 
 .backstage-recent-title {
-    margin-top: 4px;
+    margin-top: var(--np-space-4);
 }
 
 .backstage-template-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 14px;
+    gap: var(--np-space-16);
     max-width: 900px;
 }
 
@@ -196,23 +202,23 @@ body.backstage-fullscreen {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: var(--np-space-12);
     aspect-ratio: 3 / 4;
-    padding: 16px;
-    border: 1px solid var(--np-border, #e0e0e0);
+    padding: var(--np-space-16);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
-    background: var(--np-surface, #ffffff);
+    background: var(--np-surface);
     color: inherit;
     font: inherit;
     cursor: pointer;
     text-align: center;
-    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease),
-                border-color var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing),
+                border-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .backstage-template-card:hover,
 .backstage-template-card:focus-visible {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
     border-color: var(--np-accent);
     outline: none;
 }
@@ -228,55 +234,55 @@ body.backstage-fullscreen {
 
 .backstage-template-card-name {
     font-weight: 600;
-    color: var(--np-text, #333);
+    color: var(--np-text);
 }
 
 .backstage-recent-empty {
-    padding: 40px 20px;
+    padding: var(--np-space-40) var(--np-space-20);
     text-align: center;
-    color: var(--np-text-secondary, #666);
-    border: 1px dashed var(--np-border, #e0e0e0);
+    color: var(--np-text-secondary);
+    border: 1px dashed var(--np-border);
     border-radius: 8px;
-    background: var(--np-bg-alt, #f8f9fa);
+    background: var(--np-bg-alt);
     max-width: 480px;
 }
 
 .backstage-recent-empty p {
-    margin: 0 0 6px;
+    margin: 0 0 var(--np-space-8);
 }
 
 .backstage-recent-empty-hint {
     font-size: 0.9em;
-    color: var(--np-text-muted, #888);
+    color: var(--np-text-muted);
 }
 
 .backstage-recent-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 12px;
+    gap: var(--np-space-12);
     max-width: 900px;
 }
 
 .backstage-recent-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px;
-    border: 1px solid var(--np-border, #e0e0e0);
+    gap: var(--np-space-12);
+    padding: var(--np-space-16);
+    border: 1px solid var(--np-border);
     border-radius: 8px;
-    background: var(--np-surface, #ffffff);
+    background: var(--np-surface);
     cursor: pointer;
     text-align: left;
     width: 100%;
     font: inherit;
     color: inherit;
-    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease),
-                border-color var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing),
+                border-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .backstage-recent-item:hover,
 .backstage-recent-item:focus-visible {
-    background: var(--np-bg-hover, #f0f1f4);
+    background: var(--np-bg-hover);
     border-color: var(--np-accent);
     outline: none;
 }
@@ -296,12 +302,12 @@ body.backstage-fullscreen {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--np-space-2);
 }
 
 .backstage-recent-item-name {
     font-weight: 600;
-    color: var(--np-text, #333);
+    color: var(--np-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -309,7 +315,7 @@ body.backstage-fullscreen {
 
 .backstage-recent-item-meta {
     font-size: 0.85em;
-    color: var(--np-text-secondary, #666);
+    color: var(--np-text-secondary);
 }
 
 .backstage-recent-item-badge {
@@ -318,7 +324,7 @@ body.backstage-fullscreen {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 2px 8px;
+    padding: var(--np-space-2) var(--np-space-8);
     border-radius: 10px;
     background: var(--np-accent);
     color: var(--np-on-accent);
@@ -330,8 +336,8 @@ body.backstage-fullscreen {
         flex-direction: row;
         flex-wrap: wrap;
         border-right: none;
-        border-bottom: 1px solid var(--np-border, #e0e0e0);
+        border-bottom: 1px solid var(--np-border);
     }
     .backstage-rail-btn { width: auto; }
-    .backstage-main { padding: 20px; }
+    .backstage-main { padding: var(--np-space-20); }
 }

@@ -53,7 +53,7 @@ fi
 
 # The jobs that gate a push. Everything in ci/jobs/ that is not listed here
 # still runs under --all or by name, but cannot fail the run.
-CI_BLOCKING_JOBS=(python js conformance roundtrip ui)
+CI_BLOCKING_JOBS=(python js conformance roundtrip ui design)
 
 ALL_JOBS=()
 for f in "$CI_DIR"/jobs/*.sh; do
