@@ -1,8 +1,11 @@
-# The two full test suites. The other workflows guard specific invariants --
-# engine-conformance.yml that both scheduling engines agree, and
-# markdown-roundtrip.yml that a plan survives a save -- but until this one
-# existed nothing ran `pytest` or `npm run test:js` on a pull request, so a
-# broken test only showed up when somebody ran it locally.
+# The two full test suites, plus the browser suites.
+#
+# The job bodies are not here. Every step below is a one-line call into
+# ci/jobs/, which is the same entry point the pre-push hook and a developer's
+# terminal use -- see ci/README.md. Before that, these steps were the only
+# written-down definition of CI, so reproducing a failure locally meant reading
+# YAML and retyping it, and the uv/Node setup was copy-pasted across four jobs
+# and three files.
 name: Test suites
 
 on:
@@ -16,107 +19,60 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# The runners are ours (ci/runner/), which is what takes these suites off the
+# metered GitHub-hosted minutes this repository kept running out of -- minutes
+# are not billed for self-hosted runners, even on a private repository.
+#
+# Set the CI_RUNS_ON repository variable to ["ubuntu-latest"] to fall back to
+# GitHub-hosted runners without editing any of this: if the machine hosting the
+# runners is down, jobs queue indefinitely rather than failing, and flipping a
+# variable is a faster answer to that than three pull requests.
 jobs:
   pytest:
     name: pytest
-    runs-on: ubuntu-latest
-    # Seconds, not minutes, now that the Selenium tests run in their own job
-    # below: the same suite that took ~19 minutes with them finishes in under
-    # a minute without. The ceiling stays generous enough to absorb a slow
-    # runner, and far below the six-hour default that would let a genuinely
-    # stuck job hold a runner all day -- a job that is still running is also a
-    # job whose log cannot be read, which is its own reason not to let one sit.
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["self-hosted","linux","noodle"]') }}
+    # Seconds, not minutes, now that the browser tests run in their own job: the
+    # same suite that took ~19 minutes with them finishes in under a minute
+    # without. The ceiling stays generous enough to absorb a busy runner, and
+    # far below the six-hour default that would let a genuinely stuck job hold a
+    # runner all day -- a job that is still running is also a job whose log
+    # cannot be read, which is its own reason not to let one sit.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install the workspace
-        run: uv sync --all-packages
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install dev dependencies
-        run: npm ci
-
-      # `-m "not usability"` is what keeps this job fast: it deselects the
-      # Selenium tests, which are the entire difference between ~18 minutes
-      # and ~18 seconds. They still run -- in the `usability` job below --
-      # so the coverage isn't lost, just moved off the blocking path.
-      #
-      # This only works because every Selenium file now carries
-      # `pytest.mark.usability`. Before, only tests/test_usability.py did, so
-      # the switch deselected 30 tests out of 229 and looked broken. The
-      # browser/Python Excel parity tests are non-usability pytest tests that
-      # shell out to Node, so this job still installs the npm dev
-      # dependencies they need.
-      #
-      # pytest.ini already puts -v in addopts, so a run killed on the timeout
-      # names the test it stopped on rather than trailing off into dots.
-      - name: Run the Python suite
-        run: uv run pytest -p no:cacheprovider -m "not usability"
+      - run: ./ci/run.sh -j1 --strict python
 
   usability:
     name: pytest (usability)
-    runs-on: ubuntu-latest
-    # Reporting, not gating. 13 test files drive Selenium and they skip
-    # wherever no browser can be reached, so on a developer machine 229 tests
-    # silently skip and only ever really run here -- which is how this
-    # workflow found 42 of them asserting against a UI that no longer exists
-    # (no #projectTab, no #projectSubnav). Deselecting them from the blocking
-    # job would have hidden that, so they get their own job instead.
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["self-hosted","linux","noodle"]') }}
+    # Reporting, not gating. 13 test files drive a browser and they skip wherever
+    # none is reachable, so on a developer machine they silently skip and only
+    # ever really run here -- which is how this workflow found 42 of them
+    # asserting against a UI that no longer exists (no #projectTab, no
+    # #projectSubnav). Deselecting them from the blocking job would have hidden
+    # that, so they get their own job instead.
     #
-    # continue-on-error means a red result here annotates the PR without
-    # blocking it. Once the stale assertions are fixed, drop this line and the
-    # job becomes a real gate.
+    # continue-on-error means a red result here annotates the pull request
+    # without blocking it. --strict is what makes a real failure red at all:
+    # ci/run.sh would otherwise report it and exit 0, because `usability` is not in
+    # its gating set. A genuine skip (no browser on the runner) still passes.
+    #
+    # Once the stale assertions are fixed, drop continue-on-error and add
+    # `usability` to CI_BLOCKING_JOBS in ci/run.sh, and the job becomes a gate.
+    #
+    # The job id and check name are unchanged from before this rewrite on
+    # purpose: they are what any required status check on `main` refers to, and a
+    # renamed check does not fail, it simply never reports again.
     continue-on-error: true
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install the workspace
-        run: uv sync --all-packages
-
-      - name: Run the Selenium suite
-        run: uv run pytest -p no:cacheprovider -m usability
+      - run: ./ci/run.sh -j1 --strict usability
 
   js:
     name: npm run test:js
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["self-hosted","linux","noodle"]') }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-
-      # The browser libraries are vendored into static/vendor, but the tests
-      # import the npm originals to check the two agree, so the dev
-      # dependencies have to be installed.
-      - name: Install dev dependencies
-        run: npm ci
-
-      - name: Run the JavaScript suites
-        run: npm run test:js
+      - run: ./ci/run.sh -j1 --strict js

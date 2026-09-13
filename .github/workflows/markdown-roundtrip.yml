@@ -1,8 +1,10 @@
-# Markdown is the canonical plan format (issue #771). This guard fails the
-# build if any change makes opening and saving an unedited plan alter it
-# beyond the front-matter keys the app maintains. See
-# docs/reference/plan-format.rst for the guarantee and
-# tests/test_markdown_roundtrip.{py,mjs} for what is checked.
+# Markdown is the canonical plan format (issue #771). This guard fails the build
+# if any change makes opening and saving an unedited plan alter it beyond the
+# front-matter keys the app maintains. See docs/reference/plan-format.rst for
+# the guarantee and tests/test_markdown_roundtrip.{py,mjs} for what is checked.
+#
+# The steps live in ci/jobs/roundtrip.sh so the same checks run from a terminal
+# and from the pre-push hook. See ci/README.md.
 name: Markdown round-trip guard
 
 on:
@@ -10,30 +12,16 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   roundtrip:
-    runs-on: ubuntu-latest
+    # Ours, not GitHub's -- see the note in tests.yml. Set the CI_RUNS_ON
+    # repository variable to ["ubuntu-latest"] to fall back.
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["self-hosted","linux","noodle"]') }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install the workspace
-        run: uv sync --all-packages
-
-      - name: Server side — parse never rewrites an unedited plan
-        run: uv run pytest tests/test_markdown_roundtrip.py -q -p no:cacheprovider
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Browser side — app-maintained keys are single-line, in-place edits
-        run: node --test tests/test_markdown_roundtrip.mjs
+      - run: ./ci/run.sh -j1 --strict roundtrip
