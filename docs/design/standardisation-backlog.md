@@ -336,17 +336,49 @@ before/after `capture_screen_audit.py` + `compare_screens.py` pass across all
 by default, and `check_rendered_contrast.py`'s own view walk doesn't open
 modals either, which is why neither tool caught this on its own).
 
-**What's left in 4.2**: two "tip box" callouts with a fixed dark background
-(`background: #3a3a3a`/`#2a2a2a` with a coloured left border, in the AI chat
-and lessons prompts) and a third using `rgba(111, 66, 193, 0.08)` the same
-way; three form fields (`taskPriority`, `taskBucket`, `taskComment`) that
-hardcode `background: white; color: black` and are missing the `form-control`
-class their sibling fields have; a decorative accent border
-(`#667eea`), a disabled-input background (`#f0f0f0`), and a semantic danger
-button's red text/border (`#d9534f`). Each needs the same "does this element's
-background flip with the theme" judgement as the raw-colour backlog below,
-and the form-field one needs visual verification against real form state
-before touching it — neither was done here rather than guessed at.
+**Every item that turned out to be a bug rather than a design call is now
+fixed**, each verified live rather than guessed at:
+
+- The **editor tip bar**'s `#3a3a3a`/`#d4d4d4`/`#108BB9` already had exact
+  canonical answers — `--np-editor-tip-bg`, `--np-editor-tip-text`,
+  `--np-blue` — that dark theme was already using via an attribute-selector
+  `!important` hack; light theme (the base styling) just never got pointed at
+  them. Now both do, and the dead override rule is gone.
+- The **Lessons Learned view's prompt box** hardcoded the same dark literal,
+  but with no adjacent dark surface to justify it (unlike the editor tip) —
+  a solid black box sitting in the middle of an otherwise entirely
+  light-surfaced table page. Its own sibling copy, in the lessons *form*, had
+  already solved this correctly (`rgba(111, 66, 193, 0.08)`, no explicit text
+  colour, so it tints the page instead of replacing it); applied the same
+  fix here instead of inventing a new one.
+- **`taskPriority`/`taskBucket`/`taskComment`** (a `<select>`, an `<input
+  type="text">`, a `<textarea>`) hardcoded `background: white; color: black`.
+  Turned out no class was needed: the bare-element dark-theme rule in
+  `dark-mode.css` already covers `select`/`textarea` by tag, and
+  `input[type="text"]` is covered in both themes by the canonical
+  `.form-control` rule regardless of class — the inline literal was just
+  winning over both. Verified live via `openTaskForm()`: all three now
+  exactly match a sibling `.form-control` field's computed style in both
+  themes.
+- **The budget supplier filter**'s `border: 2px solid #667eea` was the only
+  toolbar filter in the app styled this way — a bold blue-purple border next
+  to two dropdowns using the ordinary 1px token border. Removed; it now
+  matches its siblings.
+- **`#taskEffortTotal`**'s `background-color: #f0f0f0` had the same fault as
+  the three form fields above — its text colour already followed the theme,
+  its background didn't, so dark theme rendered light text on light grey.
+  Changed to `var(--np-sunken)`, the existing recessed-surface token.
+
+**What's left is now only the genuine palette calls**: the "Remove
+Deliverable Status" button's `#d9534f` measures 3.9:1 on light and 4.2:1 on
+dark — under AA in *both* themes already, not a regression from either, so
+there's no "restore what the theme broke" fix available; landing on AA means
+choosing a specific red, the same class of decision as the raw-colour item
+below. Checked the risk-severity counts in `portfolio-risks.js` for the same
+reason rather than assuming they're fine: `#e8a317` (medium) measures 2.13:1
+against the light surface and `#28a745` (low) 3.08:1 — both pre-existing in
+light theme, not something dark theme broke. Left alone, like the other RAG
+colours, for the same reason.
 
 **4.3 got the same audit, and confirms band 2.4's conclusion about the raw
 colours rather than getting further with them.** 22 declarations across 8
