@@ -61,7 +61,16 @@ ci_step() {
   printf '%s\n' "${CI_BOLD}--- ${label}${CI_OFF}"
   "$@"
   local rc=$?
-  printf '%s\n' "    ${CI_GREEN}ok${CI_OFF} (${label}, $(( $(date +%s) - started ))s)"
+  local took=$(( $(date +%s) - started ))
+  # The branch is not redundant. Outside a pipeline set -e aborts before this
+  # line, so only the ok case is ever reached -- but a job that pipes ci_step
+  # into tee (js.sh, usability.sh) suppresses errexit, and there the
+  # unconditional "ok" this used to print labelled a failed step as passing.
+  if [ "$rc" = 0 ]; then
+    printf '%s\n' "    ${CI_GREEN}ok${CI_OFF} (${label}, ${took}s)"
+  else
+    printf '%s\n' "    ${CI_RED}failed${CI_OFF} (${label}, ${took}s, exit ${rc})"
+  fi
   return $rc
 }
 

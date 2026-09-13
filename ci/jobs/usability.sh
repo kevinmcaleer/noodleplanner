@@ -36,7 +36,10 @@ trap 'rm -f "$log"' EXIT
 set +e
 ci_step "pytest -m usability" \
   ci_pytest -p no:cacheprovider -m usability "$@" 2>&1 | tee "$log"
-rc=${PIPESTATUS[1]}
+# [0] is pytest, [1] is tee. tee all but always succeeds, so reading [1] here
+# would report every failing run as a pass -- which, on the one job in this
+# directory that does not gate, nothing downstream would have caught.
+rc=${PIPESTATUS[0]}
 set -e
 
 if [ "$rc" = 0 ] && ! grep -qE '[0-9]+ (passed|failed)' "$log"; then
