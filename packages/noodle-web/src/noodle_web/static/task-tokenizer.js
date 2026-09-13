@@ -4,6 +4,7 @@ const TaskLineTokenizer = (() => {
         ['comment', /["\u201c][^"\u201d]*["\u201d]/g],
         ['dependency', /\[depends(?::\s*|\s+)[^\]]+\]/gi],
         ['recurrence', /\[repeats\s+[^\]]+\]/gi],
+        ['deadline', /\[deadline\s+\d{4}-\d{2}-\d{2}\]/gi],
         ['bucket', /\{[^}]+\}/g],
     ];
     const tokenPattern = /~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?|(?<![\w!])(!!!|!!|!)(?![\w!"'{])|@\w+|#\w+|[/^]?\$[A-Za-z_][A-Za-z0-9_-]*|\b\d+[dmwy]\b|(?<!\w)\d+%(?!\w)|\b\d{4}-\d{2}-\d{2}\b/g;
@@ -60,6 +61,7 @@ const TaskLineTokenizer = (() => {
             name: '', duration: '', startDate: '', finishDate: '', percent: '',
             resources: [], labels: [], comment: '', priority: 'Low', bucket: '',
             dependencies: [], recurrence: '', product_type: undefined, deliverable: undefined,
+            deadline: '',
             effortCompleted: '', effortCompletedUnit: 'h', effortRemaining: '',
             effortRemainingUnit: 'h', effortTotal: '', effortTotalUnit: 'h',
             hasStar: false, starLagLead: ''
@@ -77,6 +79,7 @@ const TaskLineTokenizer = (() => {
             else if (token.type === 'bucket' && !values.bucket) values.bucket = text.slice(1, -1).trim();
             else if (token.type === 'priority') values.priority = text === '!!!' ? 'Urgent' : text === '!!' ? 'Important' : 'Medium';
             else if (token.type === 'recurrence' && !values.recurrence) values.recurrence = text.replace(/^\[repeats\s+|\]$/gi, '').trim().toLowerCase();
+            else if (token.type === 'deadline' && !values.deadline) values.deadline = text.replace(/^\[deadline\s+|\]$/gi, '').trim();
             else if (token.type === 'dependency') {
                 const content = text.replace(/^\[depends(?::\s*|\s+)|\]$/gi, '');
                 values.dependencies.push(...content.split(',').map(value => value.trim()).filter(Boolean));

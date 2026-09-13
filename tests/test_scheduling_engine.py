@@ -198,6 +198,11 @@ class TestExtractMetadata:
         result = extract_metadata(task, "Task 1")
         assert result['comment'] == "This is a comment"
 
+    def test_extract_deadline_without_scheduling_it_as_start(self):
+        result = extract_metadata("Launch 2d [deadline 2027-03-15]", "Launch")
+        assert result['deadline'] == "2027-03-15"
+        assert 'start' not in result
+
     def test_extract_dependencies(self):
         """Test extracting dependencies using [depends] syntax."""
         task = "Task 2 [depends Task 1] @john 2d"

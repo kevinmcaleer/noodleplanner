@@ -25,6 +25,7 @@ const BRACKET_DEP = /\[depends\s*:?\s*([^\]]*)\]/i;
 const LAG_LEAD = /^(.+?)\s+([+-]\d+[dwmy])$/;
 const DEP_TYPE = /^(.+?):(FS|SS|FF|SF)$/i;
 const RECURRENCE = /\[repeats\s+([^\]]+)\]/i;
+const DEADLINE = /\[deadline\s+(\d{4}-\d{2}-\d{2})\]/i;
 // Noodle view (#984/#985): a manual drag is recorded as this exception --
 // a semantic corner, not raw pixels -- and an associative (non-scheduling)
 // link is recorded the same bracket-tag way `[depends]` records a real one.
@@ -168,6 +169,9 @@ export function extractMetadata(taskStr, taskName = null) {
   const recurrence = RECURRENCE.exec(line);
   if (recurrence) meta.recurrence = parseRecurrence(recurrence[1]);
 
+  const deadline = DEADLINE.exec(line);
+  if (deadline) meta.deadline = deadline[1];
+
   // --- noodle view pin (issue #984) ---
   const pin = PIN_TAG.exec(line);
   if (pin) {
@@ -263,7 +267,7 @@ export function extractMetadata(taskStr, taskName = null) {
 
   // --- levelled flag, which fixes the start, then any explicit date ---
   const levelled = LEVELLED.exec(line);
-  let lineForDates = line;
+  let lineForDates = line.replace(DEADLINE, "");
   if (levelled) {
     meta.levelled = { resource: levelled[1].replace(/^@/, ""), start: levelled[2] };
     lineForDates = line.slice(0, levelled.index) + line.slice(levelled.index + levelled[0].length);

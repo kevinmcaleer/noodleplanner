@@ -27,6 +27,7 @@ _BRACKET_DEP = re.compile(r'\[depends\s*:?\s*([^\]]*)\]', re.IGNORECASE)
 _LAG_LEAD = re.compile(r'^(.+?)\s+([+\-]\d+[dwmy])$')
 _DEP_TYPE = re.compile(r'^(.+?):(FS|SS|FF|SF)$', re.IGNORECASE)
 _RECURRENCE = re.compile(r'\[repeats\s+([^\]]+)\]', re.IGNORECASE)
+_DEADLINE = re.compile(r'\[deadline\s+(\d{4}-\d{2}-\d{2})\]', re.IGNORECASE)
 _BUCKET = re.compile(r'\{([^}]+)\}')
 _PRIORITY = re.compile(r'(?<!\w)(!!!|!!|!)(?!["\'])')
 _BANG_COMMENT = re.compile(r'!(?:"([^"]+)"|\'([^\']+)\')')
@@ -300,6 +301,10 @@ def extract_metadata(task_str, task_name=None):
     if recurrence_match:
         meta['recurrence'] = parse_recurrence(recurrence_match.group(1))
 
+    deadline_match = _DEADLINE.search(task_str)
+    if deadline_match:
+        meta['deadline'] = deadline_match.group(1)
+
     if task_name:
         meta['name'] = task_name
     if str(task_str).startswith('*'):
@@ -398,7 +403,7 @@ def extract_metadata(task_str, task_name=None):
     # used for other date matching so the embedded YYYY-MM-DD isn't picked
     # up twice.
     levelled_match = _LEVELLED.search(task_str)
-    task_str_for_dates = task_str
+    task_str_for_dates = _DEADLINE.sub('', task_str)
     if levelled_match:
         meta['levelled'] = {
             'resource': levelled_match.group(1).lstrip('@'),

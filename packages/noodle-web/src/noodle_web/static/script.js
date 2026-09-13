@@ -4796,6 +4796,7 @@ function parseTaskLine(line, lineNum) {
         dependencies: values.dependencies.join(', '),
         labels: values.labels.join(', '),
         recurrence: values.recurrence,
+        deadline: values.deadline,
         effortCompleted: values.effortCompleted,
         effortCompletedUnit: values.effortCompletedUnit,
         effortRemaining: values.effortRemaining,

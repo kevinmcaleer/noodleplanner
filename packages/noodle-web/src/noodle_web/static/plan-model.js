@@ -40,6 +40,7 @@
         const protectedLine = line
             .replace(/\[depends\s*:?\s*[^\]]*\]/gi, '')
             .replace(/\[repeats\s+[^\]]*\]/gi, '')
+            .replace(/\[deadline\s+\d{4}-\d{2}-\d{2}\]/gi, '')
             .replace(/\{[^}]*\}/g, '')
             .replace(/["\u201c][^"\u201d]*["\u201d]/g, '')
             .replace(/~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?/gi, '')
