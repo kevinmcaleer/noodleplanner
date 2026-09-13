@@ -222,6 +222,9 @@ __marimo__/
 # Node (mppwriter is vendored from npm by `npm run vendor:mppwriter`)
 node_modules/
 
+# Storybook static build output (`npm run build-storybook`)
+storybook-static/
+
 # a local MS Project template for the CLI/library tests (NOODLE_MPP_TEMPLATE); the app ships its own in static/
 templates/mpp-template.mpp
 
