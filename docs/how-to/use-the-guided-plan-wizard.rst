@@ -59,6 +59,11 @@ If nothing is wrong the panel says so, and says how many deadlines it checked �
 
    The Design stage opens Backstage, where a blank plan is always available; starting from a ready-made template is being built separately. Every stage is independently skippable, so this doesn't block the rest of the flow.
 
+On a Tablet
+--------------
+
+The whole flow is usable by touch. The panel floats over the view it switches you to, at both landscape and portrait tablet sizes, without pushing the page into horizontal scrolling; step chips, the Back/Skip/Next controls, the close button and each row of the Scheduling report all meet the 44-pixel activation area described in :doc:`use-touch-controls`.
+
 Related
 --------
 
@@ -66,3 +71,4 @@ Related
 - :doc:`use-the-whiteboard` — the Dependencies stage's host view
 - :doc:`use-conditional-formatting` — the highlighting presets each stage applies
 - :doc:`../reference/plan-syntax` — the ``D2026-09-10`` deadline marker the Deadline field writes
+- :doc:`use-touch-controls` — the touch conventions the panel follows

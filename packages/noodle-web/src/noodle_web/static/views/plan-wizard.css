@@ -260,3 +260,22 @@
     cursor: pointer;
     min-height: 36px;
 }
+
+/* Touch targets on a coarse pointer (#783: "the whole flow works on a
+   tablet"). The step chips and the report rows already clear the 44px
+   activation area docs/how-to/use-touch-controls.rst documents; these
+   four did not -- measured on an emulated iPad, the footer buttons came
+   out 40px, the Re-check button 36px and the panel's close button 32px.
+   Raised only under `pointer: coarse`, the same way components.css does
+   it for .nav-menu-item/.task-context-menu-item/.close-btn, so the
+   mouse-driven panel keeps its current, more compact proportions. */
+@media (pointer: coarse) {
+    .plan-wizard-close,
+    .plan-wizard-back-btn,
+    .plan-wizard-skip-btn,
+    .plan-wizard-next-btn,
+    .schedule-check-recheck {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
