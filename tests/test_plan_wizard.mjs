@@ -108,3 +108,43 @@ test('loadState tolerates corrupt JSON and falls back to default', () => {
     globalThis.localStorage.setItem('noodleplanner:wizard-state', '{not json');
     assert.deepEqual(wizard.loadState(), wizard.defaultState());
 });
+
+// #1107: "Clicking the Guided plan button opens the backstage view -- just
+// show the wizard; don't open the backstage view." applyStageHost() is the
+// one place a stage's `view` turns into a real switchToView() call; these
+// stub out both globals it reaches for and assert Backstage is the one
+// stage host it refuses to auto-switch into, while every other stage's
+// host (a normal workspace tab) still switches exactly as before.
+test('applyStageHost never auto-switches into Backstage, but still switches into every other stage host', () => {
+    const switched = [];
+    globalThis.switchToView = (view) => switched.push(view);
+    globalThis.HighlightToggles = { applyPreset: () => {} };
+
+    const designStage = wizard.STAGES.find(s => s.key === 'design');
+    assert.equal(designStage.view, 'backstage', 'sanity: Design still hosts Backstage');
+    wizard.applyStageHost(designStage);
+    assert.deepEqual(switched, [], 'Backstage must never be switched into automatically');
+
+    for (const stage of wizard.STAGES) {
+        if (stage.view === 'backstage') continue;
+        switched.length = 0;
+        wizard.applyStageHost(stage);
+        assert.deepEqual(switched, [stage.view], `${stage.key} stage still hosts its normal workspace view`);
+    }
+
+    delete globalThis.switchToView;
+    delete globalThis.HighlightToggles;
+});
+
+test('applyStageHost still applies the stage highlight preset for Backstage', () => {
+    const presets = [];
+    globalThis.switchToView = () => {};
+    globalThis.HighlightToggles = { applyPreset: (p) => presets.push(p) };
+
+    const designStage = wizard.STAGES.find(s => s.key === 'design');
+    wizard.applyStageHost(designStage);
+    assert.deepEqual(presets, [designStage.preset]);
+
+    delete globalThis.switchToView;
+    delete globalThis.HighlightToggles;
+});

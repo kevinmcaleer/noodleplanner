@@ -15,8 +15,24 @@
  *   2. *Find a note.* Type in the search box and the tree filters to
  *      matches and their ancestors; click a row and the canvas pans to
  *      centre that note and flashes it.
- *   3. *Get a task onto the board.* A task with no note gets an add
- *      button, so an outline row is one click from becoming a post-it.
+ *   3. *Get a task onto (or off) the board.* A task with no note gets a
+ *      "+" button, so an outline row is one click from becoming a post-it;
+ *      a task that already has one gets a "−" in the same slot instead
+ *      (#1108), which only removes the note -- see
+ *      wbOutlineBoardToggleClicked().
+ *
+ * A fourth job, added for issue #1156: *restructure the plan by dragging a
+ * row.* Each row has a drag handle. Dropping it in the top half of another
+ * row reorders it to sit just before that row (as its new sibling);
+ * dropping in the bottom half reorders it to sit just after. Dropping in
+ * the bottom half *and* far enough to the right instead nests it as a
+ * child of that row -- a deliberately different horizontal zone so a
+ * plain up/down reorder is never mistaken for "make this a sub-task", and
+ * vice versa (see wbOutlineDropZoneFor()). Reordering writes through the
+ * new wbMoveTaskInPlanText(); nesting reuses the same
+ * wbReparentTaskInPlanText() a dragged noodle already writes through, so
+ * there is exactly one "make X a child of Y" implementation either
+ * gesture can produce.
  *
  * Data flow, matching whiteboard-notes.js's own rule: this file never
  * parses plan text. It reads the already-scheduled `wbLastTasks` that
@@ -38,6 +54,14 @@
 
 /** Pixels of padding kept around a note when the panel pans to it. */
 const WB_OUTLINE_FOCUS_PADDING = 60;
+
+/**
+ * How far right of a row's own indent a drop has to land to count as
+ * "nest under this row" rather than "reorder next to it" -- see
+ * wbOutlineDropZoneFor(). Comfortably more than one indent level (12px)
+ * so a slightly wobbly drag never nests by accident.
+ */
+const WB_OUTLINE_NEST_THRESHOLD_PX = 24;
 
 // -- Module state --------------------------------------------------------
 
@@ -296,6 +320,17 @@ function wbBuildOutlineRow(row) {
     if (row.matched) el.classList.add('matched');
     if (row.hasChildren) el.setAttribute('aria-expanded', String(!row.collapsed));
 
+    // Drag handle: grabbing it and dropping elsewhere in the panel
+    // restructures the plan (#1156) -- see wbAttachOutlineDragHandlers().
+    const handle = document.createElement('span');
+    handle.className = 'wb-outline-drag-handle';
+    handle.setAttribute('draggable', 'true');
+    handle.setAttribute('aria-hidden', 'true');
+    handle.title = 'Drag to move or nest this task';
+    handle.textContent = '⠿';
+    el.appendChild(handle);
+    wbAttachOutlineDragHandlers(handle, el, row.name);
+
     // Chevron (or a spacer, so every name lines up at its depth).
     if (row.hasChildren) {
         const chevron = document.createElement('button');
@@ -350,22 +385,186 @@ function wbBuildOutlineRow(row) {
         el.appendChild(pct);
     }
 
-    // Add-to-board button for anything not already on it.
-    if (!row.onBoard) {
-        const add = document.createElement('button');
-        add.type = 'button';
-        add.className = 'wb-outline-add';
-        add.title = `Add "${row.name}" to the board`;
-        add.setAttribute('aria-label', `Add ${row.name} to the board`);
-        add.textContent = '+';
-        add.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (typeof wbCommitAddNotes === 'function') wbCommitAddNotes([row.name]);
-        });
-        el.appendChild(add);
-    }
+    // Add-to-board / remove-from-board toggle (#1108). Same slot either
+    // way: a task with no note yet gets a "+"; one that already has a note
+    // on the board gets a "−" instead, so the control always reflects
+    // whether *this* row is currently represented on the canvas -- see
+    // wbOutlineBoardToggleClicked() for what each side actually does.
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'wb-outline-add' + (row.onBoard ? ' wb-outline-remove' : '');
+    toggle.title = row.onBoard
+        ? `Remove "${row.name}" from the board`
+        : `Add "${row.name}" to the board`;
+    toggle.setAttribute('aria-label', row.onBoard
+        ? `Remove ${row.name} from the board. This only removes the note; the task and its subtasks stay in your plan.`
+        : `Add ${row.name} to the board`);
+    toggle.textContent = row.onBoard ? '−' : '+';
+    toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbOutlineBoardToggleClicked(row.name, row.onBoard);
+    });
+    el.appendChild(toggle);
 
     return el;
+}
+
+/**
+ * Which action the outline's add/remove toggle takes for a row that is (or
+ * isn't) currently on the board. Pure decision, split out from the click
+ * handler so it's testable without a DOM -- see
+ * tests/test_whiteboard_outline_toggle.mjs.
+ */
+function wbOutlineBoardToggleAction(onBoard) {
+    return onBoard ? 'remove' : 'add';
+}
+
+/**
+ * Run the outline's add/remove toggle for `taskName`. 'add' reuses
+ * wbCommitAddNotes() -- the same single-name path the picker's own "Add"
+ * takes. 'remove' reuses wbRemoveNoteFromBoard() -- the same function the
+ * note header's own "Remove from board" menu item calls -- so this is
+ * never a second implementation of either action, only a second place to
+ * trigger them, and removing a note here leaves the task and its subtasks
+ * exactly as intact as it does from the note menu.
+ */
+function wbOutlineBoardToggleClicked(taskName, onBoard) {
+    if (wbOutlineBoardToggleAction(onBoard) === 'remove') {
+        return (typeof wbRemoveNoteFromBoard === 'function') ? wbRemoveNoteFromBoard(taskName) : false;
+    }
+    return (typeof wbCommitAddNotes === 'function') ? wbCommitAddNotes([taskName]) : false;
+}
+
+// -- Drag to restructure (#1156) ------------------------------------------
+
+/** Remove every row's drop-target styling. Called before re-marking one. */
+function wbClearOutlineDropIndicators() {
+    if (!wbOutlineRefs || !wbOutlineRefs.list) return;
+    wbOutlineRefs.list.querySelectorAll(
+        '.wb-outline-drop-before, .wb-outline-drop-after, .wb-outline-drop-child'
+    ).forEach(row => row.classList.remove(
+        'wb-outline-drop-before', 'wb-outline-drop-after', 'wb-outline-drop-child'
+    ));
+}
+
+/**
+ * Which of the three drop zones `(clientX, clientY)` falls in, relative to
+ * `row`: 'before' (top half -- reorder to sit just above it), 'after'
+ * (bottom half, at or left of the row's own indent -- reorder to sit just
+ * below it), or 'child' (bottom half *and* past
+ * WB_OUTLINE_NEST_THRESHOLD_PX to the right of the row's indent -- nest
+ * under it). The horizontal check only applies to the bottom half so a
+ * plain reorder-before never needs a precise horizontal position to hit.
+ */
+function wbOutlineDropZoneFor(row, clientX, clientY) {
+    const rect = row.getBoundingClientRect();
+    if (clientY < rect.top + rect.height / 2) return 'before';
+
+    const indentPx = parseFloat(getComputedStyle(row).paddingLeft) || 0;
+    const nestThreshold = rect.left + indentPx + WB_OUTLINE_NEST_THRESHOLD_PX;
+    return clientX >= nestThreshold ? 'child' : 'after';
+}
+
+/**
+ * Commit a drop: `sourceTaskName` was dragged onto `targetTaskName`'s row
+ * in the given `zone`. 'child' reuses wbReparentTaskInPlanText() (the same
+ * write a dragged noodle makes) via wbLinkNotes()'s cycle/self-link
+ * checks; 'before'/'after' write through the new wbMoveTaskInPlanText().
+ * Both paths no-op silently on a drop that changes nothing (dragging a row
+ * onto itself, or right back where it already was).
+ */
+function wbOutlineRowDropped(sourceTaskName, targetTaskName, zone) {
+    if (!sourceTaskName || !targetTaskName) return false;
+    if (String(sourceTaskName).toLowerCase() === String(targetTaskName).toLowerCase()) return false;
+
+    if (zone === 'child') {
+        return (typeof wbLinkNotes === 'function') ? wbLinkNotes(targetTaskName, sourceTaskName) : false;
+    }
+
+    const editor = document.getElementById('planEditor');
+    if (!editor || typeof wbMoveTaskInPlanText !== 'function' || typeof wbCommitMarkdown !== 'function') {
+        return false;
+    }
+    const next = wbMoveTaskInPlanText(editor.value, sourceTaskName, targetTaskName, zone === 'before');
+    return wbCommitMarkdown(next);
+}
+
+/**
+ * Wire up dragging `taskName`'s row via `handle`, restructuring the plan
+ * on drop (see wbOutlineRowDropped()). Two parallel gestures, matching
+ * notepad.js's own drag-to-reorder: native HTML5 drag-and-drop for a
+ * mouse, and a pointer-based fallback for touch (which never fires
+ * dragstart on most mobile browsers).
+ */
+function wbAttachOutlineDragHandlers(handle, row, taskName) {
+    handle.addEventListener('dragstart', event => {
+        event.stopPropagation();
+        row.classList.add('wb-outline-dragging');
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', taskName);
+        if (typeof event.dataTransfer.setDragImage === 'function') {
+            event.dataTransfer.setDragImage(row, 0, row.offsetHeight / 2);
+        }
+    });
+    handle.addEventListener('dragend', () => {
+        row.classList.remove('wb-outline-dragging');
+        wbClearOutlineDropIndicators();
+    });
+    row.addEventListener('dragover', event => {
+        if (event.dataTransfer.types.indexOf('text/plain') === -1) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        const zone = wbOutlineDropZoneFor(row, event.clientX, event.clientY);
+        wbClearOutlineDropIndicators();
+        row.classList.add('wb-outline-drop-' + zone);
+    });
+    row.addEventListener('dragleave', event => {
+        if (row.contains(event.relatedTarget)) return;
+        row.classList.remove('wb-outline-drop-before', 'wb-outline-drop-after', 'wb-outline-drop-child');
+    });
+    row.addEventListener('drop', event => {
+        event.preventDefault();
+        const zone = wbOutlineDropZoneFor(row, event.clientX, event.clientY);
+        wbClearOutlineDropIndicators();
+        const sourceTaskName = event.dataTransfer.getData('text/plain');
+        wbOutlineRowDropped(sourceTaskName, taskName, zone);
+    });
+
+    let gesture = null;
+    handle.addEventListener('pointerdown', event => {
+        if (event.pointerType === 'mouse') return;
+        gesture = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, dragging: false };
+        handle.setPointerCapture(event.pointerId);
+    });
+    handle.addEventListener('pointermove', event => {
+        if (!gesture || event.pointerId !== gesture.pointerId) return;
+        const distance = Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY);
+        if (!gesture.dragging && distance < 8) return;
+        gesture.dragging = true;
+        event.preventDefault();
+        row.classList.add('wb-outline-dragging');
+        const targetRow = document.elementFromPoint(event.clientX, event.clientY)?.closest('.wb-outline-row');
+        wbClearOutlineDropIndicators();
+        gesture.target = (targetRow && targetRow !== row) ? targetRow : null;
+        gesture.zone = null;
+        if (gesture.target) {
+            gesture.zone = wbOutlineDropZoneFor(gesture.target, event.clientX, event.clientY);
+            gesture.target.classList.add('wb-outline-drop-' + gesture.zone);
+        }
+    });
+    const finishPointer = event => {
+        if (!gesture || event.pointerId !== gesture.pointerId) return;
+        const completed = gesture;
+        gesture = null;
+        row.classList.remove('wb-outline-dragging');
+        wbClearOutlineDropIndicators();
+        if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+        if (event.type !== 'pointercancel' && completed.dragging && completed.target) {
+            wbOutlineRowDropped(taskName, completed.target.dataset.task, completed.zone);
+        }
+    };
+    handle.addEventListener('pointerup', finishPointer);
+    handle.addEventListener('pointercancel', finishPointer);
 }
 
 // -- Interactions --------------------------------------------------------

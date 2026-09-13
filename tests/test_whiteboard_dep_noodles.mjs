@@ -1,8 +1,13 @@
 /**
- * Whiteboard dependency noodles (#1052) -- the drag-to-connect gesture
- * itself is covered by manual/browser verification (see the PR: creating
- * a link, cycle refusal, deletion, and confirming hierarchy mode is
- * unaffected), the same split test_notepad_surface.mjs and
+ * Whiteboard dependency noodles (#1052, reworked by #1106) -- the
+ * drag-to-connect gesture itself (the row handle in whiteboard-notes.js,
+ * and wbBeginRowDepDrag()/wbUpdateRowDepDrag()/wbEndRowDepDrag() in
+ * whiteboard-dep-noodles.js, both DOM-dependent -- getBoundingClientRect(),
+ * elementFromPoint()) is covered by manual/browser verification only (see
+ * the PR: hovering a leaf checklist row reveals the handle, dragging it
+ * onto another leaf row's checklist creates the dependency, a summary
+ * child row or the note header never offers or accepts one, cycle
+ * refusal, deletion), the same split test_notepad_surface.mjs and
  * test_highlight_toggles.mjs use for their own DOM-facing pieces.
  *
  * This file covers the derivable/pure link-listing logic and the
@@ -10,7 +15,11 @@
  * lifted from the real source with the same vm-sandbox technique
  * test_kanban_board_mutations.mjs uses, so every mutation here is
  * verified by re-parsing the editor's resulting text -- the same way the
- * browser does after a drag or a Delete keypress.
+ * browser does after a drag or a Delete keypress. The "not summary
+ * task/note level" rule itself lives in plan-model.js's
+ * canAddDependency() (tested in test_plan_model.mjs) and is exercised
+ * here only indirectly, through wbCanLinkDependency()/wbLinkDependency()
+ * refusing a summary-task endpoint exactly like any other refusal.
  *
  * Run with: node --test tests/test_whiteboard_dep_noodles.mjs
  */
@@ -92,23 +101,32 @@ test('wbDepNoodleId is stable and separator-safe (mirrors WB_NOODLE_ID_SEP)', ()
     assert.notEqual(id1, id2, 'a space separator would collide these two distinct pairs');
 });
 
-test('wbDepNoodleLinksFor: only explicit (non-shorthand) dependencies with both ends on board', () => {
+test('wbDepNoodleLinksFor: only explicit (non-shorthand) dependencies, regardless of board membership', () => {
+    // #1106: this no longer takes a `rows` (whiteboard-row) argument or
+    // filters by it -- a dependency now usually joins two checklist rows
+    // *inside* other notes' bodies rather than two note cards of their
+    // own, so "is either end actually visible on the board right now" is
+    // resolved later, per edge, by wbLayoutDepNoodle() in the browser
+    // (wbDepNoodleEndpointRectFor(), DOM-dependent, not unit-tested here)
+    // -- this function only lists the plan's explicit dependency edges.
     const text = 'Phase\n  A 1d\n  B 1d [depends: A]\n  *C 1d\n';
     const { sandbox } = buildSandbox(text);
     const model = sandbox.NoodlePlanModel.PlanModel.parse(text);
-    const rows = [{ task: 'A' }, { task: 'B' }, { task: 'C' }];
-    const links = sandbox.wbDepNoodleLinksFor(model, rows);
+    const links = sandbox.wbDepNoodleLinksFor(model);
     assert.equal(links.length, 1, 'the * shorthand dependency (C on B) must not render as a dependency noodle');
     assert.equal(links[0].from, 'A');
     assert.equal(links[0].to, 'B');
 });
 
-test('wbDepNoodleLinksFor: a dependency whose target is off-board is not drawn', () => {
+test('wbDepNoodleLinksFor: a dependency whose target no longer resolves is skipped', () => {
     const text = 'Phase\n  A 1d\n  B 1d [depends: A]\n';
     const { sandbox } = buildSandbox(text);
     const model = sandbox.NoodlePlanModel.PlanModel.parse(text);
-    const rows = [{ task: 'B' }]; // A is not on the board
-    const links = sandbox.wbDepNoodleLinksFor(model, rows);
+    // Simulate a dangling reference the way a stale/hand-edited [depends]
+    // block could produce it: null out the resolved target on B's own
+    // edge so wbDepNoodleLinksFor() has nothing to draw for it.
+    model.findByName('B').dependencies[0].target = null;
+    const links = sandbox.wbDepNoodleLinksFor(model);
     // links is an Array from the vm sandbox's own realm -- spread it into
     // this realm before comparing, since deepStrictEqual also checks
     // [[Prototype]], which otherwise differs across realms.
@@ -119,6 +137,28 @@ test('wbCanLinkDependency: ok for a fresh link, refused for a duplicate or self-
     const { sandbox } = buildSandbox('Phase\n  A 1d\n  B 1d\n');
     assert.equal(sandbox.wbCanLinkDependency('A', 'B').ok, true);
     assert.equal(sandbox.wbCanLinkDependency('A', 'A').ok, false);
+});
+
+test('wbCanLinkDependency refuses a summary task as either endpoint (#1106)', () => {
+    // "Phase" has children (A, B), so it is a summary task -- neither the
+    // old whole-card gesture nor the new row-level one may make it (or
+    // anything else) depend on it, or make it depend on anything.
+    const { sandbox } = buildSandbox('Phase\n  A 1d\n  B 1d\nOther 1d\n');
+    const asPredecessor = sandbox.wbCanLinkDependency('Phase', 'Other');
+    assert.equal(asPredecessor.ok, false);
+    assert.match(asPredecessor.reason, /summary/);
+    const asDependent = sandbox.wbCanLinkDependency('Other', 'Phase');
+    assert.equal(asDependent.ok, false);
+    assert.match(asDependent.reason, /summary/);
+});
+
+test('wbLinkDependency refuses a summary-task endpoint and writes nothing (#1106)', () => {
+    const { sandbox, editor, flashMessages } = buildSandbox('Phase\n  A 1d\n  B 1d\nOther 1d\n');
+    const before = editor.value;
+    assert.equal(sandbox.wbLinkDependency('Phase', 'Other'), false);
+    assert.equal(editor.value, before);
+    assert.equal(flashMessages.length, 1);
+    assert.match(flashMessages[0], /summary/);
 });
 
 test('wbLinkDependency writes a real [depends: ...] token and returns true', () => {

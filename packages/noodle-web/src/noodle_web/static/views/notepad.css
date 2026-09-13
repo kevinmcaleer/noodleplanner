@@ -23,6 +23,13 @@
     border-bottom: 1px solid var(--np-border, #e0e0e0);
 }
 
+.notepad-title {
+    margin: 0;
+    color: var(--np-text, #333);
+    font-size: 20px;
+    font-weight: 600;
+}
+
 .notepad-hint {
     font-size: 13px;
     color: var(--np-text-secondary, #666);
@@ -58,8 +65,16 @@
     align-items: center;
     gap: 6px;
     min-height: 34px;
+    margin-bottom: 2px;
+    border: none;
     border-radius: 4px;
     transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.notepad-estimate-btn {
+    border: none;
+    background: transparent;
+    color: var(--np-text-muted, #999);
 }
 
 .notepad-row:hover {

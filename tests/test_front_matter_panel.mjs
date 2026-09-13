@@ -72,6 +72,7 @@ class FakeElement {
     querySelector(selectorList) { return this.querySelectorAll(selectorList)[0] || null; }
     contains(node) { for (let n = node; n; n = n.parentElement) if (n === this) return true; return false; }
     focus() { this._doc._active = this; }
+    scrollIntoView() { /* no-op: no real layout in this stub */ }
 }
 
 function matches(el, sel) {
@@ -192,6 +193,21 @@ test('the status field renders as a select with the RAG options', () => {
     assert.ok(select, 'expected a <select> widget for status');
 });
 
+test('a multi-line block renders as quiet repeatable property values, not a raw textarea', async () => {
+    const text = '---\nTheme:\n- hdd: #FCE38A\n- lld: #FCE38A\n- test 2: #FFF3B0\n---\nPhase\n  Task 1d\n';
+    const { editor, container } = buildPanel(text);
+    const themeRow = container.querySelectorAll('.fm-row').find(r => r.querySelector('.fm-row-key')?.textContent === 'Theme');
+    assert.ok(themeRow, 'expected the Theme property');
+    assert.equal(themeRow.querySelectorAll('.fm-block-line').length, 3);
+    assert.equal(themeRow.querySelector('.fm-block-raw-textarea'), null);
+
+    const firstValue = themeRow.querySelectorAll('.fm-block-line-input')[0];
+    firstValue.value = 'hdd: #123456';
+    firstValue.dispatchEvent({ type: 'input' });
+    await wait(500);
+    assert.match(editor.value, /^- hdd: #123456$/m, 'editing keeps the original YAML list prefix');
+});
+
 test('adding a custom key appends it and it is editable afterwards', async () => {
     const text = '---\ntitle: My Project\n---\nPhase\n  Task 1d\n';
     const { editor, container, sandbox } = buildPanel(text);
@@ -202,18 +218,119 @@ test('adding a custom key appends it and it is editable afterwards', async () =>
     assert.match(editor.value, /custom-value:/);
 });
 
-test('raw mode shows exactly the reconstructed front-matter body and round-trips', () => {
+test('raw mode removes the duplicate front-matter textarea and leaves the complete markdown in the editor', () => {
     const text = '---\ntitle: My Project\nsponsor: CEO\n---\nPhase\n  Task 1d\n';
-    const { container, panel } = buildPanel(text);
-    const rawBtn = container.querySelectorAll('.fm-mode-btn')[1];
+    const { editor, container, panel } = buildPanel(text);
+    const rawBtn = container.querySelector('.fm-mode-btn');
+    assert.equal(rawBtn.textContent, 'YAML');
     rawBtn.dispatchEvent({ type: 'click' });
     assert.equal(panel.mode, 'raw');
-    const textarea = container.querySelector('.fm-raw-textarea');
-    assert.equal(textarea.value, 'title: My Project\nsponsor: CEO\n');
+    assert.equal(container.querySelector('.fm-raw-textarea'), null);
+    assert.equal(editor.value, text);
+    assert.equal(container.querySelector('.fm-title').textContent, 'Markdown');
+    assert.equal(container.querySelector('.fm-mode-btn').textContent, 'Properties');
 });
 
 test('a plan with no front matter offers to add one', () => {
     const text = 'Phase\n  Task 1d\n';
     const { container } = buildPanel(text);
     assert.ok(container.querySelector('.fm-add-frontmatter-btn'));
+});
+
+function calendarListRow(container) {
+    return container.querySelectorAll('.fm-row').find(r => {
+        const label = r.querySelector('.fm-row-key');
+        return label && label.textContent === 'Calendars';
+    });
+}
+
+function calendarSelectRow(container) {
+    return container.querySelectorAll('.fm-row').find(r => {
+        const label = r.querySelector('.fm-row-key');
+        return label && label.textContent === 'Active Calendar';
+    });
+}
+
+test('the calendars field renders one text row per calendar, editable', async () => {
+    const text = '---\ncalendars:\n- Standard: Mon-Fri\n- Gulf: Sun-Thu\n---\nPhase\n  Task 1d\n';
+    const { editor, container } = buildPanel(text);
+    const row = calendarListRow(container);
+    const entries = row.querySelectorAll('.fm-list-entry');
+    assert.equal(entries.length, 2);
+
+    const gulfPattern = entries[1].querySelectorAll('input')[1];
+    gulfPattern.value = 'Sun-Wed';
+    gulfPattern.dispatchEvent({ type: 'input' });
+    await wait(500);
+    assert.match(editor.value, /- Gulf: Sun-Wed/);
+});
+
+test('the active-calendar field is a select offering Standard plus every declared calendar', () => {
+    const text = '---\ncalendar: Gulf\ncalendars:\n- Standard: Mon-Fri\n- Gulf: Sun-Thu\n---\nPhase\n  Task 1d\n';
+    const { container } = buildPanel(text);
+    const row = calendarSelectRow(container);
+    const select = row.querySelector('select');
+    assert.ok(select, 'expected a <select> widget for the active calendar');
+    const optionTexts = select.children.map(o => o.textContent);
+    assert.deepEqual(optionTexts, ['(unset — Standard)', 'Standard', 'Gulf']);
+    assert.equal(select.value, 'Gulf');
+});
+
+test('the active-calendar select still offers Standard when no calendars: block exists', () => {
+    // The "Active Calendar" row itself only appears once its key is present
+    // in the text (same rule as every other schema key -- absent keys are
+    // added via the "+ Add key" control, not shown pre-emptively).
+    const text = '---\ntitle: No Calendars\ncalendar:\n---\nPhase\n  Task 1d\n';
+    const { container } = buildPanel(text);
+    const row = calendarSelectRow(container);
+    const select = row.querySelector('select');
+    assert.deepEqual(select.children.map(o => o.textContent), ['(unset — Standard)', 'Standard']);
+});
+
+test('choosing an active calendar commits the calendar: key', async () => {
+    const text = '---\ncalendar:\ncalendars:\n- Gulf: Sun-Thu\n---\nPhase\n  Task 1d\n';
+    const { editor, container } = buildPanel(text);
+    const row = calendarSelectRow(container);
+    const select = row.querySelector('select');
+    select.value = 'Gulf';
+    select.dispatchEvent({ type: 'change' });
+    await wait(0);
+    assert.match(editor.value, /^calendar: Gulf$/m);
+});
+
+// #1047 ribbon follow-up: revealCalendars() is what the ribbon's Calendars
+// button now calls (via ribbon.js's revealCalendarsPanel()) instead of
+// falling through to a "not available yet" toast.
+
+test('revealCalendars expands a collapsed panel into structured mode and focuses the add-key control when no calendars key exists', async () => {
+    const lines = ['---'];
+    for (let i = 0; i < 12; i++) lines.push(`key${i}: value${i}`);
+    lines.push('---', 'Phase', '  Task 1d', '');
+    const { panel, sandbox } = buildPanel(lines.join('\n'));
+    assert.equal(panel.collapsed, true, 'sanity check: panel starts collapsed');
+    panel.revealCalendars();
+    await wait(10);
+    assert.equal(panel.collapsed, false);
+    assert.equal(panel.mode, 'structured');
+    assert.equal(sandbox.document.activeElement && sandbox.document.activeElement.className, 'fm-add-key-select');
+});
+
+test('revealCalendars scrolls to and highlights an existing Calendars row', async () => {
+    const text = '---\ntitle: My Project\ncalendars:\n- Gulf: Sun-Thu\n---\nPhase\n  Task 1d\n';
+    const { panel, container } = buildPanel(text);
+    panel.setMode('raw');
+    panel.revealCalendars();
+    await wait(10);
+    assert.equal(panel.mode, 'structured');
+    const calendarsRow = container.querySelectorAll('.fm-row').find(r => r.querySelector('.fm-row-key')?.textContent === 'Calendars');
+    assert.ok(calendarsRow, 'expected a Calendars row once revealed');
+    assert.ok(calendarsRow.classList.contains('fm-row-highlight'));
+});
+
+test('revealCalendars scrolls to the "+ Add front matter" button when the plan has no front matter block', async () => {
+    const { panel, sandbox } = buildPanel('Phase\n  Task 1d\n');
+    assert.equal(panel.present, false, 'sanity check: no front matter present');
+    panel.revealCalendars();
+    await wait(10);
+    assert.equal(sandbox.document.activeElement && sandbox.document.activeElement.className, 'toolbar-btn fm-add-frontmatter-btn');
 });

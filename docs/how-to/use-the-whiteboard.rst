@@ -40,7 +40,9 @@ If you also want a line or two of detail, open **Open task details** on the note
 
 The moment you give the note its *first* subtask — indenting a task under it in the outline, adding one from the task form, or noodling an existing note underneath it — the note switches to a checklist automatically (see `Tick Off a Todo`_ below). There is no separate "add a checklist" step and no way to switch back short of removing every subtask again.
 
-**Promote to task** on a free-form note's ``...`` menu is a shortcut for exactly that first-subtask step: it turns the note's own **Comment** text into a real subtask underneath it, and the note switches to a checklist right away. If the note has no comment yet, it asks you to name the new subtask instead. Either way it is one action, and undoing it removes the subtask and returns the note to free-form.
+**Promote to task** on a free-form note's ``...`` menu is a shortcut for exactly that first-subtask step: it turns the note's own **Comment** text into a real subtask underneath it, and the note switches to a checklist right away. If the note has no comment yet, it asks you to name the new subtask instead. Either way it is one action, and undoing it removes the subtask and returns the note to free-form. A free-form note also shows the same action as a small button in its header, next to the ``...`` menu, so you don't have to open the menu just to promote it.
+
+The **Text note** button in the toolbar (next to **Add title**) creates the same free-form note as **New post-it** — it's simply a second way to reach it from alongside the board's other bare-canvas tools.
 
 Rename a Note
 ---------------
@@ -78,9 +80,11 @@ You can also use **Unlink from "…"** on the note's ``...`` menu, which is easi
 Draw Dependency Links
 -----------------------
 
-The **Hierarchy / Dependency** toggle in the toolbar switches what dragging a noodle handle means. **Hierarchy** (the default) is everything above: it makes a subtask. **Dependency** draws a real scheduling dependency instead — the target task must finish before the source task starts — the same relationship the ``[depends: ...]`` syntax and the Gantt view already use.
+Dependencies are drawn from a **task row**, not from a note. Hover a checklist row and a small handle appears at its right-hand end; drag it onto another task's row to draw a real scheduling dependency — the first task must finish before the second starts — the same relationship the ``[depends: ...]`` syntax and the Gantt view already use.
 
-A dependency noodle is dashed and purple, so it never reads as a hierarchy link even on a board that has both. The drag itself previews which kind is coming: the ghost line changes colour to match the mode you're in.
+Rows are the endpoints because only an individual task can have a dependency: a summary task's dates come from its children, so a summary row offers no handle at all, and dropping onto one is refused.
+
+A dependency noodle is dashed and purple, so it never reads as a hierarchy link (solid, blue) even on a board that has both. As you drag, every row you pass over shows whether the link would be accepted.
 
 Creating a link that would make a circular dependency (A depends on B, which already depends on A) is refused with a short message, the same way a self-link or an already-linked pair are refused for hierarchy noodles.
 
@@ -96,6 +100,7 @@ The panel floating on the left of the canvas shows your whole plan as a collapsi
 - **Click a row** to fly the board to that note, which flashes so you can spot it. This is the quickest way to find a note on a large board.
 - **Type in the search box** to filter to matching tasks and their parents. Search ignores collapsed branches, so a result is never hidden from you.
 - **Click the ``+``** on a row without a note to put that task on the board.
+- **Drag a row's grip** (``⠿``) to restructure the plan. Dropping on the top half of another row moves it to sit just above that row; dropping on the bottom half moves it to sit just below — either way, at that row's own level, so dragging a nested task next to a top-level one un-nests it in the same move. Dropping on the bottom half **and** well to the right instead nests it as that row's sub-task — a deliberately different spot so a plain reorder is never mistaken for "make this a sub-task", or the reverse.
 
 .. figure:: /_static/img/how-to/wb-04-plan-structure.png
    :alt: The plan structure panel, listing phases and their subtasks with collapse chevrons and dots marking which tasks are on the board

@@ -462,7 +462,10 @@ test('the page and scripts are pinned and wired for browser Excel export', () =>
   assert.ok(scriptJs.includes("import('/static/browser-excel.js')"));
   assert.ok(scriptJs.includes('budgetItems,'));
   assert.ok(scriptJs.includes('server CPU 0 ms'));
-  assert.ok(scriptJs.includes('Render the latest plan changes'));
+  assert.ok(scriptJs.includes('Rendering the latest plan changes'));
+  // The old blocking message must be gone: exports render automatically
+  // instead of telling the user to do it first (issue #1120).
+  assert.ok(!scriptJs.includes('Render the latest plan changes before'));
   assert.ok(scriptJs.includes('importRaidExcelInBrowser'));
   assert.ok(scriptJs.includes('importBudgetExcelInBrowser'));
   assert.ok(benefitsJs.includes("import('/static/browser-excel.js')"));

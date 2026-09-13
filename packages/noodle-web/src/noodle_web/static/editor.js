@@ -168,7 +168,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 comment: 'syntax-comment', recurrence: 'syntax-recurrence', bucket: 'syntax-bucket',
                 priority: 'syntax-priority', resource: 'syntax-resource', label: 'syntax-label',
                 duration: 'syntax-duration', percent: 'syntax-percent', date: 'syntax-date',
-                product: 'syntax-product'
+                deadline: 'syntax-deadline', product: 'syntax-product'
             };
             const tokens = TaskLineTokenizer.tokenize(line);
             let output = '';
@@ -516,6 +516,24 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             }
         }
     });
+
+    // Expose a way to cancel a pending debounced auto-render (only ever set
+    // for the main editor, shouldRender), the same convention as
+    // editor._updateLineNumbers above. Callers that just performed their
+    // own immediate render after programmatically changing editor.value and
+    // dispatching 'input' (e.g. whiteboard-notes.js's wbCommitMarkdown())
+    // use this to stop the render this same 'input' event just scheduled
+    // above from *also* firing a second, redundant time a second later --
+    // otherwise that second render tears down and rebuilds DOM the caller
+    // already finished with (e.g. a freshly-focused input), undoing it.
+    if (shouldRender) {
+        editor._cancelPendingRender = function() {
+            if (renderDebounceTimer) {
+                clearTimeout(renderDebounceTimer);
+                renderDebounceTimer = null;
+            }
+        };
+    }
 
     // Sync scroll on all scroll-related events including touch momentum
     editor.addEventListener('scroll', syncScroll, { passive: true });

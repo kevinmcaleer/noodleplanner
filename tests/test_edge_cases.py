@@ -486,6 +486,40 @@ class TestMemoryAndPerformance:
         assert duration < 2.0, f"Scheduling took {duration}s, should be < 2s"
 
 
+class TestDeadlineMetadata:
+    """Tests for the D-prefixed deadline smart tag (#877, #1149)."""
+
+    def test_deadline_is_extracted(self):
+        meta = extract_metadata("Design phase 5d D2026-09-10")
+        assert meta["deadline"] == "2026-09-10"
+
+    def test_deadline_does_not_leak_into_description(self):
+        meta = extract_metadata("Design phase 5d D2026-09-10")
+        assert meta["description"] == "Design phase"
+
+    def test_deadline_before_other_tokens_does_not_leak_into_description(self):
+        meta = extract_metadata("Design D2026-09-10 review 5d")
+        assert meta["description"] == "Design"
+
+    def test_deadline_does_not_shadow_start_date(self):
+        meta = extract_metadata("Task 2026-01-01 5d D2026-09-10")
+        assert meta["due"] == "2026-01-01"
+        assert meta["start"] == datetime(2026, 1, 1)
+        assert meta["deadline"] == "2026-09-10"
+
+    def test_task_without_deadline_has_no_deadline_key(self):
+        meta = extract_metadata("Task no deadline 5d")
+        assert "deadline" not in meta
+
+    def test_deadline_does_not_drive_duration_or_start(self):
+        # A deadline is a marker, not a schedule input: it must not be
+        # mistaken for a duration or a plain start date.
+        meta = extract_metadata("Task D2026-09-10")
+        assert meta["deadline"] == "2026-09-10"
+        assert "duration" not in meta
+        assert "start" not in meta
+
+
 # Markers for different test categories
 pytestmark = [
     pytest.mark.edge_cases,

@@ -381,6 +381,248 @@ class TestExportToMSProjectXML:
 
 
 # ---------------------------------------------------------------------------
+# Calendar export/import (issue #1133)
+# ---------------------------------------------------------------------------
+
+
+def _cal_children(root, ns):
+    return {
+        cal.find(f"{{{ns}}}Name").text: cal
+        for cal in root.findall(f".//{{{ns}}}Calendar")
+    }
+
+
+PLAN_WITH_CALENDARS = """---
+title: Calendar Export Test
+calendar: Gulf
+calendars:
+- Gulf: Sun-Thu hours 08:00-16:00 exceptions [Eid: 2026-08-12]
+- Fortnight: [Mon-Fri; Mon-Wed]
+non-working-days:
+- Christmas: 2026-12-25
+Resources:
+- @kev: Kevin McAleer, PM calendar Gulf
+- @sam: Sam Jones, Analyst
+---
+Phase
+  Task A 2026-08-02 5d @kev
+  Task B 2026-08-02 5d @sam
+"""
+
+
+class TestExportCalendars:
+    def test_every_declared_calendar_is_exported(self):
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(PLAN_WITH_CALENDARS, path, project_name="Test")
+            root = ET.parse(path).getroot()
+            ns = "http://schemas.microsoft.com/project"
+            names = {c.text for c in root.findall(f".//{{{ns}}}Calendar/{{{ns}}}Name")}
+            assert names == {"Gulf", "Fortnight"}
+        finally:
+            os.unlink(path)
+
+    def test_root_calendar_uid_names_the_active_calendar(self):
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(PLAN_WITH_CALENDARS, path, project_name="Test")
+            root = ET.parse(path).getroot()
+            ns = "http://schemas.microsoft.com/project"
+            root_uid = root.find(f"{{{ns}}}CalendarUID").text
+            gulf = _cal_children(root, ns)["Gulf"]
+            assert root_uid == gulf.find(f"{{{ns}}}UID").text
+        finally:
+            os.unlink(path)
+
+    def test_a_resource_with_its_own_calendar_gets_calendar_uid(self):
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(PLAN_WITH_CALENDARS, path, project_name="Test")
+            root = ET.parse(path).getroot()
+            ns = "http://schemas.microsoft.com/project"
+            gulf_uid = _cal_children(root, ns)["Gulf"].find(f"{{{ns}}}UID").text
+            resources = {
+                r.find(f"{{{ns}}}Name").text: r
+                for r in root.findall(f".//{{{ns}}}Resource")
+            }
+            kev_cal_uid = resources["Kevin McAleer"].find(f"{{{ns}}}CalendarUID")
+            assert kev_cal_uid is not None and kev_cal_uid.text == gulf_uid
+            # @sam has no assigned calendar, so no CalendarUID at all --
+            # MSPDI's own way of saying "use the project's calendar".
+            assert resources["Sam Jones"].find(f"{{{ns}}}CalendarUID") is None
+        finally:
+            os.unlink(path)
+
+    def test_sun_thu_week_pattern_is_written_as_weekdays(self):
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(PLAN_WITH_CALENDARS, path, project_name="Test")
+            root = ET.parse(path).getroot()
+            ns = "http://schemas.microsoft.com/project"
+            gulf = _cal_children(root, ns)["Gulf"]
+            working_daytypes = {
+                wd.find(f"{{{ns}}}DayType").text
+                for wd in gulf.findall(f".//{{{ns}}}WeekDay")
+                if wd.find(f"{{{ns}}}DayWorking").text == "1"
+            }
+            # DayType: 1=Sun, 5=Thu -- Sun-Thu is {1, 2, 3, 4, 5}.
+            assert working_daytypes == {"1", "2", "3", "4", "5"}
+        finally:
+            os.unlink(path)
+
+    def test_custom_hours_are_written_as_one_working_time_block(self):
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(PLAN_WITH_CALENDARS, path, project_name="Test")
+            root = ET.parse(path).getroot()
+            ns = "http://schemas.microsoft.com/project"
+            gulf = _cal_children(root, ns)["Gulf"]
+            a_working_day = next(
+                wd for wd in gulf.findall(f".//{{{ns}}}WeekDay")
+                if wd.find(f"{{{ns}}}DayWorking").text == "1"
+            )
+            times = a_working_day.findall(f".//{{{ns}}}WorkingTime")
+            assert len(times) == 1
+            assert times[0].find(f"{{{ns}}}FromTime").text == "08:00:00"
+            assert times[0].find(f"{{{ns}}}ToTime").text == "16:00:00"
+        finally:
+            os.unlink(path)
+
+    def test_calendar_exceptions_are_exported(self):
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(PLAN_WITH_CALENDARS, path, project_name="Test")
+            root = ET.parse(path).getroot()
+            ns = "http://schemas.microsoft.com/project"
+            gulf = _cal_children(root, ns)["Gulf"]
+            exceptions = gulf.findall(f".//{{{ns}}}Exception")
+            starts = {
+                exc.find(f"{{{ns}}}TimePeriod").find(f"{{{ns}}}FromDate").text[:10]
+                for exc in exceptions
+            }
+            # Eid is Gulf's own declared exception; Christmas is the
+            # project-wide non-working-days: entry layered on top.
+            assert starts == {"2026-08-12", "2026-12-25"}
+            assert all(exc.find(f"{{{ns}}}DayWorking").text == "0" for exc in exceptions)
+        finally:
+            os.unlink(path)
+
+    def test_a_project_wide_holiday_is_exported_on_every_calendar(self):
+        """schedule_tasks layers non-working-days: onto whichever calendar
+        governs a task, regardless of which one that is -- the exported
+        file must show the same holiday on every calendar or MS Project
+        would schedule straight through it."""
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(PLAN_WITH_CALENDARS, path, project_name="Test")
+            root = ET.parse(path).getroot()
+            ns = "http://schemas.microsoft.com/project"
+            fortnight = _cal_children(root, ns)["Fortnight"]
+            exceptions = fortnight.findall(f".//{{{ns}}}Exception")
+            assert len(exceptions) == 1
+            assert exceptions[0].find(f"{{{ns}}}TimePeriod").find(f"{{{ns}}}FromDate").text.startswith("2026-12-25")
+        finally:
+            os.unlink(path)
+
+    def test_rotation_calendar_is_exported_as_work_weeks(self):
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(PLAN_WITH_CALENDARS, path, project_name="Test")
+            root = ET.parse(path).getroot()
+            ns = "http://schemas.microsoft.com/project"
+            fortnight = _cal_children(root, ns)["Fortnight"]
+            work_weeks = fortnight.findall(f".//{{{ns}}}WorkWeek")
+            assert len(work_weeks) > 0
+            # Every override week should mark Mon-Wed working, Thu-Sun not.
+            for ww in work_weeks:
+                working = {
+                    wd.find(f"{{{ns}}}DayType").text
+                    for wd in ww.findall(f"{{{ns}}}WeekDay")
+                    if wd.find(f"{{{ns}}}DayWorking").text == "1"
+                }
+                assert working == {"2", "3", "4"}  # Mon, Tue, Wed
+        finally:
+            os.unlink(path)
+
+    def test_a_plan_with_no_custom_calendar_still_exports_a_valid_standard_one(
+        self, sample_plan
+    ):
+        """No regression for the common case: a plan that never mentions
+        calendar:/calendars: still gets exactly one Standard calendar."""
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(sample_plan, path, project_name="Test")
+            root = ET.parse(path).getroot()
+            ns = "http://schemas.microsoft.com/project"
+            calendars = root.findall(f".//{{{ns}}}Calendar")
+            assert len(calendars) == 1
+            assert calendars[0].find(f"{{{ns}}}Name").text == "Standard"
+            assert root.find(f"{{{ns}}}CalendarUID").text == calendars[0].find(f"{{{ns}}}UID").text
+        finally:
+            os.unlink(path)
+
+
+class TestCalendarRoundTrip:
+    """Round-trip tests: export then import, per issue #1133's acceptance
+    criteria -- at least one project calendar and one resource-specific
+    calendar case."""
+
+    @pytest.fixture
+    def round_tripped(self):
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(PLAN_WITH_CALENDARS, path, project_name="Test")
+            with open(path, "r", encoding="utf-8") as fh:
+                xml_content = fh.read()
+        finally:
+            os.unlink(path)
+        return import_from_msproject_xml(xml_content)
+
+    def test_project_calendar_survives_the_round_trip(self, round_tripped):
+        assert "calendar: Gulf" in round_tripped
+        assert "calendars:" in round_tripped
+        assert "- Gulf: Sun-Thu hours 08:00-16:00 exceptions [2026-08-12, 2026-12-25]" in round_tripped
+
+    def test_rotation_calendar_survives_the_round_trip(self, round_tripped):
+        assert "- Fortnight: [Mon-Fri; Mon-Wed]" in round_tripped
+
+    def test_resource_specific_calendar_survives_the_round_trip(self, round_tripped):
+        assert "Resources:" in round_tripped
+        assert "calendar Gulf" in round_tripped
+        # Only the resource that actually has an assigned calendar gets a
+        # Resources: entry written for it.
+        assert "sam" not in round_tripped.split("Resources:")[1].split("---")[0].lower()
+
+    def test_a_plan_with_no_custom_calendar_round_trips_with_no_calendar_front_matter(
+        self, sample_plan
+    ):
+        """The clean, common case: nothing calendar-related is invented
+        just because MS Project's own file format always has a Calendars
+        section under the hood."""
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(sample_plan, path, project_name="Test")
+            with open(path, "r", encoding="utf-8") as fh:
+                xml_content = fh.read()
+        finally:
+            os.unlink(path)
+        result = import_from_msproject_xml(xml_content)
+        assert "calendar:" not in result
+        assert "calendars:" not in result
+
+
+# ---------------------------------------------------------------------------
 # Schema conformance (issue #753)
 #
 # MSPDI models every element as an xsd:sequence, so element order is part of
@@ -388,6 +630,26 @@ class TestExportToMSProjectXML:
 # rejected by Microsoft Project, which is exactly what #753 reported — and no
 # amount of "is this valid XML" testing catches it.
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def calendars_exported_xml():
+    """Export a plan with named/rotation calendars and resource calendar
+    assignment, so schema conformance is checked against the richer shape
+    too, not just the plain Standard-calendar case (issue #1133)."""
+    with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+        path = f.name
+    try:
+        export_to_msproject_xml(PLAN_WITH_CALENDARS, path, project_name="Test")
+        yield path
+    finally:
+        os.unlink(path)
+
+
+class TestMSPDICalendarSchemaConformance:
+    def test_export_with_calendars_matches_schema_structure(self, calendars_exported_xml):
+        errors = validate_mspdi(calendars_exported_xml)
+        assert errors == [], "MSPDI schema violations:\n  " + "\n  ".join(errors)
 
 
 @pytest.fixture

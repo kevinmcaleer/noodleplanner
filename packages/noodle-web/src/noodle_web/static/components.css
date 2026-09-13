@@ -1327,6 +1327,7 @@ body.detail-pane-open {
 .inspector-rag-banner.rag-blue {
     background: #e3f2fd;
     border-left: 5px solid #1976d2;
+    color: #111;
 }
 
 .inspector-rag-banner.rag-none {
@@ -1981,7 +1982,7 @@ tr:hover .task-context-btn,
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: var(--np-muted);
+    color: var(--np-ink, #111);
     margin: 0 0 16px 0;
     padding-bottom: 8px;
     border-bottom: 1px solid var(--np-hairline);
@@ -2087,7 +2088,7 @@ tr:hover .task-context-btn,
 }
 
 .dependencies-table td {
-    padding: 10px;
+    padding: 5px 10px;
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -2118,12 +2119,21 @@ tr:hover .task-context-btn,
 }
 
 .dependencies-table tbody:empty::after {
-    content: 'No dependencies. Click "+ Add Dependency" to add one.';
+    content: 'No dependencies. Add one below.';
     display: block;
     padding: 20px;
     text-align: center;
     color: var(--np-faint);
     font-style: italic;
+}
+
+.dependency-add-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--np-border);
+    border-radius: 4px;
+    background: var(--np-input-bg, #fff);
+    color: var(--np-text, #333);
 }
 
 .form-actions {
@@ -2148,6 +2158,56 @@ tr:hover .task-context-btn,
 .btn-primary:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(16, 139, 185, 0.4);
+}
+
+/* Completion % progress bar (task details form) -- clicking it jumps the
+   task straight to 100% complete */
+.percent-progress-clickable {
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+}
+
+.percent-progress-clickable:hover {
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.35);
+}
+
+.percent-progress-clickable.percent-control-disabled {
+    cursor: not-allowed;
+}
+
+.percent-progress-clickable.percent-control-disabled:hover {
+    box-shadow: none;
+}
+
+/* Completion % quick-set mini-toolbar (0/25/50/75/100) */
+.percent-quick-toolbar {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.percent-quick-btn {
+    flex: 1;
+    border: 1px solid #e0e0e0;
+    background: #f0f0f0;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #333;
+    padding: 5px 0;
+    transition: background 0.15s, color 0.15s;
+}
+
+.percent-quick-btn:hover:not(:disabled) {
+    background: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.percent-quick-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 /* Subtasks list in task form */
@@ -3736,6 +3796,37 @@ tr:hover .task-context-btn,
 
 .user-filter select:hover {
     border-color: #999;
+}
+
+/* #1118: banner shown when the Overallocation button has filtered the
+ * Workload view down to only overallocated resources, with a way back to
+ * the unfiltered view without having to remember the ribbon button. */
+.user-workload-filter-notice {
+    margin-bottom: 16px;
+    padding: 10px 15px;
+    background: var(--np-warn-bg, #fff3cd);
+    border: 1px solid var(--np-warn-border, #ffe08a);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    color: var(--np-ink, #111);
+}
+
+.link-button {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--np-link, #1976d2);
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+}
+
+.link-button:hover {
+    color: var(--np-link-hover, #0d47a1);
 }
 
 .user-workload-section {
@@ -5852,6 +5943,11 @@ tr:hover .task-context-btn,
     padding: 4px;
 }
 
+.stakeholder-grid-wrapper.stakeholder-grid-expanded {
+    width: min(800px, 70vw);
+    height: min(800px, 70vh);
+}
+
 .stakeholder-grid-wrapper .copy-image-btn {
     position: absolute;
     top: 8px;
@@ -5983,6 +6079,11 @@ tr:hover .task-context-btn,
     gap: 6px;
 }
 
+/* A solid, filled button -- like .export-btn elsewhere in the same toolbar
+   row -- so it reads as clearly enabled and clickable rather than a faint
+   outline that looks greyed out (#1119). .active marks spreadsheet mode as
+   "pressed": a darker fill plus an inset shadow, not just a color swap, so
+   the two states stay visually distinct at a glance. */
 .budget-view-toggle {
     display: inline-flex;
     align-items: center;
@@ -5991,21 +6092,24 @@ tr:hover .task-context-btn,
     min-height: 44px;
     border: 2px solid var(--np-accent);
     border-radius: 4px;
-    background: var(--np-surface);
-    color: var(--np-accent);
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     font-size: 0.85em;
+    font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s, color 0.2s;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
 }
 
 .budget-view-toggle:hover {
-    background: var(--np-accent);
-    color: var(--np-on-accent);
+    background: var(--np-accent-hover);
+    border-color: var(--np-accent-hover);
 }
 
 .budget-view-toggle.active {
-    background: var(--np-accent);
+    background: var(--np-accent-hover);
+    border-color: var(--np-accent-hover);
     color: var(--np-on-accent);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .budget-view-toggle:focus-visible {
@@ -6031,6 +6135,31 @@ tr:hover .task-context-btn,
 .budget-filter-group select:focus {
     outline: 2px solid var(--np-accent);
     border-color: var(--np-accent-hover);
+}
+
+/* Category/Type filters embedded in the spreadsheet view's own column
+   headers (#1119) -- the toolbar filter groups above are hidden while that
+   view is active, so these are the only way to narrow it by category/type.
+   Cloned from the toolbar selects, so kept deliberately plain/compact to
+   fit inside a NoodleSheet header cell. */
+.budget-sheet-col-filter {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 2px;
+    padding: 1px 2px;
+    font-size: 10px;
+    font-weight: 400;
+    border: 1px solid #a0a0a0;
+    border-radius: 3px;
+    background: #fff;
+    color: var(--np-ink);
+    cursor: pointer;
+}
+
+.budget-sheet-col-filter:focus-visible {
+    outline: 2px solid var(--np-accent);
+    outline-offset: 1px;
 }
 
 .budget-table-wrapper {
