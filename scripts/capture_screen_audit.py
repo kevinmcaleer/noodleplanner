@@ -105,6 +105,35 @@ Resources:
 """
 
 
+# #1196's acceptance criteria ask for "modal and empty states", not just the
+# populated views. Both are where drift hides: an empty state is written once
+# and rarely looked at again, and a modal is the one surface a designer
+# reviewing a board never sees.
+
+# Deliberately not "" -- a plan with front matter and no tasks is the state a
+# real user reaches after starting a project, and it exercises the empty
+# rendering of every view rather than the "no plan loaded" splash.
+EMPTY_PLAN = """\
+---
+title: Empty Plan
+project manager: Alex Chen
+---
+"""
+
+# (label, global function to call, overlay id to wait for). Every entry was
+# checked against the running app rather than read off the template: of ten
+# candidates, `excelWizardOverlay` opens nothing visible without an upload in
+# progress and three others have no global opener at all, so they are absent.
+MODALS = [
+    ("keyboard-shortcuts", "showKeyboardShortcuts", "keyboardShortcutsOverlay"),
+    ("ai-settings", "openAISettingsModal", "aiSettingsOverlay"),
+    ("ai-chat", "openAIChat", "aiChatOverlay"),
+    ("templates", "openTemplatesModal", "templatesModalOverlay"),
+    ("baseline-dialog", "openBaselineDialog", "baselineDialogOverlay"),
+    ("task-detail", "openDetailPane", "detailPaneOverlay"),
+]
+
+
 def _free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
@@ -247,6 +276,67 @@ def capture(base_url: str, theme: str, only: set[str] | None, out_dir: Path, wid
                 "group": group, "view": view, "file": name,
                 "duplicateOf": duplicate_of,
             })
+
+        # --- Empty states. Same views, a plan with no tasks in it.
+        _load_plan(page, EMPTY_PLAN)
+        for group, view in _views():
+            if only and view not in only:
+                continue
+            if not _switch(page, group, view):
+                continue
+            name = f"{view}.empty.png" if theme == "light" else f"{view}.empty.{theme}.png"
+            path = out_dir / name
+            page.screenshot(path=str(path))
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            duplicate_of = seen.get(digest)
+            seen.setdefault(digest, f"{view} (empty)")
+            flag = f"  == identical to {duplicate_of}" if duplicate_of else ""
+            print(f"  {view + ' (empty)':<26} {path.stat().st_size // 1024:>5} KB{flag}")
+            captured.append({
+                "group": f"{group} — empty state", "view": f"{view} (empty)",
+                "file": name, "duplicateOf": duplicate_of,
+            })
+
+        # --- Modals. Back to a populated plan: an empty one leaves several of
+        # these with nothing to show.
+        _load_plan(page, SAMPLE_PLAN)
+        if not only:
+            for label, fn, overlay_id in MODALS:
+                if not page.evaluate("([f]) => typeof window[f] === 'function'", [fn]):
+                    print(f"  skip {label:<21} (no {fn}())")
+                    captured.append({"group": "Modals", "view": label, "file": None,
+                                     "note": f"no {fn}()"})
+                    continue
+                try:
+                    page.evaluate(f"() => {{ {fn}(); }}")
+                except Exception:
+                    print(f"  skip {label:<21} ({fn}() threw)")
+                    captured.append({"group": "Modals", "view": label, "file": None,
+                                     "note": f"{fn}() threw"})
+                    continue
+                page.wait_for_timeout(700)
+                shown = page.evaluate(
+                    "([id]) => { const e = document.getElementById(id); if (!e) return false;"
+                    "  const cs = getComputedStyle(e); const r = e.getBoundingClientRect();"
+                    "  return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 50; }",
+                    [overlay_id])
+                if not shown:
+                    print(f"  skip {label:<21} (opened nothing visible)")
+                    captured.append({"group": "Modals", "view": label, "file": None,
+                                     "note": "opened nothing visible"})
+                    continue
+                name = f"modal-{label}.png" if theme == "light" else f"modal-{label}.{theme}.png"
+                path = out_dir / name
+                page.screenshot(path=str(path))
+                print(f"  {label + ' (modal)':<26} {path.stat().st_size // 1024:>5} KB")
+                captured.append({"group": "Modals", "view": label, "file": name})
+                # Close it, both ways, so the next capture starts clean.
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(250)
+                page.evaluate(
+                    "([id]) => { const e = document.getElementById(id); if (e) e.style.display = 'none'; }",
+                    [overlay_id])
+                page.wait_for_timeout(150)
 
         context.close()
         browser.close()
