@@ -2516,6 +2516,82 @@ svg.icon {
     font-style: italic;
 }
 
+/* Baseline dialog (issue #1112): create/list/clear/delete baselines */
+.gantt-manage-baselines-btn {
+    align-self: center;
+}
+
+.baseline-history-list {
+    max-height: 320px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.baseline-dialog-empty {
+    color: var(--text-secondary, #666);
+    font-style: italic;
+    padding: 12px 0;
+}
+
+.baseline-history-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 8px;
+    background: var(--bg-secondary, #f8f9fa);
+}
+
+.baseline-history-row-active {
+    border-color: #28a745;
+    background: #eaf7ed;
+}
+
+.baseline-history-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.baseline-history-name {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.baseline-active-badge {
+    background: #28a745;
+    color: white;
+    font-size: 0.75em;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.baseline-history-date {
+    color: var(--text-secondary, #666);
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
+.baseline-history-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.baseline-history-actions button {
+    padding: 6px 12px;
+    min-height: 36px;
+    white-space: nowrap;
+}
+
 /* Toast notifications */
 .baseline-toast {
     position: fixed;
@@ -2914,6 +2990,11 @@ svg.icon {
     color: #dcdcaa;
 }
 
+.syntax-deadline {
+    color: #f48771;
+    font-weight: 600;
+}
+
 .syntax-dependency {
     color: #569cd6;
 }
@@ -2975,6 +3056,7 @@ svg.icon {
    both in sync until that pre-existing duplication is cleaned up. */
 body.hl-off-duration .syntax-duration,
 body.hl-off-duration .syntax-date,
+body.hl-off-duration .syntax-deadline,
 body.hl-off-duration .syntax-effort,
 body.hl-off-duration .syntax-recurrence,
 body.hl-off-duration .syntax-lag-lead {
@@ -4311,6 +4393,7 @@ body.detail-pane-open {
 .inspector-rag-banner.rag-blue {
     background: #e3f2fd;
     border-left: 5px solid #1976d2;
+    color: #111;
 }
 
 .inspector-rag-banner.rag-none {
@@ -4441,6 +4524,13 @@ body.detail-pane-open {
     padding: 6px 0;
 }
 
+.inspector-help-text {
+    margin: 0 0 10px;
+    color: #666;
+    font-size: .88em;
+    line-height: 1.4;
+}
+
 .inspector-progress-bar-wrapper {
     background: #e0e0e0;
     border-radius: 6px;
@@ -4458,6 +4548,23 @@ body.detail-pane-open {
 .inspector-progress-bar-fill.green { background: #4caf50; }
 .inspector-progress-bar-fill.amber { background: #ff9800; }
 .inspector-progress-bar-fill.red { background: #f44336; }
+
+/* Task-form progress labels need a light foreground on the dark RAG fills. */
+#progressBar.bg-danger #progressText,
+#progressBar.bg-success #progressText {
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .45);
+}
+
+#taskInspectorSection .close-btn {
+    color: #fff !important;
+}
+
+#taskInspectorSection .close-btn:hover,
+#taskInspectorSection .close-btn:focus-visible {
+    color: #fff !important;
+    background: rgba(255, 255, 255, .22);
+}
 
 .inspector-open-task-btn {
     display: inline-block;
@@ -4898,6 +5005,73 @@ tr:hover .task-context-btn,
     font-size: 0.9em;
 }
 
+/* Smart-tag date suggestions (issue #1161, part of epic #878): a small
+   bar under the task-details form's Comment field, populated by
+   smart-date-tags.js when it finds a date-like phrase in that text.
+   Hidden (no `.active` class) whenever there is nothing to suggest --
+   see #878's "suggestion layer, never silent assumption" -- so an empty
+   bar never reserves visible space under the textarea. */
+.task-date-suggestions {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.task-date-suggestions.active {
+    display: flex;
+}
+
+.task-date-suggestion {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    background: #f8f9fa;
+}
+
+.task-date-suggestion-label {
+    font-size: 12px;
+    color: #666;
+    margin-right: 2px;
+}
+
+.task-date-suggestion-btn {
+    border: 1px solid #108BB9;
+    border-radius: 4px;
+    background: white;
+    color: #108BB9;
+    font-size: 12px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
+.task-date-suggestion-btn:hover,
+.task-date-suggestion-btn:focus-visible {
+    background: #108BB9;
+    color: white;
+    outline: none;
+}
+
+.task-date-suggestion-dismiss {
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: #999;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px 6px;
+    line-height: 1;
+}
+
+.task-date-suggestion-dismiss:hover,
+.task-date-suggestion-dismiss:focus-visible {
+    color: #333;
+}
+
 /* Non-working days exceptions table */
 .nwd-exceptions-table {
     width: 100%;
@@ -5013,7 +5187,7 @@ tr:hover .task-context-btn,
 }
 
 .dependencies-table td {
-    padding: 10px;
+    padding: 5px 10px;
     border-bottom: 1px solid #e0e0e0;
 }
 
@@ -5053,12 +5227,21 @@ tr:hover .task-context-btn,
 }
 
 .dependencies-table tbody:empty::after {
-    content: 'No dependencies. Click "+ Add Dependency" to add one.';
+    content: 'No dependencies. Add one below.';
     display: block;
     padding: 20px;
     text-align: center;
     color: #999;
     font-style: italic;
+}
+
+.dependency-add-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--np-input-border, #e0e0e0);
+    border-radius: 4px;
+    background: var(--np-input-bg, #fff);
+    color: var(--np-text, #333);
 }
 
 .form-actions {
@@ -5083,6 +5266,56 @@ tr:hover .task-context-btn,
 .btn-primary:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(16, 139, 185, 0.4);
+}
+
+/* Completion % progress bar (task details form) -- clicking it jumps the
+   task straight to 100% complete */
+.percent-progress-clickable {
+    cursor: pointer;
+    transition: box-shadow var(--np-anim-duration) var(--np-anim-easing);
+}
+
+.percent-progress-clickable:hover {
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.35);
+}
+
+.percent-progress-clickable.percent-control-disabled {
+    cursor: not-allowed;
+}
+
+.percent-progress-clickable.percent-control-disabled:hover {
+    box-shadow: none;
+}
+
+/* Completion % quick-set mini-toolbar (0/25/50/75/100) */
+.percent-quick-toolbar {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.percent-quick-btn {
+    flex: 1;
+    border: 1px solid #e0e0e0;
+    background: #f0f0f0;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #333;
+    padding: 5px 0;
+    transition: background var(--np-anim-duration) var(--np-anim-easing), color var(--np-anim-duration) var(--np-anim-easing);
+}
+
+.percent-quick-btn:hover:not(:disabled) {
+    background: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.percent-quick-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 /* Subtasks list in task form */
@@ -7383,6 +7616,11 @@ tr:hover .task-context-btn,
 
 .lookahead-section-title.upcoming {
     background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+    color: #fff;
+}
+
+:root body .lookahead-section-title.overdue,
+:root body .lookahead-section-title.upcoming {
     color: #fff;
 }
 
@@ -11841,6 +12079,11 @@ body.no-animations .np-fade-in {
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     padding: 4px;
+}
+
+.stakeholder-grid-wrapper.stakeholder-grid-expanded {
+    width: min(800px, 70vw);
+    height: min(800px, 70vh);
 }
 
 .stakeholder-grid-wrapper .copy-image-btn {

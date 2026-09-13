@@ -1,5 +1,6 @@
 """Convert between different task file formats."""
 
+import json
 import re
 import yaml
 
@@ -1468,17 +1469,93 @@ def generate_baseline_text(baseline_items: list) -> str:
     return '\n'.join(lines)
 
 
-def update_plan_baseline(plan_text: str, baseline_items: list) -> str:
+def generate_baseline_history_comment(history) -> str:
+    """Build the HTML-comment line that records baseline creation history.
+
+    Issue #1112 scoping note: the plan format keeps exactly one *active*
+    baseline (the markdown table ``generate_baseline_text``/
+    ``parse_baseline_markdown`` already round-trip -- full name/start/
+    finish/duration per task). Rather than migrating that into a
+    multi-baseline table format (a large change touching every
+    ``update_plan_*`` function that preserves the baseline section, plus
+    the JS mirrors of all of them), the Baseline dialog layers a
+    lightweight *history log* of past baseline creations -- id/name/date
+    metadata only, no task-level data -- on top of it, encoded as a single
+    JSON comment line placed before the active table. Comment lines are
+    already ignored by both ``parse_baseline_markdown`` (it only looks for
+    a "task name" header row) and its JS twin, so old code that only
+    knows about the table keeps working unchanged.
+
+    Args:
+        history: ``{"active": id-or-None, "entries": [{"id", "name",
+            "date"}, ...]}``, or a falsy value for "no history to record".
+
+    Returns:
+        The comment line (e.g. ``<!-- baseline-history: {...} -->``), or
+        ``''`` if *history* has no entries.
+    """
+    if not history or not history.get('entries'):
+        return ''
+    payload = json.dumps(history, separators=(',', ':'))
+    return f'<!-- baseline-history: {payload} -->'
+
+
+def extract_baseline_history(section_text: str) -> dict:
+    """Parse the ``baseline-history`` comment out of a ``---baseline---``
+    section's raw text (as returned by ``extract_baseline``).
+
+    Args:
+        section_text: Raw text of the baseline section (comment + table).
+
+    Returns:
+        ``{"active": id-or-None, "entries": [...]}``. Defaults to
+        ``{"active": None, "entries": []}`` if the comment is absent or
+        malformed -- a plan written before #1112, or one with only the
+        plain baseline table, still parses cleanly to "no history".
+    """
+    default = {'active': None, 'entries': []}
+    if not section_text:
+        return default
+
+    m = re.search(r'<!--\s*baseline-history:\s*(\{.*?\})\s*-->', section_text, re.DOTALL)
+    if not m:
+        return default
+
+    try:
+        data = json.loads(m.group(1))
+    except (json.JSONDecodeError, TypeError):
+        return default
+
+    if not isinstance(data, dict):
+        return default
+
+    entries = data.get('entries')
+    if not isinstance(entries, list):
+        entries = []
+    active = data.get('active')
+    if not isinstance(active, str):
+        active = None
+    return {'active': active, 'entries': entries}
+
+
+def update_plan_baseline(plan_text: str, baseline_items: list, history: dict = None) -> str:
     """Update plan text with the given baseline table.
 
     Replaces the existing ``---baseline---`` section or appends a new
     one at the end of the plan text (after RAID log).  If
-    *baseline_items* is empty, any existing baseline section is removed.
-    Preserves any whiteboard and parking lot sections that follow.
+    *baseline_items* is empty and no *history* is given, any existing
+    baseline section is removed entirely -- the original, pre-#1112
+    behaviour every existing caller relies on. Preserves any whiteboard
+    and parking lot sections that follow.
 
     Args:
         plan_text: The full plan text.
         baseline_items: List of baseline item dicts.
+        history: Optional baseline history metadata (see
+            ``generate_baseline_history_comment``). When given with an
+            empty *baseline_items*, the section is kept (as just the
+            history comment, no table) so a "clear the active baseline"
+            action doesn't also erase the history of past baselines.
 
     Returns:
         Updated plan text.
@@ -1488,10 +1565,12 @@ def update_plan_baseline(plan_text: str, baseline_items: list) -> str:
     parking_lot_text = extract_parking_lot(plan_text)
     base = strip_parking_lot(strip_whiteboard(strip_baseline(plan_text))).rstrip('\n')
     table = generate_baseline_text(baseline_items)
+    history_comment = generate_baseline_history_comment(history)
+    section_text = '\n\n'.join(part for part in (history_comment, table) if part)
 
     result = base
-    if table:
-        result = result + '\n\n' + BASELINE_START + '\n' + table
+    if section_text:
+        result = result + '\n\n' + BASELINE_START + '\n' + section_text
 
     # Re-append the whiteboard section if it was present
     if whiteboard_text:

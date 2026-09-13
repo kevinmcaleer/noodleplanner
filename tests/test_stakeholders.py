@@ -230,13 +230,11 @@ class TestStakeholderJavaScript:
         """Test that stakeholders is included in the PLAN_VIEWS array."""
         assert "'stakeholders'" in script_content
 
-    def test_stakeholders_in_nav_mapping(self, script_content):
-        """Test that stakeholders maps to planTab in the nav mapping.
-
-        The mapping lives in script.js, not nav.js; this test fetched
-        nav.js and had been failing since the mapping moved.
-        """
-        assert "'stakeholders': 'planTab'" in script_content
+    def test_stakeholders_in_nav_mapping(self, client):
+        """Test that stakeholders maps to planTab in the global nav mapping."""
+        response = client.get("/static/script.js")
+        assert response.status_code == 200
+        assert "'stakeholders': 'planTab'" in response.text
 
     def test_clear_stakeholders_in_tracking_data(self, script_content):
         """Test that clearStakeholders is called in clearPlanTrackingData."""

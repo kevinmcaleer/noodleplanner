@@ -25,7 +25,6 @@ const BRACKET_DEP = /\[depends\s*:?\s*([^\]]*)\]/i;
 const LAG_LEAD = /^(.+?)\s+([+-]\d+[dwmy])$/;
 const DEP_TYPE = /^(.+?):(FS|SS|FF|SF)$/i;
 const RECURRENCE = /\[repeats\s+([^\]]+)\]/i;
-const DEADLINE = /\[deadline\s+(\d{4}-\d{2}-\d{2})\]/i;
 // Noodle view (#984/#985): a manual drag is recorded as this exception --
 // a semantic corner, not raw pixels -- and an associative (non-scheduling)
 // link is recorded the same bracket-tag way `[depends]` records a real one.
@@ -47,10 +46,11 @@ const EFFORT = /~(\d+(?:\.\d+)?)(h|d)(?:\/(\d+(?:\.\d+)?)(h|d))?/;
 const PERCENT = /(\d{1,3})%/;
 const LEGACY_PERCENT = /\bp(\d{1,3})\b/;
 const LEVELLED = /\[levelled\s+@?(\S+)\s+(\d{4}-\d{2}-\d{2})\s*\]/i;
+const DEADLINE = /\bD(\d{4}-\d{2}-\d{2})\b/;
 const DATE = /(\d{4}-\d{2}-\d{2})/;
 const DURATION = /(?<!~)(?<![~/])\b(\d+)([dwmy])\b/;
 const LEGACY_DURATION = /:p(\d+)d/;
-const DESCRIPTION = /\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|"|\{|\[|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)/;
+const DESCRIPTION = /\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|"|\{|\[|D\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)/;
 const PERCENT_TOKEN = /\s*\b\d{1,3}%/g;
 
 /** parse_recurrence: "weekly mon,wed" and friends. */
@@ -169,9 +169,6 @@ export function extractMetadata(taskStr, taskName = null) {
   const recurrence = RECURRENCE.exec(line);
   if (recurrence) meta.recurrence = parseRecurrence(recurrence[1]);
 
-  const deadline = DEADLINE.exec(line);
-  if (deadline) meta.deadline = deadline[1];
-
   // --- noodle view pin (issue #984) ---
   const pin = PIN_TAG.exec(line);
   if (pin) {
@@ -265,12 +262,22 @@ export function extractMetadata(taskStr, taskName = null) {
     }
   }
 
+  // --- deadline marker: D2026-09-10. Never drives scheduling -- it's a
+  // fixed flag compared against the computed finish date later (see
+  // scheduler.js's calculateRagStatus). Stripped from the string used for
+  // start-date matching so its embedded YYYY-MM-DD isn't picked up twice.
+  const deadline = DEADLINE.exec(line);
+  let lineForDates = line;
+  if (deadline) {
+    meta.deadline = deadline[1];
+    lineForDates = lineForDates.slice(0, deadline.index) + lineForDates.slice(deadline.index + deadline[0].length);
+  }
+
   // --- levelled flag, which fixes the start, then any explicit date ---
-  const levelled = LEVELLED.exec(line);
-  let lineForDates = line.replace(DEADLINE, "");
+  const levelled = LEVELLED.exec(lineForDates);
   if (levelled) {
     meta.levelled = { resource: levelled[1].replace(/^@/, ""), start: levelled[2] };
-    lineForDates = line.slice(0, levelled.index) + line.slice(levelled.index + levelled[0].length);
+    lineForDates = lineForDates.slice(0, levelled.index) + lineForDates.slice(levelled.index + levelled[0].length);
     meta.start = levelled[2];
     meta.due = levelled[2];
   } else {

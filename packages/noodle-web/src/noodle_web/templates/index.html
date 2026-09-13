@@ -145,6 +145,7 @@
     <link rel="stylesheet" href="/static/responsive.css?v={{ v }}">
     <link rel="stylesheet" href="/static/noodlesheet.css?v={{ v }}">
     <link rel="stylesheet" href="/static/ai-chat.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/front-matter-panel.css?v={{ v }}">
 </head>
 <body>
     <!-- SVG Icon Sprite (hidden, reference with use#id) -->
@@ -381,7 +382,7 @@
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="notepad" onclick="switchToView('notepad'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Notepad
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Outline
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="gantt" onclick="switchToView('gantt'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt
@@ -436,7 +437,7 @@
                 <!-- Tracking dropdown -->
                 <div class="plan-subnav-dropdown">
                     <button class="plan-subnav-btn" id="trackingDropdownBtn"
-                            data-dropdown-views="raid,actions,highlights,lookahead,analysis,budget,evm,comms,lessons"
+                            data-dropdown-views="raid,actions,highlights,lookahead,analysis,budget,evm,forecast,comms,lessons"
                             onclick="toggleDropdownMenu('trackingDropdownMenu', 'trackingDropdownBtn', event)"
                             aria-haspopup="true" aria-expanded="false" aria-controls="trackingDropdownMenu">
                         Tracking &#9662;
@@ -462,6 +463,9 @@
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="evm" onclick="switchToView('evm'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-evm"/></svg> EVM
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="forecast" onclick="switchToView('forecast'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-chart"/></svg> Forecast
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="comms" onclick="switchToView('comms'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Comms Plan
@@ -581,6 +585,7 @@
                         <div style="padding: 6px 10px; background: #3a3a3a; border-left: 4px solid #108BB9; margin-bottom: 0; font-size: 0.85em; color: #d4d4d4;">
                             💡 <strong>Tip:</strong> Double-click or double-tap any task line to edit it
                         </div>
+                        <div id="frontMatterPanel" class="fm-panel"></div>
                         <div class="editor-wrapper">
                             <div class="line-numbers" id="lineNumbers">1</div>
                             <div class="editor-area">
@@ -976,6 +981,7 @@ Press Enter to render..."></textarea>
                                             </label>
                                         </div>
                                         <button class="btn btn-sm btn-outline-secondary gantt-set-baseline-btn" id="setBaselineBtn" onclick="setBaseline()" title="Save current schedule as baseline">Set Baseline</button>
+                                        <button class="btn btn-sm btn-outline-secondary gantt-manage-baselines-btn" id="manageBaselinesBtn" onclick="openBaselineDialog()" title="Create, view, clear and delete baselines">Manage Baselines&hellip;</button>
                                     </div>
                                 </div>
                                 <div class="gantt-wrapper">
@@ -1071,7 +1077,7 @@ Press Enter to render..."></textarea>
                             </div>
                         </div>
 
-                        <!-- Notepad View (#1049): a plain notepad-style list surface --
+                        <!-- Outline View (#1049): a plain task-outline list surface --
                              no front matter, no syntax, no jargon on screen. Populated
                              by notepad.js's activateNotepadView(), called from
                              switchOutputTab() in nav.js. -->
@@ -1185,6 +1191,7 @@ Press Enter to render..."></textarea>
                                 <div class="highlights-toolbar">
                                     <h2 class="highlights-title"><span class="ribbon-banner ribbon-banner--yellow">Project Highlights</span></h2>
                                     <a class="subtle-add-btn" onclick="addHighlight()" title="Add highlight">+ Add Highlight</a>
+                                    <a class="subtle-add-btn" onclick="SectionFolding.jumpToBackMatterSection('---highlights---', null, 'highlights')" title="Open highlights markdown in the plan editor"><i class="bi bi-code-slash"></i> Markdown</a>
                                     <a class="subtle-add-btn" onclick="showTrendReportDialog()" title="Generate trend report from version history"><i class="bi bi-graph-up-arrow"></i> Auto Report</a>
                                 </div>
                                 <div class="highlights-list" id="highlightsList">
@@ -1257,6 +1264,38 @@ Press Enter to render..."></textarea>
                             </div>
                         </div>
 
+                        <!-- Escalations View -->
+                        <div id="escalations-view" class="output-tab-content">
+                            <div class="escalations-container">
+                                <div class="view-header">
+                                    <div>
+                                        <h2>Escalations</h2>
+                                        <p class="view-subtitle">Risks escalated to the Board or Programme.</p>
+                                    </div>
+                                </div>
+                                <div class="raid-toolbar">
+                                    <div class="raid-filter-group">
+                                        <label for="escalationsFilterTarget">Escalate To:</label>
+                                        <select id="escalationsFilterTarget" onchange="renderEscalationsView()">
+                                            <option value="all">All</option>
+                                            <option value="board">Board</option>
+                                            <option value="programme">Programme</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="raid-table-wrapper">
+                                    <table class="raid-table" aria-label="Escalated risks">
+                                        <thead><tr><th>Title</th><th>Description</th><th>Owner</th><th>Score</th><th>Escalate To</th><th>Target Date</th><th>Status</th></tr></thead>
+                                        <tbody id="escalationsTableBody"></tbody>
+                                    </table>
+                                    <div class="raid-empty-state" id="escalationsEmptyState">
+                                        <h3>No escalations</h3>
+                                        <p>Risks escalated to the Board or Programme will appear here.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- User Workload View -->
                         <div id="user-workload-view" class="output-tab-content">
                             <div class="user-workload-placeholder placeholder-view">
@@ -1264,7 +1303,11 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see tasks broken down by user here.</p>
                             </div>
                             <div class="user-workload-content" style="display: none;">
-                                <h2 class="user-workload-title"><span class="ribbon-banner ribbon-banner--dark">User Workload Breakdown</span></h2>
+                                <h2 class="user-workload-title"><span class="ribbon-banner ribbon-banner--dark" id="userWorkloadTitleBanner">User Workload Breakdown</span></h2>
+                                <div class="user-workload-filter-notice" id="userWorkloadFilterNotice" style="display: none;">
+                                    <span>Showing only overallocated resources.</span>
+                                    <button type="button" class="link-button" onclick="clearOverallocationFilter()">Show all resources</button>
+                                </div>
                                 <div class="user-filter">
                                     <label for="userFilter">Filter by user:</label>
                                     <select id="userFilter" onchange="filterUserWorkload()">
@@ -1275,7 +1318,7 @@ Press Enter to render..."></textarea>
                                     <!-- User sections will be populated by JavaScript -->
                                 </div>
                                 <div class="user-workload-empty" id="userWorkloadEmpty" style="display: none;">
-                                    <p>No tasks assigned to users.</p>
+                                    <p id="userWorkloadEmptyText">No tasks assigned to users.</p>
                                 </div>
                             </div>
                         </div>
@@ -1419,9 +1462,19 @@ Press Enter to render..."></textarea>
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11a0 0 0 010 0H4z"/><path d="M15 4v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="12" y1="10" x2="12" y2="16"/></svg>
                                             <span>New post-it</span>
                                         </button>
-                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardNewTextBtn" onclick="wbCreateTextObjectInViewportCentre()" title="New free-floating text (no task, no card -- just text on the canvas)" aria-label="New free-floating text object on the whiteboard">
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardNewTextBtn" onclick="wbCreateTextObjectInViewportCentre()" title="Add a title -- free-floating text, no task, no card, just text on the canvas" aria-label="Add a free-floating title text object on the whiteboard">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg>
-                                            <span>New text</span>
+                                            <span>Add title</span>
+                                        </button>
+                                        <!-- #1107: reuses wbCreateNoteInViewportCentre() as-is -- issue #1015's
+                                             free-form note (a post-it with no checklist yet) is the "text note"
+                                             this button is for; "New post-it" above creates the exact same
+                                             thing, this is just a second, more discoverable entry point grouped
+                                             with the other bare-canvas-object buttons (Add title / free text)
+                                             rather than only under the task-creation heading. -->
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardTextNoteBtn" onclick="wbCreateNoteInViewportCentre()" title="New text note -- a post-it with no checklist yet, just a title and a comment" aria-label="New text note on the whiteboard">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>
+                                            <span>Text note</span>
                                         </button>
                                         <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardAddNoteBtn" onclick="wbOpenAddNotePicker()" title="Add an existing task to the board" aria-label="Add an existing task to the whiteboard">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1437,13 +1490,24 @@ Press Enter to render..."></textarea>
                                         </button>
                                     </div>
                                     <div class="wb-toolbar-group">
-                                        <button class="wb-toolbar-btn wb-link-mode-btn" id="whiteboardLinkModeBtn" onclick="wbToggleLinkMode()" title="Dragging a noodle handle makes a subtask (Hierarchy) or a dependency (Dependency) -- click to switch" aria-label="Link mode: Hierarchy. Click to switch to Dependency mode." aria-pressed="false">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3v12a3 3 0 003 3h6"/><path d="M12 15l3 3-3 3"/></svg>
-                                            <span id="whiteboardLinkModeLabel">Hierarchy</span>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardTidyLayoutBtn" onclick="wbLayoutTidyNotes()" title="Tidy up notes into a uniform grid" aria-label="Tidy up notes">
+                                            <span>Tidy</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardHierarchyLayoutBtn" onclick="wbLayoutHierarchyView()" title="Arrange notes by plan hierarchy" aria-label="Hierarchy view">
+                                            <span>Hierarchy</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardCompactLayoutBtn" onclick="wbLayoutCompact()" title="Use compact spacing between notes" aria-label="Compact spacing">
+                                            <span>Compact</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardComfyLayoutBtn" onclick="wbLayoutComfy()" title="Use roomy spacing between notes" aria-label="Comfy spacing">
+                                            <span>Comfy</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardFlowLayoutBtn" onclick="wbLayoutFlowView()" title="Arrange notes left-to-right by dependencies" aria-label="Flow view">
+                                            <span>Flow</span>
                                         </button>
                                     </div>
                                     <div class="wb-toolbar-hint">
-                                        Double-click empty space (or press <kbd>n</kbd>) for a new post-it, or press <kbd>t</kbd> for free-floating text &middot; double-click a note's header to rename &middot; drag the noodle handle onto another note to make it a subtask (or, in Dependency mode, a dependency) &middot; click a noodle to select, then <kbd>Delete</kbd> to unlink &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; <kbd>f</kbd> fits
+                                        Double-click empty space (or press <kbd>n</kbd>) for a new post-it, or press <kbd>t</kbd> for free-floating text &middot; double-click a note's header to rename &middot; drag the noodle handle onto another note to make it a subtask &middot; hover a checklist row and drag its own handle onto another task's row to make it depend on that task &middot; click a noodle to select, then <kbd>Delete</kbd> to unlink &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; <kbd>f</kbd> fits
                                     </div>
                                 </div>
                                 <div class="wb-canvas-wrapper" id="whiteboardContainer" tabindex="0" role="application" aria-label="Whiteboard canvas. Pan, zoom, and double-click empty space to add a post-it.">
@@ -1609,6 +1673,9 @@ Press Enter to render..."></textarea>
                                         <button class="mindmap-toolbar-btn" onclick="exportBenefitsExcel()" title="Export to Excel" aria-label="Export benefits to Excel">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                                         </button>
+                                        <button class="mindmap-toolbar-btn" onclick="SectionFolding.jumpToBackMatterSection('---benefits---', null, 'benefits')" title="Open the benefits markdown section in the plan editor" aria-label="Open benefits markdown in the plan editor">
+                                            <i class="bi bi-code-slash"></i>
+                                        </button>
                                     </div>
                                     <div class="mindmap-toolbar-separator"></div>
                                     <div class="mindmap-toolbar-group benefits-add-group">
@@ -1657,6 +1724,7 @@ Press Enter to render..."></textarea>
                                                     <th>Measurement Method</th>
                                                     <th>Status</th>
                                                     <th>Last Updated</th>
+                                                    <th>Source</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="benefitsTrackingBody">
@@ -1742,6 +1810,39 @@ Press Enter to render..."></textarea>
                             </div>
                         </div>
 
+                        <!-- Forecast View (#1114): the Track ribbon's Forecast button --
+                             the same PV/EV/AC S-curve as the EVM view above, but led with
+                             the schedule- and cost-at-completion forecast rather than
+                             measurement-to-date. Rendered by updateForecastView(), which
+                             reuses the EVM view's cached evmData -- see script.js. -->
+                        <div id="forecast-view" class="output-tab-content">
+                            <div class="evm-placeholder forecast-placeholder placeholder-view">
+                                <h3>Forecast</h3>
+                                <p>Render your plan with budget data to see a schedule and cost forecast here.</p>
+                                <p>Forecasting requires tasks with % complete and budget items to calculate meaningful metrics.</p>
+                            </div>
+                            <div class="evm-content forecast-content" style="display: none;">
+                                <div class="evm-header">
+                                    <h2 class="evm-title"><span class="ribbon-banner ribbon-banner--blue">Forecast</span></h2>
+                                    <span class="copy-image-btn" onclick="copyElementAsImage(document.getElementById('forecastChartWrapper'), this)" title="Copy chart as image">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    </button>
+                                </div>
+
+                                <!-- Cost-at-completion / schedule-at-completion headline -->
+                                <div class="forecast-summary" id="forecastSummary"></div>
+
+                                <!-- Forecast KPI Cards: CPI, SPI, EAC, ETC, VAC, TCPI, forecast finish -->
+                                <div class="evm-kpi-grid" id="forecastKpiGrid">
+                                </div>
+
+                                <!-- Forecast Chart: same PV/EV/AC-plus-forecast S-curve as the EVM view -->
+                                <div class="evm-chart-wrapper" id="forecastChartWrapper">
+                                    <svg id="forecastChart" class="evm-chart-svg"></svg>
+                                    <div class="evm-chart-legend" id="forecastChartLegend"></div>
+                                </div>
+                            </div>
+                        </div>
 
 
 
@@ -1919,6 +2020,7 @@ Build
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
                         <a class="subtle-add-btn" onclick="addRaidItem()" title="Add RAID item">+ Add Item</a>
+                        <a class="subtle-add-btn" onclick="SectionFolding.jumpToBackMatterSection('---raid log---', null, 'tasks')" title="Open the RAID markdown section in the plan editor"><i class="bi bi-code-slash"></i> Markdown</a>
                         <input type="file" id="raidMdUpload" accept=".md" style="display:none;" onchange="uploadRaidMarkdown(event)">
                         <input type="file" id="raidXlUpload" accept=".xlsx" style="display:none;" onchange="uploadRaidExcel(event)">
                         <div class="raid-toolbar-separator"></div>
@@ -2002,6 +2104,7 @@ Build
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
                         <a class="subtle-add-btn" onclick="addCommsItem()" title="Add comms item">+ Add Item</a>
+                        <a class="subtle-add-btn" onclick="SectionFolding.jumpToBackMatterSection('---comms---', null, 'tasks')" title="Open the comms markdown section in the plan editor"><i class="bi bi-code-slash"></i> Markdown</a>
                         <div class="raid-toolbar-separator"></div>
                         <div class="raid-filter-group">
                             <label for="commsFilterStatus">Status:</label>
@@ -2053,6 +2156,7 @@ Build
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
                         <a class="subtle-add-btn" onclick="addLessonsItem()" title="Capture a lesson learned">+ Add Lesson</a>
+                        <a class="subtle-add-btn" onclick="SectionFolding.jumpToBackMatterSection('---lessons learned---', null, 'tasks')" title="Open the lessons markdown section in the plan editor"><i class="bi bi-code-slash"></i> Markdown</a>
                         <div class="raid-toolbar-separator"></div>
                         <div class="raid-filter-group">
                             <label for="lessonsFilterImpact">Impact:</label>
@@ -2128,6 +2232,7 @@ Build
                     <!-- Toolbar -->
                     <div class="budget-toolbar">
                         <a class="subtle-add-btn" onclick="openBudgetForm(null)" title="Add budget item">+ Add Item</a>
+                        <a class="subtle-add-btn" onclick="SectionFolding.jumpToBackMatterSection('---budget---', null, 'tasks')" title="Open the budget markdown section in the plan editor"><i class="bi bi-code-slash"></i> Markdown</a>
                         <input type="file" id="budgetMdUpload" accept=".md" style="display:none;" onchange="uploadBudgetMarkdown(event)">
                         <input type="file" id="budgetXlUpload" accept=".xlsx" style="display:none;" onchange="uploadBudgetExcel(event)">
                         <div class="budget-toolbar-separator"></div>
@@ -2607,7 +2712,7 @@ Build
                         </div>
                     </div>
 
-                    <div class="form-grid-2col">
+                    <div class="form-grid-3col">
                         <div class="form-group">
                             <label for="taskStartDate">Start Date</label>
                             <input type="date" id="taskStartDate" class="form-control" onchange="onDateChange('start')">
@@ -2617,6 +2722,11 @@ Build
                             <label for="taskFinishDate">Finish Date</label>
                             <input type="date" id="taskFinishDate" class="form-control" onchange="onDateChange('finish')">
                         </div>
+
+                        <div class="form-group">
+                            <label for="taskDeadline">Deadline</label>
+                            <input type="date" id="taskDeadline" class="form-control" onchange="onDeadlineChange()">
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -2625,13 +2735,21 @@ Build
                             <input type="number" id="taskPercent" min="0" max="100" placeholder="0-100"
                                    style="width: 80px; flex-shrink: 0;"
                                    oninput="saveTask(); updateRagDisplay(); updateProgressBar()">
-                            <div class="progress" style="flex: 1; height: 25px;">
+                            <div class="progress percent-progress-clickable" id="taskProgressBarWrapper" style="flex: 1; height: 25px;"
+                                 title="Click to mark 100% complete" onclick="setTaskPercentQuick(100)">
                                 <div id="progressBar" class="progress-bar progress-bar-striped bg-success"
                                      role="progressbar" style="width: 0%; transition: width 0.3s ease;"
                                      aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
                                     <span id="progressText"></span>
                                 </div>
                             </div>
+                        </div>
+                        <div class="percent-quick-toolbar" id="percentQuickToolbar" role="group" aria-label="Quick-set completion percentage">
+                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(0)">0%</button>
+                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(25)">25%</button>
+                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(50)">50%</button>
+                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(75)">75%</button>
+                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(100)">100%</button>
                         </div>
                         <small id="percentHelperText" style="display: none; color: #666;">Auto-calculated from subtasks</small>
                     </div>
@@ -2758,9 +2876,14 @@ Build
                                 </tbody>
                             </table>
                         </div>
-                        <a href="javascript:void(0)" class="add-item-link" onclick="addDependencyRow()" style="margin-top: 10px; display: inline-block;">
-                            <span class="add-icon">+</span> Add Dependency
-                        </a>
+                        <div class="dependency-inline-add autocomplete-container" style="position: relative; margin-top: 10px;">
+                            <input type="text" id="addDependencyInput" class="dependency-add-input"
+                                   placeholder="Add dependency" autocomplete="off"
+                                   data-dropdown="addDependencyAutocomplete"
+                                   oninput="handleDependencyInput(this)"
+                                   onkeydown="handleAddDependencyKeydown(event, this)">
+                            <div id="addDependencyAutocomplete" class="autocomplete-dropdown"></div>
+                        </div>
                         <small style="display: block; margin-top: 5px;">Lag: +2d (wait after), Lead: -1d (start before)</small>
                     </div>
 
@@ -4261,10 +4384,13 @@ Build
     <script src="/static/nav.js?v={{ v }}"></script>
     <script src="/static/task-tokenizer.js?v={{ v }}"></script>
     <script src="/static/plan-model.js?v={{ v }}"></script>
+    <script src="/static/front-matter-model.js?v={{ v }}"></script>
     <script src="/static/estimating.js?v={{ v }}"></script>
     <script src="/static/cards.js?v={{ v }}"></script>
     <script src="/static/highlight-toggles.js?v={{ v }}"></script>
+    <script src="/static/schedule-check.js?v={{ v }}"></script>
     <script src="/static/plan-wizard.js?v={{ v }}"></script>
+    <script src="/static/section-folding.js?v={{ v }}"></script>
     <script src="/static/editor.js?v={{ v }}"></script>
     <script src="/static/window-drop.js?v={{ v }}"></script>
     <script src="/static/editor-sync.js?v={{ v }}"></script>
@@ -4283,6 +4409,7 @@ Build
     <script src="/static/version-history.js?v={{ v }}"></script>
     <script src="/static/portfolio.js?v={{ v }}"></script>
     <script src="/static/multi-plan-loader.js?v={{ v }}"></script>
+    <script src="/static/front-matter-panel.js?v={{ v }}"></script>
     <script src="/static/portfolio-status.js?v={{ v }}"></script>
     <script src="/static/portfolio-resources.js?v={{ v }}"></script>
     <script src="/static/portfolio-leveling.js?v={{ v }}"></script>
@@ -4318,6 +4445,8 @@ Build
     <script src="/static/ai-chat.js?v={{ v }}"></script>
     <script src="/static/collab-session.js?v={{ v }}"></script>
     <script src="/static/ribbon.js?v={{ v }}"></script>
+    <script src="/static/date-detect.js?v={{ v }}"></script>
+    <script src="/static/smart-date-tags.js?v={{ v }}"></script>
 
     <!-- Collab Session Modal (#963) -->
     <div id="collabSessionOverlay" class="modal-overlay" onclick="if(event.target===this) closeCollabSessionModal()" role="dialog" aria-modal="true" aria-label="Planning session">
@@ -4482,6 +4611,31 @@ Build
                     <button type="button" id="trendReportAddBtn" class="btn-primary" onclick="addReportToHighlights()" style="display: none; padding: 8px 20px; min-height: 44px;">
                         <i class="bi bi-plus-circle"></i> Add to Highlights
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Baseline Dialog (issue #1112): create, list, clear and delete baselines -->
+    <div id="baselineDialogOverlay" class="modal-overlay" onclick="if(event.target===this) closeBaselineDialog()" role="dialog" aria-modal="true" aria-label="Baselines">
+        <div class="task-form-modal" style="max-width: 550px;">
+            <div class="modal-header">
+                <h2><i class="bi bi-clock-history"></i> Baselines</h2>
+                <button class="close-btn" onclick="closeBaselineDialog()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 12px; color: var(--text-secondary, #666);">
+                    A baseline snapshots the current schedule so you can compare it against progress later. Only the most recently created (and not yet cleared) baseline is active for that comparison.
+                </p>
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <input type="text" id="newBaselineName" class="form-control" placeholder="Baseline name (optional)" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color, #ddd);">
+                    <button type="button" class="btn-primary" onclick="createBaselineFromDialog()" style="padding: 8px 20px; min-height: 44px; white-space: nowrap;">
+                        <i class="bi bi-plus-circle"></i> Create Baseline
+                    </button>
+                </div>
+                <div id="baselineHistoryList" class="baseline-history-list"></div>
+                <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                    <button type="button" class="btn-secondary" onclick="closeBaselineDialog()" style="padding: 8px 20px; min-height: 44px;">Close</button>
                 </div>
             </div>
         </div>

@@ -272,17 +272,11 @@ async def proxy_chat_with_tools(
                 message = choice.get("message", {})
                 finish_reason = choice.get("finish_reason", "")
 
-                # OpenAI-compatible providers send `"content": null` — not
-                # `""` — alongside tool_calls, so .get()'s default never
-                # fires and anything treating this as a string (len(), `in`)
-                # raises. Normalise once, here, rather than at each use.
-                content = message.get("content") or ""
-
                 logger.info(
                     "AI response: finish_reason=%s, has_tool_calls=%s, content_len=%d",
                     finish_reason,
                     bool(message.get("tool_calls")),
-                    len(content),
+                    len(message.get("content") or ""),
                 )
 
                 has_tool_calls = (
@@ -330,6 +324,7 @@ async def proxy_chat_with_tools(
                     continue  # let the model respond again
 
                 # No tool calls — final text response
+                content = message.get("content", "")
                 if content:
                     yield _sse_event({"content": content, "done": False})
 

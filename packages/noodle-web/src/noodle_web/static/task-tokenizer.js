@@ -4,10 +4,9 @@ const TaskLineTokenizer = (() => {
         ['comment', /["\u201c][^"\u201d]*["\u201d]/g],
         ['dependency', /\[depends(?::\s*|\s+)[^\]]+\]/gi],
         ['recurrence', /\[repeats\s+[^\]]+\]/gi],
-        ['deadline', /\[deadline\s+\d{4}-\d{2}-\d{2}\]/gi],
         ['bucket', /\{[^}]+\}/g],
     ];
-    const tokenPattern = /~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?|(?<![\w!])(!!!|!!|!)(?![\w!"'{])|@\w+|#\w+|[/^]?\$[A-Za-z_][A-Za-z0-9_-]*|\b\d+[dmwy]\b|(?<!\w)\d+%(?!\w)|\b\d{4}-\d{2}-\d{2}\b/g;
+    const tokenPattern = /~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?|(?<![\w!])(!!!|!!|!)(?![\w!"'{])|@\w+|#\w+|[/^]?\$[A-Za-z_][A-Za-z0-9_-]*|\b\d+[dmwy]\b|(?<!\w)\d+%(?!\w)|\bD\d{4}-\d{2}-\d{2}\b|\b\d{4}-\d{2}-\d{2}\b/g;
 
     function addToken(tokens, line, type, start, end) {
         tokens.push({ type, start, end, text: line.slice(start, end) });
@@ -48,6 +47,7 @@ const TaskLineTokenizer = (() => {
                 : text[0] === '#' ? 'label'
                 : text.includes('$') ? 'product'
                 : text.endsWith('%') ? 'percent'
+                : text[0] === 'D' ? 'deadline'
                 : /^\d{4}-/.test(text) ? 'date'
                 : 'duration';
             addToken(tokens, line, type, start, start + text.length);
@@ -58,7 +58,7 @@ const TaskLineTokenizer = (() => {
     function metadata(line) {
         const tokens = tokenize(line);
         const values = {
-            name: '', duration: '', startDate: '', finishDate: '', percent: '',
+            name: '', duration: '', startDate: '', finishDate: '', deadline: '', percent: '',
             resources: [], labels: [], comment: '', priority: 'Low', bucket: '',
             dependencies: [], recurrence: '', product_type: undefined, deliverable: undefined,
             deadline: '',
@@ -79,7 +79,6 @@ const TaskLineTokenizer = (() => {
             else if (token.type === 'bucket' && !values.bucket) values.bucket = text.slice(1, -1).trim();
             else if (token.type === 'priority') values.priority = text === '!!!' ? 'Urgent' : text === '!!' ? 'Important' : 'Medium';
             else if (token.type === 'recurrence' && !values.recurrence) values.recurrence = text.replace(/^\[repeats\s+|\]$/gi, '').trim().toLowerCase();
-            else if (token.type === 'deadline' && !values.deadline) values.deadline = text.replace(/^\[deadline\s+|\]$/gi, '').trim();
             else if (token.type === 'dependency') {
                 const content = text.replace(/^\[depends(?::\s*|\s+)|\]$/gi, '');
                 values.dependencies.push(...content.split(',').map(value => value.trim()).filter(Boolean));
@@ -88,6 +87,7 @@ const TaskLineTokenizer = (() => {
             else if (token.type === 'duration') values.duration = text.slice(0, -1);
             else if (token.type === 'percent') values.percent = text.slice(0, -1);
             else if (token.type === 'date') dates.push(text);
+            else if (token.type === 'deadline' && !values.deadline) values.deadline = text.slice(1);
             else if (token.type === 'product') {
                 values.product_type = text[0] === '/' ? 'group' : text[0] === '^' ? 'external' : 'internal';
                 values.deliverable = text.replace(/^[/^]?\$/, '');

@@ -306,7 +306,10 @@ class TestSendToParkingLot:
         wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
 
         editor = browser.find_element(By.ID, "planEditor")
-        editor.click()
+        # Folding headers intentionally sit above their projected marker lines
+        # and are clickable across the row. Focus the editor directly instead
+        # of clicking an arbitrary centre point that may be occupied by one.
+        browser.execute_script("arguments[0].focus()", editor)
         undo_key = Keys.COMMAND if browser.execute_script("return navigator.platform.includes('Mac')") else Keys.CONTROL
         editor.send_keys(undo_key, "z")
         time.sleep(0.5)

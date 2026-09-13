@@ -29,13 +29,44 @@ function initializeKanbanEditor() {
     setupEditor(editor, lineNumbers, highlightLayer, false);
 }
 
+function getBackMatterFoldingDescriptors() {
+    if (typeof SectionFolding === 'undefined') return [];
+    return [
+        { startMarker: HIGHLIGHTS_START, label: 'Highlights', endMarkers: [HIGHLIGHTS_END], countRows: SectionFolding.countHighlightEntries, countNoun: 'entry' },
+        { startMarker: BUDGET_START, label: 'Budget', countRows: SectionFolding.countMarkdownTableRows },
+        { startMarker: BENEFITS_START, label: 'Benefits', countRows: SectionFolding.countMarkdownTableRows },
+        { startMarker: RAID_LOG_START, label: 'RAID log', countRows: SectionFolding.countMarkdownTableRows },
+        { startMarker: COMMS_START, label: 'Comms', countRows: SectionFolding.countMarkdownTableRows },
+        { startMarker: LESSONS_START, label: 'Lessons learned', countRows: SectionFolding.countMarkdownTableRows },
+        { startMarker: BASELINE_START, label: 'Baseline', countRows: SectionFolding.countMarkdownTableRows },
+        { startMarker: WHITEBOARD_START, label: 'Whiteboard', countRows: SectionFolding.countMarkdownTableRows },
+        { startMarker: PARKING_LOT_START, label: 'Parking lot', countRows: SectionFolding.countMarkdownTableRows },
+        { startMarker: ESTIMATES_START, label: 'Estimates', countRows: SectionFolding.countMarkdownTableRows },
+    ];
+}
+
 function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
+
+    const sectionFoldingController = editor.id === 'planEditor' && typeof SectionFolding !== 'undefined'
+        ? SectionFolding.attach({
+            editor: editor,
+            lineNumbers: lineNumbers,
+            highlightLayer: highlightLayer,
+            editorArea: editor.parentElement,
+            descriptors: getBackMatterFoldingDescriptors(),
+            storageNamespace: 'back-matter',
+            getProjectId: () => (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default',
+            showToolbar: true,
+        })
+        : null;
 
     // Syntax highlighting function
     function highlightSyntax(text) {
         // Build a set of all task names for dependency validation
         const allTaskNames = new Set();
         const allLines = text.split('\n');
+        const foldingProjection = sectionFoldingController ? sectionFoldingController.getProjection() : null;
+        const managedRawSections = foldingProjection ? foldingProjection.rawLineSections : null;
         let inFrontMatter = false;
         let inHighlights = false;
         let inRaidLog = false;
@@ -44,6 +75,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         let inWhiteboard = false;
         for (let i = 0; i < allLines.length; i++) {
             const trimmed = allLines[i].trim();
+            if (managedRawSections && managedRawSections[i]) continue;
             if (trimmed === '---') {
                 inFrontMatter = !inFrontMatter;
                 continue;
@@ -136,7 +168,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 comment: 'syntax-comment', recurrence: 'syntax-recurrence', bucket: 'syntax-bucket',
                 priority: 'syntax-priority', resource: 'syntax-resource', label: 'syntax-label',
                 duration: 'syntax-duration', percent: 'syntax-percent', date: 'syntax-date',
-                product: 'syntax-product'
+                deadline: 'syntax-deadline', product: 'syntax-product'
             };
             const tokens = TaskLineTokenizer.tokenize(line);
             let output = '';
@@ -179,7 +211,23 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             return output + escapeSyntaxHtml(line.slice(cursor)).replace(/,/g,
                 '<span class="syntax-error" title="Commas in task names break dependency parsing">,</span>');
         }
-        return allLines.map((line, lineIdx) => {
+        const displayLines = foldingProjection ? foldingProjection.displayLines : allLines.map((line, lineIdx) => ({
+            kind: 'raw',
+            text: line,
+            rawLineNumber: lineIdx + 1,
+            sectionMarker: null,
+        }));
+
+        return displayLines.map((record, visibleIdx) => {
+            const line = record.text;
+            const lineIdx = (record.rawLineNumber || (visibleIdx + 1)) - 1;
+            if (record.kind === 'header') {
+                return '<span class="section-fold-highlight-line">&#8203;</span>';
+            }
+            if (record.sectionMarker) {
+                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+
             // Track front matter (between --- delimiters) — skip syntax highlighting
             if (line.trim() === '---' && !inHighlightsSection && !inBudgetSection && !inRaidLogSection && !inBaselineSection) {
                 inFrontMatterSection = !inFrontMatterSection;
@@ -187,16 +235,13 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             }
             if (inFrontMatterSection) {
                 const escaped = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                // YAML list item: "- @key: value" or "- value"
                 const listMatch = escaped.match(/^(\s*-\s+)(.*)$/);
                 if (listMatch) {
                     const prefix = '<span class="syntax-yaml-list">' + listMatch[1] + '</span>';
                     const rest = listMatch[2];
-                    // Highlight @resource tokens within list items
                     const restHighlighted = rest.replace(/@(\w+)/g, '<span class="syntax-resource">@$1</span>');
                     return prefix + '<span class="syntax-yaml-value">' + restHighlighted + '</span>';
                 }
-                // YAML key: value pair
                 const kvMatch = escaped.match(/^(\s*)([^:]+?)(:)(\s*)(.*)?$/);
                 if (kvMatch) {
                     const indent = kvMatch[1] || '';
@@ -211,7 +256,6 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 return '<span class="syntax-frontmatter">' + escaped + '</span>';
             }
 
-            // Track highlights section boundaries
             if (line.trim() === '---highlights---') {
                 inHighlightsSection = true;
                 return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
@@ -228,16 +272,13 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 }
                 return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            // Dim lines inside highlights section
             if (inHighlightsSection) {
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            // Track budget section
             if (line.trim() === '---budget---') {
                 inBudgetSection = true;
                 return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            // Dim lines inside budget section
             if (inBudgetSection) {
                 if (line.trim() === '---raid log---') {
                     inBudgetSection = false;
@@ -251,14 +292,11 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 }
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            // Track RAID log section
             if (line.trim() === '---raid log---') {
                 inRaidLogSection = true;
                 return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            // Dim lines inside RAID log section
             if (inRaidLogSection) {
-                // Check if we've entered the baseline section
                 if (line.trim() === '---baseline---') {
                     inRaidLogSection = false;
                     inBaselineSection = true;
@@ -266,12 +304,10 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 }
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            // Track baseline section
             if (line.trim() === '---baseline---') {
                 inBaselineSection = true;
                 return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            // Dim lines inside baseline section
             if (inBaselineSection) {
                 if (line.trim() === '---whiteboard---') {
                     inBaselineSection = false;
@@ -280,12 +316,10 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 }
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            // Track whiteboard section
             if (line.trim() === '---whiteboard---') {
                 inWhiteboardSection = true;
                 return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            // Dim lines inside whiteboard section
             if (inWhiteboardSection) {
                 if (line.trim() === '---parking lot---') {
                     inWhiteboardSection = false;
@@ -294,181 +328,20 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 }
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            // Track parking lot section (issue #1019)
             if (line.trim() === '---parking lot---') {
                 inParkingLotSection = true;
                 return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            // Dim lines inside parking lot section
             if (inParkingLotSection) {
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-
-            // Dim commented-out lines (// prefix)
             if (line.trimStart().startsWith('//')) {
                 return '<span class="syntax-line-comment">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-
-            // Skip empty lines and headers
             if (!line.trim() || line.includes('===') || line.includes('---')) {
                 return line;
             }
-
             return highlightTaskLine(line, lineIdx);
-
-            // Escape HTML first to prevent issues
-            let highlighted = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-            // Use placeholder strategy to avoid regex conflicts
-            const placeholders = [];
-            let placeholderIndex = 0;
-
-            function savePlaceholder(replacement) {
-                const placeholder = `__PLACEHOLDER_${placeholderIndex}__`;
-                placeholders.push({ placeholder, replacement });
-                placeholderIndex++;
-                return placeholder;
-            }
-
-            // Highlight comments (text in quotes) - do first to protect from other replacements
-            highlighted = highlighted.replace(/"([^"]*)"/g, (match, content) => {
-                return savePlaceholder('<span class="syntax-comment">"' + content + '"</span>');
-            });
-
-            // Highlight dependencies EARLY to protect lag/lead from duration highlighter
-            // (e.g., [depends Task1, Task2:SS +2d])
-            highlighted = highlighted.replace(/\[depends(?::\s*|\s+)([^\]]+)\]/gi, (match, deps) => {
-                // Split dependencies and validate each one
-                const depParts = deps.split(',').map(d => d.trim()).filter(d => d);
-                const highlightedParts = depParts.map(dep => {
-                    // Strip lag/lead to get the core part
-                    const lagLeadMatch = dep.match(/^(.+?)\s+([+\-]\d+[dwmy])$/);
-                    let corePart = lagLeadMatch ? lagLeadMatch[1].trim() : dep.trim();
-                    const lagLeadPart = lagLeadMatch ? ' <span class="syntax-lag-lead">' + lagLeadMatch[2] + '</span>' : '';
-
-                    // Strip dependency type suffix (:FS, :SS, :FF, :SF)
-                    const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
-                    let depTaskName = typeMatch ? typeMatch[1].trim() : corePart;
-                    // Strip common prefixes like "Milestone:" used in dependency references
-                    depTaskName = depTaskName.replace(/^Milestone:\s*/i, '');
-                    const typePart = typeMatch ? '<span class="syntax-dep-type">:' + typeMatch[2].toUpperCase() + '</span>' : '';
-
-                    // A dependency the scheduler flagged as circular (a task
-                    // depending on its own phase, or part of a loop) is shown
-                    // in red regardless of whether the name resolves.
-                    const circularTokens = circularByLine[lineIdx + 1];
-                    if (circularTokens && circularTokens.has(depTaskName.toLowerCase().replace(/\s+/g, ' ').trim())) {
-                        return '<span class="syntax-circular" title="Circular dependency">' + depTaskName + '</span>' + typePart + lagLeadPart;
-                    }
-
-                    // Check if the dependency task name exists
-                    // Normalise: collapse whitespace, try space/underscore variants
-                    const depLower = depTaskName.toLowerCase().replace(/\s+/g, ' ').trim();
-                    // Also try without deliverable prefix ($, /$, ^$)
-                    const depBare = depLower.replace(/^[/^]?\$/, '');
-                    let isValid = allTaskNames.has(depLower) ||
-                        allTaskNames.has(depLower.replace(/_/g, ' ')) ||
-                        allTaskNames.has(depLower.replace(/ /g, '_')) ||
-                        (depBare !== depLower && (allTaskNames.has(depBare) ||
-                            allTaskNames.has('$' + depBare) ||
-                            allTaskNames.has('/$' + depBare) ||
-                            allTaskNames.has('^$' + depBare)));
-                    // Fallback: normalise to alphanumeric-only for fuzzy match
-                    if (!isValid) {
-                        const depNorm = depLower.replace(/[^a-z0-9]/g, '');
-                        for (const tn of allTaskNames) {
-                            if (tn.replace(/[^a-z0-9]/g, '') === depNorm) {
-                                isValid = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (isValid) {
-                        return depTaskName + typePart + lagLeadPart;
-                    } else {
-                        return '<span class="syntax-error">' + depTaskName + '</span>' + typePart + lagLeadPart;
-                    }
-                });
-                return savePlaceholder('<span class="syntax-dependency">[depends ' + highlightedParts.join(', ') + ']</span>');
-            });
-
-            // Highlight star prefix (depends on previous task) - match * at line start
-            highlighted = highlighted.replace(/^(\s*)(\*)/, (match, space, star) => {
-                return space + savePlaceholder('<span class="syntax-star">' + star + '</span>');
-            });
-
-            // Highlight durations (e.g., 3d, 5w, 2m)
-            highlighted = highlighted.replace(/\b(\d+[dmw])\b/g, (match, duration) => {
-                return savePlaceholder('<span class="syntax-duration">' + duration + '</span>');
-            });
-
-            // Highlight resources (e.g., @alice, @bob)
-            highlighted = highlighted.replace(/@(\w+)/g, (match, name) => {
-                return savePlaceholder('<span class="syntax-resource">@' + name + '</span>');
-            });
-
-            // Highlight product / deliverable tokens: $name, /$name (group), ^$name (external)
-            highlighted = highlighted.replace(/(^|\s)([/^]?)\$([A-Za-z_][A-Za-z0-9_-]*)/g, (match, pre, prefix, name) => {
-                const cls = prefix === '/' ? 'syntax-product syntax-product-group'
-                          : prefix === '^' ? 'syntax-product syntax-product-external'
-                          : 'syntax-product';
-                return pre + savePlaceholder('<span class="' + cls + '">' + prefix + '$' + name + '</span>');
-            });
-
-            // Highlight percentages (e.g., 50%, 75%)
-            highlighted = highlighted.replace(/\b(\d+%)/g, (match, percent) => {
-                return savePlaceholder('<span class="syntax-percent">' + percent + '</span>');
-            });
-
-            // Highlight ISO dates (e.g., 2025-11-10)
-            highlighted = highlighted.replace(/\b(\d{4}-\d{2}-\d{2})\b/g, (match, date) => {
-                return savePlaceholder('<span class="syntax-date">' + date + '</span>');
-            });
-
-            // Highlight labels/tags (e.g., #DEV, #HIGH)
-            highlighted = highlighted.replace(/#(\w+)/g, (match, name) => {
-                return savePlaceholder('<span class="syntax-label">#' + name + '</span>');
-            });
-
-            // Highlight bucket names (e.g., {Project Management})
-            highlighted = highlighted.replace(/\{([^}]+)\}/g, (match, bucket) => {
-                return savePlaceholder('<span class="syntax-bucket">{' + bucket + '}</span>');
-            });
-
-            // Highlight priority markers (!!!, !!, !)
-            highlighted = highlighted.replace(/(?<!\w)(!!!|!!|!)(?!["'{])/g, (match, marker) => {
-                return savePlaceholder('<span class="syntax-priority">' + marker + '</span>');
-            });
-
-            // Highlight commas in task names (commas break dependency parsing)
-            // Only flag commas that are NOT inside placeholders (comments, [depends], etc.)
-            highlighted = highlighted.replace(/,/g, (match, offset) => {
-                // Check if this comma is inside a placeholder — if so, leave it alone
-                const before = highlighted.substring(0, offset);
-                const openPlaceholder = before.lastIndexOf('__PLACEHOLDER_');
-                if (openPlaceholder !== -1) {
-                    const closeAfter = before.indexOf('__', openPlaceholder + 14);
-                    if (closeAfter === -1) return match; // inside placeholder
-                }
-                return savePlaceholder('<span class="syntax-error" title="Commas in task names break dependency parsing">,</span>');
-            });
-
-            // Replace all placeholders with actual HTML.
-            // Use a function callback for the replacement so that any "$" patterns
-            // inside the saved HTML (e.g. "$Product" from a deliverable token) are
-            // NOT interpreted as replacement-string specials ($&, $$, $<name>, etc.).
-            placeholders.forEach(({ placeholder, replacement }) => {
-                highlighted = highlighted.replace(placeholder, () => replacement);
-            });
-
-            // Safety net: strip any internal placeholder tokens that somehow
-            // survived restoration (e.g. if a regex above mutated one). These are
-            // never meant to be visible to the user.
-            if (highlighted.indexOf('__PLACEHOLDER_') !== -1) {
-                highlighted = highlighted.replace(/__PLACEHOLDER_\d+__/g, '');
-            }
-
-            return highlighted;
         }).join('\n');
     }
 
@@ -476,53 +349,56 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
     // Inner wrapper for line numbers — positioned via CSS top for scroll sync
     function updateLineNumbers() {
         const content = editor.value || editor.placeholder || '';
-        const lines = content.split('\n');
-        const lineCount = lines.length;
+        const displayProjection = sectionFoldingController ? sectionFoldingController.getProjection() : null;
+        const displayLines = displayProjection ? displayProjection.displayLines : content.split('\n').map((line, index) => ({
+            kind: 'raw',
+            text: line,
+            rawLineNumber: index + 1,
+            sectionMarker: null,
+        }));
 
-        // Create line number elements
         lineNumbers.innerHTML = '';
         const circularLines = window._circularDependencyLines || {};
-        for (let i = 1; i <= lineCount; i++) {
+        for (let i = 1; i <= displayLines.length; i++) {
+            const record = displayLines[i - 1];
+            const rawLineNumber = record.rawLineNumber || i;
             const lineNumSpan = document.createElement('div');
             lineNumSpan.className = 'line-number';
+            lineNumSpan.dataset.lineNumber = rawLineNumber;
+            lineNumSpan.dataset.visibleLine = i;
 
-            // Lines whose dependencies the scheduler flagged as circular
-            if (circularLines[i]) {
+            if (record.kind === 'header') {
+                lineNumSpan.classList.add('section-fold-gutter-line');
+                lineNumSpan.dataset.foldHeader = 'true';
+                lineNumSpan.title = record.summary;
+            }
+
+            if (circularLines[rawLineNumber]) {
                 lineNumSpan.classList.add('circular-dependency');
                 lineNumSpan.title = 'Circular dependency on this line';
             }
 
-            // Check if this line has a manually scheduled task (has explicit start date)
-            const line = lines[i - 1]; // 0-indexed
-            const isManuallyScheduled = isLineManuallyScheduled(line);
-
+            const isManuallyScheduled = record.kind === 'raw' && isLineManuallyScheduled(record.text);
             if (isManuallyScheduled) {
                 lineNumSpan.classList.add('manually-scheduled');
                 lineNumSpan.title = 'Manually scheduled (has explicit start date)';
-
-                // Add pin icon before line number
                 const pinIcon = document.createElement('span');
                 pinIcon.className = 'pin-icon';
                 lineNumSpan.appendChild(pinIcon);
             }
 
             const lineNumText = document.createElement('span');
-            lineNumText.textContent = i;
+            lineNumText.textContent = rawLineNumber;
             lineNumSpan.appendChild(lineNumText);
-
-            lineNumSpan.dataset.lineNumber = i;
             lineNumbers.appendChild(lineNumSpan);
         }
 
-        // Update syntax highlighting
         if (highlightLayer) {
             highlightLayer.innerHTML = highlightSyntax(content);
         }
 
-        // Sync positions
+        if (sectionFoldingController) sectionFoldingController.renderOverlay();
         syncScroll();
-
-        // Update active line indicator
         updateActiveLine();
     }
 
@@ -544,16 +420,21 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
     // Update the active line indicator
     function updateActiveLine() {
-        const cursorPosition = editor.selectionStart;
-        const textBeforeCursor = editor.value.substring(0, cursorPosition);
-        const currentLine = textBeforeCursor.split('\n').length;
+        const visibleText = sectionFoldingController ? sectionFoldingController.getDisplayText() : editor.value;
+        const cursorPosition = sectionFoldingController
+            ? SectionFolding.getVisibleSelectionStart(editor)
+            : editor.selectionStart;
+        const currentLine = sectionFoldingController
+            ? SectionFolding.visibleLineFromVisibleOffset(visibleText, cursorPosition)
+            : visibleText.substring(0, cursorPosition).split('\n').length;
 
-        // Remove active class from all line numbers
         const allLineNumbers = lineNumbers.querySelectorAll('.line-number');
         allLineNumbers.forEach(ln => ln.classList.remove('active'));
 
-        // Add active class to current line
-        const activeLineElement = lineNumbers.querySelector(`[data-line-number="${currentLine}"]`);
+        const selector = sectionFoldingController
+            ? `[data-visible-line="${currentLine}"]`
+            : `[data-line-number="${currentLine}"]`;
+        const activeLineElement = lineNumbers.querySelector(selector);
         if (activeLineElement) {
             activeLineElement.classList.add('active');
         }
@@ -567,6 +448,9 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             highlightLayer.style.top = -editor.scrollTop + 'px';
             highlightLayer.style.left = -editor.scrollLeft + 'px';
         }
+        if (sectionFoldingController && sectionFoldingController.overlay) {
+            sectionFoldingController.overlay.style.transform = 'translate(' + (-editor.scrollLeft) + 'px, ' + (-editor.scrollTop) + 'px)';
+        }
         lineNumbers.scrollTop = editor.scrollTop;
     }
 
@@ -578,6 +462,9 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
     // Debounce timer for render requests
     let renderDebounceTimer = null;
+
+    // Debounce timer for front-matter panel resync (#780)
+    let fmPanelSyncTimer = null;
 
     // Update on input and auto-render with debounce (only for main editor)
     editor.addEventListener('input', function() {
@@ -616,8 +503,37 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 renderText();
                 renderDebounceTimer = null;
             }, 1000);
+
+            // Keep the front-matter panel (#780) in sync when the user
+            // types the raw YAML directly into the textarea instead of
+            // using the structured editor.
+            if (editor._updateFrontMatterPanel) {
+                if (fmPanelSyncTimer) clearTimeout(fmPanelSyncTimer);
+                fmPanelSyncTimer = setTimeout(() => {
+                    editor._updateFrontMatterPanel();
+                    fmPanelSyncTimer = null;
+                }, 500);
+            }
         }
     });
+
+    // Expose a way to cancel a pending debounced auto-render (only ever set
+    // for the main editor, shouldRender), the same convention as
+    // editor._updateLineNumbers above. Callers that just performed their
+    // own immediate render after programmatically changing editor.value and
+    // dispatching 'input' (e.g. whiteboard-notes.js's wbCommitMarkdown())
+    // use this to stop the render this same 'input' event just scheduled
+    // above from *also* firing a second, redundant time a second later --
+    // otherwise that second render tears down and rebuilds DOM the caller
+    // already finished with (e.g. a freshly-focused input), undoing it.
+    if (shouldRender) {
+        editor._cancelPendingRender = function() {
+            if (renderDebounceTimer) {
+                clearTimeout(renderDebounceTimer);
+                renderDebounceTimer = null;
+            }
+        };
+    }
 
     // Sync scroll on all scroll-related events including touch momentum
     editor.addEventListener('scroll', syncScroll, { passive: true });
@@ -716,6 +632,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         const target = e.target.closest('.line-number');
         if (!target) return;
 
+        if (target.dataset.foldHeader === 'true') return;
         longPressLineNumber = parseInt(target.dataset.lineNumber);
         longPressTimer = setTimeout(() => {
             if (typeof openTaskForm === 'function') {

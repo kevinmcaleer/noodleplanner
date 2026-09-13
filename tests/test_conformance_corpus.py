@@ -28,8 +28,22 @@ assert PLANS, "the conformance corpus is empty"
 
 @pytest.fixture(scope="module", autouse=True)
 def frozen_clock():
-    """The corpus is generated at a fixed date; the checks must match it."""
+    """The corpus is generated at a fixed date; the checks must match it.
+
+    freeze_time() rebinds the ``datetime`` class inside ``date_math`` and
+    ``exporters`` process-wide, so the freeze has to be undone afterwards:
+    without this, every test module that happened to run after this one saw
+    2026-06-01 as "today" and any test of dating or RAG passed or failed by
+    accident of collection order (tests/test_first_time_plan.py found this).
+    """
+    from noodle_core import date_math, exporters
+
+    original = (date_math.datetime, exporters.datetime)
     freeze_time()
+    try:
+        yield
+    finally:
+        date_math.datetime, exporters.datetime = original
 
 
 @pytest.mark.parametrize("plan_path", PLANS, ids=[p.stem for p in PLANS])

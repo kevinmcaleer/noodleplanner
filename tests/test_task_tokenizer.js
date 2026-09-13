@@ -46,12 +46,16 @@ equal(tokenTypes('Task "first" "second" 2d').filter(token => token[0] === 'comme
     [['comment', '"first"'], ['comment', '"second"']], 'every quoted comment has a source span');
 equal(context.parseTaskLine('Task "first" "second" 2d', 1).name, 'Task',
     'all quoted comments are excluded from task names');
-equal(tokenTypes('Launch 2d [deadline 2027-03-15]'), [['duration', '2d'], ['deadline', '[deadline 2027-03-15]']],
-    'deadline is one protected token rather than a scheduling date');
-equal(context.parseTaskLine('Launch 2d [deadline 2027-03-15]', 1).deadline, '2027-03-15',
-    'deadline metadata is exposed to views');
-equal(context.parseTaskLine('Launch 2d [deadline 2027-03-15]', 1).startDate, '',
-    'a deadline does not become a positional start date');
+equal(context.parseTaskLine('Task 5d D2026-09-10', 1).deadline, '2026-09-10',
+    'a D-prefixed deadline tag is parsed');
+equal(context.parseTaskLine('Task 5d D2026-09-10', 1).name, 'Task',
+    'a deadline tag is excluded from the task name');
+equal(context.parseTaskLine('Task 2026-01-01 2026-02-01 5d D2026-09-10', 1).startDate, '2026-01-01',
+    'a deadline tag does not shadow the start date');
+equal(context.parseTaskLine('Task 2026-01-01 2026-02-01 5d D2026-09-10', 1).finishDate, '2026-02-01',
+    'a deadline tag does not shadow the finish date');
+equal(context.parseTaskLine('Task 5d', 1).deadline, '',
+    'a task with no deadline reports an empty deadline');
 
 if (failures) process.exit(1);
 console.log('\nAll tests passed');

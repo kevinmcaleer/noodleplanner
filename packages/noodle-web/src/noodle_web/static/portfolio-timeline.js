@@ -7,8 +7,13 @@ let currentTimelineScale = 'months';
 
 /**
  * Render portfolio timeline view (async — uses /api/parse)
+ *
+ * @param {Array} [preParsed] Already-parsed projects, in the shape
+ *   parseAllProjects() returns. The PowerPoint export has just parsed every
+ *   plan by the time it renders the timeline to capture it, so passing them
+ *   in saves a second round trip per project (#778).
  */
-async function renderPortfolioTimeline() {
+async function renderPortfolioTimeline(preParsed) {
     const container = document.getElementById('portfolioTimelineView');
     if (!container) return;
 
@@ -19,7 +24,7 @@ async function renderPortfolioTimeline() {
         '</div>';
 
     try {
-        const parsedProjects = await parseAllProjects();
+        const parsedProjects = preParsed || await parseAllProjects();
 
         if (parsedProjects.length === 0) {
             container.innerHTML = '<div class="portfolio-empty-state">' +

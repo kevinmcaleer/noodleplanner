@@ -105,7 +105,17 @@
 }
 :root body, button, input, select, textarea { font-family: var(--np-font-ui); }
 :root body { background: var(--np-paper); color: var(--np-ink); }
-h1, h2, h3, .modal-title, .ribbon-doc-title { font-family: var(--np-font-heading); font-weight: 400; color: var(--np-ink); }
+h1, h2, h3, .modal-title, .ribbon-doc-title { font-family: var(--np-font-heading); font-weight: 400; }
+/* Ink is set separately, and NOT on headings that sit on a surface this
+   stylesheet doesn't control. A whiteboard note's title is an <h3> inside a
+   header whose background is the note's own colour -- picked by the user, or
+   derived from the task's place in the outline -- so whiteboard-notes.js
+   computes a real WCAG-contrasting text colour for it (wbContrastTextColour())
+   and sets it on the header for the title to inherit. Painting --np-ink over
+   that put near-black on a dark navy note header: 1.12:1, invisible. Any
+   future component that colours its own header the same way belongs in this
+   :not() list too. */
+:is(h1, h2, h3, .modal-title, .ribbon-doc-title):not(.wb-note-title) { color: var(--np-ink); }
 h1 { font-size: 30px; line-height: 1.15; letter-spacing: -.01em; }
 h2, .modal-title { font-size: 22px; line-height: 1.2; }
 code, pre, .task-id, .task-duration, .task-date { font-family: var(--np-font-data); }
@@ -170,12 +180,13 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 :root body .project-report-details { font-size: 12.5px; color: var(--np-muted); }
 :root body .project-report-detail { min-width: 0; flex-wrap: wrap; }
 :root body .ribbon-doc-title { min-width: 0; }
-:root body .lookahead-section-title.overdue { color: var(--np-danger-ink); }
-:root body .lookahead-section-title.upcoming { color: var(--np-accent-ink); }
+:root body .lookahead-section-title.overdue,
+:root body .lookahead-section-title.upcoming { color: #fff; }
 :root body .ai-chat-header { background: var(--np-surface-alt); color: var(--np-ink); }
 :root body .ai-chat-header button { color: var(--np-body); }
 :root body :is(.ns-col-header.selected, .ns-row-num.selected) { background: var(--np-selected); color: var(--np-ink); }
 :root body .close-btn { color: var(--np-body); flex-shrink: 0; }
+:root body #taskInspectorSection .close-btn { color: #fff; }
 :root body .close-btn:hover { background: var(--np-sunken); color: var(--np-ink); }
 :root body .modal-header { gap: 12px; border-radius: 14px 14px 0 0; }
 :root body .modal-header :is(h2, input) { min-width: 0; font-family: var(--np-font-heading); font-weight: 400; }
@@ -243,7 +254,7 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
     --np-editor-tip-bg: #312D26;
     --np-editor-tip-text: #D4CCBF;
 }
-:root body :is(h1, h2, h3) { color: var(--np-ink); }
+:root body :is(h1, h2, h3):not(.wb-note-title) { color: var(--np-ink); }
 :root body .donut-legend-item { color: var(--np-body); }
 :root body :is(.quad-maximise-btn, .embedded-timeline-maximise) { background: var(--np-surface-alt); color: var(--np-body); border-color: var(--np-border-strong); }
 :root body :is(.evm-kpi-value, .stat-value, .programme-stat-value) {
@@ -356,5 +367,6 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
     .btn,
     .task-row-add-btn:hover,
     .ribbon-file-btn,
-    .ribbon-file-btn:hover
+    .ribbon-file-btn:hover,
+    .fm-mode-btn.active
 ) { color: var(--np-on-accent); }

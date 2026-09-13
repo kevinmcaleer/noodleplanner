@@ -72,6 +72,19 @@ def calculate_rag_status(task, current_date=None):
     if percent_complete == 100:
         return 'Complete'
 
+    # Red: deadline slippage (#877). A deadline is a fixed marker, distinct
+    # from the on-track/behind-schedule comparison below and from the
+    # start/finish dates that drive the schedule -- it never moves them. It
+    # flags the task once the deadline date has passed while the task is
+    # still incomplete (checked above), or once the computed finish
+    # (start + duration) is later than the deadline.
+    deadline = task.get('deadline')
+    if deadline:
+        deadline_date = deadline.date() if hasattr(deadline, 'date') else parse_date(deadline).date()
+        deadline_finish = finish_date.date() if hasattr(finish_date, 'date') else finish_date
+        if deadline_date < current_date or (deadline_finish is not None and deadline_finish > deadline_date):
+            return 'Task Overdue'
+
     if not start_date or not finish_date:
         # Fallback when dates are missing: use percentage thresholds
         if percent_complete is None or percent_complete == 0:
@@ -272,6 +285,98 @@ def _parse_named_non_working_suffix(suffix_str):
     return entries
 
 
+_CALENDAR_SUFFIX_RE = re.compile(r',?\s*calendar\s+([^,\[]+?)(?=\s*(?:,|non-working\s*\[|$))', re.IGNORECASE)
+
+# The non-working [...] suffix, order-independent relative to `calendar
+# <Name>` (issue #1136 lets either come first): stops at the next comma,
+# the `calendar` keyword, or end of string, rather than requiring `\s*$`.
+_NON_WORKING_SUFFIX_RE = re.compile(
+    r',?\s*non-working\s*\[([^\]]*)\]\s*(?=,|\s+calendar\s+|$)', re.IGNORECASE
+)
+
+
+def _extract_non_working_suffix(full_info):
+    """Remove a resource line's ``non-working [...]`` suffix, wherever it
+    falls relative to a ``calendar <Name>`` suffix.
+
+    Returns ``(full_info_without_the_suffix, raw_bracket_contents_or_none)``.
+    """
+    match = _NON_WORKING_SUFFIX_RE.search(full_info)
+    if not match:
+        return full_info, None
+    remainder = (full_info[:match.start()] + full_info[match.end():]).strip().rstrip(',').strip()
+    return remainder, match.group(1)
+
+
+def _strip_calendar_suffix(full_info):
+    """Remove a resource line's ``calendar <Name>`` suffix (issue #1136).
+
+    Order-independent relative to the ``non-working [...]`` suffix (a
+    resource line may write either one first) -- searched anywhere in the
+    string rather than only at the end, stopping at the next comma or
+    ``non-working [`` so a multi-word calendar name (``calendar Fortnight
+    Ops``) doesn't swallow the fields after it.
+
+    Returns ``(full_info_without_the_suffix, calendar_name_or_none)``.
+    """
+    match = _CALENDAR_SUFFIX_RE.search(full_info)
+    if not match:
+        return full_info, None
+    calendar_name = match.group(1).strip()
+    remainder = (full_info[:match.start()] + full_info[match.end():]).strip().rstrip(',').strip()
+    return remainder, calendar_name
+
+
+def parse_resource_calendars(original_text):
+    """Parse each resource's assigned calendar name from its ``calendar
+    <Name>`` suffix (issue #1136).
+
+        - @kev: Kevin McAleer, PM calendar Gulf non-working [2026-06-10]
+
+    Returns a dict mapping lowercase shortnames to the calendar name as
+    written -- resolving that name to a Calendar (see calendar_model.py)
+    against the plan's declared ``calendars:`` is the caller's job, since
+    this function only sees one resource line at a time.
+    """
+    resource_calendars = {}
+    if not original_text:
+        return resource_calendars
+
+    lines = original_text.split('\n')
+    in_frontmatter = False
+    in_resources = False
+
+    for line in lines:
+        if line.strip() == '---':
+            if not in_frontmatter:
+                in_frontmatter = True
+            else:
+                break
+            continue
+
+        if not in_frontmatter:
+            continue
+
+        if line.strip().startswith('Resources:'):
+            in_resources = True
+            continue
+
+        if in_resources and line and not line.startswith(' ') and not line.startswith('-'):
+            in_resources = False
+
+        if in_resources and line.strip().startswith('-'):
+            match = re.match(r'\s*-\s*@(\w+):\s*(.+)', line)
+            if match:
+                short_name = match.group(1)
+                full_info = match.group(2).strip()
+                full_info, _nwd = _extract_non_working_suffix(full_info)
+                _, calendar_name = _strip_calendar_suffix(full_info)
+                if calendar_name:
+                    resource_calendars[short_name.lower()] = calendar_name
+
+    return resource_calendars
+
+
 def parse_resource_mappings(original_text):
     """Parse resource mappings from YAML front matter.
 
@@ -320,14 +425,17 @@ def parse_resource_mappings(original_text):
                 short_name = match.group(1)
                 full_info = match.group(2).strip()
 
-                # Extract non-working days suffix if present
-                nwd_match = re.search(r',?\s*non-working\s*\[([^\]]*)\]\s*$', full_info)
-                if nwd_match:
-                    nwd_dates = _parse_non_working_suffix(nwd_match.group(1))
+                # Extract non-working days suffix if present, wherever it
+                # falls relative to a calendar suffix (issue #1136)
+                full_info, nwd_raw = _extract_non_working_suffix(full_info)
+                if nwd_raw:
+                    nwd_dates = _parse_non_working_suffix(nwd_raw)
                     if nwd_dates:
                         resource_nwd[short_name.lower()] = nwd_dates
-                    # Remove the non-working suffix from full_info
-                    full_info = full_info[:nwd_match.start()].strip().rstrip(',').strip()
+
+                # A calendar suffix (issue #1136) is metadata, not part of
+                # the displayed name/role -- strip it here too.
+                full_info, _calendar_name = _strip_calendar_suffix(full_info)
 
                 # Extract just the name (before the first comma)
                 name_only = full_info.split(',')[0].strip()
@@ -377,10 +485,12 @@ def parse_resource_roles(original_text):
                 short_name = match.group(1)
                 full_info = match.group(2).strip()
 
-                # Remove non-working days suffix if present
-                nwd_match = re.search(r',?\s*non-working\s*\[([^\]]*)\]\s*$', full_info)
-                if nwd_match:
-                    full_info = full_info[:nwd_match.start()].strip().rstrip(',').strip()
+                # Remove non-working days suffix if present, wherever it
+                # falls relative to a calendar suffix (issue #1136)
+                full_info, _nwd = _extract_non_working_suffix(full_info)
+
+                # A calendar suffix (issue #1136) is metadata, not the role.
+                full_info, _calendar_name = _strip_calendar_suffix(full_info)
 
                 # Parts after the first comma are the role
                 parts = [p.strip() for p in full_info.split(',')]

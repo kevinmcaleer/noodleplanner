@@ -30,7 +30,35 @@ STATIC_DIR = Path(__file__).resolve().parents[1] / "packages/noodle-web/src/nood
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    """A TestClient whose portal is shut down when the test ends.
+
+    `TestClient(app)` without the `with` leaves its blocking portal --
+    a background thread running its own asyncio event loop -- alive after
+    the test that made it has finished. Every test in this file shares one
+    module-level `app` and one module-level `collab_sessions` registry, so
+    a leaked portal means two loops can be live over the same globals at
+    once, and a relay task can end up touching a websocket (or an
+    `asyncio.Lock`, e.g. `SessionState.host_send_lock`) that belongs to the
+    other loop. When that happens the frame a test is waiting for is never
+    sent, and `WebSocketTestSession.receive_text()` -- which has no timeout
+    -- blocks forever, taking the whole `pytest` job down with it at its
+    10-minute ceiling rather than failing one test.
+
+    That is what had been happening: the CI `pytest` job was killed at the
+    timeout on roughly half of all runs, including on `main` (workflow
+    "Test suites" runs #101 and #103), each time stopped at a different
+    test in this file. It reproduces off CI by running this file with the
+    machine's cores saturated -- 3 of 4 runs hung on a clean `main`; with
+    this fixture closed properly, 16 of 16 passed.
+
+    Entering the context also runs the app's real lifespan, which starts
+    `run_idle_sweep_forever()`. That is harmless here (and arguably more
+    faithful than skipping it): the sweep sleeps `SWEEP_INTERVAL_SECONDS`
+    (60) before its first pass, and the portal is torn down at the end of
+    each millisecond-scale test, so it never fires inside one.
+    """
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture(autouse=True)

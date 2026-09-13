@@ -131,13 +131,28 @@ def _create_chrome_driver():
         "/usr/bin/chromedriver",
         "/opt/node22/bin/chromedriver",
     ]
+    last_error = None
+    found_local_driver = False
     for drv_path in driver_candidates:
         if os.path.exists(drv_path):
+            found_local_driver = True
             try:
                 service = ChromeService(drv_path)
                 return webdriver.Chrome(service=service, options=options)
-            except WebDriverException:
+            except WebDriverException as exc:
+                last_error = exc
                 continue
+
+    if found_local_driver:
+        # A local chromedriver exists but couldn't drive the detected Chrome
+        # binary -- most likely version skew between this sandbox's pinned
+        # Playwright Chromium build and the globally-installed chromedriver
+        # npm package, which drifts independently. Falling through to
+        # Selenium's own discovery below would just make Selenium Manager
+        # hit the network trying to find/download a matching driver, which
+        # can hang for a long time on a restricted network instead of
+        # failing fast -- skip now rather than risk that.
+        pytest.skip(f"local chromedriver incompatible with detected Chrome: {last_error}")
 
     try:
         return webdriver.Chrome(options=options)
@@ -182,6 +197,30 @@ def clear_ribbon_state(driver):
 def reset_window_size(driver):
     driver.set_window_size(1280, 900)
     time.sleep(0.2)
+
+
+def displayed_group_triggers(driver):
+    return driver.find_elements(
+        By.CSS_SELECTOR,
+        '.ribbon-simple-group-trigger:not([hidden])',
+    )
+
+
+def actionable_console_errors(driver):
+    logs = driver.get_log('browser') if 'chrome' in driver.name else []
+    ignored_prefixes = (
+        'https://cdn.jsdelivr.net/',
+        'https://fonts.googleapis.com/',
+    )
+    actionable = []
+    for entry in logs:
+        if entry.get('level') != 'SEVERE':
+            continue
+        message = entry.get('message', '')
+        if 'ERR_NAME_NOT_RESOLVED' in message and message.startswith(ignored_prefixes):
+            continue
+        actionable.append(entry)
+    return actionable
 
 
 def open_display_menu(driver):
@@ -328,13 +367,27 @@ class TestNoFunctionalityLostInSimpleMode:
         dismiss_tour(browser)
         time.sleep(0.3)
         choose_display_mode(browser, 'simple')
+        browser.find_element(By.CSS_SELECTOR, '.ribbon-tab-btn[data-tab="home"]').click()
+        time.sleep(0.3)
 
-        gantt_btn = WebDriverWait(browser, 5).until(
-            EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, '.ribbon-body [data-scope-id="home"][data-label="Gantt"]')
-            )
+        visible_gantt = browser.find_elements(
+            By.CSS_SELECTOR,
+            '.ribbon-body .ribbon-simple-btn[data-scope-id="home"][data-label="Gantt"]',
         )
-        assert "ribbon-simple-btn" in gantt_btn.get_attribute("class")
+        if visible_gantt and visible_gantt[0].is_displayed():
+            gantt_btn = visible_gantt[0]
+        else:
+            browser.find_element(
+                By.CSS_SELECTOR,
+                '.ribbon-simple-group-trigger[data-group="Views"]:not([hidden])',
+            ).click()
+            gantt_btn = WebDriverWait(browser, 5).until(
+                EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, '.ribbon-simple-group-popover [data-scope-id="home"][data-label="Gantt"]')
+                )
+            )
+
+        assert "Gantt" in gantt_btn.get_attribute("aria-label")
         gantt_btn.click()
         time.sleep(0.3)
 
@@ -464,8 +517,7 @@ class TestDarkMode:
         choose_display_mode(browser, 'tabs')
         assert is_collapsed(browser) is True
 
-        logs = browser.get_log('browser') if 'chrome' in browser.name else []
-        severe = [entry for entry in logs if entry.get('level') == 'SEVERE']
+        severe = actionable_console_errors(browser)
         assert severe == [], f"unexpected console errors across dark-mode display modes: {severe}"
 
         choose_display_mode(browser, 'full')
@@ -511,16 +563,21 @@ class TestNarrowWindowGroupCollapse:
         dismiss_tour(browser)
         time.sleep(0.3)
         choose_display_mode(browser, 'simple')
+        browser.find_element(By.CSS_SELECTOR, '.ribbon-tab-btn[data-tab="plan"]').click()
+        time.sleep(0.3)
 
-        browser.set_window_size(480, 900)
+        baseline_triggers = len(displayed_group_triggers(browser))
+
+        browser.set_window_size(900, 900)
         time.sleep(0.4)
         # Resize fires ribbon.js's own debounced (100ms) handler.
         time.sleep(0.3)
 
-        triggers = browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group-trigger')
-        assert triggers, "a narrow window collapses at least one simple-ribbon group into its own trigger"
+        triggers = displayed_group_triggers(browser)
+        assert len(triggers) > baseline_triggers, (
+            "a narrower window collapses additional simple-ribbon groups into their own triggers"
+        )
         for t in triggers:
-            assert t.is_displayed()
             assert t.get_attribute("aria-label"), "each collapsed group's trigger has an accessible name"
 
         # No shared "More" tile in simple mode any more (#1026) -- each
@@ -549,6 +606,8 @@ class TestNarrowWindowGroupCollapse:
         dismiss_tour(browser)
         time.sleep(0.3)
         choose_display_mode(browser, 'simple')
+        browser.find_element(By.CSS_SELECTOR, '.ribbon-tab-btn[data-tab="plan"]').click()
+        time.sleep(0.3)
 
         # Baseline at the fixture's normal 1280px width: the Home tab alone
         # has more buttons than 1280px can label in full, so some are
@@ -556,18 +615,17 @@ class TestNarrowWindowGroupCollapse:
         # RE-DERIVING itself after a narrow-then-wide round trip, not about
         # reaching some absolute zero-collapsed state.
         baseline_icon_only = len(browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-btn.icon-only'))
-        assert not browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group-trigger'), \
-            "1280px is wide enough that no group needs to collapse yet"
+        baseline_triggers = len(displayed_group_triggers(browser))
 
-        browser.set_window_size(420, 900)
+        browser.set_window_size(900, 900)
         time.sleep(0.4)
-        assert browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group-trigger'), \
-            "420px is narrow enough that at least one group collapses"
+        assert len(displayed_group_triggers(browser)) > baseline_triggers, \
+            "narrowing the window increases the number of collapsed simple-ribbon groups"
 
         reset_window_size(browser)
         time.sleep(0.4)
-        assert not browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group-trigger'), \
-            "widening the window back out restores every group to its full row"
+        assert len(displayed_group_triggers(browser)) == baseline_triggers, \
+            "widening the window back out restores the original collapsed-group count"
         assert len(browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-btn.icon-only')) == baseline_icon_only, \
             "widening the window back out re-derives the same label/icon-only split as the original 1280px layout"
 

@@ -249,9 +249,42 @@ def pick_default(driver, task_name):
     driver.find_element(By.CSS_SELECTOR, "#wbNoteMenu .wb-note-menu-default").click()
 
 
+def header_for(driver, task_name):
+    """One note's `.wb-note-header` element -- issue #1109's selection is
+    set by clicking anywhere on this (the same drag handle #848 wired)."""
+    return driver.execute_script(
+        """
+        const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+        for (const n of notes) {
+            if (n.dataset.wbTask === arguments[0]) return n.querySelector('.wb-note-header');
+        }
+        return null;
+        """,
+        task_name,
+    )
+
+
+def is_note_selected(driver, task_name):
+    return driver.execute_script(
+        """
+        const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+        for (const n of notes) {
+            if (n.dataset.wbTask !== arguments[0]) continue;
+            return n.querySelector('.wb-note-card').classList.contains('wb-note-selected');
+        }
+        return false;
+        """,
+        task_name,
+    )
+
+
 def note_header_style(driver, task_name):
     """{background, color} computed style of one note's header, plus the
-    --wb-note-accent custom property on its card."""
+    --wb-note-accent custom property on its card and the card's own
+    computed background. Issue #1103 deliberately leaves the header
+    transparent, so tests that care about what colour the title *renders
+    on* should use effectiveBackground/cardBackground rather than the
+    header's own raw backgroundColor."""
     return driver.execute_script(
         """
         const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
@@ -260,10 +293,19 @@ def note_header_style(driver, task_name):
             const card = n.querySelector('.wb-note-card');
             const header = n.querySelector('.wb-note-header');
             const style = getComputedStyle(header);
+            function effectiveBackground(el) {
+                for (let cur = el; cur; cur = cur.parentElement) {
+                    const bg = getComputedStyle(cur).backgroundColor;
+                    if (bg && !/rgba\\(0, 0, 0, 0\\)|transparent/.test(bg)) return bg;
+                }
+                return getComputedStyle(document.body).backgroundColor;
+            }
             return {
                 background: style.backgroundColor,
                 color: style.color,
                 accent: card.style.getPropertyValue('--wb-note-accent'),
+                cardBackground: getComputedStyle(card).backgroundColor,
+                effectiveBackground: effectiveBackground(header),
             };
         }
         return null;
@@ -394,7 +436,12 @@ class TestNoteColourPrecedenceAndPersistence:
 
         assert after["accent"].upper() == "#FFAFA3", \
             "the accent bar takes the raw swatch colour right away, before the debounced commit lands"
-        assert after["background"] != before["background"]
+        # Issue #1103: the header itself is transparent -- the whole card
+        # carries the colour -- so the effective rendered background the
+        # header text sits on is the card's fill underneath it.
+        assert after["cardBackground"] != before["cardBackground"]
+        assert after["effectiveBackground"] == after["cardBackground"], \
+            "the header must show the card's colour through it, not a background of its own"
 
     def test_picking_a_swatch_persists_to_theme_front_matter(self, browser, app_server):
         open_app(browser, app_server)
@@ -450,6 +497,29 @@ class TestNoteColourPrecedenceAndPersistence:
             "a hand-set whiteboard-row Colour (tier 1) must still win over the Theme: entry (tier 2)"
 
 
+class TestNoteSolidColour:
+    """Issue #1103: a post-it note is one uniform colour block -- the
+    title area must not render a different colour from the body/footer,
+    and that colour must fill the entire card, not just a left accent
+    bar."""
+
+    def test_header_and_card_share_the_same_background(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        pick_swatch(browser, "Build", "#FFAFA3")
+        style = note_header_style(browser, "Build")
+
+        # The header paints no colour of its own (transparent) -- the
+        # card's fill shows straight through it, which is exactly how the
+        # header ends up the same colour as the rest of the note.
+        assert style["background"] == "rgba(0, 0, 0, 0)", \
+            f"the header must be transparent, not tint itself separately (got {style['background']!r})"
+        assert rgb_to_hex(style["cardBackground"]) == "#FFAFA3", \
+            "the card itself must be filled with the raw picked swatch colour"
+
+
 class TestNoteColourRename:
     def test_renaming_a_summary_task_carries_its_colour(self, browser, app_server):
         open_app(browser, app_server)
@@ -498,7 +568,10 @@ class TestNoteColourContrast:
         for colour in self._swatch_hexes(driver):
             pick_swatch(driver, task_name, colour)
             style = note_header_style(driver, task_name)
-            bg_hex = rgb_to_hex(style["background"])
+            # Issue #1103: the header is transparent -- its own computed
+            # background is meaningless -- the card underneath is what
+            # actually paints the colour the header text sits on.
+            bg_hex = rgb_to_hex(style["cardBackground"])
             text_hex = rgb_to_hex(style["color"])
             ratio = contrast_ratio(driver, bg_hex, text_hex)
             assert ratio >= 4.5, (
@@ -589,7 +662,8 @@ class TestNoteColourBackwardCompatibility:
         style = note_header_style(browser, "Discovery")
         assert style["accent"].upper() == "#4A90D9", \
             "an old, non-pastel Theme: colour must still render as-is, not be remapped or dropped"
-        assert style["background"], "the header must still get a real (shaded) background colour"
+        assert rgb_to_hex(style["cardBackground"]) == "#4A90D9", \
+            "the card must still get a real background colour"
 
         # Opening the menu on this note must not error, and since #4A90D9
         # isn't one of the new swatches, none should show as selected.
@@ -611,8 +685,108 @@ class TestNoteColourBackwardCompatibility:
 
         style = note_header_style(browser, "Build")
         assert style["accent"].upper() == "#123456"
-        bg_hex = rgb_to_hex(style["background"])
+        bg_hex = rgb_to_hex(style["cardBackground"])
         text_hex = rgb_to_hex(style["color"])
         ratio = contrast_ratio(browser, bg_hex, text_hex)
         assert ratio >= 4.5, \
-            "even an arbitrary hand-set colour must still get a legible header via wbShadeColour()/wbContrastTextColour()"
+            "even an arbitrary hand-set colour must still get a legible header via wbContrastTextColour()"
+
+
+class TestSelectedNoteColourButton:
+    """Issue #1109: the ribbon's whiteboard "Colour" button -- previously
+    an unwired stub (clicking it just showed "not available yet") -- opens
+    the currently *selected* note's colour panel, the same `...` menu
+    wbOpenNoteMenu() builds for a note's own button. Exercises the
+    selection/action functions directly (wbGetSelectedNoteTask(),
+    wbOpenColourPanelForSelectedNote()) rather than the ribbon's own DOM,
+    which test_ribbon_action_coverage.mjs already confirms wires
+    'whiteboard:Colour' to these."""
+
+    def test_clicking_a_note_selects_it(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        assert browser.execute_script("return wbGetSelectedNoteTask();") is None
+        header_for(browser, "Build").click()
+
+        assert is_note_selected(browser, "Build")
+        assert browser.execute_script("return wbGetSelectedNoteTask();") == "Build"
+
+    def test_selecting_a_second_note_deselects_the_first(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        header_for(browser, "Build").click()
+        header_for(browser, "Discovery").click()
+
+        assert not is_note_selected(browser, "Build")
+        assert is_note_selected(browser, "Discovery")
+        assert browser.execute_script("return wbGetSelectedNoteTask();") == "Discovery"
+
+    def test_clicking_bare_canvas_deselects(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        header_for(browser, "Build").click()
+        assert browser.execute_script("return wbGetSelectedNoteTask();") == "Build"
+
+        # Same bare-canvas mousedown TestNoteMenuOpenClose's outside-click
+        # test uses to close a note's own menu -- whiteboard.js's
+        # wbHandleMouseDown() clears the selected note the same way it
+        # already clears the selected noodle.
+        browser.execute_script(
+            """
+            const svg = document.querySelector('#whiteboardContainer svg');
+            svg.dispatchEvent(new MouseEvent('mousedown', {bubbles: true, button: 0}));
+            """
+        )
+        assert browser.execute_script("return wbGetSelectedNoteTask();") is None
+        assert not is_note_selected(browser, "Build")
+
+    def test_colour_button_opens_selected_notes_menu(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        header_for(browser, "Build").click()
+        browser.execute_script("wbOpenColourPanelForSelectedNote(document.getElementById('whiteboardZoomInBtn'));")
+
+        menu = WebDriverWait(browser, 3).until(
+            EC.presence_of_element_located((By.ID, "wbNoteMenu"))
+        )
+        swatches = menu.find_elements(By.CSS_SELECTOR, ".wb-note-menu-swatch")
+        assert swatches, "must be the same colour-swatch panel a note's own `...` menu opens"
+
+        # And it must be *Build*'s panel, not some other note's -- picking a
+        # swatch here (straight from this already-open menu -- reopening it
+        # via pick_swatch()'s own open_menu() would instead *toggle it
+        # closed*, since menuBtn's click handler treats a second click on
+        # the same already-open task as "close") should recolour Build.
+        target = next(s for s in swatches if s.get_attribute("title").upper() == "#FFAFA3")
+        target.click()
+        style = note_header_style(browser, "Build")
+        assert style["accent"].upper() == "#FFAFA3"
+
+    def test_colour_button_with_nothing_selected_explains_itself(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        assert browser.execute_script("return wbGetSelectedNoteTask();") is None
+        browser.execute_script("wbOpenColourPanelForSelectedNote(document.getElementById('whiteboardZoomInBtn'));")
+
+        # Check the message *before* the no-menu-opened check: the message
+        # auto-hides itself after a few seconds (wbFlashNoodleMessage()),
+        # and find_elements() for an id that genuinely doesn't exist blocks
+        # for the driver's full implicit wait -- long enough, on its own,
+        # to race past that auto-hide and make this flaky/order-sensitive.
+        message = WebDriverWait(browser, 3).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, ".wb-noodle-message"))
+        )
+        assert message.text.strip(), \
+            "must explain what to do (per the issue's own acceptance criterion) rather than silently no-op"
+        assert browser.execute_script("return document.getElementById('wbNoteMenu') === null;"), \
+            "nothing is selected -- no colour panel should open"

@@ -198,11 +198,6 @@ class TestExtractMetadata:
         result = extract_metadata(task, "Task 1")
         assert result['comment'] == "This is a comment"
 
-    def test_extract_deadline_without_scheduling_it_as_start(self):
-        result = extract_metadata("Launch 2d [deadline 2027-03-15]", "Launch")
-        assert result['deadline'] == "2027-03-15"
-        assert 'start' not in result
-
     def test_extract_dependencies(self):
         """Test extracting dependencies using [depends] syntax."""
         task = "Task 2 [depends Task 1] @john 2d"
@@ -860,6 +855,78 @@ class TestCalculateRAGStatus:
         }
         result = calculate_rag_status(task, current)
         assert result == 'Not Started'
+
+
+class TestCalculateRAGStatusDeadline:
+    """Deadline slippage flag tests (#877, #1152)."""
+
+    def test_deadline_already_passed_and_incomplete_is_overdue(self):
+        current = datetime(2025, 11, 20)
+        task = {
+            'start': datetime(2025, 11, 1),
+            'finish': datetime(2025, 11, 10),
+            'percent': 80,
+            'duration': timedelta(days=9),
+            'deadline': '2025-11-15',
+        }
+        assert calculate_rag_status(task, current) == 'Task Overdue'
+
+    def test_projected_finish_after_deadline_is_overdue_even_before_deadline(self):
+        # Deadline is still in the future, but the computed finish (start +
+        # duration) is later than it -- the task is not on track to make it.
+        current = datetime(2025, 11, 5)
+        task = {
+            'start': datetime(2025, 11, 1),
+            'finish': datetime(2025, 11, 20),
+            'percent': 10,
+            'duration': timedelta(days=19),
+            'deadline': '2025-11-15',
+        }
+        assert calculate_rag_status(task, current) == 'Task Overdue'
+
+    def test_on_track_to_meet_deadline_is_not_flagged(self):
+        current = datetime(2025, 11, 5)
+        task = {
+            'start': datetime(2025, 11, 1),
+            'finish': datetime(2025, 11, 10),
+            'percent': 50,
+            'duration': timedelta(days=9),
+            'deadline': '2025-11-15',
+        }
+        assert calculate_rag_status(task, current) == 'On Track'
+
+    def test_completed_task_is_never_flagged_for_a_missed_deadline(self):
+        current = datetime(2025, 11, 20)
+        task = {
+            'start': datetime(2025, 11, 1),
+            'finish': datetime(2025, 11, 10),
+            'percent': 100,
+            'duration': timedelta(days=9),
+            'deadline': '2025-11-05',
+        }
+        assert calculate_rag_status(task, current) == 'Complete'
+
+    def test_no_deadline_is_never_flagged_by_deadline_logic(self):
+        current = datetime(2025, 11, 20)
+        task = {
+            'start': datetime(2025, 11, 1),
+            'finish': datetime(2025, 11, 10),
+            'percent': 100,
+            'duration': timedelta(days=9),
+        }
+        assert calculate_rag_status(task, current) == 'Complete'
+
+    def test_deadline_maps_to_red_colour(self):
+        current = datetime(2025, 11, 20)
+        task = {
+            'start': datetime(2025, 11, 1),
+            'finish': datetime(2025, 11, 10),
+            'percent': 50,
+            'duration': timedelta(days=9),
+            'deadline': '2025-11-15',
+        }
+        status = calculate_rag_status(task, current)
+        assert rag_status_to_colour(status) == 'red'
 
 
 class TestRagStatusNotStartedBug:

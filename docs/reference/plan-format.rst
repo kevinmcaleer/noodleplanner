@@ -130,6 +130,17 @@ Keys the app reads
    * - ``non-working [...]`` suffix on a resource line
      - ``- @kev: Kevin, PM non-working [2026-08-03, 2026-08-10:2026-08-14]``
      - Non-working days, single or ranged, for that resource only.
+   * - ``calendar <Name>`` suffix on a resource line
+     - ``- @kev: Kevin, PM calendar Gulf non-working [2026-08-03]``
+     - The calendar this resource uses instead of the project's active one
+       (either order relative to ``non-working [...]``). Must name a
+       calendar declared in ``calendars:``.
+   * - ``calendar`` / ``calendars``
+     - ``calendar: <Name>``; list of ``- Name: <week pattern> [hours
+       HH:MM-HH:MM] [exceptions [...]]``
+     - Named calendars (work week or shift rotation, optional daily hours,
+       dated exceptions) and which one is active. No ``calendars:`` block
+       means the implicit Standard (Mon-Fri) calendar.
    * - ``stakeholders``
      - list of maps
      - Stakeholder register, written by the Stakeholders view.
@@ -391,7 +402,8 @@ state, no task-derived title, no post-it colour). The ``Kind``/``Id``/
 plan has at least one text object; a plan with post-it rows only still
 round-trips through an edit as the same seven-column table it always has.
 
-Created via the toolbar's **New text** button, the ``t`` key, or double-
+Created via the toolbar's **Add title** button (renamed from **New text**
+by issue #1107), the ``t`` key, or double-
 clicking is reserved for a new post-it (``n``) -- a text object goes
 straight into inline edit so typing its content is part of the same
 gesture, the same handoff a new post-it's title gets. Dragging repositions

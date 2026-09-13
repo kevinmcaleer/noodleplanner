@@ -220,14 +220,29 @@ function mindmapIsDescendant(ancestor, target) {
 function mindmapBuildTree(tasks, projectName) {
     if (!tasks || tasks.length === 0) return null;
 
-    // Virtual root that holds top-level nodes
+    // Virtual root that holds top-level nodes.
+    //
+    // It carries the same layout fields as the real nodes built below. It
+    // used to omit them, which only showed when a plan had two or more
+    // top-level tasks -- with exactly one, that single child is promoted to
+    // root further down and brings its own `height`. Otherwise this object
+    // reached the renderer with `height === undefined`, so
+    // `Math.max(node.height, ...)` in mindmapMeasure() gave NaN and every
+    // `node.y - node.height / 2` wrote NaN into the SVG.
     const root = {
         id: 0,
         name: '',
         children: [],
         level: -1,
         is_summary: true,
-        _task: null
+        percent: '',
+        _task: null,
+        // Layout fields (filled later)
+        x: 0,
+        y: 0,
+        width: 0,
+        height: MM_NODE_HEIGHT,
+        subtreeHeight: 0
     };
 
     // Use a stack to track the current parent at each level
