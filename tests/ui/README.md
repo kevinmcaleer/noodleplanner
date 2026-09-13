@@ -130,7 +130,7 @@ blocking them changes no assertion. If that ever stops being true, serve the
 library from a local copy in the fixture (`route.fulfill`) rather than opening
 the origin up for the whole suite.
 
-## Two real bugs this suite found
+## Three real bugs this suite found
 
 Porting `test_whiteboard_parking_lot.py` turned up two defects in the app, both
 in the same window: `loadProjectIntoEditor()` is async, so between a project
@@ -165,14 +165,14 @@ written down here beside it.
 
 ## Still on Selenium
 
-`test_usability.py`, `test_ribbon_simple_view.py`, `test_whiteboard_notes.py`,
-`test_whiteboard_structure.py`, `test_whiteboard_board_membership.py`,
-`test_whiteboard_note_colour.py`, `test_whiteboard_drag_resize.py`,
-`test_whiteboard_canvas.py`, `test_whiteboard_text_objects.py`.
+`test_whiteboard_notes.py` (35), `test_whiteboard_structure.py` (28),
+`test_whiteboard_note_colour.py` (24), `test_whiteboard_board_membership.py`
+(24), `test_whiteboard_canvas.py` (16), `test_whiteboard_text_objects.py` (14),
+`test_ribbon_simple_view.py` (14), `test_whiteboard_drag_resize.py` (13).
 
-`test_usability.py` is the one to take next: 50 of the remaining 217 tests, and
-the file that bounds the sharded `usability` job because an order dependency
-inside it stops `--dist loadfile` splitting it further.
+168 tests over eight files, all but one of them whiteboard. The shared
+whiteboard helpers in `helpers.py` already cover most of what they need, so
+they should go faster than the first four did.
 
 Note that CI's `usability` job is `continue-on-error` because some of those
 tests assert against a UI that no longer exists. Port what is still true; do not

@@ -131,3 +131,27 @@ def note_task_names(page):
         "() => [...document.querySelectorAll('#whiteboardContainer .wb-note')]"
         "        .map(n => n.dataset.wbTask)"
     )
+
+
+# ── Console ──────────────────────────────────────────────────────────────
+
+# Requests this suite deliberately aborts (see conftest's EXTERNAL_ORIGINS).
+# The browser logs a failed load for each, which is our doing rather than the
+# app's, so it is filtered out the same way the Selenium suite filtered the
+# ERR_NAME_NOT_RESOLVED it got for the same URLs.
+_BLOCKED = ("cdn.jsdelivr.net", "fonts.googleapis.com", "fonts.gstatic.com")
+
+
+def actionable_console_errors(page):
+    """Console errors the app is actually responsible for."""
+    out = []
+    for message in page.console_errors:
+        if any(host in message for host in _BLOCKED):
+            continue
+        if "favicon" in message.lower():
+            continue
+        # A blocked request surfaces as a bare net:: failure with no origin.
+        if "net::ERR_FAILED" in message or "net::ERR_ABORTED" in message:
+            continue
+        out.append(message)
+    return out
