@@ -108,6 +108,7 @@ export function buildPlanSnapshot(planText, rev) {
     return {
         type: 'plan_snapshot',
         rev,
+        plan_text: String(planText == null ? '' : planText),
         tasks: model.tasks.map((task, index) => {
             const line = task.indentText + task.content;
             const percent = readPercent(line);

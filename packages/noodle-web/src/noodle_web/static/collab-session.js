@@ -328,6 +328,198 @@ async function sendCollabMessageTo(joinerId, plaintext) {
     return true;
 }
 
+async function sendCollabJsonTo(joinerId, payload) {
+    return sendCollabMessageTo(joinerId, JSON.stringify(payload));
+}
+
+function buildCollabWhiteboardSnapshot(planText, rev) {
+    const tasks = (typeof lastRenderedTasks !== 'undefined' && Array.isArray(lastRenderedTasks))
+        ? lastRenderedTasks : [];
+    const items = (typeof extractWhiteboardFromPlanText === 'function' &&
+        typeof parseWhiteboardMarkdown === 'function')
+        ? parseWhiteboardMarkdown(extractWhiteboardFromPlanText(planText))
+            .filter(item => item && item.task)
+            .map(item => ({
+                task: item.task,
+                x: Number.isFinite(Number(item.x)) ? Number(item.x) : 0,
+                y: Number.isFinite(Number(item.y)) ? Number(item.y) : 0,
+                colour: item.colour || '',
+                width: Number.isFinite(Number(item.width)) ? Number(item.width) : null,
+                height: Number.isFinite(Number(item.height)) ? Number(item.height) : null,
+                collapsed: !!item.collapsed,
+            }))
+        : [];
+    return {
+        type: 'whiteboard_snapshot',
+        rev,
+        items,
+        tasks: tasks.map(task => ({
+            name: task && task.name ? task.name : '',
+            parent: task && task.parent ? task.parent : null,
+            percent: Number.isFinite(Number(task && task.percent)) ? Number(task.percent) : null,
+            comment: task && task.comment ? String(task.comment) : '',
+        })).filter(task => task.name),
+    };
+}
+
+function isCollabWhiteboardOp(value) {
+    return Boolean(value) && typeof value === 'object' && value.type === 'whiteboard_op' &&
+        new Set(['add_note', 'move_note', 'promote_note']).has(value.op);
+}
+
+function isPlanTextReplace(value) {
+    return Boolean(value) && typeof value === 'object' && value.type === 'plan_text_replace';
+}
+
+function collabTaskChildren(taskName) {
+    if (!taskName || typeof lastRenderedTasks === 'undefined' || !Array.isArray(lastRenderedTasks)) return [];
+    return lastRenderedTasks.filter(task => task && task.parent === taskName);
+}
+
+async function applyCollabReplacement(joinerId, nextText, rejectionType) {
+    const editor = collabEditor();
+    if (!editor || typeof nextText !== 'string') {
+        await sendCollabJsonTo(joinerId, { type: rejectionType, reason: 'invalid' });
+        return false;
+    }
+    if (nextText === editor.value) return true;
+
+    editor.value = nextText;
+    collabApplyingRemoteOp = true;
+    try {
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    } finally {
+        collabApplyingRemoteOp = false;
+    }
+    if (typeof renderPlan === 'function') {
+        try {
+            await renderPlan();
+        } catch (error) {
+            collabLog('(applied an edit but could not re-render the plan)');
+        }
+    }
+    collabPlanRev++;
+    scheduleCollabAutosave();
+    await broadcastCollabPlan(null, null, null);
+    return true;
+}
+
+async function applyCollabPlanTextReplace(joinerId, message) {
+    if (!Number.isInteger(message.rev) || typeof message.text !== 'string') {
+        await sendCollabJsonTo(joinerId, { type: 'plan_text_replace_rejected', reason: 'invalid' });
+        return;
+    }
+    if (message.rev !== collabPlanRev) {
+        await sendCollabJsonTo(joinerId, { type: 'plan_text_replace_rejected', reason: 'stale' });
+        return;
+    }
+    await applyCollabReplacement(joinerId, message.text, 'plan_text_replace_rejected');
+}
+
+async function applyCollabWhiteboardOp(joinerId, message) {
+    if (!Number.isInteger(message.rev)) {
+        await sendCollabJsonTo(joinerId, { type: 'whiteboard_op_rejected', op: message && message.op, reason: 'invalid' });
+        return;
+    }
+    if (message.rev !== collabPlanRev) {
+        await sendCollabJsonTo(joinerId, { type: 'whiteboard_op_rejected', op: message.op, reason: 'stale' });
+        return;
+    }
+    if (typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        await sendCollabJsonTo(joinerId, { type: 'whiteboard_op_rejected', op: message.op, reason: 'invalid' });
+        return;
+    }
+
+    const editor = collabEditor();
+    if (!editor) return;
+    const planText = editor.value;
+
+    if (message.op === 'add_note') {
+        if (typeof wbAppendTopLevelTask !== 'function' || typeof wbUniqueTaskName !== 'function') {
+            await sendCollabJsonTo(joinerId, { type: 'whiteboard_op_rejected', op: message.op, reason: 'invalid' });
+            return;
+        }
+        const x = Number(message.x);
+        const y = Number(message.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+            await sendCollabJsonTo(joinerId, { type: 'whiteboard_op_rejected', op: message.op, reason: 'invalid' });
+            return;
+        }
+        const names = (typeof wbOutlineTaskNames === 'function')
+            ? wbOutlineTaskNames(planText)
+            : ((typeof lastRenderedTasks !== 'undefined' && Array.isArray(lastRenderedTasks))
+                ? lastRenderedTasks.map(task => task && task.name).filter(Boolean)
+                : []);
+        const taskName = wbUniqueTaskName(names, 'New idea');
+        const withTask = wbAppendTopLevelTask(planText, taskName);
+        const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(withTask));
+        items.push({
+            task: taskName,
+            x: Math.round(x),
+            y: Math.round(y),
+            colour: '',
+            width: (typeof WB_NOTE_DEFAULT_WIDTH === 'number') ? WB_NOTE_DEFAULT_WIDTH : 260,
+            height: (typeof WB_NOTE_DEFAULT_HEIGHT === 'number') ? WB_NOTE_DEFAULT_HEIGHT : 220,
+            collapsed: false,
+        });
+        await applyCollabReplacement(joinerId, updatePlanWhiteboardText(withTask, items), 'whiteboard_op_rejected');
+        return;
+    }
+
+    if (typeof message.task !== 'string' || !message.task.trim()) {
+        await sendCollabJsonTo(joinerId, { type: 'whiteboard_op_rejected', op: message.op, reason: 'invalid' });
+        return;
+    }
+    const taskName = message.task.trim();
+
+    if (message.op === 'move_note') {
+        const x = Number(message.x);
+        const y = Number(message.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+            await sendCollabJsonTo(joinerId, { type: 'whiteboard_op_rejected', op: message.op, reason: 'invalid' });
+            return;
+        }
+        const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(planText));
+        const key = taskName.toLowerCase();
+        const note = items.find(item => item && item.task && String(item.task).toLowerCase() === key);
+        if (!note) {
+            await sendCollabJsonTo(joinerId, { type: 'whiteboard_op_rejected', op: message.op, reason: 'unknown_note' });
+            return;
+        }
+        note.x = Math.round(x);
+        note.y = Math.round(y);
+        await applyCollabReplacement(joinerId, updatePlanWhiteboardText(planText, items), 'whiteboard_op_rejected');
+        return;
+    }
+
+    if (message.op === 'promote_note') {
+        if (typeof wbAppendChildTask !== 'function' ||
+            typeof wbOutlineTaskNames !== 'function' ||
+            typeof wbUniqueTaskName !== 'function' ||
+            typeof wbSanitiseChildTaskName !== 'function') {
+            await sendCollabJsonTo(joinerId, { type: 'whiteboard_op_rejected', op: message.op, reason: 'invalid' });
+            return;
+        }
+        const source = wbSanitiseChildTaskName(message.child_name || '');
+        if (!source) {
+            await sendCollabJsonTo(joinerId, { type: 'whiteboard_op_rejected', op: message.op, reason: 'invalid' });
+            return;
+        }
+        if (collabTaskChildren(taskName).length) {
+            await sendCollabJsonTo(joinerId, { type: 'whiteboard_op_rejected', op: message.op, reason: 'already_checklist' });
+            return;
+        }
+        const uniqueChildName = wbUniqueTaskName(wbOutlineTaskNames(planText), source);
+        await applyCollabReplacement(
+            joinerId,
+            wbAppendChildTask(planText, taskName, uniqueChildName),
+            'whiteboard_op_rejected'
+        );
+    }
+}
+
 /** Broadcast the current plan to every joiner (#967).
  *
  * The host sends a full snapshot rather than a diff. A planning session is
@@ -356,8 +548,10 @@ async function broadcastCollabPlan(notice, raidNotice, sectionNotice) {
     if (notice) snapshot.notice = notice;
     const raidSnapshot = buildRaidSnapshot(editor.value, collabPlanRev);
     if (raidNotice) raidSnapshot.notice = raidNotice;
+    const whiteboardSnapshot = buildCollabWhiteboardSnapshot(editor.value, collabPlanRev);
     let sent = await sendCollabMessage(JSON.stringify(snapshot));
     sent += await sendCollabMessage(JSON.stringify(raidSnapshot));
+    sent += await sendCollabMessage(JSON.stringify(whiteboardSnapshot));
 
     // #1036: the other editable back-matter sections travel the same way,
     // one `backmatter_snapshot` each. RAID keeps its own frame type for
@@ -570,6 +764,7 @@ async function handleCollabMessage(raw) {
         if (editor) {
             await sendCollabMessageTo(joinerId, JSON.stringify(buildPlanSnapshot(editor.value, collabPlanRev)));
             await sendCollabMessageTo(joinerId, JSON.stringify(buildRaidSnapshot(editor.value, collabPlanRev)));
+            await sendCollabMessageTo(joinerId, JSON.stringify(buildCollabWhiteboardSnapshot(editor.value, collabPlanRev)));
             // #1036: and the rest of the editable back matter, so a joiner
             // arrives with every section they can edit already populated.
             for (const section of EDITABLE_SECTIONS) {
@@ -614,6 +809,14 @@ async function handleCollabMessage(raw) {
         }
         if (isBackmatterOp(parsed)) {
             await applyCollabBackmatterOp(joinerId, parsed);
+            return;
+        }
+        if (isPlanTextReplace(parsed)) {
+            await applyCollabPlanTextReplace(joinerId, parsed);
+            return;
+        }
+        if (isCollabWhiteboardOp(parsed)) {
+            await applyCollabWhiteboardOp(joinerId, parsed);
             return;
         }
         collabLog(`joiner: ${plaintext}`);
