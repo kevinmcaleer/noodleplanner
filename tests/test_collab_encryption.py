@@ -61,7 +61,30 @@ from tests.helpers.collab_crypto_stub import Party, decrypt_message, encrypt_mes
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    """A TestClient whose portal is shut down when the test ends.
+
+    The same fix, for the same reason, as `test_collab_session.py`'s
+    `client` fixture -- see its docstring for the full account. In short:
+    `TestClient(app)` without the `with` leaves its blocking portal (a
+    background thread running its own asyncio event loop) alive after the
+    test that made it. This file shares the module-level `app` and
+    `collab_sessions` registry with that one, so a leaked portal means two
+    loops live over the same globals, and a relay task can touch a
+    websocket or an `asyncio.Lock` belonging to the other loop. The frame
+    the test waits for is then never sent, and
+    `WebSocketTestSession.receive_text()` has no timeout, so it blocks
+    forever and takes the whole job with it.
+
+    e26843c fixed that fixture and left this one, which was harmless while
+    the suite ran serially and stopped being so the moment ci/jobs/python.sh
+    started passing `-n auto`: saturating the cores is exactly the condition
+    that surfaces it. On unmodified `main`, 2 of 16 full parallel runs hung
+    here, both on
+    `TestRelayOnlySeesCiphertext::test_relay_only_ever_sees_ciphertext`;
+    with this fixture closed properly, 24 of 24 passed.
+    """
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture(autouse=True)
