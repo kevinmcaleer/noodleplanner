@@ -37,7 +37,7 @@
 		"shadowGeometryPxTolerance": 2
 	},
 	"totals": {
-		"colors": 583,
+		"colors": 585,
 		"fontSizes": 67,
 		"radii": 32,
 		"boxShadows": 104
@@ -47,13 +47,13 @@
 			"clusters": 105,
 			"valuesInvolved": 314,
 			"valuesRemovable": 209,
-			"declarationsTouched": 2666
+			"declarationsTouched": 2671
 		},
 		"fontSizes": {
 			"clusters": 14,
 			"valuesInvolved": 37,
 			"valuesRemovable": 23,
-			"declarationsTouched": 763
+			"declarationsTouched": 765
 		},
 		"radii": {
 			"clusters": 4,
@@ -450,7 +450,7 @@
 			"seedHex": "#F0F0F0",
 			"alpha": 1,
 			"memberCount": 10,
-			"totalUsage": 89,
+			"totalUsage": 90,
 			"existingToken": null,
 			"recommendation": "#f0f0f0",
 			"recommendationKind": "highest-traffic-value",
@@ -509,6 +509,18 @@
 					"deltaE": 0.42
 				},
 				{
+					"authoredAs": "#f2f2f2",
+					"hex": "#F2F2F2",
+					"alpha": 1,
+					"usage": 4,
+					"props": [
+						"background",
+						"color",
+						"--np-light-grey-subtle"
+					],
+					"deltaE": 0.42
+				},
+				{
 					"authoredAs": "#f4f4f4",
 					"hex": "#F4F4F4",
 					"alpha": 1,
@@ -517,17 +529,6 @@
 						"background"
 					],
 					"deltaE": 0.83
-				},
-				{
-					"authoredAs": "#f2f2f2",
-					"hex": "#F2F2F2",
-					"alpha": 1,
-					"usage": 3,
-					"props": [
-						"color",
-						"--np-light-grey-subtle"
-					],
-					"deltaE": 0.42
 				},
 				{
 					"authoredAs": "#f3f4f6",
@@ -773,7 +774,7 @@
 			"seedHex": "#28A745",
 			"alpha": 1,
 			"memberCount": 3,
-			"totalUsage": 51,
+			"totalUsage": 52,
 			"existingToken": null,
 			"recommendation": "#28a745",
 			"recommendationKind": "highest-traffic-value",
@@ -796,11 +797,12 @@
 					"authoredAs": "#1c9e41",
 					"hex": "#1C9E41",
 					"alpha": 1,
-					"usage": 10,
+					"usage": 11,
 					"props": [
 						"background",
 						"color",
 						"outline",
+						"border-left-color",
 						"--np-green",
 						"stroke"
 					],
@@ -823,7 +825,7 @@
 			"seedHex": "#C62828",
 			"alpha": 1,
 			"memberCount": 5,
-			"totalUsage": 49,
+			"totalUsage": 51,
 			"existingToken": null,
 			"recommendation": "#c62828",
 			"recommendationKind": "highest-traffic-value",
@@ -846,10 +848,11 @@
 					"authoredAs": "#c21d1d",
 					"hex": "#C21D1D",
 					"alpha": 1,
-					"usage": 8,
+					"usage": 10,
 					"props": [
 						"color",
 						"border-left",
+						"border-left-color",
 						"--np-red"
 					],
 					"deltaE": 2.27
@@ -1808,6 +1811,52 @@
 		},
 		{
 			"kind": "color",
+			"seedHex": "#FF7B01",
+			"alpha": 1,
+			"memberCount": 3,
+			"totalUsage": 19,
+			"existingToken": null,
+			"recommendation": "#ff7b01",
+			"recommendationKind": "highest-traffic-value",
+			"members": [
+				{
+					"authoredAs": "#ff7b01",
+					"hex": "#FF7B01",
+					"alpha": 1,
+					"usage": 15,
+					"props": [
+						"background",
+						"color",
+						"--np-orange",
+						"fill",
+						"stroke"
+					],
+					"deltaE": 0
+				},
+				{
+					"authoredAs": "#fd7e14",
+					"hex": "#FD7E14",
+					"alpha": 1,
+					"usage": 2,
+					"props": [
+						"color"
+					],
+					"deltaE": 0.82
+				},
+				{
+					"authoredAs": "#f57f17",
+					"hex": "#F57F17",
+					"alpha": 1,
+					"usage": 2,
+					"props": [
+						"color"
+					],
+					"deltaE": 2.05
+				}
+			]
+		},
+		{
+			"kind": "color",
 			"seedHex": "#FFD93D",
 			"alpha": 1,
 			"memberCount": 4,
@@ -1894,52 +1943,6 @@
 						"color"
 					],
 					"deltaE": 2.98
-				}
-			]
-		},
-		{
-			"kind": "color",
-			"seedHex": "#FF7B01",
-			"alpha": 1,
-			"memberCount": 3,
-			"totalUsage": 18,
-			"existingToken": null,
-			"recommendation": "#ff7b01",
-			"recommendationKind": "highest-traffic-value",
-			"members": [
-				{
-					"authoredAs": "#ff7b01",
-					"hex": "#FF7B01",
-					"alpha": 1,
-					"usage": 14,
-					"props": [
-						"background",
-						"color",
-						"--np-orange",
-						"fill",
-						"stroke"
-					],
-					"deltaE": 0
-				},
-				{
-					"authoredAs": "#fd7e14",
-					"hex": "#FD7E14",
-					"alpha": 1,
-					"usage": 2,
-					"props": [
-						"color"
-					],
-					"deltaE": 0.82
-				},
-				{
-					"authoredAs": "#f57f17",
-					"hex": "#F57F17",
-					"alpha": 1,
-					"usage": 2,
-					"props": [
-						"color"
-					],
-					"deltaE": 2.05
 				}
 			]
 		},
@@ -4935,13 +4938,13 @@
 			"unit": "px",
 			"seed": "13px",
 			"memberCount": 3,
-			"totalUsage": 69,
+			"totalUsage": 71,
 			"recommendation": "13px",
 			"recommendationKind": "highest-traffic-value",
 			"members": [
 				{
 					"authoredAs": "13px",
-					"usage": 64,
+					"usage": 66,
 					"props": []
 				},
 				{

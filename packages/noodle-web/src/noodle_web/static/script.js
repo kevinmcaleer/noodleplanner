@@ -1468,6 +1468,14 @@ function updateGlobalState(result, planText) {
     // the server again, so the plan text it belongs to is kept alongside it.
     lastParseResult = { result: result, planText: planText };
     window._lastStakeholders = result.stakeholders || [];
+
+    // The guided wizard's Scheduling stage reports on this parse's output
+    // (#1054), so it has to be redrawn whenever the plan is re-scheduled --
+    // otherwise a deadline the user just entered is checked against the
+    // previous schedule. A no-op unless the wizard is open on that stage.
+    if (typeof PlanWizard !== 'undefined' && PlanWizard.refreshStageContent) {
+        PlanWizard.refreshStageContent();
+    }
 }
 
 function updateMilestonesView(result) {

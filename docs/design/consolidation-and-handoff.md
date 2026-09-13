@@ -1,8 +1,10 @@
 # Token consolidation and design-tool handoff
 
-The [token audit](token-audit.md) counted what exists: 583 colours, 67 font
-sizes, 32 radii, 104 box-shadows, against a canonical set of 73 tokens. This
-document covers the follow-up question — **which of those values are the same
+The [token audit](token-audit.md) counted what exists — at the time it ran,
+583 colours, 67 font sizes, 32 radii and 104 box-shadows against a canonical
+set of 73 tokens. (The counts below are a few higher: they were regenerated
+later, and the stylesheet has grown since. Re-run `npm run audit:tokens` to
+bring that report back in step.) This document covers the follow-up question — **which of those values are the same
 decision written several ways, and which spelling should win** — plus how the
 result reaches Penpot and Storybook.
 
@@ -57,19 +59,19 @@ node scripts/token-consolidation.mjs --color-de=4 --neutral-de=2
 
 | Category | Unique today | After merging | Declarations involved |
 |---|---|---|---|
-| Colours | 583 | 374 | 2,666 |
-| Font sizes | 67 | 44 | 763 |
+| Colours | 585 | 376 | 2,671 |
+| Font sizes | 67 | 44 | 765 |
 | Radii | 32 | 26 | 498 |
 | Box-shadows | 104 | 65 | 198 |
 
-Merging only exact perceptual duplicates removes **209 of the 583 colours**
+Merging only exact perceptual duplicates removes **209 of the 585 colours**
 without a single visible change to the app.
 
 ### The headline: the app's real palette isn't the design system's
 
 **Only 13 of 105 colour clusters sit close enough to any canonical `--np-*`
 token to adopt it** — and none of the high-traffic ones do. The six biggest
-clusters, together 1,267 declarations, match nothing in `visual-system.css`:
+clusters, together 1,268 declarations, match nothing in `visual-system.css`:
 
 | Keep | Absorbs | Uses | Canonical token in range? |
 |---|---|---|---|
@@ -78,7 +80,7 @@ clusters, together 1,267 declarations, match nothing in `visual-system.css`:
 | `#333` | `#353535`, `#333334`, `#303031` | 202 | none |
 | `#e9ecef` | `#f0f1f4`, `#f0f2f5`, `#eff1f3`, `#eef1f6` | 107 | none |
 | `rgba(0,0,0,.1)` | `.08`, `.12`, `.07` | 102 | none |
-| `#f0f0f0` | `#f5f5f5`, `#f1f3f5`, `#eee`, `#f4f4f4`, `#f2f2f2`, +4 more | 89 | none |
+| `#f0f0f0` | `#f5f5f5`, `#f1f3f5`, `#eee`, `#f4f4f4`, `#f2f2f2`, +5 more | 90 | none |
 
 These are cool Bootstrap-era greys. The canonical system is warm — `--np-paper`
 `#FAF8F4`, `--np-surface` `#FFFDF9`, `--np-hairline` `#E3DDD3`. So the top of
