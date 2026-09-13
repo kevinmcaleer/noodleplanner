@@ -1,0 +1,52 @@
+# Self-hosted runners for NoodlePlanner's CI.
+#
+#   cd ci/runner
+#   cp .env.example .env && $EDITOR .env     # put a PAT in RUNNER_TOKEN
+#   docker compose up -d --build --scale runner=3
+#
+# Deliberately a separate compose file from the repository root one. The root
+# file is production -- bringing CI up and down should never be able to restart
+# the live site, and `docker compose down` in the wrong directory should not be
+# able to take the site with it.
+#
+# Scale, don't configure: each container takes exactly one job and exits, so the
+# number of replicas is the number of CI jobs that can run at once. The test
+# suites split into five jobs, four of which gate, so three replicas keeps a
+# pull request's critical path at roughly the slowest two jobs.
+services:
+  runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    env_file: .env
+    environment:
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-kevinmcaleer/noodleplanner}
+      - RUNNER_LABELS=${RUNNER_LABELS:-self-hosted,linux,noodle}
+    volumes:
+      # Dependency caches, shared across replicas and across the throwaway
+      # containers. Without these every ephemeral runner re-downloads the whole
+      # Python and npm dependency set, which is most of a cold job's wall clock.
+      # The checkout itself is never shared -- that stays inside the container.
+      - uv-cache:/home/runner/.cache/uv
+      - npm-cache:/home/runner/.npm
+      # Playwright's browser build, ~150MB, which ci/jobs/ui.sh installs. Without
+      # this every ephemeral container downloads it again before it can run a
+      # 43-second test suite.
+      - playwright-cache:/home/runner/.cache/ms-playwright
+    # CI is the thing that should yield when the machine is busy: production
+    # and CI share this host, and a test run must never be the reason the site
+    # gets slow. Raise these if jobs start timing out rather than failing.
+    cpus: ${RUNNER_CPUS:-2}
+    mem_limit: ${RUNNER_MEMORY:-4g}
+    # The Selenium and Playwright suites spawn Chromium, which needs more than
+    # the default 64MB of shared memory or it crashes in ways that read as
+    # flaky tests.
+    shm_size: 1gb
+    security_opt:
+      - seccomp:unconfined
+
+volumes:
+  uv-cache:
+  npm-cache:
+  playwright-cache:
