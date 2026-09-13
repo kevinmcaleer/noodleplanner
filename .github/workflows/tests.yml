@@ -1,17 +1,17 @@
-# The two full test suites. The other workflows guard specific invariants --
-# engine-conformance.yml that both scheduling engines agree, and
-# markdown-roundtrip.yml that a plan survives a save -- but until this one
-# existed nothing ran `pytest` or `npm run test:js` on a pull request, so a
-# broken test only showed up when somebody ran it locally.
+# The two full test suites, plus the browser suites.
+#
+# The job bodies are not here. Every step below is a one-line call into
+# ci/jobs/, which is the same entry point the pre-push hook and a developer's
+# terminal use -- see ci/README.md. Before that, these steps were the only
+# written-down definition of CI, so reproducing a failure locally meant reading
+# YAML and retyping it, and the uv/Node setup was copy-pasted across four jobs
+# and three files.
 name: Test suites
 
 on:
   push:
     branches: [main]
   pull_request:
-  # So the Selenium job below, which no longer runs on pull requests, can still
-  # be asked for by hand on a change that warrants it.
-  workflow_dispatch:
 
 # A new push supersedes whatever is still running for the same ref: these
 # suites take minutes, and a superseded run tells you nothing.
@@ -19,182 +19,105 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Where these jobs run is one repository variable, not a property of this file.
+# Set CI_RUNS_ON to ["self-hosted","linux","noodle"] and they run on our own
+# runners (ci/runner/), which is what takes them off the metered GitHub-hosted
+# minutes this repository kept running out of -- minutes are not billed for
+# self-hosted runners, even on a private repository. Unset, they run on
+# ubuntu-latest.
+#
+# GitHub-hosted is the fallback rather than the goal, because the failure modes
+# are not symmetric. A job with no matching runner does not fail, it queues
+# forever -- so defaulting to self-hosted would mean that the moment this merged,
+# every pull request and every push to main stopped being testable until the
+# runner host happened to be up. Defaulting to ubuntu-latest costs minutes when
+# the variable is unset, and nothing else. It also means this file can be merged
+# before the runners exist, which is the situation it was written in.
+#
+# So: stand the runners up (ci/README.md), then set the variable. Unset it to
+# get back to GitHub-hosted while the host is down or being rebuilt.
 jobs:
   pytest:
     name: pytest
-    runs-on: ubuntu-latest
-    # Seconds, not minutes, now that the Selenium tests run in their own job
-    # below: the same suite that took ~19 minutes with them finishes in under
-    # a minute without. The ceiling stays generous enough to absorb a slow
-    # runner, and far below the six-hour default that would let a genuinely
-    # stuck job hold a runner all day -- a job that is still running is also a
-    # job whose log cannot be read, which is its own reason not to let one sit.
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
+    # Seconds, not minutes, now that the browser tests run in their own job: the
+    # same suite that took ~19 minutes with them finishes in under a minute
+    # without. The ceiling stays generous enough to absorb a busy runner, and
+    # far below the six-hour default that would let a genuinely stuck job hold a
+    # runner all day -- a job that is still running is also a job whose log
+    # cannot be read, which is its own reason not to let one sit.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: ./ci/run.sh -j1 --strict python
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install the workspace
-        run: uv sync --all-packages
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install dev dependencies
-        run: npm ci
-
-      # `-m "not usability and not ui"` is what keeps this job fast: it
-      # deselects the browser tests, which are the entire difference between
-      # ~18 minutes and ~18 seconds. They still run -- Playwright's in the `ui`
-      # job below, Selenium's in `usability` -- so the coverage isn't lost,
-      # just moved off this job. `not ui` is there so a checkout without a
-      # Playwright browser installed reports nothing rather than a screenful of
-      # skips.
-      #
-      # This only works because every Selenium file now carries
-      # `pytest.mark.usability`. Before, only tests/test_usability.py did, so
-      # the switch deselected 30 tests out of 229 and looked broken. The
-      # browser/Python Excel parity tests are non-usability pytest tests that
-      # shell out to Node, so this job still installs the npm dev
-      # dependencies they need.
-      #
-      # pytest.ini already puts -v in addopts, so a run killed on the timeout
-      # names the test it stopped on rather than trailing off into dots.
-      # `-n auto` because these 1726 tests are independent and the runner has
-      # more than one core doing nothing: 15.8s -> 6.2s on a 4-core machine.
-      # No `--dist` needed; the default per-test distribution is right for a
-      # suite with no module-scoped browsers to keep together.
-      - name: Run the Python suite
-        run: uv run pytest -p no:cacheprovider -m "not usability and not ui" -n auto
+  usability:
+    name: pytest (usability)
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
+    # Only on runners we own. This job takes ~19 minutes where the four gating
+    # jobs together take ~2, so on metered runners it is 89% of what a push
+    # costs -- about 93 pushes a month against the free allowance, versus ~875
+    # without it. Paying that for a job whose result cannot block a merge is
+    # what exhausted the allowance in the first place, and it did so mid-run:
+    # this workflow's own run on 68b9c1d never got a runner, and the Engine
+    # conformance run created in the same second was refused at startup,
+    # immediately after a 19-minute usability job had drained what was left.
+    #
+    # Minutes are not billed on self-hosted runners, so once CI_RUNS_ON points
+    # at ours the suite runs on every push again, free. Unset, it is skipped
+    # rather than silently dropped -- a skipped check is visible on the pull
+    # request, and losing 19 minutes of reporting beats losing the ability to
+    # run any CI at all.
+    if: vars.CI_RUNS_ON != ''
+    # Reporting, not gating. Ten test files still drive Selenium -- the other
+    # three now live in tests/ui on Playwright, run by the `ui` job above. They
+    # skip wherever no browser is reachable, so on a developer machine they
+    # silently skip and only ever really run here -- which is how this workflow
+    # found 42 of them asserting against a UI that no longer exists (no
+    # #projectTab, no #projectSubnav). Deselecting them from the blocking job
+    # would have hidden that, so they get their own job instead.
+    #
+    # continue-on-error means a red result here annotates the pull request
+    # without blocking it. --strict is what makes a real failure red at all:
+    # ci/run.sh would otherwise report it and exit 0, because `usability` is not in
+    # its gating set. A genuine skip (no browser on the runner) still passes.
+    #
+    # Once the stale assertions are fixed, drop continue-on-error and add
+    # `usability` to CI_BLOCKING_JOBS in ci/run.sh, and the job becomes a gate.
+    #
+    # The job id and check name are unchanged from before this rewrite on
+    # purpose: they are what any required status check on `main` refers to, and a
+    # renamed check does not fail, it simply never reports again.
+    continue-on-error: true
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: ./ci/run.sh -j1 --strict usability
 
   ui:
     name: pytest (ui)
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
     # A real gate, unlike `usability` below, because it is fast enough to block
     # on and green enough to mean something. On this runner the three ported
     # files cost ~135.7s under Selenium and ~43.5s here; see tests/ui/README.md
     # for where the difference comes from and what is left to port.
+    #
+    # No CI_RUNS_ON guard, unlike `usability`: at well under a minute it is not
+    # what drains the allowance, and a gating job has to run wherever the gate
+    # applies.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install the workspace
-        run: uv sync --all-packages
-
-      # Playwright pins the browser build it expects, so there is no
-      # chromedriver-vs-Chrome version to keep in step -- the thing every
-      # Selenium file in this repo carries a `_create_chrome_driver()`
-      # workaround for.
-      - name: Install Chromium
-        run: uv run playwright install --with-deps chromium
-
-      - name: Run the Playwright UI suite
-        run: uv run pytest -p no:cacheprovider tests/ui -n auto
-
-  usability:
-    name: pytest (usability) ${{ matrix.shard }}/4
-    runs-on: ubuntu-latest
-    # Not on pull requests. This job is ~17 minutes against ~3.5 for everything
-    # else combined, which made it about 85% of this repo's Actions bill and
-    # was the practical reason the account ran out of minutes. It was already
-    # `continue-on-error` -- a report nobody gates on -- so paying that on every
-    # push to every branch bought very little. It runs on `main` after merge,
-    # and `workflow_dispatch` triggers it by hand on a change that deserves it.
-    #
-    # This is a stopgap, not the fix. The fix is tests/ui: the three files
-    # ported there so far run the equivalent work in 90 seconds because they
-    # never touch the network (see tests/ui/README.md). As the remaining ten
-    # files follow, this job shrinks to nothing and the question goes away.
-    #
-    # Ten test files still drive Selenium. They skip wherever no browser can be
-    # reached, so on a developer machine they silently skip and only ever
-    # really run here -- which is how this workflow found 42 of them asserting
-    # against a UI that no longer exists (no #projectTab, no #projectSubnav).
-    #
-    # continue-on-error means a red result annotates rather than blocks. Once
-    # the stale assertions are fixed, drop this line and it becomes a real gate.
-    if: github.event_name != 'pull_request'
-    continue-on-error: true
-    # Was 35 for the whole suite in one job. Each shard carries at most a
-    # quarter of it, but the ceiling stays generous: it is there to stop a
-    # genuinely stuck job holding a runner, not to enforce a target.
-    timeout-minutes: 20
-    strategy:
-      # One shard failing must not cancel the others. They are testing
-      # different files, so the results of the rest are still worth having --
-      # and this job is `continue-on-error` precisely because it is a report.
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install the workspace
-        run: uv sync --all-packages
-
-      # Four runners in parallel, each taking a balanced share of the files
-      # (see scripts/usability-shard.sh for how the split is chosen), and
-      # `-n auto` inside each one so a shard holding several files works on
-      # more than one at a time. `--dist loadfile` keeps a whole file on one
-      # worker, which these tests need: each file owns a module-scoped Chrome
-      # and uvicorn, so splitting one across workers would stand up a second
-      # browser for the same file. Verified concurrency-safe at 4 workers --
-      # 51 tests across four files, all passing.
-      - name: Run the Selenium suite (shard ${{ matrix.shard }} of 4)
-        run: |
-          mapfile -t FILES < <(scripts/usability-shard.sh ${{ matrix.shard }} 4)
-          if (( ${#FILES[@]} == 0 )); then
-            echo "No Selenium files in this shard -- all ported to tests/ui?"
-            exit 0
-          fi
-          printf 'Running %d file(s):\n' "${#FILES[@]}"
-          printf '  %s\n' "${FILES[@]}"
-          uv run pytest -p no:cacheprovider -m usability -n auto --dist loadfile "${FILES[@]}"
+      - uses: ./.github/actions/setup
+      - run: ./ci/run.sh -j1 --strict ui
 
   js:
     name: npm run test:js
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-
-      # The browser libraries are vendored into static/vendor, but the tests
-      # import the npm originals to check the two agree, so the dev
-      # dependencies have to be installed.
-      - name: Install dev dependencies
-        run: npm ci
-
-      - name: Run the JavaScript suites
-        run: npm run test:js
+      - uses: ./.github/actions/setup
+      - run: ./ci/run.sh -j1 --strict js

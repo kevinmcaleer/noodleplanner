@@ -102,7 +102,8 @@ has since rewritten what you touched.
   cost of the suite: ~18 minutes with them, seconds without. They skip anyway
   wherever no browser is reachable, so deselecting them explicitly costs
   nothing locally and makes the run usable as a quick check. CI runs them in
-  its own non-blocking `pytest (usability)` job, sharded four ways.
+  its own non-blocking `pytest (usability)` job, and only on runners we own --
+  see `ci/README.md`.
 - **Add `-n auto` to any run you are waiting on.** The tests are independent
   and the plugin is already a dev dependency, so this is free: the non-browser
   suite goes from 15.8s to 6.2s on four cores. It is deliberately not in
@@ -110,11 +111,13 @@ has since rewritten what you touched.
   breaks `--pdb`, which is exactly what you want when you are debugging one
   test rather than waiting on all of them. Reach for it when you want the
   answer, leave it off when you want the detail.
-- **The browser suites need `--dist loadfile`, not the default.** Both
-  `tests/ui` and the Selenium files keep one browser per module, so the default
-  per-test distribution can start a second browser for the same file. The
-  `usability` job passes `--dist loadfile` for that reason;
-  `scripts/usability-shard.sh` explains the rest of how that job is split.
+- **The Selenium suite needs `--dist loadfile`, not the default.** Each file
+  keeps one browser per module, so per-test distribution would start a second
+  browser for the same file -- and, worse, some of these tests only pass in
+  file order. `test_usability.py`'s
+  `TestPlanRendering::test_render_does_not_show_error` fails run on its own and
+  passes as part of its file. `ci/jobs/usability.sh` passes `--dist loadfile`
+  for both reasons and explains them.
 - **`git add -A` stages the `node_modules` symlink.** `.gitignore` has
   `node_modules/` with a trailing slash, which does not match a symlink of that
   name. Check `git status --short` for an `A node_modules` line before
@@ -152,6 +155,26 @@ not on every `/goal` tick. These `Claude_Code_Remote` MCP tools are only availab
 session is running through Claude Code on the web/desktop (cloud sessions); skip this step
 if they aren't present.
 
+## Running the checks
+
+CI is ours: the jobs are shell scripts in `ci/jobs/` and the GitHub workflows are
+one-line wrappers around them. Set the `CI_RUNS_ON` repository variable to
+`["self-hosted","linux","noodle"]` to run them on our own runners (`ci/runner/`)
+and stop burning metered Actions minutes; unset, they run on `ubuntu-latest`.
+`ci/README.md` has the detail and says why that is the default.
+
+```bash
+ci/run.sh            # the four gating jobs in parallel, ~45s
+ci/run.sh --all      # plus the browser suites (reporting only)
+ci/run.sh -j1 python # one job, output live
+```
+
+Prefer this over a bare `pytest` when you want to know whether a branch is green:
+`ci/lib.sh` already applies the worktree `PYTHONPATH` fix and the
+`-m "not usability"` deselection described above, so `ci/run.sh` cannot
+accidentally test `main`'s Python or sit through 18 minutes of browser tests.
+Reach for `pytest` directly when you are iterating on one test.
+
 ## Documentation screenshots
 
 Screenshots used in the Sphinx docs are stored in `docs/_static/img/` and are
@@ -181,6 +204,10 @@ The screenshot script uses headless Chrome via Selenium — the same setup as
   navigation element, or change the editor, re-run `make screenshots` so the
   docs stay accurate. Check the RST files under `docs/` for `.. figure::`
   directives that reference screenshots.
+- **Check a branch with `ci/run.sh`, not a bare `pytest`.** It runs exactly what
+  the CI runners run, and it already handles the worktree `PYTHONPATH` trap and
+  the browser-test deselection. `ci/install-hooks.sh` makes `git push` run it
+  first.
 - **Name the session after the issue when `/goal` targets one.** See
   "Session naming for `/goal`" above — rename the session to `#<issue> <title>`
   so it's easy to find in the session manager.
