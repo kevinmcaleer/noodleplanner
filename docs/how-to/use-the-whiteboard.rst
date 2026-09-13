@@ -80,9 +80,11 @@ You can also use **Unlink from "…"** on the note's ``...`` menu, which is easi
 Draw Dependency Links
 -----------------------
 
-The **Hierarchy / Dependency** toggle in the toolbar switches what dragging a noodle handle means. **Hierarchy** (the default) is everything above: it makes a subtask. **Dependency** draws a real scheduling dependency instead — the target task must finish before the source task starts — the same relationship the ``[depends: ...]`` syntax and the Gantt view already use.
+Dependencies are drawn from a **task row**, not from a note. Hover a checklist row and a small handle appears at its right-hand end; drag it onto another task's row to draw a real scheduling dependency — the first task must finish before the second starts — the same relationship the ``[depends: ...]`` syntax and the Gantt view already use.
 
-A dependency noodle is dashed and purple, so it never reads as a hierarchy link even on a board that has both. The drag itself previews which kind is coming: the ghost line changes colour to match the mode you're in.
+Rows are the endpoints because only an individual task can have a dependency: a summary task's dates come from its children, so a summary row offers no handle at all, and dropping onto one is refused.
+
+A dependency noodle is dashed and purple, so it never reads as a hierarchy link (solid, blue) even on a board that has both. As you drag, every row you pass over shows whether the link would be accepted.
 
 Creating a link that would make a circular dependency (A depends on B, which already depends on A) is refused with a short message, the same way a self-link or an already-linked pair are refused for hierarchy noodles.
 
