@@ -151,34 +151,106 @@ def browser():
     driver.quit()
 
 
+# ── Shared helpers ───────────────────────────────────────────────────────
+
+
+def dismiss_tour(driver):
+    """Stop the first-run tour from covering the page.
+
+    nav.js calls startTour() a second after load, and it bails out if the
+    `tourCompleted` cookie is set -- so setting the cookie right after
+    .get() is enough to keep the tour from ever starting. The overlay is
+    also hidden directly, in case a previous test in this module already
+    triggered it on the shared browser.
+    """
+    driver.execute_script(
+        "document.cookie = 'tourCompleted=true; path=/; max-age=31536000';"
+        "['tourOverlay','tourPopup','tourSpotlight'].forEach(function(id){"
+        "  var el = document.getElementById(id); if (el) el.style.display = 'none';"
+        "});"
+    )
+
+
+def open_app(driver, base_url):
+    """Load the app with the tour suppressed.
+
+    Without this the tour overlay sits on top of the ribbon and every
+    click is intercepted rather than reaching the control under test.
+    """
+    driver.get(base_url)
+    dismiss_tour(driver)
+
+
+def seed_current_project(driver, name, plan_text):
+    """Seed a project and make it current, through the app's own API.
+
+    Projects live in IndexedDB via NoodleStore since #794. Writing the
+    legacy `noodleplanner_projects` localStorage key directly no longer
+    works: the one-time migration has already run (and recorded itself as
+    done) by the time a test could write that key, so the seeded plan was
+    silently ignored and the editor came up empty. Going through
+    createProject()/saveProject()/setCurrentProjectId() uses whichever
+    backend is live, and flush() makes sure the write has landed before
+    the reload that picks it up.
+    """
+    driver.execute_script(
+        """
+        const project = createProject(arguments[0]);
+        project.planText = arguments[1];
+        saveProject(project.id, project);
+        setCurrentProjectId(project.id);
+        if (typeof NoodleStore !== 'undefined' && NoodleStore.isActive()) {
+            NoodleStore.flush();
+        }
+        """,
+        name,
+        plan_text,
+    )
+
+
+def click_scope(driver, scope_id):
+    """Click a top-level ribbon scope pill (project/programme/portfolio).
+
+    These replaced the old #projectTab / #portfolioTab / #toolsTab nav
+    buttons; the tab-content panes they activate (#editor-tab,
+    #portfolio-tab) are unchanged.
+    """
+    driver.find_element(
+        By.CSS_SELECTOR, f'.ribbon-scope-btn[data-scope="{scope_id}"]'
+    ).click()
+
+
 class TestPageLoad:
     """Verify the main page loads and renders correctly in a real browser."""
 
     def test_page_loads_successfully(self, browser, app_server):
         """The main page should return HTTP 200 and render HTML."""
-        browser.get(app_server)
+        open_app(browser, app_server)
         assert "Noodle Planner" in browser.title
 
     def test_page_contains_plan_editor(self, browser, app_server):
         """The plan editor textarea must be present and visible."""
-        browser.get(app_server)
+        open_app(browser, app_server)
         editor = browser.find_element(By.ID, "planEditor")
         assert editor.is_displayed()
 
     def test_page_contains_navigation_tabs(self, browser, app_server):
-        """All main navigation tabs must be present."""
-        browser.get(app_server)
-        expected_tabs = [
-            "portfolioTab",
-            "planTab",
-        ]
-        for tab_id in expected_tabs:
-            element = browser.find_element(By.ID, tab_id)
-            assert element is not None, f"Tab {tab_id} not found"
+        """All top-level navigation scopes must be present.
+
+        The ribbon's scope pills replaced the old #planTab/#portfolioTab
+        nav buttons; the panes they switch between are unchanged.
+        """
+        open_app(browser, app_server)
+        scopes = browser.execute_script(
+            "return Array.from(document.querySelectorAll('.ribbon-scope-btn'))"
+            "    .map(function(b) { return b.dataset.scope; });"
+        )
+        assert scopes == ["project", "programme", "portfolio"], \
+            f"unexpected top-level scopes: {scopes}"
 
     def test_script_js_loaded_without_errors(self, browser, app_server):
         """JavaScript should load without uncaught errors blocking the page."""
-        browser.get(app_server)
+        open_app(browser, app_server)
         # Check that key functions exist (defined in script.js)
         result = browser.execute_script(
             "return typeof switchTab === 'function'"
@@ -187,7 +259,7 @@ class TestPageLoad:
 
     def test_style_css_loaded(self, browser, app_server):
         """Custom CSS should load and apply styles."""
-        browser.get(app_server)
+        open_app(browser, app_server)
         editor = browser.find_element(By.ID, "planEditor")
         # The editor should have some computed style from the CSS modules
         font_family = browser.execute_script(
@@ -201,9 +273,8 @@ class TestTabNavigation:
 
     def test_plan_tab_shows_editor(self, browser, app_server):
         """Clicking the Plan tab should display the editor view."""
-        browser.get(app_server)
-        plan_tab = browser.find_element(By.ID, "projectTab")
-        plan_tab.click()
+        open_app(browser, app_server)
+        click_scope(browser, "project")
         time.sleep(0.3)
 
         editor_tab = browser.find_element(By.ID, "editor-tab")
@@ -212,9 +283,8 @@ class TestTabNavigation:
 
     def test_portfolio_tab_shows_portfolio(self, browser, app_server):
         """Clicking the Portfolio tab should display the portfolio view."""
-        browser.get(app_server)
-        portfolio_tab = browser.find_element(By.ID, "portfolioTab")
-        portfolio_tab.click()
+        open_app(browser, app_server)
+        click_scope(browser, "portfolio")
         time.sleep(0.3)
 
         portfolio_content = browser.find_element(By.ID, "portfolio-tab")
@@ -223,33 +293,26 @@ class TestTabNavigation:
 
     def test_tab_switching_hides_previous(self, browser, app_server):
         """Switching tabs should hide the previous tab content."""
-        browser.get(app_server)
+        open_app(browser, app_server)
 
         # Click Plan tab first
-        browser.find_element(By.ID, "projectTab").click()
+        click_scope(browser, "project")
         time.sleep(0.3)
 
         # Then click Portfolio tab
-        browser.find_element(By.ID, "portfolioTab").click()
+        click_scope(browser, "portfolio")
         time.sleep(0.3)
 
         editor_tab = browser.find_element(By.ID, "editor-tab")
         assert "active" not in editor_tab.get_attribute("class"), \
             "Editor tab still active after switching to Portfolio"
 
-    def test_tools_menu_opens(self, browser, app_server):
-        """The Tools dropdown menu should open when clicked."""
-        browser.get(app_server)
-        tools_tab = browser.find_element(By.ID, "toolsTab")
-        tools_tab.click()
-        time.sleep(0.3)
-
-        tools_menu = browser.find_element(By.ID, "toolsMenu")
-        is_visible = browser.execute_script(
-            "return window.getComputedStyle(arguments[0]).display !== 'none'",
-            tools_menu,
-        )
-        assert is_visible, "Tools menu did not open"
+    # The Tools dropdown (#toolsTab / #toolsMenu) no longer exists anywhere
+    # in the app -- the ribbon's tab strip replaced it, and that is covered
+    # by tests/test_ribbon_ia.mjs, test_ribbon_layout.mjs and
+    # test_ribbon_action_coverage.mjs. There is nothing here to re-point a
+    # "does the Tools menu open" test at, so it is gone rather than
+    # rewritten into a weaker assertion.
 
 
 class TestBackstageFullScreen:
@@ -267,7 +330,7 @@ class TestBackstageFullScreen:
     def test_file_button_opens_fullscreen_backstage(self, browser, app_server):
         """Clicking the ribbon's File button navigates straight into a
         full-screen Backstage -- no dropdown, ribbon/status bar hidden."""
-        browser.get(app_server)
+        open_app(browser, app_server)
         time.sleep(0.3)
 
         file_btn = browser.find_element(By.CSS_SELECTOR, '[data-action="open-backstage"]')
@@ -292,7 +355,7 @@ class TestBackstageFullScreen:
     def test_back_arrow_exits_to_previous_view_and_restores_chrome(self, browser, app_server):
         """The back arrow returns to the view that was active on entry and
         un-hides the ribbon/status bar."""
-        browser.get(app_server)
+        open_app(browser, app_server)
         time.sleep(0.3)
         # Start from the editor (Plan) view, then enter Backstage.
         browser.execute_script("switchToView('editor');")
@@ -316,7 +379,7 @@ class TestBackstageFullScreen:
 
     def test_escape_key_exits_backstage(self, browser, app_server):
         """Esc is the same exit route as the back arrow."""
-        browser.get(app_server)
+        open_app(browser, app_server)
         time.sleep(0.3)
         browser.execute_script("switchToView('portfolio');")
         time.sleep(0.2)
@@ -337,8 +400,8 @@ class TestEditorInput:
 
     def _navigate_to_editor(self, browser, app_server):
         """Helper to navigate to the editor tab."""
-        browser.get(app_server)
-        browser.find_element(By.ID, "projectTab").click()
+        open_app(browser, app_server)
+        click_scope(browser, "project")
         time.sleep(0.3)
 
     def test_editor_accepts_text_input(self, browser, app_server):
@@ -394,8 +457,8 @@ class TestPlanRendering:
 
     def _enter_plan_and_render(self, browser, app_server):
         """Helper to enter a plan and trigger rendering."""
-        browser.get(app_server)
-        browser.find_element(By.ID, "projectTab").click()
+        open_app(browser, app_server)
+        click_scope(browser, "project")
         time.sleep(0.3)
 
         editor = browser.find_element(By.ID, "planEditor")
@@ -455,14 +518,14 @@ class TestExportMenu:
 
     def test_export_menu_exists(self, browser, app_server):
         """The export menu element should exist in the DOM."""
-        browser.get(app_server)
+        open_app(browser, app_server)
         export_menu = browser.find_element(By.ID, "exportMenu")
         assert export_menu is not None
 
     def test_export_menu_toggles(self, browser, app_server):
         """The export menu should toggle visibility when triggered."""
-        browser.get(app_server)
-        browser.find_element(By.ID, "projectTab").click()
+        open_app(browser, app_server)
+        click_scope(browser, "project")
         time.sleep(0.3)
 
         # Toggle the export menu via JavaScript
@@ -482,44 +545,17 @@ class TestExportMenu:
         assert is_visible is not None
 
 
-class TestSubNavigation:
-    """Verify plan sub-navigation views (tasks, gantt, board, calendar)."""
-
-    def _go_to_actions_tab(self, browser, app_server):
-        """Helper to navigate to the actions/tracking tab via project subnav."""
-        browser.get(app_server)
-        # Click the Actions button in the unified project sub-navigation
-        actions_btn = browser.find_element(
-            By.CSS_SELECTOR, '#projectSubnav .plan-subnav-btn[data-view="actions"]'
-        )
-        actions_btn.click()
-        time.sleep(0.3)
-
-    def test_actions_tab_has_sub_views(self, browser, app_server):
-        """The actions tab should contain sub-navigation buttons."""
-        self._go_to_actions_tab(browser, app_server)
-
-        sub_view_ids = [
-            "actionsTasksViewTab",
-            "actionsGanttViewTab",
-            "actionsBoardViewTab",
-            "actionsCalendarViewTab",
-        ]
-        for btn_id in sub_view_ids:
-            element = browser.find_element(By.ID, btn_id)
-            assert element is not None, f"Sub-view button {btn_id} not found"
-
-    def test_sub_view_switching(self, browser, app_server):
-        """Clicking sub-view buttons should switch the active view."""
-        self._go_to_actions_tab(browser, app_server)
-
-        # Click the Gantt sub-view
-        gantt_btn = browser.find_element(By.ID, "actionsGanttViewTab")
-        gantt_btn.click()
-        time.sleep(0.3)
-
-        assert "active" in gantt_btn.get_attribute("class"), \
-            "Gantt sub-view button not active after click"
+# The plan sub-navigation strip this class used to drive (#planSubnav, and
+# its #actionsTasksViewTab / #actionsGanttViewTab / ... buttons) is dead UI:
+# the template still carries the markup but pins it with an inline
+# `style="display: none;"` that beats the `.visible` class nav.js toggles,
+# so it can never be shown or clicked. The ribbon is the only live
+# navigation now.
+#
+# Switching views from the ribbon in a real browser is covered by
+# tests/test_ribbon_simple_view.py -- see
+# test_gantt_button_reachable_and_works_in_simple_mode, which is currently
+# failing over the ribbon's collapse threshold at 1280px.
 
 
 class TestKeyboardNavigation:
@@ -527,8 +563,8 @@ class TestKeyboardNavigation:
 
     def test_editor_is_focusable(self, browser, app_server):
         """The plan editor should be focusable via click."""
-        browser.get(app_server)
-        browser.find_element(By.ID, "projectTab").click()
+        open_app(browser, app_server)
+        click_scope(browser, "project")
         time.sleep(0.3)
 
         editor = browser.find_element(By.ID, "planEditor")
@@ -538,15 +574,21 @@ class TestKeyboardNavigation:
         assert active_id == "planEditor", "Editor did not receive focus"
 
     def test_tabs_are_clickable(self, browser, app_server):
-        """Navigation tabs should be implemented as buttons (clickable)."""
-        browser.get(app_server)
-        tabs = browser.find_elements(By.CSS_SELECTOR, ".tabs .tab")
-        assert len(tabs) >= 4, f"Expected at least 4 tabs, found {len(tabs)}"
+        """Top-level navigation should be real buttons, not styled divs.
 
-        for tab in tabs:
-            tag = tab.tag_name.lower()
+        The old `.tabs .tab` strip is gone; the ribbon's scope pills and
+        its tab strip carry the same responsibility now.
+        """
+        open_app(browser, app_server)
+        nav = browser.find_elements(
+            By.CSS_SELECTOR, ".ribbon-scope-btn, .ribbon-tab-btn"
+        )
+        assert len(nav) >= 4, f"Expected at least 4 navigation controls, found {len(nav)}"
+
+        for control in nav:
+            tag = control.tag_name.lower()
             assert tag == "button", (
-                f"Tab '{tab.text}' is a <{tag}> instead of <button>"
+                f"Navigation control '{control.text}' is a <{tag}> instead of <button>"
             )
 
 
@@ -556,23 +598,14 @@ class TestKanbanReliability:
     PLAN = "Phase One\n  Task A 0%\nPhase Two\n  Task B 0%"
 
     def _load_plan(self, browser, app_server):
-        browser.get(app_server)
+        open_app(browser, app_server)
+        seed_current_project(browser, "Kanban reliability", self.PLAN)
         browser.execute_script(
             """
-            const project = {
-                id: 'issue-785-test',
-                name: 'Kanban reliability',
-                planText: arguments[0],
-                createdAt: Date.now(),
-                updatedAt: Date.now()
-            };
-            localStorage.setItem('noodleplanner_projects', JSON.stringify({[project.id]: project}));
-            localStorage.setItem('noodleplanner_current_project', project.id);
             for (const key of Object.keys(localStorage)) {
                 if (key.startsWith('noodle_kanban_preferences_')) localStorage.removeItem(key);
             }
-            """,
-            self.PLAN,
+            """
         )
         browser.refresh()
         WebDriverWait(browser, 5).until(
@@ -789,21 +822,8 @@ class TestNotepadView:
     PLAN = "Phase One\n  Task A 1d\n  Task B 1d\n"
 
     def _load_plan(self, browser, app_server):
-        browser.get(app_server)
-        browser.execute_script(
-            """
-            const project = {
-                id: 'issue-1049-test',
-                name: 'Notepad view',
-                planText: arguments[0],
-                createdAt: Date.now(),
-                updatedAt: Date.now()
-            };
-            localStorage.setItem('noodleplanner_projects', JSON.stringify({[project.id]: project}));
-            localStorage.setItem('noodleplanner_current_project', project.id);
-            """,
-            self.PLAN,
-        )
+        open_app(browser, app_server)
+        seed_current_project(browser, "Notepad view", self.PLAN)
         browser.refresh()
         WebDriverWait(browser, 5).until(
             lambda driver: "Task A" in driver.find_element(By.ID, "planEditor").get_attribute("value")
@@ -812,6 +832,17 @@ class TestNotepadView:
         WebDriverWait(browser, 5).until(
             lambda driver: driver.find_element(By.ID, "notepad-view").get_attribute("class")
             and "active" in driver.find_element(By.ID, "notepad-view").get_attribute("class")
+        )
+        # The view turning "active" only means the container is showing --
+        # the rows are rendered after it, so tests that index into them
+        # (rows[1], rows[2]) raced the render and saw an empty list.
+        WebDriverWait(browser, 5).until(
+            lambda driver: any(
+                field.get_attribute("value") == "Task B"
+                for field in driver.find_elements(
+                    By.CSS_SELECTOR, "#notepadContainer .notepad-row .notepad-input"
+                )
+            )
         )
 
     def _rows(self, browser):
@@ -885,12 +916,18 @@ class TestNotepadView:
         self._load_plan(browser, app_server)
         field = self._row_input(browser, "Task B")
         field.click()
-        # Select-all + Backspace empties the field without ever losing focus
-        # (unlike .clear(), whose exact focus/blur sequence is driver-
-        # dependent); the *second* Backspace, on an already-empty field, is
-        # the one that should trigger removal.
-        field.send_keys(Keys.CONTROL, "a")
-        field.send_keys(Keys.BACKSPACE)
+        # Backspace over the text empties the field without ever losing
+        # focus (unlike .clear(), whose exact focus/blur sequence is
+        # driver-dependent); the Backspace *after* that, on an already-empty
+        # field, is the one that should trigger removal.
+        #
+        # Deleting character by character rather than select-all: Ctrl+A is
+        # not select-all on macOS (it is Cmd+A), so the previous version of
+        # this test only ever deleted two characters and could not pass off
+        # Linux.
+        field.send_keys(Keys.END)
+        for _ in range(len(field.get_attribute("value"))):
+            field.send_keys(Keys.BACKSPACE)
         field.send_keys(Keys.BACKSPACE)
         WebDriverWait(browser, 5).until(
             lambda driver: "Task B" not in driver.find_element(By.ID, "planEditor").get_attribute("value")
@@ -932,10 +969,22 @@ class TestNotepadView:
 class TestResponsiveLayout:
     """Verify the layout adapts to different viewport sizes."""
 
+    @pytest.fixture(autouse=True)
+    def _restore_desktop_size(self, browser):
+        """Put the shared browser back to desktop size, pass or fail.
+
+        The browser fixture is module-scoped, so a viewport test that fails
+        before its own reset line used to leave every later test in this
+        file running at tablet width -- where the ribbon collapses and
+        unrelated assertions fail for the wrong reason.
+        """
+        yield
+        browser.set_window_size(1280, 900)
+
     def test_mobile_viewport(self, browser, app_server):
         """The app should be usable at mobile viewport width (375px)."""
         browser.set_window_size(375, 667)
-        browser.get(app_server)
+        open_app(browser, app_server)
         time.sleep(0.5)
 
         # The page should still render without horizontal scroll
@@ -948,22 +997,17 @@ class TestResponsiveLayout:
             f"body={body_width}px, viewport={viewport_width}px"
         )
 
-        # Reset to desktop size
-        browser.set_window_size(1280, 900)
-
     def test_tablet_viewport(self, browser, app_server):
         """The app should be usable at tablet viewport width (768px)."""
         browser.set_window_size(768, 1024)
-        browser.get(app_server)
+        open_app(browser, app_server)
         time.sleep(0.5)
 
-        # Navigation should still be accessible
-        tabs = browser.find_elements(By.CSS_SELECTOR, ".tabs .tab")
-        visible_tabs = [t for t in tabs if t.is_displayed()]
-        assert len(visible_tabs) >= 1, "No navigation tabs visible at tablet size"
-
-        # Reset to desktop size
-        browser.set_window_size(1280, 900)
+        # Navigation should still be accessible -- the ribbon's scope pills
+        # replaced the old .tabs strip.
+        pills = browser.find_elements(By.CSS_SELECTOR, ".ribbon-scope-btn")
+        visible = [p for p in pills if p.is_displayed()]
+        assert len(visible) >= 1, "No navigation scopes visible at tablet size"
 
 
 class TestTouchInteractions:
@@ -971,7 +1015,7 @@ class TestTouchInteractions:
 
     def test_shared_controls_have_touch_targets(self, browser, app_server):
         browser.set_window_size(375, 667)
-        browser.get(app_server)
+        open_app(browser, app_server)
 
         export_button = browser.find_element(By.CSS_SELECTOR, ".plan-subnav-btn")
         min_height = browser.execute_script(
@@ -1003,7 +1047,7 @@ class TestTouchInteractions:
         browser.set_window_size(1280, 900)
 
     def test_gantt_touch_tap_edits_and_cancel_does_not(self, browser, app_server):
-        browser.get(app_server)
+        open_app(browser, app_server)
         result = browser.execute_script("""
             const cell = document.createElement('td');
             document.body.appendChild(cell);
@@ -1030,7 +1074,7 @@ class TestTouchInteractions:
     def test_gantt_pointer_drag_moves_once_and_cancel_restores(
         self, browser, app_server
     ):
-        browser.get(app_server)
+        open_app(browser, app_server)
         result = browser.execute_script("""
             const originalRender = renderText;
             const originalSyncStart = syncGanttStartDateToEditor;
@@ -1098,7 +1142,7 @@ class TestTouchInteractions:
     def test_noodlesheet_second_touch_edits_selected_cell(
         self, browser, app_server
     ):
-        browser.get(app_server)
+        open_app(browser, app_server)
         result = browser.execute_script("""
             const host = document.createElement('div');
             document.body.appendChild(host);
@@ -1131,7 +1175,7 @@ class TestTouchInteractions:
         assert result == {"selected": True, "editing": True}
 
     def test_kanban_has_tap_move_fallback(self, browser, app_server):
-        browser.get(app_server)
+        open_app(browser, app_server)
         result = browser.execute_script("""
             const board = new KanbanBoard('progress');
             const task = {
@@ -1200,7 +1244,7 @@ class TestTouchInteractions:
         assert result["label"].startswith("Move Touch task")
 
     def test_diagram_pointer_pan_finishes_cleanly(self, browser, app_server):
-        browser.get(app_server)
+        open_app(browser, app_server)
         result = browser.execute_script("""
             initPbs();
             const container = document.getElementById('pbsContainer');
@@ -1227,7 +1271,7 @@ class TestBrowserExcelExport:
 
     def test_exceljs_load_failure_rejects_and_can_retry(self, browser, app_server):
         browser.set_script_timeout(15)
-        browser.get(app_server)
+        open_app(browser, app_server)
 
         result = browser.execute_async_script("""
             const done = arguments[arguments.length - 1];
@@ -1266,7 +1310,7 @@ class TestBrowserExcelExport:
         self, browser, app_server
     ):
         browser.set_script_timeout(90)
-        browser.get(app_server)
+        open_app(browser, app_server)
 
         result = browser.execute_async_script("""
             const done = arguments[arguments.length - 1];
@@ -1402,20 +1446,22 @@ class TestStaticAssets:
 
     def test_css_loaded_and_applied(self, browser, app_server):
         """CSS modules should load and apply custom styles."""
-        browser.get(app_server)
+        open_app(browser, app_server)
 
-        # Check that a known CSS class has styles applied
-        has_custom_styles = browser.execute_script("""
-            var tabs = document.querySelector('.tabs');
-            if (!tabs) return false;
-            var style = window.getComputedStyle(tabs);
-            return style.display !== '' && style.display !== 'inline';
+        # .ribbon-titlebar is given `display: flex` by components.css; a
+        # browser with no stylesheet would report the <div> default of
+        # "block". (This used to probe `.tabs`, which the ribbon removed.)
+        display = browser.execute_script("""
+            var bar = document.querySelector('.ribbon-titlebar');
+            if (!bar) return null;
+            return window.getComputedStyle(bar).display;
         """)
-        assert has_custom_styles, "Custom CSS does not appear to be loaded"
+        assert display == "flex", \
+            f"Custom CSS does not appear to be loaded (.ribbon-titlebar display={display!r})"
 
     def test_javascript_loaded(self, browser, app_server):
         """script.js should load and define expected global functions."""
-        browser.get(app_server)
+        open_app(browser, app_server)
 
         functions_to_check = [
             "switchTab",
