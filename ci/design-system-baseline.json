@@ -1233,40 +1233,6 @@
         "fill: #cfcfcf": 1,
         "stroke: #ffffff": 2
       }
-    },
-    "token-outside-canonical": {
-      "packages/noodle-web/src/noodle_web/static/base.css": {
-        "--np-anim-duration declared at global scope": 1,
-        "--np-anim-duration-fast declared at global scope": 1,
-        "--np-anim-duration-slow declared at global scope": 1,
-        "--np-anim-easing declared at global scope": 1,
-        "--np-blue declared at global scope": 1,
-        "--np-blue-subtle declared at global scope": 1,
-        "--np-dark-blue declared at global scope": 1,
-        "--np-dark-blue-subtle declared at global scope": 1,
-        "--np-green declared at global scope": 1,
-        "--np-green-subtle declared at global scope": 1,
-        "--np-light-grey declared at global scope": 1,
-        "--np-light-grey-subtle declared at global scope": 1,
-        "--np-orange declared at global scope": 1,
-        "--np-orange-subtle declared at global scope": 1,
-        "--np-purple declared at global scope": 1,
-        "--np-red declared at global scope": 1,
-        "--np-red-subtle declared at global scope": 1,
-        "--np-yellow declared at global scope": 1,
-        "--np-yellow-subtle declared at global scope": 1
-      },
-      "packages/noodle-web/src/noodle_web/static/dark-mode.css": {
-        "--np-accent-soft declared at global scope": 2,
-        "--np-danger declared at global scope": 2,
-        "--np-danger-gradient declared at global scope": 2,
-        "--np-danger-hover declared at global scope": 2,
-        "--np-info-gradient declared at global scope": 2,
-        "--np-overlay declared at global scope": 2,
-        "--np-shadow declared at global scope": 2,
-        "--np-shadow-strong declared at global scope": 2,
-        "--np-success-gradient declared at global scope": 2
-      }
     }
   }
 }

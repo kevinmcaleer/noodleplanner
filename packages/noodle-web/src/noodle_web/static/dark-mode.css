@@ -3,53 +3,17 @@
    Applied via [data-theme="dark"] on <html>
    ======================================== */
 
-/* ---- Status and shadow tokens ----
-   What is left of the #1024 "blue identity" token block after #1192.
+/* ---- Dark theme component overrides ----
+   This file used to open with the #1024 "blue identity" token block: 50 names
+   that visual-system.css later redefined 34 of, leaving the rest reading as
+   authoritative while having no effect. #1192 deleted the shadowed 34 and the
+   7 nothing referenced; #1194 moved the surviving 9 to visual-system.css, so
+   that every --np-* token is declared in exactly one file.
 
-   That block originally declared 50 names built from the app's own
-   --np-red/orange/yellow/green/blue palette, as a documented interim identity
-   while #998's approved design handoff was unreachable. #998 then landed as
-   visual-system.css, which loads after this file and redefines 34 of those 50
-   names -- so those 34 declarations lost the cascade and had no effect, while
-   still reading as the authoritative definition of --np-accent, --np-surface,
-   --np-font-ui and the rest. Anyone editing them was editing dead code.
-
-   Of the 16 names visual-system.css does not define, the 9 below are the ones
-   something still references: the danger trio, two gradients, the shadow tints
-   and the modal overlay. The other 7 -- --np-success, --np-warning and their
-   hover/gradient variants, --np-info, --np-font-mono -- were referenced by
-   nothing at all in either CSS or JS, and went with the shadowed ones.
-
-   What is left is still the *blue* identity, not the warm one. Reconciling
-   --np-danger and --np-accent-soft with --np-danger-ink / --np-accent-tint is
-   a palette decision for #1194, deliberately not taken here.
-
-   The ~575 component-level [data-theme="dark"] .selector rules below this
-   point were never shadowed and are entirely live. */
-:root {
-    --np-accent-soft: var(--np-blue-subtle);
-    --np-danger: var(--np-red);
-    --np-danger-hover: #a01717;
-    --np-danger-gradient: linear-gradient(135deg, var(--np-red) 0%, #a01717 100%);
-    --np-success-gradient: linear-gradient(135deg, var(--np-green) 0%, #16812f 100%);
-    --np-info-gradient: linear-gradient(135deg, var(--np-blue) 0%, #0d7096 100%);
-    --np-shadow: rgba(0, 0, 0, 0.1);
-    --np-shadow-strong: rgba(0, 0, 0, 0.15);
-    --np-overlay: rgba(0, 0, 0, 0.6);
-}
-
+   What is below is what this file was always really for: ~575 component-level
+   [data-theme="dark"] .selector rules, none of which were ever shadowed. */
 /* ---- Dark theme overrides ---- */
 [data-theme="dark"] {
-    --np-accent-soft: #1c3a47;
-    --np-danger: #e05252;
-    --np-danger-hover: #e87070;
-    --np-danger-gradient: linear-gradient(135deg, #e05252 0%, #c94040 100%);
-    --np-success-gradient: linear-gradient(135deg, #4ecb72 0%, #3aad5c 100%);
-    --np-info-gradient: linear-gradient(135deg, #3fb6e0 0%, #2a93b8 100%);
-    --np-shadow: rgba(0, 0, 0, 0.3);
-    --np-shadow-strong: rgba(0, 0, 0, 0.5);
-    --np-overlay: rgba(0, 0, 0, 0.75);
-
     color-scheme: dark;
 }
 

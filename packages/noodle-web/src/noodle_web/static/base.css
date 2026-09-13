@@ -1,33 +1,14 @@
 /* ========================================
-   Colour Palette Custom Properties
+   EVM chart tokens
+
+   The identity palette (--np-red/orange/yellow/green/blue/purple and their
+   -subtle variants) and the animation timings used to be declared here. #1194
+   moved them to visual-system.css, which is the only place a --np-* token is
+   declared. Nothing about where they resolve changed: a custom property is
+   resolved from the cascaded value on the element, not from where in the file
+   it was declared, so a var() in this file still picks them up.
    ======================================== */
 :root {
-    /* Primary colours */
-    --np-red: #c21d1d;
-    --np-orange: #ff7b01;
-    --np-yellow: #ffd641;
-    --np-green: #1c9e41;
-    --np-blue: #108bb9;
-    /* Referenced by views/whiteboard.css as a connector/category hue but never
-       declared, so it always rendered its hardcoded fallback (#1192). */
-    --np-purple: #9b59b6;
-    --np-light-grey: #dbdbdb;
-    --np-dark-blue: #02384d;
-
-    /* Subtle / muted variants for backgrounds */
-    --np-red-subtle: #f5d0d0;
-    --np-orange-subtle: #ffe4c8;
-    --np-yellow-subtle: #fff4d1;
-    --np-green-subtle: #d1f0da;
-    --np-blue-subtle: #d0eaf5;
-    --np-light-grey-subtle: #f2f2f2;
-    --np-dark-blue-subtle: #cfe0e7;
-
-    /* Animation timing */
-    --np-anim-duration-fast: 0.15s;
-    --np-anim-duration: 0.2s;
-    --np-anim-duration-slow: 0.4s;
-    --np-anim-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
     /* EVM chart series and axis colours.
 

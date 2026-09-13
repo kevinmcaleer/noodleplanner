@@ -128,6 +128,58 @@
     --np-link: var(--np-accent-ink);
     --np-link-hover: var(--np-ink);
 
+    /* --- Identity palette (#1194, moved here from base.css).
+
+       The named hues predate the warm system and are not part of it: they are
+       the app's brand colours, used for RAG encodings, whiteboard note
+       categories and chart series, where the hue *is* the meaning. They live
+       here because every --np-* token does, not because they are surfaces.
+
+       Moving them changed nothing about where they resolve: a custom property
+       is resolved from the cascaded value on the element, not from where in the
+       file it was declared, so the var() references in base.css and the view
+       stylesheets -- all of which load earlier -- still pick them up. */
+    --np-red: #c21d1d;
+    --np-orange: #ff7b01;
+    --np-yellow: #ffd641;
+    --np-green: #1c9e41;
+    --np-blue: #108bb9;
+    --np-purple: #9b59b6;
+    --np-light-grey: #dbdbdb;
+    --np-dark-blue: #02384d;
+
+    --np-red-subtle: #f5d0d0;
+    --np-orange-subtle: #ffe4c8;
+    --np-yellow-subtle: #fff4d1;
+    --np-green-subtle: #d1f0da;
+    --np-blue-subtle: #d0eaf5;
+    --np-light-grey-subtle: #f2f2f2;
+    --np-dark-blue-subtle: #cfe0e7;
+
+    /* --- Motion (#1194, moved here from base.css). */
+    --np-anim-duration-fast: 0.15s;
+    --np-anim-duration: 0.2s;
+    --np-anim-duration-slow: 0.4s;
+    --np-anim-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+    /* --- Status ramp, overlay and shadow tints (#1194, moved here from
+       dark-mode.css, which is where the #1024 identity declared them).
+
+       Still the *blue* identity rather than the warm one -- --np-danger is
+       var(--np-red), --np-accent-soft is a blue tint. Reconciling these with
+       --np-danger-ink / --np-accent-tint is a palette decision, deliberately
+       left open. Moving them does not take it; it only means there is one
+       place to take it in. */
+    --np-accent-soft: var(--np-blue-subtle);
+    --np-danger: var(--np-red);
+    --np-danger-hover: #a01717;
+    --np-danger-gradient: linear-gradient(135deg, var(--np-red) 0%, #a01717 100%);
+    --np-success-gradient: linear-gradient(135deg, var(--np-green) 0%, #16812f 100%);
+    --np-info-gradient: linear-gradient(135deg, var(--np-blue) 0%, #0d7096 100%);
+    --np-shadow: rgba(0, 0, 0, 0.1);
+    --np-shadow-strong: rgba(0, 0, 0, 0.15);
+    --np-overlay: rgba(0, 0, 0, 0.6);
+
     /* --- Focus ring (#1191). The app has 67 `outline: none` declarations and
        five competing focus colours; buttons carry 242 :hover rules against 45
        :focus ones.
@@ -176,6 +228,17 @@
     /* Marigold clears 3:1 against every dark surface; the inner halo in
        --np-paper is what keeps it visible on a marigold button. */
     --np-focus-ring-color: #EDB52A;
+
+    /* Status ramp and overlay, moved from dark-mode.css (#1194). */
+    --np-accent-soft: #1c3a47;
+    --np-danger: #e05252;
+    --np-danger-hover: #e87070;
+    --np-danger-gradient: linear-gradient(135deg, #e05252 0%, #c94040 100%);
+    --np-success-gradient: linear-gradient(135deg, #4ecb72 0%, #3aad5c 100%);
+    --np-info-gradient: linear-gradient(135deg, #3fb6e0 0%, #2a93b8 100%);
+    --np-shadow: rgba(0, 0, 0, 0.3);
+    --np-shadow-strong: rgba(0, 0, 0, 0.5);
+    --np-overlay: rgba(0, 0, 0, 0.75);
 }
 /* Bridge existing semantic consumers, including chart/table surface tokens. */
 :root, [data-theme="dark"] {

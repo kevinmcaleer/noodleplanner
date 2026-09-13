@@ -279,12 +279,19 @@ goes down:
 |---|---|
 | `raw-colour` | 1,090 |
 | `off-scale-spacing` | 803 |
-| `token-outside-canonical` | 37 |
+| `token-outside-canonical` | 0 |
 | `unpaired-outline-none` | 0 |
 
-`token-outside-canonical` is the smallest and the most tractable: 37
-declarations, nearly all the identity palette in `base.css`, which wants moving
-into `visual-system.css` wholesale rather than one name at a time.
+`token-outside-canonical` reached 0 when the identity palette, the motion
+tokens and the status ramp moved from `base.css` and `dark-mode.css` into
+`visual-system.css`. Every `--np-*` token is now declared in exactly one file,
+which is the property the whole epic exists to establish. Moving them changed
+nothing about where they resolve — a custom property resolves from the cascaded
+value on the element, not from where in the file it was declared — and that was
+confirmed pixel-identical across all 39 views in both themes.
+
+The two rules that remain are the two that need a person, and between them they
+are the whole of what is left.
 
 Band 2 alone does not get these near the token counts, and it is not supposed
 to — it removes the duplicates so that band 4's judgement calls are made
