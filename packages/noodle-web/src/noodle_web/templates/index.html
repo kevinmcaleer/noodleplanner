@@ -2902,7 +2902,7 @@ Build
                     <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="taskPriority">Priority</label>
-                            <select id="taskPriority" onchange="saveTask()" style="background: white; color: black;">
+                            <select id="taskPriority" onchange="saveTask()">
                                 <option value="Low">Low</option>
                                 <option value="Medium">Medium (!)</option>
                                 <option value="Important">Important (!!)</option>
@@ -2911,15 +2911,13 @@ Build
                         </div>
                         <div class="form-group">
                             <label for="taskBucket">Bucket</label>
-                            <input type="text" id="taskBucket" placeholder="e.g. Project Management" oninput="saveTaskDebounced()"
-                                   style="background: white; color: black;">
+                            <input type="text" id="taskBucket" placeholder="e.g. Project Management" oninput="saveTaskDebounced()">
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label for="taskComment">Comment</label>
-                        <textarea id="taskComment" placeholder="Add notes or comments" oninput="saveTaskDebounced()"
-                                  style="background: white; color: black;"></textarea>
+                        <textarea id="taskComment" placeholder="Add notes or comments" oninput="saveTaskDebounced()"></textarea>
                     </div>
 
                     <div class="form-actions">
