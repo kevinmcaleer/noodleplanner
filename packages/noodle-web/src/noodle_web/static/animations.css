@@ -179,8 +179,11 @@ body.no-animations .np-fade-in {
 }
 
 .np-context-loading-text {
-    font-size: 0.875rem;
-    color: var(--np-dark-grey);
+    font-size: var(--np-text-90);
+    /* Was var(--np-dark-grey), which is defined nowhere and had no fallback,
+       so the declaration was invalid at computed-value time and the text just
+       inherited its parent's colour (#1192). */
+    color: var(--np-muted);
 }
 
 @keyframes npContextSpin {

@@ -19,11 +19,6 @@
     "$value": "#B8AD9B",
     "$description": "--evm-axis-label"
   },
-  "evm-bg": {
-    "$type": "color",
-    "$value": "#201E1A",
-    "$description": "--evm-bg"
-  },
   "evm-card-bg": {
     "$type": "color",
     "$value": "#292620",
@@ -203,6 +198,16 @@
     "$type": "color",
     "$value": "#6A6050",
     "$description": "--np-input-border"
+  },
+  "link": {
+    "$type": "color",
+    "$value": "#F3C754",
+    "$description": "--np-link"
+  },
+  "link-hover": {
+    "$type": "color",
+    "$value": "#FAF8F4",
+    "$description": "--np-link-hover"
   },
   "modal-bg": {
     "$type": "color",

@@ -1,75 +1,59 @@
 {
   "filesScanned": [
-    "packages/noodle-web/src/noodle_web/static/ai-chat.css",
-    "packages/noodle-web/src/noodle_web/static/animations.css",
     "packages/noodle-web/src/noodle_web/static/base.css",
-    "packages/noodle-web/src/noodle_web/static/components.css",
-    "packages/noodle-web/src/noodle_web/static/dark-mode.css",
-    "packages/noodle-web/src/noodle_web/static/front-matter-panel.css",
     "packages/noodle-web/src/noodle_web/static/layout.css",
-    "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
-    "packages/noodle-web/src/noodle_web/static/responsive.css",
-    "packages/noodle-web/src/noodle_web/static/status-bar.css",
-    "packages/noodle-web/src/noodle_web/static/style.css",
-    "packages/noodle-web/src/noodle_web/static/task-peek.css",
-    "packages/noodle-web/src/noodle_web/static/views/backstage.css",
-    "packages/noodle-web/src/noodle_web/static/views/cards.css",
-    "packages/noodle-web/src/noodle_web/static/views/estimating.css",
-    "packages/noodle-web/src/noodle_web/static/views/evm.css",
+    "packages/noodle-web/src/noodle_web/static/components.css",
     "packages/noodle-web/src/noodle_web/static/views/gantt.css",
     "packages/noodle-web/src/noodle_web/static/views/kanban.css",
     "packages/noodle-web/src/noodle_web/static/views/notepad.css",
+    "packages/noodle-web/src/noodle_web/static/views/estimating.css",
+    "packages/noodle-web/src/noodle_web/static/views/cards.css",
     "packages/noodle-web/src/noodle_web/static/views/plan-wizard.css",
-    "packages/noodle-web/src/noodle_web/static/views/portfolio.css",
-    "packages/noodle-web/src/noodle_web/static/views/products.css",
-    "packages/noodle-web/src/noodle_web/static/views/programme.css",
-    "packages/noodle-web/src/noodle_web/static/views/search.css",
-    "packages/noodle-web/src/noodle_web/static/views/timeline.css",
     "packages/noodle-web/src/noodle_web/static/views/whiteboard.css",
-    "packages/noodle-web/src/noodle_web/static/visual-system.css"
+    "packages/noodle-web/src/noodle_web/static/task-peek.css",
+    "packages/noodle-web/src/noodle_web/static/views/timeline.css",
+    "packages/noodle-web/src/noodle_web/static/views/portfolio.css",
+    "packages/noodle-web/src/noodle_web/static/views/evm.css",
+    "packages/noodle-web/src/noodle_web/static/views/products.css",
+    "packages/noodle-web/src/noodle_web/static/views/search.css",
+    "packages/noodle-web/src/noodle_web/static/views/backstage.css",
+    "packages/noodle-web/src/noodle_web/static/views/programme.css",
+    "packages/noodle-web/src/noodle_web/static/status-bar.css",
+    "packages/noodle-web/src/noodle_web/static/dark-mode.css",
+    "packages/noodle-web/src/noodle_web/static/visual-system.css",
+    "packages/noodle-web/src/noodle_web/static/animations.css",
+    "packages/noodle-web/src/noodle_web/static/responsive.css",
+    "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
+    "packages/noodle-web/src/noodle_web/static/ai-chat.css",
+    "packages/noodle-web/src/noodle_web/static/front-matter-panel.css"
+  ],
+  "filesNotLoaded": [
+    {
+      "file": "packages/noodle-web/src/noodle_web/static/style.css",
+      "lines": 13170
+    }
   ],
   "stylesheet": {
-    "sourceLinesOfCode": 26641,
-    "complexity": 76000
+    "sourceLinesOfCode": 17584,
+    "complexity": 50901
   },
   "rules": {
-    "total": 5891
+    "total": 3929
   },
   "selectors": {
-    "totalUnique": 3877,
+    "totalUnique": 3820,
     "maxSpecificity": [
-      2,
       1,
-      0
+      4,
+      1
     ]
   },
   "customProperties": {
-    "totalDeclarations": 535,
-    "totalUniqueNames": 195,
+    "totalDeclarations": 308,
+    "totalUniqueNames": 189,
     "unused": [
-      "--active",
-      "--evm-axis-label",
-      "--evm-axis-line",
-      "--evm-bac-line",
-      "--evm-bg",
-      "--evm-grid-line",
-      "--evm-line-ac",
-      "--evm-line-ev",
-      "--evm-line-pv",
-      "--evm-line-today",
-      "--mm-inline-input-bg",
-      "--mm-inline-input-text",
-      "--mm-link-opacity",
-      "--mm-node-fill",
-      "--mm-node-text",
-      "--mm-plus-btn-fill",
-      "--mm-progress-bg",
-      "--mm-root-text",
-      "--mm-selection-stroke",
       "--np-elevation-2",
       "--np-elevation-4",
-      "--np-font-mono",
-      "--np-info",
       "--np-ink-hover",
       "--np-leading-normal",
       "--np-leading-tight",
@@ -81,1144 +65,20 @@
       "--np-space-40",
       "--np-space-48",
       "--np-space-64",
-      "--np-success-hover",
       "--np-text-100",
       "--np-text-110",
       "--np-text-150",
       "--np-text-180",
       "--np-text-200",
-      "--np-warning",
-      "--np-warning-gradient",
-      "--np-warning-hover",
       "--np-weight-bold",
       "--np-weight-regular"
     ],
-    "unknown": [
-      "--bs-primary",
-      "--circumference",
-      "--np-dark-grey",
-      "--np-link",
-      "--np-link-hover",
-      "--np-purple",
-      "--np-warn-bg",
-      "--np-warn-border",
-      "--percent",
-      "--pf-restless-amplitude",
-      "--surface-hover",
-      "--tx",
-      "--ty",
-      "--wb-outline-depth"
-    ],
-    "conflictingMultiFileDefinitions": [
-      {
-        "name": "--evm-axis-label",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#666",
-            "#999"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#666",
-            "#999"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-faint)"
-          ]
-        }
-      },
-      {
-        "name": "--evm-axis-line",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#999",
-            "#555"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#999",
-            "#555"
-          ]
-        }
-      },
-      {
-        "name": "--evm-bac-line",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#999",
-            "#888"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#999",
-            "#888"
-          ]
-        }
-      },
-      {
-        "name": "--evm-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#ffffff",
-            "#1a1a1a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#ffffff",
-            "#1a1a1a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-paper)"
-          ]
-        }
-      },
-      {
-        "name": "--evm-card-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#ffffff",
-            "#2a2a2a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#ffffff",
-            "#2a2a2a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-surface)"
-          ]
-        }
-      },
-      {
-        "name": "--evm-card-border",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#e0e0e0",
-            "#3a3a3a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#e0e0e0",
-            "#3a3a3a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-border)"
-          ]
-        }
-      },
-      {
-        "name": "--evm-card-hover-border",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#bbb",
-            "#555"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#bbb",
-            "#555"
-          ]
-        }
-      },
-      {
-        "name": "--evm-chart-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#f8f9fa",
-            "#1e1e1e"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#f8f9fa",
-            "#1e1e1e"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-surface)"
-          ]
-        }
-      },
-      {
-        "name": "--evm-chart-border",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#e0e0e0",
-            "#3a3a3a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#e0e0e0",
-            "#3a3a3a"
-          ]
-        }
-      },
-      {
-        "name": "--evm-grid-line",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#e0e0e0",
-            "#333"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#e0e0e0",
-            "#333"
-          ]
-        }
-      },
-      {
-        "name": "--evm-line-ac",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#d62728",
-            "#E8744F"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#d62728",
-            "#E8744F"
-          ]
-        }
-      },
-      {
-        "name": "--evm-line-ev",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#2ca02c",
-            "#50C878"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#2ca02c",
-            "#50C878"
-          ]
-        }
-      },
-      {
-        "name": "--evm-line-pv",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#2171b5",
-            "#4A90D9"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#2171b5",
-            "#4A90D9"
-          ]
-        }
-      },
-      {
-        "name": "--evm-line-today",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#e6a817",
-            "#FFD700"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#e6a817",
-            "#FFD700"
-          ]
-        }
-      },
-      {
-        "name": "--evm-negative",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#d62728",
-            "#E8744F"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#d62728",
-            "#E8744F"
-          ]
-        }
-      },
-      {
-        "name": "--evm-positive",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#2ca02c",
-            "#50C878"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#2ca02c",
-            "#50C878"
-          ]
-        }
-      },
-      {
-        "name": "--evm-table-border",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#e0e0e0",
-            "#333"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#e0e0e0",
-            "#333"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-border)"
-          ]
-        }
-      },
-      {
-        "name": "--evm-table-header-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#f0f0f0",
-            "#2a2a2a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#f0f0f0",
-            "#2a2a2a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-surface-alt)"
-          ]
-        }
-      },
-      {
-        "name": "--evm-text-muted",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#888",
-            "#999"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#888",
-            "#999"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-muted)"
-          ]
-        }
-      },
-      {
-        "name": "--evm-text-primary",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#333",
-            "#e0e0e0"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#333",
-            "#e0e0e0"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-ink)"
-          ]
-        }
-      },
-      {
-        "name": "--evm-text-secondary",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/base.css": [
-            "#666",
-            "#bbb"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#666",
-            "#bbb"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-body)"
-          ]
-        }
-      },
-      {
-        "name": "--mm-btn-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#2a2a2a",
-            "#e4e4e4",
-            "#fff"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#3a3a3a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#2a2a2a",
-            "#e4e4e4"
-          ]
-        }
-      },
-      {
-        "name": "--mm-btn-border",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#444",
-            "#c0c0c0",
-            "#ccc"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#555"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#444",
-            "#c0c0c0"
-          ]
-        }
-      },
-      {
-        "name": "--mm-btn-hover-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#3a3a3a",
-            "#d4d4d4",
-            "#e8e8e8"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#4a4a4a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#3a3a3a",
-            "#d4d4d4"
-          ]
-        }
-      },
-      {
-        "name": "--mm-btn-hover-text",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#fff",
-            "#111",
-            "#000"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#fff"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#fff",
-            "#111"
-          ]
-        }
-      },
-      {
-        "name": "--mm-btn-text",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#ccc",
-            "#444",
-            "#333"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#ddd"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#ccc",
-            "#444"
-          ]
-        }
-      },
-      {
-        "name": "--mm-canvas-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#1a1a1a",
-            "#f5f5f5",
-            "#ffffff"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#1e1e1e"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#1a1a1a",
-            "#f5f5f5"
-          ]
-        }
-      },
-      {
-        "name": "--mm-hint-text",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#666",
-            "#888",
-            "#999"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#777"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#666",
-            "#888"
-          ]
-        }
-      },
-      {
-        "name": "--mm-inline-input-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#1e1e1e",
-            "#fff"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#1e1e1e",
-            "#fff"
-          ]
-        }
-      },
-      {
-        "name": "--mm-inline-input-text",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#e0e0e0",
-            "#333"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#e0e0e0",
-            "#333"
-          ]
-        }
-      },
-      {
-        "name": "--mm-link-opacity",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "0.5",
-            "0.45"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "0.5",
-            "0.45"
-          ]
-        }
-      },
-      {
-        "name": "--mm-node-fill",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#2a2a2a",
-            "#ffffff"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#2a2a2a",
-            "#ffffff"
-          ]
-        }
-      },
-      {
-        "name": "--mm-node-text",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#e0e0e0",
-            "#fff"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#e0e0e0",
-            "#fff"
-          ]
-        }
-      },
-      {
-        "name": "--mm-placeholder-heading",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#aaa",
-            "#555",
-            "#333"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#ddd"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#aaa",
-            "#555"
-          ]
-        }
-      },
-      {
-        "name": "--mm-placeholder-text",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#888",
-            "#777"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#888"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#888",
-            "#777"
-          ]
-        }
-      },
-      {
-        "name": "--mm-plus-btn-fill",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#333",
-            "#e0e0e0"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#333",
-            "#e0e0e0"
-          ]
-        }
-      },
-      {
-        "name": "--mm-plus-btn-hover-fill",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#444",
-            "#ccc"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#444",
-            "#ccc"
-          ]
-        }
-      },
-      {
-        "name": "--mm-progress-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#444",
-            "#d0d0d0"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#444",
-            "#d0d0d0"
-          ]
-        }
-      },
-      {
-        "name": "--mm-root-text",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#fff",
-            "#333"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#fff",
-            "#333"
-          ]
-        }
-      },
-      {
-        "name": "--mm-selection-stroke",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#fff",
-            "#333"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#fff",
-            "#333"
-          ]
-        }
-      },
-      {
-        "name": "--mm-toolbar-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#1e1e1e",
-            "#f0f0f0",
-            "#f5f5f5"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#2a2a2a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#1e1e1e",
-            "#f0f0f0"
-          ]
-        }
-      },
-      {
-        "name": "--mm-toolbar-border",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#333",
-            "#d0d0d0",
-            "#ddd"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#444"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#333",
-            "#d0d0d0"
-          ]
-        }
-      },
-      {
-        "name": "--mm-zoom-label-text",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/components.css": [
-            "#999",
-            "#666"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#aaa"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "#999",
-            "#666"
-          ]
-        }
-      },
-      {
-        "name": "--np-accent",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "var(--np-blue)",
-            "#3fb6e0"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "#EDB52A"
-          ]
-        }
-      },
-      {
-        "name": "--np-accent-gradient",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "linear-gradient(135deg, var(--np-blue) 0%, var(--np-green) 100%)",
-            "linear-gradient(135deg, #3fb6e0 0%, #4ecb72 100%)"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-accent)"
-          ]
-        }
-      },
-      {
-        "name": "--np-accent-hover",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#0d7096",
-            "#5cc4e8"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "#D9A31C",
-            "#F3C754"
-          ]
-        }
-      },
-      {
-        "name": "--np-badge-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#e0e0e0",
-            "#3a3a5a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-sunken)"
-          ]
-        }
-      },
-      {
-        "name": "--np-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#ffffff",
-            "#1a1a2e"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-paper)"
-          ]
-        }
-      },
-      {
-        "name": "--np-bg-alt",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#f8f9fa",
-            "#16213e"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-surface-alt)"
-          ]
-        }
-      },
-      {
-        "name": "--np-bg-hover",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#f0f1f4",
-            "#1f2b47"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-sunken)"
-          ]
-        }
-      },
-      {
-        "name": "--np-border",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#e0e0e0",
-            "#3a3a5a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "#E3DDD3",
-            "#51493D"
-          ]
-        }
-      },
-      {
-        "name": "--np-border-light",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#f0f0f0",
-            "#2e2e4e"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-hairline)"
-          ]
-        }
-      },
-      {
-        "name": "--np-code-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#f5f5f5",
-            "#1a1a2e"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-sunken)"
-          ]
-        }
-      },
-      {
-        "name": "--np-editor-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#1e1e1e",
-            "#0f0f23"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "#201E1A"
-          ]
-        }
-      },
-      {
-        "name": "--np-editor-tip-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#3a3a3a",
-            "#2a2a4a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "#312D26"
-          ]
-        }
-      },
-      {
-        "name": "--np-editor-tip-text",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#d4d4d4",
-            "#b0b0c0"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "#D4CCBF"
-          ]
-        }
-      },
-      {
-        "name": "--np-font-heading",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "'Newsreader', Georgia, serif"
-          ]
-        }
-      },
-      {
-        "name": "--np-font-ui",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-          ]
-        }
-      },
-      {
-        "name": "--np-input-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#ffffff",
-            "#2a2a4a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-paper)"
-          ]
-        }
-      },
-      {
-        "name": "--np-input-border",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#ccc",
-            "#4a4a6a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-border-strong)"
-          ]
-        }
-      },
-      {
-        "name": "--np-modal-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#ffffff",
-            "#202040"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-surface)"
-          ]
-        }
-      },
-      {
-        "name": "--np-scrollbar-thumb",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#ccc",
-            "#4a4a6a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-border-strong)"
-          ]
-        }
-      },
-      {
-        "name": "--np-scrollbar-track",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#f1f1f1",
-            "#1a1a2e"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-paper)"
-          ]
-        }
-      },
-      {
-        "name": "--np-splitter-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#dee2e6",
-            "#3a3a5a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-border)"
-          ]
-        }
-      },
-      {
-        "name": "--np-splitter-dot",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#999999",
-            "#6a6a8a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-faint)"
-          ]
-        }
-      },
-      {
-        "name": "--np-splitter-hover",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#c0c4c8",
-            "#4a4a6a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-selected)"
-          ]
-        }
-      },
-      {
-        "name": "--np-subnav-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#f0f1f4",
-            "#16213e"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-surface-alt)"
-          ]
-        }
-      },
-      {
-        "name": "--np-subnav-hover",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#e2e3e8",
-            "#1f2b47"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-sunken)"
-          ]
-        }
-      },
-      {
-        "name": "--np-summary-row",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#e8eaf6",
-            "#2a2a50"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-surface-alt)"
-          ]
-        }
-      },
-      {
-        "name": "--np-summary-row-hover",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#dde0f3",
-            "#333360"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-selected)"
-          ]
-        }
-      },
-      {
-        "name": "--np-surface",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#ffffff",
-            "#202040"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "#FFFDF9",
-            "#292620"
-          ]
-        }
-      },
-      {
-        "name": "--np-surface-alt",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#f0f0f0",
-            "#2a2a4a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "#F3EEE5",
-            "#312D26"
-          ]
-        }
-      },
-      {
-        "name": "--np-table-hover",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#f8f9fa",
-            "#252545"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-sunken)"
-          ]
-        }
-      },
-      {
-        "name": "--np-table-stripe",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#f9f9f9",
-            "#1e1e3a"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-paper)"
-          ]
-        }
-      },
-      {
-        "name": "--np-text",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#333333",
-            "#e0e0e0"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-ink)"
-          ]
-        }
-      },
-      {
-        "name": "--np-text-muted",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#888888",
-            "#888899"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-muted)"
-          ]
-        }
-      },
-      {
-        "name": "--np-text-secondary",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#666666",
-            "#b0b0c0"
-          ],
-          "packages/noodle-web/src/noodle_web/static/visual-system.css": [
-            "var(--np-body)"
-          ]
-        }
-      },
-      {
-        "name": "--ribbon-bg",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/animations.css": [
-            "var(--np-red-subtle)",
-            "var(--np-orange-subtle)",
-            "var(--np-yellow-subtle)",
-            "var(--np-green-subtle)",
-            "var(--np-blue-subtle)",
-            "var(--np-dark-blue-subtle)"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "var(--np-surface-alt)",
-            "#5c2020",
-            "#5c3a10",
-            "#4a3f10",
-            "#1a4a28",
-            "#153a4a",
-            "#1a2a35"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "var(--np-red-subtle)",
-            "var(--np-orange-subtle)",
-            "var(--np-yellow-subtle)",
-            "var(--np-green-subtle)",
-            "var(--np-blue-subtle)",
-            "var(--np-dark-blue-subtle)"
-          ]
-        }
-      },
-      {
-        "name": "--ribbon-color",
-        "valuesByFile": {
-          "packages/noodle-web/src/noodle_web/static/animations.css": [
-            "var(--np-red)",
-            "var(--np-orange)",
-            "var(--np-yellow)",
-            "var(--np-green)",
-            "var(--np-blue)",
-            "var(--np-dark-blue)"
-          ],
-          "packages/noodle-web/src/noodle_web/static/dark-mode.css": [
-            "#e05252",
-            "#e89040",
-            "#d4b030",
-            "#3cb860",
-            "#30a0d0",
-            "#4090b0"
-          ],
-          "packages/noodle-web/src/noodle_web/static/style.css": [
-            "var(--np-red)",
-            "var(--np-orange)",
-            "var(--np-yellow)",
-            "var(--np-green)",
-            "var(--np-blue)",
-            "var(--np-dark-blue)"
-          ]
-        }
-      }
-    ]
+    "unknown": [],
+    "conflictingMultiFileDefinitions": []
   },
-  "canonicalTokenCount": 121,
+  "canonicalTokenCount": 122,
   "colors": {
-    "totalUnique": 592,
+    "totalUnique": 549,
     "duplicateOfTokenCount": 10,
     "duplicateOfToken": [
       {
@@ -1274,7 +134,7 @@
           "--np-accent-ink",
           "--np-focus-ring-color"
         ],
-        "matchedToken": "--np-focus-ring-color"
+        "matchedToken": "--np-link"
       },
       {
         "id": "orange-d5f5546b",
@@ -1293,8 +153,8 @@
         "authoredAs": "#201e1a",
         "usage": 2,
         "props": [
-          "--np-editor-bg",
-          "--np-paper"
+          "--np-paper",
+          "--np-editor-bg"
         ],
         "matchedToken": "--np-table-stripe"
       },
@@ -1318,7 +178,7 @@
           "--np-accent-hover",
           "--np-accent-ink"
         ],
-        "matchedToken": "--np-accent-ink"
+        "matchedToken": "--np-link"
       },
       {
         "id": "orange-65d0bf2f",
@@ -1326,8 +186,8 @@
         "authoredAs": "#d4ccbf",
         "usage": 2,
         "props": [
-          "--np-editor-tip-text",
-          "--np-body"
+          "--np-body",
+          "--np-editor-tip-text"
         ],
         "matchedToken": "--text-secondary"
       }
@@ -1336,13 +196,16 @@
       {
         "id": "white-edecb6ba",
         "hex": "#FFFFFF",
-        "authoredAs": "#fff",
-        "usage": 457,
+        "authoredAs": "white",
+        "usage": 242,
         "props": [
-          "background",
           "color",
-          "border-bottom",
+          "background",
+          "stroke",
           "border",
+          "box-shadow",
+          "text-shadow",
+          "border-bottom",
           "border-color",
           "--mm-btn-bg",
           "--mm-btn-hover-text",
@@ -1350,35 +213,58 @@
           "--mm-root-text",
           "--mm-selection-stroke",
           "--mm-inline-input-bg",
-          "--evm-bg",
-          "--evm-card-bg",
           "--mm-canvas-bg",
           "--mm-node-fill",
+          "fill"
+        ]
+      },
+      {
+        "id": "black-edec3e7a",
+        "hex": "#000000",
+        "authoredAs": "transparent",
+        "usage": 132,
+        "props": [
+          "color",
+          "background",
+          "border",
+          "border-bottom",
+          "background-color",
+          "border-right",
+          "border-left"
+        ]
+      },
+      {
+        "id": "grey-fdb1d2f4",
+        "hex": "#E0E0E0",
+        "authoredAs": "#e0e0e0",
+        "usage": 97,
+        "props": [
+          "--evm-chart-border",
+          "--evm-grid-line",
+          "color",
+          "background",
+          "border",
+          "border-bottom",
+          "background-color",
+          "border-right",
+          "--mm-node-text",
+          "--mm-plus-btn-fill",
+          "--mm-inline-input-text",
           "fill",
-          "stroke",
-          "--np-bg",
-          "--np-surface",
-          "--np-input-bg",
-          "--np-modal-bg",
-          "box-shadow",
-          "text-shadow"
+          "border-top",
+          "--wb-note-accent"
         ]
       },
       {
         "id": "grey-bd8d7f37",
         "hex": "#333333",
         "authoredAs": "#333",
-        "usage": 200,
+        "usage": 85,
         "props": [
-          "background",
-          "box-shadow",
-          "color",
-          "border-color",
-          "border-bottom-color",
-          "border-top-color",
-          "--evm-text-primary",
           "--evm-grid-line",
-          "--evm-table-border",
+          "color",
+          "box-shadow",
+          "border-color",
           "--mm-toolbar-border",
           "--mm-btn-text",
           "--mm-root-text",
@@ -1386,279 +272,196 @@
           "--mm-plus-btn-fill",
           "--mm-inline-input-text",
           "--mm-placeholder-heading",
-          "--np-text",
+          "border-bottom-color",
+          "border-top-color",
+          "background",
           "--wb-note-text"
-        ]
-      },
-      {
-        "id": "grey-fdb1d2f4",
-        "hex": "#E0E0E0",
-        "authoredAs": "#e0e0e0",
-        "usage": 189,
-        "props": [
-          "background",
-          "color",
-          "background-color",
-          "border-bottom",
-          "border",
-          "border-top",
-          "border-left",
-          "--evm-card-border",
-          "--evm-chart-border",
-          "--evm-text-primary",
-          "--evm-grid-line",
-          "--evm-table-border",
-          "border-right",
-          "--mm-node-text",
-          "--mm-plus-btn-fill",
-          "--mm-inline-input-text",
-          "fill",
-          "--np-border",
-          "--np-text",
-          "--np-badge-bg",
-          "--wb-note-accent"
-        ]
-      },
-      {
-        "id": "black-edec3e7a",
-        "hex": "#000000",
-        "authoredAs": "transparent",
-        "usage": 166,
-        "props": [
-          "background",
-          "color",
-          "background-color",
-          "border-bottom",
-          "border",
-          "border-left",
-          "border-right"
         ]
       },
       {
         "id": "blue-96b82a9b",
         "hex": "#108BB9",
         "authoredAs": "#108bb9",
-        "usage": 153,
+        "usage": 65,
         "props": [
-          "background",
-          "box-shadow",
-          "color",
-          "outline",
-          "border-bottom",
-          "border",
-          "border-color",
-          "border-top",
-          "border-left",
           "--np-blue",
-          "border-right",
+          "color",
+          "background",
+          "stroke",
+          "border",
+          "box-shadow",
+          "border-color",
           "fill",
-          "stroke"
+          "outline"
         ]
       },
       {
         "id": "grey-8d6c0835",
         "hex": "#666666",
         "authoredAs": "#666",
-        "usage": 116,
+        "usage": 60,
         "props": [
-          "background",
           "color",
+          "background",
+          "stroke",
           "border-color",
-          "--evm-text-secondary",
-          "--evm-axis-label",
           "--mm-zoom-label-text",
           "--mm-hint-text",
-          "fill",
-          "stroke",
-          "--np-text-secondary"
-        ]
-      },
-      {
-        "id": "blue-fb2da22a",
-        "hex": "#F8F9FA",
-        "authoredAs": "#f8f9fa",
-        "usage": 81,
-        "props": [
-          "background",
-          "background-color",
-          "--evm-chart-bg",
-          "--np-bg-alt",
-          "--np-table-hover"
+          "fill"
         ]
       },
       {
         "id": "black-23d68dbd",
         "hex": "#000000",
         "authoredAs": "rgba(0, 0, 0, 0.1)",
-        "usage": 78,
+        "usage": 44,
         "props": [
           "background",
+          "border",
           "box-shadow",
-          "border",
           "--np-shadow"
-        ]
-      },
-      {
-        "id": "blue-cfa3ecb7",
-        "hex": "#DEE2E6",
-        "authoredAs": "#dee2e6",
-        "usage": 77,
-        "props": [
-          "background",
-          "color",
-          "border-bottom",
-          "border",
-          "border-color",
-          "border-top",
-          "border-left",
-          "border-right",
-          "--np-splitter-bg"
-        ]
-      },
-      {
-        "id": "blue-798a2377",
-        "hex": "#E9ECEF",
-        "authoredAs": "#e9ecef",
-        "usage": 70,
-        "props": [
-          "background",
-          "border-bottom",
-          "border"
-        ]
-      },
-      {
-        "id": "blue-2fbce37e",
-        "hex": "#6C757D",
-        "authoredAs": "#6c757d",
-        "usage": 67,
-        "props": [
-          "background",
-          "color"
         ]
       },
       {
         "id": "grey-d8c560c3",
         "hex": "#888888",
         "authoredAs": "#888",
-        "usage": 64,
+        "usage": 43,
+        "props": [
+          "--evm-bac-line",
+          "color",
+          "background",
+          "border-color",
+          "--mm-hint-text",
+          "--mm-placeholder-text"
+        ]
+      },
+      {
+        "id": "blue-cfa3ecb7",
+        "hex": "#DEE2E6",
+        "authoredAs": "#dee2e6",
+        "usage": 38,
+        "props": [
+          "color",
+          "background",
+          "border",
+          "border-bottom",
+          "border-color",
+          "border-left",
+          "border-top"
+        ]
+      },
+      {
+        "id": "blue-798a2377",
+        "hex": "#E9ECEF",
+        "authoredAs": "#e9ecef",
+        "usage": 34,
         "props": [
           "background",
+          "border",
+          "border-bottom"
+        ]
+      },
+      {
+        "id": "blue-3536229b",
+        "hex": "#F0F1F4",
+        "authoredAs": "#f0f1f4",
+        "usage": 30,
+        "props": [
+          "background"
+        ]
+      },
+      {
+        "id": "blue-fb2da22a",
+        "hex": "#F8F9FA",
+        "authoredAs": "#f8f9fa",
+        "usage": 25,
+        "props": [
+          "background",
+          "background-color"
+        ]
+      },
+      {
+        "id": "blue-2fbce37e",
+        "hex": "#6C757D",
+        "authoredAs": "#6c757d",
+        "usage": 24,
+        "props": [
           "color",
-          "border-color",
-          "--evm-text-muted",
-          "--evm-bac-line",
-          "--mm-hint-text",
-          "--mm-placeholder-text",
-          "--np-text-muted"
+          "background"
         ]
       },
       {
         "id": "grey-5d4a9133",
         "hex": "#999999",
         "authoredAs": "#999",
-        "usage": 59,
+        "usage": 24,
         "props": [
-          "background",
+          "--evm-axis-line",
+          "--evm-bac-line",
           "color",
+          "background",
           "border",
           "border-color",
-          "--evm-text-muted",
-          "--evm-axis-line",
-          "--evm-axis-label",
-          "--evm-bac-line",
           "--mm-zoom-label-text",
           "--mm-hint-text",
-          "fill",
-          "--np-splitter-dot"
-        ]
-      },
-      {
-        "id": "red-e4bf887a",
-        "hex": "#DC3545",
-        "authoredAs": "#dc3545",
-        "usage": 54,
-        "props": [
-          "background",
-          "color",
-          "border-color",
-          "border-left"
+          "fill"
         ]
       },
       {
         "id": "grey-2d291a31",
         "hex": "#CCCCCC",
         "authoredAs": "#ccc",
-        "usage": 50,
+        "usage": 24,
         "props": [
-          "background",
           "color",
+          "background",
           "border",
-          "border-left",
           "border-right",
           "--mm-btn-border",
           "--mm-btn-text",
-          "--mm-plus-btn-hover-fill",
-          "--np-input-border",
-          "--np-scrollbar-thumb"
+          "--mm-plus-btn-hover-fill"
         ]
       },
       {
-        "id": "green-4abf4310",
-        "hex": "#28A745",
-        "authoredAs": "#28a745",
-        "usage": 46,
+        "id": "red-e4bf887a",
+        "hex": "#DC3545",
+        "authoredAs": "#dc3545",
+        "usage": 24,
         "props": [
-          "background",
           "color",
-          "border",
+          "background",
           "border-color",
           "border-left"
-        ]
-      },
-      {
-        "id": "grey-f0e137da",
-        "hex": "#F0F0F0",
-        "authoredAs": "#f0f0f0",
-        "usage": 43,
-        "props": [
-          "background",
-          "border-bottom",
-          "--evm-table-header-bg",
-          "border-right",
-          "--mm-toolbar-bg",
-          "--np-surface-alt",
-          "--np-border-light"
         ]
       },
       {
         "id": "blue-24327fbf",
         "hex": "#495057",
         "authoredAs": "#495057",
-        "usage": 39,
+        "usage": 22,
         "props": [
           "color"
         ]
       },
       {
-        "id": "grey-4f4ac23d",
-        "hex": "#555555",
-        "authoredAs": "#555",
-        "usage": 38,
+        "id": "green-4abf4310",
+        "hex": "#28A745",
+        "authoredAs": "#28a745",
+        "usage": 22,
         "props": [
           "color",
+          "background",
           "border",
           "border-color",
-          "--evm-card-hover-border",
-          "--evm-axis-line",
-          "--mm-btn-border",
-          "--mm-placeholder-heading"
+          "border-left"
         ]
       },
       {
         "id": "black-56fb2a18",
         "hex": "#000000",
         "authoredAs": "rgba(0,0,0,0.15)",
-        "usage": 36,
+        "usage": 20,
         "props": [
           "background",
           "box-shadow",
@@ -1670,10 +473,10 @@
         "id": "grey-ad92bd37",
         "hex": "#444444",
         "authoredAs": "#444",
-        "usage": 35,
+        "usage": 19,
         "props": [
-          "background",
           "color",
+          "background",
           "border",
           "border-color",
           "border-left",
@@ -1688,46 +491,59 @@
         "id": "red-1e3bca99",
         "hex": "#C62828",
         "authoredAs": "#c62828",
-        "usage": 35,
+        "usage": 17,
         "props": [
-          "background",
           "color",
+          "background",
           "border",
           "border-color",
           "border-left"
         ]
       },
       {
-        "id": "blue-3536229b",
-        "hex": "#F0F1F4",
-        "authoredAs": "#f0f1f4",
-        "usage": 32,
+        "id": "grey-f0e137da",
+        "hex": "#F0F0F0",
+        "authoredAs": "#f0f0f0",
+        "usage": 16,
         "props": [
           "background",
-          "--np-bg-hover",
-          "--np-subnav-bg"
+          "border-bottom",
+          "--mm-toolbar-bg"
         ]
       },
       {
-        "id": "orange-4d7dd578",
-        "hex": "#FFC107",
-        "authoredAs": "#ffc107",
-        "usage": 26,
+        "id": "orange-8fa89704",
+        "hex": "#FF7B01",
+        "authoredAs": "#ff7b01",
+        "usage": 14,
         "props": [
-          "background",
+          "--np-orange",
           "color",
+          "background",
+          "stroke",
+          "fill"
+        ]
+      },
+      {
+        "id": "red-4ead1e92",
+        "hex": "#D32F2F",
+        "authoredAs": "#d32f2f",
+        "usage": 14,
+        "props": [
+          "color",
+          "background",
           "border",
-          "border-left"
+          "border-color"
         ]
       },
       {
         "id": "blue-9a5958c1",
         "hex": "#ADB5BD",
         "authoredAs": "#adb5bd",
-        "usage": 25,
+        "usage": 13,
         "props": [
-          "background",
           "color",
+          "background",
           "border",
           "border-color"
         ]
@@ -1738,126 +554,96 @@
     {
       "id": "fontSize-548b1f63",
       "authoredAs": "0.85em",
-      "usage": 145
-    },
-    {
-      "id": "fontSize-2ba33e3",
-      "authoredAs": "0.9em",
-      "usage": 131
+      "usage": 79
     },
     {
       "id": "fontSize-170fe9",
       "authoredAs": "12px",
-      "usage": 96
+      "usage": 78
+    },
+    {
+      "id": "fontSize-2ba33e3",
+      "authoredAs": "0.9em",
+      "usage": 77
     },
     {
       "id": "fontSize-1713aa",
       "authoredAs": "13px",
-      "usage": 66
-    },
-    {
-      "id": "fontSize-548b93c2",
-      "authoredAs": "0.95em",
-      "usage": 63
-    },
-    {
-      "id": "fontSize-2ba3022",
-      "authoredAs": "0.8em",
-      "usage": 57
+      "usage": 59
     },
     {
       "id": "fontSize-17176b",
       "authoredAs": "14px",
-      "usage": 54
+      "usage": 38
+    },
+    {
+      "id": "fontSize-548b93c2",
+      "authoredAs": "0.95em",
+      "usage": 33
+    },
+    {
+      "id": "fontSize-2ba3022",
+      "authoredAs": "0.8em",
+      "usage": 33
     },
     {
       "id": "fontSize-170c28",
       "authoredAs": "11px",
-      "usage": 38
+      "usage": 33
     },
     {
       "id": "fontSize-2c82d5c",
       "authoredAs": "1.1em",
-      "usage": 36
-    },
-    {
-      "id": "fontSize-2c847a3",
-      "authoredAs": "1.8em",
-      "usage": 34
-    },
-    {
-      "id": "fontSize-2c8389f",
-      "authoredAs": "1.4em",
-      "usage": 26
-    },
-    {
-      "id": "fontSize-c499",
-      "authoredAs": "1em",
-      "usage": 22
-    },
-    {
-      "id": "fontSize-2c83c60",
-      "authoredAs": "1.5em",
-      "usage": 21
+      "usage": 20
     },
     {
       "id": "fontSize-170867",
       "authoredAs": "10px",
-      "usage": 21
-    },
-    {
-      "id": "fontSize-2ba2c61",
-      "authoredAs": "0.7em",
-      "usage": 19
-    },
-    {
-      "id": "fontSize-548aab04",
-      "authoredAs": "0.75em",
       "usage": 18
+    },
+    {
+      "id": "fontSize-2c847a3",
+      "authoredAs": "1.8em",
+      "usage": 15
+    },
+    {
+      "id": "fontSize-2c8389f",
+      "authoredAs": "1.4em",
+      "usage": 15
     },
     {
       "id": "fontSize-2c834de",
       "authoredAs": "1.3em",
-      "usage": 18
+      "usage": 11
+    },
+    {
+      "id": "fontSize-2c83c60",
+      "authoredAs": "1.5em",
+      "usage": 11
+    },
+    {
+      "id": "fontSize-c499",
+      "authoredAs": "1em",
+      "usage": 11
     },
     {
       "id": "fontSize-2c8311d",
       "authoredAs": "1.2em",
-      "usage": 17
-    },
-    {
-      "id": "fontSize-171eed",
-      "authoredAs": "16px",
-      "usage": 16
+      "usage": 10
     },
     {
       "id": "fontSize-548ab647",
       "authoredAs": "0.78em",
-      "usage": 15
-    },
-    {
-      "id": "fontSize-548c78bf",
-      "authoredAs": "0.9rem",
-      "usage": 13
-    },
-    {
-      "id": "fontSize-548b2aa6",
-      "authoredAs": "0.88em",
-      "usage": 11
-    },
-    {
-      "id": "fontSize-c85a",
-      "authoredAs": "2em",
       "usage": 10
     },
     {
-      "id": "fontSize-17266f",
-      "authoredAs": "18px",
+      "id": "fontSize-2ba2c61",
+      "authoredAs": "0.7em",
       "usage": 10
     },
     {
-      "id": "fontSize-177cc6",
-      "authoredAs": "20px",
+      "id": "fontSize-171eed",
+      "authoredAs": "16px",
       "usage": 10
     },
     {
@@ -1866,14 +652,9 @@
       "usage": 9
     },
     {
-      "id": "fontSize-563dae66",
-      "authoredAs": "1.1rem",
-      "usage": 9
-    },
-    {
-      "id": "fontSize-3cd8fd3f",
-      "authoredAs": "0.85rem",
-      "usage": 9
+      "id": "fontSize-548aab04",
+      "authoredAs": "0.75em",
+      "usage": 8
     },
     {
       "id": "fontSize-548b1420",
@@ -1881,28 +662,33 @@
       "usage": 8
     },
     {
-      "id": "fontSize-2c84021",
-      "authoredAs": "1.6em",
-      "usage": 7
-    },
-    {
       "id": "fontSize-eab971f6",
       "authoredAs": "var(--np-text-85)",
       "usage": 7
     },
     {
-      "id": "fontSize-563cc969",
-      "authoredAs": "1.15em",
+      "id": "fontSize-548b2aa6",
+      "authoredAs": "0.88em",
+      "usage": 7
+    },
+    {
+      "id": "fontSize-177cc6",
+      "authoredAs": "20px",
+      "usage": 7
+    },
+    {
+      "id": "fontSize-548c78bf",
+      "authoredAs": "0.9rem",
+      "usage": 7
+    },
+    {
+      "id": "fontSize-17266f",
+      "authoredAs": "18px",
       "usage": 6
     },
     {
-      "id": "fontSize-cc1b",
-      "authoredAs": "3em",
-      "usage": 6
-    },
-    {
-      "id": "fontSize-548c0460",
-      "authoredAs": "0.8rem",
+      "id": "fontSize-3cd8fd3f",
+      "authoredAs": "0.85rem",
       "usage": 6
     },
     {
@@ -1911,28 +697,33 @@
       "usage": 6
     },
     {
-      "id": "fontSize-563c550a",
-      "authoredAs": "1.05em",
+      "id": "fontSize-c85a",
+      "authoredAs": "2em",
       "usage": 5
     },
     {
-      "id": "fontSize-548a36a5",
-      "authoredAs": "0.65em",
+      "id": "fontSize-563dae66",
+      "authoredAs": "1.1rem",
       "usage": 5
     },
     {
       "id": "fontSize-eab9751c",
       "authoredAs": "var(--np-text-90)",
+      "usage": 5
+    },
+    {
+      "id": "fontSize-563cc969",
+      "authoredAs": "1.15em",
       "usage": 4
     },
     {
-      "id": "fontSize-179ace",
-      "authoredAs": "28px",
+      "id": "fontSize-563c550a",
+      "authoredAs": "1.05em",
       "usage": 4
     },
     {
-      "id": "fontSize-17fec9",
-      "authoredAs": "1rem",
+      "id": "fontSize-2c84021",
+      "authoredAs": "1.6em",
       "usage": 4
     },
     {
@@ -1941,18 +732,18 @@
       "usage": 4
     },
     {
-      "id": "fontSize-2d653e1",
-      "authoredAs": "2.5em",
-      "usage": 4
-    },
-    {
-      "id": "fontSize-563f7fe2",
-      "authoredAs": "1.5rem",
+      "id": "fontSize-548c0460",
+      "authoredAs": "0.8rem",
       "usage": 3
     },
     {
-      "id": "fontSize-3ccae5be",
-      "authoredAs": "0.75rem",
+      "id": "fontSize-cc1b",
+      "authoredAs": "3em",
+      "usage": 3
+    },
+    {
+      "id": "fontSize-17fec9",
+      "authoredAs": "1rem",
       "usage": 3
     },
     {
@@ -1971,28 +762,13 @@
       "usage": 3
     },
     {
-      "id": "fontSize-eab975b7",
-      "authoredAs": "var(--np-text-95)",
-      "usage": 2
+      "id": "fontSize-548a36a5",
+      "authoredAs": "0.65em",
+      "usage": 3
     },
     {
-      "id": "fontSize-5e474f42",
-      "authoredAs": "0.875rem",
-      "usage": 2
-    },
-    {
-      "id": "fontSize-548b9001",
-      "authoredAs": "0.7rem",
-      "usage": 2
-    },
-    {
-      "id": "fontSize-563e9724",
-      "authoredAs": "1.3rem",
-      "usage": 2
-    },
-    {
-      "id": "fontSize-548a9fc1",
-      "authoredAs": "0.72em",
+      "id": "fontSize-179ace",
+      "authoredAs": "28px",
       "usage": 2
     },
     {
@@ -2006,18 +782,8 @@
       "usage": 2
     },
     {
-      "id": "fontSize-5489c246",
-      "authoredAs": "0.55em",
-      "usage": 2
-    },
-    {
-      "id": "fontSize-178bca",
-      "authoredAs": "24px",
-      "usage": 2
-    },
-    {
-      "id": "fontSize-563e22c5",
-      "authoredAs": "1.2rem",
+      "id": "fontSize-eab975b7",
+      "authoredAs": "var(--np-text-95)",
       "usage": 2
     },
     {
@@ -2031,13 +797,43 @@
       "usage": 2
     },
     {
+      "id": "fontSize-2d653e1",
+      "authoredAs": "2.5em",
+      "usage": 1
+    },
+    {
+      "id": "fontSize-548b9001",
+      "authoredAs": "0.7rem",
+      "usage": 1
+    },
+    {
       "id": "fontSize-2d6489e",
       "authoredAs": "2.2em",
       "usage": 1
     },
     {
+      "id": "fontSize-563f7fe2",
+      "authoredAs": "1.5rem",
+      "usage": 1
+    },
+    {
+      "id": "fontSize-563e9724",
+      "authoredAs": "1.3rem",
+      "usage": 1
+    },
+    {
+      "id": "fontSize-3ccae5be",
+      "authoredAs": "0.75rem",
+      "usage": 1
+    },
+    {
       "id": "fontSize-716aab7a",
       "authoredAs": "1.25rem",
+      "usage": 1
+    },
+    {
+      "id": "fontSize-548a9fc1",
+      "authoredAs": "0.72em",
       "usage": 1
     },
     {
@@ -2051,28 +847,8 @@
       "usage": 1
     },
     {
-      "id": "fontSize-1722ae",
-      "authoredAs": "17px",
-      "usage": 1
-    },
-    {
-      "id": "fontSize-2a28cd6",
-      "authoredAs": ".88em",
-      "usage": 1
-    },
-    {
-      "id": "fontSize-5640dcff",
-      "authoredAs": "1.8rem",
-      "usage": 1
-    },
-    {
-      "id": "fontSize-187328",
-      "authoredAs": "2rem",
-      "usage": 1
-    },
-    {
-      "id": "fontSize-2c84b64",
-      "authoredAs": "1.9em",
+      "id": "fontSize-178bca",
+      "authoredAs": "24px",
       "usage": 1
     },
     {
@@ -2083,6 +859,16 @@
     {
       "id": "fontSize-56579cae",
       "authoredAs": "10.5px",
+      "usage": 1
+    },
+    {
+      "id": "fontSize-5489c246",
+      "authoredAs": "0.55em",
+      "usage": 1
+    },
+    {
+      "id": "fontSize-2c84b64",
+      "authoredAs": "1.9em",
       "usage": 1
     },
     {
@@ -2099,59 +885,59 @@
       "id": "fontSize-17934c",
       "authoredAs": "26px",
       "usage": 1
+    },
+    {
+      "id": "fontSize-1722ae",
+      "authoredAs": "17px",
+      "usage": 1
     }
   ],
   "fontFamilies": [
     {
       "id": "fontFamily-4e5d84ed",
       "authoredAs": "'Courier New', Courier, monospace",
-      "usage": 16
+      "usage": 9
     },
     {
       "id": "fontFamily-aaa60c03",
       "authoredAs": "monospace",
-      "usage": 12
-    },
-    {
-      "id": "fontFamily-7bd1e4af",
-      "authoredAs": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
-      "usage": 3
+      "usage": 7
     },
     {
       "id": "fontFamily-318cd40a",
       "authoredAs": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
       "usage": 2
+    },
+    {
+      "id": "fontFamily-7bd1e4af",
+      "authoredAs": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+      "usage": 1
     }
   ],
   "lineHeights": [
     {
       "id": "lineHeight-31",
       "authoredAs": "1",
-      "usage": 55
+      "usage": 44
     },
     {
       "id": "lineHeight-bdb8",
       "authoredAs": "1.5",
-      "usage": 29
+      "usage": 19
     },
     {
       "id": "lineHeight-bdb7",
       "authoredAs": "1.4",
-      "usage": 18
+      "usage": 11
     },
     {
       "id": "lineHeight-bdb6",
       "authoredAs": "1.3",
-      "usage": 9
+      "usage": 5
     },
     {
       "id": "lineHeight-bdb9",
       "authoredAs": "1.6",
-      "usage": 7
-    },
-    {
-      "id": "lineHeight-30",
-      "authoredAs": "0",
       "usage": 4
     },
     {
@@ -2160,18 +946,13 @@
       "usage": 3
     },
     {
-      "id": "lineHeight-171eed",
-      "authoredAs": "16px",
-      "usage": 3
-    },
-    {
       "id": "lineHeight-bdb4",
       "authoredAs": "1.1",
       "usage": 3
     },
     {
-      "id": "lineHeight-b9fa",
-      "authoredAs": "0.8",
+      "id": "lineHeight-30",
+      "authoredAs": "0",
       "usage": 2
     },
     {
@@ -2180,13 +961,8 @@
       "usage": 2
     },
     {
-      "id": "lineHeight-170fe9",
-      "authoredAs": "12px",
-      "usage": 2
-    },
-    {
-      "id": "lineHeight-179ace",
-      "authoredAs": "28px",
+      "id": "lineHeight-171eed",
+      "authoredAs": "16px",
       "usage": 2
     },
     {
@@ -2200,13 +976,28 @@
       "usage": 2
     },
     {
-      "id": "lineHeight-177cc6",
-      "authoredAs": "20px",
+      "id": "lineHeight-b9fa",
+      "authoredAs": "0.8",
+      "usage": 1
+    },
+    {
+      "id": "lineHeight-170fe9",
+      "authoredAs": "12px",
+      "usage": 1
+    },
+    {
+      "id": "lineHeight-179ace",
+      "authoredAs": "28px",
       "usage": 1
     },
     {
       "id": "lineHeight-16f95e",
       "authoredAs": "1.45",
+      "usage": 1
+    },
+    {
+      "id": "lineHeight-177cc6",
+      "authoredAs": "20px",
       "usage": 1
     }
   ],
@@ -2214,52 +1005,42 @@
     {
       "id": "radius-d13c",
       "authoredAs": "4px",
-      "usage": 202
+      "usage": 128
     },
     {
       "id": "radius-d8be",
       "authoredAs": "6px",
-      "usage": 138
+      "usage": 93
     },
     {
       "id": "radius-e040",
       "authoredAs": "8px",
-      "usage": 125
-    },
-    {
-      "id": "radius-170fe9",
-      "authoredAs": "12px",
-      "usage": 63
+      "usage": 72
     },
     {
       "id": "radius-ccea",
       "authoredAs": "50%",
-      "usage": 58
+      "usage": 37
+    },
+    {
+      "id": "radius-170fe9",
+      "authoredAs": "12px",
+      "usage": 36
     },
     {
       "id": "radius-cd7b",
       "authoredAs": "3px",
-      "usage": 52
+      "usage": 32
     },
     {
       "id": "radius-d4fd",
       "authoredAs": "5px",
-      "usage": 41
+      "usage": 23
     },
     {
       "id": "radius-170867",
       "authoredAs": "10px",
-      "usage": 28
-    },
-    {
-      "id": "radius-30",
-      "authoredAs": "0",
-      "usage": 10
-    },
-    {
-      "id": "radius-c9ba",
-      "authoredAs": "2px",
-      "usage": 8
+      "usage": 19
     },
     {
       "id": "radius-31df89e",
@@ -2267,9 +1048,14 @@
       "usage": 7
     },
     {
-      "id": "radius-177cc6",
-      "authoredAs": "20px",
-      "usage": 4
+      "id": "radius-30",
+      "authoredAs": "0",
+      "usage": 6
+    },
+    {
+      "id": "radius-c9ba",
+      "authoredAs": "2px",
+      "usage": 5
     },
     {
       "id": "radius-31de101",
@@ -2277,28 +1063,18 @@
       "usage": 4
     },
     {
+      "id": "radius-177cc6",
+      "authoredAs": "20px",
+      "usage": 3
+    },
+    {
       "id": "radius-da7a1ca0",
       "authoredAs": "10px 10px 0 0",
-      "usage": 4
+      "usage": 2
     },
     {
       "id": "radius-b2f2647c",
       "authoredAs": "6px 6px 0 0",
-      "usage": 3
-    },
-    {
-      "id": "radius-2b63c27c",
-      "authoredAs": "0 0 6px 6px",
-      "usage": 2
-    },
-    {
-      "id": "radius-32b7337c",
-      "authoredAs": "0 6px 6px 0",
-      "usage": 2
-    },
-    {
-      "id": "radius-f67d837a",
-      "authoredAs": "0 0 5px 5px",
       "usage": 2
     },
     {
@@ -2312,36 +1088,6 @@
       "usage": 2
     },
     {
-      "id": "radius-957ff974",
-      "authoredAs": "2px 0 0 2px",
-      "usage": 2
-    },
-    {
-      "id": "radius-ebf19c0e",
-      "authoredAs": "50% 50% 50% 0",
-      "usage": 2
-    },
-    {
-      "id": "radius-46884080",
-      "authoredAs": "8px 8px 0 0",
-      "usage": 2
-    },
-    {
-      "id": "radius-95304080",
-      "authoredAs": "0 0 8px 8px",
-      "usage": 2
-    },
-    {
-      "id": "radius-bf496678",
-      "authoredAs": "4px 0 0 4px",
-      "usage": 2
-    },
-    {
-      "id": "radius-c5f9",
-      "authoredAs": "1px",
-      "usage": 2
-    },
-    {
       "id": "radius-b7201cb6",
       "authoredAs": "var(--np-radius-panel)",
       "usage": 2
@@ -2350,6 +1096,21 @@
       "id": "radius-e401",
       "authoredAs": "9px",
       "usage": 2
+    },
+    {
+      "id": "radius-2b63c27c",
+      "authoredAs": "0 0 6px 6px",
+      "usage": 1
+    },
+    {
+      "id": "radius-32b7337c",
+      "authoredAs": "0 6px 6px 0",
+      "usage": 1
+    },
+    {
+      "id": "radius-f67d837a",
+      "authoredAs": "0 0 5px 5px",
+      "usage": 1
     },
     {
       "id": "radius-1713aa",
@@ -2372,8 +1133,38 @@
       "usage": 1
     },
     {
+      "id": "radius-ebf19c0e",
+      "authoredAs": "50% 50% 50% 0",
+      "usage": 1
+    },
+    {
       "id": "radius-b35739df",
       "authoredAs": "var(--np-radius-pill)",
+      "usage": 1
+    },
+    {
+      "id": "radius-46884080",
+      "authoredAs": "8px 8px 0 0",
+      "usage": 1
+    },
+    {
+      "id": "radius-95304080",
+      "authoredAs": "0 0 8px 8px",
+      "usage": 1
+    },
+    {
+      "id": "radius-957ff974",
+      "authoredAs": "2px 0 0 2px",
+      "usage": 1
+    },
+    {
+      "id": "radius-bf496678",
+      "authoredAs": "4px 0 0 4px",
+      "usage": 1
+    },
+    {
+      "id": "radius-c5f9",
+      "authoredAs": "1px",
       "usage": 1
     },
     {
@@ -2396,7 +1187,7 @@
     {
       "id": "boxShadow-dc7bf240",
       "authoredAs": "0 2px 4px rgba(0, 0, 0, 0.1)",
-      "usage": 44
+      "usage": 22
     },
     {
       "id": "boxShadow-6728eef9",
@@ -2404,34 +1195,9 @@
       "usage": 22
     },
     {
-      "id": "boxShadow-f46d24e2",
-      "authoredAs": "0 4px 12px rgba(0,0,0,0.15)",
-      "usage": 8
-    },
-    {
-      "id": "boxShadow-d58de9c4",
-      "authoredAs": "0 2px 4px rgba(0,0,0,0.1)",
-      "usage": 8
-    },
-    {
       "id": "boxShadow-2ebeb8ba",
       "authoredAs": "var(--np-focus-ring)",
       "usage": 7
-    },
-    {
-      "id": "boxShadow-b6424a34",
-      "authoredAs": "0 4px 12px rgba(0, 0, 0, 0.15)",
-      "usage": 7
-    },
-    {
-      "id": "boxShadow-2f7fa9f7",
-      "authoredAs": "0 1px 3px rgba(0, 0, 0, 0.08)",
-      "usage": 7
-    },
-    {
-      "id": "boxShadow-f692dcbc",
-      "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.1)",
-      "usage": 6
     },
     {
       "id": "boxShadow-f6beb62c",
@@ -2439,23 +1205,23 @@
       "usage": 6
     },
     {
-      "id": "boxShadow-d7537976",
-      "authoredAs": "0 20px 60px rgba(0, 0, 0, 0.5)",
-      "usage": 5
-    },
-    {
       "id": "boxShadow-5b04875",
       "authoredAs": "0 2px 8px var(--np-shadow)",
       "usage": 5
     },
     {
-      "id": "boxShadow-f0078d01",
-      "authoredAs": "0 1px 2px rgba(0,0,0,0.1)",
+      "id": "boxShadow-f46d24e2",
+      "authoredAs": "0 4px 12px rgba(0,0,0,0.15)",
       "usage": 4
     },
     {
-      "id": "boxShadow-dc7bf25f",
-      "authoredAs": "0 2px 4px rgba(0, 0, 0, 0.2)",
+      "id": "boxShadow-b6424a34",
+      "authoredAs": "0 4px 12px rgba(0, 0, 0, 0.15)",
+      "usage": 4
+    },
+    {
+      "id": "boxShadow-d58de9c4",
+      "authoredAs": "0 2px 4px rgba(0,0,0,0.1)",
       "usage": 4
     },
     {
@@ -2464,18 +1230,8 @@
       "usage": 4
     },
     {
-      "id": "boxShadow-72b9c793",
-      "authoredAs": "0 4px 8px rgba(0,0,0,0.15)",
-      "usage": 4
-    },
-    {
-      "id": "boxShadow-96b1c8bd",
-      "authoredAs": "-4px 0 20px rgba(0, 0, 0, 0.3)",
-      "usage": 3
-    },
-    {
-      "id": "boxShadow-b8943f76",
-      "authoredAs": "0 5px 15px rgba(16, 139, 185, 0.4)",
+      "id": "boxShadow-f692dcbc",
+      "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.1)",
       "usage": 3
     },
     {
@@ -2484,53 +1240,43 @@
       "usage": 3
     },
     {
+      "id": "boxShadow-2f7fa9f7",
+      "authoredAs": "0 1px 3px rgba(0, 0, 0, 0.08)",
+      "usage": 3
+    },
+    {
       "id": "boxShadow-838589bb",
       "authoredAs": "0 1px 3px var(--np-shadow)",
       "usage": 3
     },
     {
-      "id": "boxShadow-7ab6a9d5",
-      "authoredAs": "0 2px 8px rgba(0,0,0,0.15)",
+      "id": "boxShadow-96b1c8bd",
+      "authoredAs": "-4px 0 20px rgba(0, 0, 0, 0.3)",
       "usage": 2
     },
     {
-      "id": "boxShadow-ed287e7a",
-      "authoredAs": "0 0 0 2px rgba(40, 167, 69, 0.35)",
+      "id": "boxShadow-b8943f76",
+      "authoredAs": "0 5px 15px rgba(16, 139, 185, 0.4)",
       "usage": 2
     },
     {
-      "id": "boxShadow-545dfc8",
-      "authoredAs": "0 4px 6px rgba(0,0,0,0.1)",
+      "id": "boxShadow-f0078d01",
+      "authoredAs": "0 1px 2px rgba(0,0,0,0.1)",
       "usage": 2
     },
     {
-      "id": "boxShadow-d676461f",
-      "authoredAs": "0 0 0 9999px rgba(0, 0, 0, 0.7),\n                0 0 20px rgba(16, 139, 185, 0.8)",
+      "id": "boxShadow-dc7bf25f",
+      "authoredAs": "0 2px 4px rgba(0, 0, 0, 0.2)",
       "usage": 2
     },
     {
-      "id": "boxShadow-563e3e4d",
-      "authoredAs": "0 8px 32px rgba(0, 0, 0, 0.3)",
+      "id": "boxShadow-d7537976",
+      "authoredAs": "0 20px 60px rgba(0, 0, 0, 0.5)",
       "usage": 2
     },
     {
-      "id": "boxShadow-f88be779",
-      "authoredAs": "0 1px 3px rgba(0,0,0,0.06)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-f5c71668",
-      "authoredAs": "0 10px 30px rgba(0, 0, 0, 0.12)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-c3770c8",
-      "authoredAs": "0 2px 8px rgba(0,0,0,0.1)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-7018677c",
-      "authoredAs": "0 4px 16px rgba(0,0,0,0.4)",
+      "id": "boxShadow-bf5f37d8",
+      "authoredAs": "0 0 0 3px rgba(16, 139, 185, 0.15)",
       "usage": 2
     },
     {
@@ -2539,88 +1285,13 @@
       "usage": 2
     },
     {
-      "id": "boxShadow-aa88e48b",
-      "authoredAs": "0 0 8px rgba(40, 167, 69, 0.5)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-4ae21e0a",
-      "authoredAs": "0 0 2px rgba(0, 0, 0, 0.3)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-57ed9367",
-      "authoredAs": "0 0 4px rgba(0, 0, 0, 0.4)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-f692dcdb",
-      "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.2)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-f692dcfa",
-      "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.3)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-3de96b92",
-      "authoredAs": "0 0 4px rgba(16, 139, 185, 0.5)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-f88beabe",
-      "authoredAs": "0 1px 3px rgba(0,0,0,0.12)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-ec0c8b3d",
-      "authoredAs": "0 2px 12px rgba(0,0,0,0.18)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-246318c8",
-      "authoredAs": "0 4px 12px rgba(102, 126, 234, 0.3)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-b64249d7",
-      "authoredAs": "0 4px 12px rgba(0, 0, 0, 0.12)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-4e6adde3",
-      "authoredAs": "0 4px 8px rgba(0, 0, 0, 0.15)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-dc96c8c7",
-      "authoredAs": "0 4px 12px rgba(0, 0, 0, 0.3)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-fa458319",
-      "authoredAs": "0 4px 8px rgba(0, 0, 0, 0.2)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-fa458338",
-      "authoredAs": "0 4px 8px rgba(0, 0, 0, 0.3)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-e987679d",
-      "authoredAs": "0 2px 6px rgba(0, 0, 0, 0.2)",
+      "id": "boxShadow-72b9c793",
+      "authoredAs": "0 4px 8px rgba(0,0,0,0.15)",
       "usage": 2
     },
     {
       "id": "boxShadow-6bcc5bc6",
       "authoredAs": "0 12px 32px rgba(0, 0, 0, 0.25)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-bf5f37d8",
-      "authoredAs": "0 0 0 3px rgba(16, 139, 185, 0.15)",
       "usage": 2
     },
     {
@@ -2634,8 +1305,33 @@
       "usage": 2
     },
     {
+      "id": "boxShadow-7ab6a9d5",
+      "authoredAs": "0 2px 8px rgba(0,0,0,0.15)",
+      "usage": 1
+    },
+    {
       "id": "boxShadow-70c54ee3",
       "authoredAs": "0 0 0 2px var(--np-surface, white), 0 0 0 4px var(--np-text, #333)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-ed287e7a",
+      "authoredAs": "0 0 0 2px rgba(40, 167, 69, 0.35)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-545dfc8",
+      "authoredAs": "0 4px 6px rgba(0,0,0,0.1)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-d676461f",
+      "authoredAs": "0 0 0 9999px rgba(0, 0, 0, 0.7),\n                0 0 20px rgba(16, 139, 185, 0.8)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-563e3e4d",
+      "authoredAs": "0 8px 32px rgba(0, 0, 0, 0.3)",
       "usage": 1
     },
     {
@@ -2644,8 +1340,28 @@
       "usage": 1
     },
     {
+      "id": "boxShadow-f88be779",
+      "authoredAs": "0 1px 3px rgba(0,0,0,0.06)",
+      "usage": 1
+    },
+    {
       "id": "boxShadow-6743a45b",
       "authoredAs": "0 20px 60px var(--np-shadow-strong)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-f5c71668",
+      "authoredAs": "0 10px 30px rgba(0, 0, 0, 0.12)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-c3770c8",
+      "authoredAs": "0 2px 8px rgba(0,0,0,0.1)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-7018677c",
+      "authoredAs": "0 4px 16px rgba(0,0,0,0.4)",
       "usage": 1
     },
     {
@@ -2684,133 +1400,33 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-8c9f2062",
-      "authoredAs": "0 0 0 2px rgba(123, 143, 240, 0.25)",
+      "id": "boxShadow-f692dcdb",
+      "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.2)",
       "usage": 1
     },
     {
-      "id": "boxShadow-69f17d95",
-      "authoredAs": "0 0 20px var(--np-shadow-strong)",
+      "id": "boxShadow-f692dcfa",
+      "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.3)",
       "usage": 1
     },
     {
-      "id": "boxShadow-74ed9c09",
-      "authoredAs": "0 4px 20px var(--np-shadow-strong)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-fdb36633",
-      "authoredAs": "0 4px 8px var(--np-shadow)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-e65e366e",
-      "authoredAs": "0 2px 12px var(--np-shadow-strong)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-94e9e9ee",
-      "authoredAs": "inset 0 0 0 2px var(--np-accent)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-5c07da5b",
-      "authoredAs": "0 4px 8px var(--np-shadow-strong)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-366c9bb7",
-      "authoredAs": "0 2px 6px var(--np-shadow)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-69c28601",
-      "authoredAs": "0 0 0 2px rgba(16, 139, 185, 0.4)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-e98767fa",
-      "authoredAs": "0 2px 6px rgba(0, 0, 0, 0.5)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-3149e81b",
-      "authoredAs": "0 0 0 5px rgba(77, 182, 226, 0.6), 0 6px 18px rgba(0, 0, 0, 0.6)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-236350ca",
-      "authoredAs": "inset 0 0 0 2px #108BB9",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-69c285c3",
-      "authoredAs": "0 0 0 2px rgba(16, 139, 185, 0.2)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-e7a27909",
-      "authoredAs": "inset 0 0 0 1px #e6c200",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-9eb296e",
-      "authoredAs": "0 8px 24px rgba(0, 0, 0, 0.18)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-5f7b758",
-      "authoredAs": "0 0 0 3px rgba(118, 75, 162, 0.1)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-266bc33f",
-      "authoredAs": "0 4px 16px var(--np-shadow-strong, rgba(0, 0, 0, 0.15))",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-74adeb05",
-      "authoredAs": "0 5px 15px rgba(102, 126, 234, 0.4)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-4f6207eb",
-      "authoredAs": "0 0 0 2px white, 0 0 0 4px #333",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-d7537938",
-      "authoredAs": "0 20px 60px rgba(0, 0, 0, 0.3)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-f5c716c5",
-      "authoredAs": "0 10px 30px rgba(0, 0, 0, 0.15)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-57ddfada",
-      "authoredAs": "0 2px 8px rgba(102, 126, 234, 0.4)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-1894d90d",
-      "authoredAs": "0 0 0 2px #108BB9",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-4ff5f506",
-      "authoredAs": "0 1px 0 #bbb",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-8063c00e",
-      "authoredAs": "0 6px 20px var(--np-shadow, rgba(0, 0, 0, 0.2))",
+      "id": "boxShadow-3de96b92",
+      "authoredAs": "0 0 4px rgba(16, 139, 185, 0.5)",
       "usage": 1
     },
     {
       "id": "boxShadow-2f7fad5b",
       "authoredAs": "0 1px 3px rgba(0, 0, 0, 0.15)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-f88beabe",
+      "authoredAs": "0 1px 3px rgba(0,0,0,0.12)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-ec0c8b3d",
+      "authoredAs": "0 2px 12px rgba(0,0,0,0.18)",
       "usage": 1
     },
     {
@@ -2826,41 +1442,6 @@
     {
       "id": "boxShadow-6bcc5c23",
       "authoredAs": "0 12px 32px rgba(0, 0, 0, 0.28)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-8470cd35",
-      "authoredAs": "0 4px 12px rgba(16, 139, 185, 0.3)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-bfe86101",
-      "authoredAs": "0 2px 8px rgba(16, 139, 185, 0.4)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-e7bf1e78",
-      "authoredAs": "0 1px 3px var(--np-shadow, rgba(0, 0, 0, 0.08))",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-a04bc820",
-      "authoredAs": "0 0 0 1px rgba(0, 0, 0, 0.15)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-9e902af9",
-      "authoredAs": "0 4px 12px var(--np-shadow-strong, rgba(0,0,0,0.15))",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-d755b895",
-      "authoredAs": "0 4px 8px var(--np-shadow, rgba(0,0,0,0.1))",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-6c8aeacf",
-      "authoredAs": "0 0 0 3px rgba(63, 182, 224, 0.25)",
       "usage": 1
     },
     {
@@ -2929,21 +1510,181 @@
       "usage": 1
     },
     {
+      "id": "boxShadow-8063c00e",
+      "authoredAs": "0 6px 20px var(--np-shadow, rgba(0, 0, 0, 0.2))",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-aa88e48b",
+      "authoredAs": "0 0 8px rgba(40, 167, 69, 0.5)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-4ae21e0a",
+      "authoredAs": "0 0 2px rgba(0, 0, 0, 0.3)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-57ed9367",
+      "authoredAs": "0 0 4px rgba(0, 0, 0, 0.4)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-b64249d7",
+      "authoredAs": "0 4px 12px rgba(0, 0, 0, 0.12)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-4e6adde3",
+      "authoredAs": "0 4px 8px rgba(0, 0, 0, 0.15)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-8470cd35",
+      "authoredAs": "0 4px 12px rgba(16, 139, 185, 0.3)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-bfe86101",
+      "authoredAs": "0 2px 8px rgba(16, 139, 185, 0.4)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-dc96c8c7",
+      "authoredAs": "0 4px 12px rgba(0, 0, 0, 0.3)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-fa458319",
+      "authoredAs": "0 4px 8px rgba(0, 0, 0, 0.2)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-fa458338",
+      "authoredAs": "0 4px 8px rgba(0, 0, 0, 0.3)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-e987679d",
+      "authoredAs": "0 2px 6px rgba(0, 0, 0, 0.2)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-e7bf1e78",
+      "authoredAs": "0 1px 3px var(--np-shadow, rgba(0, 0, 0, 0.08))",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-a04bc820",
+      "authoredAs": "0 0 0 1px rgba(0, 0, 0, 0.15)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-9e902af9",
+      "authoredAs": "0 4px 12px var(--np-shadow-strong, rgba(0,0,0,0.15))",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-d755b895",
+      "authoredAs": "0 4px 8px var(--np-shadow, rgba(0,0,0,0.1))",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-6c8aeacf",
+      "authoredAs": "0 0 0 3px rgba(63, 182, 224, 0.25)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-9eb296e",
+      "authoredAs": "0 8px 24px rgba(0, 0, 0, 0.18)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-8c9f2062",
+      "authoredAs": "0 0 0 2px rgba(123, 143, 240, 0.25)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-69f17d95",
+      "authoredAs": "0 0 20px var(--np-shadow-strong)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-74ed9c09",
+      "authoredAs": "0 4px 20px var(--np-shadow-strong)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-fdb36633",
+      "authoredAs": "0 4px 8px var(--np-shadow)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-e65e366e",
+      "authoredAs": "0 2px 12px var(--np-shadow-strong)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-94e9e9ee",
+      "authoredAs": "inset 0 0 0 2px var(--np-accent)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-5c07da5b",
+      "authoredAs": "0 4px 8px var(--np-shadow-strong)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-366c9bb7",
+      "authoredAs": "0 2px 6px var(--np-shadow)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-69c28601",
+      "authoredAs": "0 0 0 2px rgba(16, 139, 185, 0.4)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-e98767fa",
+      "authoredAs": "0 2px 6px rgba(0, 0, 0, 0.5)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-3149e81b",
+      "authoredAs": "0 0 0 5px rgba(77, 182, 226, 0.6), 0 6px 18px rgba(0, 0, 0, 0.6)",
+      "usage": 1
+    },
+    {
       "id": "boxShadow-75e92de0",
       "authoredAs": "0 0 0 3px var(--np-accent-tint)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-236350ca",
+      "authoredAs": "inset 0 0 0 2px #108BB9",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-69c285c3",
+      "authoredAs": "0 0 0 2px rgba(16, 139, 185, 0.2)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-e7a27909",
+      "authoredAs": "inset 0 0 0 1px #e6c200",
       "usage": 1
     }
   ],
   "spacing": {
-    "declarations": 2573,
+    "declarations": 1606,
     "indirectedDeclarations": 47,
-    "totalUniqueValues": 49,
-    "offGridUniqueValues": 25,
-    "offGridUses": 1444,
+    "totalUniqueValues": 48,
+    "offGridUniqueValues": 24,
+    "offGridUses": 894,
     "top": [
       {
         "value": "0",
-        "uses": 649,
+        "uses": 413,
         "onGrid": true,
         "props": [
           "gap",
@@ -2955,11 +1696,11 @@
           "padding",
           "padding-bottom"
         ],
-        "fileCount": 25
+        "fileCount": 24
       },
       {
         "value": "10px",
-        "uses": 449,
+        "uses": 267,
         "onGrid": false,
         "props": [
           "gap",
@@ -2971,11 +1712,11 @@
           "padding-bottom",
           "padding-inline"
         ],
-        "fileCount": 24
+        "fileCount": 23
       },
       {
         "value": "8px",
-        "uses": 405,
+        "uses": 264,
         "onGrid": true,
         "props": [
           "gap",
@@ -2990,11 +1731,11 @@
           "padding-right",
           "padding-top"
         ],
-        "fileCount": 24
+        "fileCount": 23
       },
       {
         "value": "4px",
-        "uses": 314,
+        "uses": 204,
         "onGrid": true,
         "props": [
           "gap",
@@ -3006,11 +1747,11 @@
           "padding",
           "padding-bottom"
         ],
-        "fileCount": 22
+        "fileCount": 21
       },
       {
         "value": "6px",
-        "uses": 286,
+        "uses": 193,
         "onGrid": false,
         "props": [
           "gap",
@@ -3022,11 +1763,11 @@
           "padding",
           "padding-bottom"
         ],
-        "fileCount": 24
+        "fileCount": 23
       },
       {
         "value": "12px",
-        "uses": 281,
+        "uses": 171,
         "onGrid": true,
         "props": [
           "gap",
@@ -3037,11 +1778,11 @@
           "padding-bottom",
           "padding-top"
         ],
-        "fileCount": 22
+        "fileCount": 21
       },
       {
         "value": "20px",
-        "uses": 278,
+        "uses": 147,
         "onGrid": true,
         "props": [
           "gap",
@@ -3054,69 +1795,68 @@
           "padding-left",
           "padding-top"
         ],
-        "fileCount": 16
-      },
-      {
-        "value": "15px",
-        "uses": 182,
-        "onGrid": false,
-        "props": [
-          "gap",
-          "margin",
-          "margin-bottom",
-          "margin-top",
-          "padding",
-          "padding-bottom"
-        ],
-        "fileCount": 7
+        "fileCount": 15
       },
       {
         "value": "2px",
-        "uses": 157,
+        "uses": 108,
         "onGrid": false,
         "props": [
           "gap",
           "margin",
           "margin-bottom",
           "margin-left",
-          "margin-right",
           "margin-top",
           "padding",
           "padding-right",
           "padding-top"
         ],
-        "fileCount": 16
+        "fileCount": 15
       },
       {
-        "value": "16px",
-        "uses": 119,
-        "onGrid": true,
-        "props": [
-          "gap",
-          "margin",
-          "margin-bottom",
-          "padding"
-        ],
-        "fileCount": 18
-      },
-      {
-        "value": "5px",
+        "value": "15px",
         "uses": 92,
         "onGrid": false,
         "props": [
           "gap",
           "margin",
           "margin-bottom",
+          "margin-top",
+          "padding",
+          "padding-bottom"
+        ],
+        "fileCount": 6
+      },
+      {
+        "value": "16px",
+        "uses": 87,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "padding"
+        ],
+        "fileCount": 17
+      },
+      {
+        "value": "5px",
+        "uses": 55,
+        "onGrid": false,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
           "margin-left",
           "margin-top",
           "padding",
           "padding-left"
         ],
-        "fileCount": 11
+        "fileCount": 10
       },
       {
         "value": "14px",
-        "uses": 81,
+        "uses": 55,
         "onGrid": false,
         "props": [
           "gap",
@@ -3127,11 +1867,11 @@
           "padding-bottom",
           "padding-left"
         ],
-        "fileCount": 14
+        "fileCount": 13
       },
       {
         "value": "3px",
-        "uses": 53,
+        "uses": 35,
         "onGrid": false,
         "props": [
           "gap",
@@ -3141,11 +1881,24 @@
           "padding",
           "padding-top"
         ],
-        "fileCount": 14
+        "fileCount": 13
+      },
+      {
+        "value": "24px",
+        "uses": 24,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "margin",
+          "margin-bottom",
+          "padding",
+          "padding-left"
+        ],
+        "fileCount": 9
       },
       {
         "value": "30px",
-        "uses": 48,
+        "uses": 22,
         "onGrid": false,
         "props": [
           "gap",
@@ -3154,86 +1907,72 @@
           "padding",
           "padding-bottom"
         ],
-        "fileCount": 5
-      },
-      {
-        "value": "40px",
-        "uses": 41,
-        "onGrid": true,
-        "props": [
-          "margin-bottom",
-          "padding"
-        ],
-        "fileCount": 7
-      },
-      {
-        "value": "24px",
-        "uses": 37,
-        "onGrid": true,
-        "props": [
-          "gap",
-          "margin",
-          "margin-bottom",
-          "padding",
-          "padding-left"
-        ],
-        "fileCount": 10
-      },
-      {
-        "value": "25px",
-        "uses": 29,
-        "onGrid": false,
-        "props": [
-          "gap",
-          "margin",
-          "margin-bottom",
-          "margin-top",
-          "padding",
-          "padding-left"
-        ],
         "fileCount": 4
       },
       {
-        "value": "60px",
-        "uses": 24,
+        "value": "40px",
+        "uses": 22,
         "onGrid": true,
         "props": [
+          "margin-bottom",
           "padding"
         ],
         "fileCount": 6
       },
       {
         "value": "1px",
-        "uses": 21,
+        "uses": 18,
         "onGrid": false,
         "props": [
           "gap",
           "padding",
           "padding-top"
         ],
-        "fileCount": 7
+        "fileCount": 6
       },
       {
-        "value": "18px",
-        "uses": 11,
+        "value": "25px",
+        "uses": 14,
         "onGrid": false,
         "props": [
           "margin",
           "margin-bottom",
+          "margin-top",
+          "padding",
+          "padding-left"
+        ],
+        "fileCount": 3
+      },
+      {
+        "value": "60px",
+        "uses": 12,
+        "onGrid": true,
+        "props": [
           "padding"
         ],
-        "fileCount": 6
+        "fileCount": 5
       },
       {
         "value": "7px",
-        "uses": 11,
+        "uses": 9,
         "onGrid": false,
         "props": [
           "gap",
           "padding",
           "padding-inline"
         ],
-        "fileCount": 7
+        "fileCount": 6
+      },
+      {
+        "value": "18px",
+        "uses": 7,
+        "onGrid": false,
+        "props": [
+          "margin",
+          "margin-bottom",
+          "padding"
+        ],
+        "fileCount": 5
       },
       {
         "value": "0.5rem",
@@ -3247,8 +1986,36 @@
         "fileCount": 1
       },
       {
+        "value": "9px",
+        "uses": 5,
+        "onGrid": false,
+        "props": [
+          "padding"
+        ],
+        "fileCount": 3
+      },
+      {
+        "value": "28px",
+        "uses": 5,
+        "onGrid": true,
+        "props": [
+          "margin-left",
+          "padding"
+        ],
+        "fileCount": 5
+      },
+      {
+        "value": "0.25rem",
+        "uses": 5,
+        "onGrid": true,
+        "props": [
+          "margin"
+        ],
+        "fileCount": 1
+      },
+      {
         "value": "0.75rem",
-        "uses": 6,
+        "uses": 5,
         "onGrid": true,
         "props": [
           "gap",
@@ -3256,27 +2023,7 @@
           "padding",
           "padding-top"
         ],
-        "fileCount": 3
-      },
-      {
-        "value": "28px",
-        "uses": 6,
-        "onGrid": true,
-        "props": [
-          "margin-left",
-          "padding"
-        ],
-        "fileCount": 6
-      },
-      {
-        "value": "80px",
-        "uses": 6,
-        "onGrid": true,
-        "props": [
-          "margin-bottom",
-          "padding"
-        ],
-        "fileCount": 4
+        "fileCount": 2
       },
       {
         "value": "32px",
@@ -3289,104 +2036,96 @@
         "fileCount": 4
       },
       {
-        "value": "9px",
-        "uses": 5,
-        "onGrid": false,
-        "props": [
-          "padding"
-        ],
-        "fileCount": 3
-      },
-      {
-        "value": "0.25rem",
-        "uses": 5,
-        "onGrid": true,
-        "props": [
-          "margin"
-        ],
-        "fileCount": 1
-      },
-      {
         "value": "-4px",
-        "uses": 4,
+        "uses": 3,
         "onGrid": true,
         "props": [
           "margin",
           "margin-left"
         ],
-        "fileCount": 4
+        "fileCount": 3
       },
       {
-        "value": "44px",
+        "value": "80px",
         "uses": 3,
         "onGrid": true,
         "props": [
-          "padding",
-          "padding-right"
+          "margin-bottom",
+          "padding"
         ],
         "fileCount": 3
+      },
+      {
+        "value": "-2px",
+        "uses": 2,
+        "onGrid": false,
+        "props": [
+          "margin",
+          "margin-bottom"
+        ],
+        "fileCount": 2
       }
     ],
     "offGridTop": [
       {
         "value": "10px",
-        "uses": 449,
-        "fileCount": 24
+        "uses": 267,
+        "fileCount": 23
       },
       {
         "value": "6px",
-        "uses": 286,
-        "fileCount": 24
-      },
-      {
-        "value": "15px",
-        "uses": 182,
-        "fileCount": 7
+        "uses": 193,
+        "fileCount": 23
       },
       {
         "value": "2px",
-        "uses": 157,
-        "fileCount": 16
+        "uses": 108,
+        "fileCount": 15
+      },
+      {
+        "value": "15px",
+        "uses": 92,
+        "fileCount": 6
       },
       {
         "value": "5px",
-        "uses": 92,
-        "fileCount": 11
+        "uses": 55,
+        "fileCount": 10
       },
       {
         "value": "14px",
-        "uses": 81,
-        "fileCount": 14
+        "uses": 55,
+        "fileCount": 13
       },
       {
         "value": "3px",
-        "uses": 53,
-        "fileCount": 14
+        "uses": 35,
+        "fileCount": 13
       },
       {
         "value": "30px",
-        "uses": 48,
-        "fileCount": 5
-      },
-      {
-        "value": "25px",
-        "uses": 29,
+        "uses": 22,
         "fileCount": 4
       },
       {
         "value": "1px",
-        "uses": 21,
-        "fileCount": 7
-      },
-      {
-        "value": "18px",
-        "uses": 11,
+        "uses": 18,
         "fileCount": 6
       },
       {
+        "value": "25px",
+        "uses": 14,
+        "fileCount": 3
+      },
+      {
         "value": "7px",
-        "uses": 11,
-        "fileCount": 7
+        "uses": 9,
+        "fileCount": 6
+      },
+      {
+        "value": "18px",
+        "uses": 7,
+        "fileCount": 5
       },
       {
         "value": "9px",
@@ -3409,26 +2148,6 @@
         "fileCount": 2
       },
       {
-        "value": "250px",
-        "uses": 2,
-        "fileCount": 2
-      },
-      {
-        "value": "150px",
-        "uses": 2,
-        "fileCount": 2
-      },
-      {
-        "value": "330px",
-        "uses": 2,
-        "fileCount": 2
-      },
-      {
-        "value": "-6px",
-        "uses": 2,
-        "fileCount": 2
-      },
-      {
         "value": "0.4rem",
         "uses": 1,
         "fileCount": 1
@@ -3444,12 +2163,27 @@
         "fileCount": 1
       },
       {
-        "value": "50px",
+        "value": "330px",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
+        "value": "-6px",
         "uses": 1,
         "fileCount": 1
       },
       {
         "value": "-5px",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
+        "value": "250px",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
+        "value": "150px",
         "uses": 1,
         "fileCount": 1
       }
@@ -3458,9 +2192,9 @@
   "components": [
     {
       "family": "table",
-      "rules": 1192,
-      "uniqueSelectors": 708,
-      "spreadAcrossFiles": 19,
+      "rules": 828,
+      "uniqueSelectors": 703,
+      "spreadAcrossFiles": 18,
       "files": [
         "packages/noodle-web/src/noodle_web/static/components.css",
         "packages/noodle-web/src/noodle_web/static/dark-mode.css",
@@ -3468,7 +2202,6 @@
         "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
         "packages/noodle-web/src/noodle_web/static/responsive.css",
         "packages/noodle-web/src/noodle_web/static/status-bar.css",
-        "packages/noodle-web/src/noodle_web/static/style.css",
         "packages/noodle-web/src/noodle_web/static/task-peek.css",
         "packages/noodle-web/src/noodle_web/static/views/backstage.css",
         "packages/noodle-web/src/noodle_web/static/views/cards.css",
@@ -3483,80 +2216,80 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 180,
-        "focus": 26,
+        "hover": 127,
+        "focus": 23,
         "active": 0,
         "disabled": 2
       },
-      "distinctClassNames": 214,
+      "distinctClassNames": 212,
       "topClassNames": [
         {
-          "name": "timesheet-table",
-          "rules": 45
-        },
-        {
           "name": "gantt-info-table",
-          "rules": 40
+          "rules": 29
         },
         {
-          "name": "milestones-table",
-          "rules": 37
-        },
-        {
-          "name": "resources-table",
-          "rules": 37
-        },
-        {
-          "name": "budget-table",
-          "rules": 33
-        },
-        {
-          "name": "raid-table",
-          "rules": 31
-        },
-        {
-          "name": "portfolio-projects-table",
+          "name": "timesheet-table",
           "rules": 27
         },
         {
-          "name": "nwd-exceptions-table",
-          "rules": 26
-        },
-        {
-          "name": "dependencies-table",
+          "name": "resources-table",
           "rules": 25
         },
         {
-          "name": "actions-table",
+          "name": "milestones-table",
           "rules": 23
         },
         {
-          "name": "portfolio-lookahead-table",
+          "name": "budget-table",
           "rules": 23
+        },
+        {
+          "name": "raid-table",
+          "rules": 22
+        },
+        {
+          "name": "ben-tracking-table",
+          "rules": 19
+        },
+        {
+          "name": "ns-cell",
+          "rules": 19
         },
         {
           "name": "lookahead-table",
-          "rules": 22
+          "rules": 16
+        },
+        {
+          "name": "actions-table",
+          "rules": 15
         },
         {
           "name": "stakeholders-table",
-          "rules": 22
+          "rules": 15
+        },
+        {
+          "name": "portfolio-benefits-table",
+          "rules": 15
+        },
+        {
+          "name": "portfolio-projects-table",
+          "rules": 15
+        },
+        {
+          "name": "dm-role-cell",
+          "rules": 15
         },
         {
           "name": "portfolio-status-table",
-          "rules": 22
-        },
-        {
-          "name": "portfolio-resources-table",
-          "rules": 22
+          "rules": 14
         }
       ]
     },
     {
       "family": "button",
-      "rules": 702,
-      "uniqueSelectors": 443,
-      "spreadAcrossFiles": 22,
+      "rules": 513,
+      "uniqueSelectors": 435,
+      "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -3566,7 +2299,6 @@
         "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
         "packages/noodle-web/src/noodle_web/static/responsive.css",
         "packages/noodle-web/src/noodle_web/static/status-bar.css",
-        "packages/noodle-web/src/noodle_web/static/style.css",
         "packages/noodle-web/src/noodle_web/static/task-peek.css",
         "packages/noodle-web/src/noodle_web/static/views/backstage.css",
         "packages/noodle-web/src/noodle_web/static/views/cards.css",
@@ -3582,52 +2314,32 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 245,
-        "focus": 47,
-        "active": 9,
-        "disabled": 34
+        "hover": 172,
+        "focus": 37,
+        "active": 5,
+        "disabled": 25
       },
-      "distinctClassNames": 137,
+      "distinctClassNames": 136,
       "topClassNames": [
         {
           "name": "btn-primary",
-          "rules": 31
-        },
-        {
-          "name": "btn-secondary",
-          "rules": 24
-        },
-        {
-          "name": "close-btn",
           "rules": 22
         },
         {
-          "name": "toolbar-btn",
-          "rules": 18
-        },
-        {
-          "name": "plan-subnav-btn",
-          "rules": 18
+          "name": "btn-secondary",
+          "rules": 16
         },
         {
           "name": "ribbon-tab-btn",
           "rules": 14
         },
         {
-          "name": "mindmap-toolbar-btn",
-          "rules": 11
+          "name": "plan-subnav-btn",
+          "rules": 13
         },
         {
-          "name": "task-context-btn",
-          "rules": 10
-        },
-        {
-          "name": "actions-action-btn",
-          "rules": 10
-        },
-        {
-          "name": "mm-collapse-btn",
-          "rules": 10
+          "name": "close-btn",
+          "rules": 12
         },
         {
           "name": "ribbon-simple-btn",
@@ -3638,24 +2350,44 @@
           "rules": 10
         },
         {
-          "name": "copy-image-btn",
+          "name": "toolbar-btn",
           "rules": 9
         },
         {
-          "name": "export-btn",
+          "name": "levelling-buttons",
           "rules": 9
         },
         {
-          "name": "fix-it-btn",
-          "rules": 9
+          "name": "ribbon-file-btn",
+          "rules": 8
+        },
+        {
+          "name": "ribbon-display-toggle-btn",
+          "rules": 8
+        },
+        {
+          "name": "settings-tab-btn",
+          "rules": 7
+        },
+        {
+          "name": "ribbon-lg-btn",
+          "rules": 7
+        },
+        {
+          "name": "ribbon-sm-btn",
+          "rules": 7
+        },
+        {
+          "name": "actions-action-btn",
+          "rules": 6
         }
       ]
     },
     {
       "family": "nav",
-      "rules": 490,
-      "uniqueSelectors": 351,
-      "spreadAcrossFiles": 18,
+      "rules": 386,
+      "uniqueSelectors": 347,
+      "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/animations.css",
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -3663,7 +2395,6 @@
         "packages/noodle-web/src/noodle_web/static/layout.css",
         "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
         "packages/noodle-web/src/noodle_web/static/responsive.css",
-        "packages/noodle-web/src/noodle_web/static/style.css",
         "packages/noodle-web/src/noodle_web/static/task-peek.css",
         "packages/noodle-web/src/noodle_web/static/views/backstage.css",
         "packages/noodle-web/src/noodle_web/static/views/estimating.css",
@@ -3677,25 +2408,13 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 66,
-        "focus": 13,
-        "active": 3,
-        "disabled": 13
+        "hover": 54,
+        "focus": 10,
+        "active": 2,
+        "disabled": 12
       },
-      "distinctClassNames": 130,
+      "distinctClassNames": 129,
       "topClassNames": [
-        {
-          "name": "toolbar-btn",
-          "rules": 18
-        },
-        {
-          "name": "raid-toolbar",
-          "rules": 14
-        },
-        {
-          "name": "nav-menu-item",
-          "rules": 14
-        },
         {
           "name": "ribbon-tab-btn",
           "rules": 14
@@ -3705,19 +2424,7 @@
           "rules": 13
         },
         {
-          "name": "mindmap-toolbar-btn",
-          "rules": 11
-        },
-        {
-          "name": "editor-toolbar",
-          "rules": 11
-        },
-        {
-          "name": "ribbon-banner",
-          "rules": 10
-        },
-        {
-          "name": "tab-content",
+          "name": "nav-menu-item",
           "rules": 10
         },
         {
@@ -3725,8 +2432,12 @@
           "rules": 10
         },
         {
-          "name": "breadcrumb-item",
-          "rules": 8
+          "name": "raid-toolbar",
+          "rules": 9
+        },
+        {
+          "name": "toolbar-btn",
+          "rules": 9
         },
         {
           "name": "ribbon-file-btn",
@@ -3741,16 +2452,36 @@
           "rules": 8
         },
         {
-          "name": "nav-menu",
-          "rules": 8
+          "name": "settings-tab-btn",
+          "rules": 7
+        },
+        {
+          "name": "ribbon-search-input",
+          "rules": 7
+        },
+        {
+          "name": "ribbon-lg-btn",
+          "rules": 7
+        },
+        {
+          "name": "ribbon-sm-btn",
+          "rules": 7
+        },
+        {
+          "name": "ribbon-more-popover",
+          "rules": 7
+        },
+        {
+          "name": "editor-toolbar",
+          "rules": 7
         }
       ]
     },
     {
       "family": "badge",
-      "rules": 356,
-      "uniqueSelectors": 227,
-      "spreadAcrossFiles": 22,
+      "rules": 235,
+      "uniqueSelectors": 220,
+      "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -3759,7 +2490,6 @@
         "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
         "packages/noodle-web/src/noodle_web/static/responsive.css",
         "packages/noodle-web/src/noodle_web/static/status-bar.css",
-        "packages/noodle-web/src/noodle_web/static/style.css",
         "packages/noodle-web/src/noodle_web/static/task-peek.css",
         "packages/noodle-web/src/noodle_web/static/views/backstage.css",
         "packages/noodle-web/src/noodle_web/static/views/cards.css",
@@ -3776,43 +2506,19 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 14,
-        "focus": 4,
+        "hover": 12,
+        "focus": 3,
         "active": 0,
         "disabled": 0
       },
-      "distinctClassNames": 119,
+      "distinctClassNames": 114,
       "topClassNames": [
-        {
-          "name": "report-rag-badge",
-          "rules": 16
-        },
         {
           "name": "search-view-result-badge",
           "rules": 11
         },
         {
-          "name": "summary-label",
-          "rules": 10
-        },
-        {
-          "name": "raid-sync-kind-badge",
-          "rules": 10
-        },
-        {
-          "name": "timeline-project-label",
-          "rules": 10
-        },
-        {
-          "name": "hl-off-tag",
-          "rules": 10
-        },
-        {
-          "name": "status-badge",
-          "rules": 10
-        },
-        {
-          "name": "workload-badge",
+          "name": "report-rag-badge",
           "rules": 10
         },
         {
@@ -3820,36 +2526,60 @@
           "rules": 9
         },
         {
-          "name": "msp-sync-kind-badge",
-          "rules": 8
-        },
-        {
-          "name": "rag-badge",
-          "rules": 8
-        },
-        {
-          "name": "task-status-badge",
-          "rules": 8
-        },
-        {
-          "name": "risk-score-badge",
-          "rules": 8
-        },
-        {
-          "name": "minimal-date-label",
+          "name": "timeline-project-label",
           "rules": 7
         },
         {
-          "name": "inspector-dep-badge",
+          "name": "summary-label",
           "rules": 6
+        },
+        {
+          "name": "recurrence-day-label",
+          "rules": 5
+        },
+        {
+          "name": "raid-sync-kind-badge",
+          "rules": 5
+        },
+        {
+          "name": "hl-off-tag",
+          "rules": 5
+        },
+        {
+          "name": "status-badge",
+          "rules": 5
+        },
+        {
+          "name": "workload-badge",
+          "rules": 5
+        },
+        {
+          "name": "msp-sync-kind-badge",
+          "rules": 4
+        },
+        {
+          "name": "baseline-toggle-label",
+          "rules": 4
+        },
+        {
+          "name": "wb-note-count-badge",
+          "rules": 4
+        },
+        {
+          "name": "minimal-date-label",
+          "rules": 4
+        },
+        {
+          "name": "rag-badge",
+          "rules": 4
         }
       ]
     },
     {
       "family": "modal",
-      "rules": 294,
-      "uniqueSelectors": 191,
-      "spreadAcrossFiles": 15,
+      "rules": 208,
+      "uniqueSelectors": 185,
+      "spreadAcrossFiles": 14,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -3858,7 +2588,6 @@
         "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
         "packages/noodle-web/src/noodle_web/static/responsive.css",
         "packages/noodle-web/src/noodle_web/static/status-bar.css",
-        "packages/noodle-web/src/noodle_web/static/style.css",
         "packages/noodle-web/src/noodle_web/static/views/cards.css",
         "packages/noodle-web/src/noodle_web/static/views/estimating.css",
         "packages/noodle-web/src/noodle_web/static/views/gantt.css",
@@ -3868,52 +2597,32 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 34,
-        "focus": 21,
+        "hover": 26,
+        "focus": 16,
         "active": 0,
         "disabled": 0
       },
-      "distinctClassNames": 86,
+      "distinctClassNames": 82,
       "topClassNames": [
         {
           "name": "modal-header",
-          "rules": 22
-        },
-        {
-          "name": "task-context-menu-item",
-          "rules": 16
-        },
-        {
-          "name": "project-selector-dropdown",
-          "rules": 15
+          "rules": 14
         },
         {
           "name": "nav-menu-item",
-          "rules": 14
+          "rules": 10
+        },
+        {
+          "name": "project-selector-dropdown",
+          "rules": 10
         },
         {
           "name": "dm-role-dropdown-item",
           "rules": 10
         },
         {
-          "name": "modal-body",
-          "rules": 9
-        },
-        {
-          "name": "portfolio-more-menu-item",
-          "rules": 9
-        },
-        {
-          "name": "export-menu-item",
+          "name": "task-context-menu-item",
           "rules": 8
-        },
-        {
-          "name": "nav-menu",
-          "rules": 8
-        },
-        {
-          "name": "export-menu",
-          "rules": 7
         },
         {
           "name": "ribbon-more-popover",
@@ -3924,24 +2633,44 @@
           "rules": 6
         },
         {
-          "name": "templates-modal",
+          "name": "portfolio-more-menu-item",
+          "rules": 6
+        },
+        {
+          "name": "nav-menu",
           "rules": 5
         },
         {
-          "name": "modal-overlay",
+          "name": "modal-body",
           "rules": 5
         },
         {
-          "name": "portfolio-more-menu",
+          "name": "wb-note-menu-btn",
           "rules": 5
+        },
+        {
+          "name": "wb-note-menu-delete",
+          "rules": 5
+        },
+        {
+          "name": "export-menu-item",
+          "rules": 4
+        },
+        {
+          "name": "wb-note-menu-swatch",
+          "rules": 4
+        },
+        {
+          "name": "export-menu",
+          "rules": 3
         }
       ]
     },
     {
       "family": "card",
-      "rules": 287,
-      "uniqueSelectors": 184,
-      "spreadAcrossFiles": 17,
+      "rules": 196,
+      "uniqueSelectors": 171,
+      "spreadAcrossFiles": 16,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -3949,7 +2678,6 @@
         "packages/noodle-web/src/noodle_web/static/front-matter-panel.css",
         "packages/noodle-web/src/noodle_web/static/layout.css",
         "packages/noodle-web/src/noodle_web/static/responsive.css",
-        "packages/noodle-web/src/noodle_web/static/style.css",
         "packages/noodle-web/src/noodle_web/static/views/backstage.css",
         "packages/noodle-web/src/noodle_web/static/views/cards.css",
         "packages/noodle-web/src/noodle_web/static/views/evm.css",
@@ -3962,43 +2690,27 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 29,
-        "focus": 8,
-        "active": 3,
-        "disabled": 2
+        "hover": 20,
+        "focus": 6,
+        "active": 2,
+        "disabled": 1
       },
-      "distinctClassNames": 94,
+      "distinctClassNames": 84,
       "topClassNames": [
         {
-          "name": "editor-panel",
-          "rules": 21
-        },
-        {
           "name": "kanban-card",
-          "rules": 20
-        },
-        {
-          "name": "kanban-editor-panel",
-          "rules": 15
+          "rules": 13
         },
         {
           "name": "fm-panel",
           "rules": 12
         },
         {
-          "name": "wizard-panel",
-          "rules": 10
-        },
-        {
-          "name": "template-card",
-          "rules": 10
+          "name": "editor-panel",
+          "rules": 11
         },
         {
           "name": "wb-note-card",
-          "rules": 10
-        },
-        {
-          "name": "evm-kpi-card",
           "rules": 10
         },
         {
@@ -4006,36 +2718,52 @@
           "rules": 8
         },
         {
-          "name": "output-panel",
-          "rules": 8
-        },
-        {
-          "name": "kanban-add-card-btn",
-          "rules": 8
-        },
-        {
-          "name": "portfolio-project-card",
-          "rules": 8
-        },
-        {
-          "name": "report-highlight-card",
-          "rules": 6
-        },
-        {
-          "name": "kanban-card-title",
+          "name": "kanban-editor-panel",
           "rules": 6
         },
         {
           "name": "backstage-template-card",
           "rules": 6
+        },
+        {
+          "name": "wizard-panel",
+          "rules": 5
+        },
+        {
+          "name": "template-card",
+          "rules": 5
+        },
+        {
+          "name": "kanban-add-card-btn",
+          "rules": 5
+        },
+        {
+          "name": "portfolio-project-card",
+          "rules": 5
+        },
+        {
+          "name": "evm-kpi-card",
+          "rules": 5
+        },
+        {
+          "name": "output-panel",
+          "rules": 4
+        },
+        {
+          "name": "kanban-card-title",
+          "rules": 4
+        },
+        {
+          "name": "report-highlight-card",
+          "rules": 3
         }
       ]
     },
     {
       "family": "input",
-      "rules": 264,
-      "uniqueSelectors": 170,
-      "spreadAcrossFiles": 18,
+      "rules": 194,
+      "uniqueSelectors": 169,
+      "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -4043,7 +2771,6 @@
         "packages/noodle-web/src/noodle_web/static/front-matter-panel.css",
         "packages/noodle-web/src/noodle_web/static/noodlesheet.css",
         "packages/noodle-web/src/noodle_web/static/responsive.css",
-        "packages/noodle-web/src/noodle_web/static/style.css",
         "packages/noodle-web/src/noodle_web/static/task-peek.css",
         "packages/noodle-web/src/noodle_web/static/views/estimating.css",
         "packages/noodle-web/src/noodle_web/static/views/gantt.css",
@@ -4057,8 +2784,8 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 16,
-        "focus": 42,
+        "hover": 13,
+        "focus": 32,
         "active": 0,
         "disabled": 0
       },
@@ -4066,38 +2793,14 @@
       "topClassNames": [
         {
           "name": "form-group",
-          "rules": 38
-        },
-        {
-          "name": "round-checkbox",
-          "rules": 13
-        },
-        {
-          "name": "ai-settings-field",
-          "rules": 12
-        },
-        {
-          "name": "editor-textarea",
-          "rules": 10
-        },
-        {
-          "name": "form-row",
-          "rules": 8
-        },
-        {
-          "name": "form-actions",
-          "rules": 7
-        },
-        {
-          "name": "form-grid-2col",
-          "rules": 7
-        },
-        {
-          "name": "form-grid-3col",
-          "rules": 7
+          "rules": 19
         },
         {
           "name": "settings-theme-radio",
+          "rules": 7
+        },
+        {
+          "name": "round-checkbox",
           "rules": 7
         },
         {
@@ -4109,11 +2812,11 @@
           "rules": 7
         },
         {
-          "name": "ai-provider-radio",
+          "name": "editor-textarea",
           "rules": 6
         },
         {
-          "name": "task-form-inspect-btn",
+          "name": "ai-settings-field",
           "rules": 6
         },
         {
@@ -4123,6 +2826,30 @@
         {
           "name": "product-deps-input",
           "rules": 5
+        },
+        {
+          "name": "product-qa-role-select",
+          "rules": 5
+        },
+        {
+          "name": "search-view-input",
+          "rules": 5
+        },
+        {
+          "name": "form-row",
+          "rules": 4
+        },
+        {
+          "name": "form-actions",
+          "rules": 4
+        },
+        {
+          "name": "ns-formula-input",
+          "rules": 4
+        },
+        {
+          "name": "fm-row-key-input",
+          "rules": 4
         }
       ]
     }

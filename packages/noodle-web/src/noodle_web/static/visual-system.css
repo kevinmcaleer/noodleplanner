@@ -120,6 +120,14 @@
        find: inputs, selects, textareas, secondary buttons. 3.44:1 on paper. */
     --np-border-control: #8C857A;
 
+    /* --np-link and --np-link-hover were referenced by components.css but
+       defined nowhere, so links rendered the hardcoded #1976d2 fallback -- a
+       cool blue in a warm palette. Aliased onto the accent family instead
+       (#1192). .link-button also carries text-decoration: underline, so
+       colour is not the only thing marking a link (WCAG 1.4.1). */
+    --np-link: var(--np-accent-ink);
+    --np-link-hover: var(--np-ink);
+
     /* --- Focus ring (#1191). The app has 67 `outline: none` declarations and
        five competing focus colours; buttons carry 242 :hover rules against 45
        :focus ones.
@@ -200,7 +208,6 @@
     --text-primary: var(--np-ink);
     --text-secondary: var(--np-body);
     --border-color: var(--np-border);
-    --evm-bg: var(--np-paper);
     --evm-card-bg: var(--np-surface);
     --evm-card-border: var(--np-border);
     --evm-chart-bg: var(--np-surface);

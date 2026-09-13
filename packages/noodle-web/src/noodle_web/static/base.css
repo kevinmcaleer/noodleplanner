@@ -8,6 +8,9 @@
     --np-yellow: #ffd641;
     --np-green: #1c9e41;
     --np-blue: #108bb9;
+    /* Referenced by views/whiteboard.css as a connector/category hue but never
+       declared, so it always rendered its hardcoded fallback (#1192). */
+    --np-purple: #9b59b6;
     --np-light-grey: #dbdbdb;
     --np-dark-blue: #02384d;
 
@@ -26,21 +29,18 @@
     --np-anim-duration-slow: 0.4s;
     --np-anim-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
-    /* EVM colour scheme (light theme) */
-    --evm-bg: #ffffff;
-    --evm-card-bg: #ffffff;
-    --evm-card-border: #e0e0e0;
+    /* EVM chart series and axis colours.
+
+       The surface half of this block -- backgrounds, borders, table chrome and
+       the four text roles -- was deleted in #1192: visual-system.css loads
+       later and bridges all ten onto the warm palette, so the declarations
+       here had no effect. What remains is the part visual-system.css does not
+       touch: the plotted series colours, the grid and axis lines, and the
+       positive/negative variance pair. */
     --evm-card-hover-border: #bbb;
-    --evm-chart-bg: #f8f9fa;
     --evm-chart-border: #e0e0e0;
-    --evm-text-primary: #333;
-    --evm-text-secondary: #666;
-    --evm-text-muted: #888;
     --evm-grid-line: #e0e0e0;
     --evm-axis-line: #999;
-    --evm-axis-label: #666;
-    --evm-table-header-bg: #f0f0f0;
-    --evm-table-border: #e0e0e0;
     --evm-line-pv: #2171b5;
     --evm-line-ev: #2ca02c;
     --evm-line-ac: #d62728;
@@ -51,22 +51,12 @@
     --evm-value-color: #4A90D9;
 }
 
-/* EVM dark mode overrides */
+/* EVM dark mode overrides (series and axis only, as above) */
 [data-theme="dark"] {
-    --evm-bg: #1a1a1a;
-    --evm-card-bg: #2a2a2a;
-    --evm-card-border: #3a3a3a;
     --evm-card-hover-border: #555;
-    --evm-chart-bg: #1e1e1e;
     --evm-chart-border: #3a3a3a;
-    --evm-text-primary: #e0e0e0;
-    --evm-text-secondary: #bbb;
-    --evm-text-muted: #999;
     --evm-grid-line: #333;
     --evm-axis-line: #555;
-    --evm-axis-label: #999;
-    --evm-table-header-bg: #2a2a2a;
-    --evm-table-border: #333;
     --evm-line-pv: #4A90D9;
     --evm-line-ev: #50C878;
     --evm-line-ac: #E8744F;

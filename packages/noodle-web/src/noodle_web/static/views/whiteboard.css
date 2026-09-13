@@ -361,7 +361,7 @@
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: var(--np-purple, #9b59b6);
+    color: var(--np-purple);
     cursor: crosshair;
     opacity: 0;
     padding: 0;
@@ -1590,7 +1590,7 @@ body.wb-linking * {
    (`.wb-dep-noodle-path` below), so the drag itself signals which kind of
    link is being drawn without a mode toggle to read first. */
 .wb-dep-noodle-ghost {
-    stroke: var(--np-purple, #9b59b6);
+    stroke: var(--np-purple);
     stroke-width: 2.5;
     stroke-dasharray: 6 5;
     stroke-linecap: round;
@@ -1604,7 +1604,7 @@ body.wb-linking * {
    thing. Same geometry helpers as the hierarchy noodle (see
    whiteboard-dep-noodles.js), different meaning and different look. */
 .wb-dep-noodle-path {
-    stroke: var(--np-purple, #9b59b6);
+    stroke: var(--np-purple);
     stroke-width: 2.5;
     stroke-dasharray: 6 5;
     stroke-linecap: round;
@@ -1614,7 +1614,7 @@ body.wb-linking * {
 }
 
 .wb-dep-noodle-arrow {
-    fill: var(--np-purple, #9b59b6);
+    fill: var(--np-purple);
     opacity: 0.75;
 }
 

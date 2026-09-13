@@ -215,7 +215,15 @@ const canonicalNames = Object.keys(canonical.light).sort()
 
 // --- 2. Whole-app CSS analysis via Project Wallace's css-analyzer, for
 // aggregate health metrics and raw-value token candidates.
-const cssFiles = walkCssFiles(STATIC_DIR)
+// Scope: the stylesheets index.html actually links, in load order. Auditing
+// the directory instead pulls in static/style.css -- 13k lines that #571
+// stopped linking and nothing removed -- and every number comes out describing
+// code the browser never sees. Before this scoping, 45 of the "conflicting
+// multi-file definitions" were conflicts with that dead file alone.
+const INDEX = join(ROOT, 'packages/noodle-web/src/noodle_web/templates/index.html')
+const linkedRel = [...readFileSync(INDEX, 'utf8').matchAll(/href="\/static\/([^"?]+\.css)/g)].map((m) => m[1])
+const cssFiles = linkedRel.map((rel) => join(STATIC_DIR, rel))
+const unlinkedFiles = walkCssFiles(STATIC_DIR).filter((f) => !cssFiles.includes(f))
 const combinedCss = cssFiles
 	.map((f) => `/* == ${relative(ROOT, f)} == */\n${readFileSync(f, 'utf8')}`)
 	.join('\n')
@@ -234,7 +242,10 @@ const usedIn = new Map() // propName -> Set(file)
 for (const file of cssFiles) {
 	const text = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 	const rel = relative(ROOT, file)
-	for (const m of text.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) {
+	// The delimiter before the name matters: without it, the BEM modifier in
+	// `.ben-view-btn--active:hover` reads as a declaration of `--active` and
+	// the token shows up as a defined-but-unused custom property.
+	for (const m of text.matchAll(/(?:^|[;{]|\s)(--[a-zA-Z][a-zA-Z0-9-]*)\s*:/gm)) {
 		const set = definedIn.get(m[1]) ?? new Set()
 		set.add(rel)
 		definedIn.set(m[1], set)
@@ -245,9 +256,43 @@ for (const file of cssFiles) {
 		usedIn.set(m[1], set)
 	}
 }
+// Names defined outside the app's own stylesheets. Bootstrap's CSS is loaded
+// from a CDN and declares --bs-* on :root at runtime; the JS-animated ones are
+// set as inline styles on the element. Neither is a dangling reference, and
+// leaving them in the "unknown" list makes it look like there is always
+// something to fix.
+const EXTERNALLY_DEFINED = new Set([
+	'--bs-primary',                                     // Bootstrap 5.3, via CDN
+	'--circumference', '--percent', '--tx', '--ty',     // set inline by JS
+	'--pf-restless-amplitude', '--wb-outline-depth',    // set inline by JS
+])
+
+// CSS is not the only consumer. mindmap.js and script.js read tokens off the
+// root element with getComputedStyle().getPropertyValue(), so a name used only
+// that way looks unused to a CSS-only scan -- and 18 of them did, including
+// every --evm-line-* chart series colour and the whole --mm-* mind-map set.
+// Deleting those on the strength of a CSS-only "unused" list would have
+// blanked the EVM chart lines.
+const scriptFiles = walkFiles(STATIC_DIR, '.js').filter((f) => !f.includes('/vendor/'))
+for (const file of scriptFiles) {
+	const text = readFileSync(file, 'utf8')
+	const rel = relative(ROOT, file)
+	// Only a quoted token name or a var() reference counts, and only for a
+	// name some stylesheet already declares. A bare --foo match would drag in
+	// every markdown rule and BEM-ish string in the codebase (`---raid`,
+	// `--overdue`, a row of dashes in a template literal) and report them as
+	// dangling references.
+	for (const m of text.matchAll(/(?:['"`]|var\(\s*)(--[a-zA-Z][a-zA-Z0-9-]*)/g)) {
+		if (!definedIn.has(m[1])) continue
+		const set = usedIn.get(m[1]) ?? new Set()
+		set.add(rel)
+		usedIn.set(m[1], set)
+	}
+}
+
 const allPropNames = new Set([...definedIn.keys(), ...usedIn.keys()])
 const trulyUnused = [...allPropNames].filter((n) => definedIn.has(n) && !usedIn.has(n)).sort()
-const trulyUnknown = [...allPropNames].filter((n) => usedIn.has(n) && !definedIn.has(n)).sort()
+const trulyUnknown = [...allPropNames].filter((n) => usedIn.has(n) && !definedIn.has(n) && !EXTERNALLY_DEFINED.has(n)).sort()
 function valuesByFile(name) {
 	const out = {}
 	for (const file of cssFiles) {
@@ -259,10 +304,31 @@ function valuesByFile(name) {
 	return out
 }
 
+// A name declared in two files is only a *token layering* problem when both
+// declarations sit in the global token scope (:root / [data-theme="dark"]).
+// A component that sets --mm-btn-bg on its own selector for light and again
+// for dark is normal scoped theming, and counting it here buried the real
+// conflicts under a pile of false ones.
+function declaredAtGlobalScope(file, name) {
+	const text = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+	for (const m of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+		const sel = m[1].trim()
+		const global = /(^|,)\s*:root\s*(,|$)/.test(sel) || /\[data-theme=["']?dark["']?\]\s*(,|$)/.test(sel)
+		if (!global) continue
+		if (new RegExp(`${name.replace(/-/g, '\\-')}\\s*:`).test(m[2])) return true
+	}
+	return false
+}
+
 const multiFileDefinitions = [...definedIn.entries()]
 	.filter(([, files]) => files.size > 1)
-	.map(([name]) => ({ name, valuesByFile: valuesByFile(name) }))
+	.map(([name, files]) => ({
+		name,
+		valuesByFile: valuesByFile(name),
+		globalScopeFiles: [...files].filter((rel) => declaredAtGlobalScope(join(ROOT, rel), name)),
+	}))
 	.filter(({ valuesByFile: vbf }) => new Set(Object.values(vbf).flat()).size > 1)
+	.filter(({ globalScopeFiles }) => globalScopeFiles.length > 1)
 	.sort((a, b) => a.name.localeCompare(b.name))
 
 // Map canonical hex values -> token name, to spot raw duplicates.
@@ -512,6 +578,12 @@ const outOfBandStyles = collectOutOfBandStyles()
 
 const summary = {
 	filesScanned: cssFiles.map((f) => relative(ROOT, f)),
+	// Present in the static directory but linked by no template, so nothing
+	// here reaches a browser. Reported rather than scanned.
+	filesNotLoaded: unlinkedFiles.map((f) => ({
+		file: relative(ROOT, f),
+		lines: readFileSync(f, 'utf8').split('\n').length,
+	})),
 	stylesheet: {
 		sourceLinesOfCode: analysis.stylesheet.sourceLinesOfCode,
 		complexity: analysis.stylesheet.complexity,

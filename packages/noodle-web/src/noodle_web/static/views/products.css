@@ -427,7 +427,7 @@
 }
 
 .dm-role-dropdown-item:hover {
-    background: var(--surface-hover, rgba(74, 144, 217, 0.1));
+    background: var(--np-bg-hover);
 }
 
 .dm-role-dropdown-item.active {
