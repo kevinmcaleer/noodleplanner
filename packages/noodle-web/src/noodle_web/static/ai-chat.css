@@ -406,7 +406,6 @@
 }
 
 [data-theme="dark"] .ai-agent-chip {
-    background: var(--np-surface-alt);
     border-color: #444;
     color: #ccc;
 }
@@ -417,7 +416,6 @@
 }
 
 [data-theme="dark"] .ai-chat-bubble.assistant {
-    background: var(--np-surface-alt);
     color: #ddd;
 }
 

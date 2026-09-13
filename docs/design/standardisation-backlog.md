@@ -236,9 +236,28 @@ text at 4:1.
   classification is the judgement; the substitution after it is mechanical, and
   `scripts/compare_screens.py` will prove each batch.
 
-  The theme-invariant subset — literals matching a token whose light and dark
-  values are identical, where the hazard does not exist — was already migrated.
-  That was 21 substitutions, and it is the whole of what is safely automatable.
+  **A measurable part of it turned out not to need the decision.** Of the 878
+  hex literals the linter reports, 576 carry a hue — status greens and reds,
+  RAG tints, the editor's syntax theme — where the colour *is* the meaning.
+  Only 302 are neutral, and most of the "cool Bootstrap greyscale" the audit
+  found had been living in the dead `var()` fallbacks removed earlier.
+
+  71 of those neutrals were mapped, under two rules that make each one safe by
+  construction: the literal's lightness must match the token's in the light
+  theme (so a dark literal in `color` becomes `--np-ink`, while a *light* one
+  stays a literal because it is text on something coloured that does not flip),
+  and the token must already look like the literal — within 1.1:1, below the
+  threshold of noticing. Both themes came back pixel-identical, and
+  `check_rendered_contrast.py` reports no new failures.
+
+  The rest needs the decision. `raw-colour` stands at 1,053.
+
+  **The dark theme is a second copy of this problem.** `dark-mode.css` carries
+  480 per-component `[data-theme="dark"]` declarations: the app themes itself
+  per component rather than per token. 24 of them said exactly what the base
+  rule already said and were removed as no-ops. The remaining ~456 are a
+  separate palette maintained by hand, and collapsing them onto the tokens is
+  the same decision as above, seen from the other side.
 
 ## Two nav bugs found in passing
 
