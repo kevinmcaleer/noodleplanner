@@ -50,6 +50,8 @@ from noodle_core import (
     parse_parking_lot_markdown,
     generate_parking_lot_text,
     update_plan_parking_lot,
+    generate_parking_lot_detail_comment,
+    extract_parking_lot_detail,
 )
 
 
@@ -3239,6 +3241,97 @@ class TestUpdatePlanParkingLot:
         result = update_plan_parking_lot(text, items)
         assert '---raid log---' in result
         assert 'R1' in result
+
+
+class TestParkingLotDetail:
+    """Test suite for the parking lot's richer per-item detail (issue
+    #1110): a note's colour and (for a checklist note) its individual
+    child items, riding alongside the flat ID | Text | Date Parked table
+    as an optional JSON comment keyed by row id -- the same "one JSON
+    payload in a comment line" trade-off as TestBaselineHistory's baseline
+    history log above, just keyed per-row rather than being one blob for
+    the whole section.
+    """
+
+    def test_generate_parking_lot_detail_comment_basic(self):
+        detail_map = {'1': {'title': 'Loose Idea', 'colour': '#4A90D9'}}
+        comment = generate_parking_lot_detail_comment(detail_map)
+        assert comment.startswith('<!-- parking-lot-detail: ')
+        assert comment.endswith('-->')
+        assert 'Loose Idea' in comment
+        assert '#4A90D9' in comment
+
+    def test_generate_parking_lot_detail_comment_empty(self):
+        assert generate_parking_lot_detail_comment(None) == ''
+        assert generate_parking_lot_detail_comment({}) == ''
+
+    def test_extract_parking_lot_detail_round_trips(self):
+        detail_map = {
+            '1': {'title': 'Loose Idea', 'colour': '#4A90D9', 'comment': 'A stray thought'},
+            '2': {
+                'title': 'Plan the launch', 'colour': '#D94A4A',
+                'checklist': [{'name': 'Book venue', 'done': True}, {'name': 'Send invites', 'done': False}],
+            },
+        }
+        comment = generate_parking_lot_detail_comment(detail_map)
+        assert extract_parking_lot_detail(comment) == detail_map
+
+    def test_extract_parking_lot_detail_missing_returns_empty(self):
+        assert extract_parking_lot_detail('') == {}
+        assert extract_parking_lot_detail(SAMPLE_PARKING_LOT) == {}
+
+    def test_extract_parking_lot_detail_malformed_json_returns_empty(self):
+        assert extract_parking_lot_detail('<!-- parking-lot-detail: {not json} -->') == {}
+
+    def test_parse_parking_lot_markdown_attaches_detail_by_id(self):
+        detail_map = {'2': {'title': 'Ask about extra budget', 'colour': '#4A90D9'}}
+        text = generate_parking_lot_detail_comment(detail_map) + '\n\n' + SAMPLE_PARKING_LOT
+        items = parse_parking_lot_markdown(text)
+        assert items[0] == {'id': 1, 'text': 'Explore a mobile app', 'date_parked': '2026-03-01'}
+        assert items[1]['detail'] == detail_map['2']
+
+    def test_parse_parking_lot_markdown_without_detail_comment_is_unaffected(self):
+        """A plan written before #1110 (or by hand) has no detail comment
+        at all -- every item parses to exactly the same plain dict as
+        before, with no `detail` key."""
+        items = parse_parking_lot_markdown(SAMPLE_PARKING_LOT)
+        assert items == [
+            {'id': 1, 'text': 'Explore a mobile app', 'date_parked': '2026-03-01'},
+            {'id': 2, 'text': 'Ask about extra budget', 'date_parked': ''},
+        ]
+        assert 'detail' not in items[0]
+        assert 'detail' not in items[1]
+
+    def test_generate_parking_lot_text_round_trips_richer_items(self):
+        items = [
+            {
+                'id': 1, 'text': 'Plan the launch — 2 items', 'date_parked': '2026-03-01',
+                'detail': {
+                    'title': 'Plan the launch', 'colour': '#4A90D9',
+                    'checklist': [{'name': 'Book venue', 'done': True}, {'name': 'Send invites', 'done': False}],
+                },
+            },
+            {'id': 2, 'text': 'A plain hand-typed idea', 'date_parked': ''},
+        ]
+        text = generate_parking_lot_text(items)
+        assert '<!-- parking-lot-detail:' in text
+        assert parse_parking_lot_markdown(text) == items
+
+    def test_generate_parking_lot_text_with_no_detail_items_omits_the_comment(self):
+        items = [{'id': 1, 'text': 'A good idea', 'date_parked': ''}]
+        text = generate_parking_lot_text(items)
+        assert 'parking-lot-detail' not in text
+
+    def test_update_plan_parking_lot_round_trips_detail_through_the_plan(self):
+        plan = "Phase 1\n  Task 1 3d"
+        items = [{
+            'id': 1, 'text': 'Loose Idea — A stray thought', 'date_parked': '2026-03-01',
+            'detail': {'title': 'Loose Idea', 'colour': '#4A90D9', 'comment': 'A stray thought'},
+        }]
+        result = update_plan_parking_lot(plan, items)
+        assert '---parking lot---' in result
+        section = extract_parking_lot(result)
+        assert parse_parking_lot_markdown(section) == items
 
 
 class TestParkingLotNotParsedAsTasks:
