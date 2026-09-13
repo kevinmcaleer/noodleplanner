@@ -165,14 +165,42 @@
     /* --- Status ramp, overlay and shadow tints (#1194, moved here from
        dark-mode.css, which is where the #1024 identity declared them).
 
-       Still the *blue* identity rather than the warm one -- --np-danger is
-       var(--np-red), --np-accent-soft is a blue tint. Reconciling these with
-       --np-danger-ink / --np-accent-tint is a palette decision, deliberately
-       left open. Moving them does not take it; it only means there is one
-       place to take it in. */
+       ## The palette decision, taken (#1194)
+
+       This block used to say the reconciliation was "deliberately left open".
+       It is now taken, and the app had half-taken it already: the RAG badge
+       rules at the foot of this file map rag-red to --np-danger-*, rag-amber
+       to --np-accent-* and rag-green to --np-sage-*. That is a complete
+       status ramp in the warm identity, written once for one component. The
+       decision is to name it and let everything else use it.
+
+       So: danger keeps its existing pair, success *is* sage, warning *is* the
+       marigold accent, and info takes the identity blue with a tint and ink
+       derived to sit in the same contrast band as the other three (light
+       4.8-6.3:1, dark 7.0-7.8:1 for ink-on-tint). The dark info tint is
+       #1C3A47, which is what --np-accent-soft already resolves to in dark --
+       the app had chosen it, it just had no name.
+
+       Every pairing here is gated by scripts/check-contrast.mjs.
+
+       One caveat worth carrying: --np-info on white is 3.88:1, which clears
+       AA for large text but *not* for body text. A filled info badge needs
+       large or bold type, or --np-info-ink on --np-info-tint instead. */
     --np-accent-soft: var(--np-blue-subtle);
     --np-danger: var(--np-red);
     --np-danger-hover: #a01717;
+    --np-success: var(--np-sage);
+    --np-success-hover: #5B6950;
+    --np-success-tint: var(--np-sage-tint);
+    --np-success-ink: var(--np-sage-ink);
+    --np-warning: var(--np-accent);
+    --np-warning-hover: var(--np-accent-hover);
+    --np-warning-tint: var(--np-accent-tint);
+    --np-warning-ink: var(--np-accent-ink);
+    --np-info: var(--np-blue);
+    --np-info-hover: #0d7096;
+    --np-info-tint: #DCEBF2;
+    --np-info-ink: #0A5A78;
     --np-danger-gradient: linear-gradient(135deg, var(--np-red) 0%, #a01717 100%);
     --np-success-gradient: linear-gradient(135deg, var(--np-green) 0%, #16812f 100%);
     --np-info-gradient: linear-gradient(135deg, var(--np-blue) 0%, #0d7096 100%);
@@ -229,10 +257,25 @@
        --np-paper is what keeps it visible on a marigold button. */
     --np-focus-ring-color: #EDB52A;
 
-    /* Status ramp and overlay, moved from dark-mode.css (#1194). */
+    /* Status ramp and overlay, moved from dark-mode.css (#1194). The light
+       block above explains the mapping; this is the same ramp in dark. */
     --np-accent-soft: #1c3a47;
     --np-danger: #e05252;
     --np-danger-hover: #e87070;
+    --np-success: var(--np-sage);
+    --np-success-hover: #BBCBAB;
+    --np-success-tint: var(--np-sage-tint);
+    --np-success-ink: var(--np-sage-ink);
+    --np-warning: var(--np-accent);
+    --np-warning-hover: var(--np-accent-hover);
+    --np-warning-tint: var(--np-accent-tint);
+    --np-warning-ink: var(--np-accent-ink);
+    /* Matches --np-info-gradient's own dark start, which was the only place
+       the dark identity blue was written down. */
+    --np-info: #3fb6e0;
+    --np-info-hover: #5cc5e8;
+    --np-info-tint: #1c3a47;
+    --np-info-ink: #8FD3EC;
     --np-danger-gradient: linear-gradient(135deg, #e05252 0%, #c94040 100%);
     --np-success-gradient: linear-gradient(135deg, #4ecb72 0%, #3aad5c 100%);
     --np-info-gradient: linear-gradient(135deg, #3fb6e0 0%, #2a93b8 100%);
@@ -305,6 +348,49 @@
    except the last five, so this reaches elements that never had a focus style
    without displacing the ones that did.
    --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   Interactive base layer (#1194, task 5 of the epic: standardise buttons).
+
+   The epic asked for the button styles to be consolidated. Looking for
+   duplicate *rules* found almost nothing -- of 116 button class names exactly
+   one group shares a byte-identical base rule -- and that reading was reported
+   as "there is nothing to deduplicate". At the level of individual
+   declarations it is not true: 269 `cursor: pointer` declarations exist in the
+   linked stylesheets, 127 of them on button selectors, all saying the same
+   thing about the same kind of element.
+
+   That is the part of a button that is not a design decision. It gets stated
+   once here, and the 127 copies are deleted.
+
+   `:where()` so the whole selector has **zero** specificity. Every existing
+   component rule -- including any that deliberately sets `cursor: default` or
+   `text` -- still outranks it, whatever its own specificity, and whatever the
+   load order. Nothing here can win an argument with a component; it can only
+   fill a gap.
+
+   Deliberately not in here: padding, radius, colour, font, transition, or a
+   minimum target size. Each of those *is* a design decision, and pushing one
+   into a base layer that everything inherits is how a "consolidation" quietly
+   restyles the app. Target size in particular is measured and gated by
+   tests/ui/test_target_size.py instead, which is the honest way to hold a
+   line without moving 250 rules to do it.
+   --------------------------------------------------------------------------- */
+/* `select` is deliberately absent. Six rules in the app already give a
+   clickable `label` a pointer, so including `label[for]` here makes an
+   existing choice consistent -- but nothing anywhere styles a select's
+   cursor, so adding one would be this layer making a design decision on the
+   app's behalf, which is the thing the note above says it must not do. */
+:where(button, [role="button"], summary, label[for], a[href], area[href]) {
+    cursor: pointer;
+}
+
+/* A control that cannot be used should not claim it can. 11 rules already say
+   this; they are left alone, since this only reaches the ones that do not. */
+:where(button, [role="button"], select, input, textarea):disabled,
+:where([aria-disabled="true"]) {
+    cursor: not-allowed;
+}
+
 a[href]:focus-visible,
 area[href]:focus-visible,
 button:focus-visible,

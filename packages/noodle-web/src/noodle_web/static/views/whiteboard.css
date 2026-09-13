@@ -22,7 +22,7 @@
     gap: var(--np-space-8);
     padding: var(--np-space-8) var(--np-space-16);
     background: var(--np-sunken);
-    border-bottom: 1px solid #d0d0d0;
+    border-bottom: 1px solid var(--np-border-strong);
     flex-shrink: 0;
 }
 
@@ -40,7 +40,7 @@
     height: 32px;
     border: 1px solid #c0c0c0;
     border-radius: 6px;
-    background: #e4e4e4;
+    background: var(--np-sunken);
     color: var(--np-body);
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
@@ -335,7 +335,6 @@
     border-radius: 6px;
     background: var(--np-bg-alt, #f5f6f8);
     color: inherit;
-    cursor: pointer;
     padding: var(--np-space-8);
 }
 
@@ -429,7 +428,6 @@
     border-radius: 6px;
     background: var(--np-bg-alt, #f5f6f8);
     color: inherit;
-    cursor: pointer;
 }
 
 .wb-coaching-types button {
@@ -1739,7 +1737,6 @@ body.wb-note-drag-active * {
     border-radius: 4px;
     background: transparent;
     color: inherit;
-    cursor: pointer;
     opacity: 0.7;
 }
 
@@ -1895,7 +1892,6 @@ body.wb-linking * {
    board stays clean. */
 .wb-noodle-cut {
     display: none;
-    cursor: pointer;
 }
 
 .wb-noodle.selected .wb-noodle-cut {
@@ -2377,7 +2373,6 @@ body.wb-linking * {
     font-weight: 600;
     letter-spacing: 0.02em;
     text-transform: uppercase;
-    cursor: pointer;
     box-shadow: 0 3px 12px var(--np-shadow);
     z-index: 5;
 }

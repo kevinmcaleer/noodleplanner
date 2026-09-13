@@ -457,10 +457,6 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .template-card:hover {
-    border-color: var(--np-accent);
-}
-
 /* Keyboard shortcut modal */
 [data-theme="dark"] .keyboard-shortcuts-content kbd {
     background: var(--np-surface-alt);
@@ -710,10 +706,6 @@ body {
     accent-color: var(--np-accent);
 }
 
-[data-theme="dark"] .gantt-scale-selector label {
-    color: var(--np-accent);
-}
-
 [data-theme="dark"] .gantt-scale-selector select {
     background: var(--np-input-bg);
     color: var(--np-text);
@@ -726,10 +718,6 @@ body {
 
 [data-theme="dark"] .tasks-title {
     color: var(--np-text);
-}
-
-[data-theme="dark"] .gantt-disclosure-triangle:hover {
-    color: var(--np-accent);
 }
 
 /* ---- Board View (Kanban) ---- */
@@ -1193,7 +1181,6 @@ body {
 }
 
 [data-theme="dark"] .lookahead-info {
-    background: var(--np-surface-alt);
     color: var(--np-text);
 }
 
@@ -1316,8 +1303,6 @@ body {
 }
 
 [data-theme="dark"] .budget-view-toggle {
-    background: var(--np-accent);
-    color: var(--np-on-accent);
     border-color: var(--np-accent);
 }
 
@@ -1480,7 +1465,6 @@ body {
 }
 
 [data-theme="dark"] .resource-sheet-task-name {
-    background: var(--np-surface);
     color: var(--np-text);
 }
 
@@ -1740,7 +1724,6 @@ body {
 }
 
 [data-theme="dark"] .portfolio-subnav-btn:hover {
-    color: var(--np-accent);
     background: rgba(123, 143, 240, 0.1);
 }
 
@@ -1761,7 +1744,6 @@ body {
 }
 
 [data-theme="dark"] .portfolio-more-menu {
-    background: var(--np-surface);
     border-color: var(--np-border);
     box-shadow: 0 4px 12px var(--np-shadow-strong);
 }
@@ -1779,7 +1761,6 @@ body {
 }
 
 [data-theme="dark"] .portfolio-empty-state {
-    background: var(--np-surface);
     box-shadow: 0 1px 3px var(--np-shadow);
 }
 
@@ -1845,7 +1826,6 @@ body {
 }
 
 [data-theme="dark"] .portfolio-status-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -2064,7 +2044,6 @@ body {
 }
 
 [data-theme="dark"] .portfolio-risks-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -2293,7 +2272,8 @@ body {
 
 [data-theme="dark"] .ben-connection { stroke: #9CA3AF;
 }
-[data-theme="dark"] .ben-arrow { fill: #9CA3AF; }
+[data-theme="dark"] .ben-arrow { fill: #9CA3AF;
+}
 
 [data-theme="dark"] .ben-tracking-table {
     background: var(--np-surface);
@@ -2348,7 +2328,6 @@ body {
 
 [data-theme="dark"] .version-readonly-banner .btn-sm {
     border-color: rgba(255,255,255,0.5);
-    color: #fff;
 }
 
 [data-theme="dark"] .version-readonly-banner .btn-sm:hover {

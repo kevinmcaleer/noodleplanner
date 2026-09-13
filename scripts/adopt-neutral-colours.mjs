@@ -148,10 +148,28 @@ for (const rel of linked) {
 
 	// Rewrite rule by rule so the selector is available: a rule already scoped
 	// to a theme has made its own decision and is left alone.
-	const out = original.replace(/(^|[{};])(\s*)([^{};@]+?)(\s*)\{([^{}]*)\}/g,
-		(whole, lead, ws1, selector, ws2, body) => {
+	// A lookbehind, not a captured delimiter. `(^|[{};])(\s*)(...)` consumes the
+	// `}` that ends the previous rule, so the *next* rule has no delimiter left to
+	// match against and is skipped -- the scan sees exactly every other rule. On
+	// components.css that was 648 rules of 1,270, and it is why an earlier run of
+	// this file reported zero occurrences of literals that are plainly in it.
+	const out = original.replace(/(?<=^|[{};])(\s*)([^{};@]+?)(\s*)\{([^{}]*)\}/g,
+		(whole, ws1, selector, ws2, body) => {
 			if (!selector.trim() || selector.trim().startsWith('@')) return whole
 			if (/\[data-theme=["']?dark["']?\]/.test(selector)) return whole
+
+			// A near-neutral that shares its rule with a *chromatic* colour is
+			// half of a deliberate pair, not a stray grey. `.ns-cell.ns-selected`
+			// is the case that forced this: `outline: 2px solid #217346` with
+			// `background: #e8f4eb`, an Excel-green selection whose fill has a
+			// channel spread of exactly 12 and so slipped under the neutrality
+			// test. Mapping the fill to --np-surface-alt and leaving the green
+			// outline would have broken the pairing while passing every check
+			// this script runs.
+			const hasChromatic = [...body.matchAll(/#[0-9a-fA-F]{3,6}\b/g)]
+				.map((m) => norm(m[0]))
+				.some((hex) => hex && !isNeutral(hex))
+			if (hasChromatic) return whole
 
 			const nextBody = body.replace(/([a-zA-Z-]+)(\s*:\s*)([^;]+)/g, (decl, prop, sep, value) => {
 				const p = prop.trim()
@@ -168,7 +186,7 @@ for (const rel of linked) {
 				})
 				return `${prop}${sep}${nextValue}`
 			})
-			return `${lead}${ws1}${selector}${ws2}{${nextBody}}`
+			return `${ws1}${selector}${ws2}{${nextBody}}`
 		})
 
 	if (!count) continue

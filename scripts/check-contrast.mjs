@@ -153,6 +153,26 @@ const PAIRINGS = [
 	{ fg: '--np-danger-ink', bg: '--np-danger-tint', min: 4.5, what: 'text on a danger tint' },
 	{ fg: '--np-danger-ink', bg: '--np-paper', min: 4.5, what: 'danger text on the page' },
 
+	// The rest of the status ramp (#1194), same shape as danger above. These
+	// are what the Bootstrap/Material/Open Color literals scattered through
+	// the view stylesheets were replaced by, so a regression here is a
+	// regression in every alert, toast and status badge at once.
+	{ fg: '--np-success-ink', bg: '--np-success-tint', min: 4.5, what: 'text on a success tint' },
+	{ fg: '--np-success-ink', bg: '--np-paper', min: 4.5, what: 'success text on the page' },
+	{ fg: '--np-warning-ink', bg: '--np-warning-tint', min: 4.5, what: 'text on a warning tint' },
+	{ fg: '--np-warning-ink', bg: '--np-paper', min: 4.5, what: 'warning text on the page' },
+	{ fg: '--np-info-ink', bg: '--np-info-tint', min: 4.5, what: 'text on an info tint' },
+	{ fg: '--np-info-ink', bg: '--np-paper', min: 4.5, what: 'info text on the page' },
+
+	// The filled variants. A solid status chip is a UI component boundary
+	// (SC 1.4.11) rather than text, so 3:1 -- and --np-info is 3.88:1 on
+	// white, which is exactly why it is checked at 3 and not at 4.5. Anything
+	// putting body text on a filled --np-info swatch has to use the ink/tint
+	// pair instead; the comment in visual-system.css says so too.
+	{ fg: '--np-danger', bg: '--np-paper', min: 3, what: 'filled danger against the page' },
+	{ fg: '--np-success', bg: '--np-paper', min: 3, what: 'filled success against the page' },
+	{ fg: '--np-info', bg: '--np-paper', min: 3, what: 'filled info against the page' },
+
 	// Non-text contrast (WCAG 2.2 SC 1.4.11): the visual boundary of a UI
 	// component, and any focus indicator, needs 3:1.
 	//

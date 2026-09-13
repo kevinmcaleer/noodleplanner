@@ -163,6 +163,46 @@ on purpose or by history, and choosing to make groups of them look the same —
 the button-role question below — remains a design decision for a person, not
 a refactor this epic can complete on its own authority.
 
+**A third pass found duplication one level further down: declarations, not
+rules.** Everything above looks for rules that match. Looking instead at
+individual declarations, there were **269 `cursor: pointer`** in the linked
+stylesheets, 127 of them on button selectors — every one saying the same thing
+about the same kind of element, and none of it a design decision.
+`visual-system.css` now carries an interactive base layer stating it once, in
+`:where()` so the selector has zero specificity and every component rule
+outranks it whatever the load order. `scripts/drop-redundant-cursor.mjs`
+removes the copies, but only where the selector provably names a covered
+element — 17 of them; the other 251 stay, because a static read of
+`.kanban-btn` cannot tell whether it is on a `<button>` or a `<div>`, and
+guessing generously deletes a declaration nothing replaces.
+
+That risk is not hypothetical. The first version covered `select` in both the
+base layer and the removal regex; dropping it from the base — the app styles
+no select cursor anywhere, so covering it would have been the layer making a
+design decision rather than filling a gap — left the removals behind and every
+select silently reverted to the default arrow. What caught it was comparing
+the computed `cursor` of all 867 element signatures across all 39 views before
+and after. One value legitimately changes: `button.btn-sm`, `default` →
+`pointer`, a `<button>` that had been showing an arrow while 127 sibling rules
+said otherwise.
+
+Deliberately *not* in that layer: padding, radius, colour, font, transition,
+minimum size. Each is a design decision, and pushing one into a layer
+everything inherits is how a consolidation quietly restyles an app.
+
+**And measuring what the buttons render as answers something rule-counting
+cannot.** 13 of the app's 55 distinct interactive targets are under 24×24 —
+WCAG 2.2 SC 2.5.8 (Target Size (Minimum), AA).
+`tests/ui/test_target_size.py` ratchets it: a new one fails, and so does a
+listed one that has quietly been fixed, since a stale entry would mask the
+next regression. A ratchet rather than a pass/fail against the standard,
+because several are genuinely exempt — `.splitter-arrow` is 8px wide because
+it is a drag handle between two panes — and several miss on one axis by a
+pixel. Each entry carries a line saying which it is. The tempting shortcut,
+`min-height: 24px` in the base layer, fixes the number and resizes the ribbon,
+the whiteboard outline and the calendar's "+2 more" affordance on the way
+past.
+
 What would make *that* tractable, in order: pick the two or three button roles
 the system should actually have (primary, secondary, icon-only?), build them
 in the gallery so they can be seen side by side against the 116 that exist,
@@ -305,7 +345,61 @@ text at 4:1.
   threshold of noticing. Both themes came back pixel-identical, and
   `check_rendered_contrast.py` reports no new failures.
 
-  The rest needs the decision. `raw-colour` stands at 1,053.
+  **✅ The decision is taken.** "576 carry a hue, so the colour is the meaning"
+  was too blunt a reading. Sorting the chromatic literals by *origin* rather
+  than by hue says why: 186 are recognisably **Bootstrap 5, Material Design or
+  Open Color**. Five different reds mean danger; four different greens mean
+  success. That is not meaning, it is three vendors' palettes arriving with
+  whoever wrote each view.
+
+  `visual-system.css` had a comment calling the reconciliation between the warm
+  identity and the older blue one "a palette decision, deliberately left open".
+  The app had half-taken it already — the RAG badge rules at the foot of that
+  same file map rag-red to `--np-danger-*`, rag-amber to `--np-accent-*` and
+  rag-green to `--np-sage-*`, a complete status ramp written once for one
+  component. So: danger keeps its pair, **success is sage**, **warning is the
+  marigold accent**, **info is the identity blue** with a tint and ink derived
+  into the same contrast band as the other three. All four carry
+  base/hover/tint/ink in both themes, and `check-contrast.mjs` went 58 → 76
+  pairings, all passing. One caveat is recorded rather than left to be
+  rediscovered: `--np-info` on white is 3.88:1, so a filled info badge needs
+  large type or the ink/tint pair.
+
+  `scripts/adopt-status-ramp.mjs` maps 229 literals onto it, from an explicit
+  table rather than a selector-regex classifier — the regex handles
+  `.alert-warning` and guesses at the 145 findings whose selectors say nothing
+  about role. Two things fell out of doing it:
+
+  - **A tint background pairs with the ink, never with the base.** Mapping
+    foregrounds while leaving pale vendor tints behind them put five badges
+    below AA. The fix is a rule, not five patches: any rule ending up with
+    `background: var(--np-X-tint)` has its `color: var(--np-X)` promoted.
+  - **The rule-matching regex in three of these scripts only ever saw half the
+    file.** `(^|[{};])(...)` *consumes* the `}` that ends the previous rule, so
+    the next rule has no delimiter left — every other rule, all the way down;
+    648 of 1,270 on `components.css`. The two already-run scripts had therefore
+    under-applied by roughly half. Re-running them found 63 more neutrals and
+    13 more redundant dark overrides — and **fixed dark mode's unreadable "Up
+    Next" table**, whose text had been dark-on-dark because its surface was a
+    hard-coded light grey that never learned to flip. That is the largest
+    single change any pass in this epic has produced, and notably
+    `check_rendered_contrast.py` did *not* flag it: the pixel diff caught it.
+    Neither tool subsumes the other.
+
+  One mapping had to be stopped: `.ns-cell.ns-selected` is the noodlesheet's
+  Excel-style selection, `outline: 2px solid #217346` with `background:
+  #e8f4eb`. That fill has a channel spread of exactly 12 and so passed the
+  neutrality test by one; mapping it would have left a green outline round a
+  warm-grey fill. The guard is a rule rather than an exception — a near-neutral
+  sharing its rule with a chromatic literal is half of a deliberate pairing.
+
+  51 neutral shadow colours are tokenised too. Light is byte-identical; dark
+  gains elevation it never had, since `rgba(0,0,0,0.1)` on a `#201E1A` surface
+  is invisible. The captures cannot show that (no menu or dialog is open in the
+  39 views), so it was confirmed by reading the computed style directly.
+
+  `raw-colour` went **1,062 → 762**. What is left is the genuinely semantic
+  remainder: the editor's syntax theme, the RAG ramp, chart series colours.
 
   **The dark theme is a second copy of this problem.** `dark-mode.css` carries
   480 per-component `[data-theme="dark"]` declarations: the app themes itself
@@ -442,7 +536,7 @@ goes down:
 
 | Rule | Now |
 |---|---|
-| `raw-colour` | 1,090 |
+| `raw-colour` | 1,090 → **762** |
 | `off-scale-spacing` | 5 |
 | `token-outside-canonical` | 0 |
 | `unpaired-outline-none` | 0 |
@@ -460,9 +554,19 @@ nothing about where they resolve — a custom property resolves from the cascade
 value on the element, not from where in the file it was declared — and that was
 confirmed pixel-identical across all 39 views in both themes.
 
-`raw-colour` is now the only rule with real numbers behind it, and it is the
-palette decision described below — the one thing in this epic that a person has
-to make rather than verify.
+`raw-colour` is now the only rule with real numbers behind it, and the palette
+decision it was waiting on has been taken (see above): the semantic status ramp
+is named, gated and adopted, and the count fell 1,090 → 762. What remains is
+the genuinely semantic residue — the editor's syntax theme, the RAG ramp, chart
+series colours — where the colour carries the meaning and a token would destroy
+it.
+
+The only item in this epic that still needs a person is the **Penpot project**:
+creating it needs an account this work does not have. Everything it imports is
+generated, and now gated — `tests/test_design_token_export.py` fails if
+`docs/design/tokens/*.json` drifts from `visual-system.css`. It had drifted:
+the export carried no `warning` token at all, so importing today would have
+handed a designer a palette missing the very ramp the decision above settled.
 
 Band 2 alone does not get these near the token counts, and it is not supposed
 to — it removes the duplicates so that band 4's judgement calls are made

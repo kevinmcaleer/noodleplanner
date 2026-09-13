@@ -476,7 +476,7 @@
     color: var(--np-text-secondary);
     background: var(--np-code-bg);
     border-radius: 6px;
-    border-left: 3px solid #198754;
+    border-left: 3px solid var(--np-success);
 }
 
 .ai-tool-call-icon {
@@ -489,7 +489,7 @@
 }
 
 .ai-tool-call-result {
-    color: #198754;
+    color: var(--np-success);
 }
 
 /* ── Plan Applied Banner ─────────────────────────── */

@@ -400,7 +400,7 @@
     height: 40px;
     top: 50%;
     transform: translateY(-50%);
-    background: #dc3545;
+    background: var(--np-danger);
     z-index: 5;
     pointer-events: none;
 }
@@ -411,7 +411,7 @@
     left: 50%;
     transform: translateX(-50%);
     font-size: 0.65em;
-    color: #dc3545;
+    color: var(--np-danger);
     font-weight: 600;
     white-space: nowrap;
 }

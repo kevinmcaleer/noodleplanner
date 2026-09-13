@@ -27,21 +27,16 @@
     "packages/noodle-web/src/noodle_web/static/ai-chat.css",
     "packages/noodle-web/src/noodle_web/static/front-matter-panel.css"
   ],
-  "filesNotLoaded": [
-    {
-      "file": "packages/noodle-web/src/noodle_web/static/style.css",
-      "lines": 13170
-    }
-  ],
+  "filesNotLoaded": [],
   "stylesheet": {
-    "sourceLinesOfCode": 17576,
-    "complexity": 50861
+    "sourceLinesOfCode": 17862,
+    "complexity": 51653
   },
   "rules": {
-    "total": 3922
+    "total": 3966
   },
   "selectors": {
-    "totalUnique": 3831,
+    "totalUnique": 3890,
     "maxSpecificity": [
       1,
       4,
@@ -49,11 +44,12 @@
     ]
   },
   "customProperties": {
-    "totalDeclarations": 308,
-    "totalUniqueNames": 189,
+    "totalDeclarations": 332,
+    "totalUniqueNames": 201,
     "unused": [
       "--np-elevation-2",
       "--np-elevation-4",
+      "--np-info-hover",
       "--np-ink-hover",
       "--np-leading-normal",
       "--np-leading-tight",
@@ -62,30 +58,34 @@
       "--np-radius-xs",
       "--np-space-0",
       "--np-space-64",
+      "--np-success-hover",
       "--np-text-110",
       "--np-text-150",
       "--np-text-180",
       "--np-text-200",
+      "--np-warning-hover",
       "--np-weight-bold",
       "--np-weight-regular"
     ],
     "unknown": [],
     "conflictingMultiFileDefinitions": []
   },
-  "canonicalTokenCount": 150,
+  "canonicalTokenCount": 162,
   "colors": {
-    "totalUnique": 510,
-    "duplicateOfTokenCount": 20,
+    "totalUnique": 492,
+    "duplicateOfTokenCount": 23,
     "duplicateOfToken": [
       {
-        "id": "blue-61a64a14",
-        "hex": "#108BB9",
-        "authoredAs": "rgba(16, 139, 185, 0.22)",
-        "usage": 5,
+        "id": "blue-d1b6fafc",
+        "hex": "#0D7096",
+        "authoredAs": "#0d7096",
+        "usage": 6,
         "props": [
-          "background"
+          "background",
+          "--np-info-hover",
+          "--np-info-gradient"
         ],
-        "matchedToken": "--np-blue"
+        "matchedToken": "--np-info-hover"
       },
       {
         "id": "blue-c957f1dd",
@@ -95,7 +95,7 @@
         "props": [
           "background"
         ],
-        "matchedToken": "--np-blue"
+        "matchedToken": "--np-info"
       },
       {
         "id": "blue-ae4edc34",
@@ -110,6 +110,16 @@
         "matchedToken": "--np-dark-blue"
       },
       {
+        "id": "blue-61a64a14",
+        "hex": "#108BB9",
+        "authoredAs": "rgba(16, 139, 185, 0.22)",
+        "usage": 4,
+        "props": [
+          "background"
+        ],
+        "matchedToken": "--np-info"
+      },
+      {
         "id": "blue-c957f1e0",
         "hex": "#108BB9",
         "authoredAs": "rgba(16, 139, 185, 0.4)",
@@ -117,7 +127,7 @@
         "props": [
           "box-shadow"
         ],
-        "matchedToken": "--np-blue"
+        "matchedToken": "--np-info"
       },
       {
         "id": "orange-d53e8ee5",
@@ -128,7 +138,7 @@
           "--np-accent",
           "--np-focus-ring-color"
         ],
-        "matchedToken": "--np-focus-ring-color"
+        "matchedToken": "--np-warning"
       },
       {
         "id": "red-c9e79382",
@@ -150,7 +160,7 @@
         "props": [
           "background"
         ],
-        "matchedToken": "--np-blue"
+        "matchedToken": "--np-info"
       },
       {
         "id": "blue-61a649f8",
@@ -160,7 +170,7 @@
         "props": [
           "box-shadow"
         ],
-        "matchedToken": "--np-blue"
+        "matchedToken": "--np-info"
       },
       {
         "id": "blue-c957f1e1",
@@ -168,10 +178,10 @@
         "authoredAs": "rgba(16, 139, 185, 0.5)",
         "usage": 2,
         "props": [
-          "box-shadow",
-          "background"
+          "background",
+          "box-shadow"
         ],
-        "matchedToken": "--np-blue"
+        "matchedToken": "--np-info"
       },
       {
         "id": "blue-61a64a74",
@@ -181,7 +191,29 @@
         "props": [
           "box-shadow"
         ],
-        "matchedToken": "--np-blue"
+        "matchedToken": "--np-info"
+      },
+      {
+        "id": "blue-70cdcdcf",
+        "hex": "#1C3A47",
+        "authoredAs": "#1c3a47",
+        "usage": 2,
+        "props": [
+          "--np-info-tint",
+          "--np-accent-soft"
+        ],
+        "matchedToken": "--np-info-tint"
+      },
+      {
+        "id": "blue-d964b52f",
+        "hex": "#3FB6E0",
+        "authoredAs": "#3fb6e0",
+        "usage": 2,
+        "props": [
+          "--np-info-gradient",
+          "--np-info"
+        ],
+        "matchedToken": "--np-info"
       },
       {
         "id": "orange-9b8cd054",
@@ -225,7 +257,7 @@
           "--np-accent-ink",
           "--np-focus-ring-color"
         ],
-        "matchedToken": "--np-link"
+        "matchedToken": "--np-warning-ink"
       },
       {
         "id": "orange-d5f5546b",
@@ -269,7 +301,7 @@
           "--np-accent-hover",
           "--np-accent-ink"
         ],
-        "matchedToken": "--np-link"
+        "matchedToken": "--np-warning-ink"
       },
       {
         "id": "orange-65d0bf2f",
@@ -296,10 +328,27 @@
     ],
     "topUnmatched": [
       {
+        "id": "black-edec3e7a",
+        "hex": "#000000",
+        "authoredAs": "transparent",
+        "usage": 139,
+        "props": [
+          "background",
+          "color",
+          "background-color",
+          "border-right",
+          "border-bottom",
+          "border-left",
+          "box-shadow",
+          "border",
+          "border-top"
+        ]
+      },
+      {
         "id": "white-edecb6ba",
         "hex": "#FFFFFF",
         "authoredAs": "white",
-        "usage": 150,
+        "usage": 127,
         "props": [
           "stroke",
           "background",
@@ -316,107 +365,6 @@
           "--mm-inline-input-bg",
           "--mm-canvas-bg",
           "--mm-node-fill"
-        ]
-      },
-      {
-        "id": "black-edec3e7a",
-        "hex": "#000000",
-        "authoredAs": "transparent",
-        "usage": 132,
-        "props": [
-          "background",
-          "color",
-          "background-color",
-          "border-right",
-          "border-bottom",
-          "border-left",
-          "border"
-        ]
-      },
-      {
-        "id": "black-23d68dbd",
-        "hex": "#000000",
-        "authoredAs": "rgba(0, 0, 0, 0.1)",
-        "usage": 41,
-        "props": [
-          "box-shadow",
-          "background",
-          "border",
-          "--np-shadow"
-        ]
-      },
-      {
-        "id": "red-e4bf887a",
-        "hex": "#DC3545",
-        "authoredAs": "#dc3545",
-        "usage": 24,
-        "props": [
-          "background",
-          "color",
-          "border-color",
-          "border-left"
-        ]
-      },
-      {
-        "id": "grey-fdb1d2f4",
-        "hex": "#E0E0E0",
-        "authoredAs": "#e0e0e0",
-        "usage": 22,
-        "props": [
-          "--evm-chart-border",
-          "--evm-grid-line",
-          "background",
-          "color",
-          "background-color",
-          "border",
-          "--mm-node-text",
-          "--mm-plus-btn-fill",
-          "--mm-inline-input-text",
-          "fill"
-        ]
-      },
-      {
-        "id": "blue-24327fbf",
-        "hex": "#495057",
-        "authoredAs": "#495057",
-        "usage": 20,
-        "props": [
-          "color"
-        ]
-      },
-      {
-        "id": "green-4abf4310",
-        "hex": "#28A745",
-        "authoredAs": "#28a745",
-        "usage": 18,
-        "props": [
-          "background",
-          "color",
-          "border-color",
-          "border-left",
-          "border"
-        ]
-      },
-      {
-        "id": "black-56fb2a18",
-        "hex": "#000000",
-        "authoredAs": "rgba(0,0,0,0.15)",
-        "usage": 18,
-        "props": [
-          "box-shadow",
-          "background",
-          "--np-shadow-strong"
-        ]
-      },
-      {
-        "id": "blue-798a2377",
-        "hex": "#E9ECEF",
-        "authoredAs": "#e9ecef",
-        "usage": 17,
-        "props": [
-          "background",
-          "border-bottom",
-          "border"
         ]
       },
       {
@@ -452,16 +400,20 @@
         ]
       },
       {
-        "id": "red-1e3bca99",
-        "hex": "#C62828",
-        "authoredAs": "#c62828",
-        "usage": 16,
+        "id": "grey-fdb1d2f4",
+        "hex": "#E0E0E0",
+        "authoredAs": "#e0e0e0",
+        "usage": 15,
         "props": [
+          "--evm-chart-border",
+          "--evm-grid-line",
           "background",
           "color",
-          "border-color",
-          "border-left",
-          "border"
+          "border",
+          "--mm-node-text",
+          "--mm-plus-btn-fill",
+          "--mm-inline-input-text",
+          "fill"
         ]
       },
       {
@@ -477,6 +429,21 @@
           "--mm-zoom-label-text",
           "--mm-hint-text",
           "fill"
+        ]
+      },
+      {
+        "id": "grey-200d8c6c",
+        "hex": "#3A3A3A",
+        "authoredAs": "#3a3a3a",
+        "usage": 13,
+        "props": [
+          "--evm-chart-border",
+          "background",
+          "border-bottom",
+          "--mm-btn-bg",
+          "--mm-btn-hover-bg",
+          "fill",
+          "border-top"
         ]
       },
       {
@@ -499,55 +466,15 @@
         ]
       },
       {
-        "id": "blue-9a5958c1",
-        "hex": "#ADB5BD",
-        "authoredAs": "#adb5bd",
+        "id": "grey-8fc3cdd4",
+        "hex": "#777777",
+        "authoredAs": "#777",
         "usage": 12,
         "props": [
           "background",
           "color",
-          "border-color",
-          "border"
-        ]
-      },
-      {
-        "id": "orange-4d7dd578",
-        "hex": "#FFC107",
-        "authoredAs": "#ffc107",
-        "usage": 12,
-        "props": [
-          "background",
-          "color",
-          "border-left",
-          "border"
-        ]
-      },
-      {
-        "id": "grey-200d8c6c",
-        "hex": "#3A3A3A",
-        "authoredAs": "#3a3a3a",
-        "usage": 12,
-        "props": [
-          "--evm-chart-border",
-          "background",
-          "border-bottom",
-          "--mm-btn-bg",
-          "--mm-btn-hover-bg",
-          "fill"
-        ]
-      },
-      {
-        "id": "grey-a2b90ae0",
-        "hex": "#DDDDDD",
-        "authoredAs": "#ddd",
-        "usage": 12,
-        "props": [
-          "background",
-          "color",
-          "border-bottom",
-          "--mm-toolbar-border",
-          "--mm-btn-text",
-          "--mm-placeholder-heading"
+          "--mm-hint-text",
+          "--mm-placeholder-text"
         ]
       },
       {
@@ -556,9 +483,24 @@
         "authoredAs": "rgba(0, 0, 0, 0.3)",
         "usage": 12,
         "props": [
-          "box-shadow",
           "background",
+          "box-shadow",
           "--np-shadow"
+        ]
+      },
+      {
+        "id": "blue-3137d3c5",
+        "hex": "#4A90D9",
+        "authoredAs": "#4a90d9",
+        "usage": 11,
+        "props": [
+          "--evm-line-pv",
+          "--evm-value-color",
+          "background",
+          "color",
+          "border-bottom-color",
+          "outline",
+          "border-top-color"
         ]
       },
       {
@@ -576,14 +518,16 @@
         ]
       },
       {
-        "id": "blue-fd5c9b17",
-        "hex": "#1976D2",
-        "authoredAs": "#1976d2",
-        "usage": 10,
+        "id": "grey-d8c560c3",
+        "hex": "#888888",
+        "authoredAs": "#888",
+        "usage": 11,
         "props": [
-          "background",
+          "--evm-bac-line",
           "color",
-          "border-left"
+          "border-color",
+          "--mm-hint-text",
+          "--mm-placeholder-text"
         ]
       },
       {
@@ -599,27 +543,30 @@
         ]
       },
       {
-        "id": "grey-d8c560c3",
-        "hex": "#888888",
-        "authoredAs": "#888",
+        "id": "grey-a2b90ae0",
+        "hex": "#DDDDDD",
+        "authoredAs": "#ddd",
         "usage": 10,
         "props": [
-          "--evm-bac-line",
           "color",
-          "border-color",
-          "--mm-hint-text",
-          "--mm-placeholder-text"
+          "border-bottom",
+          "--mm-toolbar-border",
+          "--mm-btn-text",
+          "--mm-placeholder-heading"
         ]
       },
       {
-        "id": "grey-5392f67",
-        "hex": "#D4D4D4",
-        "authoredAs": "#d4d4d4",
+        "id": "grey-8d6c0835",
+        "hex": "#666666",
+        "authoredAs": "#666",
         "usage": 10,
         "props": [
+          "stroke",
           "color",
-          "--mm-btn-hover-bg",
-          "caret-color"
+          "border-color",
+          "--mm-zoom-label-text",
+          "--mm-hint-text",
+          "fill"
         ]
       },
       {
@@ -628,7 +575,91 @@
         "authoredAs": "rgba(0, 0, 0, 0.08)",
         "usage": 10,
         "props": [
-          "box-shadow",
+          "background",
+          "box-shadow"
+        ]
+      },
+      {
+        "id": "blue-fd5c9b17",
+        "hex": "#1976D2",
+        "authoredAs": "#1976d2",
+        "usage": 9,
+        "props": [
+          "background",
+          "border-left"
+        ]
+      },
+      {
+        "id": "grey-5392f67",
+        "hex": "#D4D4D4",
+        "authoredAs": "#d4d4d4",
+        "usage": 9,
+        "props": [
+          "color",
+          "--mm-btn-hover-bg",
+          "caret-color"
+        ]
+      },
+      {
+        "id": "white-2599f23d",
+        "hex": "#FFFFFF",
+        "authoredAs": "rgba(255, 255, 255, 0.2)",
+        "usage": 9,
+        "props": [
+          "background",
+          "background-color",
+          "border-right"
+        ]
+      },
+      {
+        "id": "blue-f0733271",
+        "hex": "#D8DCE1",
+        "authoredAs": "#d8dce1",
+        "usage": 8,
+        "props": [
+          "border-bottom",
+          "border",
+          "border-top"
+        ]
+      },
+      {
+        "id": "blue-3cfe999e",
+        "hex": "#667EEA",
+        "authoredAs": "#667eea",
+        "usage": 8,
+        "props": [
+          "background",
+          "border-color"
+        ]
+      },
+      {
+        "id": "blue-7f0f11a6",
+        "hex": "#D3E2E8",
+        "authoredAs": "#d3e2e8",
+        "usage": 8,
+        "props": [
+          "color"
+        ]
+      },
+      {
+        "id": "red-c7b51f53",
+        "hex": "#F44336",
+        "authoredAs": "#f44336",
+        "usage": 8,
+        "props": [
+          "background",
+          "color",
+          "border-bottom",
+          "border-left",
+          "text-decoration"
+        ]
+      },
+      {
+        "id": "red-5a4cad58",
+        "hex": "#FFE0E0",
+        "authoredAs": "#ffe0e0",
+        "usage": 8,
+        "props": [
           "background"
         ]
       }
@@ -636,29 +667,34 @@
   },
   "fontSizes": [
     {
+      "id": "fontSize-2ba33e3",
+      "authoredAs": "0.9em",
+      "usage": 79
+    },
+    {
       "id": "fontSize-548b1f63",
       "authoredAs": "0.85em",
-      "usage": 79
+      "usage": 78
     },
     {
       "id": "fontSize-170fe9",
       "authoredAs": "12px",
-      "usage": 78
-    },
-    {
-      "id": "fontSize-2ba33e3",
-      "authoredAs": "0.9em",
-      "usage": 77
+      "usage": 76
     },
     {
       "id": "fontSize-1713aa",
       "authoredAs": "13px",
-      "usage": 59
+      "usage": 62
     },
     {
       "id": "fontSize-17176b",
       "authoredAs": "14px",
       "usage": 38
+    },
+    {
+      "id": "fontSize-170c28",
+      "authoredAs": "11px",
+      "usage": 34
     },
     {
       "id": "fontSize-548b93c2",
@@ -671,11 +707,6 @@
       "usage": 33
     },
     {
-      "id": "fontSize-170c28",
-      "authoredAs": "11px",
-      "usage": 33
-    },
-    {
       "id": "fontSize-2c82d5c",
       "authoredAs": "1.1em",
       "usage": 20
@@ -683,7 +714,7 @@
     {
       "id": "fontSize-170867",
       "authoredAs": "10px",
-      "usage": 18
+      "usage": 20
     },
     {
       "id": "fontSize-2c847a3",
@@ -711,11 +742,6 @@
       "usage": 10
     },
     {
-      "id": "fontSize-548ab647",
-      "authoredAs": "0.78em",
-      "usage": 10
-    },
-    {
       "id": "fontSize-2ba2c61",
       "authoredAs": "0.7em",
       "usage": 10
@@ -731,18 +757,23 @@
       "usage": 9
     },
     {
+      "id": "fontSize-548ab647",
+      "authoredAs": "0.78em",
+      "usage": 9
+    },
+    {
       "id": "fontSize-548b887f",
       "authoredAs": "0.92em",
       "usage": 9
     },
     {
-      "id": "fontSize-548aab04",
-      "authoredAs": "0.75em",
-      "usage": 8
-    },
-    {
       "id": "fontSize-548b1420",
       "authoredAs": "0.82em",
+      "usage": 9
+    },
+    {
+      "id": "fontSize-548aab04",
+      "authoredAs": "0.75em",
       "usage": 8
     },
     {
@@ -811,6 +842,11 @@
       "usage": 4
     },
     {
+      "id": "fontSize-e401",
+      "authoredAs": "9px",
+      "usage": 4
+    },
+    {
       "id": "fontSize-eab9715b",
       "authoredAs": "var(--np-text-80)",
       "usage": 4
@@ -833,11 +869,6 @@
     {
       "id": "fontSize-5673cbb0",
       "authoredAs": "12.5px",
-      "usage": 3
-    },
-    {
-      "id": "fontSize-e401",
-      "authoredAs": "9px",
       "usage": 3
     },
     {
@@ -1001,13 +1032,18 @@
       "id": "fontFamily-7bd1e4af",
       "authoredAs": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
       "usage": 1
+    },
+    {
+      "id": "fontFamily-740c90fb",
+      "authoredAs": "inherit",
+      "usage": 1
     }
   ],
   "lineHeights": [
     {
       "id": "lineHeight-31",
       "authoredAs": "1",
-      "usage": 44
+      "usage": 46
     },
     {
       "id": "lineHeight-bdb8",
@@ -1020,18 +1056,23 @@
       "usage": 11
     },
     {
-      "id": "lineHeight-bdb6",
-      "authoredAs": "1.3",
-      "usage": 5
-    },
-    {
       "id": "lineHeight-bdb9",
       "authoredAs": "1.6",
       "usage": 4
     },
     {
+      "id": "lineHeight-bdb6",
+      "authoredAs": "1.3",
+      "usage": 4
+    },
+    {
       "id": "lineHeight-bdb5",
       "authoredAs": "1.2",
+      "usage": 3
+    },
+    {
+      "id": "lineHeight-16f93f",
+      "authoredAs": "1.35",
       "usage": 3
     },
     {
@@ -1052,11 +1093,6 @@
     {
       "id": "lineHeight-171eed",
       "authoredAs": "16px",
-      "usage": 2
-    },
-    {
-      "id": "lineHeight-16f93f",
-      "authoredAs": "1.35",
       "usage": 2
     },
     {
@@ -1085,6 +1121,11 @@
       "usage": 1
     },
     {
+      "id": "lineHeight-17176b",
+      "authoredAs": "14px",
+      "usage": 1
+    },
+    {
       "id": "lineHeight-177cc6",
       "authoredAs": "20px",
       "usage": 1
@@ -1099,22 +1140,22 @@
     {
       "id": "radius-d8be",
       "authoredAs": "6px",
-      "usage": 93
+      "usage": 95
     },
     {
       "id": "radius-e040",
       "authoredAs": "8px",
-      "usage": 72
+      "usage": 74
     },
     {
       "id": "radius-ccea",
       "authoredAs": "50%",
-      "usage": 37
+      "usage": 38
     },
     {
       "id": "radius-170fe9",
       "authoredAs": "12px",
-      "usage": 36
+      "usage": 35
     },
     {
       "id": "radius-cd7b",
@@ -1124,22 +1165,22 @@
     {
       "id": "radius-d4fd",
       "authoredAs": "5px",
-      "usage": 21
+      "usage": 22
     },
     {
       "id": "radius-170867",
       "authoredAs": "10px",
-      "usage": 19
+      "usage": 21
+    },
+    {
+      "id": "radius-30",
+      "authoredAs": "0",
+      "usage": 7
     },
     {
       "id": "radius-31df89e",
       "authoredAs": "var(--np-radius-sm)",
       "usage": 7
-    },
-    {
-      "id": "radius-30",
-      "authoredAs": "0",
-      "usage": 6
     },
     {
       "id": "radius-31de101",
@@ -1150,6 +1191,11 @@
       "id": "radius-c9ba",
       "authoredAs": "2px",
       "usage": 5
+    },
+    {
+      "id": "radius-e401",
+      "authoredAs": "9px",
+      "usage": 4
     },
     {
       "id": "radius-177cc6",
@@ -1179,11 +1225,6 @@
     {
       "id": "radius-b7201cb6",
       "authoredAs": "var(--np-radius-panel)",
-      "usage": 2
-    },
-    {
-      "id": "radius-e401",
-      "authoredAs": "9px",
       "usage": 2
     },
     {
@@ -1262,6 +1303,11 @@
       "usage": 1
     },
     {
+      "id": "radius-dc7f",
+      "authoredAs": "7px",
+      "usage": 1
+    },
+    {
       "id": "radius-e8aec3d",
       "authoredAs": "var(--np-radius-control)",
       "usage": 1
@@ -1274,59 +1320,34 @@
   ],
   "boxShadows": [
     {
-      "id": "boxShadow-dc7bf240",
-      "authoredAs": "0 2px 4px rgba(0, 0, 0, 0.1)",
-      "usage": 22
-    },
-    {
       "id": "boxShadow-6728eef9",
       "authoredAs": "0 2px 4px var(--np-shadow)",
-      "usage": 22
-    },
-    {
-      "id": "boxShadow-2ebeb8ba",
-      "authoredAs": "var(--np-focus-ring)",
-      "usage": 11
+      "usage": 48
     },
     {
       "id": "boxShadow-f6beb62c",
       "authoredAs": "0 4px 12px var(--np-shadow-strong)",
-      "usage": 7
+      "usage": 15
     },
     {
       "id": "boxShadow-5b04875",
       "authoredAs": "0 2px 8px var(--np-shadow)",
-      "usage": 5
-    },
-    {
-      "id": "boxShadow-f46d24e2",
-      "authoredAs": "0 4px 12px rgba(0,0,0,0.15)",
-      "usage": 4
-    },
-    {
-      "id": "boxShadow-b6424a34",
-      "authoredAs": "0 4px 12px rgba(0, 0, 0, 0.15)",
-      "usage": 4
-    },
-    {
-      "id": "boxShadow-d58de9c4",
-      "authoredAs": "0 2px 4px rgba(0,0,0,0.1)",
-      "usage": 4
-    },
-    {
-      "id": "boxShadow-541ce482",
-      "authoredAs": "0 1px 3px rgba(0, 0, 0, 0.1)",
-      "usage": 4
+      "usage": 9
     },
     {
       "id": "boxShadow-838589bb",
       "authoredAs": "0 1px 3px var(--np-shadow)",
-      "usage": 4
+      "usage": 8
     },
     {
-      "id": "boxShadow-f692dcbc",
-      "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.1)",
-      "usage": 3
+      "id": "boxShadow-2ebeb8ba",
+      "authoredAs": "var(--np-focus-ring)",
+      "usage": 5
+    },
+    {
+      "id": "boxShadow-5c07da5b",
+      "authoredAs": "0 4px 8px var(--np-shadow-strong)",
+      "usage": 4
     },
     {
       "id": "boxShadow-fb7c3965",
@@ -1354,8 +1375,8 @@
       "usage": 2
     },
     {
-      "id": "boxShadow-f0078d01",
-      "authoredAs": "0 1px 2px rgba(0,0,0,0.1)",
+      "id": "boxShadow-9be3b35c",
+      "authoredAs": "0 1px 2px var(--np-shadow)",
       "usage": 2
     },
     {
@@ -1379,13 +1400,13 @@
       "usage": 2
     },
     {
-      "id": "boxShadow-72b9c793",
-      "authoredAs": "0 4px 8px rgba(0,0,0,0.15)",
+      "id": "boxShadow-6bcc5bc6",
+      "authoredAs": "0 12px 32px rgba(0, 0, 0, 0.25)",
       "usage": 2
     },
     {
-      "id": "boxShadow-6bcc5bc6",
-      "authoredAs": "0 12px 32px rgba(0, 0, 0, 0.25)",
+      "id": "boxShadow-b287b683",
+      "authoredAs": "0 10px 28px var(--np-shadow, rgba(0, 0, 0, 0.22))",
       "usage": 2
     },
     {
@@ -1399,8 +1420,8 @@
       "usage": 2
     },
     {
-      "id": "boxShadow-7ab6a9d5",
-      "authoredAs": "0 2px 8px rgba(0,0,0,0.15)",
+      "id": "boxShadow-323649d9",
+      "authoredAs": "0 2px 8px var(--np-shadow-strong)",
       "usage": 1
     },
     {
@@ -1414,8 +1435,8 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-545dfc8",
-      "authoredAs": "0 4px 6px rgba(0,0,0,0.1)",
+      "id": "boxShadow-2e6fb975",
+      "authoredAs": "0 4px 6px var(--np-shadow)",
       "usage": 1
     },
     {
@@ -1446,11 +1467,6 @@
     {
       "id": "boxShadow-f5c71668",
       "authoredAs": "0 10px 30px rgba(0, 0, 0, 0.12)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-c3770c8",
-      "authoredAs": "0 2px 8px rgba(0,0,0,0.1)",
       "usage": 1
     },
     {
@@ -1509,8 +1525,8 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-2f7fad5b",
-      "authoredAs": "0 1px 3px rgba(0, 0, 0, 0.15)",
+      "id": "boxShadow-feb82dd3",
+      "authoredAs": "0 1px 3px var(--np-shadow-strong)",
       "usage": 1
     },
     {
@@ -1544,6 +1560,11 @@
       "usage": 1
     },
     {
+      "id": "boxShadow-a30c91d9",
+      "authoredAs": "0 0 0 2px color-mix(in srgb, currentColor 20%, transparent)",
+      "usage": 1
+    },
+    {
       "id": "boxShadow-1dee1cfe",
       "authoredAs": "0 4px 16px var(--np-shadow)",
       "usage": 1
@@ -1556,6 +1577,11 @@
     {
       "id": "boxShadow-7f1c3814",
       "authoredAs": "0 12px 40px var(--np-shadow)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-a554544b",
+      "authoredAs": "0 6px 22px var(--np-shadow, rgba(0, 0, 0, 0.16))",
       "usage": 1
     },
     {
@@ -1629,11 +1655,6 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-4e6adde3",
-      "authoredAs": "0 4px 8px rgba(0, 0, 0, 0.15)",
-      "usage": 1
-    },
-    {
       "id": "boxShadow-8470cd35",
       "authoredAs": "0 4px 12px rgba(16, 139, 185, 0.3)",
       "usage": 1
@@ -1664,13 +1685,18 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-a04bc820",
-      "authoredAs": "0 0 0 1px rgba(0, 0, 0, 0.15)",
+      "id": "boxShadow-a2bf5e18",
+      "authoredAs": "0 0 0 1px var(--np-shadow-strong)",
       "usage": 1
     },
     {
       "id": "boxShadow-6c8aeacf",
       "authoredAs": "0 0 0 3px rgba(63, 182, 224, 0.25)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-6e2be99c",
+      "authoredAs": "0 10px 32px var(--np-shadow, rgba(0, 0, 0, 0.22))",
       "usage": 1
     },
     {
@@ -1701,11 +1727,6 @@
     {
       "id": "boxShadow-94e9e9ee",
       "authoredAs": "inset 0 0 0 2px var(--np-accent)",
-      "usage": 1
-    },
-    {
-      "id": "boxShadow-5c07da5b",
-      "authoredAs": "0 4px 8px var(--np-shadow-strong)",
       "usage": 1
     },
     {
@@ -1750,11 +1771,11 @@
     }
   ],
   "spacing": {
-    "declarations": 1606,
-    "indirectedDeclarations": 1358,
-    "totalUniqueValues": 36,
-    "offGridUniqueValues": 13,
-    "offGridUses": 28,
+    "declarations": 1631,
+    "indirectedDeclarations": 1375,
+    "totalUniqueValues": 38,
+    "offGridUniqueValues": 15,
+    "offGridUses": 31,
     "top": [
       {
         "value": "0",
@@ -1802,6 +1823,16 @@
         "fileCount": 4
       },
       {
+        "value": "4px",
+        "uses": 7,
+        "onGrid": true,
+        "props": [
+          "gap",
+          "padding"
+        ],
+        "fileCount": 5
+      },
+      {
         "value": "0.5rem",
         "uses": 7,
         "onGrid": true,
@@ -1813,10 +1844,12 @@
         "fileCount": 1
       },
       {
-        "value": "4px",
-        "uses": 5,
+        "value": "12px",
+        "uses": 6,
         "onGrid": true,
         "props": [
+          "gap",
+          "margin",
           "padding"
         ],
         "fileCount": 4
@@ -1853,17 +1886,6 @@
         "fileCount": 4
       },
       {
-        "value": "12px",
-        "uses": 4,
-        "onGrid": true,
-        "props": [
-          "gap",
-          "margin",
-          "padding"
-        ],
-        "fileCount": 3
-      },
-      {
         "value": "-4px",
         "uses": 3,
         "onGrid": true,
@@ -1893,22 +1915,32 @@
         "fileCount": 3
       },
       {
+        "value": "2px",
+        "uses": 3,
+        "onGrid": false,
+        "props": [
+          "margin",
+          "padding"
+        ],
+        "fileCount": 3
+      },
+      {
+        "value": "8px",
+        "uses": 3,
+        "onGrid": true,
+        "props": [
+          "margin-bottom",
+          "padding"
+        ],
+        "fileCount": 2
+      },
+      {
         "value": "-2px",
         "uses": 2,
         "onGrid": false,
         "props": [
           "margin",
           "margin-bottom"
-        ],
-        "fileCount": 2
-      },
-      {
-        "value": "2px",
-        "uses": 2,
-        "onGrid": false,
-        "props": [
-          "margin",
-          "padding"
         ],
         "fileCount": 2
       },
@@ -2041,15 +2073,6 @@
           "margin-left"
         ],
         "fileCount": 1
-      },
-      {
-        "value": "-5px",
-        "uses": 1,
-        "onGrid": false,
-        "props": [
-          "margin-left"
-        ],
-        "fileCount": 1
       }
     ],
     "offGridTop": [
@@ -2059,12 +2082,12 @@
         "fileCount": 5
       },
       {
-        "value": "-2px",
-        "uses": 2,
-        "fileCount": 2
+        "value": "2px",
+        "uses": 3,
+        "fileCount": 3
       },
       {
-        "value": "2px",
+        "value": "-2px",
         "uses": 2,
         "fileCount": 2
       },
@@ -2099,6 +2122,16 @@
         "fileCount": 1
       },
       {
+        "value": "6px",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
+        "value": "10px",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
         "value": "-5px",
         "uses": 1,
         "fileCount": 1
@@ -2123,8 +2156,8 @@
   "components": [
     {
       "family": "table",
-      "rules": 826,
-      "uniqueSelectors": 701,
+      "rules": 838,
+      "uniqueSelectors": 710,
       "spreadAcrossFiles": 18,
       "files": [
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -2147,12 +2180,12 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 127,
-        "focus": 23,
+        "hover": 129,
+        "focus": 24,
         "active": 0,
         "disabled": 2
       },
-      "distinctClassNames": 212,
+      "distinctClassNames": 216,
       "topClassNames": [
         {
           "name": "gantt-info-table",
@@ -2218,8 +2251,8 @@
     },
     {
       "family": "button",
-      "rules": 509,
-      "uniqueSelectors": 432,
+      "rules": 517,
+      "uniqueSelectors": 439,
       "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2245,12 +2278,12 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 169,
+        "hover": 170,
         "focus": 37,
         "active": 5,
         "disabled": 24
       },
-      "distinctClassNames": 136,
+      "distinctClassNames": 140,
       "topClassNames": [
         {
           "name": "btn-primary",
@@ -2316,8 +2349,8 @@
     },
     {
       "family": "nav",
-      "rules": 384,
-      "uniqueSelectors": 346,
+      "rules": 375,
+      "uniqueSelectors": 337,
       "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/animations.css",
@@ -2339,12 +2372,12 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 53,
-        "focus": 10,
+        "hover": 52,
+        "focus": 8,
         "active": 2,
         "disabled": 12
       },
-      "distinctClassNames": 129,
+      "distinctClassNames": 125,
       "topClassNames": [
         {
           "name": "ribbon-tab-btn",
@@ -2379,10 +2412,6 @@
           "rules": 8
         },
         {
-          "name": "ribbon-search-input",
-          "rules": 7
-        },
-        {
           "name": "ribbon-file-btn",
           "rules": 7
         },
@@ -2405,13 +2434,17 @@
         {
           "name": "ribbon-banner",
           "rules": 7
+        },
+        {
+          "name": "tab-content",
+          "rules": 6
         }
       ]
     },
     {
       "family": "badge",
-      "rules": 234,
-      "uniqueSelectors": 219,
+      "rules": 235,
+      "uniqueSelectors": 220,
       "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2442,7 +2475,7 @@
         "active": 0,
         "disabled": 0
       },
-      "distinctClassNames": 114,
+      "distinctClassNames": 115,
       "topClassNames": [
         {
           "name": "search-view-result-badge",
@@ -2508,8 +2541,8 @@
     },
     {
       "family": "modal",
-      "rules": 208,
-      "uniqueSelectors": 185,
+      "rules": 212,
+      "uniqueSelectors": 189,
       "spreadAcrossFiles": 14,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2533,7 +2566,7 @@
         "active": 0,
         "disabled": 0
       },
-      "distinctClassNames": 82,
+      "distinctClassNames": 83,
       "topClassNames": [
         {
           "name": "modal-header",
@@ -2599,9 +2632,9 @@
     },
     {
       "family": "card",
-      "rules": 196,
-      "uniqueSelectors": 171,
-      "spreadAcrossFiles": 16,
+      "rules": 203,
+      "uniqueSelectors": 177,
+      "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -2609,6 +2642,7 @@
         "packages/noodle-web/src/noodle_web/static/front-matter-panel.css",
         "packages/noodle-web/src/noodle_web/static/layout.css",
         "packages/noodle-web/src/noodle_web/static/responsive.css",
+        "packages/noodle-web/src/noodle_web/static/status-bar.css",
         "packages/noodle-web/src/noodle_web/static/views/backstage.css",
         "packages/noodle-web/src/noodle_web/static/views/cards.css",
         "packages/noodle-web/src/noodle_web/static/views/evm.css",
@@ -2621,12 +2655,12 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 20,
+        "hover": 19,
         "focus": 6,
         "active": 2,
         "disabled": 1
       },
-      "distinctClassNames": 84,
+      "distinctClassNames": 88,
       "topClassNames": [
         {
           "name": "kanban-card",
@@ -2661,10 +2695,6 @@
           "rules": 5
         },
         {
-          "name": "template-card",
-          "rules": 5
-        },
-        {
           "name": "kanban-add-card-btn",
           "rules": 5
         },
@@ -2681,19 +2711,23 @@
           "rules": 4
         },
         {
+          "name": "template-card",
+          "rules": 4
+        },
+        {
           "name": "kanban-card-title",
           "rules": 4
         },
         {
-          "name": "report-highlight-card",
-          "rules": 3
+          "name": "wb-parking-lot-panel",
+          "rules": 4
         }
       ]
     },
     {
       "family": "input",
-      "rules": 194,
-      "uniqueSelectors": 169,
+      "rules": 192,
+      "uniqueSelectors": 167,
       "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2716,7 +2750,7 @@
       ],
       "stateRules": {
         "hover": 13,
-        "focus": 32,
+        "focus": 30,
         "active": 0,
         "disabled": 0
       },
@@ -2735,19 +2769,15 @@
           "rules": 7
         },
         {
-          "name": "ribbon-search-input",
-          "rules": 7
-        },
-        {
           "name": "form-control",
           "rules": 7
         },
         {
-          "name": "editor-textarea",
+          "name": "ribbon-search-input",
           "rules": 6
         },
         {
-          "name": "ai-settings-field",
+          "name": "editor-textarea",
           "rules": 6
         },
         {
@@ -2764,6 +2794,10 @@
         },
         {
           "name": "search-view-input",
+          "rules": 5
+        },
+        {
+          "name": "ai-settings-field",
           "rules": 5
         },
         {
@@ -2805,8 +2839,8 @@
     ],
     "templateInlineStyleTotal": 272,
     "templateInlineStyleWithColour": 33,
-    "scriptFilesWithColourLiterals": 22,
-    "scriptColourLineTotal": 215,
+    "scriptFilesWithColourLiterals": 30,
+    "scriptColourLineTotal": 314,
     "topScripts": [
       {
         "file": "packages/noodle-web/src/noodle_web/static/script.js",
@@ -2817,8 +2851,24 @@
         "lines": 41
       },
       {
+        "file": "packages/noodle-web/src/noodle_web/static/components/card/np-card.js",
+        "lines": 26
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/components/button/np-button.js",
+        "lines": 22
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/components/board/np-board.js",
+        "lines": 19
+      },
+      {
         "file": "packages/noodle-web/src/noodle_web/static/views-tables.js",
         "lines": 18
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/components/note/np-note.js",
+        "lines": 16
       },
       {
         "file": "packages/noodle-web/src/noodle_web/static/benefits.js",
@@ -2849,6 +2899,10 @@
         "lines": 7
       },
       {
+        "file": "packages/noodle-web/src/noodle_web/static/components/tokens/color-tokens.stories.js",
+        "lines": 6
+      },
+      {
         "file": "packages/noodle-web/src/noodle_web/static/kanban.js",
         "lines": 5
       },
@@ -2865,28 +2919,8 @@
         "lines": 5
       },
       {
-        "file": "packages/noodle-web/src/noodle_web/static/views-gantt.js",
+        "file": "packages/noodle-web/src/noodle_web/static/components/board/np-board.stories.js",
         "lines": 4
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/portfolio-risks.js",
-        "lines": 3
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/editor-sync.js",
-        "lines": 2
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/ribbon.js",
-        "lines": 2
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/noodle-edges.js",
-        "lines": 1
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/portfolio-actions.js",
-        "lines": 1
       }
     ]
   }

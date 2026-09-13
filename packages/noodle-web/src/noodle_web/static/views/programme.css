@@ -229,7 +229,7 @@
     white-space: nowrap;
 }
 
-.programme-dep-scope--internal { background: #d4edda; color: #155724; }
+.programme-dep-scope--internal { background: var(--np-success-tint); color: var(--np-success-ink); }
 .programme-dep-scope--external { background: #fff3bf; color: #b07b00; }
 
 [data-theme="dark"] .programme-dep-scope {

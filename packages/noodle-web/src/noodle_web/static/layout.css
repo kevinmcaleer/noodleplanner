@@ -65,7 +65,7 @@ svg.icon {
     background: var(--np-surface);
     border: 1px solid var(--np-border);
     border-radius: 5px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px var(--np-shadow-strong);
     min-width: 180px;
     z-index: 1000;
 }
