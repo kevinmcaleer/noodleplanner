@@ -5,6 +5,9 @@ test.db
 # Cloudflared tunnel credentials (sensitive)
 cloudflared/credentials.json
 
+# Stray local session-key file with no application reader; keep it out of git.
+.sesskey
+
 cli_venv
 
 # Byte-compiled / optimized / DLL files
