@@ -157,15 +157,15 @@ async function renderPortfolioRisks() {
             '</div>' +
             '<div class="risks-summary-item">' +
             '<span class="summary-label">High</span>' +
-            '<span class="summary-value" style="color: #dc3545">' + highCount + '</span>' +
+            '<span class="summary-value" style="color: var(--np-danger-ink)">' + highCount + '</span>' +
             '</div>' +
             '<div class="risks-summary-item">' +
             '<span class="summary-label">Medium</span>' +
-            '<span class="summary-value" style="color: #e8a317">' + mediumCount + '</span>' +
+            '<span class="summary-value" style="color: var(--np-accent-ink)">' + mediumCount + '</span>' +
             '</div>' +
             '<div class="risks-summary-item">' +
             '<span class="summary-label">Low</span>' +
-            '<span class="summary-value" style="color: #28a745">' + lowCount + '</span>' +
+            '<span class="summary-value" style="color: var(--np-sage-ink)">' + lowCount + '</span>' +
             '</div>' +
             '</div>' +
             '<div class="portfolio-risks-filters">' +
