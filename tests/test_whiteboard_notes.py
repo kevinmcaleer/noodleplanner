@@ -44,6 +44,7 @@ except ImportError:
     HAS_APP = False
 
 pytestmark = [
+    pytest.mark.usability,
     pytest.mark.skipif(not HAS_SELENIUM, reason="selenium not installed"),
     pytest.mark.skipif(not HAS_APP, reason="noodle_web not importable"),
 ]
@@ -533,6 +534,74 @@ class TestFacilitatorCoaching:
         text = get_plan_text(browser)
         assert "Finished widget [depends Build]" in text
         assert get_note(browser, "Finished widget") is not None
+
+
+class TestWhiteboardSmartTags:
+    """Browser-level coverage for #878's opt-in dates and quick assignment."""
+
+    def test_detected_date_offers_all_four_choices_and_attaches_start(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        editor = browser.find_element(By.ID, "planEditor")
+        text = get_plan_text(browser).replace(
+            'Empty Phase "Chase the vendor for a quote."',
+            'Empty Phase "Go live 15th March"',
+        )
+        browser.execute_script(
+            "arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles:true}));",
+            editor,
+            text,
+        )
+        wait_for_stable_plan_text(browser, timeout=8.0, quiet=1.0)
+        switch_to_whiteboard(browser)
+        browser.execute_script("whiteboardZoomFit();")
+
+        tag = WebDriverWait(browser, 5).until(EC.element_to_be_clickable((
+            By.CSS_SELECTOR, '.wb-note[data-wb-task="Empty Phase"] .wb-note-date-btn'
+        )))
+        assert "15th March" in tag.text
+        tag.click()
+        menu = WebDriverWait(browser, 3).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, ".wb-date-menu"))
+        )
+        labels = [button.text for button in menu.find_elements(By.CSS_SELECTOR, ".wb-date-choices button")]
+        assert labels == ["Start", "Finish", "Milestone", "Deadline"]
+        menu.find_element(By.CSS_SELECTOR, '[data-date-kind="start"]').click()
+
+        WebDriverWait(browser, 8).until(lambda d: "2026-03-15" in line_for_task(get_plan_text(d), "Empty Phase"))
+        assert '"Go live 15th March"' in line_for_task(get_plan_text(browser), "Empty Phase")
+
+    def test_quick_assign_lists_front_matter_resources_and_writes_token(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        editor = browser.find_element(By.ID, "planEditor")
+        text = get_plan_text(browser).replace(
+            "title: Whiteboard Notes Test Plan\n",
+            "title: Whiteboard Notes Test Plan\nResources:\n  - @sam: Sam Smith, Developer\n  - @jo: Jo Lee, Reviewer\n",
+        )
+        browser.execute_script(
+            "arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles:true}));",
+            editor,
+            text,
+        )
+        wait_for_stable_plan_text(browser, timeout=8.0, quiet=1.0)
+        switch_to_whiteboard(browser)
+        browser.execute_script("whiteboardZoomFit();")
+
+        browser.find_element(
+            By.CSS_SELECTOR, '.wb-note[data-wb-task="Empty Phase"] .wb-note-resource-btn'
+        ).click()
+        menu = WebDriverWait(browser, 3).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, ".wb-resource-menu"))
+        )
+        assert "Sam Smith" in menu.text and "Jo Lee" in menu.text
+        menu.find_element(By.XPATH, ".//button[contains(normalize-space(), 'Sam Smith')]").click()
+
+        WebDriverWait(browser, 8).until(
+            lambda d: "@sam" in line_for_task(get_plan_text(d), "Empty Phase")
+        )
+        line = line_for_task(get_plan_text(browser), "Empty Phase")
+        assert '"Chase the vendor for a quote."' in line
 
 
 class TestChecklistTicking:
