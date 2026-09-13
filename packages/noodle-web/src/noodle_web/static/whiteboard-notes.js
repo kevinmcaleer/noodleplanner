@@ -5176,11 +5176,55 @@ function wbTodayIsoDate() {
  * note's title, plus its free-form comment (issue #1015's `!"text"` body)
  * if it had one -- everything a "Delete task" confirmation would otherwise
  * throw away, folded into one line (the parking lot table, like every
- * other back-matter table here, is one row per item). */
-function wbBuildParkedItemText(taskName, task) {
+ * other back-matter table here, is one row per item). A checklist note
+ * (`tasks` given and the task has children) instead notes its item count,
+ * since a checklist's comment is rarely set and its children are the
+ * whole point -- the full per-item list rides in the row's `detail`
+ * instead (see wbBuildParkedItemDetail()), this is just the flat-text
+ * fallback every plain list view (and every plan written before #1110)
+ * still reads. */
+function wbBuildParkedItemText(taskName, task, tasks) {
     const name = String(taskName || '').trim();
     const comment = (task && task.comment) ? String(task.comment).trim() : '';
+    const childCount = tasks ? wbChildCount(tasks, taskName) : 0;
+    if (childCount > 0) {
+        const suffix = `${childCount} item${childCount === 1 ? '' : 's'}`;
+        return comment ? `${name} — ${suffix} — ${comment}` : `${name} — ${suffix}`;
+    }
     return comment ? `${name} — ${comment}` : name;
+}
+
+/**
+ * Build the full detail snapshot (issue #1110) a parked item's `detail`
+ * field carries alongside its flat `text` -- everything "Send to parking
+ * lot" would otherwise lose beyond the flat line above: the note's exact
+ * title, its fully-resolved colour (row Colour -> Theme: entry -> derived
+ * palette -- see wbResolveNoteColour()'s header comment; a note is never
+ * uncoloured, so this is never empty), its own free-form comment if it
+ * has one, and -- for a checklist note -- every direct child's name and
+ * completion state (a leaf's own `percent`, mirroring wbIsChildComplete()
+ * exactly, so "done" here can never disagree with the checkbox the note
+ * itself showed). `comment` and `checklist` are omitted entirely when
+ * empty, keeping a freeform note's detail and a checklist note's detail
+ * from carrying a stray empty field the other shape has no use for.
+ */
+function wbBuildParkedItemDetail(taskName, task, tasks) {
+    const name = String(taskName || '').trim();
+    const comment = (task && task.comment) ? String(task.comment).trim() : '';
+    const children = wbDirectChildren(tasks, taskName);
+
+    const detail = {
+        title: name,
+        colour: wbCurrentNoteColour(taskName),
+    };
+    if (comment) detail.comment = comment;
+    if (children.length) {
+        detail.checklist = children.map(child => ({
+            name: String((child && child.name) || '').trim(),
+            done: wbIsChildComplete(child),
+        }));
+    }
+    return detail;
 }
 
 /**
@@ -5194,14 +5238,17 @@ function wbBuildParkedItemText(taskName, task) {
  * parseParkingLotMarkdown()/updatePlanParkingLotText() in script.js).
  *
  * Every #1015 note -- free-form or checklist -- is still task-backed, so
- * this one action covers both: a checklist note's children go with it
- * (their own titles are not individually preserved as separate parking
- * rows -- this is a "stray thought", not a task-import tool; see this
- * issue's PR description for the trade-off). No confirmation prompt,
- * unlike "Delete task": nothing is actually lost -- the idea moves to the
- * parking lot rather than being destroyed -- and this is one
- * wbCommitMarkdown() call, so it is one ordinary undo step like every
- * other board action.
+ * this one action covers both, and (issue #1110) nothing about either
+ * shape is actually lost: the parked row's `detail` field
+ * (wbBuildParkedItemDetail(), captured *before* the task is deleted below)
+ * carries the note's exact title, resolved colour, free-form comment, and
+ * -- for a checklist note -- every child's own name and completion state,
+ * on top of the flat `text` line every plain list view still reads. See
+ * wbRestoreParkedItem() for the inverse: bringing a parked item, detail
+ * and all, back onto the board. No confirmation prompt, unlike "Delete
+ * task": nothing is actually lost -- the idea moves to the parking lot
+ * rather than being destroyed -- and this is one wbCommitMarkdown() call,
+ * so it is one ordinary undo step like every other board action.
  */
 function wbSendNoteToParkingLot(taskName) {
     const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
@@ -5217,7 +5264,8 @@ function wbSendNoteToParkingLot(taskName) {
     }
 
     const task = (wbLastTasks || []).find(t => t && t.name === taskName);
-    const parkedText = wbBuildParkedItemText(taskName, task);
+    const parkedText = wbBuildParkedItemText(taskName, task, wbLastTasks);
+    const parkedDetail = wbBuildParkedItemDetail(taskName, task, wbLastTasks);
 
     let next = wbDeleteTaskFromPlanText(editor.value, taskName);
     if (next === editor.value) return false;
@@ -5230,13 +5278,13 @@ function wbSendNoteToParkingLot(taskName) {
 
     const parkedItems = parseParkingLotMarkdown(extractParkingLotFromPlanText(next));
     const nextId = parkedItems.reduce((max, item) => Math.max(max, item.id), 0) + 1;
-    parkedItems.push({ id: nextId, text: parkedText, date_parked: wbTodayIsoDate() });
+    parkedItems.push({ id: nextId, text: parkedText, date_parked: wbTodayIsoDate(), detail: parkedDetail });
     next = updatePlanParkingLotText(next, parkedItems);
 
     return wbCommitMarkdown(next);
 }
 
-// ── Parking lot panel (issue #1019) ─────────────────────────────────────
+// ── Parking lot panel (issue #1019, restore added by #1110) ─────────────
 //
 // The "viewable/manageable" half of #1019's acceptance criteria: a simple
 // list, deliberately no more than that (the issue's own words: "doesn't
@@ -5245,10 +5293,20 @@ function wbSendNoteToParkingLot(taskName) {
 // single overlay appended to document.body, rebuilt fresh on each open so
 // it can never go stale across repeated opens in one session -- just
 // without that picker's search/multi-select machinery, since "manage"
-// here only means "see what's parked, and remove one you no longer want".
-// Deliberately offers no "restore to board" action: that would mean
-// re-creating a task from parked text, which is #1020's promote-to-task
-// territory, not this issue's.
+// here only means "see what's parked, remove one you no longer want, or
+// bring one back".
+//
+// #1019 originally shipped with no "restore to board" action here (a
+// parked item's text was flattened and one-way). #1110 closes that: every
+// item parked from here on carries a `detail` snapshot (see
+// wbBuildParkedItemDetail()) rich enough to rebuild the note exactly --
+// wbRestoreParkedItem() below is the inverse of wbSendNoteToParkingLot().
+// An item parked *before* #1110 (or a hand-typed row) has no `detail`;
+// Restore still works for one of those, falling back to splitting its
+// flat `text` back apart on wbBuildParkedItemText()'s own " — " separator
+// -- a plain task with that title (and comment, if the split found one),
+// no children -- rather than leaving old rows stuck with no way back onto
+// the board at all.
 
 /** Close the panel, if open, and return focus to the toolbar button that
  * opened it. */
@@ -5300,6 +5358,122 @@ function wbDeleteParkedItem(itemId) {
     return committed;
 }
 
+/** Collapse newlines/whitespace and swap `"` for `'` -- the same
+ * embed-safely-in-one-outline-line treatment wbSanitiseChildTaskName()
+ * gives a task name, minus its length cap (a comment can run longer than
+ * a title). Used by wbRestoreParkedItem() when writing a restored note's
+ * comment back onto its new task line as a `"..."` token. */
+function wbSanitiseCommentText(text) {
+    return String(text || '')
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/"/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/**
+ * Restore a parked item to the board (issue #1110): the inverse of
+ * wbSendNoteToParkingLot(). Recreates a top-level task named after the
+ * item (uniquified against the current outline, same as every other
+ * board-authored task -- see wbUniqueTaskName()), with its free-form
+ * comment restored as a `"..."` token on that line, then -- for an item
+ * whose `detail` carries a checklist -- appends every child back
+ * underneath it (also uniquified, each carrying its own completion state
+ * as a trailing `100%` when it was marked done). A whiteboard row is
+ * added for the new task, in free board space, with the item's exact
+ * preserved colour set directly as that row's own Colour (tier 1 of
+ * wbResolveNoteColour()'s precedence -- see this file's header comment --
+ * so the restored note shows that colour regardless of what the current
+ * Theme: block or derived palette would otherwise pick). The item is then
+ * removed from the parking lot. One wbCommitMarkdown() call, so -- like
+ * every other board action here -- restoring is a single undo step.
+ *
+ * An item with no `detail` (parked before #1110, or hand-typed) has
+ * nothing structured to rebuild from: this falls back to splitting its
+ * flat `text` on wbBuildParkedItemText()'s own " — " separator into a
+ * title and (if present) a comment, and restores a single childless task
+ * with those -- strictly better than no restore at all, even though a
+ * pre-#1110 checklist note's item list can't be recovered (it was never
+ * kept anywhere once flattened).
+ *
+ * Returns false (no-op, no commit) if the item can't be found or the
+ * required helpers aren't loaded.
+ */
+function wbRestoreParkedItem(itemId) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor) return false;
+    if (typeof wbAppendTopLevelTask !== 'function' ||
+        typeof wbAppendChildTask !== 'function' ||
+        typeof wbOutlineTaskNames !== 'function' ||
+        typeof wbUniqueTaskName !== 'function' ||
+        typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function' ||
+        typeof updatePlanParkingLotText !== 'function') {
+        return false;
+    }
+
+    const items = wbCurrentParkingLotItems();
+    const item = items.find(i => i && i.id === itemId);
+    if (!item) return false;
+
+    const detail = (item.detail && typeof item.detail === 'object') ? item.detail : null;
+    let rawTitle = '';
+    let rawComment = '';
+    let checklist = [];
+    let colour = null;
+
+    if (detail) {
+        rawTitle = detail.title || item.text || '';
+        rawComment = detail.comment || '';
+        checklist = Array.isArray(detail.checklist) ? detail.checklist : [];
+        colour = detail.colour || null;
+    } else {
+        const text = String(item.text || '');
+        const sepIdx = text.indexOf(' — ');
+        if (sepIdx === -1) {
+            rawTitle = text;
+        } else {
+            rawTitle = text.slice(0, sepIdx);
+            rawComment = text.slice(sepIdx + 3);
+        }
+    }
+
+    const planText = editor.value;
+    const titleBase = wbSanitiseChildTaskName(rawTitle) ||
+        (typeof WB_NEW_NOTE_BASE_NAME !== 'undefined' ? WB_NEW_NOTE_BASE_NAME : 'Restored idea');
+    const name = wbUniqueTaskName(wbOutlineTaskNames(planText), titleBase);
+
+    const comment = wbSanitiseCommentText(rawComment);
+    const topLine = comment ? `${name} "${comment}"` : name;
+
+    let next = wbAppendTopLevelTask(planText, topLine);
+    if (next === planText) return false;
+
+    checklist.forEach(child => {
+        const childBase = wbSanitiseChildTaskName(child && child.name) || 'Item';
+        const childName = wbUniqueTaskName(wbOutlineTaskNames(next), childBase);
+        const childLine = (child && child.done) ? `${childName} 100%` : childName;
+        next = wbAppendChildTask(next, name, childLine);
+    });
+
+    const rowItems = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(next));
+    const viewport = (typeof wbCurrentViewportBoardRect === 'function') ? wbCurrentViewportBoardRect() : null;
+    const newRows = wbBuildAddNoteRows(rowItems, viewport, [name], {
+        width: WB_NOTE_DEFAULT_WIDTH,
+        height: WB_NOTE_DEFAULT_HEIGHT,
+    });
+    if (colour) newRows.forEach(row => { row.colour = colour; });
+    next = updatePlanWhiteboardText(next, rowItems.concat(newRows));
+
+    const remainingParked = items.filter(i => i && i.id !== itemId);
+    next = updatePlanParkingLotText(next, remainingParked);
+
+    const committed = wbCommitMarkdown(next);
+    if (committed) wbRenderParkingLotList();
+    return committed;
+}
+
 /** Rebuild the panel's <ul> from the current parking lot items. */
 function wbRenderParkingLotList() {
     const list = document.getElementById('wbParkingLotList');
@@ -5332,6 +5506,14 @@ function wbRenderParkingLotList() {
             li.appendChild(dateEl);
         }
 
+        const restoreBtn = document.createElement('button');
+        restoreBtn.type = 'button';
+        restoreBtn.className = 'wb-parking-lot-item-restore';
+        restoreBtn.textContent = 'Restore';
+        restoreBtn.setAttribute('aria-label', `Restore "${item.text}" to the whiteboard`);
+        restoreBtn.addEventListener('click', () => wbRestoreParkedItem(item.id));
+        li.appendChild(restoreBtn);
+
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'wb-parking-lot-item-remove';
@@ -5345,8 +5527,8 @@ function wbRenderParkingLotList() {
 }
 
 /** Open the parking lot panel: a modal dialog listing every parked item
- * with a per-row "Remove" action -- see this section's header comment for
- * why there is no "restore to board" here. */
+ * with per-row "Restore" and "Remove" actions -- see this section's header
+ * comment for how Restore rebuilds a note from its preserved detail. */
 function wbOpenParkingLotPanel() {
     wbCloseParkingLotPanel();
 

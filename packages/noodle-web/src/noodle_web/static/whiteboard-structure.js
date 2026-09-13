@@ -51,6 +51,17 @@ const WB_INDENT_UNIT = '  ';
  * Markers that end the task-outline region. Same list (and same purpose)
  * as script.js's getAllTaskNames() section tracking -- anything at or
  * after the first of these is back matter, never a task line.
+ *
+ * ``---parking lot---`` (issue #1110): missing here until now was a real
+ * bug, just one this file's own authoring functions never happened to
+ * trigger before -- every one of them only ever ran against a plan with
+ * no ``---parking lot---`` section yet (that section holds only content
+ * these functions have already *removed* from the outline). #1110's
+ * "Restore to board" is the first caller that appends/re-parents a task
+ * while a ``---parking lot---`` section is actually present -- without
+ * this marker, wbOutlineRegion() wouldn't stop before it, and the
+ * restored task/children would be spliced in *after* the marker: outline
+ * authoring text the scheduler would never read as tasks at all.
  */
 const WB_BACK_MATTER_MARKERS = [
     '---highlights---',
@@ -62,6 +73,7 @@ const WB_BACK_MATTER_MARKERS = [
     '---lessons learned---',
     '---baseline---',
     '---whiteboard---',
+    '---parking lot---',
 ];
 
 /** Fallback name for a brand-new post-it, before the user types one. */

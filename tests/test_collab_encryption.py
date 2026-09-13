@@ -63,22 +63,25 @@ from tests.helpers.collab_crypto_stub import Party, decrypt_message, encrypt_mes
 def client():
     """A TestClient whose portal is shut down when the test ends.
 
-    The same fix as test_collab_session.py's `client` fixture (e26843c), which
-    this file was missed out of. `TestClient(app)` without the `with` leaves
-    its blocking portal -- a background thread running its own asyncio event
-    loop -- alive after the test that made it has finished. Every test in this
-    file shares one module-level `app` and one module-level `collab_sessions`
-    registry, so a leaked portal means two loops can be live over the same
-    globals at once, and a relay task can end up touching a websocket, or an
-    `asyncio.Lock`, belonging to the other loop. The frame a test is waiting
-    for is then never sent, and `WebSocketTestSession.receive_text()` has no
-    timeout, so it blocks forever and takes the whole `pytest` job down with it
-    at its deadline rather than failing one test.
+    The same fix, for the same reason, as `test_collab_session.py`'s
+    `client` fixture -- see its docstring for the full account. In short:
+    `TestClient(app)` without the `with` leaves its blocking portal (a
+    background thread running its own asyncio event loop) alive after the
+    test that made it. This file shares the module-level `app` and
+    `collab_sessions` registry with that one, so a leaked portal means two
+    loops live over the same globals, and a relay task can touch a
+    websocket or an `asyncio.Lock` belonging to the other loop. The frame
+    the test waits for is then never sent, and
+    `WebSocketTestSession.receive_text()` has no timeout, so it blocks
+    forever and takes the whole job with it.
 
-    That is what was still happening after e26843c: the job reached ~93%, one
-    xdist worker stopped just before this file, and the run was killed ten
-    minutes later having reported nothing. `-n auto` on the Python gate
-    (bffa33d) made it easier to hit, not new.
+    e26843c fixed that fixture and left this one, which was harmless while
+    the suite ran serially and stopped being so the moment ci/jobs/python.sh
+    started passing `-n auto`: saturating the cores is exactly the condition
+    that surfaces it. On unmodified `main`, 2 of 16 full parallel runs hung
+    here, both on
+    `TestRelayOnlySeesCiphertext::test_relay_only_ever_sees_ciphertext`;
+    with this fixture closed properly, 24 of 24 passed.
     """
     with TestClient(app) as test_client:
         yield test_client

@@ -2457,7 +2457,81 @@ def update_plan_whiteboard(plan_text: str, items: list) -> str:
 # ALL_SECTION_MARKERS above) -- so update_plan_whiteboard() (and every
 # earlier update_plan_* function) preserves and re-appends it the same
 # way it already does for whiteboard.
+#
+# Issue #1110 richer detail: the flat ``Text`` column above is a "good
+# enough for the list view" summary, but it can't hold a checklist note's
+# individual child items or its colour. Rather than widening the table
+# itself (a breaking migration for every plan that already has a
+# ---parking lot--- section), a *second*, optional JSON payload rides
+# alongside it as a single HTML-comment line placed before the table --
+# the exact same trade-off issue #1112's baseline history log already
+# made (see ``generate_baseline_history_comment``/
+# ``extract_baseline_history`` above): one JSON blob, one comment line,
+# ignored by any older code (or an old plan) that only knows about the
+# table. Here the payload is keyed by row id (as a JSON string) rather
+# than being one blob for the whole section, since -- unlike the
+# baseline history log -- every *row* can independently carry its own
+# richer detail:
+#
+#   {"<id>": {"title": str, "colour": "#RRGGBB",
+#              "comment": str,            # optional, freeform notes
+#              "checklist": [{"name": str, "done": bool}, ...]},  # optional
+#    ...}
+#
+# ``parse_parking_lot_markdown`` merges this map into each row it parses
+# (as an optional ``detail`` key); ``generate_parking_lot_text`` re-emits
+# it for whichever rows carry one. A row with no entry in the map -- every
+# row from a plan written before #1110, or a hand-typed one -- parses
+# with no ``detail`` key at all, so old rows keep round-tripping exactly
+# as before.
 # =====================================================================
+
+
+def generate_parking_lot_detail_comment(detail_map: dict) -> str:
+    """Build the ``<!-- parking-lot-detail: ... -->`` comment line that
+    carries richer per-item detail (issue #1110) alongside the plain
+    ``---parking lot---`` table.
+
+    Args:
+        detail_map: ``{"<row id>": {"title", "colour", "comment",
+            "checklist"}, ...}``, or a falsy value for "nothing to record".
+
+    Returns:
+        The comment line, or ``''`` if *detail_map* is empty.
+    """
+    if not detail_map:
+        return ''
+    payload = json.dumps(detail_map, separators=(',', ':'))
+    return f'<!-- parking-lot-detail: {payload} -->'
+
+
+def extract_parking_lot_detail(section_text: str) -> dict:
+    """Parse the ``parking-lot-detail`` comment out of a parking lot
+    section's raw text (as returned by ``extract_parking_lot``, or any
+    text containing the table).
+
+    Args:
+        section_text: Raw text of the parking lot section (comment +
+            table), or any text that may contain the comment.
+
+    Returns:
+        ``{"<row id>": {...}, ...}``, defaulting to ``{}`` if the comment
+        is absent or malformed -- a plan written before #1110, or one
+        with only the plain table, still parses cleanly to "no detail".
+    """
+    if not section_text:
+        return {}
+
+    m = re.search(r'<!--\s*parking-lot-detail:\s*(\{.*?\})\s*-->', section_text, re.DOTALL)
+    if not m:
+        return {}
+
+    try:
+        data = json.loads(m.group(1))
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+    return data if isinstance(data, dict) else {}
 
 
 def extract_parking_lot(text: str) -> str:
@@ -2502,15 +2576,23 @@ def parse_parking_lot_markdown(text: str) -> list:
     """Parse a parking lot markdown table into a list of item dicts.
 
     Columns are matched by name, not position: ``ID | Text | Date Parked``
-    in any order, extra columns tolerated and ignored.
+    in any order, extra columns tolerated and ignored. A row whose id has
+    an entry in the ``parking-lot-detail`` comment (see
+    ``extract_parking_lot_detail``, issue #1110) gets that entry attached
+    as an extra ``detail`` key; a row with no matching entry -- every
+    plan written before #1110 -- gets no ``detail`` key at all, so old
+    plans parse to exactly the same dicts as before.
 
     Args:
-        text: Markdown text containing a parking lot table.
+        text: Markdown text containing a parking lot table (and,
+            optionally, a ``parking-lot-detail`` comment above it).
 
     Returns:
-        List of dicts with keys: id, text, date_parked.
+        List of dicts with keys: id, text, date_parked, and optionally
+        detail.
     """
-    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    detail_map = extract_parking_lot_detail(text)
+    lines = [line.strip() for line in text.split('\n') if line.strip() and not line.strip().startswith('<!--')]
 
     def parse_row(line):
         parts = re.split(r'(?<!\\)\|', line)
@@ -2573,11 +2655,15 @@ def parse_parking_lot_markdown(text: str) -> list:
             item_id = max_id + 1
         max_id = max(max_id, item_id)
 
-        items.append({
+        item = {
             'id': item_id,
             'text': text_value,
             'date_parked': get_cell('date_parked', ''),
-        })
+        }
+        detail = detail_map.get(str(item_id))
+        if isinstance(detail, dict):
+            item['detail'] = detail
+        items.append(item)
 
     return items
 
@@ -2586,14 +2672,20 @@ def generate_parking_lot_text(items: list) -> str:
     """Generate a formatted markdown table from parking lot items.
 
     Each column is padded to the width of its widest entry for clean,
-    readable markdown output.
+    readable markdown output. Any item carrying a ``detail`` key (issue
+    #1110 -- see this section's header comment) has that detail folded
+    into a single ``parking-lot-detail`` JSON comment line placed above
+    the table; items with no ``detail`` key contribute nothing to it, so
+    a list of only plain items produces exactly the same output as
+    before #1110.
 
     Args:
-        items: List of dicts with keys: id, text, date_parked.
+        items: List of dicts with keys: id, text, date_parked, and
+            optionally detail.
 
     Returns:
-        The formatted markdown table string, or empty string if there
-        are no items.
+        The formatted markdown table (plus, if any item carries one, the
+        detail comment above it), or empty string if there are no items.
     """
     if not items:
         return ''
@@ -2604,12 +2696,16 @@ def generate_parking_lot_text(items: list) -> str:
         return str(value).replace('|', '\\|').replace('\n', ' ')
 
     rows = []
+    detail_map = {}
     for item in items:
         rows.append([
             escape_pipe(str(item.get('id', ''))),
             escape_pipe(item.get('text', '')),
             escape_pipe(item.get('date_parked', '') or ''),
         ])
+        detail = item.get('detail')
+        if detail:
+            detail_map[str(item.get('id', ''))] = detail
 
     widths = [len(h) for h in headers]
     for row in rows:
@@ -2626,7 +2722,9 @@ def generate_parking_lot_text(items: list) -> str:
     for row in rows:
         lines.append(format_row(row))
 
-    return '\n'.join(lines)
+    table = '\n'.join(lines)
+    detail_comment = generate_parking_lot_detail_comment(detail_map)
+    return detail_comment + '\n\n' + table if detail_comment else table
 
 
 def update_plan_parking_lot(plan_text: str, items: list) -> str:

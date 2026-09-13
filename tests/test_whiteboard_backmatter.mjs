@@ -71,6 +71,8 @@ liftFunctions(sandbox, 'script.js', [
   'parseParkingLotMarkdown',
   'generateParkingLotText',
   'updatePlanParkingLotText',
+  'generateParkingLotDetailComment',
+  'extractParkingLotDetailFromSectionText',
 ]);
 
 const {
@@ -78,6 +80,7 @@ const {
   validateWhiteboardRows, updatePlanWhiteboardText, renamePlanWhiteboardTask,
   mergeDuplicateSections, extractParkingLotFromPlanText, parseParkingLotMarkdown,
   generateParkingLotText, updatePlanParkingLotText,
+  generateParkingLotDetailComment, extractParkingLotDetailFromSectionText,
 } = sandbox;
 
 /**
