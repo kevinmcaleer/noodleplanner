@@ -81,9 +81,17 @@ moved away produces exactly that, which is how the mistake was found after this
 page had already been written recommending it.
 
 The standalone board carries every screen inline as a data: URI. It is ~8 MB
-per theme, which is the price of a file that works on its own. The images are
-downscaled on the way in to the 800×500 the board draws them at, so it is not
-carrying four times the pixels it can show.
+per theme. That is comfortably inside Penpot's own limits — `config.clj` puts
+`media-max-file-size` at 30 MiB and `http.clj` puts `max-body-size` at 350 MiB
+by default — so the size is not something to work around. Checked against the
+source rather than assumed, because "it is only 8 MB" is the kind of thing that
+turns out to be 2 MB over a limit at the moment someone is relying on it.
+
+The images are downscaled on the way in to the 800×500 the board draws them at,
+so it is not carrying four times the pixels it can show. They stay PNG rather
+than JPEG: this is a board for judging spacing and colour drift, and JPEG
+artefacts around small UI text are exactly the wrong thing to introduce into
+that.
 
 `board.dark.standalone.svg` is the same board in dark mode. Import both: a good
 half of what this epic found only shows up in one theme, including the
