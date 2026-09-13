@@ -33,6 +33,7 @@ inventory totals it is a share of.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import re
 import subprocess
@@ -264,11 +265,66 @@ def annotate(board: Path, per_view: dict[str, dict[str, int]]) -> str:
     return svg.replace("</svg>", body + "\n</svg>")
 
 
+
+def inline_images(svg: str, src_dir: Path, tile_w: int, tile_h: int) -> str:
+    """Replace every relative <image href> with a data: URI.
+
+    Penpot's import takes a *file*, not a folder, so a board referencing 84
+    PNGs by relative name imports as 84 broken-image placeholders. Verified
+    rather than assumed: rendering the board with the PNGs moved away gives a
+    grid of grey boxes.
+
+    The images are downscaled to the size the board actually draws them at on
+    the way in. The sources are 1600x1000 and each tile is 800x500, so this is
+    not a quality loss -- it is declining to embed four times the pixels the
+    board can show. Done through the browser's own canvas because that is the
+    image encoder available here; there is no Pillow in this environment.
+    """
+    from playwright.sync_api import sync_playwright
+
+    hrefs = sorted(set(re.findall(r'<image[^>]*href="([^"]+)"', svg)))
+    hrefs = [h for h in hrefs if not h.startswith("data:")]
+    if not hrefs:
+        return svg
+
+    missing = [h for h in hrefs if not (src_dir / h).is_file()]
+    if missing:
+        raise SystemExit(f"cannot inline: {len(missing)} referenced file(s) missing, e.g. {missing[0]}")
+
+    print(f"  inlining {len(hrefs)} image(s) at {tile_w}x{tile_h}")
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
+        page = browser.new_context(viewport={"width": 200, "height": 200}).new_page()
+        page.goto("about:blank")
+        for i, href in enumerate(hrefs, 1):
+            raw = base64.b64encode((src_dir / href).read_bytes()).decode()
+            data_uri = page.evaluate(
+                """async ([b64, w, h]) => {
+                    const img = new Image();
+                    img.src = 'data:image/png;base64,' + b64;
+                    await img.decode();
+                    const c = document.createElement('canvas');
+                    c.width = w; c.height = h;
+                    c.getContext('2d').drawImage(img, 0, 0, w, h);
+                    return c.toDataURL('image/png');
+                }""",
+                [raw, tile_w, tile_h],
+            )
+            svg = svg.replace(f'href="{href}"', f'href="{data_uri}"')
+            if i % 20 == 0:
+                print(f"    {i}/{len(hrefs)}")
+        browser.close()
+    return svg
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("out_dir", type=Path, help="the capture directory holding board.svg")
     ap.add_argument("--base-url", default="http://127.0.0.1:8007",
                     help="a running NoodlePlanner to measure against")
+    ap.add_argument("--standalone", action="store_true",
+                    help="also write a board with the PNGs embedded, for tools that "
+                         "import a single file (Penpot does)")
     args = ap.parse_args()
 
     findings = _findings_with_selectors()
@@ -277,9 +333,14 @@ def main() -> int:
     for board in sorted(args.out_dir.glob("board*.svg")):
         if board.name.endswith(".annotated.svg"):
             continue
+        annotated = annotate(board, per_view)
         target = board.with_suffix(".annotated.svg")
-        target.write_text(annotate(board, per_view))
+        target.write_text(annotated)
         written.append(target)
+        if args.standalone:
+            solo = board.with_suffix(".standalone.svg")
+            solo.write_text(inline_images(annotated, args.out_dir, 800, 500))
+            written.append(solo)
         print(f"  {target.relative_to(ROOT) if target.is_relative_to(ROOT) else target}")
     if not written:
         print(f"no board*.svg in {args.out_dir}", file=sys.stderr)

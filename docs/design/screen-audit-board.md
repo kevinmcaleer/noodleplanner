@@ -8,13 +8,13 @@ Everything here is generated. Nothing is drawn by hand:
 
 ```sh
 npm run design:screens   # captures the screens and writes board.svg
-npm run design:board     # annotates the board with per-screen drift
+npm run design:board     # annotates it, and writes the standalone import file
 ```
 
 Both need a NoodlePlanner running (default `http://localhost:8007`; pass
 `--base-url` otherwise). The output lands in `penpot/screen-audit/`, which is
-gitignored — 173 files of PNG is not something to keep in version control when
-one command regenerates it.
+gitignored — 170-odd PNGs and two 8 MB SVGs are not something to keep in
+version control when one command regenerates them.
 
 ## What gets captured
 
@@ -71,11 +71,21 @@ board rather than in another document.
 
 ## Taking it into Penpot
 
-**File → Import**, pointing at `penpot/screen-audit/board.annotated.svg`. Keep
-the PNGs alongside it — the board references them by relative filename, so
-moving the SVG on its own gives you an empty grid.
+**File → Import**, pointing at `penpot/screen-audit/board.standalone.svg`.
 
-`board.dark.annotated.svg` is the same board in dark mode. Import both: a good
+Use the `.standalone.svg`, not the `.annotated.svg`. The annotated board
+references its 84 PNGs by relative filename, and a Penpot import takes a
+*file*, not a folder — so importing it gives you a grid of broken-image
+placeholders. That is not a guess: rendering the annotated board with the PNGs
+moved away produces exactly that, which is how the mistake was found after this
+page had already been written recommending it.
+
+The standalone board carries every screen inline as a data: URI. It is ~8 MB
+per theme, which is the price of a file that works on its own. The images are
+downscaled on the way in to the 800×500 the board draws them at, so it is not
+carrying four times the pixels it can show.
+
+`board.dark.standalone.svg` is the same board in dark mode. Import both: a good
 half of what this epic found only shows up in one theme, including the
 unreadable "Up Next" table that was dark text on a dark ground.
 
