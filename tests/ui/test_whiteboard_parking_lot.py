@@ -88,6 +88,15 @@ def send_to_parking_lot(page, task_name):
     page.wait_for_selector("#wbNoteMenu", state="detached")
 
 
+# The `board` page carries a 5s default timeout (tests/ui/conftest.py), which
+# is sized for "is this element on screen". A park is a whole commit-and-redraw
+# cycle, and on a two-worker CI runner it has been seen to take longer than that
+# -- `test_dragging_a_note_onto_the_open_panel_parks_it` timed out here at 5s
+# while the other 116 ui tests passed. Waiting longer costs nothing when the
+# app is working; a genuine regression still fails, just after 15s not 5.
+PARK_COMMIT_TIMEOUT_MS = 15_000
+
+
 def wait_for_parked(page, task_name=None):
     """Wait for the park to reach the plan text, and optionally the board.
 
@@ -99,13 +108,15 @@ def wait_for_parked(page, task_name=None):
     """
     page.wait_for_function(
         "() => document.getElementById('planEditor').value"
-        "        .includes('---parking lot---')"
+        "        .includes('---parking lot---')",
+        timeout=PARK_COMMIT_TIMEOUT_MS,
     )
     if task_name is not None:
         page.wait_for_function(
             "name => ![...document.querySelectorAll("
             "  '#whiteboardContainer .wb-note')].some(n => n.dataset.wbTask === name)",
             arg=task_name,
+            timeout=PARK_COMMIT_TIMEOUT_MS,
         )
 
 
