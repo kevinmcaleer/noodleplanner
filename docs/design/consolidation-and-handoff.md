@@ -138,28 +138,63 @@ Neither is fixed here; both are real and worth an issue.
 ## Penpot
 
 Penpot is the place to *decide* the palette, not to discover the drift — it
-sees the tokens you give it, never the 26,045 lines of CSS they are supposed to
+sees the tokens you give it, never the 17,584 lines of CSS they are supposed to
 govern. Use the explorer to pick the survivors, then use Penpot to design with
 them.
 
-**Tokens.** Design → Tokens → Import, pointing at the five files in
-`docs/design/tokens/` (`core.json`, `color-light.json`, `color-dark.json`,
-`$themes.json`, `$metadata.json`). They are W3C Design Tokens-typed JSON in the
-multi-set Tokens Studio convention Penpot reads natively — `$themes.json` maps
-the two colour sets onto a Light and a Dark theme, and `$metadata.json` fixes
-the order they resolve in. Import all five together; the two `$`-prefixed files
-are the ones that make it a themed set rather than three loose lists. Penpot's
-Tokens feature has moved fast across releases — if the importer wants a single
-merged file instead, check Penpot's own docs for the installed version.
+### Tokens
 
-**Screens.** `penpot/noodleplanner-ui-structure.mmd` renders anywhere Mermaid
-does (GitHub previews it inline). Export it to SVG and import that as a board
-to annotate — the same route the existing `penpot/noodleplanner-sitemap-*.svg`
-boards took.
+Design → Tokens → Import, pointing at the five files in `docs/design/tokens/`
+(`core.json`, `color-light.json`, `color-dark.json`, `$themes.json`,
+`$metadata.json`). They are W3C Design Tokens-typed JSON in the multi-set
+Tokens Studio convention Penpot reads natively — `$themes.json` maps the two
+colour sets onto a Light and a Dark theme, and `$metadata.json` fixes the order
+they resolve in. Import all five together; the two `$`-prefixed files are what
+make it a themed set rather than three loose lists. Penpot's Tokens feature has
+moved fast across releases — if the importer wants a single merged file
+instead, check Penpot's own docs for the installed version.
 
-The flow that works: consolidate in CSS → re-run `npm run audit:tokens` →
-re-import into Penpot. Penpot stays downstream of the stylesheet, so the two
-cannot silently disagree.
+Since #1191 the export also carries the spacing, type, elevation and focus
+scales, and composite values are resolved on the way out, so `--np-elevation-2`
+arrives as a real shadow rather than the string `0 2px 4px var(--np-shadow-tint)`.
+
+### Screens (#1196)
+
+```sh
+npm run design:screens        # or: uv run python scripts/capture_screen_audit.py
+```
+
+Captures all 39 core views — 30 project views across Plan/Tracking/Resources
+plus the 9 portfolio views — against a sample plan at 1600×1000, and writes
+`penpot/screen-audit/`: one PNG per view, a `board.svg` laying them out grouped
+and labelled in nav order, and a manifest. Import the board with
+File → Import and annotate it; keep the PNGs beside it, since the board
+references them by relative filename. `--theme dark` produces the other half.
+
+**The output is not committed**, and that is deliberate. A screenshot in a
+repository is stale the day after the next UI change, and a board of stale
+screenshots is worse than no board because it invites decisions about a UI that
+no longer exists. The script is the artefact; the images are build output, and
+regenerating takes under a minute.
+
+Which views get captured comes from `docs/design/ui-structure.json`, which
+`npm run design:map` derives from the router's own constants — so the board
+cannot silently miss a view someone added. Run that first if the app has gained
+views.
+
+Two things the first run got wrong, both now guarded:
+
+- The portfolio views live in a different shell and are keyed lowercase there,
+  while the surface map reports them capitalised. `switchToView('Status')`
+  fails silently, leaving the previous view on screen — the first run captured
+  the same screenshot nine times and reported "39/39 views captured".
+- So every capture is now hashed. Two views that render byte-identically did
+  not both render, and the script says so and exits non-zero rather than
+  claiming a complete audit.
+
+The flow that works: consolidate in CSS → `npm run audit:tokens` → re-import
+into Penpot. Penpot stays downstream of the stylesheet, so the two cannot
+silently disagree.
 
 ## Storybook
 

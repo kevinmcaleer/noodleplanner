@@ -163,3 +163,5 @@ npm run storybook:build    # static build
 | Linter | `scripts/lint-design-system.mjs` |
 | Contrast check | `scripts/check-contrast.mjs` |
 | CI job | `ci/jobs/design.sh` |
+| Storybook | `.storybook/` |
+| Screen-audit capture | `scripts/capture_screen_audit.py` |
