@@ -203,11 +203,6 @@ body {
     box-shadow: 0 0 20px var(--np-shadow-strong);
 }
 
-.detail-pane-header {
-    background: linear-gradient(135deg, #0d7096 0%, #2e7d32 100%);
-    color: white;
-}
-
 /* Project report / dashboard cards */
 [data-theme="dark"] .report-card,
 [data-theme="dark"] .quad-card,
