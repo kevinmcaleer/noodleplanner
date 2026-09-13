@@ -98,11 +98,23 @@ has since rewritten what you touched.
   ```
 
   Pure-JS changes tested with `node --test` are unaffected.
-- **Add `-m "not usability"` for a fast run.** The 238 Selenium tests are the
-  whole cost of the suite: ~18 minutes with them, under 20 seconds without.
-  They skip anyway wherever no browser is reachable, so deselecting them
-  explicitly costs nothing locally and makes the run usable as a quick check.
-  CI runs them in their own non-blocking `pytest (usability)` job.
+- **Add `-m "not usability"` for a fast run.** The Selenium tests are the whole
+  cost of the suite: ~18 minutes with them, seconds without. They skip anyway
+  wherever no browser is reachable, so deselecting them explicitly costs
+  nothing locally and makes the run usable as a quick check. CI runs them in
+  its own non-blocking `pytest (usability)` job, sharded four ways.
+- **Add `-n auto` to any run you are waiting on.** The tests are independent
+  and the plugin is already a dev dependency, so this is free: the non-browser
+  suite goes from 15.8s to 6.2s on four cores. It is deliberately not in
+  `pytest.ini`'s `addopts`, because xdist swallows the live per-test output and
+  breaks `--pdb`, which is exactly what you want when you are debugging one
+  test rather than waiting on all of them. Reach for it when you want the
+  answer, leave it off when you want the detail.
+- **The browser suites need `--dist loadfile`, not the default.** Both
+  `tests/ui` and the Selenium files keep one browser per module, so the default
+  per-test distribution can start a second browser for the same file. The
+  `usability` job passes `--dist loadfile` for that reason;
+  `scripts/usability-shard.sh` explains the rest of how that job is split.
 - **`git add -A` stages the `node_modules` symlink.** `.gitignore` has
   `node_modules/` with a trailing slash, which does not match a symlink of that
   name. Check `git status --short` for an `A node_modules` line before

@@ -9,6 +9,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # So the Selenium job below, which no longer runs on pull requests, can still
+  # be asked for by hand on a change that warrants it.
+  workflow_dispatch:
 
 # A new push supersedes whatever is still running for the same ref: these
 # suites take minutes, and a superseded run tells you nothing.
@@ -67,8 +70,12 @@ jobs:
       #
       # pytest.ini already puts -v in addopts, so a run killed on the timeout
       # names the test it stopped on rather than trailing off into dots.
+      # `-n auto` because these 1726 tests are independent and the runner has
+      # more than one core doing nothing: 15.8s -> 6.2s on a 4-core machine.
+      # No `--dist` needed; the default per-test distribution is right for a
+      # suite with no module-scoped browsers to keep together.
       - name: Run the Python suite
-        run: uv run pytest -p no:cacheprovider -m "not usability and not ui"
+        run: uv run pytest -p no:cacheprovider -m "not usability and not ui" -n auto
 
   ui:
     name: pytest (ui)
@@ -103,21 +110,40 @@ jobs:
         run: uv run pytest -p no:cacheprovider tests/ui -n auto
 
   usability:
-    name: pytest (usability)
+    name: pytest (usability) ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
-    # Reporting, not gating. Ten test files still drive Selenium -- the other
-    # three now live in tests/ui on Playwright, run by the `ui` job above. They
-    # skip wherever no browser can be reached, so on a developer machine they
-    # silently skip and only ever really run here -- which is how this
-    # workflow found 42 of them asserting against a UI that no longer exists
-    # (no #projectTab, no #projectSubnav). Deselecting them from the blocking
-    # job would have hidden that, so they get their own job instead.
+    # Not on pull requests. This job is ~17 minutes against ~3.5 for everything
+    # else combined, which made it about 85% of this repo's Actions bill and
+    # was the practical reason the account ran out of minutes. It was already
+    # `continue-on-error` -- a report nobody gates on -- so paying that on every
+    # push to every branch bought very little. It runs on `main` after merge,
+    # and `workflow_dispatch` triggers it by hand on a change that deserves it.
     #
-    # continue-on-error means a red result here annotates the PR without
-    # blocking it. Once the stale assertions are fixed, drop this line and the
-    # job becomes a real gate.
+    # This is a stopgap, not the fix. The fix is tests/ui: the three files
+    # ported there so far run the equivalent work in 90 seconds because they
+    # never touch the network (see tests/ui/README.md). As the remaining ten
+    # files follow, this job shrinks to nothing and the question goes away.
+    #
+    # Ten test files still drive Selenium. They skip wherever no browser can be
+    # reached, so on a developer machine they silently skip and only ever
+    # really run here -- which is how this workflow found 42 of them asserting
+    # against a UI that no longer exists (no #projectTab, no #projectSubnav).
+    #
+    # continue-on-error means a red result annotates rather than blocks. Once
+    # the stale assertions are fixed, drop this line and it becomes a real gate.
+    if: github.event_name != 'pull_request'
     continue-on-error: true
-    timeout-minutes: 35
+    # Was 35 for the whole suite in one job. Each shard carries at most a
+    # quarter of it, but the ceiling stays generous: it is there to stop a
+    # genuinely stuck job holding a runner, not to enforce a target.
+    timeout-minutes: 20
+    strategy:
+      # One shard failing must not cancel the others. They are testing
+      # different files, so the results of the rest are still worth having --
+      # and this job is `continue-on-error` precisely because it is a report.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
@@ -132,8 +158,24 @@ jobs:
       - name: Install the workspace
         run: uv sync --all-packages
 
-      - name: Run the Selenium suite
-        run: uv run pytest -p no:cacheprovider -m usability
+      # Four runners in parallel, each taking a balanced share of the files
+      # (see scripts/usability-shard.sh for how the split is chosen), and
+      # `-n auto` inside each one so a shard holding several files works on
+      # more than one at a time. `--dist loadfile` keeps a whole file on one
+      # worker, which these tests need: each file owns a module-scoped Chrome
+      # and uvicorn, so splitting one across workers would stand up a second
+      # browser for the same file. Verified concurrency-safe at 4 workers --
+      # 51 tests across four files, all passing.
+      - name: Run the Selenium suite (shard ${{ matrix.shard }} of 4)
+        run: |
+          mapfile -t FILES < <(scripts/usability-shard.sh ${{ matrix.shard }} 4)
+          if (( ${#FILES[@]} == 0 )); then
+            echo "No Selenium files in this shard -- all ported to tests/ui?"
+            exit 0
+          fi
+          printf 'Running %d file(s):\n' "${#FILES[@]}"
+          printf '  %s\n' "${FILES[@]}"
+          uv run pytest -p no:cacheprovider -m usability -n auto --dist loadfile "${FILES[@]}"
 
   js:
     name: npm run test:js
