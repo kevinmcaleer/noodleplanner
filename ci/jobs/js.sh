@@ -5,8 +5,24 @@
 # The browser libraries are vendored into static/vendor, but these tests import
 # the npm originals to check the two agree, so the dev dependencies have to be
 # installed even though the app itself has no bundler.
+#
+# The Python workspace is needed too, which is not obvious from the job's name.
+# 39 of these tests are parity tests: they compare the browser implementation
+# against the Python one, reaching it through <repo>/.venv/bin/python (see
+# pythonAnswers() in tests/test_engine_date_math.mjs, and the .mpp, PDF/DOCX,
+# PPTX and report-text suites). Every one carries `{ skip: !hasPython }`, keyed
+# on that path existing.
+#
+# So the failure mode is silence in both directions. With no .venv at all they
+# skip, and the job passes having never checked that the two engines agree --
+# which is what happened in this job before ci/ existed, leaving the #793 parity
+# guarantee unverified here. With a .venv that exists but has nothing installed
+# in it -- exactly what `astral-sh/setup-uv` leaves behind when it is given a
+# python-version and nobody syncs -- they activate and every one of them fails
+# on ModuleNotFoundError.
 . "$(dirname "$0")/../lib.sh"
 
+ci_setup_python
 ci_setup_node
 
 # The suite is ~840 tests and node's TAP reporter interleaves failures into the
