@@ -3098,6 +3098,18 @@ function wbCommitMarkdown(nextText) {
     }
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
+    // The dispatch above also schedules editor.js's own 1s debounced
+    // auto-render (its 'input' listener does that unconditionally) -- on
+    // top of the immediate renderText() call below, that leaves a second,
+    // redundant render pending a second from now, which tears down and
+    // rebuilds view DOM this function's callers already finished with
+    // (e.g. a checklist add-row's caller focuses its freshly-rendered
+    // input right after this returns -- the debounced re-render a second
+    // later would silently steal that focus back off it). Cancel it: the
+    // immediate render below already reflects nextText, so there is
+    // nothing left for a later render of the same text to usefully do.
+    if (typeof editor._cancelPendingRender === 'function') editor._cancelPendingRender();
+
     if (typeof renderText === 'function') {
         Promise.resolve(renderText()).catch(error => {
             console.error('Whiteboard note update render failed:', error);
