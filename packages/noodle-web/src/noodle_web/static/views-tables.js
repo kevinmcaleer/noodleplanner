@@ -443,7 +443,7 @@ function updateReportTimeline(tasks, projectName) {
         const milestones = tasks.filter(t => !t.is_summary && t.duration_days === 0 && t.finish);
 
         if (phases.length === 0 && milestones.length === 0) {
-            container.innerHTML = '<p style="color: #888; font-size: 0.9em;">No timeline data available.</p>';
+            container.innerHTML = '<p style="color: var(--np-faint); font-size: 0.9em;">No timeline data available.</p>';
             return;
         }
 

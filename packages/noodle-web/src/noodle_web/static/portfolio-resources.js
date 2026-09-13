@@ -367,7 +367,7 @@ async function renderPortfolioResources() {
                 '</span></td>' +
                 '<td>' + resource.totalTasks + '</td>' +
                 '<td>' + resource.totalDays + 'd</td>' +
-                '<td style="font-size: 0.85em; color: #6c757d;">' + escapeHtml(resource.dateRange) + '</td>' +
+                '<td style="font-size: 0.85em; color: var(--np-faint);">' + escapeHtml(resource.dateRange) + '</td>' +
                 '<td><span class="workload-badge ' + workloadClass + '">' +
                 resource.workloadLevel.toUpperCase() + '</span></td>' +
                 '<td><button class="btn-small" onclick="showResourceDetails(\'' +
@@ -708,7 +708,7 @@ function rerenderResourcesTable(resources) {
             '</span></td>' +
             '<td>' + resource.totalTasks + '</td>' +
             '<td>' + resource.totalDays + 'd</td>' +
-            '<td style="font-size: 0.85em; color: #6c757d;">' + escapeHtml(resource.dateRange) + '</td>' +
+            '<td style="font-size: 0.85em; color: var(--np-faint);">' + escapeHtml(resource.dateRange) + '</td>' +
             '<td><span class="workload-badge ' + workloadClass + '">' +
             resource.workloadLevel.toUpperCase() + '</span></td>' +
             '<td><button class="btn-small" onclick="showResourceDetails(\'' +

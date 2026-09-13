@@ -270,6 +270,7 @@
     --bg-secondary: var(--np-surface-alt);
     --text-primary: var(--np-ink);
     --text-secondary: var(--np-body);
+    --text-muted: var(--np-faint);
     --border-color: var(--np-border);
     --evm-card-bg: var(--np-surface);
     --evm-card-border: var(--np-border);
