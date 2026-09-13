@@ -100,31 +100,54 @@ function declarations(body) {
 	return out
 }
 
-// --- Allowlists. Each is a real category of colour that has no business
-// behind a UI token, not a way of quieting an inconvenient finding.
+// --- Allowlists. Each is a real category that has no business behind a token,
+// not a way of quieting an inconvenient finding.
+//
+// `rules` says which findings an entry exempts, and every entry must name it.
+// Without that these were colour-only in practice but read as blanket: the
+// syntax-theme entry would have gone on to excuse `.line-numbers`' padding
+// too, which is nothing to do with why it exists.
 const ALLOW = [
 	{
 		// The editor's syntax highlighting is a VS Code-derived theme of ~30
 		// rules on a permanently dark editor surface. It wants tokenising as a
 		// set, not one rule at a time, and it is not the UI palette.
 		why: 'editor syntax theme',
+		rules: ['raw-colour'],
 		match: ({ file, selector }) => file.endsWith('views/gantt.css') && /\.syntax-|\.line-numbers|\.editor-|\.section-fold/.test(selector),
+	},
+	{
+		// The whiteboard note header is a flex row of a title and six icon
+		// buttons inside a note whose width is plan data, so its free space is
+		// measured in single pixels. Snapping gap 6 -> 8 and padding 10 -> 12
+		// walked the button row ~2px left, far enough to put
+		// .wb-note-link-handle under the header's own midpoint -- so grabbing
+		// the middle of the header started a link drag instead of a move, and
+		// a note dragged to the parking lot was silently not parked. Caught by
+		// tests/ui/test_whiteboard_parking_lot.py. The scale does not get a
+		// vote on a value that is load-bearing for hit-testing.
+		why: 'whiteboard note header hit-testing',
+		rules: ['off-scale-spacing'],
+		match: ({ file, selector }) => file.endsWith('views/whiteboard.css') && /^\.wb-note-header$/.test(selector.trim()),
 	},
 	{
 		// Chart series, axis and grid colours are data encodings handed to a
 		// canvas API, not surfaces. They are already tokens in base.css.
 		why: 'chart series palette',
+		rules: ['raw-colour'],
 		match: ({ file, selector }) => file.endsWith('base.css') && /:root|\[data-theme/.test(selector),
 	},
 	{
 		// The canonical layer is where colour literals are supposed to live.
 		why: 'canonical token layer',
+		rules: ['raw-colour'],
 		match: ({ file }) => file === CANONICAL,
 	},
 	{
 		// A named RAG/priority hue is the meaning of the element, and the
 		// palette for it is a product decision rather than a token.
 		why: 'RAG / traffic-light encoding',
+		rules: ['raw-colour'],
 		match: ({ selector }) => /\b(rag|status)-(red|amber|green)\b|\.rag-badge|\.status-badge/.test(selector),
 	},
 ]
@@ -152,8 +175,8 @@ const SPACING_PROPS = new Set([
 const FINE_PX = new Set([0, 1, 2])
 const onGrid = (n) => FINE_PX.has(Math.abs(n)) || Math.abs(n) % 4 === 0
 
-function isAllowed(context) {
-	return ALLOW.find((a) => a.match(context))
+function isAllowed(rule, context) {
+	return ALLOW.find((a) => a.rules.includes(rule) && a.match(context))
 }
 
 function lint() {
@@ -164,7 +187,6 @@ function lint() {
 		const css = stripComments(readFileSync(abs, 'utf8'))
 		for (const rule of rules(css)) {
 			const context = { file, selector: rule.selector }
-			const allowed = isAllowed(context)
 			const decls = declarations(rule.body)
 
 			for (const { prop, value } of decls) {
@@ -179,7 +201,7 @@ function lint() {
 				}
 
 				// --- raw-colour
-				if (!allowed && COLOUR_PROPS.test(prop) && COLOUR_RE.test(value)) {
+				if (!isAllowed('raw-colour', context) && COLOUR_PROPS.test(prop) && COLOUR_RE.test(value)) {
 					// A var() with a literal fallback is indirected already; the
 					// fallback only paints if the token is missing, which the
 					// audit reports separately.
@@ -190,7 +212,8 @@ function lint() {
 				}
 
 				// --- off-scale-spacing
-				if (SPACING_PROPS.has(prop) && !/var\(|calc\(|clamp\(|auto|%/.test(value)) {
+				if (!isAllowed('off-scale-spacing', context) &&
+					SPACING_PROPS.has(prop) && !/var\(|calc\(|clamp\(|auto|%/.test(value)) {
 					for (const m of value.matchAll(/(-?\d*\.?\d+)(px)?\b/g)) {
 						const n = parseFloat(m[1])
 						if (m[2] !== 'px' && n !== 0) continue // em/rem/unitless: not this rule's business

@@ -175,8 +175,17 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--np-space-8);
-    padding: var(--np-space-8) var(--np-space-12);
+    /* Off the 4px spacing scale on purpose -- do not snap these to 8/12.
+       The header is a flex row of a title and six icon buttons inside a note
+       whose width is plan data, so its free space is measured in single
+       pixels. Rounding the gap 6 -> 8 and the padding 10 -> 12 walks the
+       button row ~2px left, which on a short title ("Loose Idea") is enough
+       to put .wb-note-link-handle under the header's own midpoint: grabbing
+       the middle of the header then starts a *link* drag instead of a move,
+       and a note dragged to the parking lot is silently not parked.
+       tests/ui/test_whiteboard_parking_lot.py drags exactly that point. */
+    gap: 6px;
+    padding: 8px 10px;
     background: transparent;
     color: var(--wb-note-text);
     border-bottom: 1px solid var(--np-border);
