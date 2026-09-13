@@ -12,82 +12,6 @@ Documentation is built with Sphinx and lives in `docs/`.
 - `docs/` — Sphinx documentation (tutorials, how-to, reference, explanation)
 - `tests/` — pytest test suite including Selenium usability tests
 
-## Working on a goal: always use a worktree
-
-**Never do the work in `/home/kev/noodleplanner` itself.** When you pick up a
-goal, an issue, or any change beyond a read, create your own worktree first:
-
-```bash
-cd /home/kev/noodleplanner
-git fetch origin
-git worktree add /home/kev/noodleplanner-worktrees/<name> -b <type>/<issue>-<slug> origin/main
-cd /home/kev/noodleplanner-worktrees/<name>
-ln -s /home/kev/noodleplanner/node_modules node_modules
-```
-
-Two independent reasons, both of which have bitten real sessions:
-
-1. **That checkout is live production.** `docker-compose.yml` bind-mounts
-   `./packages` and `./templates` into the running `noodleplanner` container
-   with `--reload`. Any edit to a tracked file under those paths — even
-   uncommitted, even on a feature branch — is served to real traffic
-   immediately. There is no review step between your editor and the site.
-2. **`main` moves fast.** Branches cut from a stale `origin/main` drift far
-   enough that the work has to be rebuilt. One session branched, built a
-   feature, opened a PR, and only discovered at merge time that `main` had
-   moved 81 commits and another PR had already rewritten the same file. Always
-   `git fetch` immediately before `git worktree add`, and branch from
-   `origin/main`, not from a local `main` that may be behind.
-
-Branch naming follows the repo's history: `feat/842-msproject-sync-preserve-sections`,
-`fix/minimal-timeline-sub-summary-parent-rows`, `docs/cloudflare-tunnel-credentials`.
-
-### Check for drift before you push
-
-`main` can move underneath you mid-task. Before opening a PR:
-
-```bash
-git fetch origin && git rev-list --left-right --count origin/main...HEAD
-```
-
-The left number is how far behind you are. If it is not small, merge
-`origin/main` in and re-test **before** pushing — a green PR built on a stale
-base can still be wrong, because CI only checks the merge, not whether someone
-has since rewritten what you touched.
-
-### Traps in a worktree
-
-- **The symlinked `.venv` tests the wrong source.** `noodle_core` and
-  `noodle_web` are installed editable against absolute paths pointing back at
-  `/home/kev/noodleplanner`, so running pytest from a worktree silently
-  exercises `main`'s Python, not yours. When your change touches `.py` files,
-  prefix the run:
-
-  ```bash
-  PYTHONPATH="$(pwd)/packages/noodle-core/src:$(pwd)/packages/noodle-web/src" pytest
-  ```
-
-  Pure-JS changes tested with `node --test` are unaffected.
-- **`git add -A` stages the `node_modules` symlink.** `.gitignore` has
-  `node_modules/` with a trailing slash, which does not match a symlink of that
-  name. Check `git status --short` for an `A node_modules` line before
-  committing.
-- **Run your own server on a non-8007 port.** 8007 is the production
-  container. Start uvicorn from the worktree with the `PYTHONPATH` above so it
-  serves the worktree's static files rather than `main`'s.
-- **Compare test failures against `main` before blaming your change.** The
-  suite has pre-existing failures (Selenium tests especially). Run the same
-  files on a clean `main` checkout and diff the failure sets.
-
-### When it is merged
-
-```bash
-git worktree remove /home/kev/noodleplanner-worktrees/<name>
-git branch -d <branch>
-```
-
-Leave `/home/kev/noodleplanner` on a clean `main` at all times.
-
 ## Documentation screenshots
 
 Screenshots used in the Sphinx docs are stored in `docs/_static/img/` and are
@@ -132,9 +56,6 @@ not exercised the browser.
 
 ## Reminders
 
-- **Work in a worktree, never in `/home/kev/noodleplanner`.** See the section
-  above — that checkout is bind-mounted into the live production container,
-  and `main` moves fast enough that a stale branch means rework.
 - **Update screenshots when features change.** If you modify a view, add a
   navigation element, or change the editor, re-run `make screenshots` so the
   docs stay accurate. Check the RST files under `docs/` for `.. figure::`
