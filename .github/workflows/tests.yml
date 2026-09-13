@@ -55,6 +55,21 @@ jobs:
   usability:
     name: pytest (usability)
     runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
+    # Only on runners we own. This job takes ~19 minutes where the four gating
+    # jobs together take ~2, so on metered runners it is 89% of what a push
+    # costs -- about 93 pushes a month against the free allowance, versus ~875
+    # without it. Paying that for a job whose result cannot block a merge is
+    # what exhausted the allowance in the first place, and it did so mid-run:
+    # this workflow's own run on 68b9c1d never got a runner, and the Engine
+    # conformance run created in the same second was refused at startup,
+    # immediately after a 19-minute usability job had drained what was left.
+    #
+    # Minutes are not billed on self-hosted runners, so once CI_RUNS_ON points
+    # at ours the suite runs on every push again, free. Unset, it is skipped
+    # rather than silently dropped -- a skipped check is visible on the pull
+    # request, and losing 19 minutes of reporting beats losing the ability to
+    # run any CI at all.
+    if: vars.CI_RUNS_ON != ''
     # Reporting, not gating. 13 test files drive a browser and they skip wherever
     # none is reachable, so on a developer machine they silently skip and only
     # ever really run here -- which is how this workflow found 42 of them

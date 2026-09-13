@@ -67,6 +67,19 @@ that has been replaced. To promote it, add it to `CI_BLOCKING_JOBS` in
 `ci/run.sh` and drop `continue-on-error` from the job in
 `.github/workflows/tests.yml`.
 
+**In the workflow it runs only on runners we own** (`if: vars.CI_RUNS_ON != ''`).
+It takes ~19 minutes where the four gating jobs together take ~2, so on metered
+runners it is 89% of what a push costs — roughly 93 pushes a month against the
+free allowance, against ~875 without it. Paying that for a job that cannot block
+a merge is what exhausted the allowance, and it did so mid-run: this repository's
+`tests.yml` run on `68b9c1d` never got a runner at all, and the `Engine
+conformance` run created in the same second was refused at startup, right after a
+19-minute usability job drained what was left. Minutes are not billed on
+self-hosted runners, so once `CI_RUNS_ON` points at ours it runs on every push
+again, free.
+
+Locally it is unaffected: `ci/run.sh --all` still runs it.
+
 It selects tests by the `usability` marker rather than by filename or by driver,
 which is what lets the Selenium → Playwright migration land without touching CI:
 a file keeps its `pytest.mark.usability` whichever library drives the browser.
