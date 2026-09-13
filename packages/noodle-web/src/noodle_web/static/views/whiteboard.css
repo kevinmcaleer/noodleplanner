@@ -1980,6 +1980,13 @@ body.wb-linking * {
     color: var(--np-blue, #108BB9);
 }
 
+/* The remove side of the same +/- toggle (#1108) -- same box, red instead
+   of blue on hover so "take this off the board" doesn't read as "add". */
+.wb-outline-remove:hover {
+    border-color: var(--np-red, #d9534f);
+    color: var(--np-red, #d9534f);
+}
+
 @media (pointer: coarse) {
     .wb-outline-add {
         opacity: 1;

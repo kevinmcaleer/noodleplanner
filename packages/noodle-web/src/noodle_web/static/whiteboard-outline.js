@@ -15,8 +15,11 @@
  *   2. *Find a note.* Type in the search box and the tree filters to
  *      matches and their ancestors; click a row and the canvas pans to
  *      centre that note and flashes it.
- *   3. *Get a task onto the board.* A task with no note gets an add
- *      button, so an outline row is one click from becoming a post-it.
+ *   3. *Get a task onto (or off) the board.* A task with no note gets a
+ *      "+" button, so an outline row is one click from becoming a post-it;
+ *      a task that already has one gets a "−" in the same slot instead
+ *      (#1108), which only removes the note -- see
+ *      wbOutlineBoardToggleClicked().
  *
  * A fourth job, added for issue #1156: *restructure the plan by dragging a
  * row.* Each row has a drag handle. Dropping it in the top half of another
@@ -382,22 +385,54 @@ function wbBuildOutlineRow(row) {
         el.appendChild(pct);
     }
 
-    // Add-to-board button for anything not already on it.
-    if (!row.onBoard) {
-        const add = document.createElement('button');
-        add.type = 'button';
-        add.className = 'wb-outline-add';
-        add.title = `Add "${row.name}" to the board`;
-        add.setAttribute('aria-label', `Add ${row.name} to the board`);
-        add.textContent = '+';
-        add.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (typeof wbCommitAddNotes === 'function') wbCommitAddNotes([row.name]);
-        });
-        el.appendChild(add);
-    }
+    // Add-to-board / remove-from-board toggle (#1108). Same slot either
+    // way: a task with no note yet gets a "+"; one that already has a note
+    // on the board gets a "−" instead, so the control always reflects
+    // whether *this* row is currently represented on the canvas -- see
+    // wbOutlineBoardToggleClicked() for what each side actually does.
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'wb-outline-add' + (row.onBoard ? ' wb-outline-remove' : '');
+    toggle.title = row.onBoard
+        ? `Remove "${row.name}" from the board`
+        : `Add "${row.name}" to the board`;
+    toggle.setAttribute('aria-label', row.onBoard
+        ? `Remove ${row.name} from the board. This only removes the note; the task and its subtasks stay in your plan.`
+        : `Add ${row.name} to the board`);
+    toggle.textContent = row.onBoard ? '−' : '+';
+    toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbOutlineBoardToggleClicked(row.name, row.onBoard);
+    });
+    el.appendChild(toggle);
 
     return el;
+}
+
+/**
+ * Which action the outline's add/remove toggle takes for a row that is (or
+ * isn't) currently on the board. Pure decision, split out from the click
+ * handler so it's testable without a DOM -- see
+ * tests/test_whiteboard_outline_toggle.mjs.
+ */
+function wbOutlineBoardToggleAction(onBoard) {
+    return onBoard ? 'remove' : 'add';
+}
+
+/**
+ * Run the outline's add/remove toggle for `taskName`. 'add' reuses
+ * wbCommitAddNotes() -- the same single-name path the picker's own "Add"
+ * takes. 'remove' reuses wbRemoveNoteFromBoard() -- the same function the
+ * note header's own "Remove from board" menu item calls -- so this is
+ * never a second implementation of either action, only a second place to
+ * trigger them, and removing a note here leaves the task and its subtasks
+ * exactly as intact as it does from the note menu.
+ */
+function wbOutlineBoardToggleClicked(taskName, onBoard) {
+    if (wbOutlineBoardToggleAction(onBoard) === 'remove') {
+        return (typeof wbRemoveNoteFromBoard === 'function') ? wbRemoveNoteFromBoard(taskName) : false;
+    }
+    return (typeof wbCommitAddNotes === 'function') ? wbCommitAddNotes([taskName]) : false;
 }
 
 // -- Drag to restructure (#1156) ------------------------------------------
