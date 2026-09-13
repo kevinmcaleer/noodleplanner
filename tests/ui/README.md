@@ -130,13 +130,40 @@ blocking them changes no assertion. If that ever stops being true, serve the
 library from a local copy in the fixture (`route.fulfill`) rather than opening
 the origin up for the whole suite.
 
+## A real bug this suite found
+
+`test_whiteboard_parking_lot.py::test_parked_item_survives_a_page_reload` fails
+about one run in five with four browsers on four cores, and it is not a timing
+artefact. When it fails, the *stored* project has been replaced by an empty
+plan — 37 characters of `last_saved` front matter — so the reload did not fail
+to restore the plan, it destroyed it.
+
+`project-storage.js`'s `saveCurrentProjectState()` guards on there being a
+current project id and a `#planEditor` element, but never on the editor having
+any content. Startup restore is `DOMContentLoaded` → `NoodleStore.whenReady()`
+→ `initMultiPlanLoader()` → `loadProjectIntoEditor()`; if any save path runs
+before that chain finishes, it stamps `last_saved` into the empty editor and
+writes it over the real project. On a fast machine the restore wins the race.
+On a loaded one it does not.
+
+That is user-facing data loss on page reload, not a test problem, so the test
+is left as it is rather than relaxed — it is reporting something true. The fix
+belongs in `saveCurrentProjectState()`: refuse to overwrite a project that has
+content with an editor that has none. Not done here because this directory is
+about the test suite, and that is a change to the live app.
+
+Not seen at the two workers CI actually uses.
+
 ## Still on Selenium
 
 `test_usability.py`, `test_ribbon_simple_view.py`, `test_whiteboard_notes.py`,
 `test_whiteboard_structure.py`, `test_whiteboard_board_membership.py`,
 `test_whiteboard_note_colour.py`, `test_whiteboard_drag_resize.py`,
-`test_whiteboard_canvas.py`, `test_whiteboard_text_objects.py`,
-`test_whiteboard_parking_lot.py`.
+`test_whiteboard_canvas.py`, `test_whiteboard_text_objects.py`.
+
+`test_usability.py` is the one to take next: 50 of the remaining 217 tests, and
+the file that bounds the sharded `usability` job because an order dependency
+inside it stops `--dist loadfile` splitting it further.
 
 Note that CI's `usability` job is `continue-on-error` because some of those
 tests assert against a UI that no longer exists. Port what is still true; do not
