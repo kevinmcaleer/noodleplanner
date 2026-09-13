@@ -70,6 +70,7 @@ test('a snapshot names every task with its position, depth and progress', () => 
     const snapshot = buildPlanSnapshot(PLAN, 3);
     assert.equal(snapshot.type, 'plan_snapshot');
     assert.equal(snapshot.rev, 3);
+    assert.equal(snapshot.plan_text, PLAN);
     assert.deepEqual(
         snapshot.tasks.map((t) => [t.id, t.name, t.indent, t.percent]),
         [

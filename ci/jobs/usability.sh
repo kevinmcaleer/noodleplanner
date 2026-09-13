@@ -34,8 +34,28 @@ log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 
 set +e
+# `-n auto --dist loadfile`: parallel within this one job, rather than split
+# across several. Runner replicas are the concurrency here (ci/runner), and
+# with three of them a matrix of shards would compete with the four gating jobs
+# for the same slots and make a pull request slower, not faster. Cores inside a
+# job are free by comparison.
+#
+# `--dist loadfile` rather than the default, because each file owns a
+# module-scoped Chrome and uvicorn: per-test distribution would stand up a
+# second browser for the same file for no benefit.
+#
+# It used to be load bearing for a second and worse reason -- test_usability.py
+# held a test that only passed in file order, so per-test distribution turned
+# the file red (1 failed, 49 passed). That file is now ported to tests/ui and
+# the dependency went with it: it was Selenium's `get_log("browser")` draining
+# one buffer shared by the whole module, and the port reads the console per
+# page. The eight files left have not been audited for the same thing, so
+# loadfile stays -- it costs nothing here and is the safe default for tests
+# that share a browser.
+#
+# The largest remaining file is 35 of 168 tests, which is what bounds this job.
 ci_step "pytest -m usability" \
-  ci_pytest -p no:cacheprovider -m usability "$@" 2>&1 | tee "$log"
+  ci_pytest -p no:cacheprovider -m usability -n auto --dist loadfile "$@" 2>&1 | tee "$log"
 # [0] is pytest, [1] is tee. tee all but always succeeds, so reading [1] here
 # would report every failing run as a pass -- which, on the one job in this
 # directory that does not gate, nothing downstream would have caught.

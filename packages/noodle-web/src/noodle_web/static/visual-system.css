@@ -28,10 +28,112 @@
     --np-font-heading: 'Newsreader', Georgia, serif;
     --np-font-ui: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --np-font-data: 'IBM Plex Mono', 'DejaVu Sans Mono', monospace;
-    --np-radius-control: 9px;
-    --np-radius-card: 11px;
-    --np-radius-panel: 14px;
+
+    /* --- Radius scale (#1191). The three semantic radii above named values
+       -- 9px, 11px, 14px -- that the app never adopted: between them they are
+       referenced three times, while the raw literals 4px (202 uses), 6px
+       (138), 8px (125) and 12px (63) carry the real UI. The scale below is
+       the authored reality, and the semantic names are now aliases onto it.
+       That way round costs three 1-2px changes; the other way round would
+       have changed ~500 declarations. */
+    --np-radius-xs: 2px;
+    --np-radius-sm: 4px;
+    --np-radius-md: 6px;
+    --np-radius-lg: 8px;
+    --np-radius-xl: 12px;
+    --np-radius-pill: 999px;
+    --np-radius-circle: 50%;
+    --np-radius-control: var(--np-radius-lg);
+    --np-radius-card: var(--np-radius-xl);
+    --np-radius-panel: var(--np-radius-xl);
+
+    /* --- Spacing scale (#1191). There was no spacing token at all before
+       this: 2,522 box-model declarations, exactly one of them indirected.
+       Named by value rather than by t-shirt size or index, deliberately --
+       when migrating 26k lines of existing CSS, `--np-space-8` is checkable
+       against `padding: 8px` at a glance, where `--np-space-2` is not. The
+       cost of that choice is that the names hard-code the 4px base; if the
+       base ever changes, these get renamed rather than re-valued.
+
+       The app's authored spacing is two interleaved half-scales -- 4/8/12/16
+       and 5/10/15/25/30 -- so 10px (449 uses) and 6px (286) have no token
+       here on purpose. Each one is a per-surface judgement in #1194 about
+       whether it becomes 8 or 12, not a find-and-replace. */
+    --np-space-0: 0;
+    --np-space-2: 2px;
+    --np-space-4: 4px;
+    --np-space-8: 8px;
+    --np-space-12: 12px;
+    --np-space-16: 16px;
+    --np-space-20: 20px;
+    --np-space-24: 24px;
+    --np-space-32: 32px;
+    --np-space-40: 40px;
+    --np-space-48: 48px;
+    --np-space-64: 64px;
+
+    /* --- Type scale (#1191). 67 raw font-size values today, dominated by em
+       multipliers. Named by hundredths of an em on the same principle as the
+       spacing scale: --np-text-85 is 0.85em. Relative units are kept
+       deliberately -- the app nests font-size-relative UI several levels deep
+       and switching to rem here would resize things that currently track
+       their container. */
+    --np-text-75: 0.75em;
+    --np-text-80: 0.8em;
+    --np-text-85: 0.85em;
+    --np-text-90: 0.9em;
+    --np-text-95: 0.95em;
+    --np-text-100: 1em;
+    --np-text-110: 1.1em;
+    --np-text-125: 1.25em;
+    --np-text-150: 1.5em;
+    --np-text-180: 1.8em;
+    --np-text-200: 2em;
+
+    --np-leading-tight: 1.2;
+    --np-leading-snug: 1.4;
+    --np-leading-normal: 1.6;
+
+    --np-weight-regular: 400;
+    --np-weight-medium: 500;
+    --np-weight-semibold: 600;
+    --np-weight-bold: 700;
+
+    /* --- Elevation (#1191). 105 distinct box-shadows today, most of them
+       one-off rgba() tuples a few hundredths apart. Four steps cover the
+       real cases: a hairline lift, a resting card, a floating menu, and a
+       modal over a dimmed page. The tint is a separate token so the ramp
+       darkens as a set in dark mode. */
+    --np-shadow-tint: rgba(35,32,28,.10);
+    --np-shadow-tint-strong: rgba(35,32,28,.16);
+    --np-elevation-1: 0 1px 2px var(--np-shadow-tint);
+    --np-elevation-2: 0 2px 4px var(--np-shadow-tint);
+    --np-elevation-3: 0 4px 12px var(--np-shadow-tint-strong);
+    --np-elevation-4: 0 20px 60px var(--np-shadow-tint-strong);
     --np-floating-shadow: 0 1px 2px rgba(35,32,28,.04), 0 18px 40px -24px rgba(35,32,28,.22);
+
+    /* --- Control boundary (#1191). WCAG 2.2 SC 1.4.11 wants 3:1 for the
+       visual boundary of a UI component. --np-border-strong is 1.33:1 against
+       the page, so an input outlined in it is invisible to a low-vision user.
+       It stays as-is for decorative separators, which the SC does not cover,
+       and this darker token is for anything with a boundary the user has to
+       find: inputs, selects, textareas, secondary buttons. 3.44:1 on paper. */
+    --np-border-control: #8C857A;
+
+    /* --- Focus ring (#1191). The app has 67 `outline: none` declarations and
+       five competing focus colours; buttons carry 242 :hover rules against 45
+       :focus ones.
+
+       The ring is two-layer on purpose. A single marigold ring is invisible
+       on a marigold button (1:1) and a single dark ring is invisible on a
+       dark page, so no one colour clears 3:1 everywhere. Painting an inner
+       halo in the page colour first means the ring always meets --np-paper,
+       whatever it is actually sitting on top of. */
+    --np-focus-ring-color: #8A6205;
+    --np-focus-ring-width: 2px;
+    --np-focus-ring-offset: 2px;
+    --np-focus-ring: 0 0 0 var(--np-focus-ring-offset) var(--np-paper),
+                     0 0 0 calc(var(--np-focus-ring-offset) + var(--np-focus-ring-width)) var(--np-focus-ring-color);
 }
 /* The handoff specifies light colours; these warm dark counterparts preserve
    semantic roles and ink-on-marigold buttons without purple/blue surfaces. */
@@ -59,7 +161,13 @@
     --np-body: #D4CCBF;
     --np-muted: #C0B6A6;
     --np-faint: #B8AD9B;
+    --np-shadow-tint: rgba(0,0,0,.35);
+    --np-shadow-tint-strong: rgba(0,0,0,.55);
     --np-floating-shadow: 0 1px 2px #0003, 0 18px 40px -24px #0009;
+    --np-border-control: #8A8175;
+    /* Marigold clears 3:1 against every dark surface; the inner halo in
+       --np-paper is what keeps it visible on a marigold button. */
+    --np-focus-ring-color: #EDB52A;
 }
 /* Bridge existing semantic consumers, including chart/table surface tokens. */
 :root, [data-theme="dark"] {

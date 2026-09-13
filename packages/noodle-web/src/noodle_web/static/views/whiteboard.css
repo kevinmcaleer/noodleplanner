@@ -1519,15 +1519,30 @@ body.wb-note-drag-active * {
     color: var(--np-text-secondary, #666666);
 }
 
+.wb-parking-lot-item-restore,
 .wb-parking-lot-item-remove {
     flex-shrink: 0;
     padding: 4px 10px;
     border: 1px solid var(--np-border, #e0e0e0);
     border-radius: 6px;
     background: var(--np-bg-alt, #f8f9fa);
-    color: var(--np-red, #d9534f);
     font-size: 12px;
     cursor: pointer;
+}
+
+.wb-parking-lot-item-restore {
+    color: var(--np-accent, #4a90d9);
+}
+
+.wb-parking-lot-item-remove {
+    color: var(--np-red, #d9534f);
+}
+
+.wb-parking-lot-item-restore:hover,
+.wb-parking-lot-item-restore:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    outline: 2px solid var(--np-accent, #4a90d9);
+    outline-offset: 1px;
 }
 
 .wb-parking-lot-item-remove:hover,

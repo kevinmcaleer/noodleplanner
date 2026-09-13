@@ -307,6 +307,32 @@ function saveCurrentProjectState() {
         return false;
     }
 
+    // Never let an empty editor overwrite a project that has content.
+    //
+    // loadProjectIntoEditor() is async, so on a slow load there is a window
+    // where the project is selected and #planEditor is still empty. Any save
+    // landing in that window stamps `last_saved` into nothing and writes the
+    // result over the stored plan -- the plan is not failed-to-load, it is
+    // destroyed, and the next save persists the emptiness. portfolio.js's
+    // startAutoSave() is the one that reaches it in practice: a 30s interval
+    // that only checks there is a current project id.
+    //
+    // Caught by tests/ui/test_whiteboard_parking_lot.py's reload test, which
+    // failed about one run in three with four browsers on four cores, each
+    // time with the stored plan replaced by 37 characters of front matter.
+    //
+    // The guard is deliberately narrow -- an editor that is *entirely* empty,
+    // over a project that is not -- because a user who selects all and deletes
+    // is doing something real and must still be able to save it. Reaching a
+    // genuinely blank editor and wanting that persisted is the one case this
+    // refuses, and the next keystroke saves it anyway.
+    if (planEditor.value.trim() === '') {
+        const stored = loadProject(projectId);
+        if (stored && (stored.planText || '').trim() !== '') {
+            return false;
+        }
+    }
+
     // Save a version history snapshot before overwriting
     if (typeof saveVersionSnapshot === 'function') {
         saveVersionSnapshot(projectId);

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Join planning session - Noodle Planner</title>
     <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="stylesheet" href="/static/views/notepad.css?v={{ v }}">
     <style>
         :root {
             color-scheme: light dark;
@@ -14,6 +15,9 @@
             --muted: #6b7280;
             --border: #d8dce1;
             --accent: #667eea;
+            --accent-soft: rgba(102, 126, 234, 0.12);
+            --note-bg: #fff6b8;
+            --note-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
         }
         @media (prefers-color-scheme: dark) {
             :root {
@@ -22,6 +26,9 @@
                 --text: #eef0f3;
                 --muted: #9aa1ab;
                 --border: #33373f;
+                --accent-soft: rgba(129, 140, 248, 0.18);
+                --note-bg: #6b5500;
+                --note-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
             }
         }
         * { box-sizing: border-box; }
@@ -31,6 +38,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 16px;
             background: var(--bg);
             color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -40,10 +48,12 @@
             max-width: 420px;
             background: var(--card-bg);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 32px;
+            border-radius: 16px;
+            padding: 28px;
             box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            transition: max-width 0.2s ease;
         }
+        .card.joined { max-width: min(1180px, calc(100vw - 32px)); }
         h1 { font-size: 1.4rem; margin: 0 0 4px; }
         p.sub { color: var(--muted); margin: 0 0 24px; font-size: 0.9rem; }
         label { display: block; font-size: 0.85rem; margin-bottom: 6px; color: var(--muted); }
@@ -59,101 +69,179 @@
         }
         input#joinCode { letter-spacing: 0.3em; font-variant-numeric: tabular-nums; }
         button {
-            width: 100%;
             padding: 10px 12px;
             border: none;
             border-radius: 8px;
             background: var(--accent);
             color: #fff;
-            font-size: 1rem;
+            font-size: 0.95rem;
             cursor: pointer;
         }
         button:disabled { opacity: 0.6; cursor: default; }
         #status { margin-top: 16px; font-size: 0.85rem; color: var(--muted); min-height: 1.2em; }
         #relay { margin-top: 20px; display: none; }
-        #relayLog {
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            height: 140px;
-            overflow-y: auto;
-            padding: 8px;
-            font-size: 0.8rem;
-            font-family: ui-monospace, monospace;
-        }
-        .row { display: flex; gap: 8px; margin-top: 8px; }
-        .row input { margin-bottom: 0; }
-        .row button { width: auto; padding: 8px 14px; }
-
-        /* #967 live plan */
-        #planTasks { border: 1px solid var(--border); border-radius: 8px; max-height: 260px; overflow-y: auto; }
-        .plan-task {
-            display: flex; align-items: center; gap: 8px;
-            padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 0.9rem;
-        }
-        .plan-task:last-child { border-bottom: none; }
-        .plan-task-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
-        .plan-task-name[contenteditable="true"]:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
-        .plan-task-percent { width: 62px; margin-bottom: 0; padding: 4px 6px; font-size: 0.85rem; }
-        .plan-task-done { color: var(--muted); text-decoration: line-through; }
-        .plan-empty { padding: 10px 8px; color: var(--muted); font-size: 0.85rem; }
         #planNotice {
-            margin-top: 12px; padding: 8px 10px; border-radius: 8px;
-            background: rgba(217, 119, 6, 0.12); color: #b45309; font-size: 0.85rem;
+            margin-bottom: 12px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: rgba(217, 119, 6, 0.12);
+            color: #b45309;
+            font-size: 0.85rem;
         }
         @media (prefers-color-scheme: dark) { #planNotice { color: #fbbf24; } }
-
-        /* #969 RAID/risk log */
-        h2.section-heading {
-            font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
-            color: var(--muted); margin: 20px 0 6px;
+        .joiner-tabs {
+            display: inline-flex;
+            gap: 6px;
+            padding: 4px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg);
+            margin-bottom: 16px;
         }
-        #raidRows { border: 1px solid var(--border); border-radius: 8px; max-height: 220px; overflow-y: auto; }
-        .raid-row {
-            display: flex; align-items: center; gap: 6px;
-            padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 0.85rem;
+        .joiner-tab {
+            background: transparent;
+            color: var(--muted);
+            padding: 8px 12px;
         }
-        .raid-row:last-child { border-bottom: none; }
-        .raid-row-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
-        .raid-row-title[contenteditable="true"]:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
-        .raid-row-type, .raid-row-status {
-            border: 1px solid var(--border); border-radius: 6px; background: transparent;
-            color: var(--text); font-size: 0.8rem; padding: 3px 4px;
+        .joiner-tab.active {
+            background: var(--accent);
+            color: #fff;
         }
-        .raid-row-delete {
-            width: auto; padding: 2px 8px; border-radius: 6px;
-            background: transparent; border: 1px solid var(--border); color: var(--muted);
+        .joiner-panel { display: none; }
+        .joiner-panel.active { display: block; }
+        .joiner-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
         }
-
-        /* #1036: the generic section rows use <input> for their extra
-           fields where RAID uses <select>. This page sets `input { width:
-           100% }` globally, so without an override two of them expand and
-           squeeze the flex:1 title to zero width -- the row renders looking
-           like the title is missing entirely. */
-        /* #1036: weekly updates -- entries, not table rows. */
-        #highlightsRows { border: 1px solid var(--border); border-radius: 8px; max-height: 260px; overflow-y: auto; }
-        .entry-row { padding: 8px; border-bottom: 1px solid var(--border); }
-        .entry-row:last-child { border-bottom: none; }
-        .entry-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-        .entry-label { flex: 1; font-size: 0.8rem; color: var(--muted); }
-        .entry-body {
-            width: 100%; margin-bottom: 0; padding: 6px 8px; font-size: 0.85rem;
-            border: 1px solid var(--border); border-radius: 6px;
-            background: transparent; color: var(--text); resize: vertical;
-            font-family: inherit;
+        .joiner-hint { color: var(--muted); font-size: 0.85rem; }
+        .joiner-whiteboard-viewport {
+            height: min(68vh, 760px);
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background:
+                radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--border) 75%, transparent) 1px, transparent 0) 0 0 / 24px 24px,
+                color-mix(in srgb, var(--bg) 60%, var(--card-bg));
         }
-
-        .section-row-input {
-            width: auto;
-            max-width: 110px;
+        .joiner-whiteboard-canvas {
+            position: relative;
+            min-width: 100%;
+            min-height: 100%;
+        }
+        .joiner-whiteboard-empty {
+            padding: 24px;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+        .joiner-note {
+            position: absolute;
+            width: 260px;
+            min-height: 220px;
+            padding: 0;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            border-radius: 14px;
+            background: var(--note-bg);
+            color: #1f2937;
+            box-shadow: var(--note-shadow);
+            overflow: hidden;
+            user-select: none;
+        }
+        @media (prefers-color-scheme: dark) {
+            .joiner-note { color: #f8fafc; border-color: rgba(255, 255, 255, 0.08); }
+        }
+        .joiner-note.dragging { opacity: 0.88; }
+        .joiner-note-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px 14px 10px;
+            font-weight: 600;
+            cursor: grab;
+        }
+        .joiner-note-header:active { cursor: grabbing; }
+        .joiner-note-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .joiner-note-badge {
             flex: 0 0 auto;
-            margin-bottom: 0;
-            border: 1px solid var(--border); border-radius: 6px; background: transparent;
-            color: var(--text); font-size: 0.8rem; padding: 3px 4px;
+            min-width: 24px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.32);
+            font-size: 0.75rem;
+            text-align: center;
+        }
+        .joiner-note-body {
+            padding: 0 14px 14px;
+            font-size: 0.88rem;
+        }
+        .joiner-note-checklist {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 8px;
+        }
+        .joiner-note-checklist li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.28);
+        }
+        .joiner-note-checklist li.done { text-decoration: line-through; opacity: 0.7; }
+        .joiner-note-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: currentColor;
+            opacity: 0.65;
+            flex: 0 0 auto;
+        }
+        .joiner-note-empty {
+            color: rgba(31, 41, 55, 0.76);
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+        }
+        @media (prefers-color-scheme: dark) {
+            .joiner-note-empty { color: rgba(248, 250, 252, 0.82); }
+        }
+        .joiner-note-footer {
+            margin-top: 10px;
+            color: rgba(31, 41, 55, 0.76);
+            font-size: 0.78rem;
+        }
+        @media (prefers-color-scheme: dark) {
+            .joiner-note-footer { color: rgba(248, 250, 252, 0.72); }
+        }
+        .joiner-promote-btn {
+            width: 100%;
+            background: rgba(31, 41, 55, 0.12);
+            color: inherit;
+        }
+        .joiner-promote-btn:hover { background: rgba(31, 41, 55, 0.18); }
+        .joiner-panel #joinNotepadContainer {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card-bg);
+            padding: 12px;
+        }
+        .joiner-panel #joinNotepadContainer .notepad-toolbar { display: none; }
+        @media (max-width: 900px) {
+            .card.joined { padding: 18px; }
+            .joiner-whiteboard-viewport { height: min(62vh, 620px); }
         }
     </style>
 </head>
 <body>
-    <div class="card">
+    <div class="card" id="joinCard">
         <h1>Join planning session</h1>
         <p class="sub">Enter the six-digit code your PM shared with you.</p>
 
@@ -169,25 +257,25 @@
         <div id="status"></div>
 
         <div id="relay">
-            <!-- #967: the live plan. Every control here sends an edit
-                 intent to the host and waits for the snapshot that comes
-                 back -- this page never edits a plan of its own. -->
             <div id="planNotice" hidden></div>
-            <div id="planTasks"></div>
-            <div class="row">
-                <input id="newTaskName" placeholder="Add a task">
-                <button type="button" id="addTaskBtn">Add</button>
+            <div class="joiner-tabs" role="tablist" aria-label="Joiner editing surface">
+                <button type="button" class="joiner-tab active" data-surface="whiteboard" aria-selected="true">Post-its</button>
+                <button type="button" class="joiner-tab" data-surface="notepad" aria-selected="false">List</button>
             </div>
 
-            <!-- #969: the RAID/risk log, edited via the same host-authoritative
-                 op model as the task outline above (see collab-backmatter-ops.js)
-                 -- this page never edits the log directly, only sends intents. -->
-            <h2 class="section-heading">RAID / risk log</h2>
-            <div id="raidRows"></div>
-            <div class="row">
-                <input id="newRaidTitle" placeholder="Add a risk, action, issue or decision">
-                <button type="button" id="addRaidBtn">Add</button>
-            </div>
+            <section id="whiteboardPanel" class="joiner-panel active">
+                <div class="joiner-toolbar">
+                    <span class="joiner-hint">Drag notes to move them. Promote a loose note to create its first checklist item.</span>
+                    <button type="button" id="joinWhiteboardAddBtn">New post-it</button>
+                </div>
+                <div id="joinWhiteboardViewport" class="joiner-whiteboard-viewport">
+                    <div id="joinWhiteboardCanvas" class="joiner-whiteboard-canvas"></div>
+                </div>
+            </section>
+
+            <section id="notepadPanel" class="joiner-panel" aria-hidden="true">
+                <div id="joinNotepadContainer"></div>
+            </section>
 
             <!-- #1036: the other editable back-matter sections, driven by
                  the same host-authoritative op model as the RAID log. -->
@@ -222,35 +310,24 @@
         </div>
     </div>
 
+    <script src="/static/plan-model.js?v={{ v }}"></script>
+    <script src="/static/notepad.js?v={{ v }}"></script>
     <script>
-        // #964: end-to-end encryption. This inline script stays a classic
-        // (non-module) script, so static/collab-crypto.js (an ES module)
-        // is loaded via dynamic import() -- same pattern collab-session.js
-        // and ribbon.js use for their own ES-module dependencies. See
-        // collab-crypto.js's module docstring for the full crypto design
-        // (KDF, key exchange, AEAD, wire format, and the two-secret design:
-        // the six-digit `code` below is admission-only -- it is what the
-        // server checks to let this socket's `join` handshake through, and
-        // has zero cryptographic role. The ECDH handshake is instead
-        // authenticated by `handshakeSecret`, read below from this page's
-        // own URL fragment, which browsers never send to any server).
         let cryptoModulePromise = null;
         function loadCollabCrypto() {
             if (!cryptoModulePromise) cryptoModulePromise = import('/static/collab-crypto.js');
             return cryptoModulePromise;
         }
 
-        // The holding link the host shares is `/join/{session_id}#k=<secret>`
-        // (see collab_session.py) -- `window.location.hash` is populated by
-        // the browser from that fragment and is never part of any request
-        // this page (or any page) sends to a server.
         function parseHandshakeSecretFromHash() {
             const hash = window.location.hash || '';
             const params = new URLSearchParams(hash.replace(/^#/, ''));
             return params.get('k');
         }
-        const handshakeSecret = parseHandshakeSecretFromHash();
 
+        const NOTE_WIDTH = 260;
+        const NOTE_HEIGHT = 220;
+        const handshakeSecret = parseHandshakeSecretFromHash();
         const sessionId = {{ session_id | tojson }};
         const form = document.getElementById('joinForm');
         const status = document.getElementById('status');
@@ -259,7 +336,34 @@
         const relayLog = document.getElementById('relayLog');
         const joinerChatEntries = [];
         const joinerChatIds = new Set();
+        const joinCard = document.getElementById('joinCard');
+        const surfaceButtons = Array.from(document.querySelectorAll('.joiner-tab'));
+        const whiteboardPanel = document.getElementById('whiteboardPanel');
+        const notepadPanel = document.getElementById('notepadPanel');
+        const whiteboardViewport = document.getElementById('joinWhiteboardViewport');
+        const whiteboardCanvas = document.getElementById('joinWhiteboardCanvas');
+        const addNoteBtn = document.getElementById('joinWhiteboardAddBtn');
 
+        let socket = null;
+        let connectKey = null;
+        let keyPair = null;
+        let sessionKey = null;
+        let presencePingTimer = null;
+        let planText = '';
+        let planRev = 0;
+        let whiteboardState = { items: [], tasks: [] };
+        let planNoticeTimer = null;
+        let notepadSurface = null;
+        let boardOffset = { x: 120, y: 120 };
+        let dragState = null;
+
+        function setJoinedUi(joined) {
+            joinCard.classList.toggle('joined', joined);
+        }
+
+        // Restored with the Session chat section: main's joiner-panel
+        // rewrite removed this helper, but submitJoinerChat() and the
+        // chat log still depend on it writing into #relayLog.
         function log(line) {
             const div = document.createElement('div');
             div.textContent = line;
@@ -337,370 +441,23 @@
             planNoticeTimer = setTimeout(() => { notice.hidden = true; }, 6000);
         }
 
-        /** Send an edit intent to the host, encrypted like any other
-         * content. The host decides whether it applies -- nothing is
-         * changed locally first, so this page can never show an edit that
-         * the plan does not actually have (no optimistic-update drift). */
-        async function sendPlanOp(op) {
-            if (!socket || socket.readyState !== WebSocket.OPEN || !sessionKey) return;
-            const { encryptMessage } = await loadCollabCrypto();
-            const envelope = await encryptMessage(
-                sessionKey, JSON.stringify({ type: 'plan_op', rev: planRev, ...op }), sessionId
-            );
-            socket.send(envelope);
+        function setJoinerSurface(name) {
+            const useWhiteboard = name !== 'notepad';
+            whiteboardPanel.classList.toggle('active', useWhiteboard);
+            notepadPanel.classList.toggle('active', !useWhiteboard);
+            whiteboardPanel.setAttribute('aria-hidden', String(!useWhiteboard));
+            notepadPanel.setAttribute('aria-hidden', String(useWhiteboard));
+            surfaceButtons.forEach((button) => {
+                const active = button.dataset.surface === (useWhiteboard ? 'whiteboard' : 'notepad');
+                button.classList.toggle('active', active);
+                button.setAttribute('aria-selected', String(active));
+            });
+            if (!useWhiteboard) ensureNotepadSurface().refresh();
         }
 
-        /** Render the host's snapshot. Rebuilt wholesale each time: the
-         * host is the only writer, so there is no local state worth
-         * preserving across a snapshot, and rebuilding keeps this page
-         * incapable of drifting from the host's plan. */
-        function renderPlanSnapshot(snapshot) {
-            planTasks = Array.isArray(snapshot.tasks) ? snapshot.tasks : [];
-            planRev = snapshot.rev;
-            if (snapshot.notice) showPlanNotice(snapshot.notice);
-
-            const container = document.getElementById('planTasks');
-            if (!container) return;
-            container.innerHTML = '';
-
-            if (planTasks.length === 0) {
-                const empty = document.createElement('div');
-                empty.className = 'plan-empty';
-                empty.textContent = 'The host has not written any tasks yet.';
-                container.appendChild(empty);
-                return;
-            }
-
-            for (const task of planTasks) {
-                const row = document.createElement('div');
-                row.className = 'plan-task';
-                row.style.paddingLeft = `${8 + task.indent * 8}px`;
-
-                const name = document.createElement('span');
-                name.className = 'plan-task-name' + (task.done ? ' plan-task-done' : '');
-                name.textContent = task.name;
-                name.contentEditable = 'true';
-                name.spellcheck = false;
-                // Commit on blur or Enter, never per keystroke: an op per
-                // character would put the host into a rename storm and make
-                // every concurrent edit look like a conflict.
-                name.addEventListener('keydown', (event) => {
-                    if (event.key === 'Enter') { event.preventDefault(); name.blur(); }
-                    if (event.key === 'Escape') { name.textContent = task.name; name.blur(); }
-                });
-                name.addEventListener('blur', () => {
-                    const value = name.textContent.trim();
-                    if (!value || value === task.name) { name.textContent = task.name; return; }
-                    sendPlanOp({ op: 'rename', id: task.id, expect: task.name, value });
-                });
-                row.appendChild(name);
-
-                const percent = document.createElement('input');
-                percent.type = 'number';
-                percent.min = '0';
-                percent.max = '100';
-                percent.className = 'plan-task-percent';
-                percent.value = task.percent == null ? '' : String(task.percent);
-                percent.placeholder = '–';
-                percent.addEventListener('change', () => {
-                    const value = Number(percent.value);
-                    if (!Number.isFinite(value)) return;
-                    sendPlanOp({ op: 'set_percent', id: task.id, expect: task.name, value });
-                });
-                row.appendChild(percent);
-
-                container.appendChild(row);
-            }
-        }
-
-        // #969: the RAID/risk log, following the exact same "send an intent,
-        // render what the host sends back" pattern as sendPlanOp/
-        // renderPlanSnapshot above -- see collab-backmatter-ops.js for the
-        // row-op protocol and why it's scoped to RAID for now. */
-        async function sendBackmatterOp(op) {
-            if (!socket || socket.readyState !== WebSocket.OPEN || !sessionKey) return;
-            const { encryptMessage } = await loadCollabCrypto();
-            const envelope = await encryptMessage(
-                sessionKey, JSON.stringify({ type: 'backmatter_op', section: 'raid', rev: raidRev, ...op }), sessionId
-            );
-            socket.send(envelope);
-        }
-
-        // ---- #1036: benefits and comms ----------------------------------
-        //
-        // Same intent-and-snapshot pattern as RAID above, but driven by a
-        // small per-section description rather than a hand-written renderer
-        // each: these two are structurally identical id-keyed tables, so a
-        // third would be a row in this object, not another block of code.
-        const SECTION_UI = {
-            benefits: {
-                heading: 'Benefits',
-                placeholder: 'Add a benefit',
-                // The first column is what a person actually scans for.
-                titleField: 'title',
-                extraFields: ['status'],
-            },
-            comms: {
-                heading: 'Comms plan',
-                placeholder: 'Add a comms activity',
-                titleField: 'activity',
-                extraFields: ['audience', 'channel'],
-            },
-            highlights: {
-                heading: 'Weekly updates',
-                placeholder: 'Add an update (your name)',
-                // Not a table: entries are addressed by position, so every
-                // edit carries `expect` -- see collab-backmatter-ops.js.
-                entries: true,
-            },
-        };
-
-        const sectionState = {};
-        for (const name of Object.keys(SECTION_UI)) sectionState[name] = { rows: [], rev: 0 };
-
-        async function sendSectionOp(section, op) {
-            if (!socket || socket.readyState !== WebSocket.OPEN || !sessionKey) return;
-            const { encryptMessage } = await loadCollabCrypto();
-            const envelope = await encryptMessage(
-                sessionKey,
-                JSON.stringify({
-                    type: 'backmatter_op', section, rev: sectionState[section].rev, ...op,
-                }),
-                sessionId
-            );
-            socket.send(envelope);
-        }
-
-        /** Render the weekly-updates entries: a `date @author` label and a
-         * multi-line body, rather than a table row. Every edit sends the
-         * `expect` the entry was rendered from, so an entry that shifted
-         * position under a concurrent add or delete is refused by the host
-         * rather than overwritten. */
-        function renderEntrySection(section, container) {
-            for (const entry of sectionState[section].rows) {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'entry-row';
-                const expect = `${entry.date} @${entry.author}`;
-
-                const head = document.createElement('div');
-                head.className = 'entry-head';
-
-                const label = document.createElement('span');
-                label.className = 'entry-label';
-                label.textContent = expect;
-                head.appendChild(label);
-
-                const remove = document.createElement('button');
-                remove.type = 'button';
-                remove.className = 'raid-row-delete';
-                remove.textContent = '×';
-                remove.title = 'Delete';
-                remove.addEventListener('click', () => {
-                    sendSectionOp(section, { op: 'delete_row', row_id: entry.id, expect });
-                });
-                head.appendChild(remove);
-                wrapper.appendChild(head);
-
-                const body = document.createElement('textarea');
-                body.className = 'entry-body';
-                body.rows = 3;
-                body.value = entry.content || '';
-                body.addEventListener('blur', () => {
-                    if (body.value === (entry.content || '')) return;
-                    sendSectionOp(section, {
-                        op: 'edit_row', row_id: entry.id, expect, fields: { content: body.value },
-                    });
-                });
-                wrapper.appendChild(body);
-                container.appendChild(wrapper);
-            }
-        }
-
-        /** Render one back-matter section's snapshot. Rebuilt wholesale for
-         * the same reason the plan and RAID renderers are: the host owns the
-         * document, so there is no local state worth preserving. */
-        function renderSectionSnapshot(snapshot) {
-            const section = snapshot.section;
-            const config = SECTION_UI[section];
-            if (!config) return;
-
-            sectionState[section].rows = Array.isArray(snapshot.items) ? snapshot.items : [];
-            sectionState[section].rev = snapshot.rev;
-            if (snapshot.notice) showPlanNotice(snapshot.notice);
-
-            const container = document.getElementById(`${section}Rows`);
-            if (!container) return;
-            container.innerHTML = '';
-
-            if (sectionState[section].rows.length === 0) {
-                const empty = document.createElement('div');
-                empty.className = 'plan-empty';
-                empty.textContent = 'Nothing here yet.';
-                container.appendChild(empty);
-                return;
-            }
-
-            if (config.entries) {
-                renderEntrySection(section, container);
-                return;
-            }
-
-            for (const row of sectionState[section].rows) {
-                const el = document.createElement('div');
-                el.className = 'raid-row';
-
-                const title = document.createElement('span');
-                title.className = 'raid-row-title';
-                title.textContent = row[config.titleField] || '';
-                title.contentEditable = 'true';
-                title.spellcheck = false;
-                title.addEventListener('keydown', (event) => {
-                    if (event.key === 'Enter') { event.preventDefault(); title.blur(); }
-                    if (event.key === 'Escape') { title.textContent = row[config.titleField] || ''; title.blur(); }
-                });
-                title.addEventListener('blur', () => {
-                    const value = title.textContent.trim();
-                    if (value === (row[config.titleField] || '')) return;
-                    sendSectionOp(section, {
-                        op: 'edit_row', row_id: row.id, fields: { [config.titleField]: value },
-                    });
-                });
-                el.appendChild(title);
-
-                for (const field of config.extraFields) {
-                    const input = document.createElement('input');
-                    input.className = 'section-row-input';
-                    input.value = row[field] || '';
-                    input.placeholder = field;
-                    input.addEventListener('change', () => {
-                        sendSectionOp(section, {
-                            op: 'edit_row', row_id: row.id, fields: { [field]: input.value },
-                        });
-                    });
-                    el.appendChild(input);
-                }
-
-                const remove = document.createElement('button');
-                remove.type = 'button';
-                remove.className = 'raid-row-delete';
-                remove.textContent = '×';
-                remove.title = 'Delete';
-                remove.addEventListener('click', () => {
-                    sendSectionOp(section, { op: 'delete_row', row_id: row.id });
-                });
-                el.appendChild(remove);
-
-                container.appendChild(el);
-            }
-        }
-
-        /** Render the host's RAID snapshot. Rebuilt wholesale each time, for
-         * the same reason renderPlanSnapshot is: the host is the only writer
-         * of the plan text the RAID log lives in. */
-        function renderRaidSnapshot(snapshot) {
-            raidRows = Array.isArray(snapshot.items) ? snapshot.items : [];
-            raidRev = snapshot.rev;
-            if (snapshot.notice) showPlanNotice(snapshot.notice);
-
-            const container = document.getElementById('raidRows');
-            if (!container) return;
-            container.innerHTML = '';
-
-            if (raidRows.length === 0) {
-                const empty = document.createElement('div');
-                empty.className = 'plan-empty';
-                empty.textContent = 'No RAID log items yet.';
-                container.appendChild(empty);
-                return;
-            }
-
-            for (const row of raidRows) {
-                const el = document.createElement('div');
-                el.className = 'raid-row';
-
-                const title = document.createElement('span');
-                title.className = 'raid-row-title';
-                title.textContent = row.title || row.description || '(untitled)';
-                title.contentEditable = 'true';
-                title.spellcheck = false;
-                title.addEventListener('keydown', (event) => {
-                    if (event.key === 'Enter') { event.preventDefault(); title.blur(); }
-                    if (event.key === 'Escape') { title.textContent = row.title; title.blur(); }
-                });
-                title.addEventListener('blur', () => {
-                    const value = title.textContent.trim();
-                    if (!value || value === row.title) { title.textContent = row.title; return; }
-                    sendBackmatterOp({ op: 'edit_row', row_id: row.id, fields: { title: value } });
-                });
-                el.appendChild(title);
-
-                const type = document.createElement('select');
-                type.className = 'raid-row-type';
-                ['risk', 'action', 'issue', 'decision', 'dependency'].forEach((t) => {
-                    const opt = document.createElement('option');
-                    opt.value = t;
-                    opt.textContent = t;
-                    if (t === row.type) opt.selected = true;
-                    type.appendChild(opt);
-                });
-                type.addEventListener('change', () => {
-                    sendBackmatterOp({ op: 'edit_row', row_id: row.id, fields: { type: type.value } });
-                });
-                el.appendChild(type);
-
-                const status = document.createElement('select');
-                status.className = 'raid-row-status';
-                ['open', 'closed', 'transferred'].forEach((s) => {
-                    const opt = document.createElement('option');
-                    opt.value = s;
-                    opt.textContent = s;
-                    if (s === row.status) opt.selected = true;
-                    status.appendChild(opt);
-                });
-                status.addEventListener('change', () => {
-                    sendBackmatterOp({ op: 'edit_row', row_id: row.id, fields: { status: status.value } });
-                });
-                el.appendChild(status);
-
-                const del = document.createElement('button');
-                del.type = 'button';
-                del.className = 'raid-row-delete';
-                del.textContent = '×';
-                del.title = 'Delete';
-                del.addEventListener('click', () => {
-                    sendBackmatterOp({ op: 'delete_row', row_id: row.id });
-                });
-                el.appendChild(del);
-
-                container.appendChild(el);
-            }
-        }
-
-        let socket = null;
-        let connectKey = null;
-        let keyPair = null;
-        let sessionKey = null; // established once the host's pubkey is verified
-        let presencePingTimer = null;
-
-        // #967: the last plan the host sent. This page holds no plan of its
-        // own -- it renders what the host says and asks the host to change
-        // it. `planRev` is echoed back on every op purely so the host can
-        // tell how current the sender's view was.
-        let planTasks = [];
-        let planRev = 0;
-        let planNoticeTimer = null;
-
-        // #969: same contract as planTasks/planRev, for the RAID log.
-        let raidRows = [];
-        let raidRev = 0;
-
-        // #966: how often this joiner tells the host it's still here, via
-        // the lightweight `{"type": "presence_ping"}` heartbeat -- kept
-        // well under collab_session.py's PRESENCE_ACTIVE_WINDOW_SECONDS
-        // (45s by default) so a couple of missed beats (a backgrounded
-        // tab, a slow network) don't flip this joiner to "inactive" in the
-        // host's presence panel.
-        const PRESENCE_PING_INTERVAL_MS = 15000;
+        surfaceButtons.forEach((button) => {
+            button.addEventListener('click', () => setJoinerSurface(button.dataset.surface));
+        });
 
         function stopPresencePing() {
             if (presencePingTimer !== null) {
@@ -709,14 +466,239 @@
             }
         }
 
+        function ensureNotepadSurface() {
+            if (notepadSurface) return notepadSurface;
+            const container = document.getElementById('joinNotepadContainer');
+            notepadSurface = NoodleNotepad.createNotepadSurface(container, {
+                getText: () => planText,
+                setText: (text) => {
+                    planText = text;
+                    sendEncrypted({ type: 'plan_text_replace', rev: planRev, text });
+                },
+                newTaskPlaceholder: 'Type a task and press Enter…',
+            });
+            return notepadSurface;
+        }
+
+        function taskMap() {
+            const map = new Map();
+            (whiteboardState.tasks || []).forEach((task) => {
+                if (task && task.name) map.set(String(task.name).toLowerCase(), task);
+            });
+            return map;
+        }
+
+        function directChildren(taskName) {
+            return (whiteboardState.tasks || []).filter(task => task && task.parent === taskName);
+        }
+
+        function renderWhiteboard() {
+            const items = Array.isArray(whiteboardState.items) ? whiteboardState.items : [];
+            const tasksByName = taskMap();
+            whiteboardCanvas.innerHTML = '';
+            if (!items.length) {
+                const empty = document.createElement('div');
+                empty.className = 'joiner-whiteboard-empty';
+                empty.textContent = 'No post-its yet. Start with a new post-it or switch to List to add tasks there.';
+                whiteboardCanvas.appendChild(empty);
+                whiteboardCanvas.style.width = '100%';
+                whiteboardCanvas.style.height = '100%';
+                boardOffset = { x: 120, y: 120 };
+                return;
+            }
+
+            let minX = 0;
+            let minY = 0;
+            let maxX = NOTE_WIDTH;
+            let maxY = NOTE_HEIGHT;
+            items.forEach((item) => {
+                if (!item || !item.task) return;
+                const x = Number.isFinite(Number(item.x)) ? Number(item.x) : 0;
+                const y = Number.isFinite(Number(item.y)) ? Number(item.y) : 0;
+                const width = Number.isFinite(Number(item.width)) ? Number(item.width) : NOTE_WIDTH;
+                const height = Number.isFinite(Number(item.height)) ? Number(item.height) : NOTE_HEIGHT;
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x + width);
+                maxY = Math.max(maxY, y + height);
+            });
+            boardOffset = { x: 120 - minX, y: 120 - minY };
+            whiteboardCanvas.style.width = `${Math.max(whiteboardViewport.clientWidth, maxX + boardOffset.x + 120)}px`;
+            whiteboardCanvas.style.height = `${Math.max(whiteboardViewport.clientHeight, maxY + boardOffset.y + 120)}px`;
+
+            items.forEach((item) => {
+                if (!item || !item.task) return;
+                const task = tasksByName.get(String(item.task).toLowerCase());
+                if (!task) return;
+                const children = directChildren(task.name);
+                const width = Number.isFinite(Number(item.width)) ? Number(item.width) : NOTE_WIDTH;
+                const height = Number.isFinite(Number(item.height)) ? Number(item.height) : NOTE_HEIGHT;
+                const x = (Number(item.x) || 0) + boardOffset.x;
+                const y = (Number(item.y) || 0) + boardOffset.y;
+
+                const note = document.createElement('div');
+                note.className = 'joiner-note';
+                note.style.left = `${x}px`;
+                note.style.top = `${y}px`;
+                note.style.width = `${width}px`;
+                note.style.minHeight = `${height}px`;
+                note.dataset.task = task.name;
+                note.dataset.boardX = String(Number(item.x) || 0);
+                note.dataset.boardY = String(Number(item.y) || 0);
+
+                const header = document.createElement('div');
+                header.className = 'joiner-note-header';
+
+                const title = document.createElement('span');
+                title.className = 'joiner-note-title';
+                title.textContent = task.name;
+                header.appendChild(title);
+
+                const badge = document.createElement('span');
+                badge.className = 'joiner-note-badge';
+                badge.textContent = String(children.length);
+                badge.title = children.length === 1 ? '1 checklist item' : `${children.length} checklist items`;
+                header.appendChild(badge);
+                note.appendChild(header);
+
+                const body = document.createElement('div');
+                body.className = 'joiner-note-body';
+                if (children.length) {
+                    const list = document.createElement('ul');
+                    list.className = 'joiner-note-checklist';
+                    let completed = 0;
+                    children.forEach((child) => {
+                        const row = document.createElement('li');
+                        const percent = Number.isFinite(Number(child.percent)) ? Number(child.percent) : 0;
+                        const done = percent >= 100;
+                        if (done) completed += 1;
+                        row.className = done ? 'done' : '';
+                        const dot = document.createElement('span');
+                        dot.className = 'joiner-note-dot';
+                        row.appendChild(dot);
+                        const text = document.createElement('span');
+                        text.textContent = child.name;
+                        row.appendChild(text);
+                        list.appendChild(row);
+                    });
+                    body.appendChild(list);
+                    const footer = document.createElement('div');
+                    footer.className = 'joiner-note-footer';
+                    footer.textContent = `${completed}/${children.length} complete`;
+                    body.appendChild(footer);
+                } else {
+                    const empty = document.createElement('div');
+                    empty.className = 'joiner-note-empty';
+                    empty.textContent = 'Loose note — promote it when you want a checklist.';
+                    body.appendChild(empty);
+                    const promote = document.createElement('button');
+                    promote.type = 'button';
+                    promote.className = 'joiner-promote-btn';
+                    promote.textContent = 'Promote to checklist';
+                    promote.addEventListener('click', () => {
+                        const childName = window.prompt(`Name the first task under "${task.name}":`, '');
+                        if (childName == null) return;
+                        sendWhiteboardOp({ op: 'promote_note', task: task.name, child_name: childName });
+                    });
+                    body.appendChild(promote);
+                }
+                note.appendChild(body);
+                header.addEventListener('pointerdown', (event) => beginDrag(event, note));
+                whiteboardCanvas.appendChild(note);
+            });
+        }
+
+        function beginDrag(event, note) {
+            if (event.button !== 0) return;
+            dragState = {
+                task: note.dataset.task,
+                startX: event.clientX,
+                startY: event.clientY,
+                boardX: Number(note.dataset.boardX || 0),
+                boardY: Number(note.dataset.boardY || 0),
+                width: note.offsetWidth || NOTE_WIDTH,
+                height: note.offsetHeight || NOTE_HEIGHT,
+                note,
+            };
+            note.classList.add('dragging');
+            note.setPointerCapture(event.pointerId);
+            event.preventDefault();
+        }
+
+        function handleDragMove(event) {
+            if (!dragState) return;
+            const nextX = Math.round(dragState.boardX + (event.clientX - dragState.startX));
+            const nextY = Math.round(dragState.boardY + (event.clientY - dragState.startY));
+            dragState.note.style.left = `${nextX + boardOffset.x}px`;
+            dragState.note.style.top = `${nextY + boardOffset.y}px`;
+            dragState.note.dataset.boardX = String(nextX);
+            dragState.note.dataset.boardY = String(nextY);
+        }
+
+        function handleDragEnd(event) {
+            if (!dragState) return;
+            const note = dragState.note;
+            note.classList.remove('dragging');
+            if (note.hasPointerCapture(event.pointerId)) note.releasePointerCapture(event.pointerId);
+            const nextX = Number(note.dataset.boardX || dragState.boardX);
+            const nextY = Number(note.dataset.boardY || dragState.boardY);
+            const moved = nextX !== dragState.boardX || nextY !== dragState.boardY;
+            const task = dragState.task;
+            dragState = null;
+            if (moved) sendWhiteboardOp({ op: 'move_note', task, x: nextX, y: nextY });
+            else renderWhiteboard();
+        }
+
+        whiteboardCanvas.addEventListener('pointermove', handleDragMove);
+        whiteboardCanvas.addEventListener('pointerup', handleDragEnd);
+        whiteboardCanvas.addEventListener('pointercancel', handleDragEnd);
+
+        function visibleBoardOrigin() {
+            return {
+                x: whiteboardViewport.scrollLeft - boardOffset.x,
+                y: whiteboardViewport.scrollTop - boardOffset.y,
+            };
+        }
+
+        function createNoteAt(x, y) {
+            sendWhiteboardOp({ op: 'add_note', x, y });
+        }
+
+        addNoteBtn.addEventListener('click', () => {
+            const origin = visibleBoardOrigin();
+            createNoteAt(
+                Math.round(origin.x + whiteboardViewport.clientWidth / 2 - NOTE_WIDTH / 2),
+                Math.round(origin.y + whiteboardViewport.clientHeight / 2 - NOTE_HEIGHT / 2)
+            );
+        });
+
+        whiteboardViewport.addEventListener('dblclick', (event) => {
+            if (event.target !== whiteboardViewport && event.target !== whiteboardCanvas) return;
+            const rect = whiteboardViewport.getBoundingClientRect();
+            const origin = visibleBoardOrigin();
+            createNoteAt(
+                Math.round(origin.x + event.clientX - rect.left - NOTE_WIDTH / 2),
+                Math.round(origin.y + event.clientY - rect.top - NOTE_HEIGHT / 2)
+            );
+        });
+
+        async function sendEncrypted(payload) {
+            if (!socket || socket.readyState !== WebSocket.OPEN) return;
+            if (!sessionKey) {
+                showPlanNotice('Still establishing the secure channel — try that again in a moment.');
+                return;
+            }
+            const { encryptMessage } = await loadCollabCrypto();
+            const envelope = await encryptMessage(sessionKey, JSON.stringify(payload), sessionId);
+            socket.send(envelope);
+        }
+
+        function sendWhiteboardOp(op) {
+            sendEncrypted({ type: 'whiteboard_op', rev: planRev, ...op });
+        }
+
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
-
-            // Fail closed: without the fragment secret this page cannot
-            // authenticate the ECDH handshake at all (see the module
-            // docstring note above and collab-crypto.js's for why using
-            // `code` here instead would be a serious security bug). Don't
-            // even attempt to connect.
             if (!handshakeSecret) {
                 status.textContent = 'This join link is missing a required security token -- ask the host to resend it.';
                 return;
@@ -727,7 +709,6 @@
 
             const code = document.getElementById('joinCode').value.trim();
             const displayName = document.getElementById('displayName').value.trim();
-
             const { deriveConnectKey, generateEphemeralKeyPair } = await loadCollabCrypto();
             connectKey = await deriveConnectKey(handshakeSecret, sessionId);
             keyPair = await generateEphemeralKeyPair();
@@ -744,25 +725,18 @@
                 try { parsed = JSON.parse(event.data); } catch (error) { parsed = null; }
 
                 if (parsed && parsed.type === 'joined') {
-                    // The #963 admission ack -- not part of #964's
-                    // encryption envelope scheme (it's not one of
-                    // classifyFrameType's known types), so it's handled
-                    // here, separately, before that check.
                     status.textContent = `Joined as ${parsed.display_name}.`;
                     relay.style.display = 'block';
-                    // #967: the plan is the point of the page once you're
-                    // in -- the join form has done its job and would just
-                    // push the tasks below the fold.
+                    setJoinedUi(true);
                     form.hidden = true;
                     document.querySelector('p.sub').hidden = true;
-                    // #966: start the presence heartbeat now that we're
-                    // admitted -- see PRESENCE_PING_INTERVAL_MS above.
+                    ensureNotepadSurface();
                     stopPresencePing();
                     presencePingTimer = setInterval(() => {
                         if (socket && socket.readyState === WebSocket.OPEN) {
                             socket.send(JSON.stringify({ type: 'presence_ping' }));
                         }
-                    }, PRESENCE_PING_INTERVAL_MS);
+                    }, 15000);
                     return;
                 }
 
@@ -773,152 +747,128 @@
                 if (frameType === 'host_pubkey') {
                     const peerKey = await parsePubkeyAnnouncement('host_pubkey', connectKey, event.data);
                     if (!peerKey) {
-                        // MAC didn't verify -- our handshakeSecret doesn't
-                        // match the host's (e.g. an incomplete/corrupted
-                        // link), or this announcement was forged by
-                        // something that doesn't have handshakeSecret
-                        // (e.g. the relay itself -- see collab-crypto.js's
-                        // module docstring). Never derive a session key
-                        // with an unauthenticated peer.
                         status.textContent = 'Could not establish a secure channel -- ask the host to resend the join link.';
                         socket.close();
                         joinBtn.disabled = false;
                         return;
                     }
                     sessionKey = await deriveSessionKey(keyPair.privateKey, peerKey, sessionId);
-                    log('(secure channel established)');
-                    // Announce our own ephemeral public key back to the
-                    // host so it can derive the same session key.
                     const announcement = await buildPubkeyAnnouncement('joiner_pubkey', connectKey, keyPair);
                     socket.send(announcement);
                     return;
                 }
 
                 if (frameType === 'enc') {
-                    if (!sessionKey) {
-                        log('(received an encrypted message before the secure channel was ready)');
+                    if (!sessionKey) return;
+                    let plaintext;
+                    try {
+                        plaintext = await decryptMessage(sessionKey, event.data, sessionId);
+                    } catch (error) {
                         return;
                     }
-                    try {
-                        const plaintext = await decryptMessage(sessionKey, event.data, sessionId);
-                        // #967: the host's authoritative plan, or its reply
-                        // to an op we sent. Anything else is ordinary
-                        // chatter and still just gets logged.
-                        let parsed = null;
-                        try { parsed = JSON.parse(plaintext); } catch (e) { parsed = null; }
-                        if (parsed && parsed.type === 'plan_snapshot') {
-                            renderPlanSnapshot(parsed);
-                            return;
+                    try { parsed = JSON.parse(plaintext); } catch (error) { parsed = null; }
+                    if (parsed && parsed.type === 'plan_snapshot') {
+                        planRev = parsed.rev;
+                        if (typeof parsed.plan_text === 'string') planText = parsed.plan_text;
+                        if (parsed.notice) showPlanNotice(parsed.notice);
+                        const surface = ensureNotepadSurface();
+                        if (!surface.hasFocus() || document.querySelector('.joiner-tab.active')?.dataset.surface !== 'notepad') {
+                            surface.refresh();
                         }
-                        if (parsed && parsed.type === 'plan_op_rejected') {
-                            // A stale op means someone else's edit landed
-                            // first and our snapshot was out of date; the
-                            // newer snapshot is already on its way, so this
-                            // explains the bounce rather than being an error.
-                            showPlanNotice(parsed.reason === 'stale'
-                                ? 'That task changed while you were editing — try again.'
-                                : 'The host could not apply that change.');
-                            return;
-                        }
-                        if (parsed && parsed.type === 'raid_snapshot') {
-                            renderRaidSnapshot(parsed);
-                            return;
-                        }
-                        if (parsed && parsed.type === 'backmatter_snapshot') {
-                            // #1036: benefits and comms. One frame type
-                            // carrying the section name, so a fourth
-                            // section needs no new frame type here.
-                            renderSectionSnapshot(parsed);
-                            return;
-                        }
-                        if (parsed && parsed.type === 'backmatter_op_rejected') {
-                            // #969: the RAID counterpart of plan_op_rejected
-                            // above -- 'unknown_row' means someone else
-                            // deleted or renamed it out from under us.
-                            showPlanNotice(parsed.reason === 'unknown_row'
-                                ? 'That RAID item changed while you were editing — try again.'
-                                : 'The host could not apply that change.');
-                            return;
-                        }
-                        if (parsed && (parsed.type === 'chat' || parsed.type === 'activity')) {
-                            receiveJoinerChatEntry(parsed);
-                            return;
-                        }
-                        log(`host: ${plaintext}`);
-                    } catch (error) {
-                        log('(failed to decrypt a message -- dropped)');
+                        return;
+                    }
+                    if (parsed && parsed.type === 'plan_op_rejected') {
+                        // A stale op means someone else's edit landed
+                        // first and our snapshot was out of date; the
+                        // newer snapshot is already on its way, so this
+                        // explains the bounce rather than being an error.
+                        showPlanNotice(parsed.reason === 'stale'
+                            ? 'That task changed while you were editing — try again.'
+                            : 'The host could not apply that change.');
+                        return;
+                    }
+                    if (parsed && parsed.type === 'raid_snapshot') {
+                        renderRaidSnapshot(parsed);
+                        return;
+                    }
+                    if (parsed && parsed.type === 'backmatter_snapshot') {
+                        // #1036: benefits and comms. One frame type
+                        // carrying the section name, so a fourth
+                        // section needs no new frame type here.
+                        renderSectionSnapshot(parsed);
+                        return;
+                    }
+                    if (parsed && parsed.type === 'backmatter_op_rejected') {
+                        // #969: the RAID counterpart of plan_op_rejected
+                        // above -- 'unknown_row' means someone else
+                        // deleted or renamed it out from under us.
+                        showPlanNotice(parsed.reason === 'unknown_row'
+                            ? 'That RAID item changed while you were editing — try again.'
+                            : 'The host could not apply that change.');
+                        return;
+                    }
+                    if (parsed && (parsed.type === 'chat' || parsed.type === 'activity')) {
+                        receiveJoinerChatEntry(parsed);
+                        return;
+                    }
+                    if (parsed && parsed.type === 'whiteboard_snapshot') {
+                        planRev = parsed.rev;
+                        whiteboardState = {
+                            items: Array.isArray(parsed.items) ? parsed.items : [],
+                            tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+                        };
+                        renderWhiteboard();
+                        return;
+                    }
+                    if (parsed && parsed.type === 'plan_text_replace_rejected') {
+                        showPlanNotice(parsed.reason === 'stale'
+                            ? 'The plan changed while you were editing — the latest version is now on screen.'
+                            : 'The host could not apply that list edit.');
+                        const surface = ensureNotepadSurface();
+                        surface.refresh();
+                        return;
+                    }
+                    if (parsed && parsed.type === 'whiteboard_op_rejected') {
+                        let message = 'The host could not apply that whiteboard change.';
+                        if (parsed.reason === 'stale') message = 'That note changed while you were editing — try again.';
+                        else if (parsed.reason === 'already_checklist') message = 'That note already has a checklist.';
+                        else if (parsed.reason === 'unknown_note') message = 'That note is no longer on the board.';
+                        showPlanNotice(message);
+                        renderWhiteboard();
                     }
                     return;
                 }
-
-                // Anything else is an unrecognized frame. Security review
-                // finding: this used to fall through to displaying the raw
-                // payload with the same log format as genuine decrypted
-                // content -- meaning anyone who could write a frame into
-                // this socket (trivially, the relay itself) could inject a
-                // message that looked exactly like a real one from the
-                // host, no decryption or authentication required. Never
-                // display unrecognized frames as if they were peer
-                // content; just note one arrived and drop it.
-                log('(received an unrecognized message -- ignored)');
             });
 
             socket.addEventListener('close', (event) => {
                 const wasJoined = relay.style.display === 'block';
-
-                // #965: tear down every bit of client-side session state on
-                // any close, whatever the cause -- host ended it, host
-                // disconnected, idle timeout, kicked (#966), or a plain
-                // network drop -- so nothing (socket, keys, decrypted log)
-                // lingers after the fact, and so the join form is always
-                // ready to be resubmitted to rejoin.
                 stopPresencePing();
                 socket = null;
                 sessionKey = null;
                 keyPair = null;
                 connectKey = null;
-                relay.style.display = 'none';
                 relayLog.innerHTML = '';
                 joinerChatEntries.length = 0;
                 joinerChatIds.clear();
                 joinBtn.disabled = false;
-                // Put the join form back -- #965's promise is that any
-                // close leaves this page ready to rejoin.
+                relay.style.display = 'none';
                 form.hidden = false;
                 document.querySelector('p.sub').hidden = false;
-                // #967: the plan came from the host and is theirs, not
-                // ours -- drop it with the rest of the session state rather
-                // than leaving a stale copy on screen after disconnect.
-                planTasks = [];
+                setJoinedUi(false);
+                planText = '';
                 planRev = 0;
+                whiteboardState = { items: [], tasks: [] };
+                whiteboardCanvas.innerHTML = '';
                 clearTimeout(planNoticeTimer);
-                const planContainer = document.getElementById('planTasks');
-                if (planContainer) planContainer.innerHTML = '';
-                const planNoticeEl = document.getElementById('planNotice');
-                if (planNoticeEl) planNoticeEl.hidden = true;
-                // #969: the RAID log is the host's too -- drop it on
-                // disconnect along with the rest of the session state.
-                raidRows = [];
-                raidRev = 0;
-                const raidContainer = document.getElementById('raidRows');
-                if (raidContainer) raidContainer.innerHTML = '';
+                const notice = document.getElementById('planNotice');
+                if (notice) notice.hidden = true;
+                if (notepadSurface) {
+                    notepadSurface.destroy();
+                    notepadSurface = null;
+                }
+                setJoinerSurface('whiteboard');
 
                 if (!wasJoined) {
-                    // #1057: this used to always say "check the code", even
-                    // when the code was never the problem -- e.g. a rate
-                    // limit (4429, with a real `reason` telling the joiner
-                    // how long to wait) or a corporate network's proxy/
-                    // firewall interfering with the WebSocket upgrade
-                    // entirely, which closes the socket abnormally (code
-                    // 1006, no reason -- the browser never got a close
-                    // frame from the server at all) rather than the server
-                    // ever seeing and rejecting a join attempt. Telling a
-                    // user in that second case to "check the code" sends
-                    // them looking in the wrong place. Prefer whatever
-                    // reason the server actually gave; fall back to the
-                    // network explanation only when the closure looks
-                    // abnormal (no reason, and not one of this app's own
-                    // admission-rejection codes below 1006 wouldn't be).
                     if (event.reason) {
                         status.textContent = `${event.reason} Enter the code again to try again.`;
                     } else if (event.code === 1006) {
@@ -929,14 +879,6 @@
                     return;
                 }
 
-                // `event.reason` is set whenever the server tore the
-                // session down itself (see collab_session.py's CLOSE_*
-                // constants) -- e.g. "Host ended the session.",
-                // "Host disconnected.", "Session expired after being idle
-                // too long." -- letting this page show a specific
-                // explanation instead of one generic message. A reason-less
-                // close (e.g. this browser's own network dropping) falls
-                // back to a generic explanation that still invites a rejoin.
                 status.textContent = event.reason
                     ? `${event.reason} Enter the code again to rejoin.`
                     : 'Lost connection to the session. Enter the code again to rejoin.';

@@ -324,10 +324,12 @@ position, so extra or reordered columns are tolerated), except highlights.
        (and any subtasks) from the outline the same way "Delete task"
        does, but keeps its text here instead of discarding it. ``Text``
        is the note's title, plus its comment (the ``!"text"`` free-form
-       body, if any) appended after an em dash. ``Date Parked`` is
-       ``YYYY-MM-DD``, the day it was sent here, or empty for a
+       body, if any) appended after an em dash, or -- for a checklist note
+       -- its child count (``Plan the launch — 2 items``). ``Date Parked``
+       is ``YYYY-MM-DD``, the day it was sent here, or empty for a
        hand-typed row. Canonically the last back-matter section, after
-       ``---whiteboard---``.
+       ``---whiteboard---``. See `Parked item detail`_ below for the
+       optional richer snapshot that rides alongside this table.
 
 A ``# Heading`` line directly after a marker (``# RAID Log``) is allowed
 and kept.
@@ -371,6 +373,54 @@ Whiteboard rows
   the table renders in front of the others. Dragging or clicking a note
   moves its row to the end of the table, which is how "bring to front"
   persists across a reload -- z-order is never stored as a separate field.
+
+Parked item detail
+~~~~~~~~~~~~~~~~~~~
+
+Issue #1110: the ``ID | Text | Date Parked`` table is a flat, "good enough
+for the list view" summary -- it can't hold a checklist note's individual
+child items or the note's colour. Rather than widening the table itself
+(a breaking migration for every plan that already has a
+``---parking lot---`` section), a *second*, optional JSON payload rides
+alongside it as a single HTML comment placed above the table, the same
+"one JSON blob in a comment line" trade-off the Baseline dialog's history
+log uses for the ``---baseline---`` section:
+
+.. code-block:: text
+
+   ---parking lot---
+   <!-- parking-lot-detail: {"2":{"title":"Plan the launch","colour":"#4A90D9","checklist":[{"name":"Book venue","done":true},{"name":"Send invites","done":false}]}} -->
+
+   | ID | Text                        | Date Parked |
+   |----|------------------------------|-------------|
+   | 1  | Loose Idea — A stray thought | 2026-03-01  |
+   | 2  | Plan the launch — 2 items    | 2026-03-02  |
+
+- The comment is keyed by row ``ID`` (as a JSON string), so each row
+  carries its own independent detail rather than one blob for the whole
+  section -- unlike a table row, a row with no entry in the map (every
+  row from a plan written before #1110, or a hand-typed one) simply has
+  no richer detail: it still parses and displays from the plain table
+  alone.
+- Each entry is ``{"title", "colour", "comment", "checklist"}``: ``title``
+  is the note's exact (untruncated) name; ``colour`` is ``#RRGGBB``, the
+  note's fully-resolved colour at the moment it was parked (see `Note
+  colour precedence`_); ``comment`` is the note's own free-form text, and
+  ``checklist`` is ``[{"name", "done"}, ...]``, one entry per direct
+  child, present only for a checklist note. ``comment`` and ``checklist``
+  are omitted entirely when empty.
+- "Send to parking lot" always writes this detail alongside the flat
+  ``Text`` column. The parking lot panel's **Restore** action rebuilds the
+  note from it: a new task (uniquified against the current outline if its
+  original name is now taken), its children re-created underneath it with
+  their completion state, and a new whiteboard row carrying the preserved
+  colour -- one Markdown commit, so restoring is a single undo step like
+  every other board action. A parked item with no detail (parked before
+  #1110, or hand-typed) can still be restored: **Restore** falls back to
+  splitting its flat ``Text`` back apart on the em dash it was joined
+  with, producing a single childless task with that title (and comment,
+  if the split found one) -- not as complete as a #1110 item's detail,
+  but strictly better than no restore at all.
 
 Free-floating text objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -67,7 +67,11 @@ export const TABS = [
             { name: 'Deliverables', lg: [['doc', 'Products']], cols: [[['board', 'Product Flow'], ['grid', 'Deliverables']]] },
             { name: 'Model', lg: [['bulb', 'Mind Map']], cols: [[['grid', 'Whiteboard'], ['timeline', 'Timeline']]] },
             {
-                name: 'Highlight',
+                // #1111: was 'Highlight' -- renamed since these buttons are
+                // easy to mistake for whiteboard/Gantt display options
+                // (they aren't; see LABEL_HELP in ribbon.js) and the plain
+                // "Highlight" caption didn't say what gets highlighted.
+                name: 'Editor Highlighting',
                 cols: [
                     [['clock', 'Show Durations'], ['resources', 'Show Resources']],
                     [['pin', 'Show Tags'], ['doc', 'Show Comments']],

@@ -114,6 +114,27 @@ function notAvailable(label) {
 }
 
 /**
+ * Switches into the notepad view (if some other view is current) and
+ * un-collapses the markdown editor panel (if the user had collapsed it via
+ * the splitter) -- the shared "make sure the thing this button affects is
+ * actually on screen" step for any ribbon control whose effect only shows
+ * up inside the editor. First written for #1047's Calendars buttons (see
+ * revealCalendarsPanel() below); reused by #1111's highlight-toggle buttons
+ * (the "Show X" entries in LABEL_ACTIONS, and HIGHLIGHT_PRESETS' own run()
+ * further down) since a duration/resource/tag/comment/dependency highlight
+ * toggle looks like a dead button for exactly the same reason -- its
+ * target panel isn't open.
+ */
+function revealEditorPanel() {
+    const editorTab = document.getElementById('editor-tab');
+    if (!editorTab || !editorTab.classList.contains('active')) switchToView('notepad');
+    const editorPanel = document.querySelector('.editor-panel');
+    if (editorPanel && editorPanel.classList.contains('collapsed') && typeof toggleMainEditor === 'function') {
+        toggleMainEditor();
+    }
+}
+
+/**
  * #1047 ribbon follow-up: the ribbon's "Calendars" buttons (Plan > Schedule,
  * Resources > People, and the Resource Tools contextual tab's "Calendar")
  * used to be reviewed "not available yet" stubs. Calendar management
@@ -123,12 +144,7 @@ function notAvailable(label) {
  * (the panel lives above the editor textarea) and reveals that section.
  */
 function revealCalendarsPanel() {
-    const editorTab = document.getElementById('editor-tab');
-    if (!editorTab || !editorTab.classList.contains('active')) switchToView('notepad');
-    const editorPanel = document.querySelector('.editor-panel');
-    if (editorPanel && editorPanel.classList.contains('collapsed') && typeof toggleMainEditor === 'function') {
-        toggleMainEditor();
-    }
+    revealEditorPanel();
     if (typeof FrontMatterPanel !== 'undefined' && FrontMatterPanel.instance) {
         FrontMatterPanel.revealCalendars();
     } else {
@@ -216,16 +232,27 @@ const HIGHLIGHT_PRESETS = [
     { label: 'Comms', preset: 'comms' },
 ].map(({ label, preset }) => ({
     label,
-    run: () => { if (typeof HighlightToggles !== 'undefined') HighlightToggles.applyPreset(preset); },
+    // #1111: picking a preset is the moment its effect (recoloured spans in
+    // the editor's highlight overlay) needs to actually be visible, so this
+    // reveals the editor panel same as the five single-category toggles
+    // below -- see revealEditorPanel()'s own comment for why.
+    run: () => { if (typeof HighlightToggles !== 'undefined') HighlightToggles.applyPreset(preset); revealEditorPanel(); },
 }));
 
 const LABEL_HELP = {
-    'Show Durations': 'Toggle duration syntax highlighting in the markdown editor',
-    'Show Resources': 'Toggle resource syntax highlighting in the markdown editor',
-    'Show Tags': 'Toggle tag syntax highlighting in the markdown editor',
-    'Show Comments': 'Toggle comment syntax highlighting in the markdown editor',
-    'Show Dependencies': 'Toggle dependency syntax highlighting in the markdown editor',
-    'Highlight Preset': 'Choose a markdown editor syntax-highlighting preset',
+    // #1111: these are editor syntax-highlight toggles (#1051), not
+    // whiteboard/Gantt display options -- they were reported as "appearing
+    // to do nothing" because their only visible effect is inside the
+    // markdown editor's highlight overlay, which these tooltips now say
+    // outright. The "(opens it if hidden)" clause matches what the buttons
+    // actually do now (see revealEditorPanel()) so the tooltip never
+    // promises a visible effect the click doesn't deliver.
+    'Show Durations': 'Toggle duration syntax highlighting in the markdown editor (opens it if hidden)',
+    'Show Resources': 'Toggle resource syntax highlighting in the markdown editor (opens it if hidden)',
+    'Show Tags': 'Toggle tag syntax highlighting in the markdown editor (opens it if hidden)',
+    'Show Comments': 'Toggle comment syntax highlighting in the markdown editor (opens it if hidden)',
+    'Show Dependencies': 'Toggle dependency syntax highlighting in the markdown editor (opens it if hidden)',
+    'Highlight Preset': 'Choose a markdown editor syntax-highlighting preset (opens the editor if hidden)',
     Editor: 'Show or hide the markdown editor panel',
     // #1123: the per-target RAID Excel / MS Project sync already built in
     // #868 lives in Settings > Sync -- there is no consolidated one-click
@@ -415,12 +442,16 @@ const LABEL_ACTIONS = {
 
     // Per-category syntax highlight toggles (#1051) -- see
     // highlight-toggles.js's own header comment for why flipping these can
-    // never touch the editor's actual text or caret.
-    'Show Durations': () => HighlightToggles.toggleCategory('duration'),
-    'Show Resources': () => HighlightToggles.toggleCategory('resource'),
-    'Show Tags': () => HighlightToggles.toggleCategory('tag'),
-    'Show Comments': () => HighlightToggles.toggleCategory('comment'),
-    'Show Dependencies': () => HighlightToggles.toggleCategory('dependency'),
+    // never touch the editor's actual text or caret. #1111: each also
+    // reveals the editor panel (revealEditorPanel()) so the toggle's effect
+    // is never silently invisible -- these used to look dead from any view
+    // other than the notepad editor, because that's the only place their
+    // effect (the highlight overlay's colouring) ever shows.
+    'Show Durations': () => { HighlightToggles.toggleCategory('duration'); revealEditorPanel(); },
+    'Show Resources': () => { HighlightToggles.toggleCategory('resource'); revealEditorPanel(); },
+    'Show Tags': () => { HighlightToggles.toggleCategory('tag'); revealEditorPanel(); },
+    'Show Comments': () => { HighlightToggles.toggleCategory('comment'); revealEditorPanel(); },
+    'Show Dependencies': () => { HighlightToggles.toggleCategory('dependency'); revealEditorPanel(); },
     'Highlight Preset': () => openFormatMenu(HIGHLIGHT_PRESETS, 'Highlight Preset'),
 
     // The DADESRC guided flow shell (#1054): a persistent bar the shell

@@ -14580,7 +14580,43 @@ function renamePlanWhiteboardTask(planText, oldName, newName) {
 // table convention rather than highlights' heading-per-entry shape --
 // a parked item is just one piece of free text, with nothing to group
 // entries by the way highlights groups by date+author.
+//
+// Issue #1110 richer detail: an optional ``<!-- parking-lot-detail: ... -->``
+// JSON comment can ride above the table, keyed by row id, carrying a
+// snapshot too rich for the flat Text column -- a checklist note's
+// individual child items, and the note's colour. Mirrors
+// format_converter.py's generate_parking_lot_detail_comment()/
+// extract_parking_lot_detail() exactly (see that file's own "Parking lot"
+// header comment for the full schema and the baseline-history precedent
+// it follows) -- keep the two in sync.
 // =====================================================================
+
+/**
+ * Build the <!-- parking-lot-detail: ... --> comment line (issue #1110).
+ * Mirrors format_converter.py's generate_parking_lot_detail_comment().
+ */
+function generateParkingLotDetailComment(detailMap) {
+    if (!detailMap || Object.keys(detailMap).length === 0) return '';
+    return '<!-- parking-lot-detail: ' + JSON.stringify(detailMap) + ' -->';
+}
+
+/**
+ * Parse the parking-lot-detail comment out of a parking lot section's raw
+ * text. Mirrors format_converter.py's extract_parking_lot_detail() --
+ * defaults to {} for a plan with no comment (pre-#1110, or a hand-typed
+ * section with just the table).
+ */
+function extractParkingLotDetailFromSectionText(sectionText) {
+    if (!sectionText) return {};
+    const m = sectionText.match(/<!--\s*parking-lot-detail:\s*(\{[\s\S]*?\})\s*-->/);
+    if (!m) return {};
+    try {
+        const data = JSON.parse(m[1]);
+        return (data && typeof data === 'object') ? data : {};
+    } catch (e) {
+        return {};
+    }
+}
 
 /**
  * Extract the raw ---parking lot--- section text from plan text, or ''
@@ -14613,7 +14649,8 @@ function extractParkingLotFromPlanText(planText) {
  */
 function parseParkingLotMarkdown(text) {
     if (!text) return [];
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    const detailMap = extractParkingLotDetailFromSectionText(text);
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('<!--'));
 
     function parseRow(line) {
         let parts = line.split(/(?<!\\)\|/);
@@ -14666,11 +14703,14 @@ function parseParkingLotMarkdown(text) {
         const itemId = idStr && !Number.isNaN(parsedId) ? parsedId : maxId + 1;
         maxId = Math.max(maxId, itemId);
 
-        items.push({
+        const item = {
             id: itemId,
             text,
             date_parked: getCell('date_parked', ''),
-        });
+        };
+        const detail = detailMap[String(itemId)];
+        if (detail && typeof detail === 'object') item.detail = detail;
+        items.push(item);
     }
     return items;
 }
@@ -14678,7 +14718,10 @@ function parseParkingLotMarkdown(text) {
 /**
  * Generate a formatted markdown table from parking lot items, columns
  * padded to their widest entry (matching the other back-matter
- * generators). Returns '' if there are no items.
+ * generators). Any item carrying a `detail` key (issue #1110) has that
+ * detail folded into a single parking-lot-detail comment line above the
+ * table -- see generateParkingLotDetailComment(). Returns '' if there
+ * are no items.
  */
 function generateParkingLotText(items) {
     if (!items || items.length === 0) return '';
@@ -14686,11 +14729,15 @@ function generateParkingLotText(items) {
 
     const escapePipe = (value) => String(value == null ? '' : value).replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
-    const rows = items.map(item => [
-        escapePipe(item.id),
-        escapePipe(item.text || ''),
-        escapePipe(item.date_parked || ''),
-    ]);
+    const detailMap = {};
+    const rows = items.map(item => {
+        if (item.detail) detailMap[String(item.id)] = item.detail;
+        return [
+            escapePipe(item.id),
+            escapePipe(item.text || ''),
+            escapePipe(item.date_parked || ''),
+        ];
+    });
 
     const widths = headers.map(h => h.length);
     rows.forEach(row => row.forEach((cell, i) => { widths[i] = Math.max(widths[i], cell.length); }));
@@ -14701,7 +14748,10 @@ function generateParkingLotText(items) {
 
     const lines = [formatRow(headers), separator];
     rows.forEach(row => lines.push(formatRow(row)));
-    return lines.join('\n');
+    const table = lines.join('\n');
+
+    const detailComment = generateParkingLotDetailComment(detailMap);
+    return detailComment ? detailComment + '\n\n' + table : table;
 }
 
 /**

@@ -154,3 +154,44 @@ test("no label is both wired and marked as a deliberate stub", () => {
   const overlap = [...DELIBERATE_STUBS].filter((label) => known.has(label));
   assert.deepEqual(overlap, [], `labels marked as stubs but actually wired (stale allowlist entry): ${overlap.join(", ")}`);
 });
+
+/**
+ * #1111: the five per-category highlight toggles and the Highlight Preset
+ * picker were reported as looking dead -- they're editor syntax-highlight
+ * controls (#1051), invisible whenever the markdown editor panel isn't on
+ * screen. Two checks lock in the fix: every one of the six has a tooltip
+ * that names the markdown editor as what it affects (LABEL_HELP), and
+ * every one of the five direct toggles reveals the editor panel as part of
+ * its own action rather than leaving that as a documented-only promise.
+ */
+test("the highlight-toggle and preset-picker tooltips name the markdown editor as what they affect (#1111)", () => {
+  const helpBlock = ribbonSrc.match(/const LABEL_HELP = \{([\s\S]*?)\n\};/)[1];
+  for (const label of [
+    "Show Durations", "Show Resources", "Show Tags", "Show Comments", "Show Dependencies", "Highlight Preset",
+  ]) {
+    const m = helpBlock.match(new RegExp(`'${label}':\\s*'([^']*)'`));
+    assert.ok(m, `no LABEL_HELP entry for "${label}"`);
+    assert.match(m[1], /markdown editor/i, `"${label}"'s tooltip doesn't say what it affects: "${m[1]}"`);
+  }
+});
+
+test("each single-category highlight toggle reveals the editor panel so its effect is never silently invisible (#1111)", () => {
+  const labelActionsBlock = ribbonSrc.match(/const LABEL_ACTIONS = \{([\s\S]*?)\n\};/)[1];
+  for (const [label, category] of [
+    ["Show Durations", "duration"], ["Show Resources", "resource"], ["Show Tags", "tag"],
+    ["Show Comments", "comment"], ["Show Dependencies", "dependency"],
+  ]) {
+    const m = labelActionsBlock.match(new RegExp(`'${label}':\\s*\\(\\)\\s*=>\\s*\\{([^}]*)\\}`));
+    assert.ok(m, `no LABEL_ACTIONS entry found for "${label}"`);
+    assert.match(m[1], new RegExp(`toggleCategory\\('${category}'\\)`), `"${label}" doesn't toggle the "${category}" category`);
+    assert.match(m[1], /revealEditorPanel\(\)/, `"${label}" doesn't reveal the editor panel`);
+  }
+});
+
+test("applying a highlight preset also reveals the editor panel (#1111)", () => {
+  const presetsBlock = ribbonSrc.match(/const HIGHLIGHT_PRESETS = \[([\s\S]*?)\nconst LABEL_HELP/)[1];
+  const runLine = presetsBlock.match(/run:\s*\(\)\s*=>\s*\{[^}]*\}/);
+  assert.ok(runLine, "no HIGHLIGHT_PRESETS run() callback found");
+  assert.match(runLine[0], /applyPreset\(preset\)/);
+  assert.match(runLine[0], /revealEditorPanel\(\)/, "picking a preset doesn't reveal the editor panel");
+});
