@@ -2147,17 +2147,19 @@ tr:hover .task-context-btn,
     flex: 1;
     background: var(--np-accent-gradient);
     color: var(--np-on-accent);
-    padding: 12px 24px;
+    padding: var(--np-space-12) var(--np-space-24);
     border: none;
-    border-radius: 5px;
-    font-size: 1em;
+    border-radius: var(--np-radius-md);
+    font-size: var(--np-text-100);
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(16, 139, 185, 0.4);
+    /* Was a blue-tinted shadow left over from the #1024 identity, which read
+       as a stray blue glow under a marigold button (#1193). */
+    box-shadow: var(--np-elevation-3);
 }
 
 /* Completion % progress bar (task details form) -- clicking it jumps the
@@ -2430,10 +2432,10 @@ tr:hover .task-context-btn,
     flex: 1;
     background: #6c757d;
     color: white;
-    padding: 12px 24px;
+    padding: var(--np-space-12) var(--np-space-24);
     border: none;
-    border-radius: 5px;
-    font-size: 1em;
+    border-radius: var(--np-radius-md);
+    font-size: var(--np-text-100);
     cursor: pointer;
     transition: transform 0.2s;
 }

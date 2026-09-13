@@ -218,6 +218,58 @@
     --evm-table-border: var(--np-border);
     --evm-axis-label: var(--np-faint);
 }
+/* ---------------------------------------------------------------------------
+   Global focus ring (#1193)
+
+   The audit found 513 button rules carrying 172 :hover rules and 37 :focus
+   ones, 114 badge class names with 3 focus rules between them, and five
+   controls whose `outline: none` had no replacement at all. Rather than add a
+   focus style to each of 825 component class names, every natively focusable
+   element gets the ring here and components override it only where they need
+   something different.
+
+   Delivered as box-shadow rather than outline on purpose: a component that
+   sets `outline: none` on its resting state -- there are nine -- would
+   suppress an outline-based ring, and box-shadow sidesteps that entirely
+   without needing those declarations changed.
+
+   :focus-visible, not :focus, so a mouse click on a button does not leave a
+   ring behind; keyboard and programmatic focus still get one.
+
+   Specificity is deliberately low: these are element and attribute selectors,
+   so any `.component:focus-visible` rule outranks them and keeps its own
+   treatment. visual-system.css also loads after every component stylesheet
+   except the last five, so this reaches elements that never had a focus style
+   without displacing the ones that did.
+   --------------------------------------------------------------------------- */
+a[href]:focus-visible,
+area[href]:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:not([tabindex^="-"]):focus-visible,
+[contenteditable="true"]:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="checkbox"]:focus-visible,
+[role="radio"]:focus-visible,
+[role="switch"]:focus-visible,
+[role="option"]:focus-visible {
+    outline: none;
+    box-shadow: var(--np-focus-ring);
+}
+
+/* A checkbox or radio is small enough that the 2px halo swallows the control
+   itself, so those get the ring tight against the box. */
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+    box-shadow: 0 0 0 var(--np-focus-ring-width) var(--np-focus-ring-color);
+}
+
 :root body, button, input, select, textarea { font-family: var(--np-font-ui); }
 :root body { background: var(--np-paper); color: var(--np-ink); }
 h1, h2, h3, .modal-title, .ribbon-doc-title { font-family: var(--np-font-heading); font-weight: 400; }

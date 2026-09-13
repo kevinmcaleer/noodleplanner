@@ -1589,6 +1589,30 @@ async def templates_page(request: Request):
     })
 
 
+def _app_stylesheets() -> list[str]:
+    """The /static stylesheets index.html links, in load order.
+
+    Read out of the template rather than listed here so the component gallery
+    cannot drift from the app: a gallery styled by a stale copy of the
+    stylesheet list is worse than no gallery at all.
+    """
+    index = (package_dir / "templates" / "index.html").read_text()
+    return re.findall(r'href="/static/([^"?]+\.css)', index)
+
+
+@app.get("/components", response_class=HTMLResponse)
+async def component_gallery(request: Request):
+    """Serve the component gallery (#1193).
+
+    Every canonical component rendered against the app's real stylesheets, in
+    both themes, so drift is visible in one place.
+    """
+    return templates.TemplateResponse(request, "components.html", {
+        "v": STATIC_VERSION,
+        "stylesheets": _app_stylesheets(),
+    })
+
+
 # ==============================================================================
 # PROGRAMME DEPENDENCIES API ENDPOINTS
 # ==============================================================================
