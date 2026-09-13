@@ -320,22 +320,47 @@ The 18 kept are load-bearing: the `--mm-*` mind-map tokens are declared at
 component scope rather than `:root`, plus `--bs-primary` from Bootstrap's CDN
 stylesheet and `--wb-outline-depth` set inline by JS.
 
-**One docs screenshot.** `docs/_static/img/how-to/kb-01-kanban-phase.png`
-shows the editor pane with YAML front matter in flat grey, from before the
-highlighting fix. It is the only affected image — `cp-01-editor-frontmatter.png`
-shows the structured front-matter *panel*, not raw YAML, so the fix does not
-touch it.
+**Docs screenshots — ✅ re-captured.**
+`docs/_static/img/how-to/kb-01-kanban-phase.png` showed the editor pane with
+YAML front matter in flat grey, from before the highlighting fix. It was the
+only image the highlighting fix affected — `cp-01-editor-frontmatter.png` shows
+the structured front-matter *panel*, not raw YAML.
 
-Re-capturing needs `cd docs && make screenshots` somewhere with real network
-access. It could not be done in the sandbox this work was carried out in:
-`cdn.jsdelivr.net` is blocked by policy, and while Google Fonts is reachable by
-`curl` it is not reachable from the browser, so a capture renders without
-Bootstrap, without icons and in fallback fonts. Stubbing all of that from local
-copies is possible but would risk a screenshot that differs from the rest of
-the set for reasons unrelated to the change, which is worse than one slightly
-stale image.
+Capturing needed working around a sandbox with no route to the CDNs
+`index.html` loads from. `cdn.jsdelivr.net` is blocked by policy and Google
+Fonts answers `curl` but not the browser, so a capture came back without
+Bootstrap, without a single icon and in fallback typefaces — which is worse
+than a stale image, because it looks plausible. The way through was to serve
+Bootstrap 5.3.0, Bootstrap Icons 1.11.3 and the exact Google Fonts CSS and
+woff2 files from a local HTTPS server, and point Chrome at it with
+`--host-resolver-rules`. `docs/capture_screenshots.py` takes
+`NOODLE_CDN_MIRROR=host:port` for this. The page's own URLs are untouched;
+only name resolution changes.
 
-Note also that `docs/capture_screenshots.py` is still Selenium, so it needs a
+Three defects in the capture script surfaced while doing it, all of which had
+been silently degrading the committed set:
+
+- **cp-01 was a duplicate.** `switchTab('project')` moves the *editor's* tab,
+  not the view in the right-hand pane, so cp-01 photographed whatever the
+  previous capture had left on screen. Following tl-01 it produced a
+  byte-identical copy of the timeline figure. It is now an element shot of
+  `.editor-panel`, which is what the figure was always about, and
+  `report_duplicates()` fails the run if any two figures come back identical —
+  the class of failure that does not raise, because a missed view switch just
+  shoots the wrong thing.
+- **Element shots lost half their resolution.** Current Chrome crops
+  `element.screenshot()` out of the layout bitmap *before*
+  `--force-device-scale-factor` applies, so wb-04 came back 260×298 where the
+  committed one was 520×708. `capture_element()` now goes through DevTools'
+  `Page.captureScreenshot` clip, which is taken after the scale factor.
+- **vw-01 and vw-02 documented a UI that no longer exists.** `#planSubnav`
+  computes to `display: none` — the ribbon replaced it (#1045) — so
+  `#viewsDropdownBtn` was not clickable and had not been for some time. Both
+  images are deleted; `vw-01-ribbon-views-group.png` shows the ribbon's Views
+  group instead, and `docs/reference/views.rst` no longer claims one dropdown
+  lists every view. It has a table of where each one actually lives.
+
+Note that `docs/capture_screenshots.py` is still Selenium, so it needs a
 chromedriver matching the installed Chrome — the version-skew problem that
 moved `tests/ui` to Playwright, and which bit this work too.
 
