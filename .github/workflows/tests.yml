@@ -50,10 +50,13 @@ jobs:
       - name: Install dev dependencies
         run: npm ci
 
-      # `-m "not usability"` is what keeps this job fast: it deselects the
-      # Selenium tests, which are the entire difference between ~18 minutes
-      # and ~18 seconds. They still run -- in the `usability` job below --
-      # so the coverage isn't lost, just moved off the blocking path.
+      # `-m "not usability and not ui"` is what keeps this job fast: it
+      # deselects the browser tests, which are the entire difference between
+      # ~18 minutes and ~18 seconds. They still run -- Playwright's in the `ui`
+      # job below, Selenium's in `usability` -- so the coverage isn't lost,
+      # just moved off this job. `not ui` is there so a checkout without a
+      # Playwright browser installed reports nothing rather than a screenful of
+      # skips.
       #
       # This only works because every Selenium file now carries
       # `pytest.mark.usability`. Before, only tests/test_usability.py did, so
@@ -65,13 +68,46 @@ jobs:
       # pytest.ini already puts -v in addopts, so a run killed on the timeout
       # names the test it stopped on rather than trailing off into dots.
       - name: Run the Python suite
-        run: uv run pytest -p no:cacheprovider -m "not usability"
+        run: uv run pytest -p no:cacheprovider -m "not usability and not ui"
+
+  ui:
+    name: pytest (ui)
+    runs-on: ubuntu-latest
+    # A real gate, unlike `usability` below, because it is fast enough to block
+    # on and green enough to mean something. On this runner the three ported
+    # files cost ~135.7s under Selenium and ~43.5s here; see tests/ui/README.md
+    # for where the difference comes from and what is left to port.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install the workspace
+        run: uv sync --all-packages
+
+      # Playwright pins the browser build it expects, so there is no
+      # chromedriver-vs-Chrome version to keep in step -- the thing every
+      # Selenium file in this repo carries a `_create_chrome_driver()`
+      # workaround for.
+      - name: Install Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Run the Playwright UI suite
+        run: uv run pytest -p no:cacheprovider tests/ui -n auto
 
   usability:
     name: pytest (usability)
     runs-on: ubuntu-latest
-    # Reporting, not gating. 13 test files drive Selenium and they skip
-    # wherever no browser can be reached, so on a developer machine 229 tests
+    # Reporting, not gating. Ten test files still drive Selenium -- the other
+    # three now live in tests/ui on Playwright, run by the `ui` job above. They
+    # skip wherever no browser can be reached, so on a developer machine they
     # silently skip and only ever really run here -- which is how this
     # workflow found 42 of them asserting against a UI that no longer exists
     # (no #projectTab, no #projectSubnav). Deselecting them from the blocking
