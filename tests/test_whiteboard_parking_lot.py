@@ -438,6 +438,8 @@ class TestParkingLotDetailAndRestore:
         assert detail["checklist"] == [{"name": "Research", "done": True}]
 
     def test_restore_brings_a_freeform_note_back_with_comment_and_colour_intact(self, browser, app_server):
+        from selenium.webdriver.common.keys import Keys
+
         open_app(browser, app_server)
         load_plan(browser, SAMPLE_PLAN)
         switch_to_whiteboard(browser)
@@ -452,6 +454,14 @@ class TestParkingLotDetailAndRestore:
         outline = after_text.split("---whiteboard---")[0]
         assert "Loose Idea" in outline
         assert "A stray thought worth keeping." in outline
+
+        # Restoring doesn't close the panel (it stays open, now showing the
+        # narrowed list) -- close it before reopening below, same as
+        # TestParkingLotPanel::test_escape_closes_the_panel, otherwise its
+        # still-visible overlay physically covers the toolbar button
+        # underneath and intercepts the next click.
+        browser.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        time.sleep(0.3)
 
         switch_to_whiteboard(browser)
         assert "Loose Idea" in rendered_note_task_names(browser)
