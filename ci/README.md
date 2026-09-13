@@ -141,8 +141,17 @@ docker compose up -d --build --scale runner=3
 
 The PAT wants either fine-grained **Administration: read and write** on
 `kevinmcaleer/noodleplanner` (preferred — it can do nothing else) or the classic
-`repo` scope. It is only ever used to mint the short-lived registration tokens
-that `entrypoint.sh` requests at start-up; the runner itself never sees it.
+`repo` scope.
+
+It is used only to mint two short-lived tokens at start-up — one to register, one
+to deregister — and `entrypoint.sh` then **unsets it before starting the runner**.
+That matters: everything after that point is job code, and job code can read its
+own environment, so a PAT left there would hand every workflow step the ability to
+administer this repository's runners.
+
+If a job ever needs to fail because the runner could not be set up, it fails at
+start-up rather than mid-suite. A bad PAT pauses 60s before exiting, so
+`restart: always` retries slowly instead of hammering the API.
 
 Replicas are the concurrency: one job each, so `--scale runner=3` means three CI
 jobs at once. Three keeps a pull request's critical path at roughly the slowest

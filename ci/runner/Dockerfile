@@ -48,6 +48,16 @@ RUN curl -fsSL -o runner.tar.gz \
       "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz" \
     && tar xzf runner.tar.gz && rm runner.tar.gz
 
+# The three cache directories docker-compose mounts named volumes over. They have
+# to exist in the image, and be owned by `runner`, before the volume is attached:
+# Docker creates a missing mount point as root:root, and then the unprivileged
+# runner cannot write to it -- so the first job fails inside the very caches
+# these volumes exist to provide. Where the path does exist, Docker seeds the
+# volume from the image, ownership included.
+RUN mkdir -p /home/runner/.cache/uv \
+             /home/runner/.cache/ms-playwright \
+             /home/runner/.npm
+
 # uv, and a pinned interpreter, so `uv sync` never has to fetch one mid-job.
 RUN curl -fsSL https://astral.sh/uv/install.sh | sh
 ENV PATH="/home/runner/.local/bin:${PATH}"

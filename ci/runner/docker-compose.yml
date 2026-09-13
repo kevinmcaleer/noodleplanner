@@ -19,6 +19,10 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: always
+    # The entrypoint's cleanup trap deregisters the runner over the API, which is
+    # a network round trip. Docker's default 10s grace period can cut that short
+    # on a reboot or a `compose down`, leaving a runner listed on the repository.
+    stop_grace_period: 40s
     env_file: .env
     environment:
       - GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-kevinmcaleer/noodleplanner}
