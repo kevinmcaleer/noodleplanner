@@ -33,9 +33,9 @@ band 1 lands, so bands 2–4 do not have to be re-policed by hand.
 
 Within a band, items are ordered by (declarations affected ÷ risk).
 
-**Status: bands 1, 2 and 3 are done, governance is done and gating CI. Band 4
-has had its provable pieces done (4.1, 4.4, 4.5, 4.6) and its remaining
-judgement calls left (4.2, 4.3, and the raw-colour palette decision).** The
+**Status: bands 1, 2 and 3 are done, governance is done and gating CI, and
+band 4 is done (4.1–4.6) down to the one item that turned out to actually be
+a full palette decision rather than a bug: the raw-colour item below.** The
 ✅/☐ column on each table below says which.
 
 ---
@@ -195,8 +195,8 @@ forms, 3 wizard steps, 2 standalone forms.
 | | # | Item | Issue |
 |---|---|---|---|
 | ✅ | 4.1 | Adopt the spacing scale — 1,358 of 1,606 declarations now use a token, and 5 off-grid values remain | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
-| ◐ | 4.2 | Migrate the colour-carrying inline `style=""` attributes in the templates | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
-| ◐ | 4.3 | Migrate static colour literals in JS-generated markup (214 lines, 22 files), leaving genuinely dynamic colour alone | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 4.2 | Migrate the colour-carrying inline `style=""` attributes in the templates | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 4.3 | Migrate static colour literals in JS-generated markup (214 lines, 22 files), leaving genuinely dynamic colour alone | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ✅ | 4.4 | Penpot screen audit board | [#1196](https://github.com/kevinmcaleer/noodleplanner/issues/1196) |
 | ✅ | 4.5 | Recover the 54 components stranded in the unlinked `style.css` | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ✅ | 4.6 | Substitute the 21 hex literals that exactly equal a theme-invariant identity token | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
@@ -369,60 +369,65 @@ fixed**, each verified live rather than guessed at:
   its background didn't, so dark theme rendered light text on light grey.
   Changed to `var(--np-sunken)`, the existing recessed-surface token.
 
-**What's left is now only the genuine palette calls**: the "Remove
-Deliverable Status" button's `#d9534f` measures 3.9:1 on light and 4.2:1 on
-dark — under AA in *both* themes already, not a regression from either, so
-there's no "restore what the theme broke" fix available; landing on AA means
-choosing a specific red, the same class of decision as the raw-colour item
-below. Checked the risk-severity counts in `portfolio-risks.js` for the same
-reason rather than assuming they're fine: `#e8a317` (medium) measures 2.13:1
-against the light surface and `#28a745` (low) 3.08:1 — both pre-existing in
-light theme, not something dark theme broke. Left alone, like the other RAG
-colours, for the same reason.
+**The "Remove Deliverable Status" button and the risk-severity counts looked
+like genuine palette calls, and turned out not to be.** The button's
+`#d9534f` measured 3.9:1 on light and 4.2:1 on dark — under AA in *both*
+themes, so there was no "restore what the theme broke" fix available, and
+`portfolio-risks.js`'s severity counts were worse (`#e8a317` medium 2.13:1,
+`#28a745` low 3.08:1 against the light surface). But landing on AA didn't
+turn out to mean inventing a new red, amber or green: `visual-system.css`
+already carries `--np-danger-ink`/`--np-accent-ink`/`--np-sage-ink`, used a
+few lines away for `.report-rag-badge.rag-red/amber/green` — themed,
+already verified, and built for exactly this "readable RAG-coloured text"
+role. Verified against the actual `--np-paper` background in both themes:
+7.18:1/9.67:1, 5.17:1/10.39:1, 6.74:1/10.99:1. Not a new colour choice —
+the app's own existing answer, applied to the two places that were still
+carrying the raw, un-reconciled literal.
 
-**4.3 got the same audit, and confirms band 2.4's conclusion about the raw
-colours rather than getting further with them.** 22 declarations across 8
-files carry a literal inside a `style="…"` string built in JS (measuring
-where `style=` actually appears, rather than grepping bare `#`-prefixed
-tokens, which mostly matches issue numbers and other non-colour text — the
-naive count is misleadingly large). Checked each against the same bar as
-everywhere else in this epic: neutrals within 1.1:1 contrast of the
-candidate token, chromatic colours within ΔE 3 of an identity token.
+**4.3 got the same audit as 4.2, and the same lesson: a "real miss" against
+the spelling-consolidation bar can still have the app's own answer sitting a
+few lines away, once the question changes from "is this the same colour" to
+"is there already a token for this role."** 22 declarations across 8 files
+carry a literal inside a `style="…"` string built in JS (measuring where
+`style=` actually appears, rather than grepping bare `#`-prefixed tokens,
+which mostly matches issue numbers and other non-colour text).
 
-Only one cleared it: `color: #555` (a task-comment label in `script.js`) is
-1.05:1 from `--np-body`. Migrated.
+`color: #555` (a task-comment label in `script.js`) cleared the
+spelling-consolidation bar outright, at 1.05:1 from `--np-body`. Migrated
+first.
 
-Everything else is a real miss, not a near one:
+The rest missed that bar by too much to call them "the same colour, differently
+spelled" (`#999`/`#888`/`#444`, 1.8–2.5:1 from the nearest text token;
+`#6c757d`, 30+ ΔE from every identity hue) — but all of them were filling
+the same *role* `--np-faint`/`--np-body` already exist for and are already
+verified to pass AA (4.9:1/7.5:1 and 6.7:1/10.5:1 against `--np-paper` in
+light/dark). Migrated onto those, the same reasoning as the danger/RAG fix
+above: not a new colour, the existing token for the role. `--text-muted` had
+no declaration anywhere (unlike `--text-secondary`/`--border-color`/
+`--bg-secondary`), so its `var(--text-muted, #999)` fallback in
+`portfolio-lessons.js` was load-bearing rather than dead — added the missing
+alias (`--text-muted: var(--np-faint)`, next to the other three) and the
+fallback is dead now too, stripped the same way.
 
-- `#999`, `#888`, `#444` (muted/empty-state text, 5 uses) sit 1.8–2.5:1 from
-  the nearest text token — clearly the same *role* as `--np-faint`/`--np-body`,
-  clearly not close enough to be "the same colour, differently spelled."
-  Choosing which one each becomes is the palette decision already open below,
-  not a mechanical substitution.
-- `#6c757d` (Bootstrap's own default muted grey, 2 uses) is 30+ ΔE from every
-  identity hue and 1.1–1.5:1 from the text tokens — a different grey family
-  entirely, left over from before the app had its own palette.
+**What's still a literal, correctly:**
+
 - The "Went Well" / "Needs to Change" / "Mixed" / "Total Lessons" tint boxes
-  in `portfolio-lessons.js` (green/amber/grey/purple) and the risk-severity
-  counts in `portfolio-risks.js` (red/amber/green) are categorical colour
-  coding — RAG-shaped, the same exception `lint-design-system.mjs` already
-  carries for `.rag-badge`/`.status-badge` in CSS. `#28a745` (the "Went Well"
-  green) is the closest anything chromatic gets to an identity token, at ΔE
-  3.84 against `--np-green` -- just over this epic's own ΔE-3 bar for calling
-  two colours "the same design decision," so left as a literal rather than
-  waved through on a technicality.
-- The resource heatmap's five-step legend (`#f0f0f0` through `#ffcdd2`) is a
-  data encoding — the same category as chart series colours — not a surface.
-- `var(--text-muted, #999)` in `portfolio-lessons.js`: `--text-muted` has no
-  declaration anywhere (unlike `--text-secondary`/`--border-color`/
-  `--bg-secondary`, aliased in `visual-system.css` and cleaned up as dead
-  fallbacks above), so this fallback is load-bearing, not dead. Defining the
-  alias would change what renders and is the same palette decision as
-  everything else here, not a fallback strip.
+  in `portfolio-lessons.js` (green/amber/grey/purple) and the resource
+  heatmap's five-step legend are categorical colour coding and a data
+  encoding respectively — RAG-shaped, the same exception
+  `lint-design-system.mjs` already carries for `.rag-badge`/`.status-badge`
+  in CSS, not a surface a token should own. `#28a745` (the "Went Well" green)
+  is the closest anything chromatic gets to an identity token, at ΔE 3.84
+  against `--np-green` — just over this epic's own ΔE-3 bar, so left as a
+  literal rather than waved through on a technicality.
 
-So 4.3, like band 2.4 and the raw-colour item below, converges on: the
-mechanical pass is exhausted, and what is left needs someone to choose a
-palette rather than a script to spell-check one.
+Bands 4.2 and 4.3 are both done. What's left in this epic is the raw-colour
+item below — a scale of decision neither band's audits found a shortcut
+around, because none exists: 1,057 lint findings, most of them either
+chromatic (the colour *is* the meaning) or neutrals whose surface role
+depends on knowing what they sit on, which is exactly the classification
+`adopt-neutral-colours.mjs` already did for the safe subset and exactly what
+is left for someone to do for the rest.
 
 ## Governance — runs alongside, from the end of band 1
 
