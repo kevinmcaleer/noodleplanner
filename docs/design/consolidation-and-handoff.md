@@ -169,19 +169,19 @@ consolidation question — it renders components you already have; it does not
 analyse a stylesheet for duplicate values.
 
 It is also still a poor fit for most of the app as it stands. NoodlePlanner
-has no bundler (see the note in `package.json`) and — apart from one pilot —
-no component modules: the UI is one 4,837-line `index.html` plus vanilla-JS
-files that mutate it by `id`. Getting from here to broad Storybook coverage
-means extracting components one at a time and is a large, ongoing effort,
-not a single change.
+has no bundler (see the note in `package.json`) and — apart from a handful of
+pilots — no component modules: the UI is one 4,837-line `index.html` plus
+vanilla-JS files that mutate it by `id`. Getting from here to broad Storybook
+coverage means extracting components one at a time and is a large, ongoing
+effort, not a single change.
 
-**What exists today:** `static/components/button/` — `<np-button>`, a
-framework-free Web Component consolidating the four independently-styled
-`.btn-primary` / `.btn-secondary` / `.btn-danger` rules (base `components.css`,
-plus the `.tour-actions`, `.raid-toolbar` and `.levelling-buttons` overrides)
-onto the canonical `--np-*` tokens. It is **not** wired into the live app —
-none of the ~130 existing button usages have been migrated to it. See
-`static/components/README.md` for how to run it and add the next one.
+**What exists today:** `static/components/button|card|board|note/` — framework-free
+Web Components (`<np-button>`, `<np-card>`, `<np-board>`, `<np-note>`)
+consolidating duplicated markup (the four independently-styled button
+variants, the Kanban board's card/column chrome, the whiteboard's post-it
+note) onto the canonical `--np-*` tokens. None of these are wired into the
+live app — see `static/components/README.md` for how to run them and add the
+next one.
 
 **Extracting the next component:** pick something duplicated across the HTML
 (search `templates/index.html` for repeated `class="..."` patterns the way
@@ -192,8 +192,16 @@ two steps apart: extraction is mechanical and low-risk, migration touches
 the live app and needs its own testing pass (`docs/capture_screenshots.py`
 after, per the root `CLAUDE.md`).
 
-The token files feeding this are already in the right shape for a future
-build step: run `docs/design/tokens/*.json` through
+**Colour tokens:** `static/components/tokens/color-tokens.stories.js` (the
+"Design Tokens/Colours" story) renders every token straight out of
+`docs/design/tokens/color-light.json` / `color-dark.json` — the exact JSON
+Penpot imports — as light/dark swatch pairs, so the palette handed to Penpot
+is visible in Storybook too, without hand-copying values into a second
+place. `.storybook/main.mjs` aliases `@design-tokens` to `docs/design/tokens/`
+for it.
+
+The token files fuel a further build step this doesn't attempt yet: run
+`docs/design/tokens/*.json` through
 [Style Dictionary](https://styledictionary.com/) v4+ (which reads DTCG
 `$type`/`$value` natively) to emit CSS custom properties or a JS token module
 for a theme decorator. Treat `core.json`'s `shadow` as a string-typed token —
