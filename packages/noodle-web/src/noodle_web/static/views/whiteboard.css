@@ -122,6 +122,28 @@
     overflow: visible;
 }
 
+/* Dragged onto the open parking lot panel (issue #1201): a live cue, while
+   the drag is still in progress, that releasing here parks the note rather
+   than repositioning it. */
+.wb-note.wb-note-park-armed {
+    opacity: 0.55;
+}
+
+/* The park itself, once released over the panel (wbParkDraggedNote()):
+   shrinks and fades the note into nothing before its task -- and this DOM
+   node with it -- is actually deleted, so it visually "goes into" the
+   panel rather than just vanishing. transform-box/-origin pin the shrink
+   to the note's own centre; SVG elements otherwise transform around the
+   nearest viewport's origin, not their own box. */
+.wb-note.wb-note-parking {
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    transition: transform 180ms ease, opacity 180ms ease; /* keep in step with WB_NOTE_PARK_ANIM_MS */
+    transform: scale(0.1);
+    opacity: 0;
+    pointer-events: none;
+}
+
 .wb-note-card {
     --wb-note-accent: var(--np-border, #e0e0e0);
     --wb-note-text: var(--np-text, #333333);
@@ -1229,27 +1251,59 @@ body.wb-note-drag-active * {
     }
 }
 
-/* ── Parking lot panel (issue #1019) ────────────────────────────────────
-   Reuses the Add-note picker's overlay/dialog/header chrome (see
-   .wb-add-note-overlay/.wb-add-note-dialog/.wb-add-note-header above);
-   only the body -- a plain list, no search, no footer -- is new. */
+/* ── Parking lot panel (issue #1019; slide-out + drag/reorder #1201) ────
+   #1019 shipped this as a centred modal, reusing the Add-note picker's
+   overlay/dialog/header chrome. #1201 turns it into a non-modal panel
+   docked to the board's right edge instead -- still reusing
+   .wb-add-note-header for the title bar, but everything below (the panel
+   shell itself, the slide transition, and each row's drag affordances) is
+   new. See whiteboard-notes.js's "Parking lot panel" section header
+   comment for the interaction this styles. */
 
-.wb-parking-lot-dialog {
-    max-width: 420px;
+.wb-parking-lot-panel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: 300px;
+    max-width: calc(100% - 24px);
+    display: flex;
+    flex-direction: column;
+    background: var(--np-surface, #ffffff);
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 10px;
+    box-shadow: 0 6px 22px var(--np-shadow, rgba(0, 0, 0, 0.16));
+    overflow: hidden;
+    z-index: 5;
+    transform: translateX(calc(100% + 24px));
+    transition: transform 0.2s ease;
+}
+
+.wb-parking-lot-panel.open {
+    transform: translateX(0);
+}
+
+/* Live drop-target feedback while a note is being dragged over the panel
+   (wbUpdateParkingLotDropHint()) -- an accent ring, not a colour swap, so
+   it reads as "drop here" without fighting the panel's own chrome. */
+.wb-parking-lot-panel.wb-parking-lot-panel-drop-armed {
+    outline: 2px solid var(--np-accent, #4a90d9);
+    outline-offset: -2px;
 }
 
 .wb-parking-lot-intro {
     margin: 0;
-    padding: 0 16px 8px;
+    padding: 10px 16px;
     font-size: 12px;
     color: var(--np-text-secondary, #666666);
+    border-bottom: 1px solid var(--np-border, #e0e0e0);
     flex-shrink: 0;
 }
 
 .wb-parking-lot-list {
     list-style: none;
     margin: 0;
-    padding: 0 8px 12px;
+    padding: 8px;
     overflow-y: auto;
     flex: 1;
     min-height: 80px;
@@ -1258,13 +1312,40 @@ body.wb-note-drag-active * {
 .wb-parking-lot-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 8px;
     border-radius: 6px;
+    border-top: 2px solid transparent;
+    border-bottom: 2px solid transparent;
 }
 
 .wb-parking-lot-item:hover {
     background: var(--np-bg-hover, #f0f1f4);
+}
+
+/* Dragged-row and reorder-target feedback (issue #1201). The dragging row
+   itself fades so the row underneath it (its actual drop position once
+   released) stays legible; the target row grows a coloured rule on the
+   edge the drop will land against, cheaper to read at a glance than
+   reflowing the whole list on every dragover. */
+.wb-parking-lot-item-dragging {
+    opacity: 0.4;
+}
+
+.wb-parking-lot-item-drop-before {
+    border-top-color: var(--np-accent, #4a90d9);
+}
+
+.wb-parking-lot-item-drop-after {
+    border-bottom-color: var(--np-accent, #4a90d9);
+}
+
+.wb-parking-lot-item-handle {
+    flex-shrink: 0;
+    color: var(--np-text-muted, #888888);
+    font-size: 13px;
+    line-height: 1;
+    cursor: grab;
 }
 
 .wb-parking-lot-item-text {
@@ -1320,6 +1401,27 @@ body.wb-note-drag-active * {
     font-size: 12px;
     font-style: italic;
     color: var(--np-text-muted, #888888);
+}
+
+@media (max-width: 640px) {
+    /* Narrow viewport: a 300px right column would eat most of the board --
+       span the full width, docked to the bottom instead, matching the
+       outline panel's own narrow-viewport treatment (its @media block
+       further down this file). */
+    .wb-parking-lot-panel {
+        top: auto;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        width: auto;
+        max-width: none;
+        height: 60%;
+        transform: translateY(calc(100% + 24px));
+    }
+
+    .wb-parking-lot-panel.open {
+        transform: translateY(0);
+    }
 }
 
 /* ========================================
