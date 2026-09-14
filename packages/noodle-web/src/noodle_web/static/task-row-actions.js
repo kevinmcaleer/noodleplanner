@@ -52,7 +52,7 @@ function insertTaskAtPosition(task, position) {
         // Focus the contenteditable title and select all text so the user
         // can immediately start typing a replacement name.
         setTimeout(() => {
-            const titleEl = document.getElementById('taskFormTitle');
+            const titleEl = document.getElementById('taskFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
             if (titleEl) {
                 titleEl.focus();
                 // Select all text so the first keystroke replaces "New Task"
