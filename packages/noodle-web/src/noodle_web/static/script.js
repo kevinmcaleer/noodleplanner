@@ -8156,13 +8156,13 @@ function renderRaidTable() {
     tbody.innerHTML = '';
 
     if (raidItems.length === 0) {
-        emptyState.style.display = 'block';
+        emptyState.hidden = false;
         document.getElementById('raidTable').style.display = 'none';
         renderEscalationsView();
         return;
     }
 
-    emptyState.style.display = 'none';
+    emptyState.hidden = true;
     document.getElementById('raidTable').style.display = 'table';
 
     filtered.forEach(item => {
@@ -12100,12 +12100,12 @@ function renderCommsTable() {
         tbody.innerHTML = '';
 
         if (commsItems.length === 0) {
-            emptyState.style.display = 'block';
+            emptyState.hidden = false;
             document.getElementById('commsTable').style.display = 'none';
             return;
         }
 
-        emptyState.style.display = 'none';
+        emptyState.hidden = true;
         document.getElementById('commsTable').style.display = 'table';
 
         filtered.forEach(item => {
@@ -12620,12 +12620,12 @@ function renderBudgetTable() {
         tbody.innerHTML = '';
 
         if (budgetItems.length === 0) {
-            emptyState.style.display = 'block';
+            emptyState.hidden = false;
             if (table) table.style.display = 'none';
             return;
         }
 
-        emptyState.style.display = 'none';
+        emptyState.hidden = true;
         if (table) table.style.display = 'table';
 
         let totalEstimate = 0;
@@ -13352,7 +13352,7 @@ function toggleBudgetSheetView() {
     if (budgetSheetViewActive) {
         // Switch to spreadsheet view
         if (tableWrapper) tableWrapper.style.display = 'none';
-        if (emptyState) emptyState.style.display = 'none';
+        if (emptyState) emptyState.hidden = true;
         sheetContainer.style.display = 'flex';
         toggleBtn.classList.add('active');
         filterGroups.forEach(fg => fg.style.display = 'none');
@@ -14933,12 +14933,12 @@ function renderStakeholderTable() {
     tbody.innerHTML = '';
 
     if (stakeholderItems.length === 0) {
-        emptyState.style.display = 'block';
+        emptyState.hidden = false;
         table.style.display = 'none';
         return;
     }
 
-    emptyState.style.display = 'none';
+    emptyState.hidden = true;
     table.style.display = 'table';
 
     stakeholderItems.forEach(item => {
@@ -15501,10 +15501,10 @@ function renderHighlightsList() {
     list.innerHTML = '';
 
     if (highlightsData.length === 0) {
-        if (emptyState) emptyState.style.display = 'block';
+        if (emptyState) emptyState.hidden = false;
         return;
     }
-    if (emptyState) emptyState.style.display = 'none';
+    if (emptyState) emptyState.hidden = true;
 
     // Show newest first
     const sorted = [...highlightsData].reverse();
@@ -16599,12 +16599,12 @@ function renderActionsTable() {
         tbody.innerHTML = '';
 
         if (actionItems.length === 0) {
-            emptyState.style.display = 'block';
+            emptyState.hidden = false;
             document.getElementById('actionsTable').style.display = 'none';
             return;
         }
 
-        emptyState.style.display = 'none';
+        emptyState.hidden = true;
         document.getElementById('actionsTable').style.display = 'table';
 
         filtered.forEach(item => {

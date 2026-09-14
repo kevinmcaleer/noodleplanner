@@ -1198,9 +1198,9 @@ Press Enter to render..."></textarea>
                                 <div class="highlights-list" id="highlightsList">
                                     <!-- Highlights will be populated by JavaScript -->
                                 </div>
-                                <div class="highlights-empty-state" id="highlightsEmptyState">
+                                <np-empty-state id="highlightsEmptyState">
                                     <p>No highlights yet. Click <strong>"+ Add Highlight"</strong> to record project updates and commentary.</p>
-                                </div>
+                                </np-empty-state>
                             </div>
                         </div>
 
@@ -1289,10 +1289,9 @@ Press Enter to render..."></textarea>
                                         <thead><tr><th>Title</th><th>Description</th><th>Owner</th><th>Score</th><th>Escalate To</th><th>Target Date</th><th>Status</th></tr></thead>
                                         <tbody id="escalationsTableBody"></tbody>
                                     </table>
-                                    <div class="raid-empty-state" id="escalationsEmptyState">
-                                        <h3>No escalations</h3>
+                                    <np-empty-state variant="card" id="escalationsEmptyState" heading="No escalations">
                                         <p>Risks escalated to the Board or Programme will appear here.</p>
-                                    </div>
+                                    </np-empty-state>
                                 </div>
                             </div>
                         </div>
@@ -1760,11 +1759,10 @@ Press Enter to render..."></textarea>
                                             <tbody id="stakeholdersTableBody">
                                             </tbody>
                                         </table>
-                                        <div class="stakeholders-empty-state" id="stakeholdersEmptyState">
-                                            <h3>Stakeholders</h3>
+                                        <np-empty-state variant="card" id="stakeholdersEmptyState" heading="Stakeholders">
                                             <p>Track project stakeholders, their interest and influence levels.</p>
                                             <p>Click <strong>"+ Add Stakeholder"</strong> to get started.</p>
-                                        </div>
+                                        </np-empty-state>
                                     </div>
                                     <div class="stakeholders-grid-panel">
                                         <div class="stakeholder-grid-wrapper" id="stakeholderGridWrapper">
@@ -2071,11 +2069,10 @@ Build
                             <tbody id="raidTableBody">
                             </tbody>
                         </table>
-                        <div class="raid-empty-state" id="raidEmptyState">
-                            <h3>RAID Log</h3>
+                        <np-empty-state variant="card" id="raidEmptyState" heading="RAID Log">
                             <p>Track Risks, Actions, Issues, Decisions, and Dependencies.</p>
                             <p>Click <strong>"+ Add Item"</strong> to get started, or upload an existing RAID log.</p>
-                        </div>
+                        </np-empty-state>
                     </div>
 
                     <!-- Collapsible RAID Markdown Editor -->
@@ -2142,11 +2139,10 @@ Build
                             <tbody id="commsTableBody">
                             </tbody>
                         </table>
-                        <div class="raid-empty-state" id="commsEmptyState">
-                            <h3>Communications Plan</h3>
+                        <np-empty-state variant="card" id="commsEmptyState" heading="Communications Plan">
                             <p>Plan and track stakeholder communications.</p>
                             <p>Click <strong>"+ Add Item"</strong> to get started.</p>
-                        </div>
+                        </np-empty-state>
                     </div>
                 </div>
             </div>
@@ -2212,8 +2208,7 @@ Build
                             <tbody id="lessonsTableBody">
                             </tbody>
                         </table>
-                        <div class="raid-empty-state" id="lessonsEmptyState">
-                            <h3>Lessons Learned</h3>
+                        <np-empty-state variant="card" id="lessonsEmptyState" heading="Lessons Learned">
                             <p>Capture what went well and what to change next time, using an Appreciative Inquiry approach.</p>
                             <p>Try a starter prompt:</p>
                             <ul style="display: inline-block; text-align: left; margin: 8px auto;">
@@ -2222,7 +2217,7 @@ Build
                                 <li><em>"What would make resource planning even better next time?"</em></li>
                             </ul>
                             <p>Click <strong>"+ Add Lesson"</strong> to record one.</p>
-                        </div>
+                        </np-empty-state>
                     </div>
                 </div>
             </div>
@@ -2302,11 +2297,10 @@ Build
                             <tfoot id="budgetTableFoot">
                             </tfoot>
                         </table>
-                        <div class="budget-empty-state" id="budgetEmptyState">
-                            <h3>Budget Tracker</h3>
+                        <np-empty-state variant="card" id="budgetEmptyState" heading="Budget Tracker">
                             <p>Track project costs, forecasts, and spending.</p>
                             <p>Click <strong>"+ Add Item"</strong> to get started.</p>
-                        </div>
+                        </np-empty-state>
                     </div>
 
                     <!-- Collapsible Budget Markdown Editor -->
@@ -2390,11 +2384,10 @@ Build
                                 <tbody id="actionsTableBody">
                                 </tbody>
                             </table>
-                            <div class="actions-empty-state" id="actionsEmptyState">
-                                <h3>Actions Tracker</h3>
+                            <np-empty-state variant="card" id="actionsEmptyState" heading="Actions Tracker">
                                 <p>Track action items for resources in your project.</p>
                                 <p>Click <strong>"+ Add Action"</strong> to get started.</p>
-                            </div>
+                            </np-empty-state>
                         </div>
                     </div>
 
@@ -4445,6 +4438,7 @@ Build
     <!-- Reskinning components (#1187) -->
     <script type="module" src="/static/components/panel-header/np-panel-header.js?v={{ v }}"></script>
     <script type="module" src="/static/components/close-button/np-close-button.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/empty-state/np-empty-state.js?v={{ v }}"></script>
 
     <!-- Collab Session Modal (#963) -->
     <div id="collabSessionOverlay" class="modal-overlay" onclick="if(event.target===this) closeCollabSessionModal()" role="dialog" aria-modal="true" aria-label="Planning session">

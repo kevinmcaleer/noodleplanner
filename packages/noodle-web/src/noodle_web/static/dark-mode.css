@@ -1114,14 +1114,6 @@ body {
     background: var(--np-table-stripe);
 }
 
-[data-theme="dark"] .actions-empty-state {
-    color: var(--np-text-muted);
-}
-
-[data-theme="dark"] .actions-empty-state h3 {
-    color: var(--np-text-secondary);
-}
-
 /* ---- Highlights Page ---- */
 [data-theme="dark"] .highlights-title {
     color: var(--np-text);
