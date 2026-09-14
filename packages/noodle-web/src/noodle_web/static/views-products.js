@@ -3355,8 +3355,8 @@ function openProductForm(task) {
     if (titleEl) titleEl.value = task.name || '';
 
     // Form title
-    const formTitle = document.getElementById('productFormTitle');
-    if (formTitle) formTitle.textContent = task.name || 'Product Details';
+    const formHeader = document.getElementById('productFormPanelHeader');
+    if (formHeader) formHeader.setAttribute('title', task.name || 'Product Details');
 
     // Identifier
     const idEl = document.getElementById('productIdentifier');
@@ -3651,6 +3651,8 @@ function closeProductForm() {
     currentProductLineNumber = null;
 }
 
+document.getElementById('productFormPanelHeader')?.addEventListener('close', closeProductForm);
+
 function saveProductForm() {
     if (!currentProductTask || currentProductLineNumber === null) return;
 
@@ -3917,7 +3919,7 @@ function switchProductToTaskForm() {
 }
 
 function updateProductNameFromTitle() {
-    const titleEl = document.getElementById('productFormTitle');
+    const titleEl = document.getElementById('productFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
     const inputEl = document.getElementById('productTitle');
     if (titleEl && inputEl) {
         inputEl.value = titleEl.innerText.trim();
@@ -3925,11 +3927,13 @@ function updateProductNameFromTitle() {
     }
 }
 
+document.getElementById('productFormPanelHeader')?.addEventListener('titlechange', updateProductNameFromTitle);
+
 function updateProductTitleFromInput() {
     const inputEl = document.getElementById('productTitle');
-    const titleEl = document.getElementById('productFormTitle');
-    if (inputEl && titleEl) {
-        titleEl.textContent = inputEl.value || 'Product Details';
+    const header = document.getElementById('productFormPanelHeader');
+    if (inputEl && header) {
+        header.setAttribute('title', inputEl.value || 'Product Details');
     }
 }
 

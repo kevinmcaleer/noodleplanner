@@ -59,6 +59,24 @@ are pilots proving the extraction pattern, not a migration. To use one:
     { name: 'Review with legal', done: false },
   ];
 </script>
+
+<script type="module" src="/static/components/panel-header/np-panel-header.js"></script>
+<np-panel-header title="Task Name" editable>
+  <button slot="actions">🔍 Inspect</button>
+</np-panel-header>
+<np-panel-header title="Status Message Log" variant="neutral"></np-panel-header>
+
+<script type="module" src="/static/components/empty-state/np-empty-state.js"></script>
+<np-empty-state>No upcoming milestones.</np-empty-state>
+<np-empty-state variant="card" heading="RAID Log">
+  <p>Track Risks, Actions, Issues, Decisions, and Dependencies.</p>
+  <button slot="actions">+ Add Item</button>
+</np-empty-state>
+
+<script type="module" src="/static/components/close-button/np-close-button.js"></script>
+<np-close-button></np-close-button>
+<np-close-button size="small" label="Dismiss"></np-close-button>
+<np-close-button flat></np-close-button>
 ```
 
 `<np-board>` composes `<np-card>` internally for each column's cards, the
@@ -67,6 +85,20 @@ same relationship `.kanban-board` / `.kanban-card` have in
 extracts `.wb-note-card` from `static/views/whiteboard.css` /
 `static/whiteboard-notes.js` — the whiteboard's post-it note, including
 its `title-only` (zoomed-out) and `freeform` (no checklist) variants.
+`<np-panel-header>` reconciles `.detail-pane-header` and `.modal-header`
+(components.css) into one header, with `variant="accent"` /
+`variant="neutral"` standing in for the tone the two diverged on.
+`<np-empty-state>` consolidates the 19 per-area `*-empty-state` classes
+(`.raid-empty-state`, `.kanban-empty-state`, `.wb-empty-state`, …) into
+one component with a `variant="text"` / `variant="card"` tier and
+optional icon/heading/actions slots — not the welcome screen or
+`.placeholder-view` family, which are a deliberately separate kind of
+"nothing here" (see design-system.md §6).
+`<np-close-button>` is one real `<button>` for every dismiss control in
+the app (`.close-btn`, `.task-peek-close-btn`, `.wb-add-note-close`,
+`.estimate-popup-close`, `.card-popup-close`, `.ai-chat-header-btn`),
+with `size="small"` / `flat` covering the size and box-vs-bare-glyph
+drift between them.
 
 Swapping the existing `.btn-primary` / `.kanban-card` / `.wb-note-card`
 usages across `templates/index.html` and the view CSS over to these
