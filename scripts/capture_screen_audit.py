@@ -42,6 +42,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import socket
 import sys
 import threading
@@ -210,7 +211,10 @@ def capture(base_url: str, theme: str, only: set[str] | None, out_dir: Path, wid
     viewport = {"width": width, "height": VIEWPORT["height"]}
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
+        browser = pw.chromium.launch(
+            executable_path=os.environ.get("NOODLE_PW_CHROME") or None,
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
         context = browser.new_context(viewport=viewport, device_scale_factor=1)
         context.add_init_script("document.cookie = 'tourCompleted=true; path=/; max-age=31536000';")
         page = context.new_page()

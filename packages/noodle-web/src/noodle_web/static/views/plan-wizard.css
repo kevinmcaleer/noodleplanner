@@ -15,7 +15,7 @@
     max-height: min(70vh, 520px);
     background: var(--np-surface);
     border-radius: 12px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
     z-index: 1800;
     display: flex;
     flex-direction: column;

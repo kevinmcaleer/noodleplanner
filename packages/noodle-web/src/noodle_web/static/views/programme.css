@@ -102,7 +102,7 @@
 }
 
 .programme-stat-sub {
-    font-size: 0.78em;
+    font-size: 0.8em;
     color: var(--np-text-muted);
 }
 
@@ -224,7 +224,7 @@
     display: inline-block;
     padding: var(--np-space-4) var(--np-space-12);
     border-radius: 12px;
-    font-size: 0.78em;
+    font-size: 0.8em;
     font-weight: 600;
     white-space: nowrap;
 }
@@ -361,7 +361,7 @@
 }
 
 .programme-outcome-total {
-    font-size: 0.78em;
+    font-size: 0.8em;
     font-weight: 600;
     color: var(--np-text-secondary);
     text-transform: none;

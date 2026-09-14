@@ -73,12 +73,6 @@ body {
     background: var(--np-editor-bg);
 }
 
-/* Editor tip bar */
-[data-theme="dark"] .editor-panel > div[style*="background: #3a3a3a"] {
-    background: var(--np-editor-tip-bg) !important;
-    color: var(--np-editor-tip-text) !important;
-}
-
 /* Splitter */
 .editor-splitter {
     background: var(--np-splitter-bg);
@@ -201,11 +195,6 @@ body {
     background: var(--np-surface);
     border-color: var(--np-border);
     box-shadow: 0 0 20px var(--np-shadow-strong);
-}
-
-.detail-pane-header {
-    background: linear-gradient(135deg, #0d6f94 0%, #3b7c3c 100%);
-    color: white;
 }
 
 /* Project report / dashboard cards */
@@ -573,7 +562,7 @@ body {
 }
 
 [data-theme="dark"] .ribbon-banner--dark {
-    --ribbon-bg: #1a2a35;
+    --ribbon-bg: #1b2f39;
     --ribbon-color: #4090b0;
 }
 
@@ -618,7 +607,7 @@ body {
 }
 
 [data-theme="dark"] .gantt-month.gantt-today {
-    background-color: #1a3a2a;
+    background-color: #1a3a28;
     color: #50c878;
 }
 
@@ -771,7 +760,7 @@ body {
 
 [data-theme="dark"] .kanban-card:hover {
     border-color: var(--np-accent);
-    box-shadow: 0 4px 8px var(--np-shadow);
+    box-shadow: 0 2px 8px var(--np-shadow);
 }
 
 [data-theme="dark"] .round-checkbox {
@@ -943,7 +932,7 @@ body {
 /* Piechart popup */
 [data-theme="dark"] .piechart-popup {
     background: var(--np-surface);
-    box-shadow: 0 2px 12px var(--np-shadow-strong);
+    box-shadow: 0 4px 12px var(--np-shadow-strong);
 }
 
 [data-theme="dark"] .piechart-popup-btn {
@@ -1571,7 +1560,7 @@ body {
 }
 
 [data-theme="dark"] .ns-col-header.ns-selected-col {
-    background: linear-gradient(180deg, #2a3a5a 0%, #1f2f4a 100%);
+    background: linear-gradient(180deg, #2a3a5a 0%, #1a2e4a 100%);
 }
 
 [data-theme="dark"] .ns-col-letter {
@@ -1596,7 +1585,7 @@ body {
 }
 
 [data-theme="dark"] .ns-row-num.ns-selected-row {
-    background: linear-gradient(90deg, #2a3a5a 0%, #1f2f4a 100%);
+    background: linear-gradient(90deg, #2a3a5a 0%, #1a2e4a 100%);
     color: var(--np-text);
 }
 
@@ -1732,7 +1721,7 @@ body {
 
 [data-theme="dark"] .portfolio-header {
     background: var(--np-surface);
-    box-shadow: 0 1px 3px var(--np-shadow);
+    box-shadow: 0 2px 4px var(--np-shadow);
 }
 
 [data-theme="dark"] .portfolio-subnav-btn {
@@ -1780,7 +1769,7 @@ body {
 
 [data-theme="dark"] .portfolio-empty-state {
     background: var(--np-surface);
-    box-shadow: 0 1px 3px var(--np-shadow);
+    box-shadow: 0 2px 4px var(--np-shadow);
 }
 
 [data-theme="dark"] .portfolio-empty-state h3 {
@@ -1932,7 +1921,7 @@ body {
 /* Portfolio Timeline View */
 [data-theme="dark"] .portfolio-timeline-header {
     background: var(--np-surface);
-    box-shadow: 0 1px 3px var(--np-shadow);
+    box-shadow: 0 2px 4px var(--np-shadow);
 }
 
 [data-theme="dark"] .portfolio-timeline-header h2 {
@@ -2212,7 +2201,7 @@ body {
 [data-theme="dark"] .kanban-message-info {
     background: #1a2e4a;
     color: #6db3f0;
-    border-color: #2a4060;
+    border-color: #2a3a5a;
 }
 
 /* ---- Progress bar dark mode ---- */
@@ -2374,7 +2363,7 @@ body {
 
 /* ── Highlight body truncation (dark) ── */
 [data-theme="dark"] .report-highlight-body::after {
-    background: linear-gradient(to right, transparent, #1a1a2e 40%);
+    background: linear-gradient(to right, transparent, #1e1e2e 40%);
     color: #666;
 }
 
@@ -2399,7 +2388,7 @@ body {
 
 /* ── Delivery Forecast (dark) ── */
 [data-theme="dark"] .forecast-on-track {
-    color: #5cb85c;
+    color: #4caf50;
 }
 
 [data-theme="dark"] .forecast-at-risk {
@@ -2411,7 +2400,7 @@ body {
 }
 
 [data-theme="dark"] .forecast-complete {
-    color: #5cb85c;
+    color: #4caf50;
 }
 
 /* ── Portfolio Benefits Map (dark) ───────────────────────────────────── */
@@ -2427,7 +2416,7 @@ body {
 
 [data-theme="dark"] .portfolio-benefits-map-container {
     border-color: #444;
-    background: #252525;
+    background: #2a2a2a;
 }
 
 [data-theme="dark"] .pbm-column-labels text {
@@ -2478,7 +2467,7 @@ body {
 }
 
 [data-theme="dark"] .wb-canvas-wrapper {
-    background: #1a1a1a;
+    background: #1e1e1e;
 }
 
 [data-theme="dark"] .wb-grid-dot {
@@ -2493,7 +2482,7 @@ body {
 
 [data-theme="dark"] .wb-note-menu-btn:hover,
 [data-theme="dark"] .wb-note-menu-btn:focus-visible {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.15);
 }
 
 /* ── Note colour menu (dark) — issue #849 ────────────────────────────────
@@ -2590,7 +2579,7 @@ body {
 }
 
 [data-theme="dark"] .ribbon-launcher {
-    color: #6b8895;
+    color: #6f8894;
 }
 
 [data-theme="dark"] .ribbon-more {
@@ -2669,7 +2658,7 @@ body {
 [data-theme="dark"] .backstage-recent-item:focus-visible,
 [data-theme="dark"] .backstage-template-card:hover,
 [data-theme="dark"] .backstage-template-card:focus-visible {
-    box-shadow: 0 2px 6px var(--np-shadow);
+    box-shadow: 0 2px 4px var(--np-shadow);
 }
 
 [data-theme="dark"] .backstage-recent-item-badge {
@@ -2689,7 +2678,7 @@ body {
 [data-theme="dark"] .wb-outline-btn:hover,
 [data-theme="dark"] .wb-outline-btn:focus-visible,
 [data-theme="dark"] .wb-outline-chevron:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.15);
 }
 
 /* The row-matched and search-focus tints are mixed for a white panel; at
@@ -2719,12 +2708,12 @@ body {
 }
 
 [data-theme="dark"] .wb-noodle-cut:hover .wb-noodle-cut-mark {
-    stroke: #1a1a1a;
+    stroke: #1e1e1e;
 }
 
 /* The transient message inverts (dark text on light) in light mode; in
    dark mode that inversion would make it the brightest thing on screen. */
 [data-theme="dark"] .wb-noodle-message {
     background: #e8e8e8;
-    color: #1a1a1a;
+    color: #1e1e1e;
 }

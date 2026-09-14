@@ -3356,7 +3356,7 @@ function populateSubtasks(parentLineNumber, lines) {
 
     // Display subtasks
     if (subtasks.length === 0) {
-        subtasksList.innerHTML = '<div style="padding: 10px; color: #999; text-align: center;">No sub tasks</div>';
+        subtasksList.innerHTML = '<div style="padding: 10px; color: var(--np-faint); text-align: center;">No sub tasks</div>';
         // Enable percent input for non-summary tasks
         const percentInput = document.getElementById('taskPercent');
         const helperText = document.getElementById('percentHelperText');
@@ -6347,7 +6347,7 @@ function populateResourceAssignedTasks(shortname) {
     if (!el) return;
 
     if (!shortname || !lastRenderedTasks || lastRenderedTasks.length === 0) {
-        el.innerHTML = '<span style="color: var(--text-secondary, #888); font-style: italic;">No tasks assigned</span>';
+        el.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">No tasks assigned</span>';
         return;
     }
 
@@ -6362,7 +6362,7 @@ function populateResourceAssignedTasks(shortname) {
     });
 
     if (assigned.length === 0) {
-        el.innerHTML = '<span style="color: var(--text-secondary, #888); font-style: italic;">No tasks assigned</span>';
+        el.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">No tasks assigned</span>';
         return;
     }
 
@@ -16274,7 +16274,7 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     html += '    </div>';
 
     if (ragInfo.expectedPercent !== null && percent < 100) {
-        html += '    <div style="font-size: 0.82em; color: #888; margin-top: 4px;">Expected progress based on elapsed time: ' + ragInfo.expectedPercent + '%</div>';
+        html += '    <div style="font-size: 0.82em; color: var(--np-faint); margin-top: 4px;">Expected progress based on elapsed time: ' + ragInfo.expectedPercent + '%</div>';
     }
 
     html += '  </div>';
@@ -16317,7 +16317,7 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
         // Explain the driving dependency
         const drivingDep = depDetails.find(d => d.isDriving);
         if (drivingDep) {
-            html += '    <div style="font-size: 0.85em; color: #555; margin-top: 8px;">';
+            html += '    <div style="font-size: 0.85em; color: var(--np-body); margin-top: 8px;">';
             const drivingRefDate = drivingDep.refDate || drivingDep.finishDate;
             const drivingVerb = (drivingDep.depType === 'SS' || drivingDep.depType === 'SF') ? 'starting' : 'finishing';
             const drivingRelation = drivingDep.depType === 'SS' ? 'start when it starts'
@@ -16358,7 +16358,7 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
         html += '<div class="inspector-section">';
         html += '  <div class="inspector-section-header"><span class="inspector-icon">💬</span> Comment</div>';
         html += '  <div class="inspector-section-body">';
-        html += '    <div style="font-size: 0.9em; color: #444; line-height: 1.5;">' + escapeHtml(task.comment) + '</div>';
+        html += '    <div style="font-size: 0.9em; color: var(--np-body); line-height: 1.5;">' + escapeHtml(task.comment) + '</div>';
         html += '  </div>';
         html += '</div>';
     }
