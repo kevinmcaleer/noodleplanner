@@ -72,6 +72,11 @@ are pilots proving the extraction pattern, not a migration. To use one:
   <p>Track Risks, Actions, Issues, Decisions, and Dependencies.</p>
   <button slot="actions">+ Add Item</button>
 </np-empty-state>
+
+<script type="module" src="/static/components/close-button/np-close-button.js"></script>
+<np-close-button></np-close-button>
+<np-close-button size="small" label="Dismiss"></np-close-button>
+<np-close-button flat></np-close-button>
 ```
 
 `<np-board>` composes `<np-card>` internally for each column's cards, the
@@ -89,6 +94,11 @@ one component with a `variant="text"` / `variant="card"` tier and
 optional icon/heading/actions slots — not the welcome screen or
 `.placeholder-view` family, which are a deliberately separate kind of
 "nothing here" (see design-system.md §6).
+`<np-close-button>` is one real `<button>` for every dismiss control in
+the app (`.close-btn`, `.task-peek-close-btn`, `.wb-add-note-close`,
+`.estimate-popup-close`, `.card-popup-close`, `.ai-chat-header-btn`),
+with `size="small"` / `flat` covering the size and box-vs-bare-glyph
+drift between them.
 
 Swapping the existing `.btn-primary` / `.kanban-card` / `.wb-note-card`
 usages across `templates/index.html` and the view CSS over to these
