@@ -15961,10 +15961,12 @@ function closeTaskInspector() {
     closeDetailPane();
 }
 
+document.getElementById('inspectorPanelHeader')?.addEventListener('close', closeTaskInspector);
+
 function showInspectorEmpty(message) {
     const body = document.getElementById('inspectorBody');
-    const title = document.getElementById('inspectorTaskTitle');
-    title.textContent = 'Task Inspector';
+    const header = document.getElementById('inspectorPanelHeader');
+    header.setAttribute('title', 'Task Inspector');
     body.innerHTML = '<div class="inspector-empty-state"><p>' + escapeHtml(message) + '</p></div>';
 }
 
@@ -16203,10 +16205,10 @@ function formatInspectorDate(dateStr) {
  */
 function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     currentInspectorLineNumber = lineNumber;
-    const title = document.getElementById('inspectorTaskTitle');
+    const header = document.getElementById('inspectorPanelHeader');
     const body = document.getElementById('inspectorBody');
 
-    title.textContent = task.name || 'Task Inspector';
+    header.setAttribute('title', task.name || 'Task Inspector');
 
     const percent = parseInt(task.percent) || 0;
     const durationText = task.duration ? task.duration + ' day' + (task.duration !== '1' ? 's' : '') : '-';
