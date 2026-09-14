@@ -65,6 +65,13 @@ are pilots proving the extraction pattern, not a migration. To use one:
   <button slot="actions">🔍 Inspect</button>
 </np-panel-header>
 <np-panel-header title="Status Message Log" variant="neutral"></np-panel-header>
+
+<script type="module" src="/static/components/empty-state/np-empty-state.js"></script>
+<np-empty-state>No upcoming milestones.</np-empty-state>
+<np-empty-state variant="card" heading="RAID Log">
+  <p>Track Risks, Actions, Issues, Decisions, and Dependencies.</p>
+  <button slot="actions">+ Add Item</button>
+</np-empty-state>
 ```
 
 `<np-board>` composes `<np-card>` internally for each column's cards, the
@@ -76,6 +83,12 @@ its `title-only` (zoomed-out) and `freeform` (no checklist) variants.
 `<np-panel-header>` reconciles `.detail-pane-header` and `.modal-header`
 (components.css) into one header, with `variant="accent"` /
 `variant="neutral"` standing in for the tone the two diverged on.
+`<np-empty-state>` consolidates the 19 per-area `*-empty-state` classes
+(`.raid-empty-state`, `.kanban-empty-state`, `.wb-empty-state`, …) into
+one component with a `variant="text"` / `variant="card"` tier and
+optional icon/heading/actions slots — not the welcome screen or
+`.placeholder-view` family, which are a deliberately separate kind of
+"nothing here" (see design-system.md §6).
 
 Swapping the existing `.btn-primary` / `.kanban-card` / `.wb-note-card`
 usages across `templates/index.html` and the view CSS over to these
