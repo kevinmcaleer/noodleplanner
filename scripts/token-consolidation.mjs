@@ -13,7 +13,7 @@
 // Usage: node scripts/token-consolidation.mjs
 // Writes docs/design/token-consolidation.json.
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { analyze } from '@projectwallace/css-analyzer'
 import { analysis_to_tokens } from '@projectwallace/css-design-tokens'
@@ -45,19 +45,15 @@ const RADIUS_PX = arg('radius-px', 1.5) // max px difference within a radius clu
 const SHADOW_GEOM_PX = arg('shadow-px', 2) // max px difference per shadow geometry component
 
 // ---------------------------------------------------------------------------
-// CSS discovery (mirrors token-audit.mjs so both read the same surface)
+// CSS discovery -- linked stylesheets only, matching token-audit.mjs. The
+// static directory also holds `style.css`, 13k lines that #571's split left
+// nothing linking to; scanning it anyway silently pulls dead declarations
+// into "usage", which can even flip which spelling a cluster picks as the
+// highest-traffic winner.
 // ---------------------------------------------------------------------------
-function walkCssFiles(dir) {
-	const out = []
-	for (const entry of readdirSync(dir)) {
-		const full = join(dir, entry)
-		if (statSync(full).isDirectory()) out.push(...walkCssFiles(full))
-		else if (entry.endsWith('.css')) out.push(full)
-	}
-	return out
-}
-
-const cssFiles = walkCssFiles(STATIC_DIR).sort()
+const INDEX_HTML = join(ROOT, 'packages/noodle-web/src/noodle_web/templates/index.html')
+const linkedRel = [...readFileSync(INDEX_HTML, 'utf8').matchAll(/href="\/static\/([^"?]+\.css)/g)].map((m) => m[1])
+const cssFiles = linkedRel.map((rel) => join(STATIC_DIR, rel)).sort()
 const combined = cssFiles.map((f) => readFileSync(f, 'utf8')).join('\n')
 const analysis = analyze(combined)
 const rawTokens = analysis_to_tokens(analysis)
@@ -344,7 +340,12 @@ function parseLength(v) {
 	if (!unit) return null
 	if (unit === '%') return { n: n / 100, unit: 'em' } // 90% ≡ 0.9em for font-size
 	if (unit === 'pt') return { n: (n * 4) / 3, unit: 'px' }
-	if (unit === 'rem') return { n, unit: 'em' } // same numeric scale, different base
+	// em and rem are NOT interchangeable: em is relative to the parent's
+	// computed font-size, rem to the root's. They coincide only where nesting
+	// happens to land back on the root size, so keep them in separate unit
+	// buckets rather than treating "0.9rem" as a spelling of "0.9em" -- a merge
+	// across the two can visibly resize text wherever that coincidence doesn't
+	// hold (e.g. inside another 0.9em-scaled ancestor).
 	return { n, unit }
 }
 
@@ -395,15 +396,37 @@ function shadowSignature(v) {
 	if (nums.length < 2) return null
 	const colorMatch = firstLayer.match(/rgba?\([^)]*\)|#[0-9a-f]{3,8}/i)
 	const rgb = colorMatch ? parseColor(colorMatch[0]) : null
+	// var(--np-shadow, ...) layers carry no literal colour of their own -- the
+	// token is the colour, so two such layers only clash if the token differs.
+	const varMatch = firstLayer.match(/var\((--[\w-]+)/)
 	return {
 		x: nums[0] ?? 0,
 		y: nums[1] ?? 0,
 		blur: nums[2] ?? 0,
 		spread: nums[3] ?? 0,
 		alpha: rgb ? rgb.a : 1,
+		// Hue/saturation, not just opacity: rgba(16,139,185,0.4) and
+		// rgba(0,0,0,0.4) share an alpha but are visibly different shadows, and
+		// merging them would be a real colour change, not a dedup.
+		r: rgb ? rgb.r : null,
+		g: rgb ? rgb.g : null,
+		b: rgb ? rgb.b : null,
+		token: varMatch ? varMatch[1] : null,
 		inset: /\binset\b/.test(firstLayer),
 		layers: s.split(/,(?![^(]*\))/).length,
 	}
+}
+
+// Two shadow colours are "the same decision" only if they resolve to (about)
+// the same RGB -- alpha and geometry alone are not enough, and a shared
+// var(--np-shadow) name is a stronger guarantee than any RGB comparison.
+const RGB_TOLERANCE = 10
+function shadowColorMatches(a, b) {
+	if (a.token || b.token) return a.token === b.token
+	if (a.r === null || b.r === null) return a.r === b.r
+	return Math.abs(a.r - b.r) <= RGB_TOLERANCE &&
+		Math.abs(a.g - b.g) <= RGB_TOLERANCE &&
+		Math.abs(a.b - b.b) <= RGB_TOLERANCE
 }
 
 const shadowMembers = rawGroup(rawTokens.box_shadow)
@@ -417,7 +440,8 @@ const shadowClusters = cluster(shadowMembers, (a, b) =>
 	Math.abs(a.sig.y - b.sig.y) <= SHADOW_GEOM_PX &&
 	Math.abs(a.sig.blur - b.sig.blur) <= SHADOW_GEOM_PX * 2 &&
 	Math.abs(a.sig.spread - b.sig.spread) <= SHADOW_GEOM_PX &&
-	Math.abs(a.sig.alpha - b.sig.alpha) <= 0.06
+	Math.abs(a.sig.alpha - b.sig.alpha) <= 0.06 &&
+	shadowColorMatches(a.sig, b.sig)
 )
 	.filter((c) => c.members.length > 1)
 	.map((c) => ({

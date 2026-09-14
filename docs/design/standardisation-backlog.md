@@ -33,9 +33,10 @@ band 1 lands, so bands 2–4 do not have to be re-policed by hand.
 
 Within a band, items are ordered by (declarations affected ÷ risk).
 
-**Status: bands 1 and 3 are done, governance is done and gating CI, and band 2
-is untouched. Band 4 has had its two provable pieces done and its judgement
-calls left.** The ✅/☐ column on each table below says which.
+**Status: bands 1, 2 and 3 are done, governance is done and gating CI, and
+band 4 is done (4.1–4.6) down to the one item that turned out to actually be
+a full palette decision rather than a bug: the raw-colour item below.** The
+✅/☐ column on each table below says which.
 
 ---
 
@@ -73,14 +74,78 @@ judged perceptually identical (ΔE2000 thresholds in
 
 | | # | Item | Removes | Declarations | Issue |
 |---|---|---|---|---|---|
-| ☐ | 2.1 | Merge the 18 shadow clusters | 39 of 104 shadows | 198 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
-| ☐ | 2.2 | Merge the 4 radius clusters (`4px` absorbs `3px`/`5px`; `8px` absorbs `9px`; `12px` absorbs `11px`/`13px`) | 6 of 32 radii | 498 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
-| ☐ | 2.3 | Merge the 14 font-size clusters (`0.85em` absorbs 5 spellings, 176 declarations) | 23 of 67 sizes | 765 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
-| ☐ | 2.4 | Merge the 105 colour clusters onto one spelling each | 209 of 586 colours | 2,671 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 2.1 | Merge the shadow clusters | 29 of 99 shadows | 48 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 2.2 | Merge the radius clusters (`4px` absorbs `3px`/`5px`; `8px` absorbs `9px`; `12px` absorbs `11px`/`13px`; `0` absorbs a stray `1px`) | 7 of 37 radii | 62 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 2.3 | Merge the font-size clusters, `em` and `rem` kept separate | 8 of 69 sizes | 39 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 2.4 | Merge colour clusters onto one **literal** spelling each (token-valued recommendations deferred, see below) | 129 of 524 colours | 188 | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 
-2.1 is first because it is the smallest and proves the workflow. 2.4 is last
-because it is the largest and benefits most from the other three having
-shaken out the review process.
+2.1 was first because it was the smallest and proved the workflow. 2.4 is the
+largest and is only partly done: `token-consolidation.mjs` also proposes
+merging 28 colour clusters onto an *existing token* rather than another
+literal, and those are deliberately not applied here — see "Why band 2.4
+stopped short of full colour consolidation" below.
+
+**Three bugs in `token-consolidation.mjs` itself were found and fixed before
+any of this was applied, because each one would have broken the "no visual
+change" guarantee the whole band depends on:**
+
+1. **Shadow clustering ignored colour.** It compared geometry and alpha only,
+   so it was merging `rgba(16, 139, 185, 0.4)` (a brand-blue tint) with
+   `rgba(0, 0, 0, 0.4)` (black) as "the same shadow" purely because their
+   offsets and opacity were close. Fixed to also require the RGB (or a shared
+   `var(--np-shadow...)` name) to match. This is why 2.1 removed 5 fewer
+   clusters than the original estimate — those clusters were spurious.
+2. **`em` and `rem` were treated as the same unit** ("same numeric scale,
+   different base"). They are not: `em` is relative to the parent's computed
+   font-size, `rem` to the root's, and they coincide only where nesting
+   happens to land back on the root size. A `0.9rem` merged into `0.9em`
+   inside a nested `0.85em` component would render at a different size than
+   intended. Fixed to keep the two unit buckets separate, which is why 2.3
+   removed roughly half of what the original (buggy) run reported.
+3. **The analysis scanned every `.css` file on disk**, including
+   `style.css` — 13k lines that #571's split left nothing linking to (see
+   band 4.5). `token-audit.mjs` already excludes it; `token-consolidation.mjs`
+   did not, so its usage counts (and therefore which spelling won a cluster as
+   "highest-traffic") were skewed by dead code. Fixed to read the same
+   `index.html`-linked file list as `token-audit.mjs` and the `adopt-*.mjs`
+   scripts.
+
+`scripts/consolidate-tokens.mjs` applies the corrected clusters: shadows and
+font-sizes as whole-declaration matches, radii component-by-component (for the
+rare shorthand like `border-radius: 0 0 5px 5px`), and colours as literal
+substrings routed by property so a colour inside a `box-shadow` is never
+touched twice by both the shadow and colour merges. Verified with
+`npm run lint:design` (no new violations after re-baselining — see the
+rebaseline note below), the full `uv run pytest` and `npm run test:js`
+suites, and a `scripts/capture_screen_audit.py` + `compare_screens.py`
+before/after across all 39 views: every view showed the same ~0.5% floor
+(the build-hash string in the footer differs between any two captures, since
+it is derived from the working tree) and two views (`calendar`, `whiteboard`)
+showed a little more, traced by pixel sampling to sub-pixel antialiasing
+shifts on dense small-text chips, not a colour or layout change — confirmed
+by 4x-zoomed crops showing no visible difference.
+
+**Re-baselining note.** `npm run lint:design`'s baseline is keyed on the exact
+finding text (file + declaration), so consolidating `#f8f9fa` into `#fff`
+makes one baseline entry disappear and a differently-worded one appear, even
+though the total `raw-colour` count does not change. That is the "refactor
+that moves code" case the linter's own message describes — `--update-baseline`
+was run to hold the (net-zero-count, real) improvement.
+
+### Why band 2.4 stopped short of full colour consolidation
+
+`token-consolidation.mjs` recommends 28 of its 124 colour clusters be merged
+onto an *existing `--np-*` token* rather than another literal spelling. Doing
+that blindly would reintroduce the exact hazard `adopt-neutral-colours.mjs`
+was built to reason about: a token's dark-theme value can differ from what the
+literal was chosen for, so whether a literal may become a token depends on
+the *property* it sits in (does `color` vs `background` flip with the theme)
+and the *element's role* (is this text on a coloured background, which does
+not flip) — not on ΔE alone. `adopt-neutral-colours.mjs` already does that
+classification and reports nothing left to map. Applying the 28
+`existing-token` clusters here via a blind text substitution would skip that
+check, so they are left alone; only the 96 `highest-traffic-value` clusters
+(literal replacing literal, safe under any property or theme) were applied.
 
 ## Band 3 — Components
 
@@ -212,6 +277,13 @@ what moved. `<np-button>`'s `neutral` tone and `outline` modifier (added in
 worked example of what picking those roles looks like, still scoped to
 Storybook rather than the live app.
 
+[`noodleplanner-ui-inventory.md`](noodleplanner-ui-inventory.md)'s per-screen
+build-order tally adds one more role those three should account for: it
+tracks **Close button** as its own component, on 36 of 93 screens — more
+than any single button-hierarchy variant — because it's a dismiss action
+inside a panel or dialog header, not a point on the primary–secondary–
+tertiary scale.
+
 3.4 and 3.5 share one source of truth — `static/component-gallery.js`, rendered
 by `/components` and by Storybook. Two hand-maintained galleries drift, and the
 second one to drift is the one nobody notices.
@@ -225,8 +297,8 @@ forms, 3 wizard steps, 2 standalone forms.
 | | # | Item | Issue |
 |---|---|---|---|
 | ✅ | 4.1 | Adopt the spacing scale — 1,358 of 1,606 declarations now use a token, and 5 off-grid values remain | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
-| ☐ | 4.2 | Migrate the 33 colour-carrying inline `style=""` attributes in the templates | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
-| ☐ | 4.3 | Migrate static colour literals in JS-generated markup (214 lines, 22 files), leaving genuinely dynamic colour alone | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 4.2 | Migrate the colour-carrying inline `style=""` attributes in the templates | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 4.3 | Migrate static colour literals in JS-generated markup (214 lines, 22 files), leaving genuinely dynamic colour alone | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ✅ | 4.4 | Penpot screen audit board | [#1196](https://github.com/kevinmcaleer/noodleplanner/issues/1196) |
 | ✅ | 4.5 | Recover the 54 components stranded in the unlinked `style.css` | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ✅ | 4.6 | Substitute the 21 hex literals that exactly equal a theme-invariant identity token | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
@@ -285,6 +357,180 @@ welcome screen and `padding: 250px 0 150px` on the timeline wrapper are
 vertical-centring constants, and `margin-left: -6px` / `-5px` are the negative
 overlap that stacks resource avatars.
 
+`index.html`'s inline `style=""` attributes carried two different classes of
+problem.
+
+*Six unconditional dividers/labels* — `border-top`/`border-bottom: 1px solid
+#dee2e6` (6 uses) and `color: #666` (6 uses) — didn't follow the theme: a
+divider or muted label rendered dark-grey-on-white stays exactly that colour
+in dark theme, landing dark-on-dark. Mapped onto `var(--np-border)` and
+`var(--np-faint)` under the same rule `adopt-neutral-colours.mjs` already uses
+for CSS (literal within 1.1:1 of the token in the light theme, and the token's
+role matches the property). One more, `background: #f8f9fa` on the kanban
+breadcrumb, went to `var(--np-paper)` the same way.
+
+*Six `color: white` overrides were a real bug, not a style question.* Five
+modal/detail-pane `<h2>` titles ("Add/Edit Resource", "Project Settings",
+"Version History", "Conditional Formatting", "Task Inspector") and the
+`#projectTitle` input hardcoded white text from when `.modal-header` had a
+dark accent background. #998 moved `.modal-header`/`.detail-pane-header` onto
+`--np-surface-alt` (light cream in light theme) but these six never got the
+matching text-colour update, so they rendered white-on-cream — close to
+invisible — in light theme. Every *other* modal header (23 of 28, with no
+inline override) already renders correctly, which is what made this a bug to
+fix rather than a design call: removing the six overrides (plus a
+`#projectTitle { color: white; }` ID-selector rule and a
+`.modal-header input { color: white !important; }` rule, both stale for the
+same reason) lets the existing `--np-ink` cascade every other header already
+uses take over. Verified with `getComputedStyle` in both themes across all six
+elements.
+
+**Fixing a regression the fix itself surfaced.** Re-running
+`scripts/check_rendered_contrast.py` against `ci/rendered-contrast-baseline.json`
+to confirm the above didn't introduce a new failure caught one from the
+earlier band-2 colour merge instead: `#1971c2`-on-`#e7f5ff` (kanban's
+duration badge and dependency label) measured 4.52:1 before band 2, and
+merged into that cluster's winner, `#1976d2`-on-`#e3f2fd`, at 4.03:1 — both
+colours nudged the same direction by a ΔE2000-tolerance merge, closing a gap
+that was already tight. ΔE tells you a colour looks the same in isolation; it
+says nothing about a *pairing*'s contrast ratio. Reverted those two
+declarations and excluded the pair from `consolidate-tokens.mjs` so a future
+re-run won't reintroduce it. The baseline is down 54 → 53 (the header fix
+resolved one of the pre-existing failures) with zero new ones.
+
+**A second, larger contrast bug turned up one level deeper.** Verifying the
+first fix meant opening the task form (the single most-opened panel in the
+app) in both themes, which showed its header — `.detail-pane-header` — as a
+stale teal-to-green gradient (`linear-gradient(135deg, #0d7096 0%, #2e7d32
+100%)`) in *both* themes, from a `dark-mode.css` rule with no
+`[data-theme="dark"]` guard at all. It predates #998's warm palette entirely.
+Removing it let `.detail-pane-header` fall back to its real rule
+(`background: var(--np-accent-gradient)`, the accent gold) — which then
+exposed three more places tuned for the old dark background:
+
+- `.detail-pane-title` (the editable task/product title) had its own
+  `color: white` — 1.87:1 on gold. Changed to `color: inherit`, matching
+  `.modal-header h2`'s existing pattern.
+- `.task-form-inspect-btn` ("Inspect"/"Edit"/"Product"/"Task Details") had
+  `color: white` and white-tinted border/hover states. Changed to
+  `var(--np-on-accent)` with on-accent-tinted states instead, and
+  ALLOW-listed in `lint-design-system.mjs` as a genuine fixed-on-accent
+  category (a themed token like `--np-shadow-tint` would be a *different*
+  colour in dark theme, detuning the effect exactly when this surface does
+  not change).
+- `#taskInspectorSection .close-btn { color: #fff; }` was the same
+  compensate-for-the-broken-background pattern, and would have gone from
+  merely stale to actively wrong (1.17:1 in dark theme) once the background
+  was corrected. Removed; `.detail-pane-header .close-btn` now has its own
+  `var(--np-on-accent)` rule instead of the themed default every other
+  `.close-btn` correctly uses.
+- `#inspectorTaskTitle` itself: the *first* fix (removing its inline
+  `color: white`) put it on the general `var(--np-ink)` rule every other
+  heading correctly uses — right for a themed surface, wrong here since this
+  header's background does not flip. 1.76:1 in dark theme, caught by
+  re-verifying after the background fix rather than trusting the first pass.
+  Pinned to `var(--np-on-accent)` directly.
+
+Verified with `getComputedStyle` across both headers in both themes (all
+settle on `rgb(35,32,28)` on the accent gold, every time), screenshots, and a
+before/after `capture_screen_audit.py` + `compare_screens.py` pass across all
+39 views (zero visible change — none of the 39 has one of these panels open
+by default, and `check_rendered_contrast.py`'s own view walk doesn't open
+modals either, which is why neither tool caught this on its own).
+
+**Every item that turned out to be a bug rather than a design call is now
+fixed**, each verified live rather than guessed at:
+
+- The **editor tip bar**'s `#3a3a3a`/`#d4d4d4`/`#108BB9` already had exact
+  canonical answers — `--np-editor-tip-bg`, `--np-editor-tip-text`,
+  `--np-blue` — that dark theme was already using via an attribute-selector
+  `!important` hack; light theme (the base styling) just never got pointed at
+  them. Now both do, and the dead override rule is gone.
+- The **Lessons Learned view's prompt box** hardcoded the same dark literal,
+  but with no adjacent dark surface to justify it (unlike the editor tip) —
+  a solid black box sitting in the middle of an otherwise entirely
+  light-surfaced table page. Its own sibling copy, in the lessons *form*, had
+  already solved this correctly (`rgba(111, 66, 193, 0.08)`, no explicit text
+  colour, so it tints the page instead of replacing it); applied the same
+  fix here instead of inventing a new one.
+- **`taskPriority`/`taskBucket`/`taskComment`** (a `<select>`, an `<input
+  type="text">`, a `<textarea>`) hardcoded `background: white; color: black`.
+  Turned out no class was needed: the bare-element dark-theme rule in
+  `dark-mode.css` already covers `select`/`textarea` by tag, and
+  `input[type="text"]` is covered in both themes by the canonical
+  `.form-control` rule regardless of class — the inline literal was just
+  winning over both. Verified live via `openTaskForm()`: all three now
+  exactly match a sibling `.form-control` field's computed style in both
+  themes.
+- **The budget supplier filter**'s `border: 2px solid #667eea` was the only
+  toolbar filter in the app styled this way — a bold blue-purple border next
+  to two dropdowns using the ordinary 1px token border. Removed; it now
+  matches its siblings.
+- **`#taskEffortTotal`**'s `background-color: #f0f0f0` had the same fault as
+  the three form fields above — its text colour already followed the theme,
+  its background didn't, so dark theme rendered light text on light grey.
+  Changed to `var(--np-sunken)`, the existing recessed-surface token.
+
+**The "Remove Deliverable Status" button and the risk-severity counts looked
+like genuine palette calls, and turned out not to be.** The button's
+`#d9534f` measured 3.9:1 on light and 4.2:1 on dark — under AA in *both*
+themes, so there was no "restore what the theme broke" fix available, and
+`portfolio-risks.js`'s severity counts were worse (`#e8a317` medium 2.13:1,
+`#28a745` low 3.08:1 against the light surface). But landing on AA didn't
+turn out to mean inventing a new red, amber or green: `visual-system.css`
+already carries `--np-danger-ink`/`--np-accent-ink`/`--np-sage-ink`, used a
+few lines away for `.report-rag-badge.rag-red/amber/green` — themed,
+already verified, and built for exactly this "readable RAG-coloured text"
+role. Verified against the actual `--np-paper` background in both themes:
+7.18:1/9.67:1, 5.17:1/10.39:1, 6.74:1/10.99:1. Not a new colour choice —
+the app's own existing answer, applied to the two places that were still
+carrying the raw, un-reconciled literal.
+
+**4.3 got the same audit as 4.2, and the same lesson: a "real miss" against
+the spelling-consolidation bar can still have the app's own answer sitting a
+few lines away, once the question changes from "is this the same colour" to
+"is there already a token for this role."** 22 declarations across 8 files
+carry a literal inside a `style="…"` string built in JS (measuring where
+`style=` actually appears, rather than grepping bare `#`-prefixed tokens,
+which mostly matches issue numbers and other non-colour text).
+
+`color: #555` (a task-comment label in `script.js`) cleared the
+spelling-consolidation bar outright, at 1.05:1 from `--np-body`. Migrated
+first.
+
+The rest missed that bar by too much to call them "the same colour, differently
+spelled" (`#999`/`#888`/`#444`, 1.8–2.5:1 from the nearest text token;
+`#6c757d`, 30+ ΔE from every identity hue) — but all of them were filling
+the same *role* `--np-faint`/`--np-body` already exist for and are already
+verified to pass AA (4.9:1/7.5:1 and 6.7:1/10.5:1 against `--np-paper` in
+light/dark). Migrated onto those, the same reasoning as the danger/RAG fix
+above: not a new colour, the existing token for the role. `--text-muted` had
+no declaration anywhere (unlike `--text-secondary`/`--border-color`/
+`--bg-secondary`), so its `var(--text-muted, #999)` fallback in
+`portfolio-lessons.js` was load-bearing rather than dead — added the missing
+alias (`--text-muted: var(--np-faint)`, next to the other three) and the
+fallback is dead now too, stripped the same way.
+
+**What's still a literal, correctly:**
+
+- The "Went Well" / "Needs to Change" / "Mixed" / "Total Lessons" tint boxes
+  in `portfolio-lessons.js` (green/amber/grey/purple) and the resource
+  heatmap's five-step legend are categorical colour coding and a data
+  encoding respectively — RAG-shaped, the same exception
+  `lint-design-system.mjs` already carries for `.rag-badge`/`.status-badge`
+  in CSS, not a surface a token should own. `#28a745` (the "Went Well" green)
+  is the closest anything chromatic gets to an identity token, at ΔE 3.84
+  against `--np-green` — just over this epic's own ΔE-3 bar, so left as a
+  literal rather than waved through on a technicality.
+
+Bands 4.2 and 4.3 are both done. What's left in this epic is the raw-colour
+item below — a scale of decision neither band's audits found a shortcut
+around, because none exists: 1,057 lint findings, most of them either
+chromatic (the colour *is* the meaning) or neutrals whose surface role
+depends on knowing what they sit on, which is exactly the classification
+`adopt-neutral-colours.mjs` already did for the safe subset and exactly what
+is left for someone to do for the rest.
+
 ## Governance — runs alongside, from the end of band 1
 
 | | # | Item | Issue |
@@ -309,7 +555,7 @@ text at 4:1.
   eventually, but its tokens are Obsidian's, not NoodlePlanner's.
 - **Vendored libraries** under `static/vendor/` — not ours to restyle.
 - **Adopting the warm palette wholesale**, which is now the only substantial
-  item left and the reason `raw-colour` still stands at 1,090.
+  item left and the reason `raw-colour` still stands at 753.
 
   It is a design decision — the app's top-of-distribution greys are cool
   Bootstrap-era values that predate the warm system entirely, so converting
@@ -326,7 +572,7 @@ text at 4:1.
   stay a literal in the next, and telling the two apart means knowing what the
   element sits on.
 
-  So the work is: classify each of the 1,090 as *follows the theme* or *fixed
+  So the work is: classify each of the 753 as *follows the theme* or *fixed
   against a coloured background*, then substitute only the first group. The
   classification is the judgement; the substitution after it is mechanical, and
   `scripts/compare_screens.py` will prove each batch.
@@ -398,7 +644,7 @@ text at 4:1.
   is invisible. The captures cannot show that (no menu or dialog is open in the
   39 views), so it was confirmed by reading the computed style directly.
 
-  `raw-colour` went **1,062 → 762**. What is left is the genuinely semantic
+  `raw-colour` went **1,057 → 753**. What is left is the genuinely semantic
   remainder: the editor's syntax theme, the RAG ramp, chart series colours.
 
   **The dark theme is a second copy of this problem.** `dark-mode.css` carries
@@ -522,21 +768,27 @@ Two numbers are worth watching, and they measure different things.
 **Unique values in use** — re-run `npm run audit:tokens`. The original figures
 counted the dead `style.css`; these are the linked stylesheets only:
 
-| Category | Now | After band 2 (predicted) | Token count |
+| Category | Before band 2 | After band 2 | Token count |
 |---|---|---|---|
-| Colours | 519 | ~340 | ~40 |
-| Font sizes | 68 | 44 | 11 |
-| Radii | 36 | 30 | 7 |
-| Shadows | 98 | 60 | 5 |
-| Spacing values | 36 | — done | 12 |
+| Colours | 524 | **416** | ~40 |
+| Font sizes | 69 | **63** | 11 |
+| Radii | 37 | **31** | 7 |
+| Shadows | 99 | **70** | 5 |
+| Spacing values | 38 | — done | 12 |
+
+Colours only fell by 108 rather than the ~176 the clusters name, because 28 of
+those clusters recommend an existing token rather than a literal and were
+deliberately not applied (see band 2.4 above) — they still count as separate
+"unique values" until that palette decision is made.
 
 **Lint findings** — `npm run lint:design`, against
 `ci/design-system-baseline.json`. This is the one CI enforces, and it only ever
-goes down:
+goes down (band 2 re-baselined the exact wording of ~161 findings without
+changing the count — see the re-baseline note above):
 
 | Rule | Now |
 |---|---|
-| `raw-colour` | 1,090 → **762** |
+| `raw-colour` | 1,057 → **753** |
 | `off-scale-spacing` | 5 |
 | `token-outside-canonical` | 0 |
 | `unpaired-outline-none` | 0 |
@@ -556,7 +808,7 @@ confirmed pixel-identical across all 39 views in both themes.
 
 `raw-colour` is now the only rule with real numbers behind it, and the palette
 decision it was waiting on has been taken (see above): the semantic status ramp
-is named, gated and adopted, and the count fell 1,090 → 762. What remains is
+is named, gated and adopted, and the count fell 1,057 → 753. What remains is
 the genuinely semantic residue — the editor's syntax theme, the RAG ramp, chart
 series colours — where the colour carries the meaning and a token would destroy
 it.

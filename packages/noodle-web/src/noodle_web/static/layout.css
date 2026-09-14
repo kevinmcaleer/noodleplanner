@@ -64,7 +64,7 @@ svg.icon {
     margin-top: var(--np-space-4);
     background: var(--np-surface);
     border: 1px solid var(--np-border);
-    border-radius: 5px;
+    border-radius: 4px;
     box-shadow: 0 4px 12px var(--np-shadow-strong);
     min-width: 180px;
     z-index: 1000;

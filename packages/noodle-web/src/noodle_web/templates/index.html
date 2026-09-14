@@ -582,7 +582,7 @@
                         <!-- #1045: mini toolbar removed -- the ribbon (#ribbonShell above) now
                              owns Undo/Redo, Indent/Outdent, Link, Task Inspector, Open/Save
                              and Conditional Formatting. -->
-                        <div style="padding: 6px 10px; background: #3a3a3a; border-left: 4px solid #108BB9; margin-bottom: 0; font-size: 0.85em; color: #d4d4d4;">
+                        <div style="padding: 6px 10px; background: var(--np-editor-tip-bg); border-left: 4px solid var(--np-blue); margin-bottom: 0; font-size: 0.85em; color: var(--np-editor-tip-text);">
                             💡 <strong>Tip:</strong> Double-click or double-tap any task line to edit it
                         </div>
                         <div id="frontMatterPanel" class="fm-panel"></div>
@@ -1522,7 +1522,7 @@ Press Enter to render..."></textarea>
                             <div class="pbs-placeholder placeholder-view">
                                 <h3>Product Breakdown Structure</h3>
                                 <p>Mark tasks as deliverables using the <code>$name</code> token to see the product hierarchy.</p>
-                                <p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary, #aaa);">Example: <code>Fuselage $fuselage</code></p>
+                                <p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">Example: <code>Fuselage $fuselage</code></p>
                                 <button class="mindmap-toolbar-btn" onclick="pbsAddFirstProduct()" style="margin-top: 16px; width: auto; padding: 8px 20px; font-size: 14px;">+ Add first product</button>
                             </div>
                             <div class="pbs-content" style="display: none;">
@@ -1567,7 +1567,7 @@ Press Enter to render..."></textarea>
                             <div class="deliverables-placeholder placeholder-view">
                                 <h3>Deliverables Matrix</h3>
                                 <p>Mark tasks as deliverables using the <code>$name</code> token to see the matrix.</p>
-                                <p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary, #aaa);">Example: <code>Fuselage $fuselage</code></p>
+                                <p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">Example: <code>Fuselage $fuselage</code></p>
                             </div>
                             <div class="deliverables-content" style="display: none;">
                                 <h2 class="deliverables-title"><span class="ribbon-banner ribbon-banner--green">Deliverables Matrix</span></h2>
@@ -1867,7 +1867,7 @@ Press Enter to render..."></textarea>
 
                     <div style="display: flex; gap: 20px; align-items: flex-start; margin-bottom: 20px;">
                         <div style="flex: 1;">
-                            <p style="color: #666; font-size: 0.9em; margin-top: 10px;">
+                            <p style="color: var(--np-faint); font-size: 0.9em; margin-top: 10px;">
                                 After uploading, the plan will be loaded into the editor where you can render and export it.
                             </p>
                         </div>
@@ -1938,7 +1938,7 @@ Changes here are synced automatically."></textarea>
                                 </div>
                             </div>
 
-                            <div id="kanbanBreadcrumb" class="kanban-breadcrumb" style="padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; font-size: 14px;">
+                            <div id="kanbanBreadcrumb" class="kanban-breadcrumb" style="padding: 10px 20px; background: var(--np-paper); border-bottom: 1px solid var(--np-border); font-size: 14px;">
                                 <!-- Breadcrumb will be rendered here -->
                             </div>
 
@@ -2182,7 +2182,7 @@ Build
                     </div>
 
                     <!-- Appreciative-Inquiry prompts -->
-                    <div class="lessons-prompts" style="padding: 10px 14px; background: #2a2a2a; border-left: 4px solid #6F42C1; margin: 0 0 8px 0; font-size: 0.85em; color: #d4d4d4;">
+                    <div class="lessons-prompts" style="padding: 10px 14px; background: rgba(111, 66, 193, 0.08); border-left: 4px solid #6F42C1; margin: 0 0 8px 0; font-size: 0.85em;">
                         <strong>Capture lessons in the spirit of Appreciative Inquiry:</strong>
                         <ul style="margin: 4px 0 0 18px; padding: 0;">
                             <li><em>Discover</em> - what went well? What did the team do brilliantly?</li>
@@ -2260,7 +2260,7 @@ Build
                         </div>
                         <div class="budget-filter-group">
                             <label for="budgetSupplierFilter">Supplier:</label>
-                            <input type="text" id="budgetSupplierFilter" class="form-control" placeholder="Filter supplier..." oninput="renderBudgetTable()" style="width: 150px; padding: 6px 12px; border: 2px solid #667eea; border-radius: 4px; font-size: 0.85em;">
+                            <input type="text" id="budgetSupplierFilter" class="form-control" placeholder="Filter supplier..." oninput="renderBudgetTable()" style="width: 150px; padding: 6px 12px; font-size: 0.85em;">
                         </div>
                         <div class="budget-toolbar-separator"></div>
                         <button class="toolbar-btn budget-view-toggle" id="budgetViewToggle" onclick="toggleBudgetSheetView()" title="Toggle spreadsheet view" aria-label="Toggle spreadsheet view">
@@ -2709,7 +2709,7 @@ Build
                             <div id="ragDisplay" style="padding: 8px; border-radius: 4px; font-weight: bold; text-align: center; margin-bottom: 5px;">
                                 -
                             </div>
-                            <small id="ragReasoning" style="display: block; color: #666;">-</small>
+                            <small id="ragReasoning" style="display: block; color: var(--np-faint);">-</small>
                         </div>
                     </div>
 
@@ -2752,7 +2752,7 @@ Build
                             <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(75)">75%</button>
                             <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(100)">100%</button>
                         </div>
-                        <small id="percentHelperText" style="display: none; color: #666;">Auto-calculated from subtasks</small>
+                        <small id="percentHelperText" style="display: none; color: var(--np-faint);">Auto-calculated from subtasks</small>
                     </div>
 
                     <div class="form-grid-3col">
@@ -2782,7 +2782,7 @@ Build
                             <label for="taskEffortTotal">Effort Total</label>
                             <div style="display: flex; gap: 5px; align-items: center;">
                                 <input type="number" id="taskEffortTotal" placeholder="0" min="0"
-                                       style="flex: 1; min-width: 6ch; background-color: #f0f0f0; cursor: not-allowed;" readonly>
+                                       style="flex: 1; min-width: 6ch; background-color: var(--np-sunken); cursor: not-allowed;" readonly>
                                 <span id="taskEffortTotalUnit" style="width: 3ch; min-width: 3ch; flex: none; text-align: center; padding: 4px;">h</span>
                             </div>
                             <small>Auto-calculated (completed + remaining)</small>
@@ -2902,7 +2902,7 @@ Build
                     <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="taskPriority">Priority</label>
-                            <select id="taskPriority" onchange="saveTask()" style="background: white; color: black;">
+                            <select id="taskPriority" onchange="saveTask()">
                                 <option value="Low">Low</option>
                                 <option value="Medium">Medium (!)</option>
                                 <option value="Important">Important (!!)</option>
@@ -2911,15 +2911,13 @@ Build
                         </div>
                         <div class="form-group">
                             <label for="taskBucket">Bucket</label>
-                            <input type="text" id="taskBucket" placeholder="e.g. Project Management" oninput="saveTaskDebounced()"
-                                   style="background: white; color: black;">
+                            <input type="text" id="taskBucket" placeholder="e.g. Project Management" oninput="saveTaskDebounced()">
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label for="taskComment">Comment</label>
-                        <textarea id="taskComment" placeholder="Add notes or comments" oninput="saveTaskDebounced()"
-                                  style="background: white; color: black;"></textarea>
+                        <textarea id="taskComment" placeholder="Add notes or comments" oninput="saveTaskDebounced()"></textarea>
                     </div>
 
                     <div class="form-actions">
@@ -2963,7 +2961,7 @@ Build
                     <div class="form-group">
                         <label for="productIdentifier">Identifier</label>
                         <div style="display: flex; align-items: center; gap: 4px;">
-                            <span id="productIdentifierPrefix" style="font-size: 16px; font-weight: bold; color: var(--text-secondary, #666);">$</span>
+                            <span id="productIdentifierPrefix" style="font-size: 16px; font-weight: bold; color: var(--text-secondary);">$</span>
                             <input type="text" id="productIdentifier" class="form-control" placeholder="e.g. fuselage" oninput="productIdentifierOnInput(this); saveProductForm()" style="font-family: monospace;">
                         </div>
                         <small>Unique identifier — no spaces allowed (underscores used instead)</small>
@@ -3043,11 +3041,11 @@ Build
                         <small>Auto-calculated from child task completion</small>
                     </div>
 
-                    <hr style="margin: 20px 0; border-color: var(--border-color, #e0e0e0);">
-                    <button type="button" class="btn btn-sm" onclick="removeDeliverable()" style="color: #d9534f; border: 1px solid #d9534f; background: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">
+                    <hr style="margin: 20px 0; border-color: var(--border-color);">
+                    <button type="button" class="btn btn-sm" onclick="removeDeliverable()" style="color: var(--np-danger-ink); border: 1px solid var(--np-danger-ink); background: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">
                         Remove Deliverable Status
                     </button>
-                    <small style="display: block; margin-top: 6px; color: var(--text-secondary, #888);">Converts this back to a regular task</small>
+                    <small style="display: block; margin-top: 6px; color: var(--text-secondary);">Converts this back to a regular task</small>
                 </form>
             </div>
         </div>
@@ -3168,7 +3166,7 @@ Build
                         <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
 
-                    <div id="raidDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <div id="raidDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
                         <button type="button" class="btn-danger" onclick="confirmDeleteRaidItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this RAID item">
                             &#128465; Delete Item
                         </button>
@@ -3270,7 +3268,7 @@ Build
                         <button type="button" class="btn-primary" onclick="saveBenefitItemFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
 
-                    <div id="benefitDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <div id="benefitDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
                         <button type="button" class="btn-danger" onclick="deleteBenefitItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this benefit item">
                             &#128465; Delete Item
                         </button>
@@ -3342,7 +3340,7 @@ Build
                         <button type="button" class="btn-primary" onclick="saveCommsItemFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
 
-                    <div id="commsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <div id="commsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
                         <button type="button" class="btn-danger" onclick="confirmDeleteCommsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this comms item">
                             &#128465; Delete Item
                         </button>
@@ -3449,7 +3447,7 @@ Build
                         <button type="button" class="btn-primary" onclick="saveLessonsItemFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
 
-                    <div id="lessonsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <div id="lessonsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
                         <button type="button" class="btn-danger" onclick="confirmDeleteLessonsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this lesson">
                             &#128465; Delete Lesson
                         </button>
@@ -3542,7 +3540,7 @@ Build
                         <button type="button" class="btn-primary" onclick="saveBudgetItemFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
 
-                    <div id="budgetDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <div id="budgetDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
                         <button type="button" class="btn-danger" onclick="confirmDeleteBudgetItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this budget item">
                             &#128465; Delete Item
                         </button>
@@ -3703,7 +3701,7 @@ Build
         <!-- Project Details Section -->
         <div id="projectDetailsSection" class="detail-pane-section">
             <div class="modal-header">
-                <input type="text" id="projectTitle" class="modal-header-title" placeholder="Project Title" style="flex: 1; background: transparent; border: none; color: white; font-size: 20px; font-weight: 600; outline: none; padding: 0;" oninput="autoSaveProjectDetails()">
+                <input type="text" id="projectTitle" class="modal-header-title" placeholder="Project Title" style="flex: 1; background: transparent; border: none; font-size: 20px; font-weight: 600; outline: none; padding: 0;" oninput="autoSaveProjectDetails()">
                 <button class="close-btn" onclick="closeProjectDetailsForm()" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
@@ -3803,7 +3801,7 @@ Build
         <!-- Settings Section -->
         <div id="settingsSection" class="detail-pane-section">
             <div class="modal-header">
-                <h2 style="color: white; margin: 0;"><i class="bi bi-gear" aria-hidden="true"></i> Project Settings</h2>
+                <h2 style="margin: 0;"><i class="bi bi-gear" aria-hidden="true"></i> Project Settings</h2>
                 <button class="close-btn" onclick="closeSettingsPanel()" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
@@ -3954,7 +3952,7 @@ Build
         <!-- Version History Section -->
         <div id="versionHistorySection" class="detail-pane-section">
             <div class="modal-header">
-                <h2 style="color: white; margin: 0;"><i class="bi bi-clock-history" aria-hidden="true"></i> Version History</h2>
+                <h2 style="margin: 0;"><i class="bi bi-clock-history" aria-hidden="true"></i> Version History</h2>
                 <button class="close-btn" onclick="closeVersionHistoryPanel()" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
@@ -3979,7 +3977,7 @@ Build
         <!-- Conditional Formatting Section -->
         <div id="conditionalFormattingSection" class="detail-pane-section">
             <div class="modal-header">
-                <h2 style="color: white; margin: 0;">Conditional Formatting</h2>
+                <h2 style="margin: 0;">Conditional Formatting</h2>
                 <button class="close-btn" onclick="closeDetailPane()" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
@@ -4017,7 +4015,7 @@ Build
         <!-- Task Inspector Section -->
         <div id="taskInspectorSection" class="detail-pane-section">
             <div class="detail-pane-header">
-                <h2 id="inspectorTaskTitle" style="flex: 1; margin: 0; color: white;">Task Inspector</h2>
+                <h2 id="inspectorTaskTitle" style="flex: 1; margin: 0;">Task Inspector</h2>
                 <button class="task-form-inspect-btn" onclick="editFromInspector()" title="Edit task" aria-label="Edit task">&#9998; Edit</button>
                 <button class="close-btn" onclick="closeTaskInspector()" aria-label="Close">&times;</button>
             </div>
@@ -4031,7 +4029,7 @@ Build
         <!-- Resource Form Section -->
         <div id="resourceFormSection" class="detail-pane-section">
             <div class="modal-header">
-                <h2 style="color: white; margin: 0;">Add/Edit Resource</h2>
+                <h2 style="margin: 0;">Add/Edit Resource</h2>
                 <button class="close-btn" onclick="closeResourceForm()" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
@@ -4162,14 +4160,14 @@ Build
 
                 <!-- Step 2: Map Columns -->
                 <div id="wizardStep2" class="wizard-panel" style="display:none;">
-                    <p style="color:#666; margin-bottom:15px;">Map your Excel columns to NoodlePlanner fields. Only Task Name is required.</p>
+                    <p style="color: var(--np-faint); margin-bottom:15px;">Map your Excel columns to NoodlePlanner fields. Only Task Name is required.</p>
                     <div class="wizard-mapping-grid" id="wizardMappingGrid"></div>
                 </div>
 
                 <!-- Step 3: Preview -->
                 <div id="wizardStep3" class="wizard-panel" style="display:none;">
                     <div id="wizardConvertWarnings" style="display:none;" class="alert alert-warning"></div>
-                    <div id="wizardConvertStats" style="margin-bottom:10px; color:#666;"></div>
+                    <div id="wizardConvertStats" style="margin-bottom:10px; color: var(--np-faint);"></div>
                     <label>Generated Plan</label>
                     <textarea id="wizardMarkdownPreview" class="form-control" rows="15" readonly style="font-family:monospace; font-size:0.85em;"></textarea>
                 </div>
@@ -4197,15 +4195,15 @@ Build
                 <button class="close-btn" onclick="closeRaidSyncReview()" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
-                <p id="raidSyncSummary" style="color: var(--text-secondary, #666); margin-bottom: 15px;"></p>
-                <div id="raidSyncEmpty" style="display:none; padding: 20px 0; color: var(--text-secondary, #666);">
+                <p id="raidSyncSummary" style="color: var(--text-secondary); margin-bottom: 15px;"></p>
+                <div id="raidSyncEmpty" style="display:none; padding: 20px 0; color: var(--text-secondary);">
                     No changes since the last sync — your plan and the Excel file already match.
                 </div>
                 <div id="raidSyncList" class="raid-sync-list"></div>
                 <!-- Loading spinner -->
                 <div id="raidSyncSpinner" class="spinner" style="display:none; margin-top:10px;"></div>
             </div>
-            <div style="display:flex; justify-content:flex-end; gap:10px; padding: 15px 20px; border-top: 1px solid var(--border-color, #e0e0e0);">
+            <div style="display:flex; justify-content:flex-end; gap:10px; padding: 15px 20px; border-top: 1px solid var(--border-color);">
                 <button class="btn btn-secondary" onclick="closeRaidSyncReview()">Cancel</button>
                 <button class="btn btn-primary" id="raidSyncApplyBtn" onclick="applyRaidSyncReview()">Apply Selected</button>
             </div>
@@ -4220,10 +4218,10 @@ Build
                 <button class="close-btn" onclick="closeMspSyncReview()" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
-                <p id="mspSyncSummary" style="color: var(--text-secondary, #666); margin-bottom: 15px;"></p>
+                <p id="mspSyncSummary" style="color: var(--text-secondary); margin-bottom: 15px;"></p>
                 <div id="mspSyncList" class="msp-sync-list"></div>
             </div>
-            <div style="display:flex; justify-content:flex-end; gap:10px; padding: 15px 20px; border-top: 1px solid var(--border-color, #e0e0e0);">
+            <div style="display:flex; justify-content:flex-end; gap:10px; padding: 15px 20px; border-top: 1px solid var(--border-color);">
                 <button class="btn btn-secondary" onclick="closeMspSyncReview()">Cancel</button>
                 <button class="btn btn-primary" onclick="applyMspSyncReview()">Apply Selected</button>
             </div>
@@ -4593,12 +4591,12 @@ Build
                 <button class="close-btn" onclick="closeTrendReportDialog()" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
-                <p style="margin-bottom: 12px; color: var(--text-secondary, #666);">
+                <p style="margin-bottom: 12px; color: var(--text-secondary);">
                     Compare the current plan against a previous version to generate a progress report.
                 </p>
                 <div class="form-group" style="margin-bottom: 16px;">
                     <label for="trendCompareVersion" style="font-weight: 600; margin-bottom: 6px; display: block;">Compare against version:</label>
-                    <select id="trendCompareVersion" class="form-control" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color, #ddd);">
+                    <select id="trendCompareVersion" class="form-control" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color);">
                         <option value="">No version history available</option>
                     </select>
                 </div>
@@ -4607,7 +4605,7 @@ Build
                         <i class="bi bi-lightning-charge"></i> Generate Report
                     </button>
                 </div>
-                <textarea id="trendReportPreview" class="form-control" style="display: none; width: 100%; min-height: 250px; font-family: monospace; font-size: 13px; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color, #ddd); resize: vertical; background: var(--bg-secondary, #f8f9fa);" readonly></textarea>
+                <textarea id="trendReportPreview" class="form-control" style="display: none; width: 100%; min-height: 250px; font-family: monospace; font-size: 13px; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); resize: vertical; background: var(--bg-secondary);" readonly></textarea>
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
                     <button type="button" class="btn-secondary" onclick="closeTrendReportDialog()" style="padding: 8px 20px; min-height: 44px;">Close</button>
                     <button type="button" id="trendReportAddBtn" class="btn-primary" onclick="addReportToHighlights()" style="display: none; padding: 8px 20px; min-height: 44px;">
@@ -4626,11 +4624,11 @@ Build
                 <button class="close-btn" onclick="closeBaselineDialog()" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
-                <p style="margin-bottom: 12px; color: var(--text-secondary, #666);">
+                <p style="margin-bottom: 12px; color: var(--text-secondary);">
                     A baseline snapshots the current schedule so you can compare it against progress later. Only the most recently created (and not yet cleared) baseline is active for that comparison.
                 </p>
                 <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                    <input type="text" id="newBaselineName" class="form-control" placeholder="Baseline name (optional)" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color, #ddd);">
+                    <input type="text" id="newBaselineName" class="form-control" placeholder="Baseline name (optional)" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color);">
                     <button type="button" class="btn-primary" onclick="createBaselineFromDialog()" style="padding: 8px 20px; min-height: 44px; white-space: nowrap;">
                         <i class="bi bi-plus-circle"></i> Create Baseline
                     </button>

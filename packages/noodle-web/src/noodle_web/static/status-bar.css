@@ -16,7 +16,7 @@
     padding: 0 var(--np-space-12);
     gap: var(--np-space-12);
     z-index: 1050;
-    font-size: 0.82em;
+    font-size: 0.85em;
     color: var(--np-text-secondary);
 }
 
@@ -35,7 +35,7 @@
     border-radius: 4px;
     background: var(--np-input-bg);
     color: var(--np-text);
-    font-size: 0.92em;
+    font-size: 0.9em;
     cursor: pointer;
     max-width: 200px;
     min-height: 28px;
@@ -62,13 +62,13 @@
 }
 
 .status-bar-rag.rag-green  { background: #388e3c; }
-.status-bar-rag.rag-amber  { background: #f57c00; }
+.status-bar-rag.rag-amber  { background: #e67700; }
 .status-bar-rag.rag-red    { background: #d32f2f; }
 .status-bar-rag.rag-blue   { background: #1976d2; }
 
 /* RAG driving-task message */
 .status-bar-rag-msg {
-    font-size: 0.92em;
+    font-size: 0.9em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -80,7 +80,7 @@
    downloads a copy the user must replace manually. Hidden (no text) when
    the current project is not linked to a file. */
 .status-bar-local-file {
-    font-size: 0.92em;
+    font-size: 0.9em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -220,7 +220,7 @@
 .collab-chat-promote,
 .collab-chat-composer button {
     border: 0;
-    border-radius: 5px;
+    border-radius: 4px;
     background: transparent;
     color: inherit;
 }
@@ -269,7 +269,7 @@
     gap: var(--np-space-8);
     margin-bottom: var(--np-space-4);
     color: var(--np-text-muted, #777);
-    font-size: 0.82em;
+    font-size: 0.85em;
 }
 
 .collab-chat-author {
@@ -301,7 +301,7 @@
     min-width: 0;
     padding: var(--np-space-8) var(--np-space-12);
     border: 1px solid var(--np-border, #d8dce1);
-    border-radius: 7px;
+    border-radius: 6px;
     background: var(--np-input-bg, #fff);
     color: var(--np-text, #222);
 }
@@ -315,7 +315,7 @@
 .status-bar-app-version {
     color: var(--np-text-muted);
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 0.82em;
+    font-size: 0.85em;
     white-space: nowrap;
 }
 
@@ -331,7 +331,7 @@
     background: var(--np-input-bg);
     color: var(--np-text);
     cursor: pointer;
-    font-size: 0.92em;
+    font-size: 0.9em;
     gap: var(--np-space-4);
     transition: border-color 0.15s ease, background 0.15s ease;
     white-space: nowrap;
@@ -354,7 +354,7 @@
     margin-left: var(--np-space-8);
     padding: 1px 8px;
     border: 1px solid var(--np-danger);
-    border-radius: 3px;
+    border-radius: 4px;
     background: transparent;
     color: var(--np-danger);
     font-size: 0.9em;
@@ -472,7 +472,7 @@ body {
     border-radius: 4px;
     background: var(--np-input-bg);
     color: var(--np-text);
-    font-size: 0.92em;
+    font-size: 0.9em;
     min-height: 28px;
 }
 
@@ -525,19 +525,19 @@ body {
 }
 
 .vh-rag-dot.rag-green  { background: #388e3c; }
-.vh-rag-dot.rag-amber  { background: #f57c00; }
+.vh-rag-dot.rag-amber  { background: #e67700; }
 .vh-rag-dot.rag-red    { background: #d32f2f; }
 .vh-rag-dot.rag-blue   { background: #1976d2; }
 
 .vh-version {
     font-weight: 600;
-    font-size: 0.92em;
+    font-size: 0.9em;
     color: var(--np-text);
     white-space: nowrap;
 }
 
 .vh-date {
-    font-size: 0.82em;
+    font-size: 0.85em;
     color: var(--np-text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -590,7 +590,7 @@ body {
     border: 1px solid var(--np-danger-hover);
     border-radius: 4px;
     margin-bottom: 0;
-    font-size: 0.88em;
+    font-size: 0.85em;
     color: #fff;
     gap: var(--np-space-12);
     position: relative;
@@ -622,7 +622,7 @@ body {
     content: '';
     position: absolute;
     inset: 0;
-    background: rgba(211, 47, 47, 0.08);
+    background: rgba(211, 47, 47, 0.1);
     pointer-events: none;
     z-index: 1000;
 }
@@ -731,7 +731,7 @@ body {
 
 .status-log-popup-more {
     padding: var(--np-space-8) var(--np-space-12);
-    font-size: 0.82em;
+    font-size: 0.85em;
     color: var(--np-text-muted);
     text-align: center;
     border-top: 1px solid var(--np-border);
@@ -765,7 +765,7 @@ body {
     gap: var(--np-space-8);
     padding: var(--np-space-8) var(--np-space-12);
     border-bottom: 1px solid var(--np-border);
-    font-size: 0.88em;
+    font-size: 0.85em;
     line-height: 1.4;
 }
 

@@ -313,6 +313,7 @@
     --bg-secondary: var(--np-surface-alt);
     --text-primary: var(--np-ink);
     --text-secondary: var(--np-body);
+    --text-muted: var(--np-faint);
     --border-color: var(--np-border);
     --evm-card-bg: var(--np-surface);
     --evm-card-border: var(--np-border);
@@ -502,8 +503,19 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 :root body .ai-chat-header button { color: var(--np-body); }
 :root body :is(.ns-col-header.selected, .ns-row-num.selected) { background: var(--np-selected); color: var(--np-ink); }
 :root body .close-btn { color: var(--np-body); flex-shrink: 0; }
-:root body #taskInspectorSection .close-btn { color: #fff; }
 :root body .close-btn:hover { background: var(--np-sunken); color: var(--np-ink); }
+/* .detail-pane-header's background is the accent gold, which does not flip
+   with the theme -- var(--np-body) does, so in dark theme it comes out
+   light-on-light (1.17:1, needs 3:1). var(--np-on-accent) is pinned dark in
+   both themes, matching the header's own text. */
+:root body .detail-pane-header .close-btn { color: var(--np-on-accent); }
+:root body .detail-pane-header .close-btn:hover { background: rgba(35, 32, 28, 0.1); color: var(--np-on-accent); }
+/* #inspectorTaskTitle is the one <h2> inside a .detail-pane-header; every
+   other h1/h2/h3 in the app sits on a themed surface so var(--np-ink) is
+   right for it, but this one is the same fixed accent-gold background as
+   the close button above, so it needs the same fixed on-accent colour --
+   in dark theme var(--np-ink) is light and measures 1.76:1 against gold. */
+#inspectorTaskTitle { color: var(--np-on-accent); }
 :root body .modal-header { gap: 12px; border-radius: 14px 14px 0 0; }
 :root body .modal-header :is(h2, input) { min-width: 0; font-family: var(--np-font-heading); font-weight: 400; }
 :root body .timeline-donut-row { flex-wrap: wrap; }

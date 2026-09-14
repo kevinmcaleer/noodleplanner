@@ -114,7 +114,7 @@
 .evm-legend-swatch {
     width: 20px;
     height: 3px;
-    border-radius: 1px;
+    border-radius: 0;
     border: 1px solid transparent;
 }
 

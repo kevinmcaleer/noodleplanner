@@ -150,6 +150,19 @@ const ALLOW = [
 		rules: ['raw-colour'],
 		match: ({ selector }) => /\b(rag|status)-(red|amber|green)\b|\.rag-badge|\.status-badge/.test(selector),
 	},
+	{
+		// .task-form-inspect-btn and .detail-pane-header's close button sit on
+		// the accent-gold background, which is the one surface that does not
+		// flip with the theme (#1194) -- so their border/hover tints are
+		// var(--np-on-accent)'s own RGB at reduced alpha, not a token. Using a
+		// themed token here (e.g. --np-shadow-tint, which is a different
+		// colour entirely in dark theme) would detune the effect exactly when
+		// the header does not need it to change.
+		why: 'fixed on-accent tint',
+		rules: ['raw-colour'],
+		match: ({ file, selector }) =>
+			file.endsWith('components.css') && /^\.task-form-inspect-btn(:hover)?$/.test(selector.trim()),
+	},
 ]
 
 const COLOUR_RE = /#[0-9a-fA-F]{3,8}\b|\brgba?\s*\(|\bhsla?\s*\(/

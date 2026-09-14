@@ -20,7 +20,7 @@
     padding: 0 var(--np-space-12);
 }
 
-.fm-panel-absent { color: #a6a6a6; }
+.fm-panel-absent { color: #aaa; }
 
 .fm-summary-toggle {
     display: inline-flex;
@@ -30,7 +30,7 @@
     min-height: 30px;
     padding: var(--np-space-4) var(--np-space-8);
     border: 0;
-    border-radius: 5px;
+    border-radius: 4px;
     background: transparent;
     color: #e3e3e3;
     cursor: pointer;
@@ -41,7 +41,7 @@
 }
 
 .fm-summary-toggle:hover,
-.fm-summary-toggle:focus-visible { background: #333334; }
+.fm-summary-toggle:focus-visible { background: #333; }
 
 .fm-summary-static:hover { background: transparent; }
 
@@ -89,7 +89,7 @@
     min-height: 26px;
     padding: var(--np-space-4) var(--np-space-24) var(--np-space-4) var(--np-space-8);
     border: 1px solid transparent;
-    border-radius: 5px;
+    border-radius: 4px;
     background-color: transparent;
     color: #aaa;
     font: inherit;
@@ -99,7 +99,7 @@
 :root body .fm-panel .fm-add-key-select:hover,
 :root body .fm-panel .fm-add-key-select:focus {
     border-color: #4d4d4f;
-    background-color: #303031;
+    background-color: #333;
     color: #e2e2e2;
 }
 
@@ -129,12 +129,12 @@
     gap: var(--np-space-8);
     min-height: 34px;
     padding: var(--np-space-4) var(--np-space-4);
-    border-radius: 5px;
+    border-radius: 4px;
     transition: background-color 120ms ease;
 }
 
 .fm-row:hover,
-.fm-row:focus-within { background: #2d2d2e; }
+.fm-row:focus-within { background: #2a2a2a; }
 
 .fm-row-highlight { background: rgba(237, 181, 42, 0.18); }
 
@@ -165,7 +165,7 @@
     border: 0;
     border-radius: 4px;
     background: transparent;
-    color: #8c8c8c;
+    color: #888;
     cursor: pointer;
     font: inherit;
 }
@@ -186,7 +186,7 @@
 .fm-line-remove:focus-visible,
 .fm-add-line-btn:hover,
 .fm-add-line-btn:focus-visible {
-    background: #414142;
+    background: #444;
     color: var(--np-light-grey-subtle);
 }
 
@@ -224,7 +224,7 @@
     input.fm-list-field,
     input.fm-tag-input,
     input.fm-block-line-input
-):hover { border-color: #464648; }
+):hover { border-color: #444; }
 
 :root body .fm-panel :is(
     input.fm-row-key-input,
@@ -234,7 +234,7 @@
     input.fm-block-line-input
 ):focus {
     border-color: #66666a;
-    background: #202021;
+    background: #1e1e1e;
     outline: none;
     box-shadow: none;
 }
@@ -259,7 +259,7 @@
 :root body .fm-panel select.fm-value-select:hover,
 :root body .fm-panel select.fm-value-select:focus {
     border-color: #4d4d4f;
-    background-color: #202021;
+    background-color: #1e1e1e;
 }
 
 .fm-tag-list {
@@ -350,9 +350,9 @@
     box-sizing: border-box;
     width: 100%;
     padding: var(--np-space-8);
-    border: 1px solid #4b4b4d;
-    border-radius: 5px;
-    background: #1e1e1f;
+    border: 1px solid #4d4d4f;
+    border-radius: 4px;
+    background: #1e1e1e;
     color: #d4d4d4;
     font-family: var(--np-font-data);
     font-size: 12px;

@@ -57,7 +57,7 @@
 }
 
 .gantt-scale-selector select:hover {
-    background: #f0f4ff;
+    background: #e8eaf6;
 }
 
 .gantt-scale-selector select:focus {
@@ -542,7 +542,7 @@
     top: 26px;
     z-index: 0;
     pointer-events: none;
-    border-radius: 3px;
+    border-radius: 4px;
 }
 
 .gantt-baseline-milestone {
@@ -614,7 +614,7 @@
 
 /* Dark mode adjustments for critical path */
 [data-bs-theme="dark"] .gantt-critical-row {
-    background-color: rgba(224, 49, 49, 0.12) !important;
+    background-color: rgba(211, 47, 47, 0.1) !important;
 }
 
 [data-bs-theme="dark"] .gantt-float-bar {
@@ -709,7 +709,7 @@
 .baseline-toast-warning {
     background: var(--np-warning-tint);
     color: var(--np-warning-ink);
-    border: 1px solid #ffeeba;
+    border: 1px solid #fff3bf;
 }
 
 .gantt-progress {
@@ -725,7 +725,7 @@
     position: absolute;
     top: 0;
     height: 100%;
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(0, 0, 0, 0.06);
     pointer-events: none;
     z-index: 1;
 }
@@ -767,7 +767,7 @@
 }
 
 .editor-panel .panel-header {
-    background: #2d2d2d;
+    background: #2a2a2a;
     color: #d4d4d4;
 }
 
@@ -791,7 +791,7 @@
     color: #d4d4d4;
     border: 1px solid transparent;
     padding: var(--np-space-4) var(--np-space-8);
-    border-radius: 3px;
+    border-radius: 4px;
     cursor: pointer;
     font-size: 1em;
     transition: all 0.2s;
@@ -819,10 +819,10 @@
 
 /* Project selector dropdown — editor toolbar (dark theme) */
 .editor-toolbar .project-selector-dropdown {
-    background: #2d2d2d;
+    background: #2a2a2a;
     color: #d4d4d4;
     border: 1px solid #555;
-    border-radius: 3px;
+    border-radius: 4px;
     padding: var(--np-space-4) var(--np-space-8);
     font-size: 0.85em;
     height: 28px;
@@ -902,7 +902,7 @@
 
 .upload-area:hover,
 .upload-area.dragover {
-    background: #e8ebff;
+    background: #dde0f3;
     border-color: var(--np-accent-hover);
 }
 
@@ -921,7 +921,7 @@
 }
 
 .editor-wrapper:focus-within {
-    background: #252525;
+    background: #2a2a2a;
 }
 
 /* Shared text properties for cursor alignment between textarea and highlight overlay.
@@ -1112,7 +1112,7 @@
 }
 
 .syntax-star {
-    color: #858585;
+    color: #888;
 }
 
 /* A dependency the scheduler flagged as circular (task depends on its own
@@ -1230,8 +1230,8 @@ body.hl-off-dependency .syntax-star {
 }
 
 .line-numbers {
-    background: #2d2d2d;
-    color: #858585;
+    background: #2a2a2a;
+    color: #888;
     padding: var(--np-space-16) var(--np-space-12);
     text-align: right;
     font-family: 'Courier New', monospace;
@@ -1290,7 +1290,7 @@ body.hl-off-dependency .syntax-star {
     transform: translateX(-50%);
     width: 6px;
     height: 6px;
-    background: #858585;
+    background: #888;
     border-radius: 50% 50% 50% 0;
     transform: translateX(-50%) rotate(-45deg);
 }
@@ -1303,7 +1303,7 @@ body.hl-off-dependency .syntax-star {
     transform: translateX(-50%);
     width: 1.5px;
     height: 5px;
-    background: #858585;
+    background: #888;
 }
 
 .line-number.manually-scheduled:hover .pin-icon {
@@ -1427,7 +1427,7 @@ textarea:hover {
 .welcome-hint kbd {
     background: var(--np-paper);
     border: 1px solid var(--np-border-strong);
-    border-radius: 3px;
+    border-radius: 4px;
     padding: var(--np-space-2) var(--np-space-8);
     font-family: monospace;
     font-size: 0.9em;
@@ -1454,7 +1454,7 @@ label {
 input[type="text"] {
     padding: var(--np-space-12);
     border: 2px solid var(--np-border);
-    border-radius: 5px;
+    border-radius: 4px;
     font-size: 14px;
 }
 
@@ -1486,7 +1486,7 @@ input[type="checkbox"] {
     color: var(--np-on-accent);
     padding: var(--np-space-16) var(--np-space-32);
     border: none;
-    border-radius: 5px;
+    border-radius: 4px;
     font-size: 1.1em;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
@@ -1517,7 +1517,7 @@ input[type="checkbox"] {
 
 .message {
     padding: var(--np-space-16);
-    border-radius: 5px;
+    border-radius: 4px;
     margin: var(--np-space-20) 0;
     display: none;
 }
@@ -1549,7 +1549,7 @@ input[type="checkbox"] {
 .syntax-guide code {
     background: var(--np-sunken);
     padding: var(--np-space-2) var(--np-space-8);
-    border-radius: 3px;
+    border-radius: 4px;
     font-family: 'Courier New', monospace;
 }
 
@@ -1566,7 +1566,7 @@ input[type="checkbox"] {
     background: var(--np-editor-bg);
     color: var(--np-editor-tip-text);
     padding: var(--np-space-16);
-    border-radius: 5px;
+    border-radius: 4px;
     overflow-x: auto;
     font-size: 13px;
 }
@@ -1617,7 +1617,7 @@ input[type="checkbox"] {
     cursor: pointer;
     z-index: 20;
     padding: 0;
-    box-shadow: 0 1px 3px var(--np-shadow-strong);
+    box-shadow: 0 2px 4px var(--np-shadow);
     transition: background 0.15s, color 0.15s, transform 0.15s;
 }
 

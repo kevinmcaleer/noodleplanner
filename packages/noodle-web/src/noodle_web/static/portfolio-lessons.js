@@ -107,7 +107,7 @@ async function renderPortfolioLessons() {
 
         let html = '<div class="portfolio-section">';
         html += '<h2 class="portfolio-section-title">Lessons Learned across Portfolio</h2>';
-        html += '<p style="color: var(--text-muted, #999); margin: 0 0 12px 0; font-size: 0.85em;">Lessons captured by all projects, viewed through the Appreciative Inquiry lens. Use these themes to refine future ways of working.</p>';
+        html += '<p style="color: var(--text-muted); margin: 0 0 12px 0; font-size: 0.85em;">Lessons captured by all projects, viewed through the Appreciative Inquiry lens. Use these themes to refine future ways of working.</p>';
 
         // Summary tiles
         html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 8px 0 14px 0;">';
