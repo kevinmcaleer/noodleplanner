@@ -1751,19 +1751,6 @@ body {
     color: var(--np-text-secondary);
 }
 
-[data-theme="dark"] .portfolio-empty-state {
-    background: var(--np-surface);
-    box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-empty-state h3 {
-    color: var(--np-accent);
-}
-
-[data-theme="dark"] .portfolio-empty-state p {
-    color: var(--np-text-secondary);
-}
-
 /* Portfolio project cards */
 [data-theme="dark"] .portfolio-project-card {
     background: var(--np-surface);

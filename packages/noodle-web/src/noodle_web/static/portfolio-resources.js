@@ -295,20 +295,18 @@ async function renderPortfolioResources() {
         const parsedProjects = await parseAllProjects();
 
         if (parsedProjects.length === 0) {
-            container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Projects</h3>' +
+            container.innerHTML = '<np-empty-state variant="card" heading="No Projects">' +
                 '<p>Create projects to see resource allocation.</p>' +
-                '</div>';
+                '</np-empty-state>';
             return;
         }
 
         const resources = aggregateResourceDataFromParsed(parsedProjects);
 
         if (resources.length === 0) {
-            container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Resource Assignments</h3>' +
+            container.innerHTML = '<np-empty-state variant="card" heading="No Resource Assignments">' +
                 '<p>Assign resources to tasks using the <code>[Resource]</code> syntax or <code>@resource</code> notation in your project plans.</p>' +
-                '</div>';
+                '</np-empty-state>';
             return;
         }
 
@@ -420,10 +418,9 @@ async function renderPortfolioResources() {
 
     } catch (error) {
         console.error('Error rendering portfolio resources:', error);
-        container.innerHTML = '<div class="portfolio-empty-state">' +
-            '<h3>Error Loading Resources</h3>' +
+        container.innerHTML = '<np-empty-state variant="card" heading="Error Loading Resources">' +
             '<p>Failed to load resource data. Please try again.</p>' +
-            '</div>';
+            '</np-empty-state>';
     }
 }
 
