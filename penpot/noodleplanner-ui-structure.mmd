@@ -58,11 +58,12 @@ graph LR
     PV_Lessons["Lessons"]
   end
   S_portfolio --> G_portfolio
-  subgraph G_slideIns["Slide-in panels (5)"]
+  subgraph G_slideIns["Slide-in panels (6)"]
     slideIns_aiChatPanel["Ai Chat Panel"]
+    slideIns_backMatterPanel["Welcome to Noodle Planner"]
     slideIns_collabPresencePanel["Collab Presence Panel"]
     slideIns_detailPane["Detail Pane"]
-    slideIns_frontMatterPanel["Welcome to Noodle Planner"]
+    slideIns_frontMatterPanel["Front Matter Panel"]
     slideIns_kanbanEditorPanel["Start Your Project"]
   end
   Root -.-> G_slideIns
@@ -117,3 +118,7 @@ graph LR
     forms_resourceForm["Resource Form"]
   end
   Root -.-> G_forms
+  subgraph G_panels["Other panels (1)"]
+    panels_collabChatPanel["Collab Chat Panel"]
+  end
+  Root -.-> G_panels

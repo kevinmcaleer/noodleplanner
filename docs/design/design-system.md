@@ -9,6 +9,7 @@ mechanics:
 |---|---|
 | What exists today, measured | [`token-audit.md`](token-audit.md) |
 | Token reference (values) | [`tokens.md`](tokens.md) |
+| Which components appear on which screens, and how often | [`component-tagging.md`](component-tagging.md) |
 | What can merge, and the Penpot/Storybook handoff | [`consolidation-and-handoff.md`](consolidation-and-handoff.md) |
 | The prioritised work list | [`standardisation-backlog.md`](standardisation-backlog.md) |
 | CI gates and when to add a token vs. a component | [`contributing.md`](contributing.md) |
@@ -130,22 +131,30 @@ many screens each appears on.
 Do the naming pass in one sitting, even roughly, before tagging anything.
 Getting the full list visible is what settles the scope; detail comes after.
 
-**Status: pass 1 exists, pass 2 does not.** `npm run design:map` already
-generates `docs/design/ui-structure.json` — 30 project views, 9 portfolio
-views, 18 modals, 5 slide-in panels, 16 detail forms, 3 wizard steps, 2
-standalone forms (see `consolidation-and-handoff.md`). That is pass 1. It
-also caught two real nav bugs (`lessons` and `escalations` — see the
-backlog). Pass 2 — tagging components onto that list and tallying frequency —
-has not been done, and doing it is the next highest-value artefact: it would
-turn "build the button first" from a reasonable guess into a measured
-decision, and give band 4 of the backlog (the per-surface rollout) an
-explicit order instead of "by the surface map."
+**Status: done.** `npm run design:map` generates
+`docs/design/ui-structure.json` — pass 1, the screen names — and
+`npm run design:tag` reads it to produce `docs/design/component-tagging.json`
+— pass 2, which component families appear on each of the resulting 85
+screens (30 project views, 9 portfolio views, and 46 surfaces: slide-ins,
+detail forms, overlays, wizard steps, standalone forms) and how many screens
+each reaches. Pass 1 also caught two real nav bugs (`lessons` and
+`escalations` — see the backlog).
+
+Full results, method and the two findings that revise §6 below are in
+[`component-tagging.md`](component-tagging.md). The headline: button is
+confirmed as the right first component (67% of screens), but the specific
+button that recurs most is the modal/panel **close button** (31 screens) —
+ahead of any CTA button — and the **panel/header** target named below turns
+out to already be a de facto convention repeated 27–30 times
+(`modal-header`/`modal-body`), not a fresh design. "Build the button first"
+is no longer a guess; the build order in §10 reflects the measured one.
 
 ## 6. First components
 
-Component-inventory frequency should decide the exact order once §5's pass 2
-exists. Until then, these are the two known-highest-value targets and how to
-scope each.
+§5's pass 2 ([`component-tagging.md`](component-tagging.md)) now backs this
+order with measured screen counts rather than the surface map alone. Button
+and panel/header are still the two highest-value targets; what changed is
+*why* and *which variant of each matters most*.
 
 ### Button
 
@@ -159,12 +168,23 @@ combination in a grid, so drift jumps out visually.
 - **Size** — only if more than one genuinely exists.
 - **Content** — label only, icon + label, icon only.
 
+**Measured: 57 of 85 screens (67%) carry a button class** — the highest of
+any family, confirming button as the right first component. But the single
+most-repeated button class in the app is `close-btn`, on 31 screens — more
+than `btn-primary` (22) or `btn-secondary` (23) individually. The highest-
+leverage variant to get right first is therefore the panel/modal **dismiss**
+button, not a CTA hierarchy step; treat it as an explicit variant (or a
+sub-component of the panel header in the next section) rather than assuming
+primary/secondary/tertiary already covers it.
+
 **Status: in progress.** `<np-button>` (`static/components/button/`) is the
 extracted Web Component with a colocated story; the `neutral` tone and
 `outline` modifier were added in #1212 as a worked example of picking
-hierarchy roles. It is not yet wired into the live app — see the button-role
-discussion under band 3 of `standardisation-backlog.md` for why that
-migration is a design decision, not a mechanical refactor.
+hierarchy roles. A dedicated `close`/dismiss variant is not yet among them —
+add it before rewiring any panel or modal to the shared component. It is not
+yet wired into the live app — see the button-role discussion under band 3 of
+`standardisation-backlog.md` for why that migration is a design decision,
+not a mechanical refactor.
 
 ### Panel / drawer
 
@@ -180,10 +200,21 @@ component used many times — a **panel** with a reusable **header**.
 Discipline: panel shell and contents stay separate, so every slide-out shares
 one shell and only the inner form changes.
 
+**Measured: this is not a proposed component, it's an existing convention.**
+`modal-header` appears on 27 of 85 screens and `modal-body` on 30 — the
+second- and third-most-repeated class names in the app after `close-btn`,
+ahead of every button-hierarchy class. `task-form-modal`, one specific
+dialog, alone reaches 13 screens. The `card`/`tile`/`panel` family, where a
+literal "panel" class would show up, is comparatively rare (14 screens,
+16.5%) — the shape to extract is the `modal-header`/`modal-body`/
+`modal-overlay`/`close-btn` combination already hand-repeated dozens of
+times, not a design done from scratch.
+
 **Status: not started.** No extracted panel/header component yet. This is
-the next component to build after button, per the frequency argument in §5 —
-five slide-in panels and eighteen modal overlays exist per the surface map,
-so a shared shell is high-leverage.
+the next component to build after button — build it directly from the
+`modal-header`/`modal-body` markup already in the app rather than designing
+the header fresh, and make `task-form-modal` (13 screens) the first rewiring
+target once it exists.
 
 ### Composed forms
 
@@ -287,16 +318,24 @@ only the diffs. When any component gets rewired into a live screen (§7 step
 1. **Lock tokens** (colour, typography, 4px spacing scale). ✅ Done — bands 1
    and 3 of the backlog; see `tokens.md`.
 2. **Build the UI inventory** (two passes → component list with frequency
-   tally). ⏳ Pass 1 done (`ui-structure.json`); pass 2 (component tagging +
-   frequency) not started — see §5.
+   tally). ✅ Done — `ui-structure.json` (pass 1) and
+   `component-tagging.json` (pass 2, §5) both exist and are regenerable.
 3. **Build the highest-frequency component** (button) in Storybook against
-   tokens. ⏳ In progress — `<np-button>` exists with variants; not yet
-   proven against a measured frequency count, and not wired into any screen.
-4. **Build panel + header.** ☐ Not started.
+   tokens. ⏳ In progress, now backed by data — 67% of screens carry a
+   button class, confirming the target, but `<np-button>` still needs a
+   `close`/dismiss variant (§6) before it covers the app's most-repeated
+   button. Not yet wired into any screen.
+4. **Build panel + header.** ☐ Not started, but no longer a fresh design —
+   §6 shows `modal-header`/`modal-body` already repeated on 27–30 screens.
+   Build the component from that existing shape.
 5. **Compose the task details form story** from verified pieces. ☐ Not
    started — blocked on 4.
-6. **Rewire screens to shared components**, in inventory frequency order. ☐
-   Not started for any component.
+6. **Rewire screens to shared components**, in inventory frequency order.
+   ☐ Not started for any component. The order component-tagging.md now
+   gives: button's `close` variant and the panel/header shell first
+   (highest screen counts), `task-form-modal` (13 screens) as panel/header's
+   first rewiring target, table and badge after — both are real problems
+   but neither has button or panel's single dominant, extractable shape yet.
 7. **Add visual regression snapshots** once components are stable. ✅ The
    tooling exists and is already used for band-4 migrations
    (`scripts/compare_screens.py`); formalise it as a required step once
@@ -305,8 +344,8 @@ only the diffs. When any component gets rewired into a live screen (§7 step
 The honest read of where this stands: the *foundational* work this plan
 called for — tokens locked, focus states fixed, duplicate components
 identified and merged where they were genuinely duplicates, Storybook wired
-up, a screen-diffing safety net built — is done, mostly under backlog bands 1
-and 3. What has **not** started is the part this plan is actually about:
-turning the UI inventory into a frequency-ordered build list (step 2, pass
-2), and the screen-by-screen rewiring in step 6. Those are the next two
-pieces of work.
+up, a screen-diffing safety net built, and now a measured UI inventory — is
+done, mostly under backlog bands 1 and 3 plus this pass. What has **not**
+started is the part all of that was in service of: building the panel/header
+component and the button's dismiss variant, and the screen-by-screen
+rewiring in step 6. Those are the next pieces of work.

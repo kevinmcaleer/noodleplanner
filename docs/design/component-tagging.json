@@ -1,0 +1,1418 @@
+{
+	"method": "scripts/component-tagging.mjs -- see the file header for the extraction method",
+	"generatedFrom": {
+		"structure": "docs/design/ui-structure.json",
+		"template": "packages/noodle-web/src/noodle_web/templates/index.html",
+		"scripts": "packages/noodle-web/src/noodle_web/static/*.js"
+	},
+	"screenCount": 85,
+	"families": [
+		{
+			"family": "button",
+			"screenCount": 57,
+			"screenPct": 67.1,
+			"distinctClassNames": 48,
+			"topClassNames": [
+				{
+					"name": "close-btn",
+					"screens": 31
+				},
+				{
+					"name": "btn-secondary",
+					"screens": 23
+				},
+				{
+					"name": "btn-primary",
+					"screens": 22
+				},
+				{
+					"name": "btn-danger",
+					"screens": 12
+				},
+				{
+					"name": "btn",
+					"screens": 9
+				},
+				{
+					"name": "subtle-add-btn",
+					"screens": 9
+				},
+				{
+					"name": "copy-image-btn",
+					"screens": 8
+				},
+				{
+					"name": "btn-sm",
+					"screens": 7
+				},
+				{
+					"name": "mindmap-toolbar-btn",
+					"screens": 4
+				},
+				{
+					"name": "task-form-inspect-btn",
+					"screens": 4
+				},
+				{
+					"name": "btn-outline-danger",
+					"screens": 2
+				},
+				{
+					"name": "btn-outline-secondary",
+					"screens": 2
+				}
+			]
+		},
+		{
+			"family": "table",
+			"screenCount": 43,
+			"screenPct": 50.6,
+			"distinctClassNames": 75,
+			"topClassNames": [
+				{
+					"name": "form-grid-2col",
+					"screens": 11
+				},
+				{
+					"name": "form-grid-3col",
+					"screens": 5
+				},
+				{
+					"name": "nwd-actions-col",
+					"screens": 5
+				},
+				{
+					"name": "nwd-exceptions-table",
+					"screens": 5
+				},
+				{
+					"name": "table",
+					"screens": 5
+				},
+				{
+					"name": "table-sm",
+					"screens": 5
+				},
+				{
+					"name": "raid-table-wrapper",
+					"screens": 4
+				},
+				{
+					"name": "baseline-col",
+					"screens": 3
+				},
+				{
+					"name": "col-date",
+					"screens": 3
+				},
+				{
+					"name": "col-name",
+					"screens": 3
+				},
+				{
+					"name": "col-rag",
+					"screens": 3
+				},
+				{
+					"name": "form-row",
+					"screens": 3
+				}
+			]
+		},
+		{
+			"family": "nav",
+			"screenCount": 38,
+			"screenPct": 44.7,
+			"distinctClassNames": 46,
+			"topClassNames": [
+				{
+					"name": "output-tab-content",
+					"screens": 24
+				},
+				{
+					"name": "ribbon-banner",
+					"screens": 21
+				},
+				{
+					"name": "ribbon-banner--blue",
+					"screens": 6
+				},
+				{
+					"name": "ribbon-banner--dark",
+					"screens": 6
+				},
+				{
+					"name": "tab-content",
+					"screens": 6
+				},
+				{
+					"name": "mindmap-toolbar-btn",
+					"screens": 4
+				},
+				{
+					"name": "mindmap-toolbar-group",
+					"screens": 4
+				},
+				{
+					"name": "mindmap-toolbar-separator",
+					"screens": 4
+				},
+				{
+					"name": "ribbon-banner--orange",
+					"screens": 4
+				},
+				{
+					"name": "raid-toolbar",
+					"screens": 3
+				},
+				{
+					"name": "mindmap-toolbar-hint",
+					"screens": 2
+				},
+				{
+					"name": "pbs-toolbar",
+					"screens": 2
+				}
+			]
+		},
+		{
+			"family": "input",
+			"screenCount": 38,
+			"screenPct": 44.7,
+			"distinctClassNames": 24,
+			"topClassNames": [
+				{
+					"name": "form-group",
+					"screens": 18
+				},
+				{
+					"name": "form-control",
+					"screens": 17
+				},
+				{
+					"name": "form-actions",
+					"screens": 14
+				},
+				{
+					"name": "task-form-modal",
+					"screens": 13
+				},
+				{
+					"name": "form-grid-2col",
+					"screens": 11
+				},
+				{
+					"name": "form-grid-3col",
+					"screens": 5
+				},
+				{
+					"name": "task-form-inspect-btn",
+					"screens": 4
+				},
+				{
+					"name": "form-row",
+					"screens": 3
+				},
+				{
+					"name": "ai-settings-field",
+					"screens": 2
+				},
+				{
+					"name": "dependency-add-input",
+					"screens": 2
+				},
+				{
+					"name": "editor-textarea",
+					"screens": 2
+				},
+				{
+					"name": "product-deps-input",
+					"screens": 2
+				}
+			]
+		},
+		{
+			"family": "modal",
+			"screenCount": 36,
+			"screenPct": 42.4,
+			"distinctClassNames": 21,
+			"topClassNames": [
+				{
+					"name": "modal-body",
+					"screens": 30
+				},
+				{
+					"name": "modal-header",
+					"screens": 27
+				},
+				{
+					"name": "modal-overlay",
+					"screens": 14
+				},
+				{
+					"name": "task-form-modal",
+					"screens": 13
+				},
+				{
+					"name": "autocomplete-dropdown",
+					"screens": 4
+				},
+				{
+					"name": "modal-header-title",
+					"screens": 2
+				},
+				{
+					"name": "ai-chat-overlay",
+					"screens": 1
+				},
+				{
+					"name": "ai-settings-modal",
+					"screens": 1
+				},
+				{
+					"name": "baseline-dialog-empty",
+					"screens": 1
+				},
+				{
+					"name": "detail-pane-overlay",
+					"screens": 1
+				},
+				{
+					"name": "modal-open",
+					"screens": 1
+				},
+				{
+					"name": "shortcuts-modal",
+					"screens": 1
+				}
+			]
+		},
+		{
+			"family": "badge",
+			"screenCount": 26,
+			"screenPct": 30.6,
+			"distinctClassNames": 26,
+			"topClassNames": [
+				{
+					"name": "summary-label",
+					"screens": 4
+				},
+				{
+					"name": "ai-agent-chip",
+					"screens": 2
+				},
+				{
+					"name": "baseline-toggle-label",
+					"screens": 2
+				},
+				{
+					"name": "benefit-linked-tags",
+					"screens": 2
+				},
+				{
+					"name": "mindmap-zoom-label",
+					"screens": 2
+				},
+				{
+					"name": "product-deps-tags",
+					"screens": 2
+				},
+				{
+					"name": "raid-status-badge",
+					"screens": 2
+				},
+				{
+					"name": "recurrence-day-label",
+					"screens": 2
+				},
+				{
+					"name": "vh-current-label",
+					"screens": 2
+				},
+				{
+					"name": "actions-priority-badge",
+					"screens": 1
+				},
+				{
+					"name": "baseline-active-badge",
+					"screens": 1
+				},
+				{
+					"name": "ben-btn-label",
+					"screens": 1
+				}
+			]
+		},
+		{
+			"family": "card",
+			"screenCount": 14,
+			"screenPct": 16.5,
+			"distinctClassNames": 13,
+			"topClassNames": [
+				{
+					"name": "wizard-panel",
+					"screens": 4
+				},
+				{
+					"name": "fm-panel",
+					"screens": 2
+				},
+				{
+					"name": "kanban-editor-panel",
+					"screens": 2
+				},
+				{
+					"name": "ai-chat-panel",
+					"screens": 1
+				},
+				{
+					"name": "budget-widget-card",
+					"screens": 1
+				},
+				{
+					"name": "budget-widget-cards",
+					"screens": 1
+				},
+				{
+					"name": "collab-chat-panel",
+					"screens": 1
+				},
+				{
+					"name": "highlight-card",
+					"screens": 1
+				},
+				{
+					"name": "highlight-card-header",
+					"screens": 1
+				},
+				{
+					"name": "kanban-panel",
+					"screens": 1
+				},
+				{
+					"name": "stakeholders-grid-panel",
+					"screens": 1
+				},
+				{
+					"name": "stakeholders-table-panel",
+					"screens": 1
+				}
+			]
+		}
+	],
+	"screensWithNoStaticContainer": [],
+	"screens": [
+		{
+			"name": "project-report",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "project-report-view",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"card",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "tasks",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "tasks-view",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "notepad",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "notepad-view",
+			"foundStatic": true,
+			"families": [
+				"nav"
+			]
+		},
+		{
+			"name": "gantt",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "gantt-view",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"input",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "kanban",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "kanban-tab",
+			"foundStatic": true,
+			"families": [
+				"card",
+				"input",
+				"nav"
+			]
+		},
+		{
+			"name": "calendar",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "calendar-view",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "milestones",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "milestones-view",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "timeline",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "timeline-view",
+			"foundStatic": true,
+			"families": [
+				"nav"
+			]
+		},
+		{
+			"name": "mindmap",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "mindmap-view",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"nav"
+			]
+		},
+		{
+			"name": "whiteboard",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "whiteboard-view",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"nav"
+			]
+		},
+		{
+			"name": "pbs",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "pbs-view",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"nav"
+			]
+		},
+		{
+			"name": "deliverables",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "deliverables-view",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "product-flow",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "product-flow-view",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"nav"
+			]
+		},
+		{
+			"name": "benefits",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "benefits-view",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "guide",
+			"group": "Plan",
+			"kind": "project-view",
+			"containerId": "guide-tab",
+			"foundStatic": true,
+			"families": [
+				"nav"
+			]
+		},
+		{
+			"name": "raid",
+			"group": "Tracking",
+			"kind": "project-view",
+			"containerId": "raid-tab",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"input",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "actions",
+			"group": "Tracking",
+			"kind": "project-view",
+			"containerId": "actions-tab",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "highlights",
+			"group": "Tracking",
+			"kind": "project-view",
+			"containerId": "highlights-view",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"card",
+				"nav"
+			]
+		},
+		{
+			"name": "lookahead",
+			"group": "Tracking",
+			"kind": "project-view",
+			"containerId": "lookahead-view",
+			"foundStatic": true,
+			"families": [
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "escalations",
+			"group": "Tracking",
+			"kind": "project-view",
+			"containerId": "escalations-view",
+			"foundStatic": true,
+			"families": [
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "analysis",
+			"group": "Tracking",
+			"kind": "project-view",
+			"containerId": "analysis-view",
+			"foundStatic": true,
+			"families": [
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "budget",
+			"group": "Tracking",
+			"kind": "project-view",
+			"containerId": "budget-tab",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "evm",
+			"group": "Tracking",
+			"kind": "project-view",
+			"containerId": "evm-view",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "forecast",
+			"group": "Tracking",
+			"kind": "project-view",
+			"containerId": "forecast-view",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "comms",
+			"group": "Tracking",
+			"kind": "project-view",
+			"containerId": "comms-tab",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "resources",
+			"group": "Resources",
+			"kind": "project-view",
+			"containerId": "resources-view",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "timesheet",
+			"group": "Resources",
+			"kind": "project-view",
+			"containerId": "timesheet-view",
+			"foundStatic": true,
+			"families": [
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "user-workload",
+			"group": "Resources",
+			"kind": "project-view",
+			"containerId": "user-workload-view",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"nav"
+			]
+		},
+		{
+			"name": "resource-sheet",
+			"group": "Resources",
+			"kind": "project-view",
+			"containerId": "resource-sheet-view",
+			"foundStatic": true,
+			"families": [
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "stakeholders",
+			"group": "Resources",
+			"kind": "project-view",
+			"containerId": "stakeholders-view",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"card",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "Status",
+			"group": "Portfolio",
+			"kind": "portfolio-view",
+			"containerId": "portfolioStatusView",
+			"foundStatic": true,
+			"families": []
+		},
+		{
+			"name": "Resources",
+			"group": "Portfolio",
+			"kind": "portfolio-view",
+			"containerId": "portfolioResourcesView",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"nav"
+			]
+		},
+		{
+			"name": "Timeline",
+			"group": "Portfolio",
+			"kind": "portfolio-view",
+			"containerId": "portfolioTimelineView",
+			"foundStatic": true,
+			"families": []
+		},
+		{
+			"name": "Actions",
+			"group": "Portfolio",
+			"kind": "portfolio-view",
+			"containerId": "portfolioActionsView",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"nav"
+			]
+		},
+		{
+			"name": "Risks",
+			"group": "Portfolio",
+			"kind": "portfolio-view",
+			"containerId": "portfolioRisksView",
+			"foundStatic": true,
+			"families": [
+				"nav"
+			]
+		},
+		{
+			"name": "LookAhead",
+			"group": "Portfolio",
+			"kind": "portfolio-view",
+			"containerId": "portfolioLookAheadView",
+			"foundStatic": true,
+			"families": []
+		},
+		{
+			"name": "Dependencies",
+			"group": "Portfolio",
+			"kind": "portfolio-view",
+			"containerId": "portfolioDependenciesView",
+			"foundStatic": true,
+			"families": []
+		},
+		{
+			"name": "Benefits",
+			"group": "Portfolio",
+			"kind": "portfolio-view",
+			"containerId": "portfolioBenefitsView",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"nav"
+			]
+		},
+		{
+			"name": "Lessons",
+			"group": "Portfolio",
+			"kind": "portfolio-view",
+			"containerId": "portfolioLessonsView",
+			"foundStatic": true,
+			"families": []
+		},
+		{
+			"name": "Ai Chat Panel",
+			"group": "Surface",
+			"kind": "slide-in",
+			"containerId": "aiChatPanel",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"card",
+				"input"
+			]
+		},
+		{
+			"name": "Welcome to Noodle Planner",
+			"group": "Surface",
+			"kind": "slide-in",
+			"containerId": "backMatterPanel",
+			"foundStatic": true,
+			"families": [
+				"card"
+			]
+		},
+		{
+			"name": "Collab Presence Panel",
+			"group": "Surface",
+			"kind": "slide-in",
+			"containerId": "collabPresencePanel",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"table"
+			]
+		},
+		{
+			"name": "Detail Pane",
+			"group": "Surface",
+			"kind": "slide-in",
+			"containerId": "detailPane",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"input",
+				"modal",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "Front Matter Panel",
+			"group": "Surface",
+			"kind": "slide-in",
+			"containerId": "frontMatterPanel",
+			"foundStatic": true,
+			"families": [
+				"card"
+			]
+		},
+		{
+			"name": "Start Your Project",
+			"group": "Surface",
+			"kind": "slide-in",
+			"containerId": "kanbanEditorPanel",
+			"foundStatic": true,
+			"families": [
+				"card",
+				"input"
+			]
+		},
+		{
+			"name": "New Action",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "actionFormSection",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "New Benefit Item",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "benefitsFormSection",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "New Budget Item",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "budgetFormSection",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "New Comms Item",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "commsFormSection",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "Conditional Formatting",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "conditionalFormattingSection",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "New Highlight",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "highlightFormSection",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "New Lesson Learned",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "lessonsFormSection",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "Product Details",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "productFormSection",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "Project Details Section",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "projectDetailsSection",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "New RAID Item",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "raidFormSection",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "Add/Edit Resource",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "resourceFormSection",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "Gantt Chart",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "settingsSection",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal",
+				"nav"
+			]
+		},
+		{
+			"name": "New Stakeholder",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "stakeholderFormSection",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "Task Name",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "taskFormSection",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"input",
+				"modal",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "Task Inspector",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "taskInspectorSection",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal"
+			]
+		},
+		{
+			"name": "Version History Section",
+			"group": "Surface",
+			"kind": "detail-form",
+			"containerId": "versionHistorySection",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"modal"
+			]
+		},
+		{
+			"name": "Ai Chat Overlay",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "aiChatOverlay",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"modal"
+			]
+		},
+		{
+			"name": "Provider",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "aiSettingsOverlay",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal"
+			]
+		},
+		{
+			"name": "Baseline Dialog Overlay",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "baselineDialogOverlay",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"input",
+				"modal"
+			]
+		},
+		{
+			"name": "Delete Budget Item",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "budgetDeleteConfirmOverlay",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal"
+			]
+		},
+		{
+			"name": "Collab Session Overlay",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "collabSessionOverlay",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal"
+			]
+		},
+		{
+			"name": "Delete Comms Item",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "commsDeleteConfirmOverlay",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"input",
+				"modal"
+			]
+		},
+		{
+			"name": "Detail Pane Overlay",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "detailPaneOverlay",
+			"foundStatic": true,
+			"families": [
+				"modal"
+			]
+		},
+		{
+			"name": "Import Excel File",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "excelWizardOverlay",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"card",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "Keyboard Shortcuts",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "keyboardShortcutsOverlay",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "Delete Lesson Learned",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "lessonsDeleteConfirmOverlay",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal"
+			]
+		},
+		{
+			"name": "Sync MS Project Schedule",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "mspSyncOverlay",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"input",
+				"modal"
+			]
+		},
+		{
+			"name": "Delete RAID Item",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "raidDeleteConfirmOverlay",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"input",
+				"modal"
+			]
+		},
+		{
+			"name": "Sync RAID with Excel",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "raidSyncOverlay",
+			"foundStatic": true,
+			"families": [
+				"badge",
+				"button",
+				"input",
+				"modal"
+			]
+		},
+		{
+			"name": "Keyboard Shortcuts",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "shortcutsOverlay",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "Status Message Log",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "statusLogOverlay",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal"
+			]
+		},
+		{
+			"name": "📋 Project Templates",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "templatesModalOverlay",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"card",
+				"modal",
+				"nav",
+				"table"
+			]
+		},
+		{
+			"name": "Tour Overlay",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "tourOverlay",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"modal"
+			]
+		},
+		{
+			"name": "Trend Report Overlay",
+			"group": "Surface",
+			"kind": "overlay",
+			"containerId": "trendReportOverlay",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal"
+			]
+		},
+		{
+			"name": "Wizard Step1",
+			"group": "Surface",
+			"kind": "wizard-step",
+			"containerId": "wizardStep1",
+			"foundStatic": true,
+			"families": [
+				"card",
+				"input",
+				"table"
+			]
+		},
+		{
+			"name": "Wizard Step2",
+			"group": "Surface",
+			"kind": "wizard-step",
+			"containerId": "wizardStep2",
+			"foundStatic": true,
+			"families": [
+				"card",
+				"table"
+			]
+		},
+		{
+			"name": "Wizard Step3",
+			"group": "Surface",
+			"kind": "wizard-step",
+			"containerId": "wizardStep3",
+			"foundStatic": true,
+			"families": [
+				"card",
+				"input"
+			]
+		},
+		{
+			"name": "Project Details Form",
+			"group": "Surface",
+			"kind": "form",
+			"containerId": "projectDetailsForm",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"modal",
+				"table"
+			]
+		},
+		{
+			"name": "Resource Form",
+			"group": "Surface",
+			"kind": "form",
+			"containerId": "resourceForm",
+			"foundStatic": true,
+			"families": [
+				"button",
+				"input",
+				"table"
+			]
+		},
+		{
+			"name": "Collab Chat Panel",
+			"group": "Surface",
+			"kind": "panel",
+			"containerId": "collabChatPanel",
+			"foundStatic": true,
+			"families": [
+				"card"
+			]
+		}
+	]
+}

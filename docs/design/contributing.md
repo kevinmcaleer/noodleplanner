@@ -164,6 +164,7 @@ npm run build-storybook    # static build
 | Tokens | `packages/noodle-web/src/noodle_web/static/visual-system.css` |
 | Token reference | [`tokens.md`](tokens.md) |
 | What the audit found | [`token-audit.md`](token-audit.md) |
+| Which components appear where, and how often | [`component-tagging.md`](component-tagging.md) |
 | What is left, in order | [`standardisation-backlog.md`](standardisation-backlog.md) |
 | Design-tool handoff | [`consolidation-and-handoff.md`](consolidation-and-handoff.md) |
 | Gallery spec | `static/component-gallery.js` |
