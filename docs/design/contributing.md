@@ -1,6 +1,9 @@
 # Working on NoodlePlanner's UI
 
 What CI checks, and how to decide between a token, a component and a one-off.
+For the *why* behind these rules — the migration's principles, vocabulary,
+and current status against its plan — see
+[`design-system.md`](design-system.md).
 
 Run both gates before you push — they take seconds and need no browser:
 
@@ -157,6 +160,7 @@ npm run build-storybook    # static build
 
 | | |
 |---|---|
+| Design-system charter (why, vocabulary, status) | [`design-system.md`](design-system.md) |
 | Tokens | `packages/noodle-web/src/noodle_web/static/visual-system.css` |
 | Token reference | [`tokens.md`](tokens.md) |
 | What the audit found | [`token-audit.md`](token-audit.md) |
