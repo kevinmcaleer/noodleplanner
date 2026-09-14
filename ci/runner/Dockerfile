@@ -1,5 +1,5 @@
 # A self-hosted GitHub Actions runner with everything NoodlePlanner's CI jobs
-# need: uv + Python 3.12, Node 22, and a Chromium the browser suites can drive.
+# need: uv + Python 3.12, Node 24, and a Chromium the browser suites can drive.
 #
 # Why a container rather than the runner installed on the host: the host also
 # runs production (the root docker-compose.yml bind-mounts ./packages and
@@ -33,8 +33,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       fonts-dejavu-core fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
-# Node 22 -- the version the workflows pinned and package.json's test:js expects.
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+# Node 24 -- matches .github/actions/setup and package.json's engines floor.
+# The floor is 24 because pdfjs-dist@6.3.289 requires >=22.13.0 || >=24 and
+# @projectwallace/css-design-tokens requires >=22; 24 is the current LTS, so it
+# clears both without needing another bump when either moves again.
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 

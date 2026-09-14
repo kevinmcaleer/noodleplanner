@@ -104,7 +104,7 @@ ci_setup_python() {
 # marker and only reinstall when it is genuinely stale.
 ci_setup_node() {
   [ "${CI_NO_SETUP:-}" = "1" ] && return 0
-  ci_have npm || ci_die "npm is not installed -- Node 22 or newer is expected"
+  ci_have npm || ci_die "npm is not installed -- Node 24 or newer is expected"
 
   local marker=node_modules/.package-lock.json
   if [ -f "$marker" ] && [ ! package-lock.json -nt "$marker" ]; then
