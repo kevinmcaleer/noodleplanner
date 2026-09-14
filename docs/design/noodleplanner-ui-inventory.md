@@ -1,7 +1,8 @@
 # NoodlePlanner — UI Inventory
 
 Map of every screen, panel and dialog in the app, and the components on each.
-Companion to `noodleplanner-design-system.md`.
+Companion to [`design-system.md`](design-system.md), which this fulfils as
+the UI inventory's pass 2 (§5).
 
 **Status:** Pass 1 complete, Pass 2 complete (audited 14 Sep 2026 against
 `templates/index.html` and the `static/*.js` render modules).
