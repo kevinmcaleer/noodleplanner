@@ -252,6 +252,93 @@ export const GALLERY = [
                     '</div></div>',
             },
             {
+                name: 'Timeline, detailed (Detailed toggle on)',
+                html:
+                    '<div class="report-timeline-wrapper" style="position:relative;">' +
+                    '<div class="detailed-timeline-container" style="width:280px;height:32px;margin:0 auto 12px auto;">' +
+                    '<svg width="280" height="32" class="detailed-timeline-svg">' +
+                    '<rect x="0" y="0" width="128" height="28" rx="3" ry="3" fill="#4caf50" opacity="0.9"></rect>' +
+                    '<text x="6" y="16" dominant-baseline="central" font-size="12px" fill="#fff" font-weight="600">✓ Discovery &amp; design</text>' +
+                    '<rect x="134" y="0" width="146" height="28" rx="3" ry="3" fill="#1976d2" opacity="0.7"></rect>' +
+                    '<rect x="134" y="0" width="76" height="28" rx="3" ry="3" fill="#0d47a1" opacity="0.9"></rect>' +
+                    '<text x="140" y="16" dominant-baseline="central" font-size="12px" fill="#fff" font-weight="600">Build &amp; rollout</text>' +
+                    '</svg></div>' +
+                    '<div class="timeline-line-wrapper" style="position:relative;width:280px;">' +
+                    '<div class="timeline-line" style="width:280px;height:6px;background:#eee;position:relative;">' +
+                    '<div class="timeline-progress" style="width:63%;"></div>' +
+                    '<div class="timeline-date-label timeline-start-date">2026-06-01</div>' +
+                    '<div class="timeline-date-label timeline-end-date">2026-11-20</div>' +
+                    '<div class="timeline-scale"><div class="timeline-scale-marker" style="left:134px;">' +
+                    '<div class="timeline-scale-tick"></div><div class="timeline-scale-label">15 aug</div></div></div>' +
+                    '<div class="timeline-today-marker" style="left:154px;"><div class="timeline-today-label">Today</div></div>' +
+                    '</div>' +
+                    '<div class="timeline-milestones" style="position:absolute;top:0;left:0;width:280px;">' +
+                    '<div class="timeline-milestone" style="left:128px;"><div class="timeline-circle">' +
+                    '<svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#28a745" stroke="#fff" stroke-width="1"></circle>' +
+                    '<path d="M6 10 L9 13 L14 7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>' +
+                    '<div class="timeline-milestone-label" style="top:75px;"><div class="milestone-name">Design sign-off</div>' +
+                    '<div class="milestone-date">2026-07-10</div></div></div>' +
+                    '<div class="timeline-milestone" style="left:268px;"><div class="timeline-circle">' +
+                    '<svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#333" stroke="#fff" stroke-width="1"></circle></svg></div>' +
+                    '<div class="timeline-milestone-label" style="top:75px;"><div class="milestone-name">Go live</div>' +
+                    '<div class="milestone-date">2026-11-20</div></div></div>' +
+                    '</div></div></div>',
+            },
+            {
+                name: 'Timeline, phases shown (Show Phases toggle on)',
+                html:
+                    '<div class="report-timeline-wrapper" style="position:relative;padding-top:100px;">' +
+                    '<div class="timeline-line-wrapper" style="position:relative;width:280px;">' +
+                    '<div class="timeline-line" style="width:280px;height:6px;background:#eee;position:relative;">' +
+                    '<div class="timeline-progress" style="width:63%;"></div>' +
+                    '<div class="timeline-date-label timeline-start-date">2026-06-01</div>' +
+                    '<div class="timeline-date-label timeline-end-date">2026-11-20</div>' +
+                    '<div class="timeline-scale"><div class="timeline-scale-marker" style="left:134px;">' +
+                    '<div class="timeline-scale-tick"></div><div class="timeline-scale-label">15 aug</div></div></div>' +
+                    '<div class="timeline-today-marker" style="left:154px;"><div class="timeline-today-label">Today</div></div>' +
+                    '</div>' +
+                    '<div class="timeline-milestones" style="position:absolute;top:0;left:0;width:280px;">' +
+                    '<div class="timeline-milestone" style="left:128px;">' +
+                    '<div class="timeline-connector" style="height:50px;bottom:10px;"></div>' +
+                    '<div class="timeline-diamond phase-diamond"></div>' +
+                    '<div class="timeline-milestone-label" style="bottom:70px;"><div class="milestone-name">Discovery &amp; design</div>' +
+                    '<div class="milestone-date">2026-07-10</div></div></div>' +
+                    '<div class="timeline-milestone" style="left:128px;"><div class="timeline-circle">' +
+                    '<svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#28a745" stroke="#fff" stroke-width="1"></circle>' +
+                    '<path d="M6 10 L9 13 L14 7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>' +
+                    '<div class="timeline-milestone-label"><div class="milestone-name">Design sign-off</div>' +
+                    '<div class="milestone-date">2026-07-10</div></div></div>' +
+                    '<div class="timeline-milestone" style="left:268px;"><div class="timeline-circle">' +
+                    '<svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#333" stroke="#fff" stroke-width="1"></circle></svg></div>' +
+                    '<div class="timeline-milestone-label"><div class="milestone-name">Go live</div>' +
+                    '<div class="milestone-date">2026-11-20</div></div></div>' +
+                    '</div></div></div>',
+            },
+            {
+                name: 'Timeline, today marker hidden (Today toggle off)',
+                html:
+                    '<div class="report-timeline-wrapper" style="position:relative;padding-top:50px;">' +
+                    '<div class="timeline-line-wrapper" style="position:relative;width:280px;">' +
+                    '<div class="timeline-line" style="width:280px;height:6px;background:#eee;position:relative;">' +
+                    '<div class="timeline-progress" style="width:63%;"></div>' +
+                    '<div class="timeline-date-label timeline-start-date">2026-06-01</div>' +
+                    '<div class="timeline-date-label timeline-end-date">2026-11-20</div>' +
+                    '<div class="timeline-scale"><div class="timeline-scale-marker" style="left:134px;">' +
+                    '<div class="timeline-scale-tick"></div><div class="timeline-scale-label">15 aug</div></div></div>' +
+                    '</div>' +
+                    '<div class="timeline-milestones" style="position:absolute;top:0;left:0;width:280px;">' +
+                    '<div class="timeline-milestone" style="left:128px;"><div class="timeline-circle">' +
+                    '<svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#28a745" stroke="#fff" stroke-width="1"></circle>' +
+                    '<path d="M6 10 L9 13 L14 7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>' +
+                    '<div class="timeline-milestone-label"><div class="milestone-name">Design sign-off</div>' +
+                    '<div class="milestone-date">2026-07-10</div></div></div>' +
+                    '<div class="timeline-milestone" style="left:268px;"><div class="timeline-circle">' +
+                    '<svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#333" stroke="#fff" stroke-width="1"></circle></svg></div>' +
+                    '<div class="timeline-milestone-label"><div class="milestone-name">Go live</div>' +
+                    '<div class="milestone-date">2026-11-20</div></div></div>' +
+                    '</div></div></div>',
+            },
+            {
                 name: 'Task completion',
                 html:
                     '<div class="donut-chart-container">' +
@@ -360,6 +447,105 @@ export const GALLERY = [
                     '<tr><td>Circulate updated RAID log to steering group</td><td>Katie Fox</td>' +
                     '<td><span class="actions-priority-badge actions-priority-medium">medium</span></td><td>2026-09-22</td></tr>' +
                     '</tbody></table></div>',
+            },
+        ],
+    },
+    {
+        id: 'tasks',
+        title: 'Tasks table',
+        note:
+            'The Tasks view (#tasks-view) and the left-hand panel of the Gantt view both render this ' +
+            'same `.gantt-info-table` markup (updateTasksTable() in views-tables.js) — Gantt just adds ' +
+            'the chart panel shown in the Gantt section below. Columns trimmed to the load-bearing ones ' +
+            'for gallery width; the real table has 16, including a drag handle, a done piechart, ' +
+            'Resources, Effort, Priority, Bucket, Comment and Predecessors.',
+        variants: [
+            {
+                name: 'Task rows',
+                html:
+                    '<div style="overflow-x:auto;max-width:100%;">' +
+                    '<table class="gantt-info-table tasks-table">' +
+                    '<thead><tr><th>ID</th><th>Task Name</th><th>Duration</th><th>Start</th><th>Finish</th>' +
+                    '<th>%</th><th>RAG</th><th>Float</th></tr></thead>' +
+                    '<tbody>' +
+                    '<tr class="gantt-phase-row"><td>1</td>' +
+                    '<td class="task-name-cell"><span class="task-name-text">Discovery &amp; design</span></td>' +
+                    '<td>30d</td><td>2026-06-01</td><td>2026-07-10</td><td>100%</td>' +
+                    '<td class="gantt-rag-cell"><span class="gantt-rag-dot rag-green"></span></td>' +
+                    '<td class="gantt-float-cell">0d</td></tr>' +
+                    '<tr><td>2</td>' +
+                    '<td class="task-name-cell"><span class="task-name-text">&nbsp;&nbsp;Wireframes</span></td>' +
+                    '<td>10d</td><td>2026-06-01</td><td>2026-06-12</td><td>100%</td>' +
+                    '<td class="gantt-rag-cell"><span class="gantt-rag-dot rag-green"></span></td>' +
+                    '<td class="gantt-float-cell">0d</td></tr>' +
+                    '<tr><td>3</td>' +
+                    '<td class="task-name-cell"><span class="task-name-text">&nbsp;&nbsp;Stakeholder sign-off</span></td>' +
+                    '<td>0d</td><td>2026-07-10</td><td>2026-07-10</td><td>100%</td>' +
+                    '<td class="gantt-rag-cell"><span class="gantt-rag-dot rag-green"></span></td>' +
+                    '<td class="gantt-float-cell">0d</td></tr>' +
+                    '<tr><td>4</td>' +
+                    '<td class="task-name-cell"><span class="task-name-text">&nbsp;&nbsp;Build integration</span></td>' +
+                    '<td>20d</td><td>2026-07-15</td><td>2026-08-12</td><td>40%</td>' +
+                    '<td class="gantt-rag-cell"><span class="gantt-rag-dot rag-red"></span></td>' +
+                    '<td class="gantt-float-cell gantt-critical-float">0d</td></tr>' +
+                    '</tbody></table></div>',
+            },
+        ],
+    },
+    {
+        id: 'gantt',
+        title: 'Gantt chart',
+        note:
+            'The Gantt view (#gantt-view) is the Tasks table (above) plus this chart panel ' +
+            '(`static/views-gantt.js`), split by a draggable `.gantt-splitter`. Dependencies ' +
+            '(#ganttShowDependencies), critical path (#ganttShowCriticalPath) and baseline ' +
+            '(#ganttShowBaseline) are three independent toggles in the Gantt toolbar — each variant ' +
+            'below isolates one against the same three rows (one phase, two tasks).',
+        variants: [
+            {
+                name: 'Bars',
+                html:
+                    '<div style="overflow-x:auto;max-width:100%;"><div style="width:320px;">' +
+                    '<div class="gantt-bar-row"><div class="gantt-bar gantt-phase-bar" style="left:0;width:140px;"></div></div>' +
+                    '<div class="gantt-bar-row"><div class="gantt-bar gantt-task-bar" style="left:0;width:70px;"></div></div>' +
+                    '<div class="gantt-bar-row"><div class="gantt-bar gantt-task-bar gantt-bar-amber" style="left:150px;width:120px;"></div></div>' +
+                    '</div></div>',
+            },
+            {
+                name: 'Dependencies shown (Show Dependencies toggle on)',
+                html:
+                    '<div style="overflow-x:auto;max-width:100%;"><div style="width:320px;position:relative;">' +
+                    '<div class="gantt-bar-row"><div class="gantt-bar gantt-phase-bar" style="left:0;width:140px;"></div></div>' +
+                    '<div class="gantt-bar-row"><div class="gantt-bar gantt-task-bar" style="left:0;width:70px;"></div></div>' +
+                    '<div class="gantt-bar-row"><div class="gantt-bar gantt-task-bar gantt-bar-amber" style="left:150px;width:120px;"></div></div>' +
+                    '<svg width="320" height="120" style="position:absolute;top:0;left:0;pointer-events:none;">' +
+                    '<path d="M 70 60 L 110 60 L 110 100 L 145 100" fill="none" stroke="#adb5bd" stroke-width="1.5" stroke-dasharray="4,3"></path>' +
+                    '<polygon points="150,100 145,95 145,105" fill="#adb5bd"></polygon>' +
+                    '</svg></div></div>',
+            },
+            {
+                name: 'Critical path shown (Critical Path toggle on)',
+                html:
+                    '<div style="overflow-x:auto;max-width:100%;"><div style="width:320px;position:relative;">' +
+                    '<div class="gantt-bar-row"><div class="gantt-bar gantt-phase-bar" style="left:0;width:140px;"></div></div>' +
+                    '<div class="gantt-bar-row"><div class="gantt-bar gantt-task-bar" style="left:0;width:70px;"></div></div>' +
+                    '<div class="gantt-bar-row gantt-critical-row"><div class="gantt-bar gantt-task-bar gantt-critical-bar" style="left:150px;width:120px;">' +
+                    '<div class="gantt-float-bar" style="left:120px;right:auto;width:20px;"></div></div></div>' +
+                    '<svg width="320" height="120" style="position:absolute;top:0;left:0;pointer-events:none;">' +
+                    '<path d="M 70 60 L 110 60 L 110 100 L 145 100" fill="none" stroke="#d32f2f" stroke-width="2"></path>' +
+                    '<polygon points="150,100 145,95 145,105" fill="#d32f2f"></polygon>' +
+                    '</svg></div></div>',
+            },
+            {
+                name: 'Baseline shown (Show Baseline toggle on)',
+                html:
+                    '<div style="overflow-x:auto;max-width:100%;"><div style="width:320px;">' +
+                    '<div class="gantt-bar-row"><div class="gantt-bar gantt-phase-bar" style="left:0;width:140px;"></div></div>' +
+                    '<div class="gantt-bar-row"><div class="gantt-bar gantt-task-bar" style="left:0;width:70px;"></div>' +
+                    '<div class="gantt-bar gantt-baseline-bar" style="left:0;width:70px;"></div></div>' +
+                    '<div class="gantt-bar-row"><div class="gantt-bar gantt-task-bar gantt-bar-amber" style="left:150px;width:120px;"></div>' +
+                    '<div class="gantt-bar gantt-baseline-bar" style="left:150px;width:90px;"></div></div>' +
+                    '</div></div>',
             },
         ],
     },
