@@ -836,35 +836,10 @@
     font-weight: 600;
 }
 
-/* Empty State */
-.kanban-empty-state {
-    text-align: center;
-    padding: 80px 40px;
-    color: #adb5bd;
-    max-width: 500px;
-    margin: 0 auto;
-}
-
-.kanban-empty-state h3 {
-    color: #495057;
-    margin-bottom: var(--np-space-12);
-    font-size: 1.5em;
-}
-
-.kanban-empty-state p {
-    font-size: 14px;
-    margin: 0 0 var(--np-space-20) 0;
-    color: var(--np-muted);
-}
-
-.kanban-empty-actions {
-    display: flex;
-    gap: var(--np-space-16);
-    justify-content: center;
-    margin-top: var(--np-space-20);
-}
-
-.kanban-empty-actions button {
+/* Empty State: the "Start Your Project" empty state is a shared
+   <np-empty-state> (kanban.js's renderEmptyState()); only its slotted
+   action buttons need a local rule. */
+.kanban-board np-empty-state button[slot="actions"] {
     min-width: 150px;
 }
 

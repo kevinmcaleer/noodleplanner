@@ -1331,14 +1331,17 @@ class KanbanBoard {
      * Render empty state with helpful actions
      */
     renderEmptyState(container) {
-        const emptyStateEl = document.createElement('div');
-        emptyStateEl.className = 'kanban-empty-state';
+        if (this.viewMode === 'progress') {
+            // For progress view, show the 3 columns even when empty
+            this.renderProgressColumnsEmpty(container);
+            return;
+        }
+
+        const emptyStateEl = document.createElement('np-empty-state');
+        emptyStateEl.setAttribute('variant', 'card');
+        emptyStateEl.setAttribute('heading', 'Start Your Project');
         emptyStateEl.setAttribute('role', 'status');
         emptyStateEl.setAttribute('aria-live', 'polite');
-
-        const titleEl = document.createElement('h3');
-        titleEl.textContent = 'Start Your Project';
-        emptyStateEl.appendChild(titleEl);
 
         const descEl = document.createElement('p');
 
@@ -1346,8 +1349,6 @@ class KanbanBoard {
             descEl.textContent = 'Your plan is empty. Get started by adding phases and tasks.';
         } else if (this.viewMode === 'resource') {
             descEl.textContent = 'Your plan is empty. Get started by adding resources and tasks.';
-        } else if (this.viewMode === 'progress') {
-            descEl.textContent = 'Your plan is empty. Get started by adding tasks.';
         } else if (this.viewMode === 'label') {
             descEl.textContent = 'Your plan is empty. Get started by adding labels and tasks.';
         } else if (this.viewMode === 'bucket') {
@@ -1356,59 +1357,57 @@ class KanbanBoard {
 
         emptyStateEl.appendChild(descEl);
 
-        const actionsEl = document.createElement('div');
-        actionsEl.className = 'kanban-empty-actions';
-
         // Add buttons based on view mode
         if (this.viewMode === 'phase') {
             const addPhaseBtn = document.createElement('button');
+            addPhaseBtn.slot = 'actions';
             addPhaseBtn.className = 'btn-primary';
             addPhaseBtn.textContent = '+ Add Phase';
             addPhaseBtn.setAttribute('aria-label', 'Add first phase');
             addPhaseBtn.addEventListener('click', () => this.addNewPhase());
-            actionsEl.appendChild(addPhaseBtn);
+            emptyStateEl.appendChild(addPhaseBtn);
 
             const addTaskBtn = document.createElement('button');
+            addTaskBtn.slot = 'actions';
             addTaskBtn.className = 'btn-secondary';
             addTaskBtn.textContent = '+ Add Task';
             addTaskBtn.setAttribute('aria-label', 'Add first task');
             addTaskBtn.addEventListener('click', () => this.addFirstTask());
-            actionsEl.appendChild(addTaskBtn);
+            emptyStateEl.appendChild(addTaskBtn);
         } else if (this.viewMode === 'resource') {
             const addResourceBtn = document.createElement('button');
+            addResourceBtn.slot = 'actions';
             addResourceBtn.className = 'btn-primary';
             addResourceBtn.textContent = '+ Add Resource';
             addResourceBtn.setAttribute('aria-label', 'Add first resource');
             addResourceBtn.addEventListener('click', () => this.addNewResource());
-            actionsEl.appendChild(addResourceBtn);
+            emptyStateEl.appendChild(addResourceBtn);
 
             const addTaskBtn = document.createElement('button');
+            addTaskBtn.slot = 'actions';
             addTaskBtn.className = 'btn-secondary';
             addTaskBtn.textContent = '+ Add Task';
             addTaskBtn.setAttribute('aria-label', 'Add first task');
             addTaskBtn.addEventListener('click', () => this.addFirstTask());
-            actionsEl.appendChild(addTaskBtn);
+            emptyStateEl.appendChild(addTaskBtn);
         } else if (this.viewMode === 'label') {
             const addLabelBtn = document.createElement('button');
+            addLabelBtn.slot = 'actions';
             addLabelBtn.className = 'btn-primary';
             addLabelBtn.textContent = '+ Add Label';
             addLabelBtn.setAttribute('aria-label', 'Add first label');
             addLabelBtn.addEventListener('click', () => this.addNewLabel());
-            actionsEl.appendChild(addLabelBtn);
+            emptyStateEl.appendChild(addLabelBtn);
 
             const addTaskBtn = document.createElement('button');
+            addTaskBtn.slot = 'actions';
             addTaskBtn.className = 'btn-secondary';
             addTaskBtn.textContent = '+ Add Task';
             addTaskBtn.setAttribute('aria-label', 'Add first task');
             addTaskBtn.addEventListener('click', () => this.addFirstTask());
-            actionsEl.appendChild(addTaskBtn);
-        } else if (this.viewMode === 'progress') {
-            // For progress view, show the 3 columns even when empty
-            this.renderProgressColumnsEmpty(container);
-            return;
+            emptyStateEl.appendChild(addTaskBtn);
         }
 
-        emptyStateEl.appendChild(actionsEl);
         container.appendChild(emptyStateEl);
     }
 

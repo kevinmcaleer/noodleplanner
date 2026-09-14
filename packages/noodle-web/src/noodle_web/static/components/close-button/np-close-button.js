@@ -43,6 +43,7 @@ TEMPLATE.innerHTML = `
   <style>
     :host {
       display: inline-block;
+      flex-shrink: 0;
       font-family: var(--np-font-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
     }
     :host([hidden]) { display: none; }

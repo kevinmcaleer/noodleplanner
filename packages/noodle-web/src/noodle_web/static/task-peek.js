@@ -328,12 +328,9 @@ function tpBuildHeader(level) {
     });
     header.appendChild(openBtn);
 
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'task-peek-close-btn';
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.innerHTML = '&times;';
-    closeBtn.addEventListener('click', (e) => {
+    const closeBtn = document.createElement('np-close-button');
+    closeBtn.setAttribute('size', 'small');
+    closeBtn.addEventListener('close', (e) => {
         e.stopPropagation();
         tpCloseAndRefocus();
     });

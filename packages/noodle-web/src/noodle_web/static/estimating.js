@@ -296,7 +296,7 @@
         dialog.innerHTML = `
             <div class="estimate-popup-header">
                 <span>Estimate: ${escapeEstimateHtml(taskName)}</span>
-                <button type="button" class="estimate-popup-close" aria-label="Close">×</button>
+                <np-close-button flat></np-close-button>
             </div>
             <div class="estimate-popup-mode-tabs">
                 <button type="button" class="estimate-mode-btn" data-mode="duration">Three-point</button>
@@ -370,7 +370,7 @@
         });
 
         function close() { overlay.remove(); }
-        dialog.querySelector('.estimate-popup-close').addEventListener('click', close);
+        dialog.querySelector('np-close-button').addEventListener('close', close);
         dialog.querySelector('.estimate-popup-cancel').addEventListener('click', close);
         overlay.addEventListener('click', (event) => { if (event.target === overlay) close(); });
 

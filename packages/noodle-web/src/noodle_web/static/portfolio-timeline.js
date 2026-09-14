@@ -27,10 +27,9 @@ async function renderPortfolioTimeline(preParsed) {
         const parsedProjects = preParsed || await parseAllProjects();
 
         if (parsedProjects.length === 0) {
-            container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Projects</h3>' +
+            container.innerHTML = '<np-empty-state variant="card" heading="No Projects">' +
                 '<p>Create projects to see their timeline.</p>' +
-                '</div>';
+                '</np-empty-state>';
             return;
         }
 
@@ -89,11 +88,10 @@ async function renderPortfolioTimeline(preParsed) {
         });
 
         if (timelines.length === 0) {
-            container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Timeline Data</h3>' +
+            container.innerHTML = '<np-empty-state variant="card" heading="No Timeline Data">' +
                 '<p>Add tasks with dates or durations to your project plans to see the timeline.</p>' +
                 '<p>The backend scheduler computes dates from <code>@resource 5d</code> notation automatically.</p>' +
-                '</div>';
+                '</np-empty-state>';
             return;
         }
 
@@ -148,10 +146,9 @@ async function renderPortfolioTimeline(preParsed) {
 
     } catch (error) {
         console.error('Error rendering portfolio timeline:', error);
-        container.innerHTML = '<div class="portfolio-empty-state">' +
-            '<h3>Error Loading Timeline</h3>' +
+        container.innerHTML = '<np-empty-state variant="card" heading="Error Loading Timeline">' +
             '<p>Failed to load timeline data. Please try again.</p>' +
-            '</div>';
+            '</np-empty-state>';
     }
 }
 

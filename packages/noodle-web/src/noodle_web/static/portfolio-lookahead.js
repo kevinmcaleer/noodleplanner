@@ -268,10 +268,9 @@ async function renderPortfolioLookAhead() {
         const parsedProjects = await parseAllProjects();
 
         if (parsedProjects.length === 0) {
-            container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Projects</h3>' +
+            container.innerHTML = '<np-empty-state variant="card" heading="No Projects">' +
                 '<p>Create projects to see look-ahead tasks here.</p>' +
-                '</div>';
+                '</np-empty-state>';
             return;
         }
 
@@ -419,20 +418,18 @@ async function renderPortfolioLookAhead() {
 
         // Empty state if no tasks at all
         if (overdue.length === 0 && upcoming.length === 0) {
-            html += '<div class="portfolio-empty-state">' +
-                '<h3>No Tasks</h3>' +
+            html += '<np-empty-state variant="card" heading="No Tasks">' +
                 '<p>No overdue or upcoming tasks found in the next 2 weeks across any projects.</p>' +
-                '</div>';
+                '</np-empty-state>';
         }
 
         container.innerHTML = html;
 
     } catch (error) {
         console.error('Error rendering portfolio look-ahead:', error);
-        container.innerHTML = '<div class="portfolio-empty-state">' +
-            '<h3>Error Loading Look-Ahead</h3>' +
+        container.innerHTML = '<np-empty-state variant="card" heading="Error Loading Look-Ahead">' +
             '<p>Failed to load task data. Please try again.</p>' +
-            '</div>';
+            '</np-empty-state>';
     }
 }
 

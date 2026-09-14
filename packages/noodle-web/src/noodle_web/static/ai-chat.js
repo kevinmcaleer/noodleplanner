@@ -44,6 +44,10 @@ function closeAIChat() {
     aiChatOpen = false;
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('aiChatCloseBtn')?.addEventListener('close', closeAIChat);
+});
+
 function toggleAIChat() {
     if (aiChatOpen) {
         closeAIChat();

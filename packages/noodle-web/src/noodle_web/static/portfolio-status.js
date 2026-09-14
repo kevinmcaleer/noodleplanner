@@ -312,10 +312,9 @@ async function renderPortfolioStatus() {
         const parsedProjects = await parseAllProjects();
 
         if (parsedProjects.length === 0) {
-            container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Projects</h3>' +
+            container.innerHTML = '<np-empty-state variant="card" heading="No Projects">' +
                 '<p>Create projects to see their status here.</p>' +
-                '</div>';
+                '</np-empty-state>';
             return;
         }
 
@@ -433,10 +432,9 @@ async function renderPortfolioStatus() {
 
     } catch (error) {
         console.error('Error rendering portfolio status:', error);
-        container.innerHTML = '<div class="portfolio-empty-state">' +
-            '<h3>Error Loading Status</h3>' +
+        container.innerHTML = '<np-empty-state variant="card" heading="Error Loading Status">' +
             '<p>Failed to load project status. Please try again.</p>' +
-            '</div>';
+            '</np-empty-state>';
     }
 }
 

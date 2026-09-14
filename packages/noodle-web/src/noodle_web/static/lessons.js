@@ -517,12 +517,12 @@ function renderLessonsTable() {
     tbody.innerHTML = '';
 
     if (lessonsItems.length === 0) {
-        emptyState.style.display = 'block';
+        emptyState.hidden = false;
         table.style.display = 'none';
         return;
     }
 
-    emptyState.style.display = 'none';
+    emptyState.hidden = true;
     table.style.display = 'table';
 
     const escapeHtml = (s) => String(s || '')
