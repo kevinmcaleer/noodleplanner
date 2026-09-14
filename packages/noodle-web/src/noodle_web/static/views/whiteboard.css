@@ -1269,27 +1269,6 @@ body.wb-note-drag-active * {
     color: var(--np-text);
 }
 
-.wb-add-note-close {
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--np-text-secondary);
-    font-size: 18px;
-    line-height: 1;
-    cursor: pointer;
-}
-
-.wb-add-note-close:hover,
-.wb-add-note-close:focus-visible {
-    background: var(--np-bg-hover);
-    color: var(--np-text);
-}
-
 .wb-add-note-search {
     margin: var(--np-space-12) var(--np-space-16) var(--np-space-8);
     padding: var(--np-space-8) var(--np-space-12);

@@ -142,7 +142,7 @@
         dialog.innerHTML = `
             <div class="card-popup-header">
                 <span>Snippets</span>
-                <button type="button" class="card-popup-close" aria-label="Close">×</button>
+                <np-close-button flat></np-close-button>
             </div>
             <div class="card-popup-body">
                 <div class="card-save-section">
@@ -166,7 +166,7 @@
         document.body.appendChild(overlay);
 
         function close() { overlay.remove(); }
-        dialog.querySelector('.card-popup-close').addEventListener('click', close);
+        dialog.querySelector('np-close-button').addEventListener('close', close);
         dialog.querySelector('.card-popup-cancel').addEventListener('click', close);
         overlay.addEventListener('click', (event) => { if (event.target === overlay) close(); });
 

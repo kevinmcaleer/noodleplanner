@@ -31,15 +31,6 @@
     border-bottom: 1px solid var(--np-border);
 }
 
-.card-popup-close {
-    border: none;
-    background: transparent;
-    font-size: 20px;
-    line-height: 1;
-    cursor: pointer;
-    color: var(--np-text-secondary);
-}
-
 .card-popup-body {
     padding: var(--np-space-16) var(--np-space-16);
     overflow-y: auto;

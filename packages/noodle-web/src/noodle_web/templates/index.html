@@ -4442,8 +4442,9 @@ Build
     <script src="/static/date-detect.js?v={{ v }}"></script>
     <script src="/static/smart-date-tags.js?v={{ v }}"></script>
 
-    <!-- Reskinning components (#1187) -- used by the Task Inspector header below -->
+    <!-- Reskinning components (#1187) -->
     <script type="module" src="/static/components/panel-header/np-panel-header.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/close-button/np-close-button.js?v={{ v }}"></script>
 
     <!-- Collab Session Modal (#963) -->
     <div id="collabSessionOverlay" class="modal-overlay" onclick="if(event.target===this) closeCollabSessionModal()" role="dialog" aria-modal="true" aria-label="Planning session">
@@ -4556,9 +4557,7 @@ Build
             <button class="ai-chat-header-btn" onclick="openAISettingsModal()" aria-label="AI Settings" title="AI Settings">
                 <i class="bi bi-gear" aria-hidden="true"></i>
             </button>
-            <button class="ai-chat-header-btn" onclick="closeAIChat()" aria-label="Close AI Chat" title="Close">
-                <i class="bi bi-x-lg" aria-hidden="true"></i>
-            </button>
+            <np-close-button id="aiChatCloseBtn" label="Close AI Chat"></np-close-button>
         </div>
         <div class="ai-agent-selector" id="aiAgentSelector" role="toolbar" aria-label="Select AI Agent"></div>
         <div class="ai-chat-messages" id="aiChatMessages" aria-live="polite"></div>

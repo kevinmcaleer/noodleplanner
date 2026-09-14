@@ -5006,12 +5006,8 @@ function wbOpenAddNotePicker() {
     title.id = 'wbAddNoteTitle';
     title.className = 'wb-add-note-title';
     title.textContent = 'Add notes to whiteboard';
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'wb-add-note-close';
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.textContent = '×';
-    closeBtn.addEventListener('click', () => wbCloseAddNotePicker());
+    const closeBtn = document.createElement('np-close-button');
+    closeBtn.addEventListener('close', () => wbCloseAddNotePicker());
     header.appendChild(title);
     header.appendChild(closeBtn);
 
@@ -6464,12 +6460,8 @@ function wbOpenParkingLotPanel() {
     title.id = 'wbParkingLotTitle';
     title.className = 'wb-add-note-title';
     title.textContent = 'Parking lot';
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'wb-add-note-close';
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.textContent = '×';
-    closeBtn.addEventListener('click', () => wbCloseParkingLotPanel());
+    const closeBtn = document.createElement('np-close-button');
+    closeBtn.addEventListener('close', () => wbCloseParkingLotPanel());
     header.appendChild(title);
     header.appendChild(closeBtn);
 

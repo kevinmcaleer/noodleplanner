@@ -407,12 +407,13 @@ async function renderPortfolioResources() {
         // Resource details modal placeholder
         html += '<div id="resourceDetailsModal" class="resource-details-modal" style="display: none;">' +
             '<div class="resource-details-content">' +
-            '<span class="close-btn" onclick="closeResourceDetails()">&times;</span>' +
+            '<np-close-button id="resourceDetailsCloseBtn" style="position:absolute;right:20px;top:20px;"></np-close-button>' +
             '<div id="resourceDetailsBody"></div>' +
             '</div>' +
             '</div>';
 
         container.innerHTML = html;
+        document.getElementById('resourceDetailsCloseBtn')?.addEventListener('close', closeResourceDetails);
 
         // Store data for sorting and details
         window.portfolioResourcesData = resources;
