@@ -1167,36 +1167,8 @@ body.wb-note-drag-active * {
     display: none;
 }
 
-.wb-empty-state-inner {
+.wb-empty-state np-empty-state {
     pointer-events: auto;
-    max-width: 380px;
-    text-align: center;
-    background: var(--np-surface);
-    border: 1px solid var(--np-border);
-    border-radius: 12px;
-    box-shadow: 0 6px 20px var(--np-shadow);
-    padding: 28px 24px;
-}
-
-.wb-empty-state-title {
-    margin: 0 0 var(--np-space-8);
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--np-text);
-}
-
-.wb-empty-state-body {
-    margin: 0 0 var(--np-space-20);
-    font-size: 13px;
-    line-height: 1.5;
-    color: var(--np-text-secondary);
-}
-
-.wb-empty-state-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--np-space-8);
-    justify-content: center;
 }
 
 .wb-empty-state-btn {
@@ -2396,7 +2368,7 @@ body.wb-linking * {
 }
 
 .wb-toolbar-hint kbd,
-.wb-empty-state-body kbd {
+.wb-empty-state kbd {
     display: inline-block;
     padding: 0 var(--np-space-4);
     border: 1px solid var(--np-border);

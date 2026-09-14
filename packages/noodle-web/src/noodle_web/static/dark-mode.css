@@ -799,14 +799,6 @@ body {
     color: var(--np-text-muted);
 }
 
-[data-theme="dark"] .kanban-empty-state h3 {
-    color: var(--np-text);
-}
-
-[data-theme="dark"] .kanban-empty-state p {
-    color: var(--np-text-secondary);
-}
-
 /* Kanban card metadata badges */
 [data-theme="dark"] .kanban-meta-duration {
     background: #1a2e4a;
