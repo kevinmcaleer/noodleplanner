@@ -237,6 +237,13 @@ what moved. `<np-button>`'s `neutral` tone and `outline` modifier (added in
 worked example of what picking those roles looks like, still scoped to
 Storybook rather than the live app.
 
+[`noodleplanner-ui-inventory.md`](noodleplanner-ui-inventory.md)'s per-screen
+build-order tally adds one more role those three should account for: it
+tracks **Close button** as its own component, on 36 of 93 screens — more
+than any single button-hierarchy variant — because it's a dismiss action
+inside a panel or dialog header, not a point on the primary–secondary–
+tertiary scale.
+
 3.4 and 3.5 share one source of truth — `static/component-gallery.js`, rendered
 by `/components` and by Storybook. Two hand-maintained galleries drift, and the
 second one to drift is the one nobody notices.

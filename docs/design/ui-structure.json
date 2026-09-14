@@ -78,6 +78,15 @@
 				"label": "Ai Chat Panel"
 			},
 			{
+				"id": "backMatterPanel",
+				"kind": "slide-in",
+				"tag": "div",
+				"classes": [
+					"fm-panel"
+				],
+				"label": "Welcome to Noodle Planner"
+			},
+			{
 				"id": "collabPresencePanel",
 				"kind": "slide-in",
 				"tag": "div",
@@ -100,7 +109,7 @@
 				"classes": [
 					"fm-panel"
 				],
-				"label": "Welcome to Noodle Planner"
+				"label": "Front Matter Panel"
 			},
 			{
 				"id": "kanbanEditorPanel",
@@ -470,17 +479,27 @@
 				"label": "Resource Form"
 			}
 		],
-		"panels": []
+		"panels": [
+			{
+				"id": "collabChatPanel",
+				"kind": "panel",
+				"tag": "section",
+				"classes": [
+					"collab-chat-panel"
+				],
+				"label": "Collab Chat Panel"
+			}
+		]
 	},
 	"counts": {
 		"projectViews": 30,
 		"portfolioViews": 9,
-		"slideIns": 5,
+		"slideIns": 6,
 		"detailForms": 16,
 		"overlays": 18,
 		"modals": 0,
 		"wizardSteps": 3,
 		"forms": 2,
-		"panels": 0
+		"panels": 1
 	}
 }

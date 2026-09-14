@@ -9,6 +9,7 @@ mechanics:
 |---|---|
 | What exists today, measured | [`token-audit.md`](token-audit.md) |
 | Token reference (values) | [`tokens.md`](tokens.md) |
+| Every screen, every component on it, and the build-order tally | [`noodleplanner-ui-inventory.md`](noodleplanner-ui-inventory.md) |
 | What can merge, and the Penpot/Storybook handoff | [`consolidation-and-handoff.md`](consolidation-and-handoff.md) |
 | The prioritised work list | [`standardisation-backlog.md`](standardisation-backlog.md) |
 | CI gates and when to add a token vs. a component | [`contributing.md`](contributing.md) |
@@ -80,7 +81,7 @@ Standard industry terms, used consistently across these docs:
 - **Component library / pattern library** — the visual reference of
   components and their variants. Storybook is the tool for this.
 - **UI inventory / interface inventory** — the every-screen, every-component
-  map described in §4.
+  map described in §5.
 - **Atomic Design** (Brad Frost) — build from smallest up: atoms (tokens,
   button, label) → molecules (search box) → organisms (panel with header) →
   pages. This is the tokens-then-components logic in §2, with a vocabulary.
@@ -130,24 +131,93 @@ many screens each appears on.
 Do the naming pass in one sitting, even roughly, before tagging anything.
 Getting the full list visible is what settles the scope; detail comes after.
 
-**Status: pass 1 exists, pass 2 does not.** `npm run design:map` already
-generates `docs/design/ui-structure.json` — 30 project views, 9 portfolio
-views, 18 modals, 5 slide-in panels, 16 detail forms, 3 wizard steps, 2
-standalone forms (see `consolidation-and-handoff.md`). That is pass 1. It
-also caught two real nav bugs (`lessons` and `escalations` — see the
-backlog). Pass 2 — tagging components onto that list and tallying frequency —
-has not been done, and doing it is the next highest-value artefact: it would
-turn "build the button first" from a reasonable guess into a measured
-decision, and give band 4 of the backlog (the per-surface rollout) an
-explicit order instead of "by the surface map."
+**Status: done.** `npm run design:map` generates
+`docs/design/ui-structure.json` — pass 1's screen and surface names. Pass 2
+is [`noodleplanner-ui-inventory.md`](noodleplanner-ui-inventory.md): every
+`*-view`/`*-tab`/`*View` container in `templates/index.html` walked as a DOM
+tree, every render module in `static/` scanned for the class names it emits
+for the ten views built entirely in JS, and every component on every screen
+listed by name and tallied. Pass 1 also caught two real nav bugs (`lessons`
+and `escalations` — see the backlog).
+
+93 screens and surfaces, 139 distinct components, 952 total sightings. The
+build order this gives — read the full tally in the inventory — tops out at
+**Panel header (39 screens)**, **Empty state (37)**, **Close button (36)**,
+then the button family (`Button (secondary)` and `Icon button` at 33,
+`Button (primary)` at 32) and **Data table (32)**. §6 below is revised to
+match: the highest-leverage unbuilt components are panel header, empty
+state and close button, not button — button's three main variants already
+have Storybook stories, just not wired into any screen.
 
 ## 6. First components
 
-Component-inventory frequency should decide the exact order once §5's pass 2
-exists. Until then, these are the two known-highest-value targets and how to
-scope each.
+[`noodleplanner-ui-inventory.md`](noodleplanner-ui-inventory.md)'s tally
+(§5) now backs this order with a measured build order rather than the
+surface map alone, and it reorders what was here before: **panel header,
+empty state and close button rank above button**, because button's main
+variants are already partway built.
+
+### Panel header
+
+**Measured: 39 of 93 screens — the single most-repeated component in the
+app**, ahead of every other row in the inventory's tally. Every slide-out
+panel, every dialog and several chrome surfaces (session chat, AI chat, task
+peek) use one.
+
+- **Header** is its own sub-component: title, optional subtitle, close
+  button, gradient.
+- **Body** is a slot — it holds whatever form goes inside.
+- Story shows: empty shell, shell with a representative form, and
+  slide-from-side if it varies.
+
+Discipline: panel shell and contents stay separate, so every slide-out shares
+one shell and only the inner form changes.
+
+**One decision blocks the story, and the inventory names it exactly:** only
+three of the sixteen `#detailPane` sections (Task details, Product details,
+Task Inspector) use the drawer's own `.detail-pane-header`; the other
+thirteen borrow `.modal-header` from the dialog shell. Drawer and dialog
+share a header today by accident, not by design — pick one before building
+the Storybook story, per the inventory's §5 "Panel headers are
+inconsistent."
+
+**Status: not started.** No extracted panel/header component yet. This is
+now the single highest-leverage unbuilt component in the app.
+
+### Empty state
+
+**Measured: 37 screens**, second-highest in the tally — and the inventory's
+own open questions explain why it's messier than the count alone suggests:
+there are **four different kinds of "nothing here"** (welcome screen,
+pre-render placeholder, empty state, loading), which look different and mean
+different things, so they likely stay separate components sharing one
+shell rather than collapsing into one. Within the empty-state family alone,
+19 per-area classes (`.raid-empty-state`, `.budget-empty-state`, …) do the
+same job — the inventory calls this "the strongest single consolidation
+target in the app."
+
+**Status: not started.**
+
+### Close button
+
+**Measured: 36 screens.** The inventory tracks it as its own component,
+separate from the button-hierarchy variants below — it is a dismiss action
+inside a panel or modal header, not a point on a primary/secondary/tertiary
+scale. Building it alongside the panel header (it's part of that header in
+almost every occurrence) is likely more efficient than as a fully separate
+story.
+
+**Status: not started.**
 
 ### Button
+
+**Measured: `Button (secondary)` and `Icon button` at 33 screens each,
+`Button (primary)` at 32** — high-frequency, but **already substantially
+underway**: `Button (secondary)`, `Button (primary)`, `Button (danger)` and
+`Button (outline)` all have Storybook stories against `<np-button>`
+(`static/components/button/`), ticked in the inventory's tally. The `neutral`
+tone and `outline` modifier were added in #1212 as a worked example of
+picking hierarchy roles.
 
 Variants fall along axes; the Storybook story should show every meaningful
 combination in a grid, so drift jumps out visually.
@@ -159,31 +229,11 @@ combination in a grid, so drift jumps out visually.
 - **Size** — only if more than one genuinely exists.
 - **Content** — label only, icon + label, icon only.
 
-**Status: in progress.** `<np-button>` (`static/components/button/`) is the
-extracted Web Component with a colocated story; the `neutral` tone and
-`outline` modifier were added in #1212 as a worked example of picking
-hierarchy roles. It is not yet wired into the live app — see the button-role
-discussion under band 3 of `standardisation-backlog.md` for why that
-migration is a design decision, not a mechanical refactor.
-
-### Panel / drawer
-
-The slide-out forms (e.g. task details) with a gradient title header are one
-component used many times — a **panel** with a reusable **header**.
-
-- **Header** is its own sub-component: title, optional subtitle, close
-  button, gradient.
-- **Body** is a slot — it holds whatever form goes inside.
-- Story shows: empty shell, shell with a representative form, and
-  slide-from-side if it varies.
-
-Discipline: panel shell and contents stay separate, so every slide-out shares
-one shell and only the inner form changes.
-
-**Status: not started.** No extracted panel/header component yet. This is
-the next component to build after button, per the frequency argument in §5 —
-five slide-in panels and eighteen modal overlays exist per the surface map,
-so a shared shell is high-leverage.
+**Status: in progress, not wired into the live app.** The stories exist; no
+screen imports `<np-button>` yet — see the button-role discussion under
+band 3 of `standardisation-backlog.md` for why that migration is a design
+decision, not a mechanical refactor. `Icon button` (33 screens) has no
+dedicated variant yet and is the gap to close next within this component.
 
 ### Composed forms
 
@@ -287,16 +337,25 @@ only the diffs. When any component gets rewired into a live screen (§7 step
 1. **Lock tokens** (colour, typography, 4px spacing scale). ✅ Done — bands 1
    and 3 of the backlog; see `tokens.md`.
 2. **Build the UI inventory** (two passes → component list with frequency
-   tally). ⏳ Pass 1 done (`ui-structure.json`); pass 2 (component tagging +
-   frequency) not started — see §5.
-3. **Build the highest-frequency component** (button) in Storybook against
-   tokens. ⏳ In progress — `<np-button>` exists with variants; not yet
-   proven against a measured frequency count, and not wired into any screen.
-4. **Build panel + header.** ☐ Not started.
+   tally). ✅ Done — `ui-structure.json` (pass 1) and
+   [`noodleplanner-ui-inventory.md`](noodleplanner-ui-inventory.md) (pass 2,
+   §5): 93 screens, 139 components, 952 sightings, sorted into a build
+   order.
+3. **Build the highest-frequency components** in Storybook against tokens.
+   ⏳ Button is in progress (see §6) — its main variants have stories but
+   aren't wired into any screen. **Panel header (39 screens), empty state
+   (37) and close button (36) rank above it and are not started** — build
+   those next, in that order.
+4. **Build panel + header** specifically. ☐ Not started — blocked on one
+   decision the inventory names: reconcile `.detail-pane-header` and
+   `.modal-header` into one header before building the story (§6).
 5. **Compose the task details form story** from verified pieces. ☐ Not
    started — blocked on 4.
-6. **Rewire screens to shared components**, in inventory frequency order. ☐
-   Not started for any component.
+6. **Rewire screens to shared components**, in inventory frequency order.
+   ☐ Not started for any component. `Task details`, `Product details` and
+   `Task Inspector` (the three screens already using the drawer's own
+   header) are the natural first rewiring targets for panel header once it
+   exists, since they need the least reconciliation.
 7. **Add visual regression snapshots** once components are stable. ✅ The
    tooling exists and is already used for band-4 migrations
    (`scripts/compare_screens.py`); formalise it as a required step once
@@ -305,8 +364,9 @@ only the diffs. When any component gets rewired into a live screen (§7 step
 The honest read of where this stands: the *foundational* work this plan
 called for — tokens locked, focus states fixed, duplicate components
 identified and merged where they were genuinely duplicates, Storybook wired
-up, a screen-diffing safety net built — is done, mostly under backlog bands 1
-and 3. What has **not** started is the part this plan is actually about:
-turning the UI inventory into a frequency-ordered build list (step 2, pass
-2), and the screen-by-screen rewiring in step 6. Those are the next two
-pieces of work.
+up, a screen-diffing safety net built, and now a complete, measured UI
+inventory — is done. What has **not** started is the part all of that was
+in service of: building panel header, empty state and close button (the
+three highest-leverage components, all unbuilt), finishing button's
+rewiring, and the screen-by-screen migration in step 6. Those are the next
+pieces of work, in that order.
