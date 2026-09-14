@@ -2356,10 +2356,10 @@ function openTaskFormByName(taskName) {
  * guard against rendering quirks during CSS transitions.
  */
 function setTaskFormTitle(title) {
-    const el = document.getElementById('taskFormTitle');
-    if (!el) return;
+    const header = document.getElementById('taskFormPanelHeader');
+    if (!header) return;
     const displayTitle = title || 'Task Name';
-    el.textContent = displayTitle;
+    header.setAttribute('title', displayTitle);
 }
 
 // Flag to prevent saveTask from firing while openTaskForm is populating fields
@@ -3175,7 +3175,7 @@ function insertTaskAbove(task, taskIndex) {
         // Focus and select the title text so the user can immediately
         // type a replacement name (fixes #648).
         setTimeout(() => {
-            const titleEl = document.getElementById('taskFormTitle');
+            const titleEl = document.getElementById('taskFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
             if (titleEl) {
                 titleEl.focus();
                 const sel = window.getSelection();
@@ -3882,10 +3882,13 @@ function updateTaskNameFromTitle() {
     const taskSection = document.getElementById('taskFormSection');
     if (taskSection && !taskSection.classList.contains('active')) return;
 
-    const title = document.getElementById('taskFormTitle').innerText.trim();
+    const titleEl = document.getElementById('taskFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
+    const title = (titleEl ? titleEl.innerText : '').trim();
     document.getElementById('taskName').value = title;
     saveTask();
 }
+
+document.getElementById('taskFormPanelHeader')?.addEventListener('titlechange', updateTaskNameFromTitle);
 
 function updateRagDisplay() {
     const percent = parseInt(document.getElementById('taskPercent').value) || 0;
@@ -4139,6 +4142,8 @@ function closeTaskForm() {
     closeDetailPane();
     currentTaskLineNumber = null;
 }
+
+document.getElementById('taskFormPanelHeader')?.addEventListener('close', closeTaskForm);
 
 /**
  * Delete the currently open task from the plan.
@@ -17088,7 +17093,7 @@ function addNewTaskViaShortcut() {
             openTaskForm(i + 1);
             // Focus and select the title so the user can start typing immediately
             setTimeout(() => {
-                const titleEl = document.getElementById('taskFormTitle');
+                const titleEl = document.getElementById('taskFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
                 if (titleEl) {
                     titleEl.focus();
                     const sel = window.getSelection();

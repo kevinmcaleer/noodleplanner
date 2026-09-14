@@ -2687,12 +2687,10 @@ Build
 
         <!-- Task Form Section -->
         <div id="taskFormSection" class="detail-pane-section">
-            <div class="detail-pane-header">
-                <div id="taskFormTitle" class="detail-pane-title" contenteditable="true" oninput="updateTaskNameFromTitle()">Task Name</div>
-                <button class="task-form-inspect-btn" onclick="openTaskInspectorFromForm()" title="Inspect task" aria-label="Open task inspector">&#128269; Inspect</button>
-                <button class="task-form-inspect-btn" id="taskDeliverableBtn" onclick="toggleTaskDeliverable()" title="Product details" style="display: none;">&#128230; Product</button>
-                <button class="close-btn" onclick="closeTaskForm()" aria-label="Close">&times;</button>
-            </div>
+            <np-panel-header id="taskFormPanelHeader" variant="accent" editable title="Task Name">
+                <button class="task-form-inspect-btn" slot="actions" onclick="openTaskInspectorFromForm()" title="Inspect task" aria-label="Open task inspector">&#128269; Inspect</button>
+                <button class="task-form-inspect-btn" slot="actions" id="taskDeliverableBtn" onclick="toggleTaskDeliverable()" title="Product details" style="display: none;">&#128230; Product</button>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="taskName">
@@ -2930,11 +2928,9 @@ Build
 
         <!-- Product Details Form Section -->
         <div id="productFormSection" class="detail-pane-section">
-            <div class="detail-pane-header">
-                <div id="productFormTitle" class="detail-pane-title" contenteditable="true" oninput="updateProductNameFromTitle()">Product Details</div>
-                <button class="task-form-inspect-btn" onclick="switchProductToTaskForm()" title="Open task details" aria-label="Switch to task details">&#128203; Task Details</button>
-                <button class="close-btn" onclick="closeProductForm()" aria-label="Close">&times;</button>
-            </div>
+            <np-panel-header id="productFormPanelHeader" variant="accent" editable title="Product Details">
+                <button class="task-form-inspect-btn" slot="actions" onclick="switchProductToTaskForm()" title="Open task details" aria-label="Switch to task details">&#128203; Task Details</button>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="productTaskName">
