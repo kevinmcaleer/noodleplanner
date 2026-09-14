@@ -123,19 +123,6 @@
     gap: var(--np-space-20);
 }
 
-.search-view-empty {
-    padding: var(--np-space-40) var(--np-space-20);
-    text-align: center;
-    color: var(--np-text-secondary);
-    border: 1px dashed var(--np-border);
-    border-radius: 8px;
-    background: var(--np-bg-alt);
-}
-
-.search-view-empty p {
-    margin: 0 0 var(--np-space-8);
-}
-
 .search-view-empty-hint {
     font-size: 0.9em;
     color: var(--np-text-muted);

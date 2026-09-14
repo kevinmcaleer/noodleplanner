@@ -237,20 +237,6 @@ body.backstage-fullscreen {
     color: var(--np-text);
 }
 
-.backstage-recent-empty {
-    padding: var(--np-space-40) var(--np-space-20);
-    text-align: center;
-    color: var(--np-text-secondary);
-    border: 1px dashed var(--np-border);
-    border-radius: 8px;
-    background: var(--np-bg-alt);
-    max-width: 480px;
-}
-
-.backstage-recent-empty p {
-    margin: 0 0 var(--np-space-8);
-}
-
 .backstage-recent-empty-hint {
     font-size: 0.9em;
     color: var(--np-text-muted);

@@ -2418,10 +2418,10 @@ Build
                         <div class="search-view-meta" id="searchViewMeta" aria-live="polite"></div>
                     </div>
                     <div class="search-view-body">
-                        <div class="search-view-empty" id="searchViewEmpty">
+                        <np-empty-state variant="card" dashed id="searchViewEmpty">
                             <p>Type a query above to search this project.</p>
                             <p class="search-view-empty-hint">Searches across tasks, products, RAID items, comms, budget, highlights, resources, and benefits.</p>
-                        </div>
+                        </np-empty-state>
                         <div class="search-view-results" id="searchViewResults"></div>
                     </div>
                 </div>
@@ -2485,10 +2485,10 @@ Build
                             <div class="backstage-template-strip" id="backstageTemplateStrip"></div>
 
                             <h2 class="backstage-main-title backstage-recent-title">Recent</h2>
-                            <div class="backstage-recent-empty" id="backstageRecentEmpty" style="display:none;">
+                            <np-empty-state variant="card" dashed id="backstageRecentEmpty" hidden>
                                 <p>No recent plans yet.</p>
                                 <p class="backstage-recent-empty-hint">Create a new plan or open one to get started.</p>
-                            </div>
+                            </np-empty-state>
                             <div class="backstage-recent-list" id="backstageRecentList"></div>
                         </div>
                         <div class="backstage-main-view" id="backstageTemplatesView" style="display:none;">

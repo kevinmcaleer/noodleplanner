@@ -181,25 +181,25 @@
         container.innerHTML = '';
 
         if (!query) {
-            empty.style.display = '';
+            empty.hidden = false;
             container.style.display = 'none';
             meta.textContent = '';
             return;
         }
 
         if (!results || results.length === 0) {
-            empty.style.display = 'none';
+            empty.hidden = true;
             container.style.display = '';
             container.innerHTML = `
-                <div class="search-view-empty">
+                <np-empty-state variant="card" dashed>
                     <p>No results for &ldquo;${escapeHtml(query)}&rdquo;.</p>
                     <p class="search-view-empty-hint">Try a shorter query or different keywords.</p>
-                </div>`;
+                </np-empty-state>`;
             meta.textContent = '0 results';
             return;
         }
 
-        empty.style.display = 'none';
+        empty.hidden = true;
         container.style.display = '';
 
         // Group by type
@@ -269,12 +269,12 @@
             const container = document.getElementById('searchViewResults');
             const empty = document.getElementById('searchViewEmpty');
             if (container && empty) {
-                empty.style.display = 'none';
+                empty.hidden = true;
                 container.style.display = '';
                 container.innerHTML = `
-                    <div class="search-view-empty">
+                    <np-empty-state variant="card" dashed>
                         <p>Search failed. Please try again.</p>
-                    </div>`;
+                    </np-empty-state>`;
             }
             if (meta) meta.textContent = '';
         }
