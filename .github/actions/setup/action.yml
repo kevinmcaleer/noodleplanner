@@ -1,7 +1,7 @@
 # Provision a runner to the point where ci/run.sh can take over.
 #
 # This exists because the two kinds of runner arrive in different states. Our own
-# image (ci/runner/) has uv, a pinned Python, Node 22 and a Chromium baked in, so
+# image (ci/runner/) has uv, a pinned Python, Node 24 and a Chromium baked in, so
 # there is nothing to do. A GitHub-hosted ubuntu-latest has Node and Chrome but
 # no uv at all, so without this every job dies on ci/lib.sh's "uv is not
 # installed" before running a single test.
@@ -15,7 +15,7 @@
 # the checks. Nothing here knows what is being tested, and nothing in ci/jobs/
 # knows what kind of runner it is on.
 name: Set up the NoodlePlanner toolchain
-description: uv with Python 3.12 and Node 22, on our runners or GitHub's
+description: uv with Python 3.12 and Node 24, on our runners or GitHub's
 
 runs:
   using: composite
@@ -31,5 +31,5 @@ runs:
     - name: Set up Node
       uses: actions/setup-node@v4
       with:
-        node-version: "22"
+        node-version: "24"
         cache: npm

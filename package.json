@@ -3,6 +3,9 @@
   "private": true,
   "description": "Front-end tooling for NoodlePlanner. The app has no bundler: the libraries the browser loads (mppwriter, jspdf, docx, DejaVu Sans Mono, exceljs, jszip, pptxgenjs) are vendored into static/vendor/<lib> by the `npm run vendor:<lib>` scripts.",
   "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "vendor:mppwriter": "node scripts/vendor-mppwriter.mjs",
     "vendor:jspdf": "node scripts/vendor-jspdf.mjs",

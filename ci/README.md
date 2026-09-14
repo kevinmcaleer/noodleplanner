@@ -182,7 +182,7 @@ So the order is: stand the runners up, then set the variable. Unset it while the
 host is down or being rebuilt, rather than waiting on a queue.
 
 `.github/actions/setup` is what lets one workflow serve both. Our image already
-carries uv, Python 3.12, Node 22 and a Chromium; a GitHub-hosted runner has Node
+carries uv, Python 3.12, Node 24 and a Chromium; a GitHub-hosted runner has Node
 and Chrome but no uv at all, and without that step every job would die on
 `ci/lib.sh`'s "uv is not installed" before running a test. It provisions the
 machine; `ci/jobs/` defines the checks, and neither knows about the other.
