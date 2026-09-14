@@ -1914,8 +1914,9 @@ function benRenderTrackingTable() {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
         td.colSpan = 8;
-        td.className = 'ben-tracking-empty';
-        td.textContent = 'No benefits or disbenefits to track. Add items in the Map view.';
+        const emptyState = document.createElement('np-empty-state');
+        emptyState.textContent = 'No benefits or disbenefits to track. Add items in the Map view.';
+        td.appendChild(emptyState);
         tr.appendChild(td);
         tbody.appendChild(tr);
         return;

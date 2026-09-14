@@ -174,7 +174,7 @@
             const listEl = dialog.querySelector('#cardLibraryList');
             const cards = listCards();
             if (!cards.length) {
-                listEl.innerHTML = '<div class="card-list-empty">No snippets saved yet.</div>';
+                listEl.innerHTML = '<np-empty-state>No snippets saved yet.</np-empty-state>';
                 return;
             }
             listEl.innerHTML = '';

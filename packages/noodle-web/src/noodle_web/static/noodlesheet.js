@@ -557,7 +557,7 @@ class NoodleSheet {
     renderGrid() {
         const sheet = this.getActiveSheet();
         if (!sheet) {
-            this.gridContainer.innerHTML = '<div class="ns-empty">No sheet selected</div>';
+            this.gridContainer.innerHTML = '<np-empty-state>No sheet selected</np-empty-state>';
             return;
         }
 
