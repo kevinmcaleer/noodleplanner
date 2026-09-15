@@ -23,9 +23,10 @@ const ALL_SCOPE_TABS = [...TABS, ...PORTFOLIO_TABS, ...PROGRAMME_TABS];
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 
-/** Every symbol id defined in the app's sprite (index.html), sans "icon-". */
+/** Every symbol id defined in the app's sprite (templates/_icon_sprite.html,
+ * `{% include %}`d by index.html and components.html), sans "icon-". */
 function spriteIconIds() {
-  const html = readFileSync(`${repo}/packages/noodle-web/src/noodle_web/templates/index.html`, "utf8");
+  const html = readFileSync(`${repo}/packages/noodle-web/src/noodle_web/templates/_icon_sprite.html`, "utf8");
   const ids = new Set();
   for (const m of html.matchAll(/<symbol id="icon-([a-z0-9-]+)"/g)) ids.add(m[1]);
   return ids;
