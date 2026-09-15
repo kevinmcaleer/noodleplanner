@@ -1045,7 +1045,7 @@ function _showProgrammeDialog(opts) {
         '<div class="task-form-modal" style="max-width:420px;width:min(420px,92vw);">' +
         '<div class="modal-header">' +
         `<h3 id="progModalTitle" style="margin:0;">${titles[mode]}</h3>` +
-        '<button class="close-btn" onclick="closeProgrammeDialog()" aria-label="Close">&times;</button>' +
+        '<np-close-button onclick="closeProgrammeDialog()"></np-close-button>' +
         '</div>' +
         '<div class="modal-body">' +
         `<form id="progForm" onsubmit="submitProgrammeDialog(event, ${submitArgs})">` +

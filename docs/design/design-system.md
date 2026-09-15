@@ -207,7 +207,16 @@ scale. Building it alongside the panel header (it's part of that header in
 almost every occurrence) is likely more efficient than as a fully separate
 story.
 
-**Status: not started.**
+**Status: built and wired into the live app.** `<np-close-button>`
+(`static/components/close-button/`) covers the two axes the codebase's drift
+actually falls along — `size` and `flat` — and is now the app's *only* modal
+dismiss control: the `.close-btn` class (31 call sites, by far the largest
+single icon-button family the audit under "Button" below found) is retired
+entirely in favour of it, alongside several bespoke dialogs (`cards.js`,
+`estimating.js`, `task-peek.js`, `whiteboard-notes.js`, `portfolio-resources.js`)
+already using it from earlier work. A smaller long tail of one-off bare `×`
+buttons (`.fm-tag-remove`, `.plan-wizard-close`, …) is still hand-rolled —
+see the "icons-glyph" gallery section for the current count.
 
 ### Button
 
@@ -264,14 +273,15 @@ rewiring:
 2. Go screen by screen, replacing bespoke copies with imports of the shared
    component.
 
-**Status: the tooling for step 1 exists and is used; step 2 has not started
-for any component.** Two groups are previewed today (`.storybook/main.mjs`):
-the app's existing class names, generated from `static/component-gallery.js`
-(the same spec `/components` renders from — one spec, two consumers); and
-the extracted Web Components (`<np-button>`, `<np-card>`, `<np-board>`,
-`<np-note>`) under `static/components/`, none of which are wired into the
-live app yet. `tests/test_storybook_stories.py` keeps the gallery and
-Storybook from drifting apart. Run it locally with:
+**Status: the tooling for step 1 exists and is used; step 2 is underway for
+two of five components** (`<np-close-button>` widely, `<np-button>` in the
+Plan Wizard footer) **and not started for the rest.** Two groups are
+previewed today (`.storybook/main.mjs`): the app's existing class names,
+generated from `static/component-gallery.js` (the same spec `/components`
+renders from — one spec, two consumers); and the extracted Web Components
+(`<np-button>`, `<np-close-button>`, `<np-card>`, `<np-board>`, `<np-note>`)
+under `static/components/`. `tests/test_storybook_stories.py` keeps the
+gallery and Storybook from drifting apart. Run it locally with:
 
 ```sh
 npm run storybook          # dev server on :6006
