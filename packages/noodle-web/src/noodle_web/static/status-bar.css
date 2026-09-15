@@ -545,36 +545,6 @@ body {
     flex-shrink: 0;
 }
 
-.vh-action-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border: 1px solid var(--np-border);
-    border-radius: 4px;
-    background: var(--np-input-bg);
-    color: var(--np-text);
-    cursor: pointer;
-    font-size: 0.85em;
-    transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.vh-action-btn:hover {
-    border-color: var(--np-accent);
-    background: var(--np-bg-hover);
-}
-
-.vh-action-btn:focus-visible {
-    outline: 2px solid var(--np-accent);
-    outline-offset: 1px;
-}
-
-.vh-action-btn.vh-action-delete:hover {
-    border-color: var(--np-danger);
-    color: var(--np-danger);
-}
-
 /* Read-only banner */
 .version-readonly-banner {
     display: none;

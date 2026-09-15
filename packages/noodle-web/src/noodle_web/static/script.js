@@ -8187,9 +8187,9 @@ function renderRaidTable() {
                 ${item.escalated ? `<span class="raid-escalation-badge raid-escalation-${item.escalation_level}" title="Escalated to ${escapeHtml(item.escalation_level)}">&#9650; ${escapeHtml(item.escalation_level)}</span>` : ''}
             </td>
             <td>
-                <button class="raid-action-btn" onclick="openRaidForm(${item.id})" title="Edit">✏️</button>
-                <button class="raid-action-btn" onclick="SectionFolding.jumpToBackMatterSection('---raid log---', ${item.id}, 'tasks')" title="Open source row in plan editor"><i class="bi bi-code-slash"></i></button>
-                <button class="raid-action-btn delete" onclick="deleteRaidItem(${item.id})" title="Delete">🗑️</button>
+                <np-button icon-only variant="neutral" size="small" title="Edit" label="Edit" onclick="openRaidForm(${item.id})"><span slot="icon">✏️</span></np-button>
+                <np-button icon-only variant="neutral" size="small" title="Open source row in plan editor" label="Open source row in plan editor" onclick="SectionFolding.jumpToBackMatterSection('---raid log---', ${item.id}, 'tasks')"><i class="bi bi-code-slash" slot="icon"></i></np-button>
+                <np-button icon-only variant="danger" size="small" title="Delete" label="Delete" onclick="deleteRaidItem(${item.id})"><span slot="icon">🗑️</span></np-button>
             </td>
         `;
         tbody.appendChild(row);
@@ -12123,9 +12123,9 @@ function renderCommsTable() {
                     <td>${escapeHtml(item.owner)}</td>
                     <td><span class="raid-status-badge raid-status-${statusClass}">${escapeHtml(item.status)}</span></td>
                     <td>
-                        <button class="raid-action-btn" onclick="openCommsForm(${item.id})" title="Edit">&#9998;&#65039;</button>
-                        <button class="raid-action-btn" onclick="SectionFolding.jumpToBackMatterSection('---comms---', ${item.id}, 'tasks')" title="Open source row in plan editor"><i class="bi bi-code-slash"></i></button>
-                        <button class="raid-action-btn delete" onclick="deleteCommsItem(${item.id})" title="Delete">&#128465;&#65039;</button>
+                        <np-button icon-only variant="neutral" size="small" title="Edit" label="Edit" onclick="openCommsForm(${item.id})"><span slot="icon">&#9998;&#65039;</span></np-button>
+                        <np-button icon-only variant="neutral" size="small" title="Open source row in plan editor" label="Open source row in plan editor" onclick="SectionFolding.jumpToBackMatterSection('---comms---', ${item.id}, 'tasks')"><i class="bi bi-code-slash" slot="icon"></i></np-button>
+                        <np-button icon-only variant="danger" size="small" title="Delete" label="Delete" onclick="deleteCommsItem(${item.id})"><span slot="icon">&#128465;&#65039;</span></np-button>
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -12649,9 +12649,9 @@ function renderBudgetTable() {
                     '<td>' + escapeHtml(item.date_ordered) + '</td>' +
                     '<td>' + escapeHtml(item.date_received) + '</td>' +
                     '<td>' +
-                        '<button class="budget-action-btn" onclick="openBudgetForm(' + item.id + ')" title="Edit">&#9998;&#65039;</button>' +
-                        '<button class="budget-action-btn" onclick="SectionFolding.jumpToBackMatterSection(\'---budget---\', ' + item.id + ', \'tasks\')" title="Open source row in plan editor"><i class="bi bi-code-slash"></i></button>' +
-                        '<button class="budget-action-btn delete" onclick="deleteBudgetItem(' + item.id + ')" title="Delete">&#128465;&#65039;</button>' +
+                        '<np-button icon-only variant="neutral" size="large" title="Edit" label="Edit" onclick="openBudgetForm(' + item.id + ')"><span slot="icon">&#9998;&#65039;</span></np-button>' +
+                        '<np-button icon-only variant="neutral" size="large" title="Open source row in plan editor" label="Open source row in plan editor" onclick="SectionFolding.jumpToBackMatterSection(\'---budget---\', ' + item.id + ', \'tasks\')"><i class="bi bi-code-slash" slot="icon"></i></np-button>' +
+                        '<np-button icon-only variant="danger" size="large" title="Delete" label="Delete" onclick="deleteBudgetItem(' + item.id + ')"><span slot="icon">&#128465;&#65039;</span></np-button>' +
                     '</td>';
                 tbody.appendChild(row);
 
@@ -14955,8 +14955,8 @@ function renderStakeholderTable() {
             <td><span class="stakeholder-level-badge ${interestClass}">${interestLabel}</span></td>
             <td><span class="stakeholder-level-badge ${influenceClass}">${influenceLabel}</span></td>
             <td>
-                <button class="raid-action-btn" onclick="openStakeholderForm(${item.id})" title="Edit">&#9998;&#65039;</button>
-                <button class="raid-action-btn delete" onclick="deleteStakeholder(${item.id})" title="Delete">&#128465;&#65039;</button>
+                <np-button icon-only variant="neutral" size="small" title="Edit" label="Edit" onclick="openStakeholderForm(${item.id})"><span slot="icon">&#9998;&#65039;</span></np-button>
+                <np-button icon-only variant="danger" size="small" title="Delete" label="Delete" onclick="deleteStakeholder(${item.id})"><span slot="icon">&#128465;&#65039;</span></np-button>
             </td>
         `;
         tbody.appendChild(row);
@@ -15519,8 +15519,8 @@ function renderHighlightsList() {
                     <span class="highlight-author">@${escapeHtml(h.author)}</span>
                 </div>
                 <div class="highlight-actions">
-                    <button class="highlight-action-btn" onclick="editHighlight(${originalIdx})" title="Edit">&#9998;</button>
-                    <button class="highlight-action-btn delete" onclick="deleteHighlight(${originalIdx})" title="Delete">&#128465;</button>
+                    <np-button icon-only variant="neutral" size="small" title="Edit" label="Edit" onclick="editHighlight(${originalIdx})"><span slot="icon">&#9998;</span></np-button>
+                    <np-button icon-only variant="danger" size="small" title="Delete" label="Delete" onclick="deleteHighlight(${originalIdx})"><span slot="icon">&#128465;</span></np-button>
                 </div>
             </div>
             <div class="highlight-body">${renderSimpleMarkdown(h.content)}</div>
@@ -16625,8 +16625,8 @@ function renderActionsTable() {
                 '<td>' + targetDate + '</td>' +
                 '<td><span class="actions-status-badge ' + statusClass + '">' + (item.status || 'open') + '</span></td>' +
                 '<td>' +
-                    '<button class="actions-action-btn" onclick="openActionForm(' + item.id + ')" title="Edit">✏️</button>' +
-                    '<button class="actions-action-btn delete" onclick="deleteAction(' + item.id + ')" title="Delete">🗑️</button>' +
+                    '<np-button icon-only variant="primary" size="medium" title="Edit" label="Edit" onclick="openActionForm(' + item.id + ')"><span slot="icon">✏️</span></np-button>' +
+                    '<np-button icon-only variant="danger" size="medium" title="Delete" label="Delete" onclick="deleteAction(' + item.id + ')"><span slot="icon">🗑️</span></np-button>' +
                 '</td>';
             tbody.appendChild(row);
         });

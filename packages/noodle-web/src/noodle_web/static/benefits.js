@@ -1993,11 +1993,13 @@ function benRenderTrackingTable() {
         tr.appendChild(updatedTd);
 
         const sourceTd = document.createElement('td');
-        const sourceBtn = document.createElement('button');
-        sourceBtn.type = 'button';
-        sourceBtn.className = 'raid-action-btn';
+        const sourceBtn = document.createElement('np-button');
+        sourceBtn.setAttribute('icon-only', '');
+        sourceBtn.setAttribute('variant', 'neutral');
+        sourceBtn.setAttribute('size', 'small');
         sourceBtn.title = 'Open source row in plan editor';
-        sourceBtn.innerHTML = '<i class="bi bi-code-slash"></i>';
+        sourceBtn.setAttribute('label', 'Open source row in plan editor');
+        sourceBtn.innerHTML = '<i class="bi bi-code-slash" slot="icon"></i>';
         sourceBtn.addEventListener('click', () => SectionFolding.jumpToBackMatterSection('---benefits---', item.id, 'benefits'));
         sourceTd.appendChild(sourceBtn);
         tr.appendChild(sourceTd);
