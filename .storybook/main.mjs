@@ -27,13 +27,35 @@ import { dirname, join } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const STATIC_DIR = join(HERE, '../packages/noodle-web/src/noodle_web/static');
 const INDEX = join(HERE, '../packages/noodle-web/src/noodle_web/templates/index.html');
+const ICON_SPRITE = join(HERE, '../packages/noodle-web/src/noodle_web/templates/_icon_sprite.html');
 
 // The app's stylesheets, in the app's load order, read out of index.html --
 // not listed here. A copied list drifts, and Storybook showing a component
 // under a stale stylesheet order is worse than not showing it: order is what
 // decides which of two equal-specificity rules wins, which is the exact bug
 // epic #1187 exists to fix. `tests/test_storybook_stories.py` enforces this.
-const stylesheets = [...readFileSync(INDEX, 'utf8').matchAll(/href="\/static\/([^"?]+\.css)/g)].map((m) => m[1]);
+const indexHtml = readFileSync(INDEX, 'utf8');
+const stylesheets = [...indexHtml.matchAll(/href="\/static\/([^"?]+\.css)/g)].map((m) => m[1]);
+
+// Bootstrap Icons (component-gallery.js's 'icons-bootstrap' section) is an
+// `<i class="bi bi-*">` icon font, loaded from its own CDN link rather than
+// /static -- not covered by the stylesheets regex above. Read out of
+// index.html rather than hardcoded so a version bump there does not silently
+// leave Storybook on the old glyphs.
+const [bootstrapIconsHref] = indexHtml.match(/https:\/\/cdn\.jsdelivr\.net\/npm\/bootstrap-icons@[^"]+\.css/) ?? [];
+if (!bootstrapIconsHref) {
+  throw new Error("main.mjs could not find the Bootstrap Icons CDN <link> in index.html -- has it moved or been removed?");
+}
+
+// The app's SVG icon sprite (48 `<symbol>` definitions) lives in its own
+// template partial, `{% include %}`d by both index.html and components.html
+// so `<svg class="icon"><use href="#icon-name"/></svg>` resolves in both
+// consumers of `component-gallery.js`'s 'icons-sprite' section. Storybook is
+// a third consumer of that same section, so it needs the same defs injected
+// into the preview iframe -- read verbatim (it is plain SVG, no Jinja syntax)
+// rather than duplicated, for the same one-source-of-truth reason as the
+// stylesheet list above.
+const iconSprite = readFileSync(ICON_SPRITE, 'utf8');
 
 /** @type {import('@storybook/web-components-vite').StorybookConfig} */
 const config = {
@@ -55,9 +77,13 @@ const config = {
   previewHead: (head) => `
 		${head}
 		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+		<link href="${bootstrapIconsHref}" rel="stylesheet">
 		<link href="https://fonts.googleapis.com/css2?family=Newsreader:wght@300;400;500&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 		${stylesheets.map((s) => `<link rel="stylesheet" href="/static/${s}">`).join('\n\t\t')}
 	`,
+  // The sprite is inert (`display:none`) markup, not stylesheet <link> tags,
+  // so it belongs in the body rather than previewHead above.
+  previewBody: (body) => `${iconSprite}\n${body}`,
   async viteFinal(viteConfig) {
     viteConfig.resolve ??= {};
     viteConfig.resolve.alias = {
