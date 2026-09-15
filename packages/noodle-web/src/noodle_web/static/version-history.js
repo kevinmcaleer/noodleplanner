@@ -534,7 +534,7 @@ function renderVersionHistoryList(projectId) {
     if (!container) return;
 
     if (!projectId) {
-        container.innerHTML = '<p class="vh-empty">No project selected.</p>';
+        container.innerHTML = '<np-empty-state>No project selected.</np-empty-state>';
         return;
     }
 
@@ -563,7 +563,7 @@ function renderVersionHistoryList(projectId) {
     }
 
     if (history.length === 0) {
-        html += '<p class="vh-empty">No previous versions yet. Versions are saved automatically when you save your plan.</p>';
+        html += '<np-empty-state>No previous versions yet. Versions are saved automatically when you save your plan.</np-empty-state>';
         container.innerHTML = html;
         return;
     }

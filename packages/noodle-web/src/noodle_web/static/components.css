@@ -1031,13 +1031,6 @@
     width: 4em;
 }
 
-.quad-empty-state {
-    color: #adb5bd;
-    font-style: italic;
-    text-align: center;
-    padding: var(--np-space-32) var(--np-space-12);
-}
-
 /* Report header status badge */
 .report-rag-badge {
     display: inline-block;
@@ -5689,13 +5682,6 @@ tr:hover .task-context-btn,
 .ben-status-badge--not-achieved {
     background: #ffe0e0;
     color: #d32f2f;
-}
-
-.ben-tracking-empty {
-    text-align: center;
-    padding: var(--np-space-40) var(--np-space-20);
-    color: var(--np-faint);
-    font-size: 14px;
 }
 
 /* Hide add button labels on small screens */

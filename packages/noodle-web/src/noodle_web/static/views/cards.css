@@ -85,12 +85,6 @@
     gap: var(--np-space-8);
 }
 
-.card-list-empty {
-    font-size: 13px;
-    color: var(--np-text-secondary);
-    padding: var(--np-space-8) 0;
-}
-
 .card-list-row {
     display: flex;
     align-items: center;
