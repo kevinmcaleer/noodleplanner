@@ -555,7 +555,7 @@ text at 4:1.
   eventually, but its tokens are Obsidian's, not NoodlePlanner's.
 - **Vendored libraries** under `static/vendor/` — not ours to restyle.
 - **Adopting the warm palette wholesale**, which is now the only substantial
-  item left and the reason `raw-colour` still stands at 750.
+  item left and the reason `raw-colour` still stands at 749.
 
   It is a design decision — the app's top-of-distribution greys are cool
   Bootstrap-era values that predate the warm system entirely, so converting
@@ -572,7 +572,7 @@ text at 4:1.
   stay a literal in the next, and telling the two apart means knowing what the
   element sits on.
 
-  So the work is: classify each of the 750 as *follows the theme* or *fixed
+  So the work is: classify each of the 749 as *follows the theme* or *fixed
   against a coloured background*, then substitute only the first group. The
   classification is the judgement; the substitution after it is mechanical, and
   `scripts/compare_screens.py` will prove each batch.
@@ -644,7 +644,7 @@ text at 4:1.
   is invisible. The captures cannot show that (no menu or dialog is open in the
   39 views), so it was confirmed by reading the computed style directly.
 
-  `raw-colour` went **1,057 → 750**. What is left is the genuinely semantic
+  `raw-colour` went **1,057 → 749**. What is left is the genuinely semantic
   remainder: the editor's syntax theme, the RAG ramp, chart series colours.
 
   **The dark theme is a second copy of this problem.** `dark-mode.css` carries
@@ -788,7 +788,7 @@ changing the count — see the re-baseline note above):
 
 | Rule | Now |
 |---|---|
-| `raw-colour` | 1,057 → **750** |
+| `raw-colour` | 1,057 → **749** |
 | `off-scale-spacing` | 5 |
 | `token-outside-canonical` | 0 |
 | `unpaired-outline-none` | 0 |
@@ -808,7 +808,7 @@ confirmed pixel-identical across all 39 views in both themes.
 
 `raw-colour` is now the only rule with real numbers behind it, and the palette
 decision it was waiting on has been taken (see above): the semantic status ramp
-is named, gated and adopted, and the count fell 1,057 → 750. What remains is
+is named, gated and adopted, and the count fell 1,057 → 749. What remains is
 the genuinely semantic residue — the editor's syntax theme, the RAG ramp, chart
 series colours — where the colour carries the meaning and a token would destroy
 it.
