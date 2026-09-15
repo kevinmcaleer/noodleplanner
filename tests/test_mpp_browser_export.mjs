@@ -118,6 +118,26 @@ test("dependency type and lag are carried, not zeroed", { skip: !hasPython }, ()
   assert.deepEqual(bySucc[uid["Phase 2"]], { predUid: uid["Phase 1"], succUid: uid["Phase 2"], type: "FS", lagDays: 0 });
 });
 
+test("export model marks assigned 100% leaf tasks for round-trip preservation", () => {
+  const parse = {
+    success: true,
+    tasks: [{
+      key: "Done",
+      name: "Done",
+      start: "2026-07-01",
+      finish: "2026-07-08",
+      duration_days: 5,
+      level: 1,
+      resources: "Kevin",
+      percent: 100,
+      is_summary: false,
+      comment: "",
+    }],
+  };
+  const project = buildProjectFromParse(parse, "Plan");
+  assert.equal(project.tasks[0].notes, "NoodlePlanner export: task was 100% complete");
+});
+
 test("links MS Project would reject are dropped with a note, as the XML export does", () => {
   const tasks = [
     { key: "Definition", name: "Definition", level: 1, is_summary: true, depends: [] },
@@ -303,6 +323,29 @@ test("projectToMarkdown falls back to generateShortname for a resource the prefe
   const markdown = projectToMarkdown(project, preferred);
   assert.ok(markdown.includes("- @kevin: Kevin McAleer"), markdown);
   assert.ok(markdown.includes("- @nperson: New Person"), markdown);
+});
+
+test("projectToMarkdown restores exported 100% tasks if Project reports 99% on reopen", () => {
+  const project = {
+    title: "Plan",
+    tasks: [{
+      uid: 1,
+      name: "Done",
+      start: new Date(),
+      finish: new Date(),
+      durationDays: 5,
+      outlineLevel: 1,
+      parentUid: 0,
+      percentComplete: 99,
+      notes: "NoodlePlanner export: task was 100% complete",
+    }],
+    relations: [],
+    resources: [],
+    assignments: [],
+  };
+  const markdown = projectToMarkdown(project);
+  assert.ok(markdown.includes("Done 5d 100%"), markdown);
+  assert.ok(!markdown.includes("NoodlePlanner export: task was 100% complete"), markdown);
 });
 
 test("a synced .mpp with nothing changed reimports with no diff against the current plan", { skip: !roundTrip }, () => {
