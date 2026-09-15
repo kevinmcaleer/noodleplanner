@@ -1050,7 +1050,7 @@ function updateReportHighlight() {
         if (!container) return;
 
         if (!highlightsData || highlightsData.length === 0) {
-            container.innerHTML = '<p class="quad-empty-state">No highlights recorded yet.</p>';
+            container.innerHTML = '<np-empty-state>No highlights recorded yet.</np-empty-state>';
             return;
         }
 
@@ -1113,7 +1113,7 @@ function updateReportDonutChart(tasks) {
 
         const total = countableTasks.length;
         if (total === 0) {
-            container.innerHTML = '<p class="quad-empty-state">No tasks to display.</p>';
+            container.innerHTML = '<np-empty-state>No tasks to display.</np-empty-state>';
             return;
         }
 

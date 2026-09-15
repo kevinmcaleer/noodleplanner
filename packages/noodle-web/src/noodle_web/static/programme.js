@@ -277,7 +277,7 @@ function renderProgrammeSroVision(programme) {
     const slugAttr = escapeHtml(programme.slug).replace(/'/g, "\\'");
 
     const outcomesHtml = outcomes.length === 0
-        ? '<p class="programme-empty-hint">No outcomes defined yet. Outcomes are what project benefits roll up into, below.</p>'
+        ? '<np-empty-state>No outcomes defined yet. Outcomes are what project benefits roll up into, below.</np-empty-state>'
         : '<ul class="programme-milestone-list">' + outcomes.map((o) =>
             '<li class="programme-milestone">' +
             `<span class="programme-outcome-name">${escapeHtml(o.name)}</span>` +
@@ -407,14 +407,14 @@ function renderProgrammeBenefitsRealisation(outcomeContributions, slug) {
 
     if (!outcomeContributions || outcomeContributions.length === 0) {
         el.innerHTML = toolbar +
-            '<p class="programme-empty-hint">Define an outcome above, then link project benefits to it here.</p>';
+            '<np-empty-state>Define an outcome above, then link project benefits to it here.</np-empty-state>';
         return;
     }
 
     const slugAttr = escapeHtml(slug).replace(/'/g, "\\'");
     el.innerHTML = toolbar + outcomeContributions.map((oc) => {
         const rows = oc.contributions.length === 0
-            ? '<p class="programme-empty-hint">No project benefits linked to this outcome yet.</p>'
+            ? '<np-empty-state>No project benefits linked to this outcome yet.</np-empty-state>'
             : '<table class="programme-resourcing-table"><thead><tr>' +
                 '<th scope="col">Project</th><th scope="col">Benefit</th><th scope="col">Status</th>' +
                 '<th scope="col">Contribution</th><th scope="col"></th></tr></thead><tbody>' +
@@ -633,7 +633,7 @@ function renderProgrammeMilestones(milestones) {
     if (!el) return;
 
     if (!milestones || milestones.length === 0) {
-        el.innerHTML = '<p class="programme-empty-hint">No milestone tasks (zero-duration tasks) found across this programme\'s member projects.</p>';
+        el.innerHTML = '<np-empty-state>No milestone tasks (zero-duration tasks) found across this programme\'s member projects.</np-empty-state>';
         return;
     }
 
@@ -661,7 +661,7 @@ function renderProgrammeEscalatedRisks(items) {
     if (!el) return;
 
     if (!items || items.length === 0) {
-        el.innerHTML = '<p class="programme-empty-hint">No risks or issues escalated to programme level across this programme\'s member projects.</p>';
+        el.innerHTML = '<np-empty-state>No risks or issues escalated to programme level across this programme\'s member projects.</np-empty-state>';
         return;
     }
 
@@ -699,7 +699,7 @@ function renderProgrammeDependencyBoard(deps, propagationResult) {
 
     if (!deps || deps.length === 0) {
         el.innerHTML = '<div class="programme-deps-toolbar">' + addLink + '</div>' +
-            '<p class="programme-empty-hint">No dependencies link this programme\'s member projects to other tasks yet.</p>';
+            '<np-empty-state>No dependencies link this programme\'s member projects to other tasks yet.</np-empty-state>';
         return;
     }
 
@@ -766,7 +766,7 @@ function renderProgrammeResourcing(resources) {
     if (!el) return;
 
     if (!resources || resources.length === 0) {
-        el.innerHTML = '<p class="programme-empty-hint">No resource assignments found across this programme\'s member projects.</p>';
+        el.innerHTML = '<np-empty-state>No resource assignments found across this programme\'s member projects.</np-empty-state>';
         return;
     }
 

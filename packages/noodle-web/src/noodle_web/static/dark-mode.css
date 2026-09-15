@@ -2259,10 +2259,6 @@ body {
     border-color: var(--np-border);
 }
 
-[data-theme="dark"] .ben-tracking-empty {
-    color: var(--np-text-muted);
-}
-
 [data-theme="dark"] .benefits-placeholder {
     color: var(--np-text-muted);
 }

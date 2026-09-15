@@ -484,13 +484,6 @@ body {
     overflow-y: auto;
 }
 
-.vh-empty {
-    color: var(--np-text-muted);
-    font-style: italic;
-    text-align: center;
-    padding: var(--np-space-20) 0;
-}
-
 .vh-entry {
     display: flex;
     align-items: center;

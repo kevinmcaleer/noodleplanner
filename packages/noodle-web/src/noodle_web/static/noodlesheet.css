@@ -560,12 +560,11 @@ input[type="date"].ns-cell-editor {
 
 /* ── Empty State ───────────────────────────────────────────────── */
 
-.ns-empty {
+.ns-grid-container np-empty-state {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 200px;
-    color: var(--np-faint);
     font-size: 14px;
 }
 
