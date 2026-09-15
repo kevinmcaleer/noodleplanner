@@ -17,7 +17,20 @@
  *   <np-button variant="danger" outline>Remove</np-button>
  *   <np-button variant="neutral">Back</np-button>
  *
- * Two independent axes cover the standardisation candidates found by
+ *   <!-- icon + label: put icon markup in slot="icon" -->
+ *   <np-button variant="primary">
+ *     <svg slot="icon" class="icon"><use href="#icon-save"/></svg>
+ *     Save
+ *   </np-button>
+ *
+ *   <!-- icon only: `icon-only` drops the pill shape for a fixed square,
+ *        and `label` supplies the accessible name since there is no
+ *        visible text -->
+ *   <np-button variant="neutral" icon-only label="Settings">
+ *     <svg slot="icon" class="icon"><use href="#icon-settings"/></svg>
+ *   </np-button>
+ *
+ * Three independent axes cover the standardisation candidates found by
  * auditing the app's 131 `*btn*` classes (docs/design/standardisation-backlog.md,
  * issue #1193):
  *
@@ -43,6 +56,26 @@
  * values are extrapolated from the same scale. Font size and weight step
  * together with size rather than as a separate control: every family in the
  * audit that varied type also varied size in lockstep, never independently.
+ *
+ * `icon-only` (boolean, default off) is the "Icon button" role the UI
+ * inventory counts separately at 33 screens — a plain `<slot name="icon">`
+ * covers icon+label for free (drop icon markup in `slot="icon"`, text in the
+ * default slot, `gap` already spaces them), but a *bare* icon needs the pill
+ * shape replaced with a fixed square and its label supplied out-of-band for
+ * screen readers, since there is no visible text to compute an accessible
+ * name from. `label` fills that role — the same pattern `<np-close-button>`
+ * already uses for the same reason, kept as a dedicated attribute rather
+ * than reusing the DOM's own `aria-label` because the accessible name has
+ * to land on the real `<button>` inside this component's shadow root, not
+ * on the custom-element host, so it always needs forwarding either way.
+ * Sizes step 28/36/44px (small/medium/large) — 44px large matches the
+ * WCAG touch target outright, so no separate `@media (pointer: coarse)`
+ * override is needed at that step the way `.ai-chat-header-btn` and
+ * several `@media (pointer: coarse)` blocks elsewhere in the app need one.
+ * The slotted icon itself is sized to match (16/20/24px, or matching
+ * `font-size` for an icon-font glyph like Bootstrap Icons) regardless of
+ * what width/height the consumer's own markup carries, so a button's icon
+ * is never a mismatched leftover size from wherever it was copied from.
  *
  * A click on the internal <button> is a real DOM click event, composed
  * across the shadow boundary, so existing code can listen on the host
@@ -175,15 +208,61 @@ TEMPLATE.innerHTML = `
       color: var(--np-accent-hover, #D9A31C);
       text-decoration: underline;
     }
+
+    /* Icon sizing tracks the button's own size step regardless of the
+       slotted markup's own width/height/font-size, so an icon copied from
+       anywhere in the app comes out consistent. Both width/height (SVG)
+       and font-size (icon-font glyphs, e.g. Bootstrap Icons) are set;
+       each markup kind ignores whichever pair does not apply to it. */
+    ::slotted([slot='icon']) {
+      flex-shrink: 0;
+    }
+    :host([size='small']) ::slotted([slot='icon']) {
+      width: 16px;
+      height: 16px;
+      font-size: 16px;
+    }
+    :host([size='medium']) ::slotted([slot='icon']) {
+      width: 20px;
+      height: 20px;
+      font-size: 20px;
+    }
+    :host([size='large']) ::slotted([slot='icon']) {
+      width: 24px;
+      height: 24px;
+      font-size: 24px;
+    }
+
+    /* icon-only replaces the pill shape with a fixed square and drops the
+       label padding/gap -- there is nothing to pad away from or gap next
+       to. Declared after the size rules above so it wins on the padding
+       they set at equal specificity. */
+    :host([icon-only]) button {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      gap: 0;
+    }
+    :host([icon-only][size='small']) button {
+      width: 28px;
+      height: 28px;
+    }
+    :host([icon-only][size='large']) button {
+      width: 44px;
+      height: 44px;
+    }
+    :host([icon-only]) ::slotted([slot='icon']) {
+      margin: 0;
+    }
   </style>
   <button type="button" part="button">
-    <slot></slot>
+    <slot name="icon"></slot><slot></slot>
   </button>
 `;
 
 export class NpButton extends HTMLElement {
   static get observedAttributes() {
-    return ['variant', 'size', 'disabled', 'type'];
+    return ['variant', 'size', 'disabled', 'type', 'label'];
   }
 
   constructor() {
@@ -202,11 +281,13 @@ export class NpButton extends HTMLElement {
     }
     this._syncDisabled();
     this._syncType();
+    this._syncLabel();
   }
 
   attributeChangedCallback(name) {
     if (name === 'disabled') this._syncDisabled();
     if (name === 'type') this._syncType();
+    if (name === 'label') this._syncLabel();
   }
 
   get variant() {
@@ -241,12 +322,37 @@ export class NpButton extends HTMLElement {
     this.toggleAttribute('outline', Boolean(value));
   }
 
+  get iconOnly() {
+    return this.hasAttribute('icon-only');
+  }
+
+  set iconOnly(value) {
+    this.toggleAttribute('icon-only', Boolean(value));
+  }
+
   _syncDisabled() {
     this._button.disabled = this.disabled;
   }
 
   _syncType() {
     this._button.type = this.getAttribute('type') || 'button';
+  }
+
+  /** Forwards `label` onto the real, shadow-DOM <button> as its
+   * `aria-label` -- the host itself carries no ARIA role, so setting
+   * `aria-label` directly on the host would compute a name for an element
+   * that is never the thing a screen reader focuses or activates. Needed
+   * for `icon-only`, where there is no visible text to compute an
+   * accessible name from; harmless to set on an icon+label button too
+   * (the visible text already supplies a name, so this only overrides
+   * that if `label` is also given, which is not the expected use). */
+  _syncLabel() {
+    const label = this.getAttribute('label');
+    if (label) {
+      this._button.setAttribute('aria-label', label);
+    } else {
+      this._button.removeAttribute('aria-label');
+    }
   }
 }
 
