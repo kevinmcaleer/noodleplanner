@@ -453,7 +453,7 @@ function showLinkBenefitToOutcomeDialog() {
         '<div class="task-form-modal" style="max-width:420px;width:min(420px,92vw);">' +
         '<div class="modal-header">' +
         '<h3 id="linkBenefitModalTitle" style="margin:0;">Link Benefit to Outcome</h3>' +
-        '<button class="close-btn" onclick="closeLinkBenefitDialog()" aria-label="Close">&times;</button>' +
+        '<np-close-button onclick="closeLinkBenefitDialog()"></np-close-button>' +
         '</div>' +
         '<div class="modal-body">' +
         `<form id="linkBenefitForm" onsubmit="submitLinkBenefitToOutcome(event, '${slugAttr}')">` +

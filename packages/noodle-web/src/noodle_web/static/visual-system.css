@@ -416,14 +416,6 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 :root body .ai-chat-header { background: var(--np-surface-alt); color: var(--np-ink); }
 :root body .ai-chat-header button { color: var(--np-body); }
 :root body :is(.ns-col-header.selected, .ns-row-num.selected) { background: var(--np-selected); color: var(--np-ink); }
-:root body .close-btn { color: var(--np-body); flex-shrink: 0; }
-:root body .close-btn:hover { background: var(--np-sunken); color: var(--np-ink); }
-/* .detail-pane-header's background is the accent gold, which does not flip
-   with the theme -- var(--np-body) does, so in dark theme it comes out
-   light-on-light (1.17:1, needs 3:1). var(--np-on-accent) is pinned dark in
-   both themes, matching the header's own text. */
-:root body .detail-pane-header .close-btn { color: var(--np-on-accent); }
-:root body .detail-pane-header .close-btn:hover { background: rgba(35, 32, 28, 0.1); color: var(--np-on-accent); }
 :root body .modal-header { gap: 12px; border-radius: 14px 14px 0 0; }
 :root body .modal-header :is(h2, input) { min-width: 0; font-family: var(--np-font-heading); font-weight: 400; }
 :root body .timeline-donut-row { flex-wrap: wrap; }

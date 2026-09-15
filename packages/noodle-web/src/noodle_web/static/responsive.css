@@ -318,11 +318,6 @@
     }
 
     /* Touch target minimum sizes (44x44px) */
-    .close-btn {
-        min-width: 44px;
-        min-height: 44px;
-    }
-
     .copy-image-btn {
         min-width: 44px;
         min-height: 44px;

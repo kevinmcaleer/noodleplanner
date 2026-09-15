@@ -242,8 +242,10 @@
    four did not -- measured on an emulated iPad, the footer buttons came
    out 40px, the Re-check button 36px and the panel's close button 32px.
    Raised only under `pointer: coarse`, the same way components.css does
-   it for .nav-menu-item/.task-context-menu-item/.close-btn, so the
-   mouse-driven panel keeps its current, more compact proportions. */
+   it for .nav-menu-item/.task-context-menu-item (and np-close-button.js
+   does for its own shadow-DOM button, design-system.md §10's "Close
+   button"), so the mouse-driven panel keeps its current, more compact
+   proportions. */
 @media (pointer: coarse) {
     .plan-wizard-close,
     .schedule-check-recheck {
