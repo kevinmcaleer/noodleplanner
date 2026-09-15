@@ -1015,50 +1015,37 @@
     font-weight: 400;
 }
 
+/* <np-button icon-only variant="danger"> covers colour/hover/focus-ring
+   itself now (design-system.md §10) -- position/opacity/pointer-events are
+   the properties still needed from outside, to float it on the text
+   object's own corner and hover-reveal it. -9px (half of the old 18px
+   circle) becomes -14px (half of icon-only size="small"'s 28px square) so
+   it stays centred on that corner rather than drifting off it. */
 .wb-text-object-delete {
     position: absolute;
-    top: -9px;
-    right: -9px;
-    width: 18px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 1px solid var(--np-border);
-    border-radius: 50%;
-    background: var(--np-surface);
-    color: var(--np-text-secondary);
-    font-size: 13px;
-    line-height: 1;
-    cursor: pointer;
+    top: -14px;
+    right: -14px;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.12s ease;
 }
 
 .wb-text-object-wrap:hover .wb-text-object-delete,
-.wb-text-object-delete:focus-visible {
+.wb-text-object-delete:focus-within {
     opacity: 1;
     pointer-events: auto;
-}
-
-.wb-text-object-delete:hover,
-.wb-text-object-delete:focus-visible {
-    background: var(--np-bg-hover);
-    color: var(--np-text);
 }
 
 /* Touch has no hover -- always show the delete button once the object has
    been interacted with at all would require extra state for little
    benefit, so on a coarse pointer it is simply always visible (matches
-   the resize handle's own `pointer: coarse` generosity just below). */
+   the resize handle's own `pointer: coarse` generosity just below;
+   size="small" already grows to a 44px WCAG touch target there too, via
+   np-button's own `@media (pointer: coarse)` rule). */
 @media (pointer: coarse) {
     .wb-text-object-delete {
         opacity: 1;
         pointer-events: auto;
-        width: 22px;
-        height: 22px;
     }
 }
 
