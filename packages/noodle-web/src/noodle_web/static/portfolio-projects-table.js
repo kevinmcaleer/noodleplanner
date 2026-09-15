@@ -892,7 +892,7 @@ function renderSelectionToolbar() {
         `<button class="btn-secondary" onclick="showGroupIntoProgrammeDialog()">Group into a programme</button>` +
         `<button class="btn-secondary" onclick="showAddToProgrammeDialog()">Add to programme</button>` +
         `<button class="btn-secondary" onclick="removeSelectedFromProgramme()">Remove from programme</button>` +
-        `<button class="portfolio-selection-clear" onclick="clearProjectSelection()" aria-label="Clear selection" title="Clear selection">&times;</button>`;
+        `<np-close-button class="portfolio-selection-clear" flat onclick="clearProjectSelection()" label="Clear selection" title="Clear selection"></np-close-button>`;
 }
 
 /**

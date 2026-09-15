@@ -1886,12 +1886,12 @@ Build
                             <span class="raid-editor-toggle" id="raidEditorToggle">▶</span>
                             <span class="raid-editor-title">RAID Markdown</span>
                             <div class="raid-editor-actions" id="raidEditorActions" style="display:none;">
-                                <button class="toolbar-btn" onclick="event.stopPropagation(); uploadRaidMarkdownFromEditor()" title="Upload Markdown">
-                                    <i class="bi bi-upload"></i>
-                                </button>
-                                <button class="toolbar-btn" onclick="event.stopPropagation(); downloadRaidMarkdown()" title="Download as Markdown">
-                                    <i class="bi bi-download"></i>
-                                </button>
+                                <np-button icon-only variant="neutral" size="small" onclick="event.stopPropagation(); uploadRaidMarkdownFromEditor()" title="Upload Markdown" label="Upload Markdown">
+                                    <i class="bi bi-upload" slot="icon"></i>
+                                </np-button>
+                                <np-button icon-only variant="neutral" size="small" onclick="event.stopPropagation(); downloadRaidMarkdown()" title="Download as Markdown" label="Download as Markdown">
+                                    <i class="bi bi-download" slot="icon"></i>
+                                </np-button>
                             </div>
                         </div>
                         <div class="raid-editor-body collapsed" id="raidEditorBody">
@@ -2114,18 +2114,18 @@ Build
                             <span class="budget-editor-toggle" id="budgetEditorToggle">&#9654;</span>
                             <span class="budget-editor-title">Budget Markdown</span>
                             <div class="budget-editor-actions" id="budgetEditorActions" style="display:none;">
-                                <button class="toolbar-btn" onclick="event.stopPropagation(); uploadBudgetMarkdownFromEditor()" title="Upload Markdown">
-                                    &#128193;
-                                </button>
-                                <button class="toolbar-btn" onclick="event.stopPropagation(); downloadBudgetMarkdown()" title="Download as Markdown">
-                                    &#128190;
-                                </button>
-                                <button class="toolbar-btn" onclick="event.stopPropagation(); exportBudgetExcel()" title="Export to Excel">
-                                    &#128196;
-                                </button>
-                                <button class="toolbar-btn" onclick="event.stopPropagation(); document.getElementById('budgetXlUpload').click()" title="Import from Excel">
-                                    &#128228;
-                                </button>
+                                <np-button icon-only variant="neutral" size="large" onclick="event.stopPropagation(); uploadBudgetMarkdownFromEditor()" title="Upload Markdown" label="Upload Markdown">
+                                    <span slot="icon">&#128193;</span>
+                                </np-button>
+                                <np-button icon-only variant="neutral" size="large" onclick="event.stopPropagation(); downloadBudgetMarkdown()" title="Download as Markdown" label="Download as Markdown">
+                                    <span slot="icon">&#128190;</span>
+                                </np-button>
+                                <np-button icon-only variant="neutral" size="large" onclick="event.stopPropagation(); exportBudgetExcel()" title="Export to Excel" label="Export to Excel">
+                                    <span slot="icon">&#128196;</span>
+                                </np-button>
+                                <np-button icon-only variant="neutral" size="large" onclick="event.stopPropagation(); document.getElementById('budgetXlUpload').click()" title="Import from Excel" label="Import from Excel">
+                                    <span slot="icon">&#128228;</span>
+                                </np-button>
                             </div>
                         </div>
                         <div class="budget-editor-body collapsed" id="budgetEditorBody">
@@ -4319,9 +4319,9 @@ Build
                     <label for="aiApiKey">API Key</label>
                     <div class="ai-key-input-wrapper">
                         <input type="password" id="aiApiKey" placeholder="sk-..." autocomplete="off">
-                        <button type="button" id="aiKeyToggle" class="ai-key-toggle" onclick="toggleAIKeyVisibility()" aria-label="Show API key">
-                            <i class="bi bi-eye"></i>
-                        </button>
+                        <np-button type="button" id="aiKeyToggle" class="ai-key-toggle" icon-only variant="neutral" size="large" onclick="toggleAIKeyVisibility()" label="Show API key">
+                            <i class="bi bi-eye" slot="icon"></i>
+                        </np-button>
                     </div>
                 </div>
 
@@ -4354,9 +4354,9 @@ Build
                 <span>AI Chat</span>
                 <span class="ai-chat-header-agent" id="aiChatAgentName"></span>
             </div>
-            <button class="ai-chat-header-btn" onclick="openAISettingsModal()" aria-label="AI Settings" title="AI Settings">
-                <i class="bi bi-gear" aria-hidden="true"></i>
-            </button>
+            <np-button icon-only variant="neutral" size="large" onclick="openAISettingsModal()" label="AI Settings" title="AI Settings">
+                <i class="bi bi-gear" aria-hidden="true" slot="icon"></i>
+            </np-button>
             <np-close-button id="aiChatCloseBtn" label="Close AI Chat"></np-close-button>
         </div>
         <div class="ai-agent-selector" id="aiAgentSelector" role="toolbar" aria-label="Select AI Agent"></div>
@@ -4373,9 +4373,9 @@ Build
                           aria-label="Chat message"
                           onkeydown="handleAIChatKeydown(event)"></textarea>
             </div>
-            <button id="aiChatSendBtn" class="ai-chat-send-btn" onclick="sendAIChatMessage()" aria-label="Send message" title="Send">
-                <i class="bi bi-send" aria-hidden="true"></i>
-            </button>
+            <np-button id="aiChatSendBtn" icon-only variant="primary" size="large" onclick="sendAIChatMessage()" label="Send message" title="Send">
+                <i class="bi bi-send" aria-hidden="true" slot="icon"></i>
+            </np-button>
         </div>
     </aside>
 
@@ -4605,12 +4605,11 @@ Build
                 <header class="collab-chat-header">
                     <strong>Session chat</strong>
                     <div class="collab-chat-header-actions">
-                        <button type="button" onclick="toggleCollabChatExpanded()" title="Expand chat"
-                                aria-label="Expand chat"><i class="bi bi-arrows-fullscreen"></i></button>
-                        <button type="button" onclick="exportCollabChat()" title="Download chat"
-                                aria-label="Download chat"><i class="bi bi-download"></i></button>
-                        <button type="button" onclick="closeCollabChatPanel()" title="Close chat"
-                                aria-label="Close chat"><i class="bi bi-x-lg"></i></button>
+                        <np-button icon-only variant="neutral" size="small" onclick="toggleCollabChatExpanded()" title="Expand chat"
+                                label="Expand chat"><i class="bi bi-arrows-fullscreen" slot="icon"></i></np-button>
+                        <np-button icon-only variant="neutral" size="small" onclick="exportCollabChat()" title="Download chat"
+                                label="Download chat"><i class="bi bi-download" slot="icon"></i></np-button>
+                        <np-close-button onclick="closeCollabChatPanel()" label="Close chat"></np-close-button>
                     </div>
                 </header>
                 <div class="collab-chat-list" id="collabChatList" aria-live="polite"></div>
@@ -4624,19 +4623,19 @@ Build
             </section>
         </div>
         <div class="status-bar-history-wrap">
-            <button class="status-bar-btn status-bar-history-btn" id="statusBarHistoryBtn" onclick="toggleStatusHistoryPopup()" title="Status message history" aria-label="Status message history" aria-haspopup="true" aria-expanded="false">
-                <i class="bi bi-bell"></i>
-            </button>
+            <np-button class="status-bar-history-btn" id="statusBarHistoryBtn" icon-only variant="neutral" size="medium" onclick="toggleStatusHistoryPopup()" title="Status message history" label="Status message history" aria-haspopup="true" aria-expanded="false">
+                <i class="bi bi-bell" slot="icon"></i>
+            </np-button>
             <div class="status-bar-history-popup" id="statusBarHistoryPopup" role="dialog" aria-label="Recent status messages">
                 <div class="status-log-popup-header">
                     <span>Recent messages</span>
                     <div class="status-log-popup-header-actions">
-                        <button type="button" class="status-log-icon-btn" onclick="openStatusLogFullscreen()" title="Open full log">
-                            <i class="bi bi-arrows-fullscreen"></i>
-                        </button>
-                        <button type="button" class="status-log-icon-btn" onclick="saveStatusLogToFile()" title="Save log to text file">
-                            <i class="bi bi-download"></i>
-                        </button>
+                        <np-button type="button" icon-only variant="neutral" size="small" onclick="openStatusLogFullscreen()" title="Open full log" label="Open full log">
+                            <i class="bi bi-arrows-fullscreen" slot="icon"></i>
+                        </np-button>
+                        <np-button type="button" icon-only variant="neutral" size="small" onclick="saveStatusLogToFile()" title="Save log to text file" label="Save log to text file">
+                            <i class="bi bi-download" slot="icon"></i>
+                        </np-button>
                     </div>
                 </div>
                 <div class="status-log-list" id="statusBarHistoryList"></div>

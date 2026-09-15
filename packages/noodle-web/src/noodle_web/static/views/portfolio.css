@@ -1355,19 +1355,11 @@
     margin-right: var(--np-space-4);
 }
 
+/* <np-close-button>'s own shadow CSS covers colour/hover now (design-
+   system.md §10) -- margin-left is the one property still needed from
+   outside to push it to the far end of the selection bar. */
 .portfolio-selection-clear {
     margin-left: auto;
-    background: none;
-    border: none;
-    font-size: 1.3em;
-    line-height: 1;
-    color: var(--np-text-secondary);
-    cursor: pointer;
-    padding: 0 var(--np-space-4);
-}
-
-.portfolio-selection-clear:hover {
-    color: var(--np-text);
 }
 
 .portfolio-lasso-box {

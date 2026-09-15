@@ -3261,19 +3261,6 @@ tr:hover .task-context-btn,
     gap: var(--np-space-4);
 }
 
-.raid-editor-actions .toolbar-btn {
-    padding: var(--np-space-2) var(--np-space-8);
-    font-size: 0.9em;
-    background: transparent;
-    border: 1px solid var(--np-border);
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.raid-editor-actions .toolbar-btn:hover {
-    background: var(--np-sunken);
-}
-
 .raid-editor-body {
     transition: max-height 0.3s ease, opacity 0.3s ease;
     max-height: 400px;
@@ -6116,28 +6103,6 @@ tr:hover .task-context-btn,
     gap: var(--np-space-4);
 }
 
-.budget-editor-actions .toolbar-btn {
-    padding: var(--np-space-2) var(--np-space-8);
-    font-size: 0.9em;
-    background: transparent;
-    border: 1px solid var(--np-border);
-    border-radius: 4px;
-    cursor: pointer;
-    min-width: 44px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.budget-editor-actions .toolbar-btn:hover {
-    background: var(--np-sunken);
-}
-
-.budget-editor-actions .toolbar-btn:focus-visible {
-    outline: 2px solid var(--np-accent);
-}
-
 .budget-editor-body {
     max-height: 300px;
     overflow: hidden;
@@ -8144,38 +8109,24 @@ button.ribbon-breadcrumb-rung:hover {
     width: 32px;
     text-align: center;
 }
+/* <np-button icon-only variant="danger"> now covers colour/hover/focus-
+   ring itself (design-system.md §10) -- opacity is the one property
+   still needed from outside, for the hover/focus reveal below. */
 .nwd-exceptions-table .nwd-delete-btn {
-    background: none;
-    border: none;
-    color: var(--np-muted);
-    cursor: pointer;
-    font-size: var(--np-text-85);
-    line-height: 1;
-    padding: var(--np-space-4);
-    min-width: 28px;
-    min-height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--np-radius-sm);
     opacity: 0;
-    transition: opacity var(--np-anim-duration-fast),
-                color var(--np-anim-duration-fast),
-                background var(--np-anim-duration-fast);
+    transition: opacity var(--np-anim-duration-fast);
 }
 .nwd-exceptions-table tbody tr:hover .nwd-delete-btn {
     opacity: 1;
 }
-.nwd-exceptions-table .nwd-delete-btn:hover {
-    color: var(--np-danger-ink);
-    background: var(--np-danger-tint);
-}
 /* Opacity as well as a ring: the button is invisible until its row is
-   hovered, and a keyboard user never hovers anything. */
-.nwd-exceptions-table .nwd-delete-btn:focus-visible {
+   hovered, and a keyboard user never hovers anything. `:focus-within`
+   rather than `:focus-visible`: delegatesFocus makes the host itself
+   :focus/:focus-within-matchable once its shadow <button> is focused,
+   but not :focus-visible-matchable -- a Chromium quirk, confirmed via
+   Playwright -- so :focus-visible here would never fire. */
+.nwd-exceptions-table .nwd-delete-btn:focus-within {
     opacity: 1;
-    outline: none;
-    box-shadow: var(--np-focus-ring);
 }
 .nwd-exceptions-table tbody tr.nwd-blank-row td {
     background: var(--np-paper);

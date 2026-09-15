@@ -123,15 +123,6 @@
     white-space: nowrap;
 }
 
-.card-delete-btn {
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-size: 14px;
-    color: var(--np-text-secondary);
-    padding: var(--np-space-4);
-}
-
 .card-popup-footer {
     display: flex;
     justify-content: flex-end;

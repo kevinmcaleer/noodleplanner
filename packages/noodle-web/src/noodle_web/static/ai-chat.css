@@ -76,30 +76,6 @@
     margin-left: var(--np-space-4);
 }
 
-.ai-chat-header-btn {
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 1.2em;
-    cursor: pointer;
-    min-width: 44px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    transition: background-color 0.15s;
-}
-
-.ai-chat-header-btn:hover {
-    background-color: rgba(255, 255, 255, 0.15);
-}
-
-.ai-chat-header-btn:focus-visible {
-    outline: 2px solid var(--np-accent);
-    outline-offset: 2px;
-}
-
 /* ── Agent Selector ───────────────────────── */
 
 .ai-agent-selector {
@@ -317,36 +293,6 @@
     outline: 2px solid var(--np-accent);
     outline-offset: -1px;
     border-color: var(--np-accent);
-}
-
-.ai-chat-send-btn {
-    min-width: 44px;
-    min-height: 44px;
-    border: none;
-    background: var(--np-accent);
-    color: var(--np-on-accent);
-    border-radius: 8px;
-    font-size: 1.1em;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.15s;
-    flex-shrink: 0;
-}
-
-.ai-chat-send-btn:hover {
-    background: var(--np-accent-hover);
-}
-
-.ai-chat-send-btn:focus-visible {
-    outline: 2px solid var(--np-accent);
-    outline-offset: 2px;
-}
-
-.ai-chat-send-btn:disabled {
-    background: var(--np-text-muted);
-    cursor: not-allowed;
 }
 
 /* ── Setup Prompt ─────────────────────────── */
@@ -639,21 +585,14 @@
     flex: 1;
     padding-right: 44px;
 }
+/* <np-button icon-only>'s own shadow CSS covers everything else now
+   (design-system.md §10) -- positioning over the input's right edge is
+   the one property still needed from outside. */
 .ai-key-toggle {
     position: absolute;
     right: var(--np-space-2);
     top: 50%;
     transform: translateY(-50%);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: var(--np-space-8);
-    min-width: 44px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--np-muted);
 }
 
 .ai-settings-actions {

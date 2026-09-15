@@ -6837,11 +6837,13 @@ function addNwdTableRow(tbodyId, entry = null, isBlank = false) {
     const actionsCell = document.createElement('td');
     actionsCell.classList.add('nwd-actions-col');
     if (!isBlank) {
-        const deleteBtn = document.createElement('button');
-        deleteBtn.type = 'button';
+        const deleteBtn = document.createElement('np-button');
+        deleteBtn.setAttribute('icon-only', '');
+        deleteBtn.setAttribute('variant', 'danger');
+        deleteBtn.setAttribute('size', 'small');
         deleteBtn.className = 'nwd-delete-btn';
-        deleteBtn.innerHTML = '&times;';
-        deleteBtn.setAttribute('aria-label', 'Remove this non-working day');
+        deleteBtn.innerHTML = '<span slot="icon">&times;</span>';
+        deleteBtn.setAttribute('label', 'Remove this non-working day');
         deleteBtn.addEventListener('click', function() {
             row.remove();
             triggerNwdAutoSave(tbodyId);
@@ -6870,11 +6872,13 @@ function handleNwdRowChange(tbodyId, row) {
         inputs[0].placeholder = '';
         const actionsCell = row.querySelector('.nwd-actions-col');
         if (actionsCell && !actionsCell.querySelector('.nwd-delete-btn')) {
-            const deleteBtn = document.createElement('button');
-            deleteBtn.type = 'button';
+            const deleteBtn = document.createElement('np-button');
+            deleteBtn.setAttribute('icon-only', '');
+            deleteBtn.setAttribute('variant', 'danger');
+            deleteBtn.setAttribute('size', 'small');
             deleteBtn.className = 'nwd-delete-btn';
-            deleteBtn.innerHTML = '&times;';
-            deleteBtn.setAttribute('aria-label', 'Remove this non-working day');
+            deleteBtn.innerHTML = '<span slot="icon">&times;</span>';
+            deleteBtn.setAttribute('label', 'Remove this non-working day');
             deleteBtn.addEventListener('click', function() {
                 row.remove();
                 triggerNwdAutoSave(tbodyId);

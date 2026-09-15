@@ -268,7 +268,7 @@
         panelEl.innerHTML = `
             <div class="plan-wizard-header">
                 <span>Guided Plan</span>
-                <button type="button" class="plan-wizard-close" aria-label="Close guided plan">×</button>
+                <np-close-button class="plan-wizard-close" label="Close guided plan"></np-close-button>
             </div>
             <div class="plan-wizard-steps" id="planWizardStepsRow"></div>
             <div class="plan-wizard-description" id="planWizardDescription"></div>
