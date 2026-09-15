@@ -137,6 +137,11 @@ Neither is fixed here; both are real and worth an issue.
 
 ## Penpot
 
+> The screen audit board — 84 captures, drift annotated per screen, and the
+> import steps — has its own page: [`screen-audit-board.md`](screen-audit-board.md).
+> What follows is the token side.
+
+
 Penpot is the place to *decide* the palette, not to discover the drift — it
 sees the tokens you give it, never the 17,584 lines of CSS they are supposed to
 govern. Use the explorer to pick the survivors, then use Penpot to design with

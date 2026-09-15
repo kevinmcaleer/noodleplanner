@@ -249,10 +249,30 @@
     "$value": "#494135",
     "$description": "--np-hairline-warm"
   },
+  "info": {
+    "$type": "color",
+    "$value": "#3fb6e0",
+    "$description": "--np-info"
+  },
   "info-gradient": {
     "$type": "color",
     "$value": "linear-gradient(135deg, #3fb6e0 0%, #2a93b8 100%)",
     "$description": "--np-info-gradient"
+  },
+  "info-hover": {
+    "$type": "color",
+    "$value": "#5cc5e8",
+    "$description": "--np-info-hover"
+  },
+  "info-ink": {
+    "$type": "color",
+    "$value": "#8FD3EC",
+    "$description": "--np-info-ink"
+  },
+  "info-tint": {
+    "$type": "color",
+    "$value": "#1c3a47",
+    "$description": "--np-info-tint"
   },
   "ink": {
     "$type": "color",
@@ -409,10 +429,30 @@
     "$value": "#39342C",
     "$description": "--np-subnav-hover"
   },
+  "success": {
+    "$type": "color",
+    "$value": "#A9BC98",
+    "$description": "--np-success"
+  },
   "success-gradient": {
     "$type": "color",
     "$value": "linear-gradient(135deg, #4ecb72 0%, #3aad5c 100%)",
     "$description": "--np-success-gradient"
+  },
+  "success-hover": {
+    "$type": "color",
+    "$value": "#BBCBAB",
+    "$description": "--np-success-hover"
+  },
+  "success-ink": {
+    "$type": "color",
+    "$value": "#C5D8B5",
+    "$description": "--np-success-ink"
+  },
+  "success-tint": {
+    "$type": "color",
+    "$value": "#303B2A",
+    "$description": "--np-success-tint"
   },
   "summary-row": {
     "$type": "color",
@@ -463,6 +503,26 @@
     "$type": "color",
     "$value": "#D4CCBF",
     "$description": "--text-secondary"
+  },
+  "warning": {
+    "$type": "color",
+    "$value": "#EDB52A",
+    "$description": "--np-warning"
+  },
+  "warning-hover": {
+    "$type": "color",
+    "$value": "#F3C754",
+    "$description": "--np-warning-hover"
+  },
+  "warning-ink": {
+    "$type": "color",
+    "$value": "#F3C754",
+    "$description": "--np-warning-ink"
+  },
+  "warning-tint": {
+    "$type": "color",
+    "$value": "#453A20",
+    "$description": "--np-warning-tint"
   },
   "yellow": {
     "$type": "color",

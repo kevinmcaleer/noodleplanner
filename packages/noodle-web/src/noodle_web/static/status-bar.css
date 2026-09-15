@@ -167,7 +167,7 @@
     height: 14px;
     padding: 0 var(--np-space-4);
     border-radius: 8px;
-    background: var(--np-danger, #c62828);
+    background: var(--np-danger, var(--np-danger));
     color: #fff;
     font-size: 9px;
     font-weight: 700;
@@ -223,7 +223,6 @@
     border-radius: 4px;
     background: transparent;
     color: inherit;
-    cursor: pointer;
 }
 
 .collab-chat-header-actions button {
@@ -360,7 +359,6 @@
     color: var(--np-danger);
     font-size: 0.9em;
     line-height: 1.4;
-    cursor: pointer;
     vertical-align: baseline;
 }
 

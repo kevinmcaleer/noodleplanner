@@ -22,6 +22,7 @@
     "design:map": "node scripts/ui-structure-map.mjs",
     "design:explorer": "node scripts/design-system-explorer.mjs",
     "design:screens": "uv run python scripts/capture_screen_audit.py",
+    "design:board": "uv run python scripts/annotate_audit_board.py penpot/screen-audit --standalone",
     "design": "npm run design:consolidation && npm run design:map && npm run design:explorer",
     "storybook": "storybook dev -p 6006 --no-open",
     "build-storybook": "storybook build",

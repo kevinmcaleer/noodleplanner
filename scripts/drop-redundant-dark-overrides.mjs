@@ -62,8 +62,13 @@ for (const rel of linked) {
 	const original = readFileSync(path, 'utf8')
 	let count = 0
 
-	const out = original.replace(/(^|[{};])(\s*)([^{};@]+?)(\s*)\{([^{}]*)\}/g,
-		(whole, lead, ws1, prelude, ws2, body) => {
+	// A lookbehind, not a captured delimiter. `(^|[{};])(\s*)(...)` consumes the
+	// `}` that ends the previous rule, so the *next* rule has no delimiter left to
+	// match against and is skipped -- the scan sees exactly every other rule. On
+	// components.css that was 648 rules of 1,270, and it is why an earlier run of
+	// this file reported zero occurrences of literals that are plainly in it.
+	const out = original.replace(/(?<=^|[{};])(\s*)([^{};@]+?)(\s*)\{([^{}]*)\}/g,
+		(whole, ws1, prelude, ws2, body) => {
 			const selectors = prelude.split(',').map((x) => x.trim()).filter(Boolean)
 			// Only a rule whose every selector is dark-scoped: a grouped rule
 			// mixing dark and non-dark selectors would need splitting, and there
@@ -87,9 +92,9 @@ for (const rel of linked) {
 			if (!count) return whole
 			if (!kept.some((d) => d.trim())) {
 				rulesEmptied++
-				return lead // the whole rule was redundant
+				return '' // the whole rule was redundant
 			}
-			return `${lead}${ws1}${prelude}${ws2}{${kept.join(';')};\n}`
+			return `${ws1}${prelude}${ws2}{${kept.join(';')};\n}`
 		})
 
 	if (!count) continue

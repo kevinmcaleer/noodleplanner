@@ -88,7 +88,7 @@
     align-items: center;
     gap: var(--np-space-4);
     font-size: 0.85rem;
-    color: #495057;
+    color: var(--np-body);
     cursor: pointer;
     user-select: none;
     white-space: nowrap;
@@ -140,9 +140,9 @@
 .tasks-table-wrapper {
     overflow-x: auto;
     overflow-y: auto;
-    background: white;
+    background: var(--np-surface);
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px var(--np-shadow);
     flex: 1;
     min-height: 0;
 }
@@ -151,7 +151,7 @@
     display: flex;
     background: var(--np-surface);
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px var(--np-shadow);
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -171,7 +171,7 @@
 
 .gantt-splitter {
     width: 6px;
-    background: #d8dce1;
+    background: var(--np-border);
     cursor: col-resize;
     flex-shrink: 0;
     position: relative;
@@ -271,7 +271,7 @@
 }
 
 .gantt-info-table tr.selected {
-    background: #e3f2fd;
+    background: var(--np-info-tint);
 }
 
 .gantt-info-table tr.gantt-phase-row {
@@ -325,8 +325,8 @@
 }
 
 .gantt-month.gantt-today {
-    background-color: #d4edda;
-    color: #155724;
+    background-color: var(--np-success-tint);
+    color: var(--np-success-ink);
 }
 
 /* Week commencing row above weekday initials in daily view */
@@ -341,7 +341,7 @@
     padding: var(--np-space-4) var(--np-space-2);
     text-align: center;
     font-weight: 600;
-    color: #495057;
+    color: var(--np-body);
     font-size: 0.7em;
     box-sizing: border-box;
     overflow: hidden;
@@ -521,11 +521,11 @@
     width: 18px;
     height: 18px;
     top: 11px;
-    background: #f59f00;
+    background: var(--np-warning);
     border-radius: 2px;
     transform: rotate(45deg);
     cursor: move;
-    border: 2px solid #e67700;
+    border: 2px solid var(--np-warning);
 }
 
 .gantt-milestone:hover {
@@ -565,7 +565,7 @@
     height: 0;
     border-left: 6px solid transparent;
     border-right: 6px solid transparent;
-    border-top: 10px solid #d32f2f;
+    border-top: 10px solid var(--np-danger);
     transform: translateX(-6px);
     cursor: default;
     z-index: 6;
@@ -573,14 +573,14 @@
 
 /* Critical path highlighting */
 .gantt-critical-bar {
-    background: #d32f2f !important;
-    border: 2px solid #c92a2a !important;
+    background: var(--np-danger) !important;
+    border: 2px solid var(--np-danger) !important;
     z-index: 1;
 }
 
 .gantt-milestone.gantt-critical-bar {
-    background: #d32f2f !important;
-    border: 2px solid #c92a2a !important;
+    background: var(--np-danger) !important;
+    border: 2px solid var(--np-danger) !important;
 }
 
 .gantt-critical-row {
@@ -608,7 +608,7 @@
 }
 
 .gantt-critical-float {
-    color: #d32f2f;
+    color: var(--np-danger);
     font-weight: 600;
 }
 
@@ -661,12 +661,12 @@
 }
 
 .baseline-late {
-    color: #dc3545;
+    color: var(--np-danger);
     font-weight: 600;
 }
 
 .baseline-early {
-    color: #28a745;
+    color: var(--np-success);
     font-weight: 600;
 }
 
@@ -692,7 +692,7 @@
     opacity: 0;
     transition: opacity 0.3s, transform 0.3s;
     pointer-events: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px var(--np-shadow-strong);
 }
 
 .baseline-toast.show {
@@ -701,14 +701,14 @@
 }
 
 .baseline-toast-success {
-    background: #d4edda;
-    color: #155724;
+    background: var(--np-success-tint);
+    color: var(--np-success-ink);
     border: 1px solid #c3e6cb;
 }
 
 .baseline-toast-warning {
-    background: #fff3cd;
-    color: #856404;
+    background: var(--np-warning-tint);
+    color: var(--np-warning-ink);
     border: 1px solid #fff3bf;
 }
 
@@ -740,7 +740,7 @@
 
 .resizer {
     width: 5px;
-    background: #e0e0e0;
+    background: var(--np-selected);
     cursor: col-resize;
     flex-shrink: 0;
     position: relative;
@@ -845,7 +845,7 @@
     padding: var(--np-space-4) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 4px;
-    background: white;
+    background: var(--np-surface);
     color: var(--np-ink);
     font-size: 0.85em;
     cursor: pointer;
@@ -895,7 +895,7 @@
     border-radius: 10px;
     padding: var(--np-space-40);
     text-align: center;
-    background: #f8f9ff;
+    background: var(--np-paper);
     transition: all 0.3s;
     cursor: pointer;
 }
@@ -1425,7 +1425,7 @@ textarea:hover {
 }
 
 .welcome-hint kbd {
-    background: #f4f4f4;
+    background: var(--np-paper);
     border: 1px solid var(--np-border-strong);
     border-radius: 4px;
     padding: var(--np-space-2) var(--np-space-8);
@@ -1523,14 +1523,14 @@ input[type="checkbox"] {
 }
 
 .message.success {
-    background: #d4edda;
-    color: #155724;
+    background: var(--np-success-tint);
+    color: var(--np-success-ink);
     border: 1px solid #c3e6cb;
 }
 
 .message.error {
-    background: #ffe0e0;
-    color: #721c24;
+    background: var(--np-danger-tint);
+    color: var(--np-danger-ink);
     border: 1px solid #f5c6cb;
 }
 
@@ -1609,7 +1609,7 @@ input[type="checkbox"] {
     height: 20px;
     border-radius: 50%;
     border: 1.5px solid var(--np-accent);
-    background: white;
+    background: var(--np-surface);
     color: var(--np-accent);
     font-size: 14px;
     line-height: 16px;
@@ -1617,7 +1617,7 @@ input[type="checkbox"] {
     cursor: pointer;
     z-index: 20;
     padding: 0;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px var(--np-shadow);
     transition: background 0.15s, color 0.15s, transform 0.15s;
 }
 
@@ -1661,7 +1661,7 @@ input[type="checkbox"] {
     display: inline-block;
     visibility: hidden;
     cursor: grab;
-    color: #adb5bd;
+    color: var(--np-faint);
     font-size: 12px;
     padding: 0;
     user-select: none;
@@ -1686,7 +1686,7 @@ input[type="checkbox"] {
 .gantt-info-table tbody tr.dragging,
 .tasks-table tbody tr.dragging {
     opacity: 0.4;
-    background: #e3f2fd;
+    background: var(--np-info-tint);
 }
 
 .gantt-info-table tbody tr.drag-over-above,

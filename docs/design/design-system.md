@@ -52,6 +52,27 @@ merges) and the palette question in band 4 are kept separate from band 3
 choosing the surviving palette is the one decision a person has to make
 (see "Explicitly out of scope" in `standardisation-backlog.md`).
 
+*What this rule governs, and what it does not.* It governs **component
+rebuilds**: do not walk a component's old look forward value by value —
+rebuild it against the fixed tokens. It does not govern **token adoption**,
+which is band 2, and which §4's "never hardcode a colour, font or spacing
+value" and `npm run lint:design` both require.
+
+The line between them is *whose* decision is being made. A literal that
+arrived with a third-party palette — Bootstrap's `#dc3545`, Material's
+`#c62828`, Open Color's `#e03131`, three vendors' idea of "danger" sitting in
+three views — encodes no decision this project ever made, so pointing all
+three at `--np-danger` is adoption, not conversion, even though the rendered
+red changes. The app already decided what its danger red is; the vendors'
+reds are the drift the epic exists to remove.
+
+What stays with a person is the app's *own* palette: whether the
+top-of-distribution cool greys adopt the warm system wholesale. That one is reserved
+for two reasons that do not apply to the vendor ramp — it changes how the
+product looks, and the surface and text tokens invert between themes, so a
+literal can only become a token when the element it sits on flips too.
+`standardisation-backlog.md`'s "Explicitly out of scope" has the detail.
+
 **Storybook is the source of truth.** If a component or variant is not in
 Storybook, it is not official. Authority is decided, not discovered — where
 several variants of a component exist, pick the one closest to the target

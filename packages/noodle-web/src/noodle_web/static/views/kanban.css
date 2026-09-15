@@ -30,7 +30,7 @@
 
 .kanban-splitter {
     width: 6px;
-    background: #d8dce1;
+    background: var(--np-border);
     cursor: col-resize;
     position: relative;
     flex-shrink: 0;
@@ -108,7 +108,7 @@
 .kanban-view-switcher label {
     margin: 0;
     font-weight: 600;
-    color: #495057;
+    color: var(--np-body);
 }
 
 .kanban-view-switcher select {
@@ -127,7 +127,7 @@
     gap: var(--np-space-8);
     margin: 0;
     font-size: 14px;
-    color: #495057;
+    color: var(--np-body);
     cursor: pointer;
 }
 
@@ -144,14 +144,14 @@
 }
 
 .kanban-message-success {
-    background: #d4edda;
-    color: #155724;
+    background: var(--np-success-tint);
+    color: var(--np-success-ink);
     border: 1px solid #c3e6cb;
 }
 
 .kanban-message-info {
-    background: #d1ecf1;
-    color: #0c5460;
+    background: var(--np-info-tint);
+    color: var(--np-info-ink);
     border: 1px solid #bee5eb;
 }
 
@@ -182,7 +182,7 @@
 }
 
 .kanban-board::-webkit-scrollbar-thumb {
-    background: #adb5bd;
+    background: var(--np-faint);
     border-radius: 4px;
 }
 
@@ -199,7 +199,7 @@
     border-radius: 8px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px var(--np-shadow);
     height: 100%;
     max-height: 100%;
     transition: all 0.2s;
@@ -251,7 +251,7 @@
     font-size: 16px;
     font-weight: 600;
     flex: 1;
-    border: 1px solid var(--bs-primary, #0d6efd);
+    border: 1px solid var(--bs-primary, var(--np-info));
     border-radius: 4px;
     padding: var(--np-space-2) var(--np-space-8);
     outline: none;
@@ -292,7 +292,6 @@
     font-weight: 700;
     letter-spacing: 1px;
     line-height: 1;
-    cursor: pointer;
     padding: 0 var(--np-space-4);
     margin-left: var(--np-space-8);
     opacity: 0.7;
@@ -332,7 +331,7 @@
     border: 1px solid var(--np-border);
     border-radius: 8px;
     padding: var(--np-space-12);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px var(--np-shadow-strong);
     max-width: 280px;
 }
 
@@ -355,14 +354,14 @@
     border: 1px solid var(--np-border);
     border-radius: 4px;
     background: var(--np-paper);
-    color: #495057;
+    color: var(--np-body);
     font-size: 13px;
     cursor: pointer;
     transition: background 0.15s;
 }
 
 .theme-colour-clear-btn:hover {
-    background: #e9ecef;
+    background: var(--np-border);
 }
 
 .kanban-column-body {
@@ -382,14 +381,14 @@
 }
 
 .kanban-column-body::-webkit-scrollbar-thumb {
-    background: #ced4da;
+    background: var(--np-border);
     border-radius: 4px;
 }
 
 .kanban-column-empty {
     text-align: center;
     padding: var(--np-space-40) var(--np-space-20);
-    color: #adb5bd;
+    color: var(--np-faint);
     font-style: italic;
 }
 
@@ -413,7 +412,7 @@
 }
 
 .kanban-add-card-btn:hover {
-    background: #e9ecef;
+    background: var(--np-border);
     border-color: var(--np-accent);
     color: var(--np-accent-ink);
 }
@@ -466,13 +465,13 @@
 
 /* Kanban Cards */
 .kanban-card {
-    background: white;
+    background: var(--np-surface);
     border-radius: 6px;
     padding: var(--np-space-12);
     margin-bottom: var(--np-space-12);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: all 0.2s;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--np-border);
     position: relative;
 }
 
@@ -483,7 +482,7 @@
 }
 
 .kanban-card:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px var(--np-shadow);
     transform: translateY(-2px);
     border-color: var(--np-accent);
 }
@@ -491,12 +490,12 @@
 .kanban-card:focus {
     outline: 3px solid var(--np-blue);
     outline-offset: 2px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px var(--np-shadow);
 }
 
 .kanban-card:active {
     transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px var(--np-shadow);
 }
 
 .kanban-card {
@@ -534,16 +533,16 @@
     width: 16px;
     height: 16px;
     margin: 0;
-    border: 2px solid #adb5bd;
+    border: 2px solid var(--np-faint);
     border-radius: 50%;
-    background: white;
+    background: var(--np-surface);
     transition: all 0.15s ease;
     flex-shrink: 0;
 }
 
 .round-checkbox:checked {
-    background: #28a745;
-    border-color: #28a745;
+    background: var(--np-success);
+    border-color: var(--np-success);
 }
 
 .round-checkbox:checked::after {
@@ -577,7 +576,7 @@
 }
 
 .mini-piechart.complete {
-    background: #28a745;
+    background: var(--np-success);
 }
 
 .mini-piechart.complete::after {
@@ -647,7 +646,7 @@
 }
 
 .piechart-popup-btn:hover {
-    background: #28a745;
+    background: var(--np-success);
     color: white;
 }
 
@@ -668,10 +667,10 @@
     min-width: 72px;
     min-height: 32px;
     max-width: 110px;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     background: var(--np-surface);
-    color: #495057;
+    color: var(--np-body);
     font-size: 12px;
     margin-left: auto;
 }
@@ -687,7 +686,7 @@
     border: 0;
     border-radius: 4px;
     background: var(--np-surface);
-    color: #495057;
+    color: var(--np-body);
     cursor: pointer;
 }
 
@@ -731,7 +730,7 @@
     min-width: 0;
     color: var(--np-ink);
     line-height: 1.4;
-    border: 1px solid var(--bs-primary, #0d6efd);
+    border: 1px solid var(--bs-primary, var(--np-info));
     border-radius: 4px;
     padding: 1px 4px;
     outline: none;
@@ -758,7 +757,7 @@
     font-weight: bold;
     margin-left: -6px;
     border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px var(--np-shadow);
 }
 
 .resource-avatar:first-child {
@@ -787,11 +786,12 @@
     padding: var(--np-space-2) var(--np-space-8);
     border-radius: 4px;
     font-weight: 500;
-    /* Not the #1194 band-2 blue-cluster winner: that pairing measures 4.03:1,
-       below the 4.5:1 this text needs. This lighter/darker pair passes at
-       4.52:1, so it stays a deliberate exception to the merge. */
-    background: #e7f5ff;
-    color: #1971c2;
+    /* #1194's band-2 merge would have put this pairing at 4.03:1, below the
+       4.5:1 this text needs. The info tint/ink pair measures 6.27:1, so it
+       clears the bar the raw pairing was kept back for. Do not swap either
+       side for a lighter one without re-running check:contrast. */
+    background: var(--np-info-tint);
+    color: var(--np-info-ink);
 }
 
 .kanban-card-comment {
@@ -806,7 +806,7 @@
 .kanban-card-footer {
     margin-top: var(--np-space-8);
     padding-top: var(--np-space-8);
-    border-top: 1px solid #f1f3f5;
+    border-top: 1px solid var(--np-hairline);
 }
 
 .kanban-card-labels {
@@ -816,18 +816,19 @@
 }
 
 .label {
-    background: #e9ecef;
+    background: var(--np-border);
     padding: var(--np-space-2) var(--np-space-8);
     border-radius: 12px;
     font-size: 11px;
-    color: #495057;
+    color: var(--np-body);
     font-weight: 500;
 }
 
 .label-dependency {
-    /* See .kanban-meta-duration above: kept off the #1194 band-2 merge for contrast. */
-    background: #e7f5ff;
-    color: #1971c2;
+    /* See .kanban-meta-duration above: the token pair carries the contrast
+       that kept this off the band-2 merge. */
+    background: var(--np-info-tint);
+    color: var(--np-info-ink);
 }
 
 .label-tag {
@@ -846,7 +847,7 @@
 .kanban-column-empty {
     text-align: center;
     padding: var(--np-space-40) var(--np-space-20);
-    color: #adb5bd;
+    color: var(--np-faint);
     font-size: 0.9em;
     font-style: italic;
 }
@@ -865,7 +866,7 @@
 }
 
 .kanban-add-task-btn:hover {
-    background: #e9ecef;
+    background: var(--np-border);
     border-color: var(--np-accent);
     transform: translateY(-1px);
 }
