@@ -390,14 +390,14 @@ const FrontMatterPanel = (function () {
             const widgetSchema = row.kind === 'block' && schema && !NoodleFrontMatter.LIST_KINDS[schema.kind]
                 ? null : schema;
             const reorder = el('div', { className: 'fm-row-reorder', 'aria-label': 'Reorder property' }, [
-                el('button', { className: 'fm-row-btn fm-row-move-up', type: 'button', text: '↑', disabled: isFirst ? '' : null, title: 'Move up', 'aria-label': 'Move property up', onclick: () => this.moveKey(row.id, -1) }),
-                el('button', { className: 'fm-row-btn fm-row-move-down', type: 'button', text: '↓', disabled: isLast ? '' : null, title: 'Move down', 'aria-label': 'Move property down', onclick: () => this.moveKey(row.id, 1) }),
+                el('np-button', { 'icon-only': '', variant: 'neutral', size: 'small', type: 'button', disabled: isFirst ? '' : null, title: 'Move up', label: 'Move property up', onclick: () => this.moveKey(row.id, -1) }, [el('span', { slot: 'icon', text: '↑' })]),
+                el('np-button', { 'icon-only': '', variant: 'neutral', size: 'small', type: 'button', disabled: isLast ? '' : null, title: 'Move down', label: 'Move property down', onclick: () => this.moveKey(row.id, 1) }, [el('span', { slot: 'icon', text: '↓' })]),
             ]);
             const keyLabel = schema
                 ? el('span', { className: 'fm-row-key', text: schema.label, title: schema.description || '' })
                 : this._renderEditableKey(row);
             const widget = this._renderWidget(row, widgetSchema);
-            const remove = el('button', { className: 'fm-row-btn fm-row-remove', type: 'button', text: '×', title: 'Remove property', 'aria-label': 'Remove property', onclick: () => this.removeKey(row.id) });
+            const remove = el('np-button', { 'icon-only': '', variant: 'danger', size: 'small', type: 'button', title: 'Remove property', label: 'Remove property', onclick: () => this.removeKey(row.id) }, [el('span', { slot: 'icon', text: '×' })]);
             const actions = el('div', { className: 'fm-row-actions' }, [reorder, remove]);
             const rowEl = el('div', { className: 'fm-row', 'data-row-id': String(row.id) }, [keyLabel, widget, actions]);
             if (widgetSchema && widgetSchema.description) rowEl.title = widgetSchema.description;
@@ -554,10 +554,10 @@ const FrontMatterPanel = (function () {
                         input.addEventListener('input', () => { entry[f] = input.value; commitEntries(); });
                         entryEl.appendChild(input);
                     });
-                    entryEl.appendChild(el('button', {
-                        className: 'fm-row-btn fm-row-remove', type: 'button', text: '×', title: 'Remove entry', 'aria-label': 'Remove entry',
+                    entryEl.appendChild(el('np-button', {
+                        'icon-only': '', variant: 'danger', size: 'small', type: 'button', title: 'Remove entry', label: 'Remove entry',
                         onclick: () => { entries.splice(idx, 1); commitEntries(); renderEntries(); },
-                    }));
+                    }, [el('span', { slot: 'icon', text: '×' })]));
                     wrap.appendChild(entryEl);
                 });
                 wrap.appendChild(el('button', {
@@ -606,10 +606,10 @@ const FrontMatterPanel = (function () {
                         commitLines();
                     });
                     line.appendChild(input);
-                    line.appendChild(el('button', {
-                        className: 'fm-line-remove', type: 'button', text: '×', title: 'Remove item', 'aria-label': 'Remove item',
+                    line.appendChild(el('np-button', {
+                        className: 'fm-line-remove', 'icon-only': '', variant: 'danger', size: 'small', type: 'button', title: 'Remove item', label: 'Remove item',
                         onclick: () => { texts.splice(index, 1); commitLines(); renderLines(); },
-                    }));
+                    }, [el('span', { slot: 'icon', text: '×' })]));
                     wrap.appendChild(line);
                 });
                 wrap.appendChild(el('button', {
