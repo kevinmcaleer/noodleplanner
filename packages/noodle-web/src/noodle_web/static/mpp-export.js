@@ -29,6 +29,7 @@ export const TEMPLATE_MISSING_MESSAGE =
 // Working day the scheduler assumes; the same times the XML export stamps.
 const WORK_START_HOUR = 8;
 const WORK_FINISH_HOUR = 17;
+const FULL_COMPLETE_EXPORT_NOTE = "NoodlePlanner export: task was 100% complete";
 
 // Lag/lead as date_math.parse_duration_to_days converts it for the scheduler.
 const LAG_DAYS = { d: 1, w: 7, m: 30, y: 365 };
@@ -85,6 +86,10 @@ function todayIso() {
 
 function splitResources(text) {
   return String(text || "").split(",").map((r) => r.trim().replace(/^@/, "")).filter(Boolean);
+}
+
+function hasAssignedResources(text) {
+  return splitResources(text).length > 0;
 }
 
 function normaliseKey(name) {
@@ -271,6 +276,12 @@ export function buildProjectFromParse(parse, projectName) {
     while (parents.length && parents[parents.length - 1][0] >= level) parents.pop();
     const parentUid = level > 1 && parents.length ? parents[parents.length - 1][1] : 0;
 
+    const percentComplete = Math.trunc(Number(t.percent) || 0);
+    const preserveFullComplete =
+      !isSummary &&
+      durationDays > 0 &&
+      percentComplete >= 100 &&
+      hasAssignedResources(t.resources);
     const notes = [t.comment || "", ...(dropped.get(uid) || [])].filter(Boolean).join("\n");
 
     outTasks.push({
@@ -281,9 +292,9 @@ export function buildProjectFromParse(parse, projectName) {
       durationDays,
       outlineLevel: level,
       parentUid,
-      percentComplete: Math.trunc(Number(t.percent) || 0),
+      percentComplete,
       taskType: "fixed_duration",
-      notes,
+      notes: preserveFullComplete ? [notes, FULL_COMPLETE_EXPORT_NOTE].filter(Boolean).join("\n") : notes,
     });
     parents.push([level, uid]);
 
@@ -496,7 +507,13 @@ export function parseResourceShortnames(planText) {
 
 /** Notes the exporter wrote about links it left out are not plan content. */
 function isExportNote(line) {
-  return /^Dependency on ".*" was not exported: /.test(line);
+  return /^Dependency on ".*" was not exported: /.test(line) || line === FULL_COMPLETE_EXPORT_NOTE;
+}
+
+function hasFullCompleteExportNote(notes) {
+  return String(notes || "")
+    .split(/\r?\n/)
+    .some((line) => line.trim() === FULL_COMPLETE_EXPORT_NOTE);
 }
 
 function lagToken(lagDays) {
@@ -575,7 +592,8 @@ export function projectToMarkdown(project, preferredShortnames) {
 
     // A summary's percent is rolled up from its subtasks by Project and by
     // NoodlePlanner alike, so it is derived, not plan content.
-    const percent = Math.trunc(Number(task.percentComplete) || 0);
+    let percent = Math.trunc(Number(task.percentComplete) || 0);
+    if (percent === 99 && hasFullCompleteExportNote(task.notes)) percent = 100;
     if (percent > 0 && !summary) parts.push(`${percent}%`);
 
     const preds = (project.relations || []).filter(

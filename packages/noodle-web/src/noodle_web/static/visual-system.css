@@ -639,8 +639,6 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
     .template-use-btn:hover,
     .calendar-add-btn,
     .actions-table thead,
-    .actions-action-btn,
-    .actions-action-btn:hover,
     #mindmap-view .mindmap-placeholder .mindmap-toolbar-btn,
     .ben-view-btn--active,
     .stakeholders-table thead,

@@ -555,9 +555,9 @@ function renderVersionHistoryList(projectId) {
                 '<span class="vh-date vh-current-label">Current version</span>' +
             '</div>' +
             '<div class="vh-entry-actions">' +
-                '<button class="vh-action-btn" onclick="event.stopPropagation(); downloadVersion(null, -1)" title="Download current">' +
-                    '<i class="bi bi-download"></i>' +
-                '</button>' +
+                '<np-button icon-only variant="neutral" size="small" onclick="event.stopPropagation(); downloadVersion(null, -1)" title="Download current" label="Download current">' +
+                    '<i class="bi bi-download" slot="icon"></i>' +
+                '</np-button>' +
             '</div>' +
         '</div>';
     }
@@ -603,18 +603,18 @@ function renderVersionHistoryList(projectId) {
                 '<span class="vh-date">' + dateStr + ' ' + timeStr + '</span>' +
             '</div>' +
             '<div class="vh-entry-actions">' +
-                '<button class="vh-action-btn" onclick="viewVersion(\'' + projectId + '\',' + idx + ')" title="View (read-only)">' +
-                    '<i class="bi bi-eye"></i>' +
-                '</button>' +
-                '<button class="vh-action-btn" onclick="downloadVersion(\'' + projectId + '\',' + idx + ')" title="Download">' +
-                    '<i class="bi bi-download"></i>' +
-                '</button>' +
-                '<button class="vh-action-btn" onclick="restoreVersion(\'' + projectId + '\',' + idx + ')" title="Restore">' +
-                    '<i class="bi bi-arrow-counterclockwise"></i>' +
-                '</button>' +
-                '<button class="vh-action-btn vh-action-delete" onclick="deleteVersionEntry(\'' + projectId + '\',' + idx + ')" title="Delete">' +
-                    '<i class="bi bi-trash"></i>' +
-                '</button>' +
+                '<np-button icon-only variant="neutral" size="small" onclick="viewVersion(\'' + projectId + '\',' + idx + ')" title="View (read-only)" label="View (read-only)">' +
+                    '<i class="bi bi-eye" slot="icon"></i>' +
+                '</np-button>' +
+                '<np-button icon-only variant="neutral" size="small" onclick="downloadVersion(\'' + projectId + '\',' + idx + ')" title="Download" label="Download">' +
+                    '<i class="bi bi-download" slot="icon"></i>' +
+                '</np-button>' +
+                '<np-button icon-only variant="neutral" size="small" onclick="restoreVersion(\'' + projectId + '\',' + idx + ')" title="Restore" label="Restore">' +
+                    '<i class="bi bi-arrow-counterclockwise" slot="icon"></i>' +
+                '</np-button>' +
+                '<np-button icon-only variant="danger" size="small" onclick="deleteVersionEntry(\'' + projectId + '\',' + idx + ')" title="Delete" label="Delete">' +
+                    '<i class="bi bi-trash" slot="icon"></i>' +
+                '</np-button>' +
             '</div>' +
         '</div>';
     });

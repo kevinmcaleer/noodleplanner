@@ -10,6 +10,17 @@
     font-size: 13px;
 }
 
+/* <np-button variant="neutral">'s text/hover-background read the app's
+   --np-text-secondary / --np-bg-hover tokens, which flip with the app's
+   own light/dark theme -- but this panel stays dark in both (see the
+   note above), so in light theme those tokens resolve to a dark-on-dark
+   colour. Pinned to the same fixed, non-flipping palette this file
+   already uses for the same reason (--np-light-grey-subtle, below). */
+.fm-panel np-button {
+    --np-text-secondary: #aaa;
+    --np-bg-hover: #444;
+}
+
 .fm-panel-absent,
 .fm-panel-header {
     display: flex;
@@ -159,8 +170,6 @@
 
 .fm-row-reorder { display: flex; }
 
-.fm-row-btn,
-.fm-line-remove,
 .fm-add-line-btn {
     border: 0;
     border-radius: 4px;
@@ -170,32 +179,11 @@
     font: inherit;
 }
 
-.fm-row-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 26px;
-    padding: 0;
-    font-size: 14px;
-}
-
-.fm-row-btn:hover,
-.fm-row-btn:focus-visible,
-.fm-line-remove:hover,
-.fm-line-remove:focus-visible,
 .fm-add-line-btn:hover,
 .fm-add-line-btn:focus-visible {
     background: #444;
     color: var(--np-light-grey-subtle);
 }
-
-.fm-row-btn:disabled {
-    opacity: 0.2;
-    cursor: default;
-}
-
-.fm-row-remove { font-size: 18px; }
 
 /* The app's global form rules are intentionally strong. Metadata inputs are
    quiet inline values, so this scoped rule wins that cascade explicitly. */
@@ -324,13 +312,12 @@
     text-align: center;
 }
 
+/* Sizing/colour now come from <np-button icon-only> itself (shadow DOM,
+   so light-DOM rules here can't reach it) -- opacity is the one property
+   that still needs setting from outside, for the hover/focus reveal
+   below. */
 .fm-line-remove {
-    flex: 0 0 24px;
-    width: 24px;
-    height: 26px;
-    padding: 0;
     opacity: 0;
-    font-size: 17px;
 }
 
 .fm-block-line:hover .fm-line-remove,

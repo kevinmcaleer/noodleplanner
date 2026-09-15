@@ -1071,10 +1071,6 @@ body {
     border-color: var(--np-input-border);
 }
 
-[data-theme="dark"] .raid-action-btn:hover {
-    background: var(--np-bg-hover);
-}
-
 /* ---- Project Actions Tracker ---- */
 [data-theme="dark"] .actions-table-wrapper {
     background: var(--np-surface);
@@ -1133,15 +1129,6 @@ body {
 
 [data-theme="dark"] .highlight-body hr {
     border-color: var(--np-border);
-}
-
-[data-theme="dark"] .highlight-action-btn {
-    color: var(--np-text-secondary);
-}
-
-[data-theme="dark"] .highlight-action-btn:hover {
-    background: var(--np-bg-hover);
-    color: var(--np-text);
 }
 
 /* ---- 2-Week Look-ahead Page ---- */
@@ -1284,10 +1271,6 @@ body {
     background: var(--np-accent-hover);
     border-color: var(--np-accent-hover);
     color: var(--np-on-accent);
-}
-
-[data-theme="dark"] .budget-action-btn:hover {
-    background: var(--np-bg-hover);
 }
 
 /* ---- EVM Page ---- */
