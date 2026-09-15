@@ -668,7 +668,7 @@ export const GALLERY = [
             'glyph usage is a migration candidate the next time its screen is touched, not a ' +
             'pattern to copy forward.',
         variants: [
-            { name: 'Close / dismiss — the app\'s single most common icon (~50+ .close-btn instances)', html: '<span style="font-size:20px;line-height:1;" aria-hidden="true">×</span>' },
+            { name: 'Close / dismiss — np-close-button\'s own default icon, but still hand-rolled at ~12 one-off sites (.fm-tag-remove, .plan-wizard-close, …)', html: '<span style="font-size:20px;line-height:1;" aria-hidden="true">×</span>' },
             { name: 'Remove (alt close glyph)', html: '<span style="font-size:20px;line-height:1;" aria-hidden="true">✕</span>' },
             { name: 'Add', html: '<span style="font-size:20px;line-height:1;" aria-hidden="true">+</span>' },
             { name: 'Complete / checkmark', html: '<span style="font-size:20px;line-height:1;" aria-hidden="true">✓</span>' },

@@ -16811,7 +16811,7 @@ function openShortcutsModal() {
     if (overlay) {
         overlay.classList.add('active');
         // Focus the close button for screen readers
-        const closeBtn = overlay.querySelector('.close-btn');
+        const closeBtn = overlay.querySelector('np-close-button');
         if (closeBtn) closeBtn.focus();
     }
 }

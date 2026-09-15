@@ -2848,7 +2848,7 @@ Build
         <div id="raidFormSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 id="raidFormTitle">New RAID Item</h2>
-                <button class="close-btn" onclick="closeRaidForm()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeRaidForm()"></np-close-button>
             </div>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
@@ -2973,7 +2973,7 @@ Build
         <div id="benefitsFormSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 id="benefitsFormTitle">New Benefit Item</h2>
-                <button class="close-btn" onclick="closeBenefitForm()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeBenefitForm()"></np-close-button>
             </div>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
@@ -3075,7 +3075,7 @@ Build
         <div id="commsFormSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 id="commsFormTitle">New Comms Item</h2>
-                <button class="close-btn" onclick="closeCommsForm()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeCommsForm()"></np-close-button>
             </div>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
@@ -3147,7 +3147,7 @@ Build
         <div id="lessonsFormSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 id="lessonsFormTitle">New Lesson Learned</h2>
-                <button class="close-btn" onclick="closeLessonsForm()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeLessonsForm()"></np-close-button>
             </div>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
@@ -3254,7 +3254,7 @@ Build
         <div id="budgetFormSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 id="budgetFormTitle">New Budget Item</h2>
-                <button class="close-btn" onclick="closeBudgetForm()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeBudgetForm()"></np-close-button>
             </div>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
@@ -3347,7 +3347,7 @@ Build
         <div id="stakeholderFormSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 id="stakeholderFormTitle">New Stakeholder</h2>
-                <button class="close-btn" onclick="closeStakeholderForm()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeStakeholderForm()"></np-close-button>
             </div>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
@@ -3398,7 +3398,7 @@ Build
         <div id="actionFormSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 id="actionFormTitle">New Action</h2>
-                <button class="close-btn" onclick="closeActionForm()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeActionForm()"></np-close-button>
             </div>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
@@ -3459,7 +3459,7 @@ Build
         <div id="highlightFormSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 id="highlightFormTitle">New Highlight</h2>
-                <button class="close-btn" onclick="closeHighlightForm()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeHighlightForm()"></np-close-button>
             </div>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
@@ -3496,7 +3496,7 @@ Build
         <div id="projectDetailsSection" class="detail-pane-section">
             <div class="modal-header">
                 <input type="text" id="projectTitle" class="modal-header-title" placeholder="Project Title" style="flex: 1; background: transparent; border: none; font-size: 20px; font-weight: 600; outline: none; padding: 0;" oninput="autoSaveProjectDetails()">
-                <button class="close-btn" onclick="closeProjectDetailsForm()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeProjectDetailsForm()"></np-close-button>
             </div>
             <div class="modal-body">
                 <form id="projectDetailsForm">
@@ -3596,7 +3596,7 @@ Build
         <div id="settingsSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 style="margin: 0;"><i class="bi bi-gear" aria-hidden="true"></i> Project Settings</h2>
-                <button class="close-btn" onclick="closeSettingsPanel()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeSettingsPanel()"></np-close-button>
             </div>
             <div class="modal-body">
                 <div class="settings-tabs" role="tablist" aria-label="Settings tabs">
@@ -3747,7 +3747,7 @@ Build
         <div id="versionHistorySection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 style="margin: 0;"><i class="bi bi-clock-history" aria-hidden="true"></i> Version History</h2>
-                <button class="close-btn" onclick="closeVersionHistoryPanel()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeVersionHistoryPanel()"></np-close-button>
             </div>
             <div class="modal-body">
                 <div class="vh-controls">
@@ -3772,7 +3772,7 @@ Build
         <div id="conditionalFormattingSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 style="margin: 0;">Conditional Formatting</h2>
-                <button class="close-btn" onclick="closeDetailPane()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeDetailPane()"></np-close-button>
             </div>
             <div class="modal-body">
                 <div id="cfRulesContainer">
@@ -3822,7 +3822,7 @@ Build
         <div id="resourceFormSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 style="margin: 0;">Add/Edit Resource</h2>
-                <button class="close-btn" onclick="closeResourceForm()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeResourceForm()"></np-close-button>
             </div>
             <div class="modal-body">
                 <form id="resourceForm">
@@ -3913,7 +3913,7 @@ Build
         <div class="task-form-modal" style="max-width: 700px;">
             <div class="modal-header">
                 <h2>Import Excel File</h2>
-                <button class="close-btn" onclick="closeExcelWizard()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeExcelWizard()"></np-close-button>
             </div>
             <div class="modal-body">
                 <!-- Step indicator -->
@@ -3984,7 +3984,7 @@ Build
         <div class="task-form-modal" style="max-width: 800px;">
             <div class="modal-header">
                 <h2>Sync RAID with Excel</h2>
-                <button class="close-btn" onclick="closeRaidSyncReview()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeRaidSyncReview()"></np-close-button>
             </div>
             <div class="modal-body">
                 <p id="raidSyncSummary" style="color: var(--text-secondary); margin-bottom: 15px;"></p>
@@ -4007,7 +4007,7 @@ Build
         <div class="task-form-modal" style="max-width: 800px;">
             <div class="modal-header">
                 <h2>Sync MS Project Schedule</h2>
-                <button class="close-btn" onclick="closeMspSyncReview()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeMspSyncReview()"></np-close-button>
             </div>
             <div class="modal-body">
                 <p id="mspSyncSummary" style="color: var(--text-secondary); margin-bottom: 15px;"></p>
@@ -4025,7 +4025,7 @@ Build
         <div class="task-form-modal" style="max-width: 600px;">
             <div class="modal-header">
                 <h2>Keyboard Shortcuts</h2>
-                <button class="close-btn" onclick="closeKeyboardShortcuts()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeKeyboardShortcuts()"></np-close-button>
             </div>
             <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
                 <h3>Navigation</h3>
@@ -4080,7 +4080,7 @@ Build
                         <i class="bi bi-download"></i>
                         <span>Save to file</span>
                     </button>
-                    <button class="close-btn" onclick="closeStatusLogFullscreen()" aria-label="Close">&times;</button>
+                    <np-close-button onclick="closeStatusLogFullscreen()"></np-close-button>
                 </div>
             </div>
             <div class="modal-body status-log-modal-body">
@@ -4094,7 +4094,7 @@ Build
         <div class="templates-modal">
             <div class="templates-header">
                 <h1>📋 Project Templates</h1>
-                <button class="close-btn" onclick="closeTemplatesModal()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeTemplatesModal()"></np-close-button>
             </div>
             <div class="templates-body">
                 <div class="templates-loading" id="templatesLoading">
@@ -4251,7 +4251,7 @@ Build
         <div class="task-form-modal">
             <div class="modal-header">
                 <h2><i class="bi bi-people" aria-hidden="true"></i> Planning session</h2>
-                <button class="close-btn" onclick="closeCollabSessionModal()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeCollabSessionModal()"></np-close-button>
             </div>
             <div class="modal-body">
                 <div id="collabSessionStatus">Starting session...</div>
@@ -4285,7 +4285,7 @@ Build
         <div class="task-form-modal ai-settings-modal">
             <div class="modal-header">
                 <h2><i class="bi bi-robot" aria-hidden="true"></i> AI Provider Settings</h2>
-                <button class="close-btn" onclick="closeAISettingsModal()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeAISettingsModal()"></np-close-button>
             </div>
             <div class="modal-body">
                 <fieldset class="ai-provider-fieldset">
@@ -4384,7 +4384,7 @@ Build
         <div class="task-form-modal" style="max-width: 650px;">
             <div class="modal-header">
                 <h2><i class="bi bi-graph-up-arrow"></i> Trend Report</h2>
-                <button class="close-btn" onclick="closeTrendReportDialog()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeTrendReportDialog()"></np-close-button>
             </div>
             <div class="modal-body">
                 <p style="margin-bottom: 12px; color: var(--text-secondary);">
@@ -4417,7 +4417,7 @@ Build
         <div class="task-form-modal" style="max-width: 550px;">
             <div class="modal-header">
                 <h2><i class="bi bi-clock-history"></i> Baselines</h2>
-                <button class="close-btn" onclick="closeBaselineDialog()" aria-label="Close">&times;</button>
+                <np-close-button onclick="closeBaselineDialog()"></np-close-button>
             </div>
             <div class="modal-body">
                 <p style="margin-bottom: 12px; color: var(--text-secondary);">
@@ -4442,7 +4442,7 @@ Build
         <div class="task-form-modal" style="max-width: 400px;">
             <div class="modal-header">
                 <h2>Delete RAID Item</h2>
-                <button class="close-btn" onclick="cancelDeleteRaidItem()" aria-label="Close">&times;</button>
+                <np-close-button onclick="cancelDeleteRaidItem()"></np-close-button>
             </div>
             <div class="modal-body">
                 <p id="raidDeleteConfirmMessage">Are you sure you want to delete this RAID item? This action cannot be undone.</p>
@@ -4459,7 +4459,7 @@ Build
         <div class="task-form-modal" style="max-width: 400px;">
             <div class="modal-header">
                 <h2>Delete Comms Item</h2>
-                <button class="close-btn" onclick="cancelDeleteCommsItem()" aria-label="Close">&times;</button>
+                <np-close-button onclick="cancelDeleteCommsItem()"></np-close-button>
             </div>
             <div class="modal-body">
                 <p id="commsDeleteConfirmMessage">Are you sure you want to delete this comms item? This action cannot be undone.</p>
@@ -4476,7 +4476,7 @@ Build
         <div class="task-form-modal" style="max-width: 400px;">
             <div class="modal-header">
                 <h2>Delete Lesson Learned</h2>
-                <button class="close-btn" onclick="cancelDeleteLessonsItem()" aria-label="Close">&times;</button>
+                <np-close-button onclick="cancelDeleteLessonsItem()"></np-close-button>
             </div>
             <div class="modal-body">
                 <p id="lessonsDeleteConfirmMessage">Are you sure you want to delete this lesson? This action cannot be undone.</p>
@@ -4493,7 +4493,7 @@ Build
         <div class="task-form-modal" style="max-width: 400px;">
             <div class="modal-header">
                 <h2>Delete Budget Item</h2>
-                <button class="close-btn" onclick="cancelDeleteBudgetItem()" aria-label="Close">&times;</button>
+                <np-close-button onclick="cancelDeleteBudgetItem()"></np-close-button>
             </div>
             <div class="modal-body">
                 <p id="budgetDeleteConfirmMessage">Are you sure you want to delete this budget item? This action cannot be undone.</p>
@@ -4510,7 +4510,7 @@ Build
         <div class="shortcuts-modal">
             <div class="shortcuts-modal-header">
                 <h2>Keyboard Shortcuts</h2>
-                <button class="close-btn" onclick="closeShortcutsModal()" aria-label="Close shortcuts">&times;</button>
+                <np-close-button onclick="closeShortcutsModal()" label="Close shortcuts"></np-close-button>
             </div>
             <div class="shortcuts-modal-body">
                 <div class="shortcuts-section">

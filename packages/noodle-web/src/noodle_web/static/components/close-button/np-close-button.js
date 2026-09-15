@@ -70,6 +70,13 @@ TEMPLATE.innerHTML = `
       outline-offset: var(--np-focus-ring-offset, 2px);
     }
 
+    /* .close-btn (the class this component replaces) bumped to a 44px WCAG
+       touch target under both a coarse pointer and a narrow viewport --
+       matched here so migrating a call site doesn't shrink its tap target. */
+    @media (pointer: coarse) {
+      button { min-width: 44px; min-height: 44px; }
+    }
+
     :host([size="small"]) button {
       width: 22px;
       height: 22px;
@@ -93,7 +100,10 @@ export class NpCloseButton extends HTMLElement {
 
   constructor() {
     super();
-    const root = this.attachShadow({ mode: 'open' });
+    // delegatesFocus so `.focus()` on the host (e.g. to move focus to a
+    // just-opened panel's close control) lands on the real shadow-DOM
+    // <button> -- the host itself carries no tabindex of its own.
+    const root = this.attachShadow({ mode: 'open', delegatesFocus: true });
     root.appendChild(TEMPLATE.content.cloneNode(true));
     this._button = root.querySelector('button');
 

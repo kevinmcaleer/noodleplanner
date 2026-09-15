@@ -509,7 +509,7 @@ function _showDependencyDialog(dep) {
         '<div class="task-form-modal" style="max-width:540px;width:min(540px,92vw);">' +
         '<div class="modal-header">' +
         '<h3 id="depModalTitle" style="margin:0;">' + title + '</h3>' +
-        '<button class="close-btn" onclick="closeDependencyDialog()" aria-label="Close">&times;</button>' +
+        '<np-close-button onclick="closeDependencyDialog()"></np-close-button>' +
         '</div>' +
         '<div class="modal-body">' +
         '<form id="depForm" onsubmit="saveDependencyForm(event)">' +
