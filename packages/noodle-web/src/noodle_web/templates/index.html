@@ -1886,12 +1886,12 @@ Build
                             <span class="raid-editor-toggle" id="raidEditorToggle">▶</span>
                             <span class="raid-editor-title">RAID Markdown</span>
                             <div class="raid-editor-actions" id="raidEditorActions" style="display:none;">
-                                <button class="toolbar-btn" onclick="event.stopPropagation(); uploadRaidMarkdownFromEditor()" title="Upload Markdown">
-                                    <i class="bi bi-upload"></i>
-                                </button>
-                                <button class="toolbar-btn" onclick="event.stopPropagation(); downloadRaidMarkdown()" title="Download as Markdown">
-                                    <i class="bi bi-download"></i>
-                                </button>
+                                <np-button icon-only variant="neutral" size="small" onclick="event.stopPropagation(); uploadRaidMarkdownFromEditor()" title="Upload Markdown" label="Upload Markdown">
+                                    <i class="bi bi-upload" slot="icon"></i>
+                                </np-button>
+                                <np-button icon-only variant="neutral" size="small" onclick="event.stopPropagation(); downloadRaidMarkdown()" title="Download as Markdown" label="Download as Markdown">
+                                    <i class="bi bi-download" slot="icon"></i>
+                                </np-button>
                             </div>
                         </div>
                         <div class="raid-editor-body collapsed" id="raidEditorBody">
@@ -2114,18 +2114,18 @@ Build
                             <span class="budget-editor-toggle" id="budgetEditorToggle">&#9654;</span>
                             <span class="budget-editor-title">Budget Markdown</span>
                             <div class="budget-editor-actions" id="budgetEditorActions" style="display:none;">
-                                <button class="toolbar-btn" onclick="event.stopPropagation(); uploadBudgetMarkdownFromEditor()" title="Upload Markdown">
-                                    &#128193;
-                                </button>
-                                <button class="toolbar-btn" onclick="event.stopPropagation(); downloadBudgetMarkdown()" title="Download as Markdown">
-                                    &#128190;
-                                </button>
-                                <button class="toolbar-btn" onclick="event.stopPropagation(); exportBudgetExcel()" title="Export to Excel">
-                                    &#128196;
-                                </button>
-                                <button class="toolbar-btn" onclick="event.stopPropagation(); document.getElementById('budgetXlUpload').click()" title="Import from Excel">
-                                    &#128228;
-                                </button>
+                                <np-button icon-only variant="neutral" size="large" onclick="event.stopPropagation(); uploadBudgetMarkdownFromEditor()" title="Upload Markdown" label="Upload Markdown">
+                                    <span slot="icon">&#128193;</span>
+                                </np-button>
+                                <np-button icon-only variant="neutral" size="large" onclick="event.stopPropagation(); downloadBudgetMarkdown()" title="Download as Markdown" label="Download as Markdown">
+                                    <span slot="icon">&#128190;</span>
+                                </np-button>
+                                <np-button icon-only variant="neutral" size="large" onclick="event.stopPropagation(); exportBudgetExcel()" title="Export to Excel" label="Export to Excel">
+                                    <span slot="icon">&#128196;</span>
+                                </np-button>
+                                <np-button icon-only variant="neutral" size="large" onclick="event.stopPropagation(); document.getElementById('budgetXlUpload').click()" title="Import from Excel" label="Import from Excel">
+                                    <span slot="icon">&#128228;</span>
+                                </np-button>
                             </div>
                         </div>
                         <div class="budget-editor-body collapsed" id="budgetEditorBody">

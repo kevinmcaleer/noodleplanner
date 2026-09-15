@@ -3263,19 +3263,6 @@ tr:hover .task-context-btn,
     gap: var(--np-space-4);
 }
 
-.raid-editor-actions .toolbar-btn {
-    padding: var(--np-space-2) var(--np-space-8);
-    font-size: 0.9em;
-    background: transparent;
-    border: 1px solid var(--np-border);
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.raid-editor-actions .toolbar-btn:hover {
-    background: var(--np-sunken);
-}
-
 .raid-editor-body {
     transition: max-height 0.3s ease, opacity 0.3s ease;
     max-height: 400px;
@@ -6120,28 +6107,6 @@ tr:hover .task-context-btn,
 .budget-editor-actions {
     display: flex;
     gap: var(--np-space-4);
-}
-
-.budget-editor-actions .toolbar-btn {
-    padding: var(--np-space-2) var(--np-space-8);
-    font-size: 0.9em;
-    background: transparent;
-    border: 1px solid var(--np-border);
-    border-radius: 4px;
-    cursor: pointer;
-    min-width: 44px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.budget-editor-actions .toolbar-btn:hover {
-    background: var(--np-sunken);
-}
-
-.budget-editor-actions .toolbar-btn:focus-visible {
-    outline: 2px solid var(--np-accent);
 }
 
 .budget-editor-body {
