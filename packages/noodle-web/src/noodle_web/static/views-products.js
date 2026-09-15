@@ -3395,8 +3395,8 @@ function openProductForm(task) {
                 <div class="pf-mini-node" style="background:${colour}; flex-shrink: 0;" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${id}'))" title="$${id}">${name}</div>
                 ${comment ? `<span class="product-comp-comment" title="${comment}">${comment}</span>` : ''}
                 <div class="product-comp-actions">
-                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); openProductForm(lastRenderedTasks.find(t => t.deliverable === '${id}'))" title="Edit">&#9998;</button>
-                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); productDeleteChild('${id}')" title="Remove">&#10005;</button>
+                    <np-button icon-only variant="neutral" size="small" onclick="event.stopPropagation(); openProductForm(lastRenderedTasks.find(t => t.deliverable === '${id}'))" title="Edit" label="Edit"><span slot="icon">&#9998;</span></np-button>
+                    <np-button icon-only variant="danger" size="small" onclick="event.stopPropagation(); productDeleteChild('${id}')" title="Remove" label="Remove"><span slot="icon">&#10005;</span></np-button>
                 </div>
             </div>`;
         }).join('');
@@ -3416,8 +3416,8 @@ function openProductForm(task) {
                 <span class="product-comp-name">${name}</span>
                 <span class="product-comp-pct">${pct}%</span>
                 <div class="product-comp-actions">
-                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); openTaskFormByName('${safeName}')" title="Edit">&#9998;</button>
-                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); productDeleteActivity('${safeName}')" title="Remove">&#10005;</button>
+                    <np-button icon-only variant="neutral" size="small" onclick="event.stopPropagation(); openTaskFormByName('${safeName}')" title="Edit" label="Edit"><span slot="icon">&#9998;</span></np-button>
+                    <np-button icon-only variant="danger" size="small" onclick="event.stopPropagation(); productDeleteActivity('${safeName}')" title="Remove" label="Remove"><span slot="icon">&#10005;</span></np-button>
                 </div>
             </div>`;
         }).join('');

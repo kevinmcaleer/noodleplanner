@@ -69,9 +69,10 @@
  * to land on the real `<button>` inside this component's shadow root, not
  * on the custom-element host, so it always needs forwarding either way.
  * Sizes step 28/36/44px (small/medium/large) — 44px large matches the
- * WCAG touch target outright, so no separate `@media (pointer: coarse)`
- * override is needed at that step the way `.ai-chat-header-btn` and
- * several `@media (pointer: coarse)` blocks elsewhere in the app need one.
+ * WCAG touch target outright; small/medium are bumped to it under
+ * `@media (pointer: coarse)` instead, the same rule `.ai-chat-header-btn`
+ * and several other `@media (pointer: coarse)` blocks elsewhere in the app
+ * already reach for by hand.
  * The slotted icon itself is sized to match (16/20/24px, or matching
  * `font-size` for an icon-font glyph like Bootstrap Icons) regardless of
  * what width/height the consumer's own markup carries, so a button's icon
@@ -253,6 +254,18 @@ TEMPLATE.innerHTML = `
     }
     :host([icon-only]) ::slotted([slot='icon']) {
       margin: 0;
+    }
+
+    /* small/medium icon-only steps (28px/36px) are below the 44px WCAG
+       touch target size="large" already clears outright -- bumped here
+       under a coarse pointer only, matching .product-comp-action-btn's own
+       coarse-pointer rule (the migration this attribute replaces it in),
+       rather than growing every mouse-driven icon button on the page. */
+    @media (pointer: coarse) {
+      :host([icon-only]) button {
+        min-width: 44px;
+        min-height: 44px;
+      }
     }
   </style>
   <button type="button" part="button">

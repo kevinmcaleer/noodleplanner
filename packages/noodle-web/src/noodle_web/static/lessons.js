@@ -550,9 +550,9 @@ function renderLessonsTable() {
                 <td>${escapeHtml(item.projectManager)}</td>
                 <td>${escapeHtml(item.date)}</td>
                 <td>
-                    <button class="raid-action-btn" onclick="openLessonsForm(${item.id})" title="Edit">&#9998;&#65039;</button>
-                    <button class="raid-action-btn" onclick="SectionFolding.jumpToBackMatterSection('---lessons learned---', ${item.id}, 'tasks')" title="Open source row in plan editor"><i class="bi bi-code-slash"></i></button>
-                    <button class="raid-action-btn delete" onclick="deleteLessonsItem(${item.id})" title="Delete">&#128465;&#65039;</button>
+                    <np-button icon-only variant="neutral" size="small" title="Edit" label="Edit" onclick="openLessonsForm(${item.id})"><span slot="icon">&#9998;&#65039;</span></np-button>
+                    <np-button icon-only variant="neutral" size="small" title="Open source row in plan editor" label="Open source row in plan editor" onclick="SectionFolding.jumpToBackMatterSection('---lessons learned---', ${item.id}, 'tasks')"><i class="bi bi-code-slash" slot="icon"></i></np-button>
+                    <np-button icon-only variant="danger" size="small" title="Delete" label="Delete" onclick="deleteLessonsItem(${item.id})"><span slot="icon">&#128465;&#65039;</span></np-button>
                 </td>
             `;
             tbody.appendChild(row);

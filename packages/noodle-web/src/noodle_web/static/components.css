@@ -3184,25 +3184,6 @@ tr:hover .task-context-btn,
 .raid-score-medium { background: #fff3bf; color: #e67700; }
 .raid-score-high { background: #ffe0e0; color: #c62828; }
 
-/* Action buttons in table rows */
-.raid-action-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: var(--np-space-4) var(--np-space-8);
-    border-radius: 4px;
-    font-size: 1em;
-    transition: background 0.2s;
-}
-
-.raid-action-btn:hover {
-    background: #e9ecef;
-}
-
-.raid-action-btn.delete:hover {
-    background: #ffe0e0;
-    color: #c62828;
-}
 
 /* RAID form modal - reuses existing modal-overlay pattern */
 .raid-score-display {
@@ -3537,26 +3518,6 @@ tr:hover .task-context-btn,
 .highlight-actions {
     display: flex;
     gap: var(--np-space-4);
-}
-
-.highlight-action-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1em;
-    padding: var(--np-space-4) var(--np-space-8);
-    border-radius: 4px;
-    opacity: 0.6;
-    transition: opacity 0.15s;
-}
-
-.highlight-action-btn:hover {
-    opacity: 1;
-    background: var(--np-paper);
-}
-
-.highlight-action-btn.delete:hover {
-    background: #ffe0e0;
 }
 
 .highlight-body {
@@ -4778,32 +4739,6 @@ tr:hover .task-context-btn,
 .actions-status-closed {
     background: #e8f5e9;
     color: #388e3c;
-}
-
-/* Action Buttons */
-.actions-action-btn {
-    padding: var(--np-space-8) var(--np-space-12);
-    margin: 0 var(--np-space-4);
-    background: var(--np-accent);
-    color: var(--np-on-accent);
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9em;
-    transition: all 0.2s;
-}
-
-.actions-action-btn:hover {
-    background: var(--np-accent-hover);
-    transform: translateY(-1px);
-}
-
-.actions-action-btn.delete {
-    background: var(--np-danger);
-}
-
-.actions-action-btn.delete:hover {
-    background: var(--np-danger-hover);
 }
 
 /* Report Section */
@@ -6110,30 +6045,6 @@ tr:hover .task-context-btn,
     font-weight: 700;
     background: #f1f3f5;
     border-top: 2px solid var(--np-accent);
-}
-
-.budget-action-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: var(--np-space-4) var(--np-space-8);
-    font-size: 1em;
-    border-radius: 4px;
-    min-width: 44px;
-    min-height: 44px;
-    transition: background 0.2s;
-}
-
-.budget-action-btn:hover {
-    background: #e9ecef;
-}
-
-.budget-action-btn:focus-visible {
-    outline: 2px solid var(--np-accent);
-}
-
-.budget-action-btn.delete:hover {
-    background: #ffe0e0;
 }
 
 .budget-type-badge {
