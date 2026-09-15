@@ -122,35 +122,11 @@
     border-top: 1px solid var(--np-border);
 }
 
-.plan-wizard-back-btn,
-.plan-wizard-skip-btn,
-.plan-wizard-next-btn {
-    padding: var(--np-space-8) var(--np-space-16);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-    min-height: 40px;
-}
-
-.plan-wizard-back-btn,
-.plan-wizard-skip-btn {
-    border: 1px solid var(--np-border);
-    background: transparent;
-}
-
-.plan-wizard-back-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
+/* Back/Skip/Next are now <np-button variant="neutral"|"primary">
+   (design-system.md §6); only the footer's own layout hook remains
+   local. */
 .plan-wizard-skip-btn {
     margin-right: auto;
-}
-
-.plan-wizard-next-btn {
-    border: 1px solid var(--np-blue);
-    background: var(--np-blue);
-    color: #fff;
 }
 
 @media (max-width: 640px) {
@@ -270,10 +246,19 @@
    mouse-driven panel keeps its current, more compact proportions. */
 @media (pointer: coarse) {
     .plan-wizard-close,
-    .plan-wizard-back-btn,
-    .plan-wizard-skip-btn,
-    .plan-wizard-next-btn,
     .schedule-check-recheck {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* Back/Skip/Next are <np-button> now (design-system.md §6): its
+       real, clickable <button> lives in shadow DOM, exposed as
+       part="button", so this has to reach through ::part() rather than
+       a plain class selector -- a min-height/-width on the host element
+       itself would enlarge its box without enlarging the button inside. */
+    .plan-wizard-back-btn::part(button),
+    .plan-wizard-skip-btn::part(button),
+    .plan-wizard-next-btn::part(button) {
         min-height: 44px;
         min-width: 44px;
     }

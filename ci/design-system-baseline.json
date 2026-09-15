@@ -565,7 +565,7 @@
         "background: rgba(194, 29, 29, 0.1)": 1,
         "background: rgba(28, 158, 65, 0.1)": 1,
         "box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25)": 1,
-        "color: #fff": 3
+        "color: #fff": 2
       },
       "packages/noodle-web/src/noodle_web/static/views/portfolio.css": {
         "background-color: rgba(0, 0, 0, 0.5)": 1,

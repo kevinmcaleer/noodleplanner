@@ -274,9 +274,9 @@
             <div class="plan-wizard-description" id="planWizardDescription"></div>
             <div class="plan-wizard-content" id="planWizardStageContent"></div>
             <div class="plan-wizard-footer">
-                <button type="button" class="plan-wizard-back-btn">Back</button>
-                <button type="button" class="plan-wizard-skip-btn">Skip</button>
-                <button type="button" class="plan-wizard-next-btn">Next</button>
+                <np-button variant="neutral" size="small" class="plan-wizard-back-btn">Back</np-button>
+                <np-button variant="neutral" size="small" class="plan-wizard-skip-btn">Skip</np-button>
+                <np-button variant="primary" size="small" class="plan-wizard-next-btn">Next</np-button>
             </div>
         `;
         document.body.appendChild(panelEl);
