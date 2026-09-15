@@ -414,7 +414,6 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 :root body .lookahead-section-title.overdue,
 :root body .lookahead-section-title.upcoming { color: #fff; }
 :root body .ai-chat-header { background: var(--np-surface-alt); color: var(--np-ink); }
-:root body .ai-chat-header button { color: var(--np-body); }
 :root body :is(.ns-col-header.selected, .ns-row-num.selected) { background: var(--np-selected); color: var(--np-ink); }
 :root body .modal-header { gap: 12px; border-radius: 14px 14px 0 0; }
 :root body .modal-header :is(h2, input) { min-width: 0; font-family: var(--np-font-heading); font-weight: 400; }
@@ -516,8 +515,6 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
     .ai-agent-chip.active,
     .ai-agent-chip.active:hover,
     .ai-chat-bubble.user,
-    .ai-chat-send-btn,
-    .ai-chat-send-btn:hover,
     .ai-chat-setup-btn,
     .ai-chat-setup-btn:hover,
     .plan-subnav-btn.active,

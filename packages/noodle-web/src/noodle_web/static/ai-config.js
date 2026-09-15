@@ -148,12 +148,12 @@ function toggleAIKeyVisibility() {
     const btn = document.getElementById('aiKeyToggle');
     if (input.type === 'password') {
         input.type = 'text';
-        btn.innerHTML = '<i class="bi bi-eye-slash"></i>';
-        btn.setAttribute('aria-label', 'Hide API key');
+        btn.innerHTML = '<i class="bi bi-eye-slash" slot="icon"></i>';
+        btn.setAttribute('label', 'Hide API key');
     } else {
         input.type = 'password';
-        btn.innerHTML = '<i class="bi bi-eye"></i>';
-        btn.setAttribute('aria-label', 'Show API key');
+        btn.innerHTML = '<i class="bi bi-eye" slot="icon"></i>';
+        btn.setAttribute('label', 'Show API key');
     }
 }
 

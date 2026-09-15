@@ -216,7 +216,6 @@
     gap: 4px;
 }
 
-.collab-chat-header-actions button,
 .collab-chat-promote,
 .collab-chat-composer button {
     border: 0;
@@ -226,12 +225,6 @@
     cursor: pointer;
 }
 
-.collab-chat-header-actions button {
-    width: 28px;
-    height: 28px;
-}
-
-.collab-chat-header-actions button:hover,
 .collab-chat-promote:hover {
     background: var(--np-bg-hover, #e8eaed);
 }
@@ -422,8 +415,18 @@ body {
         min-height: 44px;
     }
 
-    .status-bar-btn,
-    .status-bar-history-btn {
+    .status-bar-btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* .status-bar-history-btn is <np-button icon-only> now (design-
+       system.md §10): its real, clickable <button> lives in shadow DOM,
+       exposed as part="button", so this has to reach through ::part()
+       rather than a plain class selector -- a min-height/-width on the
+       host element itself would enlarge its box without enlarging the
+       button inside (see plan-wizard.css for the same trap). */
+    .status-bar-history-btn::part(button) {
         min-height: 44px;
         min-width: 44px;
     }

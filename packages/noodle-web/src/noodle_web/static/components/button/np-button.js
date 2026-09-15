@@ -70,13 +70,18 @@
  * on the custom-element host, so it always needs forwarding either way.
  * Sizes step 28/36/44px (small/medium/large) — 44px large matches the
  * WCAG touch target outright; small/medium are bumped to it under
- * `@media (pointer: coarse)` instead, the same rule `.ai-chat-header-btn`
- * and several other `@media (pointer: coarse)` blocks elsewhere in the app
- * already reach for by hand.
+ * `@media (pointer: coarse)` instead, the same rule several other
+ * `@media (pointer: coarse)` blocks elsewhere in the app already reach for
+ * by hand.
  * The slotted icon itself is sized to match (16/20/24px, or matching
  * `font-size` for an icon-font glyph like Bootstrap Icons) regardless of
  * what width/height the consumer's own markup carries, so a button's icon
  * is never a mismatched leftover size from wherever it was copied from.
+ *
+ * `aria-haspopup` and `aria-expanded` set on the host forward to the real
+ * `<button>` the same way `label` does — a consumer toggling
+ * `aria-expanded` on a popup-trigger button (exactly as it would on a
+ * plain `<button>`) needs that relayed through for the same reason.
  *
  * A click on the internal <button> is a real DOM click event, composed
  * across the shadow boundary, so existing code can listen on the host
@@ -273,14 +278,29 @@ TEMPLATE.innerHTML = `
   </button>
 `;
 
+// ARIA states some consumers need to toggle at runtime (e.g. a popup
+// trigger's aria-expanded) or set once (aria-haspopup) -- same forwarding
+// problem _syncLabel solves for aria-label, generalised to the specific
+// attributes actually in use rather than every possible aria-* name.
+const ARIA_PASSTHROUGH = ['aria-haspopup', 'aria-expanded'];
+
 export class NpButton extends HTMLElement {
   static get observedAttributes() {
-    return ['variant', 'size', 'disabled', 'type', 'label'];
+    return ['variant', 'size', 'disabled', 'type', 'label', ...ARIA_PASSTHROUGH];
   }
 
   constructor() {
     super();
-    const root = this.attachShadow({ mode: 'open' });
+    // delegatesFocus so `.focus()` on the host resolves to the real
+    // shadow-DOM <button> -- the host itself carries no tabindex of its
+    // own. Mirrors <np-close-button>'s own fix for the same gap. Once
+    // focused this way, the host itself matches `:focus`/`:focus-within`
+    // (so an external hover-reveal hook like .nwd-delete-btn's should key
+    // off one of those) but NOT `:focus-visible` -- confirmed via
+    // Playwright as a Chromium quirk: :focus-visible tracks the actual
+    // focused node (the shadow <button>, which does match it), not the
+    // delegatesFocus host.
+    const root = this.attachShadow({ mode: 'open', delegatesFocus: true });
     root.appendChild(TEMPLATE.content.cloneNode(true));
     this._button = root.querySelector('button');
   }
@@ -295,12 +315,14 @@ export class NpButton extends HTMLElement {
     this._syncDisabled();
     this._syncType();
     this._syncLabel();
+    for (const attr of ARIA_PASSTHROUGH) this._syncAria(attr);
   }
 
   attributeChangedCallback(name) {
     if (name === 'disabled') this._syncDisabled();
     if (name === 'type') this._syncType();
     if (name === 'label') this._syncLabel();
+    if (ARIA_PASSTHROUGH.includes(name)) this._syncAria(name);
   }
 
   get variant() {
@@ -365,6 +387,19 @@ export class NpButton extends HTMLElement {
       this._button.setAttribute('aria-label', label);
     } else {
       this._button.removeAttribute('aria-label');
+    }
+  }
+
+  /** Forwards one of ARIA_PASSTHROUGH's attributes from the host onto the
+   * real shadow-DOM <button>, same rationale as _syncLabel: assistive tech
+   * reads ARIA state off the actual interactive element, not the inert
+   * custom-element host, so a consumer toggling e.g. aria-expanded on the
+   * host (as it would on a plain <button>) needs it relayed through. */
+  _syncAria(name) {
+    if (this.hasAttribute(name)) {
+      this._button.setAttribute(name, this.getAttribute(name));
+    } else {
+      this._button.removeAttribute(name);
     }
   }
 }

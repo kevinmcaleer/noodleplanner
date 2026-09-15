@@ -188,7 +188,7 @@
                     <div class="card-list-actions">
                         <button type="button" class="card-insert-tasks-btn">Insert as Tasks</button>
                         <button type="button" class="card-insert-text-btn">Insert as Text</button>
-                        <button type="button" class="card-delete-btn" aria-label="Delete snippet">🗑</button>
+                        <np-button type="button" class="card-delete-btn" icon-only variant="danger" size="small" label="Delete snippet"><span slot="icon">🗑</span></np-button>
                     </div>
                 `;
                 row.querySelector('.card-insert-tasks-btn').addEventListener('click', () => {
