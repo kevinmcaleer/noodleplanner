@@ -133,10 +133,10 @@ async function renderPortfolioLessons() {
         html += '</div>';
 
         if (items.length === 0) {
-            html += '<div class="raid-empty-state"><h3>No lessons captured yet</h3>' +
+            html += '<np-empty-state variant="card" heading="No lessons captured yet">' +
                     '<p>Lessons appear here automatically as soon as any project records them.</p>' +
                     '<p>Open a project, navigate to <strong>Tracking &gt; Lessons Learned</strong>, and add the first lesson.</p>' +
-                    '</div>';
+                    '</np-empty-state>';
         } else {
             html += '<div class="raid-table-wrapper"><table class="raid-table" aria-label="Portfolio lessons learned">';
             html += '<thead><tr>' +

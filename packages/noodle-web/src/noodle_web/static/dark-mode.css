@@ -787,14 +787,6 @@ body {
     color: var(--np-text-muted);
 }
 
-[data-theme="dark"] .kanban-empty-state h3 {
-    color: var(--np-text);
-}
-
-[data-theme="dark"] .kanban-empty-state p {
-    color: var(--np-text-secondary);
-}
-
 /* Kanban card metadata badges */
 [data-theme="dark"] .kanban-meta-duration {
     background: #1a2e4a;
@@ -1100,14 +1092,6 @@ body {
 
 [data-theme="dark"] .actions-table tbody tr:nth-child(even) {
     background: var(--np-table-stripe);
-}
-
-[data-theme="dark"] .actions-empty-state {
-    color: var(--np-text-muted);
-}
-
-[data-theme="dark"] .actions-empty-state h3 {
-    color: var(--np-text-secondary);
 }
 
 /* ---- Highlights Page ---- */
@@ -1749,18 +1733,6 @@ body {
     color: var(--np-text-secondary);
 }
 
-[data-theme="dark"] .portfolio-empty-state {
-    box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-empty-state h3 {
-    color: var(--np-accent);
-}
-
-[data-theme="dark"] .portfolio-empty-state p {
-    color: var(--np-text-secondary);
-}
-
 /* Portfolio project cards */
 [data-theme="dark"] .portfolio-project-card {
     background: var(--np-surface);
@@ -2064,15 +2036,6 @@ body {
 [data-theme="dark"] .resource-details-content {
     background: var(--np-surface);
     box-shadow: 0 4px 12px var(--np-shadow-strong);
-    color: var(--np-text);
-}
-
-[data-theme="dark"] .resource-details-content .close-btn {
-    color: var(--np-text-muted);
-}
-
-[data-theme="dark"] .resource-details-content .close-btn:hover {
-    background: var(--np-bg-hover);
     color: var(--np-text);
 }
 

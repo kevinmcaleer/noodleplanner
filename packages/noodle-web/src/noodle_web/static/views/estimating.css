@@ -28,15 +28,6 @@
     border-bottom: 1px solid var(--np-border);
 }
 
-.estimate-popup-close {
-    border: none;
-    background: transparent;
-    font-size: 20px;
-    line-height: 1;
-    cursor: pointer;
-    color: var(--np-text-secondary);
-}
-
 .estimate-popup-mode-tabs {
     display: flex;
     gap: var(--np-space-4);

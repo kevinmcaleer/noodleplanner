@@ -63,10 +63,9 @@ async function renderPortfolioBenefits() {
         const parsedProjects = await parseAllProjects();
 
         if (parsedProjects.length === 0) {
-            container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Projects</h3>' +
+            container.innerHTML = '<np-empty-state variant="card" heading="No Projects">' +
                 '<p>Create projects to see benefits realisation data here.</p>' +
-                '</div>';
+                '</np-empty-state>';
             return;
         }
 
@@ -75,10 +74,9 @@ async function renderPortfolioBenefits() {
         const allItems = collectPortfolioBenefits(parsedProjects);
 
         if (allItems.length === 0) {
-            container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Benefits Items</h3>' +
+            container.innerHTML = '<np-empty-state variant="card" heading="No Benefits Items">' +
                 '<p>No benefits realisation items found in any project.</p>' +
-                '</div>';
+                '</np-empty-state>';
             return;
         }
 
@@ -184,10 +182,9 @@ async function renderPortfolioBenefits() {
 
     } catch (error) {
         console.error('Error rendering portfolio benefits:', error);
-        container.innerHTML = '<div class="portfolio-empty-state">' +
-            '<h3>Error Loading Benefits</h3>' +
+        container.innerHTML = '<np-empty-state variant="card" heading="Error Loading Benefits">' +
             '<p>Failed to load benefits data. Please try again.</p>' +
-            '</div>';
+            '</np-empty-state>';
     }
 }
 

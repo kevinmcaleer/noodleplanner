@@ -111,20 +111,18 @@ async function renderPortfolioActions() {
         const parsedProjects = await parseAllProjects();
 
         if (parsedProjects.length === 0) {
-            container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Projects</h3>' +
+            container.innerHTML = '<np-empty-state variant="card" heading="No Projects">' +
                 '<p>Create projects to see open actions here.</p>' +
-                '</div>';
+                '</np-empty-state>';
             return;
         }
 
         const actions = collectOpenActions(parsedProjects);
 
         if (actions.length === 0) {
-            container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Open Actions</h3>' +
+            container.innerHTML = '<np-empty-state variant="card" heading="No Open Actions">' +
                 '<p>There are no open actions in any project RAID logs.</p>' +
-                '</div>';
+                '</np-empty-state>';
             return;
         }
 
@@ -197,10 +195,9 @@ async function renderPortfolioActions() {
 
     } catch (error) {
         console.error('Error rendering portfolio actions:', error);
-        container.innerHTML = '<div class="portfolio-empty-state">' +
-            '<h3>Error Loading Actions</h3>' +
+        container.innerHTML = '<np-empty-state variant="card" heading="Error Loading Actions">' +
             '<p>Failed to load action data. Please try again.</p>' +
-            '</div>';
+            '</np-empty-state>';
     }
 }
 

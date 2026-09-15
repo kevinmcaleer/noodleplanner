@@ -940,8 +940,8 @@ function renderProgrammeView() {
     renderProgrammeSroVision(programme);
 
     if (count === 0) {
-        gridEl.innerHTML = '<div class="portfolio-empty-state"><h3>No projects yet</h3>' +
-            '<p>Group a project into this programme from the Portfolio view.</p></div>';
+        gridEl.innerHTML = '<np-empty-state variant="card" heading="No projects yet">' +
+            '<p>Group a project into this programme from the Portfolio view.</p></np-empty-state>';
         if (tilesEl) tilesEl.innerHTML = '';
         if (milestonesEl) milestonesEl.innerHTML = '';
         if (escalatedEl) escalatedEl.innerHTML = '';

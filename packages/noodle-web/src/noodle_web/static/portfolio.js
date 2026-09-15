@@ -140,11 +140,10 @@ function renderProjectsList() {
     const currentProjectId = getCurrentProjectId();
 
     if (projects.length === 0) {
-        container.innerHTML = '<div class="portfolio-empty-state">' +
-            '<h3>No Projects Yet</h3>' +
+        container.innerHTML = '<np-empty-state variant="card" heading="No Projects Yet">' +
             '<p>Create your first project to get started.</p>' +
-            '<button class="btn-primary" onclick="showCreateProjectDialog()">+ Create Project</button>' +
-            '</div>';
+            '<button class="btn-primary" slot="actions" onclick="showCreateProjectDialog()">+ Create Project</button>' +
+            '</np-empty-state>';
         return;
     }
 

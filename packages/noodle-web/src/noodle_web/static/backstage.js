@@ -107,11 +107,11 @@
         if (projects.length === 0) {
             list.style.display = 'none';
             list.innerHTML = '';
-            empty.style.display = '';
+            empty.hidden = false;
             return;
         }
 
-        empty.style.display = 'none';
+        empty.hidden = true;
         list.style.display = '';
         list.innerHTML = projects.map((project) => {
             const isActive = project.id === currentProjectId;

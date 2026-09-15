@@ -407,12 +407,11 @@ function renderProgrammeDependenciesView(containerId, parsedProjects, propagatio
     html += '</div>';
 
     if (deps.length === 0) {
-        html += '<div class="portfolio-empty-state">' +
-            '<h3>No Dependencies</h3>' +
+        html += '<np-empty-state variant="card" heading="No Dependencies">' +
             '<p>Add dependencies to track how tasks in one project affect another.</p>' +
-            '<a href="javascript:void(0)" class="add-item-link" onclick="showAddDependencyDialog()" style="margin-top:8px;display:inline-flex;">' +
+            '<a href="javascript:void(0)" class="add-item-link" slot="actions" onclick="showAddDependencyDialog()">' +
             '<span class="add-icon">+</span> Add Dependency</a>' +
-            '</div>';
+            '</np-empty-state>';
     } else {
         html += '<table class="dep-table" role="table" aria-label="Programme dependencies">';
         html += '<thead><tr>' +
@@ -746,10 +745,9 @@ async function renderPortfolioDependencies() {
         renderProgrammeDependenciesView('portfolioDependenciesView', parsedProjects, propagationResult);
     } catch (err) {
         console.error('Error rendering portfolio dependencies:', err);
-        container.innerHTML = '<div class="portfolio-empty-state">' +
-            '<h3>Error Loading Dependencies</h3>' +
+        container.innerHTML = '<np-empty-state variant="card" heading="Error Loading Dependencies">' +
             '<p>Failed to load dependency data. Please try again.</p>' +
-            '</div>';
+            '</np-empty-state>';
     }
 }
 

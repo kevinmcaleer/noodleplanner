@@ -3212,24 +3212,6 @@ tr:hover .task-context-btn,
 .raid-score-medium { background: #fff3bf; color: var(--np-warning); }
 .raid-score-high { background: #ffe0e0; color: var(--np-danger); }
 
-/* Empty state */
-.raid-empty-state {
-    text-align: center;
-    padding: 80px 40px;
-    color: var(--np-faint);
-}
-
-.raid-empty-state h3 {
-    color: var(--np-accent);
-    margin-bottom: var(--np-space-12);
-    font-size: 1.5em;
-}
-
-.raid-empty-state p {
-    font-size: 1.05em;
-    margin: var(--np-space-4) 0;
-}
-
 /* Action buttons in table rows */
 .raid-action-btn {
     background: transparent;
@@ -3635,12 +3617,6 @@ tr:hover .task-context-btn,
     border: none;
     border-top: 1px solid var(--np-border);
     margin: var(--np-space-12) 0;
-}
-
-.highlights-empty-state {
-    text-align: center;
-    padding: var(--np-space-40) var(--np-space-20);
-    color: var(--np-body);
 }
 
 .highlights-placeholder {
@@ -4817,17 +4793,6 @@ tr:hover .task-context-btn,
     background: var(--np-paper);
 }
 
-.actions-empty-state {
-    padding: 60px 20px;
-    text-align: center;
-    color: var(--np-muted);
-}
-
-.actions-empty-state h3 {
-    margin-top: 0;
-    color: var(--np-body);
-}
-
 /* Badges */
 .actions-priority-badge,
 .actions-status-badge {
@@ -6000,17 +5965,6 @@ tr:hover .task-context-btn,
     color: #e65100;
 }
 
-.stakeholders-empty-state {
-    text-align: center;
-    padding: var(--np-space-40) var(--np-space-20);
-    color: var(--np-muted);
-}
-
-.stakeholders-empty-state h3 {
-    margin-bottom: var(--np-space-12);
-    color: var(--np-body);
-}
-
 @media (max-width: 900px) {
     .stakeholders-layout {
         flex-direction: column;
@@ -6232,18 +6186,6 @@ tr:hover .task-context-btn,
 
 .budget-action-btn.delete:hover {
     background: #ffe0e0;
-}
-
-.budget-empty-state {
-    padding: 60px 20px;
-    text-align: center;
-    color: var(--np-muted);
-}
-
-.budget-empty-state h3 {
-    font-size: 1.3em;
-    margin-bottom: var(--np-space-12);
-    color: var(--np-body);
 }
 
 .budget-type-badge {

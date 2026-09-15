@@ -4927,15 +4927,12 @@ function wbEnsureEmptyStateEl() {
     // together builds the plan's outline. Pulling existing tasks onto the
     // board is the secondary action it used to be the only one.
     el.innerHTML = [
-        '<div class="wb-empty-state-inner">',
-        '<h3 class="wb-empty-state-title">Nothing on the board yet</h3>',
-        '<p class="wb-empty-state-body">Start with a post-it. Double-click anywhere (or press <kbd>n</kbd>) to add one &mdash; each post-it is a task in your plan. Drag a note\'s noodle handle onto another to make it a subtask, and the structure appears in the panel on the left.</p>',
-        '<div class="wb-empty-state-actions">',
-        '<button type="button" class="wb-empty-state-btn wb-empty-state-btn-primary" id="wbEmptyStateNewBtn">New post-it</button>',
-        '<button type="button" class="wb-empty-state-btn" id="wbEmptyStateAddBtn">Add an existing task</button>',
-        '<button type="button" class="wb-empty-state-btn" id="wbEmptyStateAddAllBtn">Add all summary tasks</button>',
-        '</div>',
-        '</div>',
+        '<np-empty-state variant="card" heading="Nothing on the board yet">',
+        '<p>Start with a post-it. Double-click anywhere (or press <kbd>n</kbd>) to add one &mdash; each post-it is a task in your plan. Drag a note\'s noodle handle onto another to make it a subtask, and the structure appears in the panel on the left.</p>',
+        '<button type="button" class="wb-empty-state-btn wb-empty-state-btn-primary" slot="actions" id="wbEmptyStateNewBtn">New post-it</button>',
+        '<button type="button" class="wb-empty-state-btn" slot="actions" id="wbEmptyStateAddBtn">Add an existing task</button>',
+        '<button type="button" class="wb-empty-state-btn" slot="actions" id="wbEmptyStateAddAllBtn">Add all summary tasks</button>',
+        '</np-empty-state>',
     ].join('');
     container.appendChild(el);
 
@@ -5006,12 +5003,8 @@ function wbOpenAddNotePicker() {
     title.id = 'wbAddNoteTitle';
     title.className = 'wb-add-note-title';
     title.textContent = 'Add notes to whiteboard';
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'wb-add-note-close';
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.textContent = '×';
-    closeBtn.addEventListener('click', () => wbCloseAddNotePicker());
+    const closeBtn = document.createElement('np-close-button');
+    closeBtn.addEventListener('close', () => wbCloseAddNotePicker());
     header.appendChild(title);
     header.appendChild(closeBtn);
 
@@ -6464,12 +6457,8 @@ function wbOpenParkingLotPanel() {
     title.id = 'wbParkingLotTitle';
     title.className = 'wb-add-note-title';
     title.textContent = 'Parking lot';
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'wb-add-note-close';
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.textContent = '×';
-    closeBtn.addEventListener('click', () => wbCloseParkingLotPanel());
+    const closeBtn = document.createElement('np-close-button');
+    closeBtn.addEventListener('close', () => wbCloseParkingLotPanel());
     header.appendChild(title);
     header.appendChild(closeBtn);
 

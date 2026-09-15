@@ -119,25 +119,6 @@
     overflow-y: auto;
 }
 
-.portfolio-empty-state {
-    text-align: center;
-    padding: 60px 20px;
-    background: var(--np-surface);
-    border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.portfolio-empty-state h3 {
-    color: var(--np-accent);
-    margin-bottom: var(--np-space-16);
-    font-size: 1.5em;
-}
-
-.portfolio-empty-state p {
-    color: var(--np-faint);
-    margin-bottom: var(--np-space-24);
-}
-
 .portfolio-projects-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -711,31 +692,6 @@
     max-width: 900px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     position: relative;
-}
-
-.resource-details-content .close-btn {
-    position: absolute;
-    right: 20px;
-    top: 20px;
-    font-size: 28px;
-    font-weight: bold;
-    color: var(--np-faint);
-    cursor: pointer;
-    background: none;
-    border: none;
-    padding: 0;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    transition: background 0.2s;
-}
-
-.resource-details-content .close-btn:hover {
-    background: rgba(0, 0, 0, 0.1);
-    color: var(--np-ink);
 }
 
 #resourceDetailsBody {

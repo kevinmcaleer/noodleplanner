@@ -284,9 +284,10 @@ class TestStakeholderCSS:
         """Test that the .stakeholder-level-low class is defined."""
         assert ".stakeholder-level-low" in css_content
 
-    def test_stakeholders_empty_state_class(self, css_content):
-        """Test that the .stakeholders-empty-state class is defined."""
-        assert ".stakeholders-empty-state" in css_content
+    def test_stakeholders_empty_state_uses_shared_component(self, html_content):
+        """Stakeholders' empty state is the shared <np-empty-state> component
+        (design-system.md §10), not a bespoke per-area class."""
+        assert '<np-empty-state variant="card" id="stakeholdersEmptyState"' in html_content
 
     def test_responsive_layout(self, css_content):
         """Test that responsive styles exist for mobile layout."""

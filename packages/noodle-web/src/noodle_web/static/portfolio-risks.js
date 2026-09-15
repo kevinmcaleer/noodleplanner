@@ -99,10 +99,9 @@ async function renderPortfolioRisks() {
         const parsedProjects = await parseAllProjects();
 
         if (parsedProjects.length === 0) {
-            container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Projects</h3>' +
+            container.innerHTML = '<np-empty-state variant="card" heading="No Projects">' +
                 '<p>Create projects to see open risks and issues here.</p>' +
-                '</div>';
+                '</np-empty-state>';
             return;
         }
 
@@ -116,10 +115,9 @@ async function renderPortfolioRisks() {
         const allItems = collectOpenRisksAndIssues(parsedProjects, 'all');
 
         if (allItems.length === 0) {
-            container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Open Risks or Issues</h3>' +
+            container.innerHTML = '<np-empty-state variant="card" heading="No Open Risks or Issues">' +
                 '<p>There are no open risks or issues in any project RAID logs.</p>' +
-                '</div>';
+                '</np-empty-state>';
             return;
         }
 
@@ -235,10 +233,9 @@ async function renderPortfolioRisks() {
 
     } catch (error) {
         console.error('Error rendering portfolio risks:', error);
-        container.innerHTML = '<div class="portfolio-empty-state">' +
-            '<h3>Error Loading Risks &amp; Issues</h3>' +
+        container.innerHTML = '<np-empty-state variant="card" heading="Error Loading Risks &amp; Issues">' +
             '<p>Failed to load risk and issue data. Please try again.</p>' +
-            '</div>';
+            '</np-empty-state>';
     }
 }
 
