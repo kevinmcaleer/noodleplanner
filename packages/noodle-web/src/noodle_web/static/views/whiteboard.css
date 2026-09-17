@@ -160,6 +160,17 @@
     font-family: inherit;
     box-sizing: border-box;
     position: relative;
+
+    /* Checklist-row slot widths (issue #1243), retuned per tier by the
+       container queries below -- the card is the query container because a
+       note's width is plan data (160..N), not a breakpoint. */
+    container-type: inline-size;
+    --wb-row-badge: 15px;
+    --wb-row-hint: 18px;
+    --wb-row-people: 70px;
+    --wb-row-dep: 18px;
+    --wb-row-slot-gap: var(--np-space-4);
+    --wb-row-gap: var(--np-space-8);
 }
 
 /* Dragging/resizing (issue #848) — the note being manipulated gets a
@@ -505,13 +516,154 @@
     text-align: center;
 }
 
+/* Checklist row layout (issue #1243, epic #1241) ------------------------
+ *
+ * Three zones, left to right. The point of all of it is that the third one
+ * starts at the same x on every row of a note, which is what the row did not
+ * do before: controls were appended in the order the features arrived, every
+ * trailing one was conditional, and none reserved any width -- so where the
+ * cluster began was a function of which optional controls a given child
+ * happened to have, and nothing lined up down the card.
+ *
+ *   1. LEAD    checkbox, then `.wb-note-row-badge` -- a slot that reserves its
+ *              width whether or not the child has a deliverable, so names
+ *              start on the same x. The `$` badge used to sit inline between
+ *              the checkbox and the name, which moved the name on any row that
+ *              had one.
+ *   2. NAME    `.wb-note-row-name`, then `.wb-note-row-content` for the
+ *              affordances that *describe* the task rather than act on it (the
+ *              detected-date chip, the child-count badge). Content shrinks
+ *              before the name does; the name keeps a floor and then ellipsises.
+ *   3. GUTTER  `.wb-note-row-gutter`, a constant width, holding three slots in
+ *              a fixed order: hint, people, dep. An unoccupied slot renders as
+ *              an empty box of its reserved width -- never `display: none`,
+ *              which is the whole mechanism.
+ *
+ * Degradation, by card width (see the container queries at the end of this
+ * block). Each step drops the least load-bearing thing left:
+ *   >= 240px  everything reserved.
+ *   200-239   the planning hint stops reserving -- it is a hint, and the only
+ *             slot holding nothing the user can lose work by missing.
+ *   < 200px   the deliverable badge stops reserving too, and the people slot
+ *             narrows to the assign control plus one overflow chip.
+ * The name keeps a floor throughout, so nothing is ever clipped by
+ * `.wb-note-body`'s `overflow-x: hidden` or the card's own `overflow: hidden`.
+ *
+ * Hover and focus change opacity only. Nothing in this row moves when the
+ * pointer enters it -- that is a rule, not an accident of the one control
+ * that currently reveals on hover.
+ *
+ * Every width here is row-scoped. The note *header* carries twins of several
+ * of these controls on shared selectors (`.wb-note-coach-btn,
+ * .wb-note-row-coach` and friends), so sizing them through those rules would
+ * silently resize the header too.
+ */
 .wb-note-row {
     display: flex;
     align-items: center;
-    gap: var(--np-space-8);
+    gap: var(--wb-row-gap);
     padding: var(--np-space-4);
     border-radius: 4px;
     min-width: 0;
+}
+
+.wb-note-row-badge {
+    flex: 0 0 var(--wb-row-badge);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.wb-note-row-content {
+    flex: 0 1 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-4);
+    min-width: 0;
+    overflow: hidden;
+}
+
+.wb-note-row-gutter {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--wb-row-slot-gap);
+    margin-left: auto;
+}
+
+.wb-note-row-slot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    /* `min-width: auto` is a flex item's default, and it would let a slot grow
+       past its reserved basis to fit its contents -- which is exactly the
+       behaviour this layout exists to stop. Without this the people slot on a
+       busy row widens the gutter and the alignment is gone again. */
+    min-width: 0;
+    overflow: hidden;
+}
+
+.wb-note-row-slot-hint { flex-basis: var(--wb-row-hint); }
+.wb-note-row-slot-people {
+    flex-basis: var(--wb-row-people);
+    gap: var(--np-space-4);
+}
+
+/* The row's avatars overlap so three of them cost 32px rather than 50; the
+   overflow chip is part of the same stack. The overlap value itself is shared
+   with the note footer's stack (see `.wb-note-avatar` below) rather than
+   restated here -- one off-scale declaration for the one idea. */
+.wb-note-row-slot-people .wb-note-row-avatar:first-child {
+    margin-left: 0;
+}
+.wb-note-row-slot-dep { flex-basis: var(--wb-row-dep); }
+
+/* The overflow chip. Its text comes from `attr()` rather than JS so the three
+   degradation tiers can each show an honest count over the avatars that tier
+   actually renders, without the builder having to know which tier is live. */
+.wb-note-row-avatar-more {
+    flex-shrink: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    height: 14px;
+    padding: 0 var(--np-space-4);
+    border-radius: 7px;
+    background: var(--np-surface-alt);
+    color: var(--np-text-secondary);
+    font-size: 8px;
+    font-weight: bold;
+}
+.wb-note-row-avatar-more[data-over3]:not([data-over3="0"]) { display: inline-flex; }
+.wb-note-row-avatar-more[data-over3]:not([data-over3="0"])::after { content: "+" attr(data-over3); }
+
+/* NB: these set the custom properties on `.wb-note-row`, not on
+   `.wb-note-card`. The card is the query container, and a container query
+   styles its descendants -- a rule matching the container itself never
+   applies. */
+@container (max-width: 239px) {
+    .wb-note-row { --wb-row-hint: 0px; }
+    .wb-note-row-coach { display: none; }
+}
+
+@container (max-width: 199px) {
+    .wb-note-row {
+        --wb-row-badge: 0px;
+        --wb-row-people: 34px;
+        /* Buy back 16px of row by halving the inter-zone gaps, so the name
+           keeps its floor instead of the row overflowing the card. */
+        --wb-row-gap: var(--np-space-4);
+    }
+    .wb-note-deliverable-badge { display: none; }
+    .wb-note-row-avatar { display: none; }
+    .wb-note-row-avatar-more,
+    .wb-note-row-avatar-more[data-over3="0"] { display: inline-flex; }
+    .wb-note-row-avatar-more::after { content: attr(data-total); }
+    .wb-note-row-avatar-more:not([data-total]),
+    .wb-note-row-avatar-more[data-total="0"] { display: none; }
 }
 
 .wb-note-row:hover {
@@ -527,8 +679,12 @@
 }
 
 .wb-note-row-name {
-    flex: 1;
-    min-width: 0;
+    flex: 1 1 auto;
+    /* A floor, not `min-width: 0`: the gutter is a fixed width, so without one
+       a busy row would squeeze the name to nothing. Below this it ellipsises
+       instead. Sized so the narrowest tier's arithmetic still fits inside a
+       160px card -- see the degradation note above. */
+    min-width: 2.5em;
     font-size: 12px;
     color: var(--wb-note-text);
     overflow: hidden;
@@ -745,8 +901,20 @@
     justify-content: center;
     font-size: 9px;
     font-weight: bold;
-    margin-left: -5px;
     border: 1.5px solid var(--np-surface);
+}
+
+/* The one overlap declaration in this file, shared by the footer's stack and
+   the checklist row's (issue #1243).
+   docs/design/standardisation-backlog.md records this value as a deliberate
+   survivor of the spacing pass -- an avatar stack overlaps by design and no
+   step on the 4px scale gives the same result. The debt it names is having the
+   value written out once per surface, so the two stacks share this one rather
+   than each carrying a copy. #1246 replaces both with a component. */
+.wb-note-avatar,
+.wb-note-row-slot-people .wb-note-row-avatar,
+.wb-note-row-slot-people .wb-note-row-avatar-more {
+    margin-left: -5px;
 }
 
 .wb-note-avatar:first-child {

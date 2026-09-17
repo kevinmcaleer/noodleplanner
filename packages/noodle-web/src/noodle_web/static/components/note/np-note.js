@@ -79,6 +79,10 @@ export const WB_NOTE_DEFAULT_HEIGHT = 220;
 export const WB_NOTE_MIN_WIDTH = 160;
 export const WB_NOTE_MIN_HEIGHT = 120;
 
+/** Avatars rendered inline on a checklist row before the overflow chip takes
+ * over -- whiteboard-notes.js's WB_ROW_AVATAR_CAP (#1243). */
+export const WB_ROW_AVATAR_CAP = 3;
+
 /** The shipped pastel palette (whiteboard-notes.js's WB_NOTE_PASTEL_COLOURS).
  * The pilot's story offered six colours, not one of which is in this list. */
 export const WB_NOTE_PASTEL_COLOURS = [
@@ -372,11 +376,12 @@ export class NpNote extends HTMLElement {
         row.dataset.wbRowTask = name;
         row.dataset.wbRowSummary = vm.hasChildren ? 'true' : 'false';
 
-        // 1. checkbox -- the bare native control the app ships. Not the round
-        //    `--np-success`-green one the pilot invented, which exists nowhere
-        //    in NoodlePlanner. Whether the app *should* have a designed
-        //    checkbox is a later question, and it cannot be asked honestly
-        //    while Storybook already shows one.
+        // ── Lead zone ──────────────────────────────────────────────────
+        // The bare native checkbox the app ships. Not the round
+        // `--np-success`-green one the pilot invented, which exists nowhere in
+        // NoodlePlanner. Whether the app *should* have a designed checkbox is
+        // a later question, and it cannot be asked honestly while Storybook
+        // already shows one.
         const checkbox = el('input', 'wb-note-checkbox', { type: 'checkbox' });
         checkbox.checked = Boolean(vm.complete);
         checkbox.title = vm.complete ? 'Mark as incomplete' : 'Mark as complete';
@@ -384,55 +389,36 @@ export class NpNote extends HTMLElement {
             `Mark "${name}" as ${vm.complete ? 'incomplete' : 'complete'}`);
         row.appendChild(checkbox);
 
-        // 2. deliverable badge -- conditional, and *before* the name.
+        // The deliverable badge's slot reserves its width whether or not this
+        // child has one, so names start on the same x down the card (#1243).
+        const badgeSlot = el('div', 'wb-note-row-badge');
         if (vm.deliverable) {
             const badge = el('span', 'wb-note-deliverable-badge', { title: `Deliverable: ${vm.deliverable}` });
             badge.textContent = '$';
-            row.appendChild(badge);
+            badgeSlot.appendChild(badge);
         }
+        row.appendChild(badgeSlot);
 
-        // 3. name
+        // ── Name zone ──────────────────────────────────────────────────
         const label = el('span', 'wb-note-row-name', { title: name });
         label.textContent = name;
         row.appendChild(label);
 
-        // 4. planning hint / coach -- conditional
-        if (vm.languageHint || vm.planningType) {
-            const coach = el('button',
-                'wb-note-row-coach' + (vm.languageHint && !vm.planningType ? ' suspected-activity' : ''),
-                { type: 'button', 'aria-label': `Planning hint for ${name}` });
-            coach.textContent = vm.planningType === 'product' ? 'P'
-                : vm.planningType === 'activity' ? 'A' : '✦';
-            coach.title = vm.planningType
-                ? `Planning type: ${vm.planningType}`
-                : 'This wording may describe an activity';
-            row.appendChild(coach);
-        }
+        const content = el('div', 'wb-note-row-content');
+        row.appendChild(content);
 
-        // 5. detected-date chip -- conditional
         if (vm.date) {
-            const date = el('button', 'wb-note-row-smart wb-note-row-date',
-                { type: 'button', 'aria-label': `Attach detected date ${vm.date} to ${name}` });
+            const date = el('button', 'wb-note-row-smart wb-note-row-date', {
+                type: 'button',
+                'aria-haspopup': 'dialog',
+                'aria-expanded': 'false',
+                'aria-label': `Attach detected date ${vm.date} to ${name}`,
+            });
             date.textContent = vm.date;
             date.title = `Attach ${vm.date}`;
-            row.appendChild(date);
+            content.appendChild(date);
         }
 
-        // 6. quick assign -- always. Since #1244 this is the row's only
-        //    resource-assign control; before it, a second "+" bubble followed
-        //    the avatars at position 9.
-        const assign = el('button', 'wb-note-row-smart wb-note-row-resource', {
-            type: 'button',
-            'aria-haspopup': 'menu',
-            'aria-expanded': 'false',
-            'aria-label': `Assign a resource to ${name}`,
-        });
-        assign.textContent = '＋';
-        assign.title = 'Quick assign';
-        row.appendChild(assign);
-
-        // 7. child-count badge -- summary rows only. Mutually exclusive with
-        //    the dependency handle at 9, on the same hasChildren test.
         if (vm.hasChildren) {
             const badge = el('button', 'wb-note-count-badge', {
                 type: 'button',
@@ -440,20 +426,66 @@ export class NpNote extends HTMLElement {
                 'aria-expanded': 'false',
                 'aria-label': `${name} has ${vm.childCount || 0} subtasks. Peek subtasks.`,
             });
-            badge.textContent = `${vm.childCount || 0} ▾`;
-            row.appendChild(badge);
+            badge.textContent = `${vm.childCount || 0} \u25BE`;
+            content.appendChild(badge);
             row.classList.add('wb-note-row-drillable');
         }
 
-        // 8. one avatar per assigned resource
-        (vm.resources || []).forEach((resource) => {
+        // ── Trailing gutter ────────────────────────────────────────────
+        // Constant width on every row, so these three slots start at the same
+        // x whichever of them a given child actually fills.
+        const gutter = el('div', 'wb-note-row-gutter');
+        row.appendChild(gutter);
+
+        const hintSlot = el('div', 'wb-note-row-slot wb-note-row-slot-hint');
+        gutter.appendChild(hintSlot);
+        if (vm.languageHint || vm.planningType) {
+            const coach = el('button',
+                'wb-note-row-coach' + (vm.languageHint && !vm.planningType ? ' suspected-activity' : ''),
+                {
+                    type: 'button',
+                    'aria-haspopup': 'dialog',
+                    'aria-expanded': 'false',
+                    'aria-label': `Planning hint for ${name}`,
+                });
+            coach.textContent = vm.planningType === 'product' ? 'P'
+                : vm.planningType === 'activity' ? 'A' : '\u2726';
+            coach.title = vm.planningType
+                ? `Planning type: ${vm.planningType}`
+                : 'This wording may describe an activity';
+            hintSlot.appendChild(coach);
+        }
+
+        const peopleSlot = el('div', 'wb-note-row-slot wb-note-row-slot-people');
+        gutter.appendChild(peopleSlot);
+        const resources = vm.resources || [];
+        resources.slice(0, WB_ROW_AVATAR_CAP).forEach((resource) => {
             const avatar = el('span', 'wb-note-row-avatar', { title: resource });
             avatar.textContent = getInitials(resource);
-            row.appendChild(avatar);
+            peopleSlot.appendChild(avatar);
         });
+        if (resources.length) {
+            // One chip carrying every count the degradation tiers need; which
+            // it shows is a CSS decision, because the tier is a container query.
+            const more = el('span', 'wb-note-row-avatar-more', { title: resources.join(', ') });
+            more.dataset.total = String(resources.length);
+            more.dataset.over3 = String(Math.max(0, resources.length - WB_ROW_AVATAR_CAP));
+            peopleSlot.appendChild(more);
+        }
+        const assign = el('button', 'wb-note-row-smart wb-note-row-resource', {
+            type: 'button',
+            'aria-haspopup': 'menu',
+            'aria-expanded': 'false',
+            'aria-label': `Assign a resource to ${name}`,
+        });
+        assign.textContent = '\uFF0B';
+        assign.title = 'Quick assign';
+        peopleSlot.appendChild(assign);
 
-        // 9. dependency handle -- leaf rows only, opacity 0 until row hover or
-        //    its own focus (and permanently visible on coarse pointers).
+        const depSlot = el('div', 'wb-note-row-slot wb-note-row-slot-dep');
+        gutter.appendChild(depSlot);
+        // Leaf rows only -- a summary row is never a dependency endpoint, so it
+        // shows the count badge at position 7 instead and never both.
         if (!vm.hasChildren) {
             const handle = el('button', 'wb-note-row-dep-handle', {
                 type: 'button',
@@ -461,7 +493,7 @@ export class NpNote extends HTMLElement {
                 'aria-label': `Draw a dependency from "${name}" to another task`,
             });
             handle.innerHTML = DEP_HANDLE_SVG;
-            row.appendChild(handle);
+            depSlot.appendChild(handle);
         }
 
         if (vm.depTarget === 'valid') row.classList.add('wb-dep-row-target');

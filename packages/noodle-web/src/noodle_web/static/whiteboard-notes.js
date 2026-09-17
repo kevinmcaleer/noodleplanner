@@ -264,6 +264,11 @@
 // ── Configuration ───────────────────────────────────────────────────────
 const WB_NOTE_DEFAULT_WIDTH = 260;
 const WB_NOTE_DEFAULT_HEIGHT = 220;
+/** Avatars rendered inline on a checklist row before the overflow chip takes
+ * over (issue #1243). The row used to render one per assignee, uncapped, while
+ * the note footer capped the same list at six. */
+const WB_ROW_AVATAR_CAP = 3;
+
 const WB_NOTE_MIN_WIDTH = 160;
 const WB_NOTE_MIN_HEIGHT = 120;
 // "Sensible maximum" per #848 -- generous enough for a note-with-many-
@@ -3017,6 +3022,7 @@ function wbBuildChildRow(childVm) {
     row.dataset.wbRowTask = child.name;
     row.dataset.wbRowSummary = childVm.hasChildren ? 'true' : 'false';
 
+    // ── Lead zone ──────────────────────────────────────────────────────
     const checkbox = document.createElementNS(XHTML_NS, 'input');
     checkbox.setAttribute('type', 'checkbox');
     checkbox.setAttribute('class', 'wb-note-checkbox');
@@ -3035,41 +3041,40 @@ function wbBuildChildRow(childVm) {
     });
     row.appendChild(checkbox);
 
+    // The deliverable badge's slot is reserved whether or not this child has
+    // one (issue #1243). It used to be appended inline only when present,
+    // which moved where the name started from row to row.
+    const badgeSlot = document.createElementNS(XHTML_NS, 'div');
+    badgeSlot.setAttribute('class', 'wb-note-row-badge');
     if (child.deliverable) {
         const badge = document.createElementNS(XHTML_NS, 'span');
         badge.setAttribute('class', 'wb-note-deliverable-badge');
         badge.setAttribute('title', `Deliverable: ${child.deliverable}`);
         badge.textContent = '$';
-        row.appendChild(badge);
+        badgeSlot.appendChild(badge);
     }
+    row.appendChild(badgeSlot);
 
+    // ── Name zone ──────────────────────────────────────────────────────
     const name = document.createElementNS(XHTML_NS, 'span');
     name.setAttribute('class', 'wb-note-row-name');
     name.textContent = child.name;
     name.setAttribute('title', child.name);
     row.appendChild(name);
 
-    const planningType = wbTaskPlanningType(child);
-    const languageHint = wbActivityLanguageHint(child.name);
-    if (languageHint || planningType) {
-        const coach = document.createElementNS(XHTML_NS, 'button');
-        coach.setAttribute('type', 'button');
-        coach.setAttribute('class', 'wb-note-row-coach' + (languageHint && !planningType ? ' suspected-activity' : ''));
-        coach.setAttribute('aria-label', `Planning hint for ${child.name}`);
-        coach.textContent = planningType === 'product' ? 'P' : planningType === 'activity' ? 'A' : '✦';
-        coach.title = planningType ? `Planning type: ${planningType}` : 'This wording may describe an activity';
-        coach.addEventListener('click', (e) => {
-            e.stopPropagation();
-            wbToggleCoachingMenu(child.name, coach);
-        });
-        row.appendChild(coach);
-    }
+    // Affordances that describe the task rather than act on it travel with
+    // the name and shrink before it does.
+    const content = document.createElementNS(XHTML_NS, 'div');
+    content.setAttribute('class', 'wb-note-row-content');
+    row.appendChild(content);
 
     const dateSuggestion = wbTaskDateSuggestions(child)[0];
     if (dateSuggestion) {
         const date = document.createElementNS(XHTML_NS, 'button');
         date.setAttribute('type', 'button');
         date.setAttribute('class', 'wb-note-row-smart wb-note-row-date');
+        date.setAttribute('aria-haspopup', 'dialog');
+        date.setAttribute('aria-expanded', 'false');
         date.setAttribute('aria-label', `Attach detected date ${dateSuggestion.raw} to ${child.name}`);
         date.textContent = dateSuggestion.raw;
         date.title = `Attach ${dateSuggestion.date}`;
@@ -3077,24 +3082,8 @@ function wbBuildChildRow(childVm) {
             e.stopPropagation();
             wbToggleDateMenu(child.name, dateSuggestion, date);
         });
-        row.appendChild(date);
+        content.appendChild(date);
     }
-
-    const assign = document.createElementNS(XHTML_NS, 'button');
-    assign.setAttribute('type', 'button');
-    assign.setAttribute('class', 'wb-note-row-smart wb-note-row-resource');
-    // Declared up front, not only once wbOpenSmartMenu() has run: a screen
-    // reader reaching a never-opened row must still be told this opens a menu.
-    assign.setAttribute('aria-haspopup', 'menu');
-    assign.setAttribute('aria-expanded', 'false');
-    assign.setAttribute('aria-label', `Assign a resource to ${child.name}`);
-    assign.textContent = '＋';
-    assign.title = 'Quick assign';
-    assign.addEventListener('click', (e) => {
-        e.stopPropagation();
-        wbToggleResourceMenu(child.name, assign);
-    });
-    row.appendChild(assign);
 
     if (childVm.hasChildren) {
         const badge = document.createElementNS(XHTML_NS, 'button');
@@ -3102,13 +3091,13 @@ function wbBuildChildRow(childVm) {
         badge.setAttribute('class', 'wb-note-count-badge');
         badge.setAttribute('aria-haspopup', 'dialog');
         badge.setAttribute('aria-expanded', 'false');
-        badge.textContent = `${childVm.childCount} ▾`;
+        badge.textContent = `${childVm.childCount} \u25BE`;
         badge.setAttribute('aria-label', `${child.name} has ${childVm.childCount} subtasks. Peek subtasks.`);
         badge.addEventListener('click', (e) => {
             e.stopPropagation();
             wbTogglePeekFor(child.name, badge);
         });
-        row.appendChild(badge);
+        content.appendChild(badge);
 
         // The badge's own click already stopPropagation()s, so this row-
         // level listener only ever fires for a click on the row's own
@@ -3118,8 +3107,44 @@ function wbBuildChildRow(childVm) {
         row.addEventListener('click', () => wbTogglePeekFor(child.name, badge));
     }
 
-    wbAppendChildResourceControls(row, childVm);
-    wbAppendRowDependencyHandle(row, childVm);
+    // ── Trailing gutter ────────────────────────────────────────────────
+    // A constant width on every row of a note, so these three slots start at
+    // the same x whichever of them a given child actually fills.
+    const gutter = document.createElementNS(XHTML_NS, 'div');
+    gutter.setAttribute('class', 'wb-note-row-gutter');
+    row.appendChild(gutter);
+
+    const hintSlot = document.createElementNS(XHTML_NS, 'div');
+    hintSlot.setAttribute('class', 'wb-note-row-slot wb-note-row-slot-hint');
+    gutter.appendChild(hintSlot);
+
+    const planningType = wbTaskPlanningType(child);
+    const languageHint = wbActivityLanguageHint(child.name);
+    if (languageHint || planningType) {
+        const coach = document.createElementNS(XHTML_NS, 'button');
+        coach.setAttribute('type', 'button');
+        coach.setAttribute('class', 'wb-note-row-coach' + (languageHint && !planningType ? ' suspected-activity' : ''));
+        coach.setAttribute('aria-haspopup', 'dialog');
+        coach.setAttribute('aria-expanded', 'false');
+        coach.setAttribute('aria-label', `Planning hint for ${child.name}`);
+        coach.textContent = planningType === 'product' ? 'P' : planningType === 'activity' ? 'A' : '\u2726';
+        coach.title = planningType ? `Planning type: ${planningType}` : 'This wording may describe an activity';
+        coach.addEventListener('click', (e) => {
+            e.stopPropagation();
+            wbToggleCoachingMenu(child.name, coach);
+        });
+        hintSlot.appendChild(coach);
+    }
+
+    const peopleSlot = document.createElementNS(XHTML_NS, 'div');
+    peopleSlot.setAttribute('class', 'wb-note-row-slot wb-note-row-slot-people');
+    gutter.appendChild(peopleSlot);
+    wbAppendChildResourceControls(peopleSlot, childVm);
+
+    const depSlot = document.createElementNS(XHTML_NS, 'div');
+    depSlot.setAttribute('class', 'wb-note-row-slot wb-note-row-slot-dep');
+    gutter.appendChild(depSlot);
+    wbAppendRowDependencyHandle(depSlot, childVm);
 
     return row;
 }
@@ -3145,7 +3170,7 @@ function wbBuildChildRow(childVm) {
  * both the drag's source and whatever it's dropped on), so this is a
  * usability guard, not the only guard.
  */
-function wbAppendRowDependencyHandle(row, childVm) {
+function wbAppendRowDependencyHandle(slot, childVm) {
     if (childVm.hasChildren) return;
     const child = childVm.task;
 
@@ -3170,7 +3195,7 @@ function wbAppendRowDependencyHandle(row, childVm) {
     }, { passive: false });
     handle.addEventListener('click', (e) => e.stopPropagation());
 
-    row.appendChild(handle);
+    slot.appendChild(handle);
 }
 
 /**
@@ -3193,14 +3218,46 @@ function wbAppendRowDependencyHandle(row, childVm) {
  * arrow keys, viewport flipping -- moved onto wbOpenSmartMenu() so the date
  * menu gained them too.
  */
-function wbAppendChildResourceControls(row, childVm) {
-    (childVm.resources || []).forEach(resource => {
+function wbAppendChildResourceControls(slot, childVm) {
+    const child = childVm.task;
+    const resources = childVm.resources || [];
+
+    resources.slice(0, WB_ROW_AVATAR_CAP).forEach(resource => {
         const avatar = document.createElementNS(XHTML_NS, 'span');
         avatar.setAttribute('class', 'wb-note-row-avatar');
         avatar.textContent = wbGetInitials(resource);
         avatar.title = resource;
-        row.appendChild(avatar);
+        slot.appendChild(avatar);
     });
+
+    // One chip, always built when the row has anyone on it, carrying the
+    // counts every degradation tier needs. Which of them it shows is a CSS
+    // decision (views/whiteboard.css uses `attr()`), because the tier is a
+    // container query and this builder cannot know which one is live.
+    if (resources.length) {
+        const more = document.createElementNS(XHTML_NS, 'span');
+        more.setAttribute('class', 'wb-note-row-avatar-more');
+        more.dataset.total = String(resources.length);
+        more.dataset.over3 = String(Math.max(0, resources.length - WB_ROW_AVATAR_CAP));
+        more.title = resources.join(', ');
+        slot.appendChild(more);
+    }
+
+    const assign = document.createElementNS(XHTML_NS, 'button');
+    assign.setAttribute('type', 'button');
+    assign.setAttribute('class', 'wb-note-row-smart wb-note-row-resource');
+    // Declared up front, not only once wbOpenSmartMenu() has run: a screen
+    // reader reaching a never-opened row must still be told this opens a menu.
+    assign.setAttribute('aria-haspopup', 'menu');
+    assign.setAttribute('aria-expanded', 'false');
+    assign.setAttribute('aria-label', `Assign a resource to ${child.name}`);
+    assign.textContent = '\uFF0B';
+    assign.title = 'Quick assign';
+    assign.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbToggleResourceMenu(child.name, assign);
+    });
+    slot.appendChild(assign);
 }
 
 /**

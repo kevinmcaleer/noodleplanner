@@ -183,6 +183,55 @@ export const MinimumWidth = {
     },
 };
 
+/**
+ * The alignment matrix (#1243).
+ *
+ * One note per width, each carrying the permutations that used to misalign:
+ * bare; deliverable; date chip; summary with a count badge; and 0/1/3/6
+ * assignees. Read *down* a card -- the checkboxes, the names and the trailing
+ * gutter should each sit on one vertical line whatever a given row happens to
+ * carry. Before the gutter existed they did not, and that is the whole of the
+ * reported problem.
+ *
+ * Read *across* the three cards for the degradation tiers: at 260 everything
+ * is reserved; at 220 the planning hint has stopped reserving; at 160 the
+ * deliverable badge has too and the people slot is down to an overflow chip
+ * and the assign control.
+ */
+export const AlignmentMatrix = {
+    render: () => {
+        const rows = [
+            { name: 'Bare row' },
+            { name: 'With a deliverable', deliverable: 'Widget' },
+            { name: 'With a date', date: 'next Friday' },
+            { name: 'Summary', hasChildren: true, childCount: 4 },
+            { name: 'One assignee', resources: ['Sam Smith'] },
+            { name: 'Three assignees', resources: ['Sam Smith', 'Jo Lee', 'Alex Ray'] },
+            {
+                name: 'Six assignees',
+                resources: ['Sam Smith', 'Jo Lee', 'Alex Ray', 'Kim Ito', 'Ro Patel', 'Max Fry'],
+            },
+            { name: 'A planning hint', planningType: 'activity' },
+            {
+                name: 'Everything',
+                deliverable: 'Report',
+                date: '12 Mar',
+                planningType: 'product',
+                resources: ['Sam Smith', 'Jo Lee'],
+            },
+        ];
+        const strip = document.createElement('div');
+        strip.style.cssText = 'display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;';
+        for (const width of [400, 260, 220, 160]) {
+            strip.appendChild(mount({
+                task: `${width}px`, colour: '#FFF3B0', width, height: 340, rows,
+                resources: 'Sam Smith, Jo Lee',
+            }));
+        }
+        return strip;
+    },
+};
+
 /** Every shipped swatch, so the derived text colour can be checked against all
  * ten in both themes rather than against whichever one a story happened to pick. */
 export const EveryPaletteColour = {
