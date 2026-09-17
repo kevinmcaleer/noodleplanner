@@ -188,7 +188,9 @@ const PAIRINGS = [
 	// A resource avatar's initials on its chip (#1246/#1199). Text, so 4.5:1.
 	// The six avatar treatments this replaces all used a gradient background,
 	// which this checker cannot parse and so never scored.
-	{ fg: '--np-on-info', bg: '--np-info', min: 4.5, what: 'resource avatar initials on their chip' },
+	{ fg: '--np-on-info', bg: '--np-info', min: 4.5, what: 'info-filled surface text' },
+	{ fg: '--np-avatar-ink', bg: '--np-avatar-bg', min: 4.5, what: 'resource avatar initials on their chip' },
+	{ fg: '--np-avatar-bg', bg: '--np-paper', min: 3, what: 'a resource avatar chip against the page' },
 
 	// The whiteboard note's own ink on its own paper (#1250). Every one of
 	// these is a pairing the app renders and nothing scored, because the

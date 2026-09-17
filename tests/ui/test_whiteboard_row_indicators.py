@@ -1,16 +1,29 @@
 """One visual language for the checklist row's indicators (issue #1248).
 
-Five things hang off a row -- the `$` deliverable badge, the planning-hint
-coach, the detected-date chip, the child-count badge and the dependency handle.
-Each arrived with its own issue and none was designed against the others, so
-the row carried three declared heights and one undeclared, three radii, four
-unrelated colour sources and four resting opacities.
+Five things used to hang off a row -- the `$` deliverable badge, the
+planning-hint coach, the detected-date chip, the child-count badge and the
+dependency handle. Each arrived with its own issue and none was designed
+against the others, so the row carried three declared heights and one
+undeclared, three radii, four unrelated colour sources and four resting
+opacities.
 
-Three of these classes -- `.wb-note-row-coach`, `.wb-note-row-date` and
-`.wb-note-row-dep-handle` -- had no automated assertion anywhere in the tree
-before this file, and tests/test_whiteboard_dep_noodles.mjs records that the
-row dependency gesture is "covered by manual/browser verification only". A rule
-about size, shape, colour and labelling that nothing asserts will drift back.
+Two of the five have since left the row itself. The planning hint and the
+dependency handle are *rails* now: drawn outside the card, level with whichever
+row the pointer or the keyboard is on. They went because the row's trailing
+gutter reserved four fixed slots on every row and the task name got what was
+left -- under 30px on a default note, which is three characters and an
+ellipsis. The two that describe the task stayed; the two that start a gesture
+moved out.
+
+So there are two rules here, not one, and the split is the point:
+
+*   On the note, an indicator is note-coloured, 18px, visible at rest, and
+    shaped by whether it carries text.
+*   On a rail, a control is theme-coloured (it sits on the *board*, where the
+    note's measured-against-pastel ink can be near-white and invisible),
+    hidden at rest, and shown only for the active row.
+
+Labelling is the one rule that spans both.
 
 Usage:
     uv run pytest tests/ui/test_whiteboard_row_indicators.py -q
@@ -40,13 +53,21 @@ Phase 1
 | Build | 480 | 80 | #FCE38A | 320   | 320    | no        |
 """
 
+# On the note, in the row.
 INDICATORS = (
     ".wb-note-deliverable-badge",
-    ".wb-note-row-coach",
     ".wb-note-row-date",
     ".wb-note-count-badge",
-    ".wb-note-row-dep-handle",
 )
+
+# Outside the note, on the rails.
+RAILS = (
+    ".wb-note-rail-hint",
+    ".wb-note-rail-dep",
+)
+
+# In the row, but a gesture rather than a fact, so it dims at rest.
+QUIET = (".wb-note-row-resource",)
 
 
 def _measure(page):
@@ -71,6 +92,7 @@ def _measure(page):
                         expanded: n.getAttribute('aria-expanded'),
                         role: n.getAttribute('role'),
                         tag: n.tagName.toLowerCase(),
+                        hidden: n.hidden,
                     };
                 });
             }
@@ -79,7 +101,7 @@ def _measure(page):
             ).color;
             return out;
         }""",
-        list(INDICATORS),
+        list(INDICATORS) + list(RAILS) + list(QUIET),
     )
 
 
@@ -87,7 +109,11 @@ def _loaded(page, app_server):
     open_app(page, app_server)
     load_plan(page, PLAN)
     switch_to_whiteboard(page)
-    page.wait_for_selector(".wb-note[data-wb-task=Build] .wb-note-row-dep-handle")
+    # `attached`, not visible: the rails are hidden until a row is active, so
+    # waiting for visibility here would wait for something that is meant not to
+    # happen.
+    page.wait_for_selector(".wb-note[data-wb-task=Build] .wb-note-rail-dep",
+                           state="attached")
     # Existence is not enough to measure against. A note is drawn at its
     # default 260x220 and resized from the `---whiteboard---` table a moment
     # later; every indicator exists in both states, so a measurement taken
@@ -106,6 +132,22 @@ def _loaded(page, app_server):
     return _measure(page)
 
 
+def _hover(page, child):
+    """Put the pointer on `child`'s row and let the rails follow it.
+
+    `force=True` because the board is a pan/zoom canvas and most of these notes
+    sit outside the visible pane -- the same reason helpers.py clicks board
+    content with `dispatch_event`."""
+    row = note(page, "Build").locator(".wb-note-row").filter(
+        has=page.locator(".wb-note-row-name", has_text=re.compile(rf"^{re.escape(child)}$"))
+    )
+    row.hover(force=True)
+    page.wait_for_function(
+        "() => { const r = document.querySelector("
+        "  '.wb-note[data-wb-task=Build] .wb-note-rail-dep'); return r && !r.hidden; }"
+    )
+
+
 class TestOneVisualLanguage:
     def test_every_indicator_is_the_same_height(self, page, app_server):
         m = _loaded(page, app_server)
@@ -121,9 +163,7 @@ class TestOneVisualLanguage:
         m = _loaded(page, app_server)
         pills = {r for sel in (".wb-note-row-date", ".wb-note-count-badge")
                  for r in (i["radius"] for i in m[sel])}
-        squares = {r for sel in (".wb-note-deliverable-badge", ".wb-note-row-coach",
-                                 ".wb-note-row-dep-handle")
-                   for r in (i["radius"] for i in m[sel])}
+        squares = {r for r in (i["radius"] for i in m[".wb-note-deliverable-badge"])}
         assert pills == {"9px"}, f"text chips are not one pill radius: {pills}"
         assert squares == {"4px"}, f"glyph controls are not one radius: {squares}"
         # The coach used to be the only circle on the row.
@@ -134,7 +174,7 @@ class TestOneVisualLanguage:
         fixed light-mode palettes, painted on a pastel note in both themes."""
         m = _loaded(page, app_server)
         ink = m["noteInk"]
-        for sel in (".wb-note-row-date", ".wb-note-count-badge", ".wb-note-row-coach"):
+        for sel in (".wb-note-row-date", ".wb-note-count-badge"):
             for indicator in m[sel]:
                 assert indicator["colour"] == ink, (
                     f"{sel} paints {indicator['colour']} where the note's ink is {ink}"
@@ -150,7 +190,8 @@ class TestOneVisualLanguage:
             "the badge's ink should be --np-orange-ink, the value its comment "
             f"always claimed, not {badge['colour']}"
         )
-        handle = m[".wb-note-row-dep-handle"][0]
+        _hover(page, "Plain leaf")
+        handle = _measure(page)[".wb-note-rail-dep"][0]
         assert handle["colour"] == "rgb(155, 89, 182)", handle["colour"]
 
 
@@ -160,7 +201,7 @@ class TestVisibleAtRest:
 
     def test_informational_indicators_are_visible_at_rest(self, page, app_server):
         m = _loaded(page, app_server)
-        for sel in (".wb-note-deliverable-badge", ".wb-note-row-coach",
+        for sel in (".wb-note-deliverable-badge",
                     ".wb-note-row-date", ".wb-note-count-badge"):
             for indicator in m[sel]:
                 assert float(indicator["opacity"]) == 1.0, (
@@ -168,24 +209,35 @@ class TestVisibleAtRest:
                     "used to carry four different resting opacities"
                 )
 
-    def test_the_dependency_handle_is_the_only_one_revealed_on_hover(
-        self, page, app_server
-    ):
-        m = _loaded(page, app_server)
-        for handle in m[".wb-note-row-dep-handle"]:
-            assert float(handle["opacity"]) == 0.0, (
-                "the dependency handle carries no information of its own, so it "
-                "is the one control revealed on hover"
-            )
+    def test_the_rails_are_hidden_at_rest(self, page, app_server):
+        """Neither rail carries information of its own -- one opens a popover,
+        one starts a drag -- so a board at rest shows neither."""
+        _loaded(page, app_server)
+        for sel in RAILS:
+            for rail in _measure(page)[sel]:
+                assert rail["hidden"] is True, f"{sel} is showing on an unhovered board"
+
+    def test_hovering_a_row_reveals_its_rails(self, page, app_server):
+        _loaded(page, app_server)
+        _hover(page, "Plain leaf")
+        m = _measure(page)
+        assert m[".wb-note-rail-dep"][0]["hidden"] is False
+
+    def test_the_quick_assign_control_is_hidden_at_rest_too(self, page, app_server):
+        """It is a gesture like the rails, but it lives in the row -- so it
+        dims rather than unmounting, and the people slot keeps its width."""
+        _loaded(page, app_server)
+        assert float(_measure(page)[".wb-note-row-resource"][0]["opacity"]) == 0.0
 
 
 class TestLabelling:
     def test_tooltip_and_accessible_name_agree(self, page, app_server):
         """All three of these used to say different things: the tooltip
         described the gesture and the accessible name described the outcome."""
-        m = _loaded(page, app_server)
-        for sel in (".wb-note-row-coach", ".wb-note-row-date",
-                    ".wb-note-row-dep-handle"):
+        _loaded(page, app_server)
+        _hover(page, "Plain leaf")
+        m = _measure(page)
+        for sel in (".wb-note-row-date", ".wb-note-rail-dep"):
             for indicator in m[sel]:
                 assert indicator["title"] == indicator["label"], (
                     f"{sel} tooltip {indicator['title']!r} != "
@@ -195,8 +247,10 @@ class TestLabelling:
     def test_every_popup_trigger_declares_its_popup_up_front(self, page, app_server):
         """`aria-haspopup` and an initial `aria-expanded` at render time, not
         only once the popup has been opened for the first time."""
-        m = _loaded(page, app_server)
-        for sel in (".wb-note-row-coach", ".wb-note-row-date", ".wb-note-count-badge"):
+        _loaded(page, app_server)
+        _hover(page, "Plain leaf")
+        m = _measure(page)
+        for sel in (".wb-note-rail-hint", ".wb-note-row-date", ".wb-note-count-badge"):
             for indicator in m[sel]:
                 assert indicator["haspopup"], f"{sel} does not declare aria-haspopup"
                 assert indicator["expanded"] == "false", (

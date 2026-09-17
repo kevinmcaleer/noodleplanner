@@ -180,12 +180,57 @@ export function buildNoteCard() {
 
     card.append(header, parentCaption, body, footer, resizeHandle);
 
+    // ── The rails ──────────────────────────────────────────────────────
+    //
+    // Two controls that belong to a checklist row but are drawn *outside* the
+    // card, level with the row the pointer is on: the planning hint to its
+    // left, the dependency handle to its right.
+    //
+    // Why they are not in the row any more: the row's trailing gutter was
+    // 136px of a 260px note -- deliverable, hint, people, dependency, each
+    // reserving its width whether or not it had anything in it -- and the task
+    // name got what was left. On a default note that was under 30px, so every
+    // name rendered as three characters and an ellipsis. The two controls that
+    // are *gestures* rather than information moved out here; the two that say
+    // something about the task (the deliverable, the people) stayed.
+    //
+    // Why there is one pair per note rather than one per row: they only ever
+    // show for the row the pointer or the keyboard is on, so a note never
+    // needs two of either. The board moves this pair to the active row
+    // (wbShowRowRails()) instead of building, positioning and tearing down a
+    // pair for every row of every note on the canvas.
+    //
+    // They are a sibling of the card, not a child of it. `.wb-note-card` is
+    // `overflow: hidden` for its rounded corners and `.wb-note-body` is
+    // `overflow-x: hidden` for its scroller, so anything inside the card is
+    // clipped at the card's edge by two separate rules. The parent -- the
+    // board's <foreignObject>, which is `overflow: visible`, or the component
+    // host -- is the first box that does not clip, which is why the caller
+    // appends this next to the card rather than inside it.
+    const rails = el('div', 'wb-note-rails', { 'aria-hidden': 'false' });
+
+    const railHint = el('button', 'wb-note-rail wb-note-rail-hint', {
+        type: 'button',
+        hidden: '',
+        'aria-haspopup': 'dialog',
+        'aria-expanded': 'false',
+    });
+
+    const railDep = el('button', 'wb-note-rail wb-note-rail-dep', {
+        type: 'button',
+        hidden: '',
+    });
+    railDep.innerHTML = noodleGlyph(12);
+
+    rails.append(railHint, railDep);
+
     return {
         card,
+        rails,
         refs: {
             card, header, title, coachBtn,
             menuBtn, linkHandle, parentCaption, body, footer, progress,
-            resizeHandle,
+            resizeHandle, rails, railHint, railDep,
         },
     };
 }
@@ -193,15 +238,21 @@ export function buildNoteCard() {
 /**
  * One checklist row, in the three zones #1243 settled on.
  *
- *   LEAD    checkbox, then a badge slot that reserves its width whether or not
- *           this child has a deliverable
+ *   LEAD    the checkbox
  *   NAME    the name, then a content box for things that describe the task
- *   GUTTER  a constant width holding hint / people / dependency slots, each of
+ *   GUTTER  a constant width holding the deliverable and people slots, each of
  *           which renders as an empty box when unoccupied rather than
  *           `display: none`
  *
  * That last rule is the whole point: a busy row and a bare row have identical
  * geometry, which is what they did not have before.
+ *
+ * The gutter used to hold two more slots, for the planning hint and the
+ * dependency handle. Four reserved slots came to 136px of a 260px note and the
+ * name got the remainder -- under 30px, which is three characters and an
+ * ellipsis on every row of a default-width note. The two that are gestures
+ * rather than facts now render on the note's rails, outside the card, for the
+ * hovered row only; see buildNoteCard().
  *
  * `model` is already resolved by the caller:
  *
@@ -304,24 +355,13 @@ export function buildChecklistRow(model) {
         delivSlot.appendChild(badge);
     }
 
-    const hintSlot = el('div', 'wb-note-row-slot wb-note-row-slot-hint');
-    gutter.appendChild(hintSlot);
-
-    let coachBtn = null;
+    // No hint slot. The planning hint is a rail control now -- drawn to the
+    // left of the note, level with this row, when the row is hovered or
+    // focused (see buildNoteCard()'s rails). The model still carries `coach`,
+    // because that is what tells the board whether this row has a hint to show
+    // at all; it is stashed on the row rather than rendered into it.
     if (model.coach) {
-        coachBtn = el('button',
-            'wb-note-row-coach' + (model.coach.suspected ? ' suspected-activity' : ''),
-            {
-                type: 'button',
-                'aria-haspopup': 'dialog',
-                'aria-expanded': 'false',
-                // One sentence, both places -- the tooltip and the accessible
-                // name used to describe different things.
-                'aria-label': model.coach.label,
-                title: model.coach.label,
-            });
-        coachBtn.textContent = model.coach.glyph;
-        hintSlot.appendChild(coachBtn);
+        row.dataset.wbRowCoach = JSON.stringify(model.coach);
     }
 
     const peopleSlot = el('div', 'wb-note-row-slot wb-note-row-slot-people');
@@ -334,30 +374,27 @@ export function buildChecklistRow(model) {
         'aria-label': `Assign a resource to ${name}`,
         title: 'Quick assign',
     });
-    assignBtn.textContent = '＋';
+    // Drawn, not typed. This was U+FF0B FULLWIDTH PLUS SIGN, whose advance
+    // width and side bearings are a CJK cell rather than the Latin metrics the
+    // rest of the button is laid out in -- so it sat left and low inside a
+    // 20px circle, in whichever fallback font happened to carry it. Two lines
+    // in a viewBox land on the middle of the circle in every font.
+    assignBtn.innerHTML =
+        '<svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" ' +
+        'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
+        '<path d="M6 2v8M2 6h8"/></svg>';
 
-    const depSlot = el('div', 'wb-note-row-slot wb-note-row-slot-dep');
-    gutter.appendChild(depSlot);
-
-    // Leaf rows only -- a summary row is never a dependency endpoint, so it
-    // shows the count badge instead and never both.
-    let depHandle = null;
-    if (model.depHandle && !model.hasChildren) {
-        depHandle = el('button', 'wb-note-row-dep-handle', {
-            type: 'button',
-            title: `Draw a dependency from "${name}": drag to the task that depends on it`,
-            'aria-label': `Draw a dependency from "${name}": drag to the task that depends on it`,
-        });
-        depHandle.innerHTML = noodleGlyph(12);
-        depSlot.appendChild(depHandle);
-    }
+    // No dep slot either, for the same reason. Leaf rows only -- a summary row
+    // is never a dependency endpoint, so it shows the count badge instead and
+    // never both -- and the flag says so here so the rail does not have to
+    // re-derive it.
+    row.dataset.wbRowDep = (model.depHandle && !model.hasChildren) ? 'true' : 'false';
 
     return {
         row,
         refs: {
             row, checkbox, name: label, content, dateBtn, countBadge,
-            gutter, delivSlot, hintSlot, coachBtn, peopleSlot, assignBtn,
-            depSlot, depHandle,
+            gutter, delivSlot, peopleSlot, assignBtn,
         },
     };
 }

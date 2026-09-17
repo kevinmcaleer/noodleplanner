@@ -109,6 +109,16 @@
     "$value": "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
     "$description": "--np-anim-easing"
   },
+  "avatar-bg": {
+    "$type": "color",
+    "$value": "#2F97C0",
+    "$description": "--np-avatar-bg"
+  },
+  "avatar-ink": {
+    "$type": "color",
+    "$value": "#161616",
+    "$description": "--np-avatar-ink"
+  },
   "badge-bg": {
     "$type": "color",
     "$value": "#EFE9DE",

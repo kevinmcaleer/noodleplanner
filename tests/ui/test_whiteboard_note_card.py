@@ -354,6 +354,89 @@ class TestAddRowAlignment:
         )
 
 
+class TestTheAddRowIsBareLikeATaskRow:
+    """The add row has been asked to look like the rows above it more than
+    once, and it has been fixed in this file more than once. It kept coming
+    back as a form field because every fix wrote the right declarations into a
+    selector that loses the cascade.
+
+    `.wb-note-add-input` is (0,1,0). Two global element rules outrank it and
+    both reach inside a whiteboard note:
+
+        views/gantt.css      input[type="text"]                          (0,1,1)
+        visual-system.css    :root body :is(..., input[type="text"], ...) (0,2,2)
+
+    Between them they drew a --np-paper fill, a 1px --np-border-strong edge, a
+    --np-radius-control corner, 12px of padding and 14px type. No gate saw it:
+    check-contrast scores token pairings rather than rendered elements, and
+    lint:design reads declarations rather than the cascade, so a rule that is
+    written correctly and then overruled looks clean to both.
+
+    These read the *computed* style, which is the only thing that could have
+    caught it, and compare against a real task row rather than naming values --
+    "the same as the others" is the actual requirement.
+    """
+
+    @staticmethod
+    def _pair(page):
+        return page.evaluate(
+            """() => {
+                const card = document.querySelector(
+                    ".wb-note[data-wb-task='Build'] .wb-note-card");
+                const pick = (el) => {
+                    const s = getComputedStyle(el);
+                    return {
+                        background: s.backgroundColor,
+                        borderWidth: s.borderTopWidth,
+                        borderStyle: s.borderTopStyle,
+                        radius: s.borderTopLeftRadius,
+                        padding: s.paddingTop + ' ' + s.paddingLeft,
+                        fontSize: s.fontSize,
+                        fontFamily: s.fontFamily,
+                        colour: s.color,
+                    };
+                };
+                return {
+                    input: pick(card.querySelector('.wb-note-add-input')),
+                    name: pick(card.querySelector('.wb-note-row .wb-note-row-name')),
+                };
+            }"""
+        )
+
+    def test_it_has_no_fill_no_edge_and_no_padding_of_its_own(
+        self, page, app_server
+    ):
+        open_app(page, app_server)
+        board(page)
+        got = self._pair(page)["input"]
+
+        assert got["background"] == "rgba(0, 0, 0, 0)", (
+            f"the add row is filled again: {got['background']}"
+        )
+        assert got["borderWidth"] == "0px" or got["borderStyle"] == "none", (
+            f"the add row has an edge again: {got}"
+        )
+        assert got["radius"] == "0px", f"the add row has a corner again: {got['radius']}"
+        assert got["padding"] == "0px 0px", (
+            f"the add row is padded like a form field again: {got['padding']}"
+        )
+
+    def test_it_is_set_in_the_same_type_as_a_task_name(self, page, app_server):
+        open_app(page, app_server)
+        board(page)
+        pair = self._pair(page)
+
+        assert pair["input"]["fontSize"] == pair["name"]["fontSize"], (
+            f"the add row is not the row's type size: {pair}"
+        )
+        assert pair["input"]["fontFamily"] == pair["name"]["fontFamily"], (
+            f"the add row is not the row's typeface: {pair}"
+        )
+        assert pair["input"]["colour"] == pair["name"]["colour"], (
+            f"the add row is not the note's ink: {pair}"
+        )
+
+
 class TestTypingIsThePromotion:
     """A note becomes a summary task by gaining a task, not by being told to.
 
