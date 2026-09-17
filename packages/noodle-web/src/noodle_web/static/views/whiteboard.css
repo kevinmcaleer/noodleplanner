@@ -2949,3 +2949,131 @@ body.wb-linking * {
     background: rgba(214, 69, 69, 0.1);
     color: var(--np-red);
 }
+
+/* ── Group boundaries, the lasso and the selection toolbar (issue #874) ──
+   A boundary is a container, so it is drawn as the quietest thing on the
+   board: a tinted wash and a hairline, behind every note and noodle. It has
+   to read as "these belong together" without competing with the notes it
+   contains, which are the content.
+
+   Theme tokens rather than note ink: a boundary sits on the *board*, not on
+   a pastel fill, so --wb-note-text (chosen by measurement against a swatch)
+   would be the wrong ink and can be near-white. */
+.wb-group-box {
+    fill: color-mix(in srgb, var(--np-accent) 7%, transparent);
+    stroke: color-mix(in srgb, var(--np-accent) 38%, transparent);
+    stroke-width: 1.5;
+    cursor: grab;
+}
+
+.wb-group:hover .wb-group-box {
+    fill: color-mix(in srgb, var(--np-accent) 11%, transparent);
+    stroke: color-mix(in srgb, var(--np-accent) 55%, transparent);
+}
+
+.wb-group-title {
+    font-family: var(--np-font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    fill: var(--np-text-secondary);
+    cursor: grab;
+    /* The title is a label on a container, not a control; the double-click
+       that renames it is a bonus, so it never takes the text cursor. */
+    user-select: none;
+}
+
+.wb-group:hover .wb-group-title {
+    fill: var(--np-text);
+}
+
+/* The marquee itself. Dashed, because it is transient and a solid box at
+   this size reads as another boundary being created rather than a
+   selection being made. */
+.wb-lasso {
+    fill: color-mix(in srgb, var(--np-blue) 10%, transparent);
+    stroke: var(--np-blue);
+    stroke-width: 1;
+    stroke-dasharray: 4 3;
+    pointer-events: none;
+}
+
+/* The mini-toolbar #874 asks for. Pinned to the board rather than following
+   the selection: a bar that chases the notes covers the ones at the edge of
+   the marquee you just drew, which are the ones you are checking. */
+.wb-selection-toolbar {
+    position: absolute;
+    left: 50%;
+    bottom: var(--np-space-16);
+    transform: translateX(-50%);
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
+    background: var(--np-surface);
+    color: var(--np-text);
+    border: 1px solid var(--np-border);
+    border-radius: var(--np-radius-panel);
+    box-shadow: var(--np-floating-shadow);
+}
+
+.wb-selection-toolbar[hidden] { display: none; }
+
+.wb-selection-count {
+    font-size: 12px;
+    color: var(--np-text-secondary);
+}
+
+.wb-selection-btn {
+    padding: var(--np-space-4) var(--np-space-12);
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--np-border-strong);
+    border-radius: var(--np-radius-control);
+    background: var(--np-surface);
+    color: var(--np-text);
+    cursor: pointer;
+}
+
+.wb-selection-btn:hover {
+    background: var(--np-bg-hover);
+}
+
+/* Group is the likelier of the two and the reversible one -- merge deletes
+   tasks -- so it takes the accent and Combine stays quiet. That difference
+   is also the one #874 wants visible at the moment of choosing. */
+.wb-selection-group {
+    background: var(--np-accent);
+    border-color: var(--np-accent);
+    color: var(--np-on-accent);
+}
+
+.wb-selection-group:hover {
+    background: var(--np-accent-hover);
+    border-color: var(--np-accent-hover);
+}
+
+/* Ungroup: a gesture, so it follows the rails' rule and stays out of sight
+   until the boundary is hovered. Right-aligned against the boundary's own
+   edge, opposite its title. */
+.wb-group-ungroup {
+    font-family: var(--np-font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    fill: var(--np-text-secondary);
+    text-anchor: end;
+    cursor: pointer;
+    user-select: none;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+
+.wb-group:hover .wb-group-ungroup,
+.wb-group-ungroup:focus-visible {
+    opacity: 1;
+}
+
+.wb-group-ungroup:hover {
+    fill: var(--np-text);
+    text-decoration: underline;
+}

@@ -87,9 +87,14 @@ function wbNoodleId(parentName, childName) {
  * and the outline panel read, so the three can never disagree.
  */
 function wbNoodleLinksFor(rows, tasks) {
+    // Only post-it rows count as "on the board" here. A group row (issue
+    // #874) names a task too, but it draws a boundary rather than a card --
+    // and a noodle to a boundary is a noodle to nothing, since the boundary
+    // is drawn *around* the very notes the noodle would come from.
     const onBoard = new Map();
     (rows || []).forEach(row => {
-        if (row && row.task) onBoard.set(String(row.task).toLowerCase(), row.task);
+        if (!row || !row.task || row.kind === 'group' || row.kind === 'text') return;
+        onBoard.set(String(row.task).toLowerCase(), row.task);
     });
     const links = [];
     const seen = new Set();

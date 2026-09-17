@@ -777,3 +777,164 @@ function wbFlattenOutline(tree, collapsedNames, query) {
     (tree || []).forEach(walk);
     return rows;
 }
+
+// ── Grouping and merging (issue #874) ───────────────────────────────────
+//
+// Both gestures in #874's "join/group" half come down to one outline move
+// each, and neither invents a storage concept:
+//
+//   group  -- a new summary task the members become children of. The board
+//             draws a titled boundary around them instead of a post-it (see
+//             wbGroupRowFor() in whiteboard-notes.js), which is the "lens"
+//             the issue asks for: the user is told "group", the plan gets a
+//             summary task, and the two never disagree because there is
+//             only one of them.
+//   merge  -- the sources' children are appended to the target and the
+//             sources themselves go away, so two post-its become one list.
+//
+// The difference the issue asks to be obvious at the moment of choosing
+// falls straight out of that: group keeps every member a task of its own
+// inside a boundary, merge leaves one task holding everything.
+//
+// Composed from the primitives above rather than splicing lines directly.
+// wbReparentTaskInPlanText() already knows how to move a subtree and keep
+// its internal shape, refuses cycles, and touches nothing else in the
+// file; doing it again here by hand would be a second implementation of
+// the one move, which is what this file's header comment warns against.
+// The cost is a re-parse per member, against a handful of members chosen
+// by hand on a canvas.
+
+/**
+ * Gather `memberNames` (each with its whole subtree) under a brand-new
+ * summary task called `groupName`, in the order given.
+ *
+ * The new task is appended at the top level first and the members are
+ * moved under it one at a time, so the group ends up holding them in
+ * selection order rather than in whatever order they happened to sit in
+ * the outline. A member that is itself a group comes with its own members
+ * attached -- which is all "nested groups" needs to mean here, since
+ * nesting is a property of the outline and the boundary is drawn from it.
+ *
+ * Returns `planText` unchanged (so wbCommitMarkdown() skips the write and
+ * no undo step is created) when there is nothing to group, when the name
+ * is taken, or when any member is missing from the outline. Refusing the
+ * whole gesture rather than grouping the members it *can* find is
+ * deliberate: a half-made group is harder to understand than none.
+ */
+function wbGroupTasksInPlanText(planText, memberNames, groupName) {
+    const text = String(planText == null ? '' : planText);
+    const clean = String(groupName || '').trim();
+    const members = (memberNames || []).map(n => String(n || '').trim()).filter(Boolean);
+    if (!clean || members.length < 2) return text;
+
+    const parsed = wbParseOutline(text);
+    if (wbFindOutlineIndex(parsed.entries, clean) !== -1) return text;
+    for (const name of members) {
+        if (wbFindOutlineIndex(parsed.entries, name) === -1) return text;
+    }
+    // A member that already contains another would end up being asked to
+    // become its own descendant's sibling under the new parent.
+    // wbReparentTaskInPlanText() refuses the cycle on its own, but it
+    // refuses by no-oping, which would silently leave that member outside
+    // the group it was told to join -- so the whole gesture is refused
+    // here instead, where the caller can say why.
+    //
+    // Containment is read off the parse rather than from a tasks list:
+    // every entry's subtree is a contiguous line range, so "A contains B"
+    // is "B's line sits inside A's range".
+    const ranges = members.map(name => {
+        const pos = wbFindOutlineIndex(parsed.entries, name);
+        return { name, pos, start: parsed.entries[pos].index, end: wbSubtreeEndIndex(parsed, pos) };
+    });
+    for (const outer of ranges) {
+        for (const inner of ranges) {
+            if (inner === outer) continue;
+            if (inner.start > outer.start && inner.start <= outer.end) return text;
+        }
+    }
+
+    let next = wbAppendTopLevelTask(text, clean);
+    for (const name of members) {
+        const moved = wbReparentTaskInPlanText(next, name, clean);
+        if (moved === next) return text; // a member refused to move: abandon the whole gesture
+        next = moved;
+    }
+    return next;
+}
+
+/**
+ * Dissolve `groupName`: every direct child moves back out to the top level
+ * in order, and the group's own task line goes.
+ *
+ * The children keep their own subtrees, so ungrouping a nested group hands
+ * back the inner groups intact rather than flattening everything.
+ */
+function wbUngroupTasksInPlanText(planText, groupName) {
+    const text = String(planText == null ? '' : planText);
+    const clean = String(groupName || '').trim();
+    if (!clean) return text;
+
+    const parsed = wbParseOutline(text);
+    const pos = wbFindOutlineIndex(parsed.entries, clean);
+    if (pos === -1) return text;
+
+    const children = wbDirectChildEntries(parsed, pos).map(k => k.entry.name);
+    let next = text;
+    for (const name of children) {
+        next = wbReparentTaskInPlanText(next, name, '');
+    }
+    return wbDeleteTaskFromPlanText(next, clean);
+}
+
+/**
+ * Fold `sourceNames` into `targetName`: each source's direct children are
+ * appended to the target in order, and the emptied source is removed.
+ *
+ * A source with no children of its own is moved under the target as a
+ * child in its own right rather than being deleted -- a free-form note
+ * carries its text in its own task line, so dropping it would throw away
+ * the only thing it had. That is also what makes dragging a bare note onto
+ * a list do the obvious thing: it becomes an item on that list.
+ *
+ * Returns `planText` unchanged when the target is missing, when a source
+ * is missing, or when a source is the target or an ancestor of it -- a
+ * merge into your own parent is a move, not a merge, and the two want
+ * different gestures.
+ */
+function wbMergeTasksInPlanText(planText, targetName, sourceNames) {
+    const text = String(planText == null ? '' : planText);
+    const target = String(targetName || '').trim();
+    const sources = (sourceNames || []).map(n => String(n || '').trim()).filter(Boolean);
+    if (!target || !sources.length) return text;
+
+    const parsed = wbParseOutline(text);
+    if (wbFindOutlineIndex(parsed.entries, target) === -1) return text;
+    for (const name of sources) {
+        if (name.toLowerCase() === target.toLowerCase()) return text;
+        if (wbFindOutlineIndex(parsed.entries, name) === -1) return text;
+    }
+
+    let next = text;
+    for (const source of sources) {
+        const at = wbParseOutline(next);
+        const pos = wbFindOutlineIndex(at.entries, source);
+        if (pos === -1) return text;
+
+        const children = wbDirectChildEntries(at, pos).map(k => k.entry.name);
+        if (!children.length) {
+            // Nothing inside it: the note itself becomes an item on the list.
+            const moved = wbReparentTaskInPlanText(next, source, target);
+            if (moved === next) return text;
+            next = moved;
+            continue;
+        }
+
+        for (const child of children) {
+            const moved = wbReparentTaskInPlanText(next, child, target);
+            if (moved === next) return text;
+            next = moved;
+        }
+        next = wbDeleteTaskFromPlanText(next, source);
+    }
+    return next;
+}

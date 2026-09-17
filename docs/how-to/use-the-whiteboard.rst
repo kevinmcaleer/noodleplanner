@@ -160,6 +160,44 @@ Move and Resize a Note
 
 Both moving and resizing save once you release, as a single undo step — nothing is written while you are still dragging.
 
+Select Several Notes
+----------------------
+
+Two of the board's gestures act on more than one note at a time, so there are two ways to pick several:
+
+- **Shift-click** a note's header to add it to the selection, or shift-click a selected note to take it back out. Shift-clicking never picks the note up — building a selection and moving something are different jobs.
+- **Shift-drag on empty canvas** to lasso. Every note the box *touches* is selected, not only the ones it completely surrounds; a marquee you have to draw bigger than the thing you are pointing at is a marquee that makes you drag across the whole board.
+
+Plain dragging on empty canvas still pans, which is why the lasso takes the shift key.
+
+Once two or more notes are selected, a small toolbar appears at the bottom of the board offering the two things a selection is for: **Group these** and **Combine**. Press ``Escape`` or click empty canvas to clear the selection.
+
+Group Notes Inside a Boundary
+-------------------------------
+
+Select some notes and choose **Group these**. Name the group, and a titled boundary is drawn around them.
+
+A group keeps every note separate — it is a container, not a merge. Underneath, the group is an ordinary summary task in your plan with those notes' tasks indented under it, so the grouping shows up in the Gantt chart, the outline and everywhere else without you having to build it twice.
+
+- **Move a group** — drag its boundary. Everything inside travels with it, and the whole move is one undo step.
+- **Rename** — double-click the boundary's title.
+- **Ungroup** — hover the boundary and click **Ungroup** at its top-right. The notes go back to the top level of the plan and keep their own subtasks; only the group itself goes.
+- **Nest** — a group is a task, so a group can go inside another group, as deep as you like.
+
+A boundary is always the box its notes occupy, so it grows and shrinks as they move. There is nothing to resize.
+
+Combine Notes into One
+------------------------
+
+Where a group keeps notes separate, **Combine** fuses them. The other notes' items move onto the first note's checklist and the emptied notes go, leaving one note holding everything. You are offered the chance to rename what is left; keep the name it has by cancelling.
+
+There are two ways in:
+
+- Select several notes and press **Combine** on the selection toolbar.
+- **Drag one note onto another.** You will be asked to confirm, because dropping a note *on* another note is a pixel away from dropping it *beside* one, and the two outcomes are "nothing happened" and "that note is gone". Decline, and the note simply stays where you dropped it.
+
+A note with nothing inside it becomes an item on the target's list rather than disappearing — its title is the only thing it was carrying.
+
 Tick Off a Todo
 -----------------
 
@@ -242,6 +280,14 @@ Keyboard and Pointer Reference
      - Zoom in, out, reset to 100%
    * - ``f``
      - Fit the board to its contents
+   * - Shift-click a note's header
+     - Add it to (or remove it from) the selection
+   * - Shift-drag empty canvas
+     - Lasso every note the box touches
+   * - Drag a group's boundary
+     - Move the group and everything in it
+   * - Drag a note onto another note
+     - Combine them, after a confirm
    * - ``Escape``
      - Deselect a noodle, or abandon a rename
 
