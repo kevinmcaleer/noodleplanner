@@ -88,6 +88,21 @@ def _loaded(page, app_server):
     load_plan(page, PLAN)
     switch_to_whiteboard(page)
     page.wait_for_selector(".wb-note[data-wb-task=Build] .wb-note-row-dep-handle")
+    # Existence is not enough to measure against. A note is drawn at its
+    # default 260x220 and resized from the `---whiteboard---` table a moment
+    # later; every indicator exists in both states, so a measurement taken
+    # between them can land while the card is still 260 wide -- a different
+    # container-query tier from the 320 this plan declares, with a different
+    # set of indicators rendered. That is what made this file fail under
+    # `-n 4` and pass every time serially.
+    #
+    # `offsetWidth` rather than the bounding rect, because the board is
+    # zoom-transformed and the rect reports scaled pixels.
+    page.wait_for_function(
+        "() => { const c = document.querySelector("
+        "          '.wb-note[data-wb-task=Build] .wb-note-card');"
+        "        return c && Math.abs(c.offsetWidth - 320) < 2; }"
+    )
     return _measure(page)
 
 

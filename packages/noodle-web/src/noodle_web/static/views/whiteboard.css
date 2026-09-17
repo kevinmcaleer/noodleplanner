@@ -234,7 +234,7 @@
        container queries below -- the card is the query container because a
        note's width is plan data (160..N), not a breakpoint. */
     container-type: inline-size;
-    --wb-row-badge: 15px;
+    --wb-row-deliv: 18px;
     --wb-row-hint: 18px;
     --wb-row-people: 70px;
     --wb-row-dep: 18px;
@@ -485,7 +485,6 @@
    indicator. Its old fixed light-mode blue measured 1.02-1.63:1 against the
    ten note swatches -- a chip the design treats as distinct, with effectively
    no edge on the card it sat on, and unchanged in dark mode. */
-.wb-note-date-btn,
 .wb-note-row-date {
     max-width: 86px;
     overflow: hidden;
@@ -735,19 +734,21 @@
  * cluster began was a function of which optional controls a given child
  * happened to have, and nothing lined up down the card.
  *
- *   1. LEAD    checkbox, then `.wb-note-row-badge` -- a slot that reserves its
- *              width whether or not the child has a deliverable, so names
- *              start on the same x. The `$` badge used to sit inline between
- *              the checkbox and the name, which moved the name on any row that
- *              had one.
+ *   1. LEAD    the checkbox, and nothing else. It briefly also held a slot
+ *              reserving 15px for the `$` deliverable badge, which did keep
+ *              names aligned -- but at the cost of a gap between every
+ *              checkbox and every name that most rows had no use for and
+ *              nothing on screen explained. The badge moved to the gutter,
+ *              which was already a fixed width and so absorbs it for free.
  *   2. NAME    `.wb-note-row-name`, then `.wb-note-row-content` for the
  *              affordances that *describe* the task rather than act on it (the
  *              detected-date chip, the child-count badge). Content shrinks
  *              before the name does; the name keeps a floor and then ellipsises.
- *   3. GUTTER  `.wb-note-row-gutter`, a constant width, holding three slots in
- *              a fixed order: hint, people, dep. An unoccupied slot renders as
- *              an empty box of its reserved width -- never `display: none`,
- *              which is the whole mechanism.
+ *   3. GUTTER  `.wb-note-row-gutter`, a constant width, holding four slots in
+ *              a fixed order: deliverable, hint, people, dep -- information
+ *              first, then the things you do to the task. An unoccupied slot
+ *              renders as an empty box of its reserved width -- never
+ *              `display: none`, which is the whole mechanism.
  *
  * Degradation, by card width (see the container queries at the end of this
  * block). Each step drops the least load-bearing thing left:
@@ -775,14 +776,6 @@
     padding: var(--np-space-4);
     border-radius: 4px;
     min-width: 0;
-}
-
-.wb-note-row-badge {
-    flex: 0 0 var(--wb-row-badge);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
 }
 
 .wb-note-row-content {
@@ -816,6 +809,11 @@
     overflow: hidden;
 }
 
+.wb-note-row-slot-deliv {
+    flex-basis: var(--wb-row-deliv);
+    justify-content: center;
+}
+
 .wb-note-row-slot-hint { flex-basis: var(--wb-row-hint); }
 .wb-note-row-slot-people {
     flex-basis: var(--wb-row-people);
@@ -843,7 +841,7 @@
 @container (max-width: 199px) {
     .wb-note-row,
     .wb-note-add-row {
-        --wb-row-badge: 0px;
+        --wb-row-deliv: 0px;
         --wb-row-people: 40px;
         /* Buy back 16px of row by halving the inter-zone gaps, so the name
            keeps its floor instead of the row overflowing the card. */
@@ -1036,16 +1034,12 @@
     font-size: 12px;
     color: var(--wb-note-text);
     padding: 0;
-    /* Starts exactly where a task name starts, by reserving the same lead-zone
-       columns the checklist rows spend: the checkbox's hit target, then the
-       badge slot, then the gap either side of it. Written out rather than
-       eyeballed because the container queries retune two of those three at
-       narrow widths, and `.wb-note-add-row` is named alongside `.wb-note-row`
-       in those queries so the arithmetic holds at every tier. */
-    margin-left: calc(
-        var(--np-checkbox-target, 24px) + var(--wb-row-gap)
-        + var(--wb-row-badge) + var(--wb-row-gap)
-    );
+    /* Starts exactly where a task name starts. Since the deliverable slot
+       moved to the gutter, the lead zone is the checkbox and one gap, so that
+       is all this has to reserve. `.wb-note-add-row` is still named alongside
+       `.wb-note-row` in the container queries, which is what keeps the gap
+       itself in step at narrow widths. */
+    margin-left: calc(var(--np-checkbox-target, 24px) + var(--wb-row-gap));
 }
 
 .wb-note-add-input::placeholder {
@@ -1075,12 +1069,6 @@
     white-space: nowrap;
 }
 
-.wb-note-avatars {
-    display: flex;
-    min-width: 0;
-    overflow: hidden;
-    justify-content: flex-end;
-}
 
 /* `.wb-note-avatar` survives this file's own migration to
    <np-resource-stack> (#1246) because the note is no longer its only

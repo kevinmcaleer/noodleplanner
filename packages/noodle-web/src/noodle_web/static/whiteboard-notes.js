@@ -1020,7 +1020,6 @@ function wbBuildNoteViewModel(row, tasks, themeColours = {}, boardNames = null) 
             : null,
         parentName: task.parent || null,
         progress: wbNoteProgress(tasks, task.name),
-        resources: wbResourceList(task.resources),
         colour: resolvedColour.colour,
         colourSource: resolvedColour.source,
     };
@@ -1728,8 +1727,8 @@ function wbCreateNoteNode() {
     // across the re-renders that reuse this same node for the same task.
     const { card, refs } = globalThis.NoodleNoteMarkup.buildNoteCard();
     const {
-        header, title, menuBtn, linkHandle, coachBtn, dateBtn,
-        promoteBtn, parentCaption, body, footer, progress, avatars, resizeHandle,
+        header, title, menuBtn, linkHandle, coachBtn,
+        promoteBtn, parentCaption, body, footer, progress, resizeHandle,
     } = refs;
 
     // Colour swatches are the menu button's contents for issue #849; two
@@ -1790,25 +1789,13 @@ function wbCreateNoteNode() {
         if (taskName) wbToggleCoachingMenu(taskName, coachBtn);
     });
 
-    // Hidden until wbUpdateNoteNode() finds a date in this task's text --
-    // a render-time state rather than part of the skeleton, so it is set
-    // here and not in the builder.
-    dateBtn.style.display = 'none';
-    dateBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const taskName = fo.dataset.wbTask;
-        const task = wbLastTasks.find(item => item && item.name === taskName);
-        const suggestion = wbTaskDateSuggestions(task)[0];
-        if (taskName && suggestion) wbToggleDateMenu(taskName, suggestion, dateBtn);
-    });
-
     fo.appendChild(card);
 
     const entry = {
         fo,
         refs: {
-            card, header, title, menuBtn, linkHandle, coachBtn, dateBtn, promoteBtn, parentCaption,
-            body, footer, progress, avatars, resizeHandle,
+            card, header, title, menuBtn, linkHandle, coachBtn, promoteBtn, parentCaption,
+            body, footer, progress, resizeHandle,
         },
     };
 
@@ -1896,12 +1883,6 @@ function wbUpdateNoteNode(entry, vm) {
         : languageHint
             ? 'This sounds activity-shaped — open a gentle planning hint'
             : 'Open facilitator prompts';
-    const dateSuggestion = wbTaskDateSuggestions(vm.task)[0];
-    refs.dateBtn.style.display = dateSuggestion ? '' : 'none';
-    if (dateSuggestion) {
-        refs.dateBtn.textContent = dateSuggestion.raw;
-        refs.dateBtn.title = `Attach ${dateSuggestion.date} to this task`;
-    }
 
     // "under Discovery" caption: only when the parent has a note of its
     // own, i.e. exactly when a noodle is drawn into this note.
@@ -1991,11 +1972,6 @@ function wbUpdateNoteNode(entry, vm) {
     // there is nothing here to gate; `vm.progress` is always `0 / 0` in
     // that case anyway (wbIsFreeformNote() is defined in terms of it).
     wbSetText(refs.progress, `${vm.progress.completed} / ${vm.progress.total}`);
-    // <np-resource-stack> (#1246, under #1199) rather than a hand-rolled run
-    // of divs. This footer capped at six with no indication it had; the row
-    // below it did not cap at all. One component, one cap, and an overflow
-    // chip that reveals the names it hid.
-    wbFillResourceStack(refs.avatars, vm.resources, 6, null, vm.task && vm.task.name);
 }
 
 // ── Free-floating text objects (issue #1018) ────────────────────────────

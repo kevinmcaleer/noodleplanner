@@ -67,11 +67,19 @@ def settled(page, width=280):
     reads two rows at two different widths -- and because the row's degradation
     tiers are container queries on the card, the two reads can even land in
     different tiers. Every geometry assertion below waits for this first.
+
+    `offsetWidth`, not `getBoundingClientRect().width`: the board is a
+    zoom-transformed canvas, so the rect reports the *scaled* width. At a zoom
+    of 1.077 a card still at its 260px default reads as 280 -- exactly the
+    width this waits for -- so the wait returned immediately against the
+    unresized card, in whichever container-query tier that puts it. That is
+    what made this file fail under `-n 4` and pass every time serially.
+    `offsetWidth` is layout pixels and the transform does not touch it.
     """
     page.wait_for_function(
         "w => { const c = document.querySelector("
         "         '.wb-note[data-wb-task=Build] .wb-note-card');"
-        "       return c && Math.abs(c.getBoundingClientRect().width - w) < 2; }",
+        "       return c && Math.abs(c.offsetWidth - w) < 2; }",
         arg=width,
     )
 
@@ -140,10 +148,60 @@ class TestTheGutterHoldsItsPosition:
         )
         assert abs(busy["width"] - bare["width"]) < 1.0, "gutters are the same width"
 
+    def test_the_deliverable_badge_lives_in_the_gutter(self, page, app_server):
+        """Where it is, not just that it exists.
+
+        The lead zone is the checkbox and nothing else now, so a regression
+        that put the badge back before the name would still pass the alignment
+        test above -- a reserved slot aligns rows whichever zone it is in.
+        What it would cost is the gap this change removed, which is the thing
+        worth pinning.
+        """
+        open_app(page, app_server)
+        load_plan(page, PLAN)
+        switch_to_whiteboard(page)
+        settled(page)
+
+        row = _row(page, "Busy")
+        assert row.locator(".wb-note-row-slot-deliv .wb-note-deliverable-badge").count() == 1
+        assert row.locator(".wb-note-row-badge").count() == 0, (
+            "the lead-zone badge slot is back"
+        )
+
+        # And it sits left of the name's own trailing edge -- i.e. in the
+        # gutter, not somewhere between the checkbox and the name.
+        boxes = page.evaluate(
+            """() => {
+                const r = document.querySelector(
+                    ".wb-note[data-wb-task=Build] .wb-note-row[data-wb-row-task=Busy]");
+                const x = (sel) => r.querySelector(sel).getBoundingClientRect().left;
+                return {
+                    checkbox: x('.wb-note-checkbox'),
+                    name: x('.wb-note-row-name'),
+                    badge: x('.wb-note-deliverable-badge'),
+                };
+            }"""
+        )
+        assert boxes["name"] < boxes["badge"], (
+            f"the badge is not past the name: {boxes}"
+        )
+        # The name starts one row gap after the checkbox, with nothing between.
+        assert boxes["name"] - boxes["checkbox"] < 40, (
+            f"something is still reserving space before the name: {boxes}"
+        )
+
     def test_names_start_at_the_same_x_whether_or_not_there_is_a_badge(
         self, page, app_server
     ):
-        """The deliverable badge used to sit inline before the name."""
+        """The deliverable badge used to sit inline before the name.
+
+        It then spent a while in a reserved 15px lead-zone slot, which kept
+        names aligned but put an unexplained gap between every checkbox and
+        every name. It now leads the *gutter*, which was already a fixed
+        width -- so names are aligned and start immediately after the
+        checkbox. This asserts the alignment; the test below asserts it is in
+        the gutter rather than back in the lead zone.
+        """
         open_app(page, app_server)
         load_plan(page, PLAN)
         switch_to_whiteboard(page)

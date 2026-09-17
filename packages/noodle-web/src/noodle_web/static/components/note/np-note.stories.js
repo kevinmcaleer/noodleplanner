@@ -52,7 +52,6 @@ export default {
         colour: { control: { type: 'select' }, options: ['', ...WB_NOTE_PASTEL_COLOURS] },
         parent: { control: 'text' },
         comment: { control: 'text' },
-        resources: { control: 'text' },
         rows: { control: 'object' },
         width: { control: { type: 'number' } },
         height: { control: { type: 'number' } },
@@ -70,7 +69,6 @@ export default {
         task: 'Launch checklist',
         colour: '#FCE38A',
         rows: ROWS,
-        resources: 'Sam Smith, Jo Lee',
     },
 };
 
@@ -91,7 +89,6 @@ export const KitchenSink = {
         task: 'Everything at once',
         colour: '#C7E5FF',
         parent: 'Phase 1',
-        resources: 'Sam Smith, Jo Lee, Alex Ray',
         height: 300,
         rows: [
             {
@@ -129,7 +126,6 @@ export const FreeformWithComment = {
         freeform: true,
         comment: 'Check with the design team before the next review.',
         rows: [],
-        resources: '',
     },
 };
 

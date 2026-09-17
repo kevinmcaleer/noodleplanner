@@ -95,11 +95,11 @@ export function buildNoteCard() {
     // element is therefore part of the contract, not a tag choice.
     const title = el('h3', 'wb-note-title');
 
-    const dateBtn = el('button', 'wb-note-smart-btn wb-note-date-btn', {
-        type: 'button',
-        'aria-label': 'Attach detected date',
-    });
-    dateBtn.textContent = 'Date';
+    // No date chip on the note. A detected date belongs to the task line it
+    // was detected in, and the checklist rows carry their own
+    // `.wb-note-row-date` for exactly that. The header's twin offered to
+    // attach a date to the *summary*, which is the same category error the
+    // quick-assign made with resources.
 
     // No quick-assign on the note itself. A post-it is a summary task, and
     // resources belong on the tasks inside it -- the checklist rows keep their
@@ -168,15 +168,19 @@ export function buildNoteCard() {
     // W - 10], and the midpoint W/2 can only fall there when W <= 2 * (10 + w),
     // which is 64px for the 22px handle and 80px for the 30px coarse-pointer
     // one -- both below WB_NOTE_MIN_WIDTH.
-    header.append(title, dateBtn, coachBtn, promoteBtn, menuBtn, linkHandle);
+    header.append(title, coachBtn, promoteBtn, menuBtn, linkHandle);
 
     const parentCaption = el('div', 'wb-note-parent');
     const body = el('div', 'wb-note-body');
 
+    // The footer carries the progress count and nothing else. It used to
+    // carry the note's own resource stack, which is resources assigned to a
+    // *summary* task -- bad practice in a plan, and something the board should
+    // not be displaying as though it were normal. Resources live on the tasks
+    // inside the note, where the rows show them.
     const footer = el('div', 'wb-note-footer');
     const progress = el('span', 'wb-note-progress');
-    const avatars = el('div', 'wb-note-avatars');
-    footer.append(progress, avatars);
+    footer.appendChild(progress);
 
     const resizeHandle = el('div', 'wb-note-resize-handle', { 'aria-hidden': 'true' });
 
@@ -185,9 +189,9 @@ export function buildNoteCard() {
     return {
         card,
         refs: {
-            card, header, title, dateBtn, coachBtn, promoteBtn,
+            card, header, title, coachBtn, promoteBtn,
             menuBtn, linkHandle, parentCaption, body, footer, progress,
-            avatars, resizeHandle,
+            resizeHandle,
         },
     };
 }
@@ -243,20 +247,6 @@ export function buildChecklistRow(model) {
     if (model.indeterminate && model.hasChildren) checkbox.setAttribute('indeterminate', '');
     row.appendChild(checkbox);
 
-    const badgeSlot = el('div', 'wb-note-row-badge');
-    if (model.deliverable) {
-        // Content, not decoration: it names a real deliverable. As a bare span
-        // with only a title it reached a screen reader as "$".
-        const badge = el('span', 'wb-note-deliverable-badge', {
-            role: 'img',
-            'aria-label': `Deliverable: ${model.deliverable}`,
-            title: `Deliverable: ${model.deliverable}`,
-        });
-        badge.textContent = '$';
-        badgeSlot.appendChild(badge);
-    }
-    row.appendChild(badgeSlot);
-
     // ── Name zone ──────────────────────────────────────────────────────
     const label = el('span', 'wb-note-row-name', { title: name });
     label.textContent = name;
@@ -296,6 +286,29 @@ export function buildChecklistRow(model) {
     // ── Trailing gutter ────────────────────────────────────────────────
     const gutter = el('div', 'wb-note-row-gutter');
     row.appendChild(gutter);
+
+    // The deliverable leads the gutter. It moved out of the lead zone, where
+    // it reserved 15px between every checkbox and every name -- a gap most
+    // rows had no use for and nothing explained. Here it costs nothing when
+    // absent, because the gutter is a fixed width either way, and names now
+    // start immediately after the checkbox.
+    //
+    // First in the gutter because the gutter runs information -> gesture: the
+    // `$` says something about the task, the three after it are things you do
+    // to it.
+    const delivSlot = el('div', 'wb-note-row-slot wb-note-row-slot-deliv');
+    gutter.appendChild(delivSlot);
+    if (model.deliverable) {
+        // Content, not decoration: it names a real deliverable. As a bare span
+        // with only a title it reached a screen reader as "$".
+        const badge = el('span', 'wb-note-deliverable-badge', {
+            role: 'img',
+            'aria-label': `Deliverable: ${model.deliverable}`,
+            title: `Deliverable: ${model.deliverable}`,
+        });
+        badge.textContent = '$';
+        delivSlot.appendChild(badge);
+    }
 
     const hintSlot = el('div', 'wb-note-row-slot wb-note-row-slot-hint');
     gutter.appendChild(hintSlot);
@@ -348,8 +361,9 @@ export function buildChecklistRow(model) {
     return {
         row,
         refs: {
-            row, checkbox, badgeSlot, name: label, content, dateBtn, countBadge,
-            gutter, hintSlot, coachBtn, peopleSlot, assignBtn, depSlot, depHandle,
+            row, checkbox, name: label, content, dateBtn, countBadge,
+            gutter, delivSlot, hintSlot, coachBtn, peopleSlot, assignBtn,
+            depSlot, depHandle,
         },
     };
 }
