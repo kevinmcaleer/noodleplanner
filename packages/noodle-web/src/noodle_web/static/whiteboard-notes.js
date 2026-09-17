@@ -291,7 +291,6 @@ const WB_NOTE_DEFAULT_HEIGHT = 220;
    --np-avatar-overlap. */
 const WB_ROW_AVATAR_PX = 20;
 const WB_ROW_AVATAR_OVERLAP_PX = 5;
-const WB_ROW_SLOT_GAP_PX = 4;
 const WB_ROW_ASSIGN_PX = 20;
 
 function wbRowAvatarCap() {
@@ -1971,16 +1970,19 @@ function wbUpdateNoteNode(entry, vm) {
         });
     }
     wbSizeNotePeopleSlot(refs.card, vm.children);
-    // A note that has both kinds gets a quiet footer line naming the ones
-    // that left, so nothing a user typed into this note appears to vanish
-    // when they noodle it out onto the board.
-    if (vm.children.length && vm.linkedChildren.length) {
-        const linked = document.createElementNS(XHTML_NS, 'div');
-        linked.setAttribute('class', 'wb-note-linked-summary');
-        linked.textContent = `+ ${vm.linkedChildren.length} linked note${vm.linkedChildren.length === 1 ? '' : 's'}`;
-        linked.setAttribute('title', vm.linkedChildren.map(c => c.task.name).join(', '));
-        refs.body.appendChild(linked);
-    }
+    // No "+ N linked notes" line. A note that had both kinds used to get a
+    // quiet caption naming the children that had been noodled out, on the
+    // reasoning that nothing typed into a note should appear to vanish. But
+    // the board already says it, and says it better: a child that left has a
+    // post-it of its own with a noodle drawn from this note to it, in view, at
+    // the moment you are looking at either. The caption restated that as a
+    // number, wedged between the last real task and the row you type the next
+    // one into -- so the one place on the card that should read as "the list
+    // continues here" read as "the list ended and here is a footnote".
+    //
+    // The zero-children case keeps its placeholder (the `.wb-note-empty`
+    // branch above): there, the count is the only thing on the card that says
+    // the note has any children at all.
     // Issue #1104, part of epic #1090: every note always ends in one empty
     // "Add task..." row, whether it currently has zero rows (the "No
     // subtasks yet"/"N linked notes" placeholder above), some rows, or all
@@ -2043,12 +2045,13 @@ function wbSizeNotePeopleSlot(card, children) {
     }
 
     // Mirrors np-resource-stack's own geometry: chips overlap by
-    // --np-avatar-overlap, the overflow chip is one more chip, and the
-    // quick-assign control sits after the stack across one slot gap.
+    // --np-avatar-overlap and the overflow chip is one more chip. The stack
+    // and the quick-assign circle are alternatives rather than neighbours, so
+    // the slot holds whichever is wider -- and a note whose rows name one
+    // person each now reserves a single 20px column.
     const chips = widest + (overflowed ? 1 : 0);
     const stack = chips ? (chips * WB_ROW_AVATAR_PX - (chips - 1) * WB_ROW_AVATAR_OVERLAP_PX) : 0;
-    const width = stack + (stack ? WB_ROW_SLOT_GAP_PX : 0) + WB_ROW_ASSIGN_PX;
-    card.style.setProperty('--wb-row-people', `${width}px`);
+    card.style.setProperty('--wb-row-people', `${Math.max(stack, WB_ROW_ASSIGN_PX)}px`);
 }
 
 /**
@@ -3385,9 +3388,13 @@ function wbAppendChildResourceControls(slot, childVm, assign) {
     const child = childVm.task;
     const resources = childVm.resources || [];
 
-    // The stack goes in before the "+", which the builder has already made but
-    // not placed -- the order is avatars then assign, and only this side knows
-    // whether there are any avatars.
+    // One control, never two. The slot used to hold the avatars *and* a dashed
+    // "+" beside them, which is two things in one 20px column that open the
+    // same menu: the chips already do, since #1246 wired `resource-activate`
+    // to wbToggleResourceMenu() below. So a row with people on it shows the
+    // people, and clicking them is how you change who they are; a row with
+    // nobody shows the empty circle, which is the only case where there is
+    // nothing to click instead.
     if (resources.length) {
         // No `size`: the attribute writes --np-avatar-size as an *inline*
         // style, which outranks both `.wb-note-row-avatar`'s own value and the
@@ -3397,6 +3404,7 @@ function wbAppendChildResourceControls(slot, childVm, assign) {
         const stack = wbFillResourceStack(null, resources, wbRowAvatarCap(), null, child.name);
         stack.setAttribute('class', 'wb-note-row-avatar');
         slot.appendChild(stack);
+        return;
     }
 
     // `aria-haspopup`/`aria-expanded` are declared by the builder rather than

@@ -503,6 +503,144 @@ class TestTypingIsThePromotion:
         assert card.locator(".wb-note-add-input").count() == 1
 
 
+class TestTheResourceChip:
+    """The avatar chip is the hardest text on the board to read -- two capitals
+    inside a 20px circle -- so it takes the strongest pairing the app has and
+    is given room to sit in.
+
+    It was a 14px circle carrying 6.3px initials in near-black on a mid blue.
+    The ratio passed 4.5:1, which is why nothing flagged it; the type was
+    smaller than anything else the app renders, which is why everyone could
+    see it was wrong.
+    """
+
+    @staticmethod
+    def _chip(page):
+        return page.evaluate(
+            """() => {
+                const card = document.querySelector(
+                    ".wb-note[data-wb-task='Build'] .wb-note-card");
+                const stack = card.querySelector('.wb-note-row-avatar');
+                const chip = stack.shadowRoot.querySelector('.chip');
+                const cs = getComputedStyle(chip);
+                // Layout pixels: the board is zoom-transformed, so every rect
+                // here is divided back out by the card's own scale.
+                const scale = card.getBoundingClientRect().height / card.offsetHeight;
+                const box = chip.getBoundingClientRect();
+                const range = document.createRange();
+                range.selectNodeContents(chip);
+                const text = range.getBoundingClientRect();
+                const parse = (c) => c.match(/[\d.]+/g).map(Number);
+                const chan = (v) => {
+                    const x = v / 255;
+                    return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+                };
+                const lum = (c) => 0.2126 * chan(c[0]) + 0.7152 * chan(c[1]) + 0.0722 * chan(c[2]);
+                const a = lum(parse(cs.color));
+                const b = lum(parse(cs.backgroundColor));
+                const diameter = box.width / scale;
+                const border = parseFloat(cs.borderTopWidth) || 0;
+                return {
+                    diameter,
+                    contrast: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
+                    padding: parseFloat(cs.paddingTop) || 0,
+                    // Gap from the glyphs to the inside of the ring, per side.
+                    clearance: ((diameter - 2 * border) - text.width / scale) / 2,
+                };
+            }"""
+        )
+
+    def test_the_initials_are_high_contrast_on_the_chip(self, page, app_server):
+        open_app(page, app_server)
+        board(page)
+        chip = self._chip(page)
+        assert chip["contrast"] >= 4.5, (
+            f"the initials are {chip['contrast']:.2f}:1 on their chip"
+        )
+
+    def test_the_chip_is_big_enough_to_read(self, page, app_server):
+        open_app(page, app_server)
+        board(page)
+        assert self._chip(page)["diameter"] >= 20, (
+            "the chip is back under 20px, which puts the initials below the "
+            "smallest type the app renders anywhere else"
+        )
+
+    def test_the_initials_do_not_touch_the_edge(self, page, app_server):
+        """Two bold capitals set to half the diameter run right into the curve,
+        which is where a circle reads as cramped rather than merely small."""
+        open_app(page, app_server)
+        board(page)
+        chip = self._chip(page)
+        assert chip["padding"] >= 2, f"the chip lost its padding: {chip}"
+        assert chip["clearance"] >= 2, (
+            f"the initials sit {chip['clearance']:.2f}px from the ring; "
+            "they should clear it by at least the chip's own padding"
+        )
+
+
+class TestNoLinkedNoteFootnote:
+    """A note whose child has been noodled onto the board used to grow a
+    "+ 1 linked note" caption, between its last real task and the row you type
+    the next one into -- so the one place on the card that should read as "the
+    list continues here" read as "the list ended, and here is a footnote".
+
+    The board says it better: the child has a post-it of its own with a noodle
+    drawn to it, in view, at the moment you are looking at either.
+    """
+
+    PLAN = """---
+title: Linked Note Test Plan
+---
+
+Phase 1
+  Build
+    Drafted here 1d
+    Also here 1d
+    Left home 1d
+
+---whiteboard---
+| Task       | X   | Y   | Colour | Width | Height | Collapsed |
+|------------|-----|-----|--------|-------|--------|-----------|
+| Build      | 480 | 80  |        | 280   | 300    | no        |
+| Left home  | 480 | 420 |        | 280   | 200    | no        |
+"""
+
+    def test_a_note_with_a_child_on_the_board_grows_no_caption(
+        self, page, app_server
+    ):
+        open_app(page, app_server)
+        board(page, self.PLAN, expected_notes=2)
+
+        card = note(page, "Build").locator(".wb-note-card")
+        # The premise: `Left home` really is on the board, so `Build` really
+        # does have a linked child and really would have grown the caption.
+        assert note(page, "Left home").count() == 1
+        rows = card.locator(".wb-note-row-name").all_text_contents()
+        assert "Left home" not in [r.strip() for r in rows], (
+            "the child is still listed as a row, so this note has no linked "
+            "child and the test is not exercising anything"
+        )
+
+        assert card.locator(".wb-note-linked-summary").count() == 0, (
+            "the linked-note footnote is back"
+        )
+
+    def test_the_add_row_follows_the_last_task_directly(self, page, app_server):
+        open_app(page, app_server)
+        board(page, self.PLAN, expected_notes=2)
+
+        order = page.evaluate(
+            """() => [...document.querySelector(
+                  ".wb-note[data-wb-task='Build'] .wb-note-body").children]
+                .map(n => n.className)"""
+        )
+        assert order[-1] == "wb-note-add-row", order
+        assert order[-2] == "wb-note-row", (
+            f"something sits between the last task and the add row: {order}"
+        )
+
+
 class TestTitleOnlyTier:
     """Below 40% zoom the card is a title, not a title and six buttons."""
 

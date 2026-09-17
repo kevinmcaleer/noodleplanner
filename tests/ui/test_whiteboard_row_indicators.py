@@ -230,6 +230,60 @@ class TestVisibleAtRest:
         assert float(_measure(page)[".wb-note-row-resource"][0]["opacity"]) == 0.0
 
 
+class TestOneResourceControlPerRow:
+    """The people slot holds the avatars or the empty circle, never both.
+
+    It used to hold both: the chips, and a dashed "+" beside them. Two controls
+    in one 20px column that open the same menu, because the chips have opened
+    the assign menu themselves since #1246 -- so the "+" was a second button
+    for a job the first one was already doing, and the row paid for its width
+    on every row that had anyone on it.
+    """
+
+    def _slots(self, page):
+        return page.evaluate(
+            """() => [...document.querySelectorAll(
+                  '.wb-note[data-wb-task=Build] .wb-note-row')].map(r => ({
+                name: r.querySelector('.wb-note-row-name').textContent,
+                stack: !!r.querySelector('.wb-note-row-avatar'),
+                plus: !!r.querySelector('.wb-note-row-resource'),
+            }))"""
+        )
+
+    def test_a_row_with_nobody_on_it_offers_the_empty_circle(self, page, app_server):
+        _loaded(page, app_server)
+        rows = self._slots(page)
+        assert rows, "the plan renders rows"
+        for row in rows:
+            assert row["plus"] and not row["stack"], (
+                f"nothing is assigned in this plan, so every row should offer "
+                f"the empty circle and no stack: {row}"
+            )
+
+    def test_a_row_with_somebody_on_it_offers_only_the_avatars(
+        self, page, app_server
+    ):
+        open_app(page, app_server)
+        load_plan(page, PLAN.replace("    Plain leaf 1d", "    Plain leaf @sam 1d"))
+        switch_to_whiteboard(page)
+        page.wait_for_selector(".wb-note[data-wb-task=Build] .wb-note-row-avatar")
+
+        assigned = next(r for r in self._slots(page) if r["name"] == "Plain leaf")
+        assert assigned["stack"] is True
+        assert assigned["plus"] is False, (
+            "an assigned row is showing the empty circle as well as the people"
+        )
+
+    def test_no_row_anywhere_shows_both(self, page, app_server):
+        open_app(page, app_server)
+        load_plan(page, PLAN.replace("    Plain leaf 1d", "    Plain leaf @sam 1d"))
+        switch_to_whiteboard(page)
+        page.wait_for_selector(".wb-note[data-wb-task=Build] .wb-note-row-avatar")
+
+        both = [r["name"] for r in self._slots(page) if r["stack"] and r["plus"]]
+        assert both == [], f"these rows show two resource controls: {both}"
+
+
 class TestLabelling:
     def test_tooltip_and_accessible_name_agree(self, page, app_server):
         """All three of these used to say different things: the tooltip

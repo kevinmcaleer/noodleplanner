@@ -165,7 +165,7 @@ Tick Off a Todo
 
 Once a note has at least one subtask, it lists them as a checklist with a progress footer (``2 / 5``) — this is what a `Free-form Notes`_ note turns into the moment it earns its first subtask. Click a checkbox to mark one complete or incomplete. This is the same completion state shown everywhere else in NoodlePlanner (the Kanban board, Tasks table, and so on) — ticking it here updates the task itself, not just the note.
 
-A subtask that has a post-it of its own is **not** listed in the checklist; it is the noodle leaving that note instead. That way one relationship is only ever shown once. If a note has both kinds, a quiet ``+ N linked notes`` line at the bottom of the list says so.
+A subtask that has a post-it of its own is **not** listed in the checklist; it is the noodle leaving that note instead. That way one relationship is only ever shown once — the noodle is on screen next to both notes, which is a better account of where the subtask went than a line of text on one of them. A note whose subtasks have *all* left says so in place of its checklist, since otherwise nothing on the card would mention them.
 
 Drill Into a Subtask
 ----------------------
