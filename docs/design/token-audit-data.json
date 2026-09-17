@@ -29,14 +29,14 @@
   ],
   "filesNotLoaded": [],
   "stylesheet": {
-    "sourceLinesOfCode": 17358,
-    "complexity": 50221
+    "sourceLinesOfCode": 17322,
+    "complexity": 50117
   },
   "rules": {
-    "total": 3876
+    "total": 3868
   },
   "selectors": {
-    "totalUnique": 3793,
+    "totalUnique": 3783,
     "maxSpecificity": [
       1,
       4,
@@ -44,8 +44,8 @@
     ]
   },
   "customProperties": {
-    "totalDeclarations": 352,
-    "totalUniqueNames": 214,
+    "totalDeclarations": 355,
+    "totalUniqueNames": 216,
     "unused": [
       "--np-elevation-2",
       "--np-elevation-4",
@@ -70,7 +70,7 @@
     "unknown": [],
     "conflictingMultiFileDefinitions": []
   },
-  "canonicalTokenCount": 166,
+  "canonicalTokenCount": 167,
   "colors": {
     "totalUnique": 396,
     "duplicateOfTokenCount": 31,
@@ -79,7 +79,7 @@
         "id": "white-edecb6ba",
         "hex": "#FFFFFF",
         "authoredAs": "white",
-        "usage": 120,
+        "usage": 119,
         "props": [
           "stroke",
           "background",
@@ -234,6 +234,18 @@
           "--np-danger"
         ],
         "matchedToken": "--np-danger"
+      },
+      {
+        "id": "grey-477de72d",
+        "hex": "#161616",
+        "authoredAs": "#161616",
+        "usage": 3,
+        "props": [
+          "--np-on-success",
+          "--np-on-info",
+          "--np-orange-ink"
+        ],
+        "matchedToken": "--np-orange-ink"
       },
       {
         "id": "white-8da45558",
@@ -408,17 +420,6 @@
           "--np-danger-gradient"
         ],
         "matchedToken": "--np-danger-hover"
-      },
-      {
-        "id": "grey-477de72d",
-        "hex": "#161616",
-        "authoredAs": "#161616",
-        "usage": 2,
-        "props": [
-          "--np-on-success",
-          "--np-orange-ink"
-        ],
-        "matchedToken": "--np-orange-ink"
       },
       {
         "id": "white-2599f240",
@@ -946,11 +947,6 @@
       "usage": 3
     },
     {
-      "id": "fontSize-e040",
-      "authoredAs": "8px",
-      "usage": 3
-    },
-    {
       "id": "fontSize-171b2c",
       "authoredAs": "15px",
       "usage": 3
@@ -973,6 +969,11 @@
     {
       "id": "fontSize-563e9724",
       "authoredAs": "1.3rem",
+      "usage": 2
+    },
+    {
+      "id": "fontSize-e040",
+      "authoredAs": "8px",
       "usage": 2
     },
     {
@@ -1033,11 +1034,6 @@
     {
       "id": "fontSize-178bca",
       "authoredAs": "24px",
-      "usage": 1
-    },
-    {
-      "id": "fontSize-dc7f",
-      "authoredAs": "7px",
       "usage": 1
     },
     {
@@ -1207,14 +1203,14 @@
       "usage": 73
     },
     {
-      "id": "radius-ccea",
-      "authoredAs": "50%",
-      "usage": 36
-    },
-    {
       "id": "radius-170fe9",
       "authoredAs": "12px",
       "usage": 36
+    },
+    {
+      "id": "radius-ccea",
+      "authoredAs": "50%",
+      "usage": 35
     },
     {
       "id": "radius-170867",
@@ -1329,11 +1325,6 @@
     {
       "id": "radius-95304080",
       "authoredAs": "0 0 8px 8px",
-      "usage": 1
-    },
-    {
-      "id": "radius-dc7f",
-      "authoredAs": "7px",
       "usage": 1
     },
     {
@@ -1710,15 +1701,15 @@
     }
   ],
   "spacing": {
-    "declarations": 1583,
-    "indirectedDeclarations": 1342,
+    "declarations": 1581,
+    "indirectedDeclarations": 1341,
     "totalUniqueValues": 38,
     "offGridUniqueValues": 15,
     "offGridUses": 31,
     "top": [
       {
         "value": "0",
-        "uses": 176,
+        "uses": 175,
         "onGrid": true,
         "props": [
           "gap",
@@ -2094,8 +2085,8 @@
   "components": [
     {
       "family": "table",
-      "rules": 852,
-      "uniqueSelectors": 722,
+      "rules": 841,
+      "uniqueSelectors": 712,
       "spreadAcrossFiles": 18,
       "files": [
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -2123,7 +2114,7 @@
         "active": 0,
         "disabled": 1
       },
-      "distinctClassNames": 222,
+      "distinctClassNames": 221,
       "topClassNames": [
         {
           "name": "gantt-info-table",

@@ -74,6 +74,7 @@
 // The row's checkbox is a component of its own (#1245); importing it here
 // means a story only has to load np-note.
 import '../checkbox/np-checkbox.js';
+import '../resource-stack/np-resource-stack.js';
 
 // whiteboard-notes.js's own constants, which are what decide how crowded a
 // row looks. A component previewing 40px narrower than a real note (the
@@ -139,15 +140,6 @@ export function contrastTextColour(bgHex) {
     return ratioDark >= ratioLight ? dark : light;
 }
 
-/** wbGetInitials(): first letters of the first two words, or the first two
- * letters of a single word, uppercased. */
-export function getInitials(name) {
-    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-    if (!parts.length) return '?';
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-}
-
 const el = (tag, className, attrs) => {
     const node = document.createElement(tag);
     if (className) node.setAttribute('class', className);
@@ -191,6 +183,11 @@ export class NpNote extends HTMLElement {
 
     get rows() { return this._rows; }
     set rows(value) { this._rows = Array.isArray(value) ? value : []; if (this._built) this._render(); }
+
+    /** Optional `{ name|shortname: { name, role, email } }` for the resource
+     * stacks' hover profile cards; the app fills it from front matter. */
+    get details() { return this._details; }
+    set details(value) { this._details = value || {}; if (this._built) this._render(); }
 
     get resources() { return this._resources; }
     set resources(value) { this._resources = Array.isArray(value) ? value : []; if (this._built) this._render(); }
@@ -476,18 +473,15 @@ export class NpNote extends HTMLElement {
         const peopleSlot = el('div', 'wb-note-row-slot wb-note-row-slot-people');
         gutter.appendChild(peopleSlot);
         const resources = vm.resources || [];
-        resources.slice(0, WB_ROW_AVATAR_CAP).forEach((resource) => {
-            const avatar = el('span', 'wb-note-row-avatar', { title: resource });
-            avatar.textContent = getInitials(resource);
-            peopleSlot.appendChild(avatar);
-        });
         if (resources.length) {
-            // One chip carrying every count the degradation tiers need; which
-            // it shows is a CSS decision, because the tier is a container query.
-            const more = el('span', 'wb-note-row-avatar-more', { title: resources.join(', ') });
-            more.dataset.total = String(resources.length);
-            more.dataset.over3 = String(Math.max(0, resources.length - WB_ROW_AVATAR_CAP));
-            peopleSlot.appendChild(more);
+            // One <np-resource-stack> (#1246, under #1199), which owns the
+            // overlap, the cap, the overflow chip and the hover profile card.
+            const stack = el('np-resource-stack', 'wb-note-row-avatar', {
+                max: String(WB_ROW_AVATAR_CAP), size: '14',
+            });
+            stack.names = resources;
+            if (this._details) stack.details = this._details;
+            peopleSlot.appendChild(stack);
         }
         const assign = el('button', 'wb-note-row-smart wb-note-row-resource', {
             type: 'button',
@@ -546,11 +540,12 @@ export class NpNote extends HTMLElement {
         // arbitrary string.
         r.progress.textContent = freeform || !total ? '' : `${done} / ${total}`;
         // Capped at six, as the app caps it -- not five.
-        r.avatars.replaceChildren(...this._resources.slice(0, 6).map((resource) => {
-            const avatar = el('div', 'wb-note-avatar', { title: resource });
-            avatar.textContent = getInitials(resource);
-            return avatar;
-        }));
+        // The footer's stack, same component as the row's, different data:
+        // the row shows a child's resources, the footer shows the note's own.
+        const stack = el('np-resource-stack', null, { max: '6' });
+        stack.names = this._resources;
+        if (this._details) stack.details = this._details;
+        r.avatars.replaceChildren(stack);
     }
 
     // ── The ⋮ menu ──────────────────────────────────────────────────────

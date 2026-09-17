@@ -2069,14 +2069,11 @@ function wbUpdateNoteNode(entry, vm) {
     // there is nothing here to gate; `vm.progress` is always `0 / 0` in
     // that case anyway (wbIsFreeformNote() is defined in terms of it).
     wbSetText(refs.progress, `${vm.progress.completed} / ${vm.progress.total}`);
-    refs.avatars.innerHTML = '';
-    vm.resources.slice(0, 6).forEach(resource => {
-        const avatar = document.createElementNS(XHTML_NS, 'div');
-        avatar.setAttribute('class', 'wb-note-avatar');
-        avatar.setAttribute('title', resource);
-        avatar.textContent = wbGetInitials(resource);
-        refs.avatars.appendChild(avatar);
-    });
+    // <np-resource-stack> (#1246, under #1199) rather than a hand-rolled run
+    // of divs. This footer capped at six with no indication it had; the row
+    // below it did not cap at all. One component, one cap, and an overflow
+    // chip that reveals the names it hid.
+    wbFillResourceStack(refs.avatars, vm.resources, 6, null, vm.task && vm.task.name);
 }
 
 // ── Free-floating text objects (issue #1018) ────────────────────────────
@@ -3024,6 +3021,52 @@ function wbCreateTextObjectInViewportCentre() {
     return wbCreateTextObjectAt(rect.x + rect.width / 2, rect.y + rect.height / 2);
 }
 
+/**
+ * Fill (or build) an <np-resource-stack> for `resources`.
+ *
+ * Both of the note's stacks go through here -- the footer's, which shows the
+ * note's own task's resources, and a checklist row's, which shows that child's.
+ * They keep their different *data*; what they no longer keep is two sizes, two
+ * caps, two elements and two copies of the initials algorithm.
+ *
+ * `details` comes from the plan's front matter, which already carries the role
+ * and the email the profile card wants (`- @short: Full Name, Role, email,
+ * ...`). parseResourceDetails() (script.js) reads it; this tolerates that
+ * function being absent so the whiteboard still renders in isolation.
+ */
+function wbFillResourceStack(host, resources, cap, size, taskName) {
+    const stack = document.createElementNS(XHTML_NS, 'np-resource-stack');
+    stack.setAttribute('max', String(cap));
+    if (size) stack.setAttribute('size', String(size));
+    stack.names = resources || [];
+    if (typeof parseResourceDetails === 'function') {
+        try {
+            stack.details = parseResourceDetails(wbLastPlanText || '');
+        } catch { /* front matter is optional; the card degrades to the name */ }
+    }
+
+    // The component reports rather than reaching for the app itself, which is
+    // what keeps it usable in Storybook. Wiring it up is this end's job.
+    //
+    // Clicking a chip opens the same assign menu the row's own "+" opens, so
+    // seeing who is on a task and changing it are one control -- they used to
+    // be a chip and a detached "+" that looked nothing like each other.
+    if (taskName) {
+        stack.addEventListener('resource-activate', (e) => {
+            e.stopPropagation();
+            wbToggleResourceMenu(taskName, stack);
+        });
+    }
+    stack.addEventListener('resource-open', (e) => {
+        e.stopPropagation();
+        const shortname = e.detail && e.detail.shortname;
+        if (shortname && typeof openResourceForm === 'function') openResourceForm(shortname);
+    });
+
+    if (host) host.replaceChildren(stack);
+    return stack;
+}
+
 /** Build one child-task row for a note body. */
 function wbBuildChildRow(childVm) {
     const child = childVm.task;
@@ -3262,25 +3305,10 @@ function wbAppendChildResourceControls(slot, childVm) {
     const child = childVm.task;
     const resources = childVm.resources || [];
 
-    resources.slice(0, WB_ROW_AVATAR_CAP).forEach(resource => {
-        const avatar = document.createElementNS(XHTML_NS, 'span');
-        avatar.setAttribute('class', 'wb-note-row-avatar');
-        avatar.textContent = wbGetInitials(resource);
-        avatar.title = resource;
-        slot.appendChild(avatar);
-    });
-
-    // One chip, always built when the row has anyone on it, carrying the
-    // counts every degradation tier needs. Which of them it shows is a CSS
-    // decision (views/whiteboard.css uses `attr()`), because the tier is a
-    // container query and this builder cannot know which one is live.
     if (resources.length) {
-        const more = document.createElementNS(XHTML_NS, 'span');
-        more.setAttribute('class', 'wb-note-row-avatar-more');
-        more.dataset.total = String(resources.length);
-        more.dataset.over3 = String(Math.max(0, resources.length - WB_ROW_AVATAR_CAP));
-        more.title = resources.join(', ');
-        slot.appendChild(more);
+        const stack = wbFillResourceStack(null, resources, WB_ROW_AVATAR_CAP, 14, child.name);
+        stack.setAttribute('class', 'wb-note-row-avatar');
+        slot.appendChild(stack);
     }
 
     const assign = document.createElementNS(XHTML_NS, 'button');

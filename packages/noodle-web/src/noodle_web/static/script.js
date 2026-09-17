@@ -5322,7 +5322,12 @@ function parseResourceDetails(planText) {
                 const parts = fullInfo.split(',').map(p => p.trim());
                 const name = parts[0];
                 const role = parts.length > 1 ? parts[1] : '';
-                details[shortname] = { name, role };
+                // The third field is the email, which the format has always
+                // carried (`- @short: Full Name, Role, email, allocation%,
+                // non-working [...]`) and this parser used to drop. #1199's
+                // resource smarttag shows it on the hover profile card.
+                const email = parts.length > 2 ? parts[2] : '';
+                details[shortname] = { name, role, email, shortname };
             }
         }
     }

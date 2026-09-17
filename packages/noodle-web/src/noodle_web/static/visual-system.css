@@ -33,6 +33,14 @@
        it, because check-contrast.mjs only scores the pairings it is told
        about. It scores this one now. */
     --np-on-success: #ffffff;
+    /* Initials on a resource avatar (#1246/#1199). Single-valued, like the
+       hue tokens: --np-info is #108bb9 light and #3fb6e0 dark, and a dark ink
+       clears 4.5:1 on both (4.71 and 7.75) where white clears neither (3.88
+       and 2.36). Every avatar in the app painted white over
+       `var(--np-info-gradient)` -- a gradient, which check-contrast.mjs cannot
+       parse, so the one thing about an avatar that could be wrong was the one
+       thing nothing measured. */
+    --np-on-info: #161616;
     --np-font-heading: 'Newsreader', Georgia, serif;
     --np-font-ui: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --np-font-data: 'IBM Plex Mono', 'DejaVu Sans Mono', monospace;

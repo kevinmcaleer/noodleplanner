@@ -679,33 +679,10 @@
     gap: var(--np-space-4);
 }
 
-/* The row's avatars overlap so three of them cost 32px rather than 50; the
-   overflow chip is part of the same stack. The overlap value itself is shared
-   with the note footer's stack (see `.wb-note-avatar` below) rather than
-   restated here -- one off-scale declaration for the one idea. */
-.wb-note-row-slot-people .wb-note-row-avatar:first-child {
-    margin-left: 0;
-}
+/* The row's people slot holds one <np-resource-stack> (#1246), which owns the
+   overlap, the cap and the overflow chip. The hand-rolled chips and the
+   `attr()`-driven counter that used to live here are gone with them. */
 .wb-note-row-slot-dep { flex-basis: var(--wb-row-dep); }
-
-/* The overflow chip. Its text comes from `attr()` rather than JS so the three
-   degradation tiers can each show an honest count over the avatars that tier
-   actually renders, without the builder having to know which tier is live. */
-.wb-note-row-avatar-more {
-    flex-shrink: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    height: 14px;
-    padding: 0 var(--np-space-4);
-    border-radius: 7px;
-    background: var(--np-surface-alt);
-    color: var(--np-text-secondary);
-    font-size: 8px;
-    font-weight: bold;
-}
-.wb-note-row-avatar-more[data-over3]:not([data-over3="0"]) { display: inline-flex; }
-.wb-note-row-avatar-more[data-over3]:not([data-over3="0"])::after { content: "+" attr(data-over3); }
 
 /* NB: these set the custom properties on `.wb-note-row`, not on
    `.wb-note-card`. The card is the query container, and a container query
@@ -719,18 +696,16 @@
 @container (max-width: 199px) {
     .wb-note-row {
         --wb-row-badge: 0px;
-        --wb-row-people: 34px;
+        --wb-row-people: 40px;
         /* Buy back 16px of row by halving the inter-zone gaps, so the name
            keeps its floor instead of the row overflowing the card. */
         --wb-row-gap: var(--np-space-4);
     }
     .wb-note-deliverable-badge { display: none; }
-    .wb-note-row-avatar { display: none; }
-    .wb-note-row-avatar-more,
-    .wb-note-row-avatar-more[data-over3="0"] { display: inline-flex; }
-    .wb-note-row-avatar-more::after { content: attr(data-total); }
-    .wb-note-row-avatar-more:not([data-total]),
-    .wb-note-row-avatar-more[data-total="0"] { display: none; }
+    /* Smaller chips rather than fewer: the cap lives in the component's `max`
+       attribute and CSS cannot reach it, so the stack shrinks to fit the
+       narrower slot instead of being clipped by it. */
+    .wb-note-row-avatar { --np-avatar-size: 12px; }
 }
 
 .wb-note-row:hover {
@@ -807,18 +782,13 @@
    resource-assign controls -- that bubble and `.wb-note-row-resource`
    above -- with the same accessible name, over two different resource
    lists. The bubble is gone; `.wb-note-row-resource` is the survivor. */
+/* `.wb-note-row-avatar` is now the class on the row's <np-resource-stack>,
+   kept as a selector hook for call sites and tests. The component draws the
+   chips; nothing here does. */
 .wb-note-row-avatar {
     flex-shrink: 0;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--np-info-gradient);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 7px;
-    font-weight: bold;
+    display: inline-flex;
+    --np-avatar-size: 14px;
 }
 
 /* Row-level dependency-drag handle (issue #1106, epic #1090): the
@@ -960,6 +930,17 @@
     display: flex;
 }
 
+/* `.wb-note-avatar` survives this file's own migration to
+   <np-resource-stack> (#1246) because the note is no longer its only
+   consumer: task-peek.js sets this class itself for the peek popover's own
+   stack, and task-peek.css sizes it down from there. Deleting it would take
+   that surface's avatars with it. Converting the peek popover is part of
+   #1199's rollout, and this rule goes when it does.
+
+   The overlap is the one declaration of that off-scale value in this file.
+   docs/design/standardisation-backlog.md records it as a deliberate survivor
+   of the spacing pass: a stack overlaps by design and no step on the 4px scale
+   gives the same result. */
 .wb-note-avatar {
     width: 20px;
     height: 20px;
@@ -972,18 +953,6 @@
     font-size: 9px;
     font-weight: bold;
     border: 1.5px solid var(--np-surface);
-}
-
-/* The one overlap declaration in this file, shared by the footer's stack and
-   the checklist row's (issue #1243).
-   docs/design/standardisation-backlog.md records this value as a deliberate
-   survivor of the spacing pass -- an avatar stack overlaps by design and no
-   step on the 4px scale gives the same result. The debt it names is having the
-   value written out once per surface, so the two stacks share this one rather
-   than each carrying a copy. #1246 replaces both with a component. */
-.wb-note-avatar,
-.wb-note-row-slot-people .wb-note-row-avatar,
-.wb-note-row-slot-people .wb-note-row-avatar-more {
     margin-left: -5px;
 }
 

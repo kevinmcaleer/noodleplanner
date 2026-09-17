@@ -235,13 +235,16 @@ class TestAvatarOverflow:
         )
         switch_to_whiteboard(page)
 
-        people = _row(page, "Busy").locator(".wb-note-row-slot-people")
-        assert people.locator(".wb-note-row-avatar").count() == 3, "capped at three"
-
-        chip = people.locator(".wb-note-row-avatar-more")
-        assert chip.count() == 1
-        assert chip.get_attribute("data-total") == "5"
-        assert chip.get_attribute("data-over3") == "2"
+        # The chips live in <np-resource-stack>'s shadow root since #1246, so
+        # they are counted through it rather than in the light DOM.
+        stack = _row(page, "Busy").locator(".wb-note-row-slot-people .wb-note-row-avatar")
+        assert stack.count() == 1, "one stack, not a run of chips"
+        counts = stack.evaluate(
+            "n => ({ chips: n.shadowRoot.querySelectorAll('.chip:not(.more)').length,"
+            "        more: n.shadowRoot.querySelector('.chip.more')?.textContent ?? null })"
+        )
+        assert counts["chips"] == 3, f"capped at three: {counts}"
+        assert counts["more"] == "+2", f"the remainder is shown, not dropped: {counts}"
 
     def test_a_row_with_nobody_on_it_renders_no_chip(self, page, app_server):
         open_app(page, app_server)
@@ -249,8 +252,9 @@ class TestAvatarOverflow:
         switch_to_whiteboard(page)
 
         people = _row(page, "Bare").locator(".wb-note-row-slot-people")
-        assert people.locator(".wb-note-row-avatar").count() == 0
-        assert people.locator(".wb-note-row-avatar-more").count() == 0
+        assert people.locator(".wb-note-row-avatar").count() == 0, (
+            "a row with nobody on it renders no stack at all"
+        )
         # The slot is still there, holding its width.
         assert people.count() == 1
 

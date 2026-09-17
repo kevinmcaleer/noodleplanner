@@ -185,6 +185,11 @@ const PAIRINGS = [
 	// the theme for that reason, so both values are measured here.
 	{ fg: '--np-on-success', bg: '--np-success', min: 3, what: 'checkbox tick on a checked box' },
 
+	// A resource avatar's initials on its chip (#1246/#1199). Text, so 4.5:1.
+	// The six avatar treatments this replaces all used a gradient background,
+	// which this checker cannot parse and so never scored.
+	{ fg: '--np-on-info', bg: '--np-info', min: 4.5, what: 'resource avatar initials on their chip' },
+
 	{ fg: '--np-danger', bg: '--np-paper', min: 3, what: 'filled danger against the page' },
 	{ fg: '--np-success', bg: '--np-paper', min: 3, what: 'filled success against the page' },
 	{ fg: '--np-info', bg: '--np-paper', min: 3, what: 'filled info against the page' },
