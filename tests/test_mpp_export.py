@@ -217,3 +217,72 @@ def test_export_logs_assignment_date_risk_warning(tmp_path, caplog):
         "Bradford optimisation" in record.message and "53%" in record.message
         for record in caplog.records
     )
+
+
+# --- the 100%-complete breadcrumb (parity with the browser exporter) ---------
+#
+# Project reads a 100%-complete task with an assignment back as 99% on reopen,
+# so the exporter appends a note recording what the percentage really was and
+# the importer restores it. static/mpp-export.js did this from the start;
+# build_project_model did not, and the two exporters are required to produce
+# the same model for the same plan. tests/test_mpp_browser_export.mjs compares
+# them field for field, but only when a .venv is present -- these run always.
+
+
+def _notes_by_name(model):
+    return {t["name"]: t["notes"] for t in model["tasks"]}
+
+
+def test_full_complete_note_is_added_to_assigned_complete_leaf_tasks():
+    from noodle_core.mpp_writer import FULL_COMPLETE_EXPORT_NOTE, build_project_model
+
+    plan = """Phase 1
+  Done 5d @kevin 100% "Signed off by the board"
+"""
+    notes = _notes_by_name(build_project_model(plan, project_name="Breadcrumb"))
+    assert notes["Done"] == f"Signed off by the board\n{FULL_COMPLETE_EXPORT_NOTE}"
+
+
+def test_full_complete_note_stands_alone_when_the_task_has_no_comment():
+    from noodle_core.mpp_writer import FULL_COMPLETE_EXPORT_NOTE, build_project_model
+
+    plan = """Phase 1
+  Done 5d @kevin 100%
+"""
+    notes = _notes_by_name(build_project_model(plan, project_name="Breadcrumb"))
+    assert notes["Done"] == FULL_COMPLETE_EXPORT_NOTE
+
+
+def test_full_complete_note_is_withheld_from_shapes_that_do_not_hit_the_quirk():
+    """Only a leaf, with real duration, at 100%, with an assignment."""
+    from noodle_core.mpp_writer import FULL_COMPLETE_EXPORT_NOTE, build_project_model
+
+    plan = """Phase 1
+  Unassigned 5d 100%
+  Partly done 5d @kevin 50%
+  Not started 5d @kevin 0%
+  *Kickoff 0d @kevin 100%
+"""
+    notes = _notes_by_name(build_project_model(plan, project_name="Breadcrumb"))
+    for name in ["Phase 1", "Unassigned", "Partly done", "Not started", "Kickoff"]:
+        assert FULL_COMPLETE_EXPORT_NOTE not in notes[name], name
+
+
+def test_full_complete_note_matches_the_browser_exporter_byte_for_byte():
+    """The one line that must never drift between the two exporters.
+
+    A mismatch would not fail anything obvious -- each exporter would keep
+    working alone, and only a file written by one and read by the other would
+    quietly lose the 100%.
+    """
+    import re
+
+    from noodle_core.mpp_writer import FULL_COMPLETE_EXPORT_NOTE
+
+    js = (
+        Path(__file__).resolve().parent.parent
+        / "packages" / "noodle-web" / "src" / "noodle_web" / "static" / "mpp-export.js"
+    ).read_text()
+    found = re.search(r'const FULL_COMPLETE_EXPORT_NOTE = "([^"]*)"', js)
+    assert found, "mpp-export.js no longer declares FULL_COMPLETE_EXPORT_NOTE"
+    assert found.group(1) == FULL_COMPLETE_EXPORT_NOTE
