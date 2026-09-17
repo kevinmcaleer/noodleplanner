@@ -334,6 +334,11 @@
     "$value": "#ff7b01",
     "$description": "--np-orange"
   },
+  "orange-ink": {
+    "$type": "color",
+    "$value": "#161616",
+    "$description": "--np-orange-ink"
+  },
   "orange-subtle": {
     "$type": "color",
     "$value": "#ffe4c8",

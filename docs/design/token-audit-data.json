@@ -29,14 +29,14 @@
   ],
   "filesNotLoaded": [],
   "stylesheet": {
-    "sourceLinesOfCode": 17856,
-    "complexity": 51636
+    "sourceLinesOfCode": 17361,
+    "complexity": 50223
   },
   "rules": {
-    "total": 3963
+    "total": 3877
   },
   "selectors": {
-    "totalUnique": 3888,
+    "totalUnique": 3794,
     "maxSpecificity": [
       1,
       4,
@@ -44,8 +44,8 @@
     ]
   },
   "customProperties": {
-    "totalDeclarations": 333,
-    "totalUniqueNames": 202,
+    "totalDeclarations": 349,
+    "totalUniqueNames": 212,
     "unused": [
       "--np-elevation-2",
       "--np-elevation-4",
@@ -70,9 +70,9 @@
     "unknown": [],
     "conflictingMultiFileDefinitions": []
   },
-  "canonicalTokenCount": 163,
+  "canonicalTokenCount": 164,
   "colors": {
-    "totalUnique": 397,
+    "totalUnique": 396,
     "duplicateOfTokenCount": 23,
     "duplicateOfToken": [
       {
@@ -142,17 +142,6 @@
         "matchedToken": "--np-info"
       },
       {
-        "id": "orange-2df1e7ad",
-        "hex": "#23201C",
-        "authoredAs": "rgba(35, 32, 28, 0.1)",
-        "usage": 3,
-        "props": [
-          "background",
-          "--np-shadow-tint"
-        ],
-        "matchedToken": "--text-primary"
-      },
-      {
         "id": "orange-d53e8ee5",
         "hex": "#EDB52A",
         "authoredAs": "#edb52a",
@@ -217,6 +206,17 @@
           "--np-info"
         ],
         "matchedToken": "--np-info"
+      },
+      {
+        "id": "orange-2df1e7ad",
+        "hex": "#23201C",
+        "authoredAs": "rgba(35, 32, 28, 0.1)",
+        "usage": 2,
+        "props": [
+          "background",
+          "--np-shadow-tint"
+        ],
+        "matchedToken": "--text-primary"
       },
       {
         "id": "orange-9b8cd054",
@@ -334,7 +334,7 @@
         "id": "black-edec3e7a",
         "hex": "#000000",
         "authoredAs": "transparent",
-        "usage": 139,
+        "usage": 132,
         "props": [
           "background",
           "color",
@@ -351,7 +351,7 @@
         "id": "white-edecb6ba",
         "hex": "#FFFFFF",
         "authoredAs": "white",
-        "usage": 122,
+        "usage": 119,
         "props": [
           "stroke",
           "background",
@@ -392,7 +392,7 @@
         "id": "grey-ad92bd37",
         "hex": "#444444",
         "authoredAs": "#444",
-        "usage": 19,
+        "usage": 20,
         "props": [
           "background",
           "border-color",
@@ -402,19 +402,8 @@
           "--mm-btn-border",
           "--mm-btn-text",
           "--mm-plus-btn-hover-fill",
-          "--mm-progress-bg"
-        ]
-      },
-      {
-        "id": "black-23d68dbd",
-        "hex": "#000000",
-        "authoredAs": "rgba(0, 0, 0, 0.1)",
-        "usage": 18,
-        "props": [
-          "background",
-          "box-shadow",
-          "border",
-          "--np-shadow"
+          "--mm-progress-bg",
+          "--np-bg-hover"
         ]
       },
       {
@@ -467,6 +456,18 @@
           "border-color",
           "--mm-hint-text",
           "--mm-placeholder-text"
+        ]
+      },
+      {
+        "id": "black-23d68dbd",
+        "hex": "#000000",
+        "authoredAs": "rgba(0, 0, 0, 0.1)",
+        "usage": 16,
+        "props": [
+          "background",
+          "box-shadow",
+          "border",
+          "--np-shadow"
         ]
       },
       {
@@ -576,15 +577,6 @@
         ]
       },
       {
-        "id": "blue-701c2c9f",
-        "hex": "#E3F2FD",
-        "authoredAs": "#e3f2fd",
-        "usage": 11,
-        "props": [
-          "background"
-        ]
-      },
-      {
         "id": "orange-2982d6f0",
         "hex": "#FFF3BF",
         "authoredAs": "#fff3bf",
@@ -609,14 +601,12 @@
         ]
       },
       {
-        "id": "white-2599f23d",
-        "hex": "#FFFFFF",
-        "authoredAs": "rgba(255, 255, 255, 0.2)",
-        "usage": 11,
+        "id": "blue-701c2c9f",
+        "hex": "#E3F2FD",
+        "authoredAs": "#e3f2fd",
+        "usage": 10,
         "props": [
-          "background",
-          "background-color",
-          "border-right"
+          "background"
         ]
       },
       {
@@ -643,15 +633,6 @@
         ]
       },
       {
-        "id": "red-5a4cad58",
-        "hex": "#FFE0E0",
-        "authoredAs": "#ffe0e0",
-        "usage": 10,
-        "props": [
-          "background"
-        ]
-      },
-      {
         "id": "grey-a2b90ae0",
         "hex": "#DDDDDD",
         "authoredAs": "#ddd",
@@ -665,17 +646,35 @@
         ]
       },
       {
-        "id": "grey-8d6c0835",
-        "hex": "#666666",
-        "authoredAs": "#666",
-        "usage": 10,
+        "id": "blue-fd5c9b17",
+        "hex": "#1976D2",
+        "authoredAs": "#1976d2",
+        "usage": 9,
         "props": [
-          "stroke",
+          "background",
+          "border-left"
+        ]
+      },
+      {
+        "id": "grey-5392f67",
+        "hex": "#D4D4D4",
+        "authoredAs": "#d4d4d4",
+        "usage": 9,
+        "props": [
           "color",
-          "border-color",
-          "--mm-zoom-label-text",
-          "--mm-hint-text",
-          "fill"
+          "--mm-btn-hover-bg",
+          "caret-color"
+        ]
+      },
+      {
+        "id": "white-2599f23d",
+        "hex": "#FFFFFF",
+        "authoredAs": "rgba(255, 255, 255, 0.2)",
+        "usage": 9,
+        "props": [
+          "background",
+          "background-color",
+          "border-right"
         ]
       }
     ]
@@ -684,22 +683,22 @@
     {
       "id": "fontSize-548b1f63",
       "authoredAs": "0.85em",
-      "usage": 94
+      "usage": 93
     },
     {
       "id": "fontSize-2ba33e3",
       "authoredAs": "0.9em",
-      "usage": 88
+      "usage": 84
     },
     {
       "id": "fontSize-170fe9",
       "authoredAs": "12px",
-      "usage": 76
+      "usage": 74
     },
     {
       "id": "fontSize-1713aa",
       "authoredAs": "13px",
-      "usage": 64
+      "usage": 60
     },
     {
       "id": "fontSize-2ba3022",
@@ -709,11 +708,6 @@
     {
       "id": "fontSize-17176b",
       "authoredAs": "14px",
-      "usage": 38
-    },
-    {
-      "id": "fontSize-170c28",
-      "authoredAs": "11px",
       "usage": 34
     },
     {
@@ -722,14 +716,19 @@
       "usage": 33
     },
     {
-      "id": "fontSize-2c82d5c",
-      "authoredAs": "1.1em",
-      "usage": 20
+      "id": "fontSize-170c28",
+      "authoredAs": "11px",
+      "usage": 33
     },
     {
       "id": "fontSize-170867",
       "authoredAs": "10px",
       "usage": 20
+    },
+    {
+      "id": "fontSize-2c82d5c",
+      "authoredAs": "1.1em",
+      "usage": 19
     },
     {
       "id": "fontSize-2c847a3",
@@ -742,16 +741,6 @@
       "usage": 15
     },
     {
-      "id": "fontSize-2c834de",
-      "authoredAs": "1.3em",
-      "usage": 11
-    },
-    {
-      "id": "fontSize-2c83c60",
-      "authoredAs": "1.5em",
-      "usage": 11
-    },
-    {
       "id": "fontSize-2ba2c61",
       "authoredAs": "0.7em",
       "usage": 11
@@ -759,16 +748,11 @@
     {
       "id": "fontSize-2c8311d",
       "authoredAs": "1.2em",
-      "usage": 10
+      "usage": 9
     },
     {
-      "id": "fontSize-171eed",
-      "authoredAs": "16px",
-      "usage": 10
-    },
-    {
-      "id": "fontSize-c499",
-      "authoredAs": "1em",
+      "id": "fontSize-2c834de",
+      "authoredAs": "1.3em",
       "usage": 9
     },
     {
@@ -777,14 +761,14 @@
       "usage": 8
     },
     {
-      "id": "fontSize-eab971f6",
-      "authoredAs": "var(--np-text-85)",
-      "usage": 7
+      "id": "fontSize-2c83c60",
+      "authoredAs": "1.5em",
+      "usage": 8
     },
     {
-      "id": "fontSize-177cc6",
-      "authoredAs": "20px",
-      "usage": 7
+      "id": "fontSize-171eed",
+      "authoredAs": "16px",
+      "usage": 8
     },
     {
       "id": "fontSize-548c78bf",
@@ -792,8 +776,13 @@
       "usage": 7
     },
     {
-      "id": "fontSize-17266f",
-      "authoredAs": "18px",
+      "id": "fontSize-eab971f6",
+      "authoredAs": "var(--np-text-85)",
+      "usage": 6
+    },
+    {
+      "id": "fontSize-c499",
+      "authoredAs": "1em",
       "usage": 6
     },
     {
@@ -807,11 +796,6 @@
       "usage": 6
     },
     {
-      "id": "fontSize-c85a",
-      "authoredAs": "2em",
-      "usage": 5
-    },
-    {
       "id": "fontSize-563dae66",
       "authoredAs": "1.1rem",
       "usage": 5
@@ -822,13 +806,23 @@
       "usage": 5
     },
     {
+      "id": "fontSize-c85a",
+      "authoredAs": "2em",
+      "usage": 4
+    },
+    {
       "id": "fontSize-563cc969",
       "authoredAs": "1.15em",
       "usage": 4
     },
     {
-      "id": "fontSize-563c550a",
-      "authoredAs": "1.05em",
+      "id": "fontSize-17266f",
+      "authoredAs": "18px",
+      "usage": 4
+    },
+    {
+      "id": "fontSize-177cc6",
+      "authoredAs": "20px",
       "usage": 4
     },
     {
@@ -862,6 +856,11 @@
       "usage": 3
     },
     {
+      "id": "fontSize-e040",
+      "authoredAs": "8px",
+      "usage": 3
+    },
+    {
       "id": "fontSize-171b2c",
       "authoredAs": "15px",
       "usage": 3
@@ -872,23 +871,18 @@
       "usage": 3
     },
     {
+      "id": "fontSize-563c550a",
+      "authoredAs": "1.05em",
+      "usage": 3
+    },
+    {
       "id": "fontSize-6c718c6e",
       "authoredAs": "var(--np-text-100)",
       "usage": 2
     },
     {
-      "id": "fontSize-179ace",
-      "authoredAs": "28px",
-      "usage": 2
-    },
-    {
       "id": "fontSize-563e9724",
       "authoredAs": "1.3rem",
-      "usage": 2
-    },
-    {
-      "id": "fontSize-e040",
-      "authoredAs": "8px",
       "usage": 2
     },
     {
@@ -990,11 +984,6 @@
       "id": "fontSize-17934c",
       "authoredAs": "26px",
       "usage": 1
-    },
-    {
-      "id": "fontSize-1722ae",
-      "authoredAs": "17px",
-      "usage": 1
     }
   ],
   "fontFamilies": [
@@ -1028,12 +1017,12 @@
     {
       "id": "lineHeight-31",
       "authoredAs": "1",
-      "usage": 46
+      "usage": 38
     },
     {
       "id": "lineHeight-bdb8",
       "authoredAs": "1.5",
-      "usage": 19
+      "usage": 17
     },
     {
       "id": "lineHeight-bdb7",
@@ -1086,11 +1075,6 @@
       "usage": 2
     },
     {
-      "id": "lineHeight-b9fa",
-      "authoredAs": "0.8",
-      "usage": 1
-    },
-    {
       "id": "lineHeight-170fe9",
       "authoredAs": "12px",
       "usage": 1
@@ -1120,32 +1104,32 @@
     {
       "id": "radius-d13c",
       "authoredAs": "4px",
-      "usage": 182
+      "usage": 171
     },
     {
       "id": "radius-d8be",
       "authoredAs": "6px",
-      "usage": 96
+      "usage": 91
     },
     {
       "id": "radius-e040",
       "authoredAs": "8px",
-      "usage": 76
+      "usage": 73
     },
     {
       "id": "radius-ccea",
       "authoredAs": "50%",
-      "usage": 38
+      "usage": 36
     },
     {
       "id": "radius-170fe9",
       "authoredAs": "12px",
-      "usage": 37
+      "usage": 36
     },
     {
       "id": "radius-170867",
       "authoredAs": "10px",
-      "usage": 21
+      "usage": 20
     },
     {
       "id": "radius-30",
@@ -1153,13 +1137,13 @@
       "usage": 8
     },
     {
-      "id": "radius-31df89e",
-      "authoredAs": "var(--np-radius-sm)",
-      "usage": 7
-    },
-    {
       "id": "radius-31de101",
       "authoredAs": "var(--np-radius-md)",
+      "usage": 6
+    },
+    {
+      "id": "radius-31df89e",
+      "authoredAs": "var(--np-radius-sm)",
       "usage": 6
     },
     {
@@ -1185,6 +1169,16 @@
     {
       "id": "radius-c1974478",
       "authoredAs": "0 0 4px 4px",
+      "usage": 2
+    },
+    {
+      "id": "radius-bbda0665",
+      "authoredAs": "var(--wb-ind-chip-radius)",
+      "usage": 2
+    },
+    {
+      "id": "radius-5ec58368",
+      "authoredAs": "var(--wb-ind-radius)",
       "usage": 2
     },
     {
@@ -1248,6 +1242,11 @@
       "usage": 1
     },
     {
+      "id": "radius-dc7f",
+      "authoredAs": "7px",
+      "usage": 1
+    },
+    {
       "id": "radius-957ff974",
       "authoredAs": "2px 0 0 2px",
       "usage": 1
@@ -1277,7 +1276,7 @@
     {
       "id": "boxShadow-6728eef9",
       "authoredAs": "0 2px 4px var(--np-shadow)",
-      "usage": 63
+      "usage": 62
     },
     {
       "id": "boxShadow-f6beb62c",
@@ -1292,12 +1291,12 @@
     {
       "id": "boxShadow-dc7bf240",
       "authoredAs": "0 2px 4px rgba(0, 0, 0, 0.1)",
-      "usage": 6
+      "usage": 5
     },
     {
       "id": "boxShadow-2ebeb8ba",
       "authoredAs": "var(--np-focus-ring)",
-      "usage": 5
+      "usage": 4
     },
     {
       "id": "boxShadow-dc7bf25f",
@@ -1317,11 +1316,6 @@
     {
       "id": "boxShadow-264eb700",
       "authoredAs": "0 6px 16px var(--np-shadow)",
-      "usage": 3
-    },
-    {
-      "id": "boxShadow-c51ca647",
-      "authoredAs": "0 6px 20px var(--np-shadow)",
       "usage": 3
     },
     {
@@ -1372,6 +1366,11 @@
     {
       "id": "boxShadow-b287b683",
       "authoredAs": "0 10px 28px var(--np-shadow, rgba(0, 0, 0, 0.22))",
+      "usage": 2
+    },
+    {
+      "id": "boxShadow-c51ca647",
+      "authoredAs": "0 6px 20px var(--np-shadow)",
       "usage": 2
     },
     {
@@ -1621,15 +1620,15 @@
     }
   ],
   "spacing": {
-    "declarations": 1631,
-    "indirectedDeclarations": 1375,
+    "declarations": 1584,
+    "indirectedDeclarations": 1342,
     "totalUniqueValues": 38,
     "offGridUniqueValues": 15,
     "offGridUses": 31,
     "top": [
       {
         "value": "0",
-        "uses": 186,
+        "uses": 177,
         "onGrid": true,
         "props": [
           "gap",
@@ -1656,7 +1655,7 @@
       },
       {
         "value": "60px",
-        "uses": 12,
+        "uses": 9,
         "onGrid": true,
         "props": [
           "padding"
@@ -1665,7 +1664,7 @@
       },
       {
         "value": "20px",
-        "uses": 12,
+        "uses": 9,
         "onGrid": true,
         "props": [
           "padding"
@@ -1727,13 +1726,13 @@
       },
       {
         "value": "28px",
-        "uses": 4,
+        "uses": 3,
         "onGrid": true,
         "props": [
           "margin-left",
           "padding"
         ],
-        "fileCount": 4
+        "fileCount": 3
       },
       {
         "value": "-4px",
@@ -1742,25 +1741,6 @@
         "props": [
           "margin",
           "margin-left"
-        ],
-        "fileCount": 3
-      },
-      {
-        "value": "80px",
-        "uses": 3,
-        "onGrid": true,
-        "props": [
-          "margin-bottom",
-          "padding"
-        ],
-        "fileCount": 3
-      },
-      {
-        "value": "40px",
-        "uses": 3,
-        "onGrid": true,
-        "props": [
-          "padding"
         ],
         "fileCount": 3
       },
@@ -1820,15 +1800,6 @@
         "onGrid": true,
         "props": [
           "margin"
-        ],
-        "fileCount": 2
-      },
-      {
-        "value": "24px",
-        "uses": 2,
-        "onGrid": true,
-        "props": [
-          "padding"
         ],
         "fileCount": 2
       },
@@ -1923,6 +1894,33 @@
           "margin-left"
         ],
         "fileCount": 1
+      },
+      {
+        "value": "6px",
+        "uses": 1,
+        "onGrid": false,
+        "props": [
+          "gap"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "10px",
+        "uses": 1,
+        "onGrid": false,
+        "props": [
+          "padding"
+        ],
+        "fileCount": 1
+      },
+      {
+        "value": "-5px",
+        "uses": 1,
+        "onGrid": false,
+        "props": [
+          "margin-left"
+        ],
+        "fileCount": 1
       }
     ],
     "offGridTop": [
@@ -2006,8 +2004,8 @@
   "components": [
     {
       "family": "table",
-      "rules": 838,
-      "uniqueSelectors": 710,
+      "rules": 852,
+      "uniqueSelectors": 722,
       "spreadAcrossFiles": 18,
       "files": [
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -2030,12 +2028,12 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 129,
-        "focus": 24,
+        "hover": 127,
+        "focus": 23,
         "active": 0,
-        "disabled": 2
+        "disabled": 1
       },
-      "distinctClassNames": 216,
+      "distinctClassNames": 222,
       "topClassNames": [
         {
           "name": "gantt-info-table",
@@ -2101,8 +2099,8 @@
     },
     {
       "family": "button",
-      "rules": 518,
-      "uniqueSelectors": 440,
+      "rules": 450,
+      "uniqueSelectors": 384,
       "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2128,12 +2126,12 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 171,
-        "focus": 37,
+        "hover": 142,
+        "focus": 30,
         "active": 5,
-        "disabled": 24
+        "disabled": 21
       },
-      "distinctClassNames": 140,
+      "distinctClassNames": 128,
       "topClassNames": [
         {
           "name": "btn-primary",
@@ -2152,20 +2150,12 @@
           "rules": 13
         },
         {
-          "name": "close-btn",
-          "rules": 13
-        },
-        {
           "name": "ribbon-simple-btn",
           "rules": 10
         },
         {
           "name": "task-row-add-btn",
           "rules": 10
-        },
-        {
-          "name": "toolbar-btn",
-          "rules": 9
         },
         {
           "name": "levelling-buttons",
@@ -2192,15 +2182,23 @@
           "rules": 6
         },
         {
-          "name": "actions-action-btn",
+          "name": "mindmap-toolbar-btn",
+          "rules": 6
+        },
+        {
+          "name": "portfolio-subnav-btn",
+          "rules": 6
+        },
+        {
+          "name": "ns-toolbar-btn",
           "rules": 6
         }
       ]
     },
     {
       "family": "nav",
-      "rules": 375,
-      "uniqueSelectors": 337,
+      "rules": 370,
+      "uniqueSelectors": 332,
       "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/animations.css",
@@ -2222,8 +2220,8 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 52,
-        "focus": 8,
+        "hover": 50,
+        "focus": 7,
         "active": 2,
         "disabled": 12
       },
@@ -2247,10 +2245,6 @@
         },
         {
           "name": "raid-toolbar",
-          "rules": 9
-        },
-        {
-          "name": "toolbar-btn",
           "rules": 9
         },
         {
@@ -2288,13 +2282,17 @@
         {
           "name": "tab-content",
           "rules": 6
+        },
+        {
+          "name": "settings-tab-btn",
+          "rules": 6
         }
       ]
     },
     {
       "family": "badge",
-      "rules": 235,
-      "uniqueSelectors": 220,
+      "rules": 237,
+      "uniqueSelectors": 221,
       "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2325,7 +2323,7 @@
         "active": 0,
         "disabled": 0
       },
-      "distinctClassNames": 115,
+      "distinctClassNames": 116,
       "topClassNames": [
         {
           "name": "search-view-result-badge",
@@ -2391,8 +2389,8 @@
     },
     {
       "family": "modal",
-      "rules": 211,
-      "uniqueSelectors": 188,
+      "rules": 210,
+      "uniqueSelectors": 187,
       "spreadAcrossFiles": 14,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2416,7 +2414,7 @@
         "active": 0,
         "disabled": 0
       },
-      "distinctClassNames": 83,
+      "distinctClassNames": 82,
       "topClassNames": [
         {
           "name": "modal-header",
@@ -2482,8 +2480,8 @@
     },
     {
       "family": "card",
-      "rules": 202,
-      "uniqueSelectors": 176,
+      "rules": 201,
+      "uniqueSelectors": 174,
       "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2510,7 +2508,7 @@
         "active": 2,
         "disabled": 1
       },
-      "distinctClassNames": 88,
+      "distinctClassNames": 85,
       "topClassNames": [
         {
           "name": "kanban-card",
@@ -2518,14 +2516,14 @@
         },
         {
           "name": "fm-panel",
-          "rules": 12
-        },
-        {
-          "name": "editor-panel",
-          "rules": 10
+          "rules": 13
         },
         {
           "name": "wb-note-card",
+          "rules": 11
+        },
+        {
+          "name": "editor-panel",
           "rules": 10
         },
         {
@@ -2672,13 +2670,18 @@
   "outOfBandStyles": {
     "templates": [
       {
+        "file": "packages/noodle-web/src/noodle_web/templates/_icon_sprite.html",
+        "inlineStyleAttributes": 1,
+        "containingColourLiteral": 0
+      },
+      {
         "file": "packages/noodle-web/src/noodle_web/templates/components.html",
         "inlineStyleAttributes": 2,
         "containingColourLiteral": 0
       },
       {
         "file": "packages/noodle-web/src/noodle_web/templates/index.html",
-        "inlineStyleAttributes": 264,
+        "inlineStyleAttributes": 261,
         "containingColourLiteral": 2
       },
       {
@@ -2687,10 +2690,10 @@
         "containingColourLiteral": 1
       }
     ],
-    "templateInlineStyleTotal": 269,
+    "templateInlineStyleTotal": 267,
     "templateInlineStyleWithColour": 3,
-    "scriptFilesWithColourLiterals": 29,
-    "scriptColourLineTotal": 300,
+    "scriptFilesWithColourLiterals": 36,
+    "scriptColourLineTotal": 351,
     "topScripts": [
       {
         "file": "packages/noodle-web/src/noodle_web/static/script.js",
@@ -2699,6 +2702,10 @@
       {
         "file": "packages/noodle-web/src/noodle_web/static/views-products.js",
         "lines": 40
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/component-gallery.js",
+        "lines": 35
       },
       {
         "file": "packages/noodle-web/src/noodle_web/static/components/card/np-card.js",
@@ -2717,10 +2724,6 @@
         "lines": 17
       },
       {
-        "file": "packages/noodle-web/src/noodle_web/static/components/note/np-note.js",
-        "lines": 16
-      },
-      {
         "file": "packages/noodle-web/src/noodle_web/static/benefits.js",
         "lines": 14
       },
@@ -2733,8 +2736,16 @@
         "lines": 12
       },
       {
+        "file": "packages/noodle-web/src/noodle_web/static/components/panel-header/np-panel-header.js",
+        "lines": 10
+      },
+      {
         "file": "packages/noodle-web/src/noodle_web/static/portfolio-benefits.js",
         "lines": 9
+      },
+      {
+        "file": "packages/noodle-web/src/noodle_web/static/components/empty-state/np-empty-state.js",
+        "lines": 8
       },
       {
         "file": "packages/noodle-web/src/noodle_web/static/portfolio-resources.js",
@@ -2753,24 +2764,16 @@
         "lines": 6
       },
       {
+        "file": "packages/noodle-web/src/noodle_web/static/components/note/np-note.stories.js",
+        "lines": 5
+      },
+      {
         "file": "packages/noodle-web/src/noodle_web/static/kanban.js",
         "lines": 5
       },
       {
         "file": "packages/noodle-web/src/noodle_web/static/portfolio-report.js",
         "lines": 5
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/status-bar.js",
-        "lines": 5
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/components/board/np-board.stories.js",
-        "lines": 4
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/components/note/np-note.stories.js",
-        "lines": 4
       }
     ]
   }

@@ -222,7 +222,7 @@ export class NpNote extends HTMLElement {
         resourceBtn.title = 'Quick assign';
         const linkHandle = el('button', 'wb-note-link-handle',
             { type: 'button', 'aria-label': 'Draw a link to another note' });
-        linkHandle.innerHTML = LINK_HANDLE_SVG;
+        linkHandle.innerHTML = noodleGlyph(14);
         const coachBtn = el('button', 'wb-note-coach-btn',
             { type: 'button', 'aria-label': 'Planning prompts', 'aria-haspopup': 'dialog' });
         const promoteBtn = el('button', 'wb-note-promote-btn',
@@ -393,7 +393,13 @@ export class NpNote extends HTMLElement {
         // child has one, so names start on the same x down the card (#1243).
         const badgeSlot = el('div', 'wb-note-row-badge');
         if (vm.deliverable) {
-            const badge = el('span', 'wb-note-deliverable-badge', { title: `Deliverable: ${vm.deliverable}` });
+            // Content, not decoration: it names a real deliverable. As a bare
+            // span with only a title it reached a screen reader as "$".
+            const badge = el('span', 'wb-note-deliverable-badge', {
+                role: 'img',
+                'aria-label': `Deliverable: ${vm.deliverable}`,
+                title: `Deliverable: ${vm.deliverable}`,
+            });
             badge.textContent = '$';
             badgeSlot.appendChild(badge);
         }
@@ -415,7 +421,7 @@ export class NpNote extends HTMLElement {
                 'aria-label': `Attach detected date ${vm.date} to ${name}`,
             });
             date.textContent = vm.date;
-            date.title = `Attach ${vm.date}`;
+            date.title = `Attach the detected date ${vm.date} to ${name}`;
             content.appendChild(date);
         }
 
@@ -450,9 +456,12 @@ export class NpNote extends HTMLElement {
                 });
             coach.textContent = vm.planningType === 'product' ? 'P'
                 : vm.planningType === 'activity' ? 'A' : '\u2726';
+            // One sentence, both places -- the tooltip and the accessible name
+            // used to describe different things.
             coach.title = vm.planningType
-                ? `Planning type: ${vm.planningType}`
-                : 'This wording may describe an activity';
+                ? `Planning hint for ${name}: this is a ${vm.planningType}`
+                : `Planning hint for ${name}: this wording may describe an activity`;
+            coach.setAttribute('aria-label', coach.title);
             hintSlot.appendChild(coach);
         }
 
@@ -489,10 +498,10 @@ export class NpNote extends HTMLElement {
         if (!vm.hasChildren) {
             const handle = el('button', 'wb-note-row-dep-handle', {
                 type: 'button',
-                title: 'Drag to another task to make it depend on this one',
-                'aria-label': `Draw a dependency from "${name}" to another task`,
+                title: `Draw a dependency from "${name}": drag to the task that depends on it`,
+                'aria-label': `Draw a dependency from "${name}": drag to the task that depends on it`,
             });
-            handle.innerHTML = DEP_HANDLE_SVG;
+            handle.innerHTML = noodleGlyph(12);
             depSlot.appendChild(handle);
         }
 
@@ -630,18 +639,15 @@ export class NpNote extends HTMLElement {
     }
 }
 
-// Both handles are the app's own inline SVG, character for character.
-const LINK_HANDLE_SVG =
-    '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
-    'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
-    '<circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/>' +
-    '<path d="M4 6 C4 11, 7 12, 10 12"/></svg>';
-
-const DEP_HANDLE_SVG =
-    '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
-    'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
-    '<circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/>' +
-    '<path d="M4 6 C4 11, 7 12, 10 12"/></svg>';
+/** The noodle glyph, shared by the header's link handle and the row's
+ * dependency handle -- whiteboard-notes.js's wbNoodleGlyph() (#1248). The two
+ * used to carry byte-identical markup apart from their size. */
+function noodleGlyph(size) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" ` +
+        'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
+        '<circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/>' +
+        '<path d="M4 6 C4 11, 7 12, 10 12"/></svg>';
+}
 
 if (!customElements.get('np-note')) {
     customElements.define('np-note', NpNote);

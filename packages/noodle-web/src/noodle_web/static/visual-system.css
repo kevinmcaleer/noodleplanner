@@ -156,6 +156,14 @@
     --np-light-grey-subtle: #f2f2f2;
     --np-dark-blue-subtle: #cfe0e7;
 
+    /* Ink for text sitting *on* a hue token. Single-valued like the hue it
+       pairs with -- the whole point of these is that the hue does not change
+       with the theme, so its ink cannot either. Added for the whiteboard
+       note's deliverable badge (#1248), whose rule had been carrying a raw
+       `#111` under a comment claiming `#161616`; scripts/check-contrast.mjs
+       now scores this pairing so the claim is measured rather than asserted. */
+    --np-orange-ink: #161616;
+
     /* --- Motion (#1194, moved here from base.css). */
     --np-anim-duration-fast: 0.15s;
     --np-anim-duration: 0.2s;

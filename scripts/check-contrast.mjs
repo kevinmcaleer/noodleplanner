@@ -169,6 +169,15 @@ const PAIRINGS = [
 	// white, which is exactly why it is checked at 3 and not at 4.5. Anything
 	// putting body text on a filled --np-info swatch has to use the ink/tint
 	// pair instead; the comment in visual-system.css says so too.
+	// The whiteboard note's deliverable badge (#1248): a `$` glyph on a filled
+	// --np-orange square. Its rule used to carry a raw `#111` under a comment
+	// claiming `#161616` measured ~6.97:1 -- a claim nothing checked, pointing
+	// at a test that measures wbContrastTextColour()'s output rather than any
+	// value in that stylesheet. Text on a filled swatch, so 4.5:1. Both tokens
+	// are single-valued across themes by design, which is the point of the
+	// hue-is-the-meaning palette, so one entry covers both.
+	{ fg: '--np-orange-ink', bg: '--np-orange', min: 4.5, what: 'deliverable badge glyph on its badge' },
+
 	{ fg: '--np-danger', bg: '--np-paper', min: 3, what: 'filled danger against the page' },
 	{ fg: '--np-success', bg: '--np-paper', min: 3, what: 'filled success against the page' },
 	{ fg: '--np-info', bg: '--np-paper', min: 3, what: 'filled info against the page' },

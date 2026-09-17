@@ -240,6 +240,70 @@
     background: rgba(0, 0, 0, 0.1);
 }
 
+/* Row indicators: one visual language (issue #1248) -----------------------
+ *
+ * Five things hang off a checklist row -- the `$` deliverable badge, the
+ * planning-hint coach, the detected-date chip, the child-count badge and the
+ * dependency handle. Each arrived with its own issue and none was designed
+ * against the others, so the row carried three declared heights and one
+ * undeclared, three radii, four unrelated colour sources and four resting
+ * opacities, inside one 8px-gap flex row on one card.
+ *
+ * SIZE. One height, `--wb-ind-size`, for all five.
+ *
+ * SHAPE. Two, by a stated rule rather than by accident: a control that
+ * carries *text* is a pill (`--wb-ind-chip-radius`); one that carries a single
+ * glyph or icon is a rounded square (`--wb-ind-radius`). The coach moves from
+ * a circle to the square for that reason.
+ *
+ * SCOPE -- size and shape are row-scoped, and the note *header*'s twins of
+ * these controls (`.wb-note-coach-btn`, `.wb-note-smart-btn` and friends) are
+ * deliberately excluded. Not an oversight: the header's geometry is load
+ * bearing. Its `gap: 6px; padding: 8px 10px` is off the spacing scale on
+ * purpose, because rounding it walks the button row far enough left to put
+ * `.wb-note-link-handle` under the header's own midpoint -- at which point
+ * grabbing the middle of a header starts a *link* drag instead of a move and a
+ * note dragged to the parking lot is silently not parked. Resizing those
+ * buttons moves the row the same way, and
+ * tests/ui/test_whiteboard_parking_lot.py catches it. The header is #1250's,
+ * and re-deriving that geometry is explicitly its job.
+ *
+ * Colour *is* shared with the twins, because it moves nothing: the header's
+ * date chip carried the same fixed light-mode palette and the same 1.02:1
+ * against the note fill.
+ *
+ * COLOUR. One rule: an indicator takes its colour from the note, through
+ * `currentColor` -- which is `--wb-note-text`, the value wbContrastTextColour()
+ * measured against this note's own fill. That is what keeps them legible on
+ * all ten pastels in both themes, and it is why the date chip's fixed
+ * light-mode palette and the count badge's theme-surface tokens are gone: both
+ * painted a value chosen against a *theme* surface onto a *note* fill, which
+ * is a different colour entirely.
+ *
+ * The two exceptions are deliberate and are the only hue-coded indicators on
+ * the row: orange for a deliverable, purple for a dependency. Those are kinds
+ * of *thing*, not states, and the hue is the meaning -- see the palette block
+ * in visual-system.css. Anything else that wants a colour of its own has to
+ * argue its way past this paragraph.
+ *
+ * AT REST. One rule with a stated criterion: an indicator that carries
+ * information is visible at rest; a control that only initiates a gesture and
+ * says nothing on its own is revealed on hover or focus, and is permanently
+ * visible where there is no hover at all (coarse pointers). That classifies
+ * all five without a special case -- the badge, the chip, the count and the
+ * coach each tell you something, and the dependency handle does not.
+ *
+ * Known gap, deliberately not closed here: keyboard focus reveals the
+ * dependency handle but cannot operate it, because only `mousedown` and
+ * `touchstart` start a drag. Making it operable is a new gesture and belongs
+ * with #874, not with a rule about what things look like.
+ */
+.wb-note-card {
+    --wb-ind-size: 18px;
+    --wb-ind-radius: 4px;
+    --wb-ind-chip-radius: 9px;
+}
+
 .wb-note-coach-btn,
 .wb-note-row-coach {
     flex: 0 0 auto;
@@ -256,7 +320,6 @@
     font-size: 10px;
     font-weight: 700;
     cursor: pointer;
-    opacity: 0.72;
 }
 
 .wb-note-smart-btn,
@@ -271,18 +334,19 @@
     color: inherit;
     font: 700 10px/1 inherit;
     cursor: pointer;
-    opacity: 0.78;
 }
 
+/* No palette of its own: it inherits the note's measured ink like every other
+   indicator. Its old fixed light-mode blue measured 1.02-1.63:1 against the
+   ten note swatches -- a chip the design treats as distinct, with effectively
+   no edge on the card it sat on, and unchanged in dark mode. */
 .wb-note-date-btn,
 .wb-note-row-date {
     max-width: 86px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    background: #e3f2fd;
-    color: #174c78;
-    border-color: #83b8e4;
+    background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 .wb-note-resource-btn,
@@ -296,14 +360,14 @@
 .wb-note-smart-btn:focus-visible,
 .wb-note-row-smart:hover,
 .wb-note-row-smart:focus-visible {
-    opacity: 1;
     box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 20%, transparent);
 }
 
 .wb-note-row-smart {
-    height: 18px;
-    min-width: 18px;
-    color: var(--np-text-secondary, #666);
+    min-width: var(--wb-ind-size);
+    height: var(--wb-ind-size);
+    border-radius: var(--wb-ind-chip-radius);
+    color: inherit;
 }
 
 .wb-note-row-date {
@@ -375,17 +439,17 @@
 .wb-note-coach-btn:focus-visible,
 .wb-note-row-coach:hover,
 .wb-note-row-coach:focus-visible {
-    opacity: 1;
-    background: rgba(255, 255, 255, 0.2);
+    background: color-mix(in srgb, currentColor 18%, transparent);
     border-color: currentColor;
 }
 
+/* "This wording may describe an activity" -- a stronger tint of the note's own
+   ink rather than the fixed yellow it used to carry, which was a light-mode
+   palette painted on a note fill in both themes. */
 .wb-note-coach-btn.suspected-activity,
 .wb-note-row-coach.suspected-activity {
-    opacity: 1;
-    background: #fff3b0;
-    color: #5b4300;
-    border-color: #d4b030;
+    background: color-mix(in srgb, currentColor 18%, transparent);
+    border-color: currentColor;
 }
 
 .wb-note-coach-btn.typed,
@@ -393,10 +457,13 @@
     border-color: currentColor;
 }
 
+/* The row's own geometry, from the shared indicator tokens. The base rule
+   above keeps the header twin's 20px circle -- see the SCOPE note. */
 .wb-note-row-coach {
-    width: 18px;
-    height: 18px;
-    color: var(--np-text-secondary, #666);
+    width: var(--wb-ind-size);
+    height: var(--wb-ind-size);
+    border-radius: var(--wb-ind-radius);
+    color: inherit;
 }
 
 .wb-coaching-menu {
@@ -692,33 +759,43 @@
     white-space: nowrap;
 }
 
+/* One of the row's two hue-coded indicators: orange means "this is a
+   deliverable". The ink is `--np-orange-ink` rather than the raw `#111` this
+   rule used to carry under a comment claiming `#161616` -- the claim and the
+   declaration disagreed, and the test the comment pointed at measured
+   wbContrastTextColour()'s output rather than anything in this file.
+   scripts/check-contrast.mjs scores the pairing now. */
 .wb-note-deliverable-badge {
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 15px;
-    height: 15px;
-    border-radius: 4px;
+    width: var(--wb-ind-size);
+    height: var(--wb-ind-size);
+    border-radius: var(--wb-ind-radius);
     background: var(--np-orange);
-    /* #161616 on var(--np-orange) measures ~6.97:1 -- comfortably past WCAG AA (4.5:1),
-       confirmed by tests/test_whiteboard_notes.js's contrast-ratio checks. */
-    color: #111;
+    color: var(--np-orange-ink);
     font-size: 10px;
     font-weight: 700;
-    flex-shrink: 0;
 }
 
+/* A text chip, so a pill -- and an explicit height, where this rule used to
+   have none at all and derived one from `font-size` x `line-height`. Colour
+   comes from the note like every other indicator; the theme surface tokens it
+   carried were chosen against a theme background, not a pastel note. */
 .wb-note-count-badge {
     flex-shrink: 0;
-    border: 1px solid var(--np-border);
-    border-radius: 10px;
-    background: var(--np-bg-alt);
-    color: var(--np-text-secondary);
+    display: inline-flex;
+    align-items: center;
+    height: var(--wb-ind-size);
+    border: 1px solid currentColor;
+    border-radius: var(--wb-ind-chip-radius);
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    color: inherit;
     font-size: 10px;
-    padding: 1px var(--np-space-8);
+    padding: 0 var(--np-space-8);
     cursor: pointer;
-    line-height: 1.5;
+    line-height: 1;
 }
 
 .wb-note-count-badge:hover,

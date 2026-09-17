@@ -264,6 +264,25 @@
 // ── Configuration ───────────────────────────────────────────────────────
 const WB_NOTE_DEFAULT_WIDTH = 260;
 const WB_NOTE_DEFAULT_HEIGHT = 220;
+/**
+ * The noodle glyph: two nodes and the curve between them.
+ *
+ * Shared by the note header's link handle and the checklist row's dependency
+ * handle (issue #1248), which carried byte-identical markup apart from their
+ * width and height. The rest of the app draws from
+ * templates/_icon_sprite.html; this one is inline because both call sites
+ * build their button with createElementNS() inside an SVG foreignObject,
+ * where a `<use href="#...">` would need the sprite reachable from that
+ * document. Folding it into the sprite is worth doing, and is a change to how
+ * the whiteboard builds DOM rather than to what it looks like.
+ */
+function wbNoodleGlyph(size) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" ` +
+        'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
+        '<circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/>' +
+        '<path d="M4 6 C4 11, 7 12, 10 12"/></svg>';
+}
+
 /** Avatars rendered inline on a checklist row before the overflow chip takes
  * over (issue #1243). The row used to render one per assignee, uncapped, while
  * the note footer capped the same list at six. */
@@ -1765,11 +1784,7 @@ function wbCreateNoteNode() {
     linkHandle.setAttribute('type', 'button');
     linkHandle.setAttribute('title', 'Drag to another note to make it a subtask');
     linkHandle.setAttribute('aria-label', 'Draw a noodle to another note');
-    linkHandle.innerHTML =
-        '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
-        'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
-        '<circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/>' +
-        '<path d="M4 6 C4 11, 7 12, 10 12"/></svg>';
+    linkHandle.innerHTML = wbNoodleGlyph(14);
     linkHandle.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         e.preventDefault();
@@ -3049,6 +3064,8 @@ function wbBuildChildRow(childVm) {
     if (child.deliverable) {
         const badge = document.createElementNS(XHTML_NS, 'span');
         badge.setAttribute('class', 'wb-note-deliverable-badge');
+        badge.setAttribute('role', 'img');
+        badge.setAttribute('aria-label', `Deliverable: ${child.deliverable}`);
         badge.setAttribute('title', `Deliverable: ${child.deliverable}`);
         badge.textContent = '$';
         badgeSlot.appendChild(badge);
@@ -3075,9 +3092,11 @@ function wbBuildChildRow(childVm) {
         date.setAttribute('class', 'wb-note-row-smart wb-note-row-date');
         date.setAttribute('aria-haspopup', 'dialog');
         date.setAttribute('aria-expanded', 'false');
-        date.setAttribute('aria-label', `Attach detected date ${dateSuggestion.raw} to ${child.name}`);
         date.textContent = dateSuggestion.raw;
-        date.title = `Attach ${dateSuggestion.date}`;
+        const dateLabel =
+            `Attach the detected date ${dateSuggestion.raw} (${dateSuggestion.date}) to ${child.name}`;
+        date.setAttribute('aria-label', dateLabel);
+        date.title = dateLabel;
         date.addEventListener('click', (e) => {
             e.stopPropagation();
             wbToggleDateMenu(child.name, dateSuggestion, date);
@@ -3126,9 +3145,12 @@ function wbBuildChildRow(childVm) {
         coach.setAttribute('class', 'wb-note-row-coach' + (languageHint && !planningType ? ' suspected-activity' : ''));
         coach.setAttribute('aria-haspopup', 'dialog');
         coach.setAttribute('aria-expanded', 'false');
-        coach.setAttribute('aria-label', `Planning hint for ${child.name}`);
         coach.textContent = planningType === 'product' ? 'P' : planningType === 'activity' ? 'A' : '\u2726';
-        coach.title = planningType ? `Planning type: ${planningType}` : 'This wording may describe an activity';
+        const coachLabel = planningType
+            ? `Planning hint for ${child.name}: this is a ${planningType}`
+            : `Planning hint for ${child.name}: this wording may describe an activity`;
+        coach.setAttribute('aria-label', coachLabel);
+        coach.title = coachLabel;
         coach.addEventListener('click', (e) => {
             e.stopPropagation();
             wbToggleCoachingMenu(child.name, coach);
@@ -3177,13 +3199,14 @@ function wbAppendRowDependencyHandle(slot, childVm) {
     const handle = document.createElementNS(XHTML_NS, 'button');
     handle.setAttribute('type', 'button');
     handle.setAttribute('class', 'wb-note-row-dep-handle');
-    handle.setAttribute('title', 'Drag to another task to make it depend on this one');
-    handle.setAttribute('aria-label', `Draw a dependency from "${child.name}" to another task`);
-    handle.innerHTML =
-        '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
-        'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
-        '<circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/>' +
-        '<path d="M4 6 C4 11, 7 12, 10 12"/></svg>';
+    // One sentence, both places. These used to disagree: the tooltip described
+    // the gesture and the accessible name described the outcome, so a sighted
+    // user and a screen-reader user were told different things about the same
+    // control.
+    const depLabel = `Draw a dependency from "${child.name}": drag to the task that depends on it`;
+    handle.setAttribute('title', depLabel);
+    handle.setAttribute('aria-label', depLabel);
+    handle.innerHTML = wbNoodleGlyph(12);
     handle.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         e.preventDefault();
