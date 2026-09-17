@@ -76,6 +76,11 @@
 import '../checkbox/np-checkbox.js';
 import '../resource-stack/np-resource-stack.js';
 import '../menu/np-menu.js';
+// The note's markup, shared with the board's own builders (#1249) -- see that
+// file's header for why it is a separate module rather than living here.
+import {
+    ROW_AVATAR_CAP, buildAddRow, buildChecklistRow, buildNoteCard, el,
+} from './note-markup.js';
 
 // whiteboard-notes.js's own constants, which are what decide how crowded a
 // row looks. A component previewing 40px narrower than a real note (the
@@ -84,10 +89,6 @@ export const WB_NOTE_DEFAULT_WIDTH = 260;
 export const WB_NOTE_DEFAULT_HEIGHT = 220;
 export const WB_NOTE_MIN_WIDTH = 160;
 export const WB_NOTE_MIN_HEIGHT = 120;
-
-/** Avatars rendered inline on a checklist row before the overflow chip takes
- * over -- whiteboard-notes.js's WB_ROW_AVATAR_CAP (#1243). */
-export const WB_ROW_AVATAR_CAP = 3;
 
 /** The shipped pastel palette (whiteboard-notes.js's WB_NOTE_PASTEL_COLOURS).
  * The pilot's story offered six colours, not one of which is in this list. */
@@ -140,15 +141,6 @@ export function contrastTextColour(bgHex) {
     if (ratioDark === null || ratioLight === null) return null;
     return ratioDark >= ratioLight ? dark : light;
 }
-
-const el = (tag, className, attrs) => {
-    const node = document.createElement(tag);
-    if (className) node.setAttribute('class', className);
-    for (const [k, v] of Object.entries(attrs || {})) {
-        if (v !== null && v !== undefined) node.setAttribute(k, String(v));
-    }
-    return node;
-};
 
 export class NpNote extends HTMLElement {
     static get observedAttributes() {
@@ -212,46 +204,20 @@ export class NpNote extends HTMLElement {
         // child. `.wb-note-card` is what everything else hangs off.
         this.classList.add('wb-note');
 
-        const card = el('div', 'wb-note-card');
-        const header = el('div', 'wb-note-header');
-
-        const title = el('p', 'wb-note-title');
-        const dateBtn = el('button', 'wb-note-smart-btn wb-note-date-btn',
-            { type: 'button', 'aria-label': 'Attach detected date' });
-        const resourceBtn = el('button', 'wb-note-smart-btn wb-note-resource-btn',
-            { type: 'button', 'aria-label': 'Assign a resource', 'aria-haspopup': 'menu', 'aria-expanded': 'false' });
-        resourceBtn.textContent = '＋';
-        resourceBtn.title = 'Quick assign';
-        const linkHandle = el('button', 'wb-note-link-handle',
-            { type: 'button', 'aria-label': 'Draw a link to another note' });
-        linkHandle.innerHTML = noodleGlyph(14);
-        const coachBtn = el('button', 'wb-note-coach-btn',
-            { type: 'button', 'aria-label': 'Planning prompts', 'aria-haspopup': 'dialog' });
-        const promoteBtn = el('button', 'wb-note-promote-btn',
-            { type: 'button', 'aria-label': 'Promote to task' });
-        promoteBtn.textContent = '⇧';
-        const menuBtn = el('button', 'wb-note-menu-btn',
-            { type: 'button', 'aria-label': 'Note options', 'aria-haspopup': 'true', 'aria-expanded': 'false' });
-        menuBtn.textContent = '⋮';
-        menuBtn.addEventListener('click', (e) => { e.stopPropagation(); this._toggleMenu(menuBtn); });
-
-        header.append(title, dateBtn, resourceBtn, linkHandle, coachBtn, promoteBtn, menuBtn);
-
-        const parentCaption = el('div', 'wb-note-parent');
-        const body = el('div', 'wb-note-body');
-        const footer = el('div', 'wb-note-footer');
-        const progress = el('span', 'wb-note-progress');
-        const avatars = el('div', 'wb-note-avatars');
-        footer.append(progress, avatars);
-        const resizeHandle = el('div', 'wb-note-resize-handle', { 'aria-hidden': 'true' });
-
-        card.append(header, parentCaption, body, footer, resizeHandle);
+        // The skeleton comes from note-markup.js, which the app's own
+        // wbCreateNoteNode() also builds from (#1249). This used to be ~50
+        // lines of element creation duplicating that function element for
+        // element -- the "Storybook is a parallel drawing" problem the epic
+        // exists to close. What is left here is what only a component does:
+        // owning the menu button's click, since the board wires its own.
+        const { card, refs } = buildNoteCard();
+        refs.menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._toggleMenu(refs.menuBtn);
+        });
         this.appendChild(card);
 
-        this._refs = {
-            card, header, title, dateBtn, resourceBtn, linkHandle, coachBtn,
-            promoteBtn, menuBtn, parentCaption, body, footer, progress, avatars,
-        };
+        this._refs = refs;
         this._built = true;
     }
 
@@ -374,139 +340,45 @@ export class NpNote extends HTMLElement {
      */
     _buildRow(vm) {
         const name = vm.name || '';
-        const row = el('div', 'wb-note-row');
-        row.dataset.wbRowTask = name;
-        row.dataset.wbRowSummary = vm.hasChildren ? 'true' : 'false';
 
-        // ── Lead zone ──────────────────────────────────────────────────
-        // <np-checkbox>, the same control the app now renders (#1245). Phase A
-        // deliberately showed the bare native input, because the pilot had
-        // invented a round green one that existed nowhere in NoodlePlanner and
-        // "should the app have a designed checkbox" could not be asked honestly
-        // while Storybook already showed one. It has been asked and answered,
-        // so both sides render the component.
-        const checkbox = el('np-checkbox', 'wb-note-checkbox', {
-            dense: '',
-            row: vm.hasChildren ? 'summary' : 'leaf',
-            title: vm.complete ? 'Mark as incomplete' : 'Mark as complete',
-            label: `Mark "${name}" as ${vm.complete ? 'incomplete' : 'complete'}`,
+        // Same builder the board uses (#1249). The story's arg shape and the
+        // board's view model are different objects, so each side resolves its
+        // own model and the markup is built once, here and there, from the
+        // same code.
+        const { row, refs } = buildChecklistRow({
+            name,
+            complete: vm.complete,
+            indeterminate: vm.indeterminate,
+            hasChildren: vm.hasChildren,
+            childCount: vm.childCount,
+            deliverable: vm.deliverable,
+            date: vm.date ? {
+                text: vm.date,
+                label: `Attach the detected date ${vm.date} to ${name}`,
+            } : null,
+            coach: (vm.languageHint || vm.planningType) ? {
+                glyph: vm.planningType === 'product' ? 'P'
+                    : vm.planningType === 'activity' ? 'A' : '\u2726',
+                suspected: !!vm.languageHint && !vm.planningType,
+                label: vm.planningType
+                    ? `Planning hint for ${name}: this is a ${vm.planningType}`
+                    : `Planning hint for ${name}: this wording may describe an activity`,
+            } : null,
+            depHandle: true,
         });
-        if (vm.complete) checkbox.setAttribute('checked', '');
-        if (vm.indeterminate && vm.hasChildren) checkbox.setAttribute('indeterminate', '');
-        row.appendChild(checkbox);
 
-        // The deliverable badge's slot reserves its width whether or not this
-        // child has one, so names start on the same x down the card (#1243).
-        const badgeSlot = el('div', 'wb-note-row-badge');
-        if (vm.deliverable) {
-            // Content, not decoration: it names a real deliverable. As a bare
-            // span with only a title it reached a screen reader as "$".
-            const badge = el('span', 'wb-note-deliverable-badge', {
-                role: 'img',
-                'aria-label': `Deliverable: ${vm.deliverable}`,
-                title: `Deliverable: ${vm.deliverable}`,
-            });
-            badge.textContent = '$';
-            badgeSlot.appendChild(badge);
-        }
-        row.appendChild(badgeSlot);
-
-        // ── Name zone ──────────────────────────────────────────────────
-        const label = el('span', 'wb-note-row-name', { title: name });
-        label.textContent = name;
-        row.appendChild(label);
-
-        const content = el('div', 'wb-note-row-content');
-        row.appendChild(content);
-
-        if (vm.date) {
-            const date = el('button', 'wb-note-row-smart wb-note-row-date', {
-                type: 'button',
-                'aria-haspopup': 'dialog',
-                'aria-expanded': 'false',
-                'aria-label': `Attach detected date ${vm.date} to ${name}`,
-            });
-            date.textContent = vm.date;
-            date.title = `Attach the detected date ${vm.date} to ${name}`;
-            content.appendChild(date);
-        }
-
-        if (vm.hasChildren) {
-            const badge = el('button', 'wb-note-count-badge', {
-                type: 'button',
-                'aria-haspopup': 'dialog',
-                'aria-expanded': 'false',
-                'aria-label': `${name} has ${vm.childCount || 0} subtasks. Peek subtasks.`,
-            });
-            badge.textContent = `${vm.childCount || 0} \u25BE`;
-            content.appendChild(badge);
-            row.classList.add('wb-note-row-drillable');
-        }
-
-        // ── Trailing gutter ────────────────────────────────────────────
-        // Constant width on every row, so these three slots start at the same
-        // x whichever of them a given child actually fills.
-        const gutter = el('div', 'wb-note-row-gutter');
-        row.appendChild(gutter);
-
-        const hintSlot = el('div', 'wb-note-row-slot wb-note-row-slot-hint');
-        gutter.appendChild(hintSlot);
-        if (vm.languageHint || vm.planningType) {
-            const coach = el('button',
-                'wb-note-row-coach' + (vm.languageHint && !vm.planningType ? ' suspected-activity' : ''),
-                {
-                    type: 'button',
-                    'aria-haspopup': 'dialog',
-                    'aria-expanded': 'false',
-                    'aria-label': `Planning hint for ${name}`,
-                });
-            coach.textContent = vm.planningType === 'product' ? 'P'
-                : vm.planningType === 'activity' ? 'A' : '\u2726';
-            // One sentence, both places -- the tooltip and the accessible name
-            // used to describe different things.
-            coach.title = vm.planningType
-                ? `Planning hint for ${name}: this is a ${vm.planningType}`
-                : `Planning hint for ${name}: this wording may describe an activity`;
-            coach.setAttribute('aria-label', coach.title);
-            hintSlot.appendChild(coach);
-        }
-
-        const peopleSlot = el('div', 'wb-note-row-slot wb-note-row-slot-people');
-        gutter.appendChild(peopleSlot);
         const resources = vm.resources || [];
         if (resources.length) {
             // One <np-resource-stack> (#1246, under #1199), which owns the
             // overlap, the cap, the overflow chip and the hover profile card.
             const stack = el('np-resource-stack', 'wb-note-row-avatar', {
-                max: String(WB_ROW_AVATAR_CAP), size: '14',
+                max: String(ROW_AVATAR_CAP), size: '14',
             });
             stack.names = resources;
             if (this._details) stack.details = this._details;
-            peopleSlot.appendChild(stack);
+            refs.peopleSlot.appendChild(stack);
         }
-        const assign = el('button', 'wb-note-row-smart wb-note-row-resource', {
-            type: 'button',
-            'aria-haspopup': 'menu',
-            'aria-expanded': 'false',
-            'aria-label': `Assign a resource to ${name}`,
-        });
-        assign.textContent = '\uFF0B';
-        assign.title = 'Quick assign';
-        peopleSlot.appendChild(assign);
-
-        const depSlot = el('div', 'wb-note-row-slot wb-note-row-slot-dep');
-        gutter.appendChild(depSlot);
-        // Leaf rows only -- a summary row is never a dependency endpoint, so it
-        // shows the count badge at position 7 instead and never both.
-        if (!vm.hasChildren) {
-            const handle = el('button', 'wb-note-row-dep-handle', {
-                type: 'button',
-                title: `Draw a dependency from "${name}": drag to the task that depends on it`,
-                'aria-label': `Draw a dependency from "${name}": drag to the task that depends on it`,
-            });
-            handle.innerHTML = noodleGlyph(12);
-            depSlot.appendChild(handle);
-        }
+        refs.peopleSlot.appendChild(refs.assignBtn);
 
         if (vm.depTarget === 'valid') row.classList.add('wb-dep-row-target');
         if (vm.depTarget === 'invalid') row.classList.add('wb-dep-row-target-invalid');
@@ -523,14 +395,7 @@ export class NpNote extends HTMLElement {
      * app's own wbBuildAddChildRow() carries the same warning.
      */
     _buildAddRow() {
-        const row = el('div', 'wb-note-add-row');
-        const icon = el('span', 'wb-note-add-icon', { 'aria-hidden': 'true' });
-        icon.textContent = '+';
-        const input = el('input', 'wb-note-add-input', {
-            type: 'text', placeholder: 'Add task…', 'aria-label': `Add a task to ${this.task}`,
-        });
-        row.append(icon, input);
-        return row;
+        return buildAddRow(this.task).row;
     }
 
     _renderFooter(freeform) {
@@ -638,15 +503,6 @@ export class NpNote extends HTMLElement {
     }
 }
 
-/** The noodle glyph, shared by the header's link handle and the row's
- * dependency handle -- whiteboard-notes.js's wbNoodleGlyph() (#1248). The two
- * used to carry byte-identical markup apart from their size. */
-function noodleGlyph(size) {
-    return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" ` +
-        'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
-        '<circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/>' +
-        '<path d="M4 6 C4 11, 7 12, 10 12"/></svg>';
-}
 
 if (!customElements.get('np-note')) {
     customElements.define('np-note', NpNote);

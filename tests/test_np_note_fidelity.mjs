@@ -1,18 +1,25 @@
 /**
- * <np-note> models every control the whiteboard note actually renders (#1242).
+ * The note is built once, and both the board and Storybook build from it
+ * (#1242, then #1249).
  *
- * Phase A of #1241 exists because the component had drifted a long way from
- * the app: the shipping note's header carries six buttons to the component's
+ * Phase A of #1241 existed because the component had drifted a long way from
+ * the app: the shipping note's header carried six buttons to the component's
  * one, and its checklist row up to ten children to the component's two. That
- * is not a drift anyone introduced on purpose -- it is what happens when the
+ * was not a drift anyone introduced on purpose -- it is what happens when the
  * app grows a control and nothing says the component should too.
  *
- * So this is the thing that says so. It parses the class names the app's own
- * note builders append and fails when one has no counterpart in np-note.js.
- * Add a control to a row on the board and this goes red until Storybook shows
- * it, which is the only way "a component that looks wrong in Storybook looks
- * wrong in NoodlePlanner" (docs/design/consolidation-and-handoff.md) stays
- * true rather than being a thing someone remembered to do once.
+ * Phase A's answer was this test: parse the class names the app's builders
+ * append, and fail when one has no counterpart in the component. That worked,
+ * and it was still two sources being compared. #1249 removed the second one --
+ * `components/note/note-markup.js` builds the card, the checklist row and the
+ * add row, and `wbBuildChildRow()` / `wbCreateNoteNode()` / `NpNote` all call
+ * it -- so the parity assertions below now read the shared module as part of
+ * "the component", and a second set of assertions keeps it that way by failing
+ * if either caller starts building `.wb-note-*` markup of its own again.
+ *
+ * Both halves matter. Parity alone would pass if someone re-typed the markup
+ * identically in both places; single-source alone would pass if a control were
+ * dropped from the builder entirely.
  *
  * Source-parity rather than DOM: there is no jsdom in this repo --
  * tests/test_whiteboard_notes.js runs the real module in a `vm` sandbox over
@@ -32,7 +39,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const STATIC = join(HERE, '../packages/noodle-web/src/noodle_web/static');
 
 const appSource = readFileSync(join(STATIC, 'whiteboard-notes.js'), 'utf8');
-const componentSource = readFileSync(join(STATIC, 'components/note/np-note.js'), 'utf8');
+const npNoteSource = readFileSync(join(STATIC, 'components/note/np-note.js'), 'utf8');
+const markupSource = readFileSync(join(STATIC, 'components/note/note-markup.js'), 'utf8');
+
+/** "The component" is now np-note plus the builder it and the board share. */
+const componentSource = npNoteSource + '\n' + markupSource;
 
 /** Source with comments removed.
  *
@@ -48,9 +59,15 @@ function code(source) {
 
 const componentCode = code(componentSource);
 
-/** The body of `function <name>(...)`, by brace matching from its opening `{`. */
+/** The body of `function <name>(...)` or of a class method `<name>(...) {`,
+ * by brace matching from its opening `{`. Both forms are needed: the app's
+ * builders are plain functions and np-note's are methods. */
 function functionBody(source, name) {
-    const start = source.indexOf(`function ${name}(`);
+    let start = source.indexOf(`function ${name}(`);
+    if (start === -1) {
+        const method = new RegExp(`^\\s{4}${name}\\([^)]*\\)\\s*\\{`, 'm').exec(source);
+        if (method) start = method.index;
+    }
     assert.notEqual(start, -1, `${name}() not found -- has it been renamed?`);
     const open = source.indexOf('{', start);
     let depth = 0;
@@ -78,9 +95,47 @@ const BUILDERS = [
     'wbUpdateNoteNode',
     'wbBuildChildRow',
     'wbAppendChildResourceControls',
-    'wbAppendRowDependencyHandle',
     'wbBuildAddChildRow',
 ];
+
+/**
+ * The functions that must no longer create `.wb-note-*` markup themselves,
+ * paired with the file they live in. Each one used to, and each one now asks
+ * note-markup.js for it -- which is what makes the parity above structural
+ * rather than a thing two files happen to agree on today.
+ *
+ * `wbUpdateNoteNode()` is not here: it *fills* the skeleton rather than
+ * building it, and the per-render classes it toggles (`wb-note-title-only`,
+ * `wb-note-flash`, the link-target states) are behaviour, not markup.
+ */
+const SINGLE_SOURCE = [
+    ['whiteboard-notes.js', 'wbCreateNoteNode', appSource],
+    ['whiteboard-notes.js', 'wbBuildChildRow', appSource],
+    ['whiteboard-notes.js', 'wbBuildAddChildRow', appSource],
+    ['np-note.js', '_build', npNoteSource],
+    ['np-note.js', '_buildRow', npNoteSource],
+    ['np-note.js', '_buildAddRow', npNoteSource],
+];
+
+/**
+ * Classes a caller may still name even though it does not build the markup --
+ * a state it toggles, or a slot it fills, on an element the builder made.
+ */
+const CALLER_MAY_NAME = new Set([
+    // The board's note host is an SVG <foreignObject>, which cannot be built
+    // by a markup module that knows nothing about the board's SVG layer -- so
+    // wbCreateNoteNode() still makes that one element itself, and np-note puts
+    // the same class on its own host.
+    'wb-note',
+    // np-note's own drop-target state, set from a story arg rather than from a
+    // live drag. The board sets the same two classes from whiteboard-dep-noodles.js.
+    'wb-dep-row-target',
+    'wb-dep-row-target-invalid',
+    // Filled by the caller, because only the caller knows the resources: the
+    // board hands wbFillResourceStack() its own <np-resource-stack>, np-note
+    // makes one from a story arg.
+    'wb-note-row-avatar',
+]);
 
 /**
  * Classes the app applies that the component deliberately does not, each with
@@ -113,6 +168,56 @@ test('<np-note> models every class the app builds onto a note', () => {
         'Either add them to the component, or add them to NOT_MODELLED with a\n' +
         'reason:\n  ' + missing.join('\n  ')
     );
+});
+
+test('neither caller builds the note\'s markup itself any more', () => {
+    const offenders = [];
+    for (const [file, fn, source] of SINGLE_SOURCE) {
+        const body = functionBody(source, fn);
+        for (const token of classTokens(body)) {
+            if (CALLER_MAY_NAME.has(token)) continue;
+            offenders.push(`${file}: ${fn}() names ${token}`);
+        }
+        // The give-away is element creation, not just a class name: a caller
+        // that reaches for createElement is building markup by hand again.
+        //
+        // One exception, and only one: the board's note host is an SVG
+        // <foreignObject>, which a markup module that knows nothing about the
+        // board's SVG layer cannot build. Anything created in SVG_NS is that
+        // host; anything created in the HTML namespace is note markup.
+        const creations = [...body.matchAll(/document\.createElement(?:NS)?\s*\(([^,)]*)/g)]
+            .map((m) => m[1].trim())
+            .filter((ns) => ns !== 'SVG_NS');
+        if (creations.length) {
+            offenders.push(`${file}: ${fn}() builds elements itself (${creations.join(', ')})`);
+        }
+    }
+    assert.deepEqual(
+        offenders,
+        [],
+        'the note\'s markup has to come from components/note/note-markup.js, so\n'
+        + 'that Storybook and the board cannot show different notes:\n  '
+        + offenders.join('\n  ')
+    );
+});
+
+test('the shared builder is what both sides actually call', () => {
+    // A weaker version of the test above would pass if a caller simply stopped
+    // rendering the row. This is the other half: each side reaches the module.
+    assert.ok(
+        /globalThis\.NoodleNoteMarkup/.test(appSource),
+        'whiteboard-notes.js should take its markup from globalThis.NoodleNoteMarkup'
+    );
+    assert.ok(
+        /from '\.\/note-markup\.js'/.test(npNoteSource),
+        'np-note.js should import the shared builder'
+    );
+    for (const fn of ['buildNoteCard', 'buildChecklistRow', 'buildAddRow']) {
+        assert.ok(
+            new RegExp(`export function ${fn}\\b`).test(markupSource),
+            `note-markup.js should export ${fn}()`
+        );
+    }
 });
 
 test('the exclusion list has not grown stale', () => {

@@ -186,6 +186,11 @@
        fill it was a themed patch rather than a lift of the note's own paper:
        in dark mode it is a *dark* wash over a light swatch. */
     --wb-note-hover: color-mix(in srgb, var(--wb-note-text) 8%, transparent);
+    /* The same idea at the weight a pressed/hovered *button* wants rather than
+       a row (#1249). It replaces three `rgba(0, 0, 0, 0.1)` declarations on
+       the header's buttons and the dark-mode overrides that existed only
+       because those were black. */
+    --wb-note-hover-strong: color-mix(in srgb, var(--wb-note-text) 12%, transparent);
     /* Fed to <np-resource-stack> (#1246), whose chips would otherwise carry
        the same theme surface as a separator ring and as the overflow chip's
        fill -- both invisible on a light pastel in light mode and a dark
@@ -356,7 +361,14 @@
 .wb-note-menu-btn:hover,
 .wb-note-menu-btn:focus-visible {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.1);
+    /* The note's own ink, not a fixed black tint (#1249). `rgba(0, 0, 0, 0.1)`
+       is built for a light surface, which is why dark-mode.css carried a
+       `rgba(255, 255, 255, 0.15)` override for this rule -- and that override
+       was wrong, because a note is a light pastel in *both* themes, so dark
+       mode lightened a hover that sits on light paper. Deriving it from
+       --wb-note-text is correct in either theme and on every swatch, and the
+       override is gone. */
+    background: var(--wb-note-hover-strong);
 }
 
 /* A real focus indicator (#1247). This button only changed opacity and
@@ -2006,7 +2018,7 @@ body.wb-note-drag-active * {
 
 .wb-note-link-handle:hover {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--wb-note-hover-strong);
 }
 
 /* Touch has no hover, so the handle can never be revealed by one --
@@ -2043,7 +2055,7 @@ body.wb-note-drag-active * {
 .wb-note-promote-btn:hover,
 .wb-note-promote-btn:focus-visible {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--wb-note-hover-strong);
 }
 
 @media (pointer: coarse) {
