@@ -285,6 +285,15 @@ const WB_NOTE_DEFAULT_HEIGHT = 220;
  * fallback covers the window before the deferred module has run -- nothing
  * renders a note that early, but a `const` evaluated at script-eval time
  * would capture `undefined` if one did. */
+/* np-resource-stack's own numbers, which this file has to know to reserve the
+   right width for a stack it does not draw. Keep in step with
+   `.wb-note-row-avatar`'s --np-avatar-size and the component's default
+   --np-avatar-overlap. */
+const WB_ROW_AVATAR_PX = 20;
+const WB_ROW_AVATAR_OVERLAP_PX = 5;
+const WB_ROW_SLOT_GAP_PX = 4;
+const WB_ROW_ASSIGN_PX = 20;
+
 function wbRowAvatarCap() {
     const markup = globalThis.NoodleNoteMarkup;
     return (markup && markup.ROW_AVATAR_CAP) || 3;
@@ -1736,10 +1745,11 @@ function wbCreateNoteNode() {
     // resize, link and menu gestures, all of which read `fo.dataset.wbTask` at
     // event time rather than closing over a view model, so they keep working
     // across the re-renders that reuse this same node for the same task.
-    const { card, refs } = globalThis.NoodleNoteMarkup.buildNoteCard();
+    const { card, rails, refs } = globalThis.NoodleNoteMarkup.buildNoteCard();
     const {
         header, title, menuBtn, linkHandle, coachBtn,
         parentCaption, body, footer, progress, resizeHandle,
+        railHint, railDep,
     } = refs;
 
     // Colour swatches are the menu button's contents for issue #849; two
@@ -1783,15 +1793,20 @@ function wbCreateNoteNode() {
         if (taskName) wbToggleCoachingMenu(taskName, coachBtn);
     });
 
-    fo.appendChild(card);
+    // The rails go beside the card, not in it: both `.wb-note-card` and
+    // `.wb-note-body` clip horizontally, and this <foreignObject> is the first
+    // ancestor that does not (`.wb-note { overflow: visible }`).
+    fo.append(card, rails);
 
     const entry = {
         fo,
         refs: {
             card, header, title, menuBtn, linkHandle, coachBtn, parentCaption,
-            body, footer, progress, resizeHandle,
+            body, footer, progress, resizeHandle, rails, railHint, railDep,
         },
     };
+
+    wbWireRowRails(entry);
 
     // Drag (header) and resize (corner handle) wiring -- issue #848. Both
     // read the note's *current* rect off entry.fo's own dataset at
@@ -1895,6 +1910,10 @@ function wbUpdateNoteNode(entry, vm) {
     // Save/restore scrollTop across the rebuild so an in-progress scroll
     // inside a long note survives a plan-text-driven re-render.
     const savedScrollTop = refs.body.scrollTop;
+    // The rails point at a row by name and are about to outlive every row in
+    // this body. Hiding them here means the next pointerover re-places them
+    // against the rebuilt row rather than leaving a handle beside a gap.
+    if (typeof entry.railsHide === 'function') entry.railsHide();
     refs.body.innerHTML = '';
 
     // Free-form vs. checklist (issue #1015) -- see wbIsFreeformNote() and
@@ -1933,6 +1952,7 @@ function wbUpdateNoteNode(entry, vm) {
             refs.body.appendChild(wbBuildChildRow(childVm));
         });
     }
+    wbSizeNotePeopleSlot(refs.card, vm.children);
     // A note that has both kinds gets a quiet footer line naming the ones
     // that left, so nothing a user typed into this note appears to vanish
     // when they noodle it out onto the board.
@@ -1974,6 +1994,44 @@ function wbUpdateNoteNode(entry, vm) {
 // small, self-contained sibling to the post-it rendering above: its own
 // node map (wbTextNodes), its own drag state (wbActiveTextDrag), never
 // touching wbNoteNodes/wbBuildNoteViewModel/the task outline.
+
+
+/**
+ * Size this note's people slot to what this note's rows actually carry.
+ *
+ * The slot reserves its width on every row whether or not the row has anyone
+ * on it -- that is #1243's rule, and it is what keeps a busy row and a bare
+ * row the same shape. What it does not have to do is reserve the width of the
+ * *worst case in the app*: a note whose rows name one person each was holding
+ * 78px open for three chips plus an overflow chip that could never appear on
+ * it, and the task names paid for all of it.
+ *
+ * So the reservation is per note, from that note's own widest row. Every row
+ * in a card still agrees with every other row in that card, which is the
+ * alignment anyone can actually see; two different notes disagreeing is not
+ * something a reader can put side by side.
+ *
+ * The narrow-tier container query sets --wb-row-people on `.wb-note-row`,
+ * which is an own declaration and so still beats this inherited one.
+ */
+function wbSizeNotePeopleSlot(card, children) {
+    const cap = wbRowAvatarCap();
+    let widest = 0;
+    let overflowed = false;
+    for (const childVm of children) {
+        const n = (childVm.resources || []).length;
+        if (n > cap) overflowed = true;
+        widest = Math.max(widest, Math.min(n, cap));
+    }
+
+    // Mirrors np-resource-stack's own geometry: chips overlap by
+    // --np-avatar-overlap, the overflow chip is one more chip, and the
+    // quick-assign control sits after the stack across one slot gap.
+    const chips = widest + (overflowed ? 1 : 0);
+    const stack = chips ? (chips * WB_ROW_AVATAR_PX - (chips - 1) * WB_ROW_AVATAR_OVERLAP_PX) : 0;
+    const width = stack + (stack ? WB_ROW_SLOT_GAP_PX : 0) + WB_ROW_ASSIGN_PX;
+    card.style.setProperty('--wb-row-people', `${width}px`);
+}
 
 /**
  * Render (or update in place) every text object `items` (already filtered
@@ -3047,52 +3105,201 @@ function wbBuildChildRow(childVm) {
         row.addEventListener('click', () => wbTogglePeekFor(child.name, refs.countBadge));
     }
 
-    if (refs.coachBtn) {
-        refs.coachBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            wbToggleCoachingMenu(child.name, refs.coachBtn);
-        });
-    }
+    // No per-row coach button or dependency handle to wire: both are rail
+    // controls now (wbWireRowRails()), shared by every row of this note and
+    // pointed at whichever row is active. The row carries what they need to
+    // know in `data-wb-row-coach` / `data-wb-row-dep`, written by the builder.
 
     wbAppendChildResourceControls(refs.peopleSlot, childVm, refs.assignBtn);
-    if (refs.depHandle) wbWireRowDependencyHandle(refs.depHandle, childVm);
 
     return row;
 }
 
+// ── Row rails ───────────────────────────────────────────────────────────
+//
+// The planning hint and the dependency handle, drawn outside the card level
+// with whichever row the pointer or the keyboard is on. See buildNoteCard()
+// in components/note/note-markup.js for why they left the row's gutter and
+// why they are a sibling of the card rather than a child of it.
+//
+// One pair per note, moved to the active row, rather than a pair per row:
+// only one row can be active at a time, so a note with twenty rows still has
+// two rail buttons. The pair reads the row it is currently serving from its
+// own dataset at event time -- the same trick the note's header controls use
+// with `fo.dataset.wbTask` -- so a re-render that rebuilds every row does not
+// leave a rail wired to a row that no longer exists.
+
 /**
- * Append the row-level dependency-drag handle (issue #1106, epic #1090):
- * a small icon at the row's own right-hand end -- after every other
- * trailing control, so it is always the last, right-most thing in the
- * row, per the issue's own "to the right of the checkbox task name
- * (aligned to the right)" wording -- shown only on hover/focus (views/
- * whiteboard.css's `.wb-note-row:hover`) so a board at rest still reads
- * as checklists, not a grid of controls, matching `.wb-note-link-handle`'s
- * existing convention on the note header.
- *
- * Only ever added for a *leaf* child row (`!childVm.hasChildren` -- the
- * same "does this task have children of its own" signal wbHasChildren()
- * already computes for the count-badge/peek decision above, reused here
- * rather than a second, possibly-diverging "is this a summary task"
- * check): the epic's "not summary task/note level -- it has to be
- * another task" rule means a summary child row can never be a dependency
- * endpoint, so it never even offers the handle. plan-model.js's
- * canAddDependency() enforces the same rule server-side-of-the-DOM (on
- * both the drag's source and whatever it's dropped on), so this is a
- * usability guard, not the only guard.
+ * Leaving the card to reach a rail button means crossing the --wb-rail-gap
+ * of board between them, which is a `pointerleave` on the card. Hiding on that would make the
+ * buttons unreachable -- the pointer moves toward one and it disappears --
+ * so a hide is scheduled rather than immediate, and entering either button
+ * cancels it. The buttons also carry transparent padding back toward the card
+ * so the gap itself is inside their hit box; this timeout only has to cover
+ * the pointer being between the two boxes for a frame or two.
  */
-function wbWireRowDependencyHandle(handle, childVm) {
-    const child = childVm.task;
-    handle.addEventListener('mousedown', (e) => {
+const WB_RAIL_HIDE_MS = 140;
+
+function wbWireRowRails(entry) {
+    const { card, body, rails, railHint, railDep } = entry.refs;
+    let hideTimer = null;
+
+    const cancelHide = () => {
+        if (hideTimer === null) return;
+        clearTimeout(hideTimer);
+        hideTimer = null;
+    };
+    const hideNow = () => {
+        cancelHide();
+        railHint.hidden = true;
+        railDep.hidden = true;
+        rails.dataset.wbRailRow = '';
+    };
+    const scheduleHide = () => {
+        cancelHide();
+        hideTimer = setTimeout(hideNow, WB_RAIL_HIDE_MS);
+    };
+    entry.railsHide = hideNow;
+
+    // Delegated, so rows rebuilt by wbUpdateNoteNode() need no wiring of their
+    // own. `pointerover` rather than `mouseenter` because it bubbles; a move
+    // within one row re-runs this, which is cheap and keeps the rails right
+    // where the row has reflowed under the pointer.
+    card.addEventListener('pointerover', (e) => {
+        const row = e.target.closest && e.target.closest('.wb-note-row');
+        if (!row || !card.contains(row)) return;
+        cancelHide();
+        wbShowRowRails(entry, row);
+    });
+    // Touch has no hover at all, so a tap is the only way in. `pointerdown`
+    // covers it and costs a mouse user nothing -- they have already been
+    // served by `pointerover` before the button goes down.
+    card.addEventListener('pointerdown', (e) => {
+        const row = e.target.closest && e.target.closest('.wb-note-row');
+        if (!row || !card.contains(row)) return;
+        cancelHide();
+        wbShowRowRails(entry, row);
+    });
+    card.addEventListener('pointerleave', scheduleHide);
+
+    // Keyboard: a row has no focus of its own, but its controls do, so the
+    // rails follow whatever inside a row has focus.
+    card.addEventListener('focusin', (e) => {
+        const row = e.target.closest && e.target.closest('.wb-note-row');
+        if (!row) return;
+        cancelHide();
+        wbShowRowRails(entry, row);
+    });
+
+    for (const btn of [railHint, railDep]) {
+        btn.addEventListener('pointerenter', cancelHide);
+        btn.addEventListener('pointerleave', scheduleHide);
+        btn.addEventListener('focus', cancelHide);
+        btn.addEventListener('blur', scheduleHide);
+    }
+
+    // A scroll inside the note moves the row out from under its rails, so they
+    // are re-placed against the row they are already serving -- which also
+    // hides them once that row scrolls out of the body's visible band.
+    body.addEventListener('scroll', () => {
+        const name = rails.dataset.wbRailRow;
+        if (!name) return;
+        const row = wbFindRowByTask(body, name);
+        if (row) wbShowRowRails(entry, row);
+        else hideNow();
+    });
+
+    railHint.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const name = rails.dataset.wbRailRow;
+        if (name) wbToggleCoachingMenu(name, railHint);
+    });
+    railDep.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         e.preventDefault();
         e.stopPropagation();
-        if (typeof wbBeginRowDepDrag === 'function') wbBeginRowDepDrag(child.name, e.clientX, e.clientY);
+        const name = rails.dataset.wbRailRow;
+        if (name && typeof wbBeginRowDepDrag === 'function') {
+            wbBeginRowDepDrag(name, e.clientX, e.clientY);
+        }
     });
-    handle.addEventListener('touchstart', (e) => {
-        if (typeof wbRowDepHandleTouchStart === 'function') wbRowDepHandleTouchStart(e, child.name);
+    railDep.addEventListener('touchstart', (e) => {
+        const name = rails.dataset.wbRailRow;
+        if (name && typeof wbRowDepHandleTouchStart === 'function') {
+            wbRowDepHandleTouchStart(e, name);
+        }
     }, { passive: false });
-    handle.addEventListener('click', (e) => e.stopPropagation());
+    railDep.addEventListener('click', (e) => e.stopPropagation());
+}
+
+/** The checklist row for `taskName` inside one note's body, or null. */
+function wbFindRowByTask(body, taskName) {
+    return body.querySelector(
+        `.wb-note-row[data-wb-row-task="${(window.CSS && CSS.escape)
+            ? CSS.escape(taskName) : taskName}"]`);
+}
+
+/**
+ * Put this note's rail buttons level with `row` and show the ones it asks for.
+ *
+ * Geometry is read through bounding boxes and divided back out by the board's
+ * own zoom, rather than walked up `offsetTop`: the rails hang off the
+ * <foreignObject> and the row sits two positioned ancestors deeper inside a
+ * scroller, so an offset chain would have to know about both. A rect is the
+ * same measurement whatever the chain, and `scale` converts it from screen
+ * pixels back into the layout pixels the rails are positioned in.
+ */
+function wbShowRowRails(entry, row) {
+    const { card, body, rails, railHint, railDep } = entry.refs;
+
+    const cardRect = card.getBoundingClientRect();
+    const scale = card.offsetHeight ? (cardRect.height / card.offsetHeight) : 1;
+    if (!scale) return;
+    const rowRect = row.getBoundingClientRect();
+    const bodyRect = body.getBoundingClientRect();
+
+    // Scrolled out of the body's visible band: no rails, rather than rails
+    // floating beside the header or the footer.
+    const midpoint = rowRect.top + rowRect.height / 2;
+    if (midpoint < bodyRect.top || midpoint > bodyRect.bottom) {
+        railHint.hidden = true;
+        railDep.hidden = true;
+        return;
+    }
+
+    rails.dataset.wbRailRow = row.dataset.wbRowTask || '';
+    // The row's midpoint. `.wb-note-rail` pulls itself up by half its own
+    // height from here -- see the transform on that rule for why the halving
+    // is not done here.
+    const top = (midpoint - cardRect.top) / scale;
+    railHint.style.top = `${top}px`;
+    railDep.style.top = `${top}px`;
+
+    let coach = null;
+    try {
+        coach = row.dataset.wbRowCoach ? JSON.parse(row.dataset.wbRowCoach) : null;
+    } catch (err) {
+        coach = null; // a malformed stash is a missing hint, not a broken note
+    }
+    if (coach) {
+        railHint.textContent = coach.glyph;
+        railHint.classList.toggle('suspected-activity', !!coach.suspected);
+        railHint.title = coach.label;
+        railHint.setAttribute('aria-label', coach.label);
+        railHint.hidden = false;
+    } else {
+        railHint.hidden = true;
+    }
+
+    if (row.dataset.wbRowDep === 'true') {
+        const name = row.dataset.wbRowTask || '';
+        const label = `Draw a dependency from "${name}": drag to the task that depends on it`;
+        railDep.title = label;
+        railDep.setAttribute('aria-label', label);
+        railDep.hidden = false;
+    } else {
+        railDep.hidden = true;
+    }
 }
 
 /**
@@ -3123,7 +3330,12 @@ function wbAppendChildResourceControls(slot, childVm, assign) {
     // not placed -- the order is avatars then assign, and only this side knows
     // whether there are any avatars.
     if (resources.length) {
-        const stack = wbFillResourceStack(null, resources, wbRowAvatarCap(), 14, child.name);
+        // No `size`: the attribute writes --np-avatar-size as an *inline*
+        // style, which outranks both `.wb-note-row-avatar`'s own value and the
+        // narrow-tier container query that is supposed to shrink the chips.
+        // Passing 14 here is what pinned every row chip at 14px and made both
+        // of those rules dead letters. CSS owns the size now.
+        const stack = wbFillResourceStack(null, resources, wbRowAvatarCap(), null, child.name);
         stack.setAttribute('class', 'wb-note-row-avatar');
         slot.appendChild(stack);
     }

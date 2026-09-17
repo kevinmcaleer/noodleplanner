@@ -175,13 +175,14 @@
 
        and they clear both thresholds on the uncoloured fallback too
        (--np-text over --np-border: 5.17/3.39 light, 5.07/3.80 dark).
-       --wb-note-rule is a hairline divider between regions of one card,
-       which 1.4.11 does not cover, so it is tuned by eye and not scored;
-       it exists because the dividers used to be --np-border, a *theme*
-       token painted on a pastel fill -- 1.07:1 on #F7A8B8 in dark. */
+
+       There is no --wb-note-rule any more. The card carried four divider
+       treatments at the start of #1250, then two, then one; the last one
+       drew a line across a note whenever it had a linked child or a parent
+       caption, which is a fact about the plan, not a section boundary.
+       Spacing and the muted ink do that job without drawing anything. */
     --wb-note-ink-muted: color-mix(in srgb, var(--wb-note-text) 70%, transparent);
     --wb-note-ink-faint: color-mix(in srgb, var(--wb-note-text) 55%, transparent);
-    --wb-note-rule: color-mix(in srgb, var(--wb-note-text) 18%, transparent);
     /* Row hover, likewise. --np-bg-hover is a theme surface, so on a pastel
        fill it was a themed patch rather than a lift of the note's own paper:
        in dark mode it is a *dark* wash over a light swatch. */
@@ -235,9 +236,12 @@
        note's width is plan data (160..N), not a breakpoint. */
     container-type: inline-size;
     --wb-row-deliv: 18px;
-    --wb-row-hint: 18px;
-    --wb-row-people: 70px;
-    --wb-row-dep: 18px;
+    /* The worst case -- three 20px chips overlapping by 5, an overflow chip,
+       and the quick-assign control across one slot gap. It is only ever the
+       fallback: wbSizeNotePeopleSlot() (whiteboard-notes.js) overwrites this
+       per note with what that note's widest row actually carries, so a card
+       whose rows name one person each reserves 44px rather than 89. */
+    --wb-row-people: 89px;
     --wb-row-slot-gap: var(--np-space-4);
     --wb-row-gap: var(--np-space-8);
 }
@@ -449,8 +453,7 @@
     --wb-ind-chip-radius: 9px;
 }
 
-.wb-note-coach-btn,
-.wb-note-row-coach {
+.wb-note-coach-btn {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
@@ -493,10 +496,36 @@
     background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
+/* Quick assign: the dashed circle at the end of the people slot.
+   It is a gesture, not a fact about the task, so it is shown only while the
+   row is hovered or focused -- the same convention the rails and the note's
+   own link handle use. `opacity` rather than `display`, so the slot keeps its
+   width and nothing in the row moves when the pointer arrives. */
 .wb-note-row-resource {
     width: 20px;
+    height: 20px;
     padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border-style: dashed;
+    opacity: 0;
+    transition: opacity 0.12s ease, box-shadow 0.12s ease;
+}
+
+.wb-note-row:hover .wb-note-row-resource,
+.wb-note-row-resource:focus-visible,
+.wb-note-row-resource[aria-expanded="true"] {
+    opacity: 0.75;
+}
+
+.wb-note-row:hover .wb-note-row-resource:hover {
+    opacity: 1;
+}
+
+/* Touch has no hover, so the control could never be revealed by one. */
+@media (pointer: coarse) {
+    .wb-note-row-resource { opacity: 0.75; }
 }
 
 .wb-note-smart-btn:hover,
@@ -579,9 +608,7 @@
 }
 
 .wb-note-coach-btn:hover,
-.wb-note-coach-btn:focus-visible,
-.wb-note-row-coach:hover,
-.wb-note-row-coach:focus-visible {
+.wb-note-coach-btn:focus-visible {
     background: color-mix(in srgb, currentColor 18%, transparent);
     border-color: currentColor;
 }
@@ -590,24 +617,19 @@
    ink rather than the fixed yellow it used to carry, which was a light-mode
    palette painted on a note fill in both themes. */
 .wb-note-coach-btn.suspected-activity,
-.wb-note-row-coach.suspected-activity {
+.wb-note-rail-hint.suspected-activity {
     background: color-mix(in srgb, currentColor 18%, transparent);
     border-color: currentColor;
 }
 
 .wb-note-coach-btn.typed,
-.wb-note-row-coach:not(.suspected-activity) {
+.wb-note-rail-hint:not(.suspected-activity) {
     border-color: currentColor;
 }
 
-/* The row's own geometry, from the shared indicator tokens. The base rule
-   above keeps the header twin's 20px circle -- see the SCOPE note. */
-.wb-note-row-coach {
-    width: var(--wb-ind-size);
-    height: var(--wb-ind-size);
-    border-radius: var(--wb-ind-radius);
-    color: inherit;
-}
+/* The row's hint used to have its own geometry here, from the card's shared
+   indicator tokens. It is a rail now -- outside the card, where those tokens
+   do not resolve -- and `.wb-note-rail` carries its box instead. */
 
 .wb-coaching-menu {
     position: fixed;
@@ -764,10 +786,10 @@
  * pointer enters it -- that is a rule, not an accident of the one control
  * that currently reveals on hover.
  *
- * Every width here is row-scoped. The note *header* carries twins of several
- * of these controls on shared selectors (`.wb-note-coach-btn,
- * .wb-note-row-coach` and friends), so sizing them through those rules would
- * silently resize the header too.
+ * Every width here is row-scoped. The note *header* carries a twin of the
+ * planning-hint glyph, so sizing that through a shared selector would silently
+ * resize the header too -- which is why the header keeps `.wb-note-coach-btn`
+ * and the row's hint is a rail with a box of its own.
  */
 .wb-note-row {
     display: flex;
@@ -814,7 +836,6 @@
     justify-content: center;
 }
 
-.wb-note-row-slot-hint { flex-basis: var(--wb-row-hint); }
 .wb-note-row-slot-people {
     flex-basis: var(--wb-row-people);
     gap: var(--np-space-4);
@@ -822,8 +843,13 @@
 
 /* The row's people slot holds one <np-resource-stack> (#1246), which owns the
    overlap, the cap and the overflow chip. The hand-rolled chips and the
-   `attr()`-driven counter that used to live here are gone with them. */
-.wb-note-row-slot-dep { flex-basis: var(--wb-row-dep); }
+   `attr()`-driven counter that used to live here are gone with them.
+
+   There is no hint or dependency slot. Those two reserved 18px each, plus two
+   slot gaps, on every row of every note whether or not the row had either --
+   and a 260px note has only so much to give. They are rail controls now
+   (`.wb-note-rail` below), drawn outside the card for the active row, and the
+   ~44px they used to hold went to the task name. */
 
 /* NB: these set the custom properties on `.wb-note-row` and
    `.wb-note-add-row`, not on `.wb-note-card`. The card is the query
@@ -832,17 +858,14 @@
    checklist rows because it reserves the same lead-zone columns (#1250); a
    tier that retunes one and not the other puts the "+" and "Add task…" out
    of line with the checkboxes and names directly above them. */
-@container (max-width: 239px) {
-    .wb-note-row,
-    .wb-note-add-row { --wb-row-hint: 0px; }
-    .wb-note-row-coach { display: none; }
-}
-
+/* The 240px tier used to zero the hint slot and hide the row's coach button.
+   Both are on the rails now, outside the card, where a narrow note costs them
+   nothing -- so that tier has nothing left to do and is gone. */
 @container (max-width: 199px) {
     .wb-note-row,
     .wb-note-add-row {
         --wb-row-deliv: 0px;
-        --wb-row-people: 40px;
+        --wb-row-people: 50px;
         /* Buy back 16px of row by halving the inter-zone gaps, so the name
            keeps its floor instead of the row overflowing the card. */
         --wb-row-gap: var(--np-space-4);
@@ -851,7 +874,11 @@
     /* Smaller chips rather than fewer: the cap lives in the component's `max`
        attribute and CSS cannot reach it, so the stack shrinks to fit the
        narrower slot instead of being clipped by it. */
-    .wb-note-row-avatar { --np-avatar-size: 12px; }
+    .wb-note-row-avatar { --np-avatar-size: 16px; }
+    /* The quick-assign control is a gesture, and at this width the row cannot
+       afford one it only ever shows on hover. The `...` menu and the task form
+       both still assign. */
+    .wb-note-row-resource { display: none; }
 }
 
 .wb-note-row:hover {
@@ -934,52 +961,106 @@
 .wb-note-row-avatar {
     flex-shrink: 0;
     display: inline-flex;
-    --np-avatar-size: 14px;
+    /* 14px gave the initials `calc(14px * 0.45)` = 6.3px of type, which is
+       below the smallest size anything else in the app renders at and is not
+       readable at any contrast ratio. The chip is the row's only picture of
+       who is doing the work, so it is sized to be read. The room came from the
+       hint and dependency slots leaving the gutter. */
+    --np-avatar-size: 20px;
 }
 
-/* Row-level dependency-drag handle (issue #1106, epic #1090): the
-   right-most control on a leaf checklist row (wbAppendRowDependencyHandle()
-   in whiteboard-notes.js), dimmed until the row is hovered or focused --
-   same convention as `.wb-note-link-handle` on the note header, just
-   scoped to one row instead of the whole card, and tinted purple to match
-   the dependency noodle it draws (views/whiteboard.css's own
-   `.wb-dep-noodle-path` below) rather than the header handle's default
-   (hierarchy) colour. */
-.wb-note-row-dep-handle {
-    flex-shrink: 0;
-    width: 18px;
-    height: 18px;
+/* ── The row rails (issue #1106's handle, #1243's hint, both relocated) ──
+   Two controls drawn *outside* the card, level with whichever row the pointer
+   or the keyboard is on: the planning hint to the left, the dependency handle
+   to the right. See buildNoteCard() in components/note/note-markup.js for why
+   they left the row's gutter, and wbWireRowRails() in whiteboard-notes.js for
+   how they find their row.
+
+   The container is a sibling of `.wb-note-card`, so nothing here is subject to
+   the card's `overflow: hidden` or the body's `overflow-x: hidden`. It must
+   stay `pointer-events: none` -- it covers the whole card, and the card's own
+   drag, resize and click handling is underneath it. The two buttons switch
+   pointer events back on for themselves. */
+.wb-note-rails {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: visible;
+}
+
+.wb-note-rail {
+    position: absolute;
+    /* `top` is the row's own midpoint, set per row in JS, and this pulls the
+       button back by half its height so the *border box* straddles it. Doing
+       the halving here rather than in JS means the padding below -- which is a
+       hover bridge and may change -- cannot put the glyph off-centre: `top`
+       positions a border box, so any JS that subtracted half the glyph's
+       height would be wrong by exactly the padding. */
+    transform: translateY(-50%);
+    width: var(--wb-rail-size, 18px);
+    height: var(--wb-rail-size, 18px);
     display: flex;
     align-items: center;
     justify-content: center;
+    box-sizing: content-box;
+    /* The padding is the hover bridge. The pointer has to cross the gap
+       between the card's edge and the button to reach it, and that gap is a
+       `pointerleave` on the row -- so the gap is inside the button's hit box
+       rather than outside it, and the leave never happens. `content-box` keeps
+       the padding out of the 18px the glyph is centred in.
+
+       Only the edge facing the card is padded: padding on the far side would
+       put a dead hit target on open board where a click should reach the
+       canvas. */
+    padding: 4px;
     border: none;
     border-radius: 4px;
     background: transparent;
+    pointer-events: auto;
+    cursor: pointer;
+    font: 700 10px/1 inherit;
+    /* Not the note's ink: a rail sits on the *board*, not on the note, so it
+       takes board-legible theme colour. --wb-note-text is chosen against the
+       note's pastel fill and can be near-white, which on the board is
+       invisible. */
+    color: var(--np-text-secondary);
+    opacity: 0.85;
+    transition: opacity 0.12s ease, background 0.12s ease;
+}
+
+.wb-note-rail[hidden] { display: none; }
+
+.wb-note-rail:hover,
+.wb-note-rail:focus-visible {
+    opacity: 1;
+    background: var(--np-bg-hover, rgba(0, 0, 0, 0.08));
+}
+
+/* Left of the card, right-padded so the bridge faces the note. */
+.wb-note-rail-hint {
+    right: calc(100% + var(--wb-rail-gap, 6px));
+    padding-left: 2px;
+    padding-right: calc(var(--wb-rail-gap, 6px) + 2px);
+}
+
+/* Right of the card, left-padded for the same reason. */
+.wb-note-rail-dep {
+    left: calc(100% + var(--wb-rail-gap, 6px));
+    padding-right: 2px;
+    padding-left: calc(var(--wb-rail-gap, 6px) + 2px);
+    /* Tinted to match the noodle it draws, as the in-row handle was. */
     color: var(--np-purple);
     cursor: crosshair;
-    opacity: 0;
-    padding: 0;
-    transition: opacity 0.12s ease, background 0.12s ease;
     touch-action: none;
 }
 
-.wb-note-row:hover .wb-note-row-dep-handle,
-.wb-note-row-dep-handle:focus-visible {
-    opacity: 0.75;
-}
-
-.wb-note-row-dep-handle:hover {
-    opacity: 1;
-    background: rgba(0, 0, 0, 0.1);
-}
-
-/* Touch has no hover, so the handle can never be revealed by one --
-   show it permanently on coarse pointers, same as the header link handle. */
+/* Coarse pointers get a target that meets SC 2.5.8 without the note having to
+   give up any width for it -- the rails are outside the card, so this costs
+   the row nothing. */
 @media (pointer: coarse) {
-    .wb-note-row-dep-handle {
-        opacity: 0.75;
-        width: 24px;
-        height: 24px;
+    .wb-note-rails {
+        --wb-rail-size: 24px;
+        --wb-rail-gap: 8px;
     }
 }
 
@@ -1043,7 +1124,31 @@
     background: var(--wb-note-hover);
 }
 
-.wb-note-add-input {
+/* Three selectors deep, and every one of them load bearing.
+   `.wb-note-add-input` on its own is (0,1,0), and it has been losing this
+   argument since the row was written -- which is why the row has been asked
+   to "look like the others" more than once and has never obeyed. Two global
+   element rules outrank it and both reach inside a whiteboard note:
+
+     views/gantt.css           input[type="text"]                     (0,1,1)
+                               -> padding 12px, border 2px, font-size 14px
+     visual-system.css         :root body :is(..., input[type="text"], ...)
+                                                                      (0,2,2)
+                               -> background --np-paper, 1px --np-border-
+                                  strong, radius --np-radius-control
+
+   Together they drew a filled, bordered, 14px form field with 12px of
+   padding in the middle of a card whose rows are 12px text on a pastel. No
+   gate caught it: check-contrast scores token pairings rather than rendered
+   elements, and lint:design reads declarations rather than the cascade, so
+   a rule that is written correctly and then overruled looks clean to both.
+   tests/ui/test_whiteboard_note_card.py now reads the *computed* style.
+
+   `.wb-note-card .wb-note-add-row .wb-note-add-input` is (0,3,0), which
+   beats both without `!important`. If a fourth global input rule ever
+   arrives, raise this and add its name to the list above rather than
+   reaching for a bang. */
+.wb-note-card .wb-note-add-row .wb-note-add-input {
     flex: 1;
     min-width: 0;
     border: none;
@@ -1051,8 +1156,11 @@
     background: transparent;
     font: inherit;
     font-size: 12px;
+    line-height: inherit;
     color: var(--wb-note-text);
     padding: 0;
+    border-radius: 0;
+    box-shadow: none;
     /* Starts exactly where a task name starts. Since the deliverable slot
        moved to the gutter, the lead zone is the checkbox and one gap, so that
        is all this has to reserve. `.wb-note-add-row` is still named alongside
@@ -1061,9 +1169,13 @@
     margin-left: calc(var(--np-checkbox-target, 24px) + var(--wb-row-gap));
 }
 
-.wb-note-add-input::placeholder {
+.wb-note-card .wb-note-add-row .wb-note-add-input::placeholder {
     color: var(--wb-note-ink-muted);
     font-style: italic;
+    /* visual-system.css sets `input::placeholder { opacity: 1 }` globally,
+       which is what this wants anyway -- named here so the ladder's own
+       alpha is the only thing deciding how faint the placeholder reads. */
+    opacity: 1;
 }
 
 .wb-note-footer {
@@ -2037,7 +2149,8 @@ body.wb-note-drag-active * {
        note. Dropping the fill lets the note's colour run unbroken behind
        the caption, and --wb-note-ink-muted is legible on every swatch. */
     color: var(--wb-note-ink-muted);
-    border-bottom: 1px solid var(--wb-note-rule);
+    /* No rule under it either, for the reason the linked summary below has
+       none: this is a one-line caption, not the head of a section. */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2049,9 +2162,13 @@ body.wb-note-drag-active * {
     font-size: 11px;
     font-style: italic;
     color: var(--wb-note-ink-muted);
-    /* Solid, like the header's and the footer's. A dashed hairline was
-       the card's fourth divider treatment (#1250). */
-    border-top: 1px solid var(--wb-note-rule);
+    /* No rule above it. This was the last divider left on the card after the
+       header's and the footer's went, and it was the one that showed: a note
+       with a linked child drew a full-width line across its body for no
+       reason the reader could act on. The line said "a section ends here",
+       which is not what this caption means -- it is one quiet footnote about
+       children that live elsewhere, and the italic muted ink says that on its
+       own. Spacing separates it now. */
 }
 
 .wb-note-title-only .wb-note-parent {

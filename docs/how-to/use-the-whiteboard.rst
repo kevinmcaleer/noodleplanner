@@ -68,7 +68,9 @@ dependency to the plan. **Who owns it?** opens the existing task-details
 resource field rather than inventing a second assignment interface.
 
 Activity-shaped checklist rows carry the same small ``✦`` hint, so you do
-not have to turn a subtask into its own note just to use the prompts.
+not have to turn a subtask into its own note just to use the prompts. On a row
+it appears just outside the note, level with the row, while you are pointing at
+that row.
 
 Rename a Note
 ---------------
@@ -106,9 +108,11 @@ You can also use **Unlink from "…"** on the note's ``...`` menu, which is easi
 Draw Dependency Links
 -----------------------
 
-Dependencies are drawn from a **task row**, not from a note. Hover a checklist row and a small handle appears at its right-hand end; drag it onto another task's row to draw a real scheduling dependency — the first task must finish before the second starts — the same relationship the ``[depends: ...]`` syntax and the Gantt view already use.
+Dependencies are drawn from a **task row**, not from a note. Hover a checklist row and a small noodle handle appears just outside the note, level with that row; drag it onto another task's row to draw a real scheduling dependency — the first task must finish before the second starts — the same relationship the ``[depends: ...]`` syntax and the Gantt view already use.
 
 Rows are the endpoints because only an individual task can have a dependency: a summary task's dates come from its children, so a summary row offers no handle at all, and dropping onto one is refused.
+
+The handle sits outside the note rather than inside the row, and so does the planning-hint ``✦`` on the row's other side. Both only appear for the row you are pointing at. They used to sit in the row itself, where they reserved their width on every row whether or not that row had either — which left the task name with almost nothing on a default-width note. Out on the margins they cost the name nothing.
 
 A dependency noodle is dashed and purple, so it never reads as a hierarchy link (solid, blue) even on a board that has both. As you drag, every row you pass over shows whether the link would be accepted.
 

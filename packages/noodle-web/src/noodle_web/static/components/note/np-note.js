@@ -204,12 +204,29 @@ export class NpNote extends HTMLElement {
         // element -- the "Storybook is a parallel drawing" problem the epic
         // exists to close. What is left here is what only a component does:
         // owning the menu button's click, since the board wires its own.
-        const { card, refs } = buildNoteCard();
+        const { card, rails, refs } = buildNoteCard();
         refs.menuBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this._toggleMenu(refs.menuBtn);
         });
-        this.appendChild(card);
+        // Beside the card, not inside it -- the card and its body both clip
+        // horizontally, so a rail drawn within either never leaves the note.
+        // The host is the positioning context; `_render()` keeps it relative.
+        this.append(card, rails);
+
+        // The rails follow the row under the pointer or the keyboard, same as
+        // the board. Delegated from the host, so rows rebuilt by `_render()`
+        // need no wiring of their own.
+        const activate = (e) => {
+            const row = e.target.closest && e.target.closest('.wb-note-row');
+            if (row && this.contains(row)) this._showRails(row);
+        };
+        card.addEventListener('pointerover', activate);
+        card.addEventListener('focusin', activate);
+        card.addEventListener('pointerleave', () => this._hideRails());
+        for (const btn of [refs.railHint, refs.railDep]) {
+            btn.addEventListener('pointerleave', () => this._hideRails());
+        }
 
         this._refs = refs;
         this._built = true;
@@ -231,6 +248,8 @@ export class NpNote extends HTMLElement {
         const height = Math.max(WB_NOTE_MIN_HEIGHT, Number(this.getAttribute('height')) || WB_NOTE_DEFAULT_HEIGHT);
         this.style.width = `${width}px`;
         this.style.height = `${height}px`;
+        // The rails are absolutely positioned against the host.
+        this.style.position = 'relative';
 
         // Colour fills the whole card raw (#1103) and the one text colour is
         // derived from it by real measured contrast.
@@ -277,6 +296,7 @@ export class NpNote extends HTMLElement {
     _renderBody(freeform) {
         const r = this._refs;
         const children = [];
+        this._hideRails();
 
         if (freeform) {
             // A free-form note with no comment renders no prose at all,
@@ -308,6 +328,15 @@ export class NpNote extends HTMLElement {
         } else {
             children.push(...this._rows.map((row) => this._buildRow(row)));
         }
+
+        // Same per-note people-slot reservation the board makes, so a story
+        // previews the width a note of this shape really gets (#1243).
+        const widest = this._rows.reduce(
+            (n, row) => Math.max(n, Math.min((row.resources || []).length, ROW_AVATAR_CAP)), 0);
+        const over = this._rows.some((row) => (row.resources || []).length > ROW_AVATAR_CAP);
+        const chips = widest + (over ? 1 : 0);
+        const stack = chips ? chips * 20 - (chips - 1) * 5 : 0;
+        r.card.style.setProperty('--wb-row-people', `${stack + (stack ? 4 : 0) + 20}px`);
 
         const linkedSummary = this.getAttribute('linked-summary');
         if (linkedSummary) {
@@ -364,8 +393,11 @@ export class NpNote extends HTMLElement {
         if (resources.length) {
             // One <np-resource-stack> (#1246, under #1199), which owns the
             // overlap, the cap, the overflow chip and the hover profile card.
+            // No `size` attribute -- it would write --np-avatar-size inline
+            // and outrank both `.wb-note-row-avatar` and the narrow-tier
+            // container query, which is exactly the bug the board just lost.
             const stack = el('np-resource-stack', 'wb-note-row-avatar', {
-                max: String(ROW_AVATAR_CAP), size: '14',
+                max: String(ROW_AVATAR_CAP),
             });
             stack.names = resources;
             if (this._details) stack.details = this._details;
@@ -389,6 +421,45 @@ export class NpNote extends HTMLElement {
      */
     _buildAddRow() {
         return buildAddRow(this.task).row;
+    }
+
+    /**
+     * Put the rails level with `row` and show what that row asks for -- the
+     * component's own small copy of the board's wbShowRowRails().
+     *
+     * Storybook is where the note is designed, so the rails have to be
+     * reachable here: a control that only exists on the canvas is a control
+     * nobody can look at. The geometry is simpler than the board's because
+     * there is no zoom transform to divide back out.
+     */
+    _showRails(row) {
+        const { rails, railHint, railDep } = this._refs;
+        const cardRect = this._refs.card.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+        const top = rowRect.top - cardRect.top + rowRect.height / 2;
+        rails.dataset.wbRailRow = row.dataset.wbRowTask || '';
+        railHint.style.top = `${top}px`;
+        railDep.style.top = `${top}px`;
+
+        let coach = null;
+        try {
+            coach = row.dataset.wbRowCoach ? JSON.parse(row.dataset.wbRowCoach) : null;
+        } catch { coach = null; }
+        if (coach) {
+            railHint.textContent = coach.glyph;
+            railHint.classList.toggle('suspected-activity', Boolean(coach.suspected));
+            railHint.title = coach.label;
+            railHint.setAttribute('aria-label', coach.label);
+        }
+        railHint.hidden = !coach;
+        railDep.hidden = row.dataset.wbRowDep !== 'true';
+    }
+
+    _hideRails() {
+        const { rails, railHint, railDep } = this._refs;
+        railHint.hidden = true;
+        railDep.hidden = true;
+        rails.dataset.wbRailRow = '';
     }
 
     _renderFooter(freeform) {

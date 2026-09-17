@@ -99,9 +99,9 @@ TEMPLATE.innerHTML = `
          its own fill (#1250); everything else keeps the default. */
       border: 1.5px solid var(--np-avatar-ring, var(--np-surface));
       border-radius: 50%;
-      background: var(--np-info);
-      color: var(--np-on-info);
-      font-size: calc(var(--np-avatar-size, 20px) * 0.45);
+      background: var(--np-avatar-bg, var(--np-info));
+      color: var(--np-avatar-ink, var(--np-on-info));
+      font-size: calc(var(--np-avatar-size, 20px) * 0.5);
       font-weight: bold;
       line-height: 1;
       cursor: pointer;
