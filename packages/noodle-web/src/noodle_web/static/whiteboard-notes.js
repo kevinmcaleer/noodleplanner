@@ -2086,12 +2086,15 @@ function wbCreateTextObjectNode() {
     content.setAttribute('class', 'wb-text-object-content');
     content.setAttribute('spellcheck', 'false');
 
-    const deleteBtn = document.createElementNS(XHTML_NS, 'button');
+    const deleteBtn = document.createElementNS(XHTML_NS, 'np-button');
     deleteBtn.setAttribute('class', 'wb-text-object-delete');
+    deleteBtn.setAttribute('icon-only', '');
+    deleteBtn.setAttribute('variant', 'danger');
+    deleteBtn.setAttribute('size', 'small');
     deleteBtn.setAttribute('type', 'button');
     deleteBtn.setAttribute('title', 'Delete this text');
-    deleteBtn.setAttribute('aria-label', 'Delete this text object');
-    deleteBtn.textContent = '×'; // multiplication sign, reused as a small close glyph
+    deleteBtn.setAttribute('label', 'Delete this text object');
+    deleteBtn.innerHTML = '<span slot="icon">×</span>'; // multiplication sign, reused as a small close glyph
     deleteBtn.addEventListener('mousedown', (e) => e.stopPropagation());
     deleteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
