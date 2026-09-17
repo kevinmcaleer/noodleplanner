@@ -288,6 +288,11 @@ function wbNoodleGlyph(size) {
  * the note footer capped the same list at six. */
 const WB_ROW_AVATAR_CAP = 3;
 
+/** `.wb-note-menu-grid`'s `grid-template-columns: repeat(6, ...)` in
+ * views/whiteboard.css, which the menu's arrow-key navigation has to know to
+ * move a *row* rather than one swatch (#1247). The two have to stay in step. */
+const WB_NOTE_MENU_SWATCH_COLUMNS = 6;
+
 const WB_NOTE_MIN_WIDTH = 160;
 const WB_NOTE_MIN_HEIGHT = 120;
 // "Sensible maximum" per #848 -- generous enough for a note-with-many-
@@ -3673,6 +3678,7 @@ function wbSmartMenuKeydown(event) {
 function wbOpenSmartMenu(taskName, trigger, popup) {
     wbCloseSmartMenu();
     if (wbCoachingMenuState) wbCloseCoachingMenu();
+    if (typeof wbCloseNoteMenu === 'function') wbCloseNoteMenu();
     document.body.appendChild(popup);
 
     // Positioned like wbOpenNoteMenu(): clamped into the whiteboard's own
@@ -4085,6 +4091,10 @@ function wbBuildNoteMenu(taskName) {
 
     const list = document.createElement('ul');
     list.className = 'wb-note-menu-list';
+    // A menu's children must be menu items. Without this the implicit `list`
+    // and `listitem` roles sat unowned between the menu and its buttons -- only
+    // the colour section's two wrappers carried `role="presentation"` (#1247).
+    list.setAttribute('role', 'none');
     menu.appendChild(list);
 
     wbAppendColourMenuSection(list, taskName);
@@ -4369,7 +4379,9 @@ function wbBuildColourSwatchButton(colour, taskName, currentColour) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'wb-note-menu-swatch';
-    btn.setAttribute('role', 'menuitem');
+    // menuitemradio, not menuitem: `aria-checked` below is not supported on a
+    // plain menuitem, so the selected colour was never announced (#1247).
+    btn.setAttribute('role', 'menuitemradio');
     btn.style.background = colour;
     btn.title = colour;
     btn.setAttribute('aria-label', `Set note colour to ${colour}`);
@@ -4437,6 +4449,10 @@ function wbNoteMenuSafeBounds(edgeGap) {
  */
 function wbOpenNoteMenu(taskName, btn) {
     wbCloseNoteMenu();
+    // One popup at a time. None of the three open paths used to close all the
+    // others, so a smart menu and the note menu could sit open together (#1247).
+    if (typeof wbCloseSmartMenu === 'function') wbCloseSmartMenu();
+    if (typeof wbCloseCoachingMenu === 'function') wbCloseCoachingMenu();
 
     const menu = wbBuildNoteMenu(taskName);
     document.body.appendChild(menu);
@@ -4547,16 +4563,55 @@ function wbNoteMenuKeydown(e) {
         return;
     }
 
-    const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+    if (e.key === 'Tab') {
+        // Every item is a real <button> and nothing used to intercept Tab, so
+        // focus could walk out of an open menu and leave it open behind (#1247).
+        const btn = wbNoteMenuState && wbNoteMenuState.btn;
+        wbCloseNoteMenu();
+        if (btn) btn.focus();
+        return;
+    }
+
+    const items = Array.from(menu.querySelectorAll('[role="menuitem"], [role="menuitemradio"]'));
     if (!items.length) return;
     const index = items.indexOf(document.activeElement);
 
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+    // The swatch grid is a grid, and this used to walk it one swatch at a time
+    // in every direction -- so ArrowDown from "Default colour" stepped through
+    // all ten before reaching "Rename", and the grid's six columns were
+    // invisible to the keyboard. Left/Right move within a row, Up/Down between
+    // rows, and stepping off the top or bottom leaves the grid for the item
+    // before or after it.
+    const grid = document.activeElement && document.activeElement.closest
+        ? document.activeElement.closest('.wb-note-menu-grid')
+        : null;
+    if (grid && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+        const swatches = Array.from(grid.querySelectorAll('[role="menuitemradio"]'));
+        const columns = WB_NOTE_MENU_SWATCH_COLUMNS;
+        const within = swatches.indexOf(document.activeElement);
+        const next = within + (e.key === 'ArrowDown' ? columns : -columns);
+        if (next >= 0 && next < swatches.length) {
+            swatches[next].focus();
+        } else {
+            const edge = e.key === 'ArrowDown'
+                ? items.indexOf(swatches[swatches.length - 1]) + 1
+                : items.indexOf(swatches[0]) - 1;
+            items[Math.max(0, Math.min(items.length - 1, edge))].focus();
+        }
+        return;
+    }
+
+    if (e.key === 'ArrowDown' || (e.key === 'ArrowRight' && !grid)) {
         e.preventDefault();
         items[(index + 1 + items.length) % items.length].focus();
-    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+    } else if (e.key === 'ArrowUp' || (e.key === 'ArrowLeft' && !grid)) {
         e.preventDefault();
         items[(index - 1 + items.length) % items.length].focus();
+    } else if (grid && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+        e.preventDefault();
+        items[Math.max(0, Math.min(items.length - 1,
+            index + (e.key === 'ArrowRight' ? 1 : -1)))].focus();
     } else if (e.key === 'Home') {
         e.preventDefault();
         items[0].focus();

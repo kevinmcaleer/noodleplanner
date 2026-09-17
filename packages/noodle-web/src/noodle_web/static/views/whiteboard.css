@@ -240,6 +240,14 @@
     background: rgba(0, 0, 0, 0.1);
 }
 
+/* A real focus indicator (#1247). This button only changed opacity and
+   background on focus, with no outline at all -- while the swatches *inside*
+   the menu it opens have had one all along. */
+.wb-note-menu-btn:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: 1px;
+}
+
 /* Row indicators: one visual language (issue #1248) -----------------------
  *
  * Five things hang off a checklist row -- the `$` deliverable badge, the

@@ -413,15 +413,24 @@ class TestNoteMenuOpenClose:
         )
         assert first_item == "menuitem", "opening the menu focuses its first item"
 
+        # Issue #1247: swatches are `menuitemradio`, not `menuitem` carrying
+        # `aria-checked` -- which is not a supported combination, so the
+        # selected colour was never announced. Collect both roles.
         browser.switch_to.active_element.send_keys(Keys.ARROW_DOWN)
         second_active = browser.execute_script(
             """
             const menu = document.getElementById('wbNoteMenu');
-            const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
-            return items.indexOf(document.activeElement);
+            const items = Array.from(menu.querySelectorAll(
+                '[role="menuitem"], [role="menuitemradio"]'));
+            return {
+                index: items.indexOf(document.activeElement),
+                role: document.activeElement.getAttribute('role'),
+            };
             """
         )
-        assert second_active == 1, "ArrowDown must move focus to the next menu item"
+        assert second_active["index"] == 1, "ArrowDown must move focus to the next menu item"
+        assert second_active["role"] == "menuitemradio", \
+            "the item after 'Default colour' is the first swatch"
 
 
 class TestNoteColourPrecedenceAndPersistence:

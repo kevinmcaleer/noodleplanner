@@ -75,6 +75,7 @@
 // means a story only has to load np-note.
 import '../checkbox/np-checkbox.js';
 import '../resource-stack/np-resource-stack.js';
+import '../menu/np-menu.js';
 
 // whiteboard-notes.js's own constants, which are what decide how crowded a
 // row looks. A component previewing 40px narrower than a real note (the
@@ -562,69 +563,50 @@ export class NpNote extends HTMLElement {
 
     _toggleMenu(btn) {
         const open = document.getElementById('npNoteMenu');
-        if (open) { open.remove(); btn.setAttribute('aria-expanded', 'false'); return; }
+        if (open) { this._closeMenu(btn); return; }
 
-        const menu = el('div', 'wb-note-menu', { id: 'npNoteMenu', role: 'menu', 'aria-label': `Options for ${this.task}` });
-        const list = el('ul', 'wb-note-menu-list');
-        menu.appendChild(list);
-
-        const item = (className, label, attrs) => {
-            const li = el('li');
-            const button = el('button', className, { type: 'button', role: 'menuitem', ...(attrs || {}) });
-            button.textContent = label;
-            li.appendChild(button);
-            list.appendChild(li);
-            return button;
-        };
-        const divider = () => list.appendChild(el('li', 'wb-note-menu-divider', { role: 'separator' }));
-
-        // 1 & 2: colour -- "Default colour", then a labelled 6-column grid.
-        item('wb-note-menu-default', 'Default colour');
-        const labelLi = el('li', 'wb-note-menu-label', { role: 'presentation' });
-        labelLi.textContent = 'Colour';
-        list.appendChild(labelLi);
-        const gridLi = el('li', null, { role: 'presentation' });
-        const grid = el('div', 'wb-note-menu-grid');
-        const current = (this.getAttribute('colour') || this.getAttribute('color') || '').toLowerCase();
-        for (const swatch of WB_NOTE_PASTEL_COLOURS) {
-            const selected = swatch.toLowerCase() === current;
-            const button = el('button', 'wb-note-menu-swatch', {
-                type: 'button', role: 'menuitemradio',
-                'aria-checked': selected ? 'true' : 'false', title: swatch,
-            });
-            button.style.background = swatch;
-            if (selected) {
-                const check = el('span', 'wb-note-menu-swatch-check');
-                check.textContent = '✓';
-                check.style.color = contrastTextColour(swatch) || '';
-                button.appendChild(check);
-            }
-            grid.appendChild(button);
-        }
-        gridLi.appendChild(grid);
-        list.appendChild(gridLi);
-
-        // 3 & 4: structure -- Rename, and Unlink only when the note has a parent.
-        divider();
-        item('wb-note-menu-action', 'Rename');
+        // The same six sections wbBuildNoteMenu() composes, as data (#1247).
+        // <np-menu> emits the dividers, the roles and the keyboard model; this
+        // says only what is in the menu and under what condition.
         const parent = this.getAttribute('parent');
-        if (parent) item('wb-note-menu-action', `Unlink from "${parent}"`);
+        const freeform = this.hasAttribute('freeform');
+        const colour = this.getAttribute('colour') || this.getAttribute('color') || '';
 
-        // 5: promote -- free-form notes only.
-        if (this.hasAttribute('freeform')) item('wb-note-menu-promote', 'Promote to task');
+        const structure = [{ id: 'rename', label: 'Rename' }];
+        if (parent) structure.push({ id: 'unlink', label: `Unlink from "${parent}"` });
+        if (freeform) {
+            structure.push({
+                id: 'promote', label: 'Promote to task', className: 'wb-note-menu-promote',
+            });
+        }
+        structure.push({
+            id: 'open-task', label: 'Open task details', className: 'wb-note-menu-open-task',
+        });
 
-        // 6: open task details.
-        item('wb-note-menu-open-task', 'Open task details');
-
-        // 7: parking -- deliberately neutral, not destructive: parking
-        // relocates the text, it does not destroy it.
-        divider();
-        item('wb-note-menu-action', 'Send to parking lot');
-
-        // 8 & 9: the destructive pair.
-        divider();
-        item('wb-note-menu-remove', 'Remove from board');
-        item('wb-note-menu-remove wb-note-menu-delete', 'Delete task');
+        const menu = document.createElement('np-menu');
+        menu.id = 'npNoteMenu';
+        menu.setAttribute('aria-label', `Options for ${this.task}`);
+        menu.sections = [
+            { items: [{ id: 'default-colour', label: 'Default colour', className: 'wb-note-menu-default' }] },
+            {
+                label: 'Colour',
+                swatches: WB_NOTE_PASTEL_COLOURS,
+                selected: colour,
+                checkColour: (swatch) => contrastTextColour(swatch) || '',
+            },
+            { items: structure },
+            // Neutral on purpose: parking relocates the text, it does not
+            // destroy it.
+            { items: [{ id: 'park', label: 'Send to parking lot' }] },
+            {
+                items: [
+                    { id: 'remove', label: 'Remove from board', destructive: true },
+                    { id: 'delete', label: 'Delete task', destructive: true, confirms: true },
+                ],
+            },
+        ];
+        menu.addEventListener('dismiss', () => this._closeMenu(btn));
+        menu.addEventListener('select', () => this._closeMenu(btn));
 
         document.body.appendChild(menu);
         const rect = btn.getBoundingClientRect();
@@ -632,13 +614,27 @@ export class NpNote extends HTMLElement {
         menu.style.top = `${rect.bottom + 4}px`;
         btn.setAttribute('aria-expanded', 'true');
 
-        const close = (e) => {
+        const first = menu.items[0];
+        if (first) first.focus();
+
+        this._menuOutside = (e) => {
             if (menu.contains(e.target) || btn.contains(e.target)) return;
-            menu.remove();
-            btn.setAttribute('aria-expanded', 'false');
-            document.removeEventListener('mousedown', close, true);
+            this._closeMenu(btn);
         };
-        setTimeout(() => document.addEventListener('mousedown', close, true), 0);
+        setTimeout(() => document.addEventListener('mousedown', this._menuOutside, true), 0);
+    }
+
+    _closeMenu(btn) {
+        const menu = document.getElementById('npNoteMenu');
+        if (menu) menu.remove();
+        if (this._menuOutside) {
+            document.removeEventListener('mousedown', this._menuOutside, true);
+            this._menuOutside = null;
+        }
+        if (btn) {
+            btn.setAttribute('aria-expanded', 'false');
+            btn.focus();
+        }
     }
 }
 
