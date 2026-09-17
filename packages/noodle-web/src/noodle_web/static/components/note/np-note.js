@@ -264,9 +264,6 @@ export class NpNote extends HTMLElement {
         r.coachBtn.classList.toggle('typed', Boolean(planningType));
         r.coachBtn.classList.toggle('suspected-activity',
             this.hasAttribute('language-hint') && !planningType);
-        // Free-form notes only, and fully opaque when shown.
-        r.promoteBtn.style.display = freeform ? '' : 'none';
-
         // The "under X" caption, shown only when the parent note is on the
         // board too. Hidden at the title-only tier by the app's own CSS.
         const parent = this.getAttribute('parent');
@@ -282,15 +279,19 @@ export class NpNote extends HTMLElement {
         const children = [];
 
         if (freeform) {
-            // A free-form note with no comment renders an entirely blank body,
+            // A free-form note with no comment renders no prose at all,
             // deliberately (#885): nothing prompts for detail. The pilot always
-            // appended a paragraph, empty or not.
+            // appended a paragraph, empty or not. The add row below is the one
+            // thing that does follow -- typing a task into it is how a note
+            // becomes a summary task, so withholding it here would leave the
+            // note with no way out of free-form.
             const comment = this.getAttribute('comment');
             if (comment) {
                 const text = el('p', 'wb-note-freetext');
                 text.textContent = comment;
                 children.push(text);
             }
+            children.push(this._buildAddRow());
             r.body.replaceChildren(...children);
             return;
         }
@@ -315,7 +316,7 @@ export class NpNote extends HTMLElement {
             children.push(line);
         }
 
-        // Always present on a non-free-form note (#1104), on every render.
+        // Always present (#1104), on every render, free-form branch included.
         children.push(this._buildAddRow());
         r.body.replaceChildren(...children);
     }

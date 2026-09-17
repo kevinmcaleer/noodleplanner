@@ -116,19 +116,12 @@ export function buildNoteCard() {
     });
     coachBtn.textContent = '✦';
 
-    const promoteBtn = el('button', 'wb-note-promote-btn', {
-        type: 'button',
-        title: 'Turn this text note into a summary task',
-        'aria-label': 'Turn this text note into a summary task',
-    });
-    // The board's glyph, not an approximation of it: a box with an arrow
-    // leaving it, for "turn this text into a task". <np-note> used to draw a
-    // plain up-arrow, which is the kind of small divergence that makes a
-    // Storybook note recognisably not the shipped one.
-    promoteBtn.innerHTML =
-        '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
-        'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-        '<rect x="2" y="3" width="8" height="8" rx="1"/><path d="M8 12h6M11 9l3 3-3 3"/></svg>';
+    // No "promote to task" button. A note becomes a summary task by gaining a
+    // child, and the "Add task..." row at the foot of the body -- which every
+    // note now carries, free-form ones included -- is how you give it one.
+    // Typing there *is* the promotion, so a separate header control asked the
+    // user to name, in advance, a structural change that the next thing they
+    // typed would have made anyway.
 
     const menuBtn = el('button', 'wb-note-menu-btn', {
         type: 'button',
@@ -154,9 +147,10 @@ export function buildNoteCard() {
     //
     // The header is a right-aligned button cluster with a `flex: 1` title
     // taking the slack, so the cluster spans past the header's own midpoint
-    // whenever it is wider than half the header -- measured, that is at 160px
-    // with four buttons and at 260px with five. Whatever sits at that midpoint
-    // receives the press a user means as "grab the middle and move it".
+    // whenever it is wider than half the header -- with the three buttons left
+    // here, measured, that is the 160px tier only (78px of cluster against a
+    // ~70px budget); 260px clears it. Whatever sits at that midpoint receives
+    // the press a user means as "grab the middle and move it".
     //
     // For every button here but one that is merely a dead spot: the board's
     // header mousedown handler returns early on them, so no drag starts. The
@@ -168,7 +162,7 @@ export function buildNoteCard() {
     // W - 10], and the midpoint W/2 can only fall there when W <= 2 * (10 + w),
     // which is 64px for the 22px handle and 80px for the 30px coarse-pointer
     // one -- both below WB_NOTE_MIN_WIDTH.
-    header.append(title, coachBtn, promoteBtn, menuBtn, linkHandle);
+    header.append(title, coachBtn, menuBtn, linkHandle);
 
     const parentCaption = el('div', 'wb-note-parent');
     const body = el('div', 'wb-note-body');
@@ -189,7 +183,7 @@ export function buildNoteCard() {
     return {
         card,
         refs: {
-            card, header, title, coachBtn, promoteBtn,
+            card, header, title, coachBtn,
             menuBtn, linkHandle, parentCaption, body, footer, progress,
             resizeHandle,
         },

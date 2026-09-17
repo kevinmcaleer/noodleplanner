@@ -1000,9 +1000,10 @@
 }
 
 /* "Add task..." row (issue #1104, part of epic #1090): an always-present
-   empty checklist row at the bottom of every checklist note (never a
-   free-form one -- see .wb-note-freeform above), so a new child task can
-   be typed in and committed with Enter without leaving the board. Same
+   empty checklist row at the bottom of every note, free-form ones
+   included, so a new child task can be typed in and committed with Enter
+   without leaving the board -- and, on a free-form note, so that typing
+   one is what turns it into a summary task. Same
    padding, gap, radius and hover as an ordinary .wb-note-row child row
    above (kept as its own rule rather than sharing that class -- see
    wbBuildAddChildRow()'s own comment in whiteboard-notes.js for why).
@@ -1243,12 +1244,11 @@
     display: none;
 }
 
-/* ...and so do the four contextual header buttons (issue #1250). At this
-   tier the header *is* the card, and it was still laying out six 22px
-   buttons across a note drawn at 40% -- rendering them at ~9px each and
-   leaving the title, the one thing this tier exists to show, with a
-   sliver. The date/resource/coach/promote buttons all open a popover that
-   is unusable at that zoom anyway.
+/* ...and so do the contextual header buttons (issue #1250). At this tier
+   the header *is* the card, and it was still laying out six 22px buttons
+   across a note drawn at 40% -- rendering them at ~9px each and leaving
+   the title, the one thing this tier exists to show, with a sliver. The
+   coach button opens a popover that is unusable at that zoom anyway.
    The two that stay are the two that are still worth hitting: the link
    handle, because noodling two distant notes together is exactly what you
    zoom out to do, and the menu, which is how you get to everything else.
@@ -1256,8 +1256,7 @@
    header's midpoint, so this cannot recreate the grab-point regression
    .wb-note-header's comment describes. */
 .wb-note-title-only .wb-note-smart-btn,
-.wb-note-title-only .wb-note-coach-btn,
-.wb-note-title-only .wb-note-promote-btn {
+.wb-note-title-only .wb-note-coach-btn {
     display: none;
 }
 
@@ -2018,40 +2017,6 @@ body.wb-note-drag-active * {
 @media (pointer: coarse) {
     .wb-note-link-handle {
         opacity: 0.75;
-        width: 30px;
-        height: 30px;
-    }
-}
-
-/* ── Note: the "promote to task" quick button (issue #1107) ──────────
-   Sits between the noodle handle and the `...` menu -- "to the left of
-   the ..." per the issue. Unlike the noodle handle, this is an action a
-   free-form note either offers or doesn't (see wbUpdateNoteNode()'s
-   `refs.promoteBtn.style.display` toggle), not a permanently-present
-   control that only dims -- so it stays fully opaque whenever it is
-   shown at all, rather than fading in on hover like the noodle handle. */
-.wb-note-promote-btn {
-    flex-shrink: 0;
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: 4px;
-    background: transparent;
-    color: inherit;
-    opacity: 0.7;
-}
-
-.wb-note-promote-btn:hover,
-.wb-note-promote-btn:focus-visible {
-    opacity: 1;
-    background: var(--wb-note-hover-strong);
-}
-
-@media (pointer: coarse) {
-    .wb-note-promote-btn {
         width: 30px;
         height: 30px;
     }

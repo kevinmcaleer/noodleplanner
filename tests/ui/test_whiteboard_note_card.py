@@ -354,6 +354,72 @@ class TestAddRowAlignment:
         )
 
 
+class TestTypingIsThePromotion:
+    """A note becomes a summary task by gaining a task, not by being told to.
+
+    The header used to carry a quick-promote button (#1107) beside the `...`
+    menu, shown on free-form notes only. It existed because the "Add task…"
+    row was withheld from exactly those notes -- so the one kind of note with
+    no structure was the one kind that could not be given any without first
+    pressing something. The row is on every note now, and typing into it *is*
+    the promotion: the task typed becomes the note's first child, and having a
+    child is what wbIsFreeformNote() means.
+
+    So the button is gone, and these are the two halves of what replaced it.
+    """
+
+    def test_the_header_offers_no_promote_button(self, page, app_server):
+        open_app(page, app_server)
+        board(page)
+
+        for task in ("Build", "Loose Idea"):
+            header = note(page, task).locator(".wb-note-header")
+            assert header.locator(".wb-note-promote-btn").count() == 0, (
+                f"{task}'s header is offering a promote button again"
+            )
+
+    def test_a_free_form_note_offers_the_add_row(self, page, app_server):
+        """"Loose Idea" has no children, so it renders free-form: no checklist,
+        no footer, no "No subtasks yet". It still gets the row, because that is
+        its way out."""
+        open_app(page, app_server)
+        board(page, task="Loose Idea", width=280)
+
+        card = note(page, "Loose Idea").locator(".wb-note-card")
+        assert card.evaluate("c => c.classList.contains('wb-note-freeform')"), (
+            "Loose Idea has children now -- the plan changed and this test with it"
+        )
+        assert card.locator(".wb-note-add-input").count() == 1
+
+    def test_typing_one_task_turns_the_note_into_a_summary_task(
+        self, page, app_server
+    ):
+        open_app(page, app_server)
+        board(page, task="Loose Idea", width=280)
+
+        card = note(page, "Loose Idea").locator(".wb-note-card")
+        card.locator(".wb-note-add-input").click()
+        page.keyboard.type("Sketch the flow")
+        page.keyboard.press("Enter")
+
+        # The note stops being free-form and starts being a checklist with the
+        # typed task on it. Waited for rather than asserted outright: the
+        # commit goes through renderText(), which rebuilds the card.
+        page.wait_for_function(
+            """() => {
+                const c = document.querySelector(
+                    ".wb-note[data-wb-task='Loose Idea'] .wb-note-card");
+                return c && !c.classList.contains('wb-note-freeform');
+            }"""
+        )
+        names = card.locator(".wb-note-row-name").all_text_contents()
+        assert [n.strip() for n in names] == ["Sketch the flow"], names
+
+        # And the row is still there, ready for the next one -- the gesture is
+        # repeatable, which is the thing a one-shot promote button never was.
+        assert card.locator(".wb-note-add-input").count() == 1
+
+
 class TestTitleOnlyTier:
     """Below 40% zoom the card is a title, not a title and six buttons."""
 
@@ -404,11 +470,12 @@ class TestHeaderGrabPoint:
 
     The header is a right-aligned button cluster with a `flex: 1` title
     taking the slack, so the cluster spans past the header's own midpoint
-    whenever it is wider than half the header. Measured on the declared
-    sizes, it is: at 160px with four buttons the cluster is ~106 of a 158px
-    header against a midpoint of 79, and at 260px with five it is ~136 of
-    258 against 129. So the midpoint frequently lands on a control, and what
-    that costs depends entirely on *which* control.
+    whenever it is wider than half the header. On the declared sizes that is
+    now a question of one tier: three 22px buttons and two 6px gaps is a
+    78px cluster, which clears a 260px header's midpoint but not a 160px
+    one's (a 160px card needs the cluster under ~70px). So the midpoint
+    lands on a control at the narrowest tier only, and what that costs
+    depends entirely on *which* control.
 
     For every button but one it costs a dead spot: wbNoteHeaderMouseDown()
     returns early on it, no drag starts, and the note does not move. The link
@@ -449,21 +516,32 @@ class TestHeaderGrabPoint:
             "the parking lot silently does not park"
         )
 
-    @pytest.mark.xfail(
-        reason=(
-            "Open question 3 on issue #1250: how many controls belong in the "
-            "header at all. The remaining midpoint collisions are dead spots "
-            "rather than wrong gestures -- the press is swallowed and the note "
-            "does not move -- and clearing them is arithmetic that only the "
-            "resting control count can satisfy. For the midpoint to be dead "
-            "space the cluster has to be under half the header: ~69px at 160 "
-            "(three 20-22px controls including gaps) and ~119px at 260 (four). "
-            "It carries up to six. That is a maintainer's design call, not a "
-            "styling one, so this records the state rather than asserting it."
-        ),
-        strict=False,
+    @pytest.mark.parametrize(
+        "width",
+        [
+            pytest.param(
+                160,
+                marks=pytest.mark.xfail(
+                    reason=(
+                        "The last tier that still collides, and the only one "
+                        "left after the header shed its quick-assign, date and "
+                        "promote buttons: at 160px the midpoint is 80 and the "
+                        "three remaining controls occupy [72, 150], so it lands "
+                        "on the coach button. It is a dead spot, not a wrong "
+                        "gesture -- the press is swallowed and the note does "
+                        "not move. Clearing it needs the cluster under ~70px, "
+                        "which three 22px buttons and two 6px gaps (78px) "
+                        "cannot reach by tightening: something has to leave the "
+                        "header, or shrink at this tier the way .wb-note-title-"
+                        "only already drops two of them. That is a maintainer's "
+                        "design call, so this records the state."
+                    ),
+                    strict=True,
+                ),
+            ),
+            260,
+        ],
     )
-    @pytest.mark.parametrize("width", [160, 260])
     @pytest.mark.parametrize("task", ["Build", "Loose Idea"])
     def test_the_midpoint_is_dead_space(self, page, app_server, task, width):
         open_app(page, app_server)
@@ -493,7 +571,6 @@ class TestHeaderGrabPoint:
                 const controls = [
                     '.wb-note-link-handle', '.wb-note-menu-btn',
                     '.wb-note-coach-btn', '.wb-note-smart-btn',
-                    '.wb-note-promote-btn',
                 ];
                 for (const sel of controls) {
                     for (const el of header.querySelectorAll(sel)) {
