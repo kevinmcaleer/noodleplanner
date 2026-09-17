@@ -178,6 +178,43 @@ surface map alone, and it reorders what was here before: **panel header,
 empty state and close button rank above button**, because button's main
 variants are already partway built.
 
+### Checkbox
+
+**Round or square: square.** Recorded here because it was a real fork, and
+because the app had been answering it three ways at once.
+
+What shipped before `<np-checkbox>`: kanban's `.round-checkbox` was a
+`--np-success`-filled circle, both pilot components (`np-card`, `np-note`)
+had invented their own round ones, the whiteboard and task peek rendered
+whatever the browser draws, the settings panel tinted a native control with
+`accent-color`, and `views/gantt.css` carried a bare
+`input[type="checkbox"]` element rule that -- because that stylesheet is
+linked globally and an element+attribute selector outranks a single class --
+silently sized every one of them. Nine treatments, and most of the declared
+sizes were dead letters.
+
+Square wins on two counts:
+
+- **A circle reads as a radio.** "One of these" rather than "this one, on or
+  off". Kanban's round control is the app's only *designed* checkbox today,
+  so round was the de facto answer, but it is a convention cost paid on every
+  task list in the app.
+- **It matches the shape vocabulary** the whiteboard note row settled on in
+  #1248: controls carrying a single glyph or icon are rounded squares, and
+  text-bearing chips are pills. A round checkbox next to square glyph
+  controls on the same row is the drift this epic exists to remove.
+
+The decision is a token, `--np-checkbox-radius`, not a literal in the
+component, because it is a judgement rather than a fact — flipping the app
+back to round is that one line.
+
+Still to migrate, each deliberately its own change so a regression is
+attributable: kanban's `.round-checkbox` (and `.subtask-checkbox`), task
+peek, the portfolio project-select checkbox, and the settings panel's
+`accent-color` variant. `.wb-add-note-checkbox` is the odd one and may not
+migrate at all — it is `pointer-events: none`, `aria-hidden`, a state
+*picture* on a `role="option"` row rather than a control.
+
 ### Panel header
 
 **Measured: 39 of 93 screens — the single most-repeated component in the

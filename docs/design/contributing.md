@@ -47,6 +47,14 @@ reason rather than for convenience:
 - **RAG and traffic-light hues.** Red/amber/green *is* the meaning of the
   element, and which reds count as red is a product decision.
 
+One token family bends rule 1 and says so in place: the whiteboard note
+palette, `--np-note-*`. The ten swatches are declared here *and* as
+`WB_NOTE_PASTEL_COLOURS` in `whiteboard-notes.js`, because a note's colour is
+written into the plan's `Theme:` front matter as a literal by code that cannot
+read a stylesheet, while `check:contrast` can only score a value it finds in
+the token file. `tests/test_note_ink.mjs` asserts the two lists are identical,
+so the duplication cannot drift. Do not copy the pattern without the test.
+
 If your case genuinely belongs outside the system, add an entry to `ALLOW`
 with the reason. Adding one is a reviewable act; a lint suppression comment
 would not be.
@@ -116,15 +124,16 @@ node scripts/lint-design-system.mjs --list raw-colour
 
 ## Contrast has no baseline
 
-`check:contrast` is absolute. It scores 29 pairings the app actually renders —
+`check:contrast` is absolute. It scores 71 pairings the app actually renders —
 text on each surface, labels on the accent, status text on its tint, control
-borders, the focus ring — in both themes, and all 58 pass.
+borders, the focus ring, the whiteboard note's ink on each of its ten pastels —
+in both themes, and all 142 pass.
 
 There is no legitimate version of body text at 4:1 or a focus ring at 2:1, so
 there is nothing to ratchet. If you change a palette value and this fails, the
 value is wrong.
 
-Two distinctions the checker encodes, both worth knowing:
+Three distinctions the checker encodes, all worth knowing:
 
 - **`--np-border-control` vs `--np-border-strong`.** WCAG 2.2 SC 1.4.11 wants
   3:1 for the boundary of a UI component, and nothing for decorative
@@ -135,6 +144,13 @@ Two distinctions the checker encodes, both worth knowing:
   ring. No single colour clears 3:1 against both a dark page and a marigold
   button, so the halo means the ring always meets `--np-paper` whatever is
   underneath.
+- **A translucent foreground is composited before it is scored.** The checker
+  paints `#rrggbbaa` and `rgba()` onto the background first, which is what the
+  browser does. This is the only way a de-emphasis level can be checked at all:
+  the whiteboard note's `--np-note-ink-muted` is its ink at 70% and measures
+  4.90:1 on the worst swatch, where the raw value would have scored 9.69:1 and
+  told you nothing. If you dim text with `opacity`, nothing here can see it —
+  which is exactly how five sub-AA values survived on the note until #1250.
 
 ## Adding a component
 

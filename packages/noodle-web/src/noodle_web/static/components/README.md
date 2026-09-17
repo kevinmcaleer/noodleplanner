@@ -28,8 +28,10 @@ switches `data-theme` so components preview in both themes.
 
 ## Using a component in the app
 
-Nothing under `static/components/` is wired into the live app yet — these
-are pilots proving the extraction pattern, not a migration. To use one:
+Four of these are wired into the live app —
+`templates/index.html` loads `np-panel-header`, `np-close-button`,
+`np-empty-state` and `np-button`. The rest are still pilots proving the
+extraction pattern rather than a migration. To use one:
 
 ```html
 <script type="module" src="/static/components/button/np-button.js"></script>
@@ -51,12 +53,13 @@ are pilots proving the extraction pattern, not a migration. To use one:
 </script>
 
 <script type="module" src="/static/components/note/np-note.js"></script>
-<np-note title="Launch checklist" colour="#EDB52A" progress="1/3"
-         avatars="AB,CD"></np-note>
+<np-note task="Build" colour="#FCE38A" parent="Phase 1"
+         resources="Sam Smith, Jo Lee"></np-note>
 <script type="module">
   document.querySelector('np-note').rows = [
-    { name: 'Draft copy', done: true },
-    { name: 'Review with legal', done: false },
+    { name: 'Ship Widget', complete: true, deliverable: 'Widget',
+      resources: ['Sam Smith'] },
+    { name: 'Nested', hasChildren: true, childCount: 2 },
   ];
 </script>
 
@@ -81,10 +84,17 @@ are pilots proving the extraction pattern, not a migration. To use one:
 
 `<np-board>` composes `<np-card>` internally for each column's cards, the
 same relationship `.kanban-board` / `.kanban-card` have in
-`static/views/kanban.css` and `static/kanban-board.js`. `<np-note>`
-extracts `.wb-note-card` from `static/views/whiteboard.css` /
-`static/whiteboard-notes.js` — the whiteboard's post-it note, including
-its `title-only` (zoomed-out) and `freeform` (no checklist) variants.
+`static/views/kanban.css` and `static/kanban-board.js`. `<np-note>` is the whiteboard's post-it (`static/whiteboard-notes.js` /
+`static/views/whiteboard.css`), at the fidelity the app actually ships
+(#1242): every header button, every checklist-row control in the app's own
+DOM order under its own condition, the parent caption, the resize grip and
+the card/row states. It is **the one component here that renders into the
+light DOM**, using the app's real `.wb-note-*` class names rather than a
+shadow root — the whiteboard reaches into a note from outside it
+(`querySelectorAll('.wb-note-row')`, `elementFromPoint().closest(...)`),
+and none of that survives a shadow boundary. See np-note.js's header for
+the full argument. `tests/test_np_note_fidelity.mjs` fails when the app
+grows a note control the component does not model.
 `<np-panel-header>` reconciles `.detail-pane-header` and `.modal-header`
 (components.css) into one header, with `variant="accent"` /
 `variant="neutral"` standing in for the tone the two diverged on.

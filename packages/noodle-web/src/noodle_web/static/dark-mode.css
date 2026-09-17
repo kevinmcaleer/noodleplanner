@@ -2396,15 +2396,20 @@ body {
 }
 
 /* ── Whiteboard notes (dark) — issue #846 ────────────────────────────────
-   Note body/header/footer already read var(--np-*) tokens, which already
-   flip for dark mode via the overrides above -- no separate colour rules
-   needed for those. Only the hardcoded (non-token) rgba() hover tint in
-   views/whiteboard.css needs a dark-safe equivalent. */
+   Nothing here any more, and that is the point (#1249).
 
-[data-theme="dark"] .wb-note-menu-btn:hover,
-[data-theme="dark"] .wb-note-menu-btn:focus-visible {
-    background: rgba(255, 255, 255, 0.15);
-}
+   A note's fill is a pastel from the plan's own data, the same colour in both
+   themes, and since #1250 everything painted on it derives from
+   --wb-note-text -- the ink wbContrastTextColour() measured against that fill.
+   A `[data-theme="dark"]` rule on a note surface is therefore a category
+   error: it flips with the *page* when the thing it paints on does not. The
+   `.wb-note-menu-btn`, `.wb-note-link-handle` and `.wb-note-promote-btn` hover
+   overrides that used to live here lightened a hover sitting on light paper.
+   They are gone with the `rgba(0, 0, 0, 0.1)` base rules that made them
+   necessary.
+
+   The note *menu* is a different surface -- a popover on the page, not on the
+   card -- so its overrides below are still right. */
 
 /* ── Note colour menu (dark) — issue #849 ────────────────────────────────
    Already reads var(--np-*) tokens for everything except the "selected"
@@ -2593,9 +2598,9 @@ body {
    dark-safe equivalent here -- same split the note-menu overrides above
    follow. */
 
-[data-theme="dark"] .wb-note-link-handle:hover,
-[data-theme="dark"] .wb-note-promote-btn:hover,
-[data-theme="dark"] .wb-note-promote-btn:focus-visible,
+/* The note's own two header buttons have left this list (#1249) -- see the
+   note-surface comment further up. The outline panel is a real themed panel on
+   the page, so it keeps the override. */
 [data-theme="dark"] .wb-outline-btn:hover,
 [data-theme="dark"] .wb-outline-btn:focus-visible,
 [data-theme="dark"] .wb-outline-chevron:hover {

@@ -107,7 +107,17 @@ export const GALLERY = [
                     '<div class="form-group"><label for="g-dis">Locked field</label>' +
                     '<input id="g-dis" type="text" value="Read only" disabled></div>',
             },
-            { name: 'Checkbox', html: '<label><input type="checkbox" checked> Include weekends</label>' },
+            // <np-checkbox> (#1245), the app's one checkbox. This entry used to
+            // be a bare unclassed `<input type="checkbox">`, which is to say
+            // the gallery declined to pick one of the app's nine treatments and
+            // showed whatever the global element rule in views/gantt.css did to
+            // a native control. The full state set is here because
+            // `indeterminate` had no implementation anywhere in the app.
+            { name: 'Checkbox', html: '<label><np-checkbox label="Include weekends"></np-checkbox> Include weekends</label>' },
+            { name: 'Checkbox — checked', html: '<np-checkbox checked label="Checked"></np-checkbox>' },
+            { name: 'Checkbox — mixed', html: '<np-checkbox row="summary" indeterminate label="Partly complete"></np-checkbox>' },
+            { name: 'Checkbox — disabled', html: '<np-checkbox disabled label="Disabled"></np-checkbox>' },
+            { name: 'Checkbox — dense', html: '<np-checkbox dense label="Dense"></np-checkbox>' },
             {
                 name: 'Radios',
                 html:

@@ -145,8 +145,77 @@
 }
 
 .wb-note-card {
+    /* The fill and the border are the same value on purpose since #1103 -- the
+       note is one solid block of its colour, not a tint with an accent edge --
+       which leaves the box-shadow below as the only thing holding a light note
+       apart from a light board: measured, the ten swatches are 1.03-1.62:1
+       against --np-surface-alt in light mode and 7.33-12.19:1 in dark. Whether
+       that is acceptable, or whether a note should get a border colour of its
+       own, is #1250's open question 6 and the maintainer's call; it is
+       recorded here so the next person does not have to re-measure it. */
     --wb-note-accent: var(--np-border);
     --wb-note-text: var(--np-text);
+
+    /* De-emphasis ladder (issue #1250). Everything on a note that reads as
+       "quieter than the text" now comes from one of these three, derived by
+       `color-mix` from the note's own --wb-note-text -- which is #161616 or
+       #fafafa, whichever wbContrastTextColour() measured as the better fit
+       for the fill. Before this there were five hand-picked `opacity:`
+       values (0.45, 0.55, 0.65, 0.7, 0.8) doing the same job at four
+       different weights, and three of them were below AA: the empty state
+       at 0.65 is 4.30:1 on #F7A8B8, the add-row placeholder at 0.55 is
+       3.31:1, and the add "+" at 0.45 is 2.58:1.
+
+       The two levels are chosen against the whole shipped palette, worst
+       swatch (#F7A8B8) -- see scripts/check-contrast.mjs, which scores
+       --np-note-ink-muted / --np-note-ink-faint against all ten:
+
+         muted  70%  4.90:1  -- de-emphasised *text*, so AA's 4.5:1
+         faint  55%  3.31:1  -- non-text glyphs only, so 1.4.11's 3:1
+
+       and they clear both thresholds on the uncoloured fallback too
+       (--np-text over --np-border: 5.17/3.39 light, 5.07/3.80 dark).
+       --wb-note-rule is a hairline divider between regions of one card,
+       which 1.4.11 does not cover, so it is tuned by eye and not scored;
+       it exists because the dividers used to be --np-border, a *theme*
+       token painted on a pastel fill -- 1.07:1 on #F7A8B8 in dark. */
+    --wb-note-ink-muted: color-mix(in srgb, var(--wb-note-text) 70%, transparent);
+    --wb-note-ink-faint: color-mix(in srgb, var(--wb-note-text) 55%, transparent);
+    --wb-note-rule: color-mix(in srgb, var(--wb-note-text) 18%, transparent);
+    /* Row hover, likewise. --np-bg-hover is a theme surface, so on a pastel
+       fill it was a themed patch rather than a lift of the note's own paper:
+       in dark mode it is a *dark* wash over a light swatch. */
+    --wb-note-hover: color-mix(in srgb, var(--wb-note-text) 8%, transparent);
+    /* The same idea at the weight a pressed/hovered *button* wants rather than
+       a row (#1249). It replaces three `rgba(0, 0, 0, 0.1)` declarations on
+       the header's buttons and the dark-mode overrides that existed only
+       because those were black. */
+    --wb-note-hover-strong: color-mix(in srgb, var(--wb-note-text) 12%, transparent);
+    /* Fed to <np-resource-stack> (#1246), whose chips would otherwise carry
+       the same theme surface as a separator ring and as the overflow chip's
+       fill -- both invisible on a light pastel in light mode and a dark
+       ring in dark mode. Outside a note the component keeps its own
+       --np-surface / --np-surface-alt defaults, which is what the task-peek
+       popover wants. */
+    --np-avatar-ring: var(--wb-note-accent);
+    --np-avatar-overflow-bg: color-mix(in srgb, var(--wb-note-text) 14%, transparent);
+    --np-avatar-overflow-ink: var(--wb-note-text);
+
+    /* One horizontal inset for the whole card (#1250), 12px measured from
+       the card's edge to the first glyph of every band:
+
+         header        10 of padding + 2 on .wb-note-title
+         caption       12
+         body           8 of padding + 4 on .wb-note-row / .wb-note-add-row
+         empty state   12
+         free text     12
+         linked notes  12
+         footer        12
+
+       The header is the one band that reaches it by a route rather than by
+       a number, because its own padding is load-bearing -- see its comment
+       below. Before this the same seven bands used 10, 12 and 8 and nothing
+       on the card lined up with anything else. */
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -160,6 +229,17 @@
     font-family: inherit;
     box-sizing: border-box;
     position: relative;
+
+    /* Checklist-row slot widths (issue #1243), retuned per tier by the
+       container queries below -- the card is the query container because a
+       note's width is plan data (160..N), not a breakpoint. */
+    container-type: inline-size;
+    --wb-row-badge: 15px;
+    --wb-row-hint: 18px;
+    --wb-row-people: 70px;
+    --wb-row-dep: 18px;
+    --wb-row-slot-gap: var(--np-space-4);
+    --wb-row-gap: var(--np-space-8);
 }
 
 /* Dragging/resizing (issue #848) — the note being manipulated gets a
@@ -183,12 +263,27 @@
        to put .wb-note-link-handle under the header's own midpoint: grabbing
        the middle of the header then starts a *link* drag instead of a move,
        and a note dragged to the parking lot is silently not parked.
-       tests/ui/test_whiteboard_parking_lot.py drags exactly that point. */
+       tests/ui/test_whiteboard_parking_lot.py drags exactly that point.
+
+       Still true, and still the reason these two values stay where they are.
+       What changed in #1250 is that it is no longer the *only* thing standing
+       between a user and a silently unparked note: the link handle is now the
+       header's last child (see the comment on the appendChild run in
+       wbCreateNoteNode()), which puts it outside the midpoint's reach at any
+       width a note can be resized to, by arithmetic rather than by tuning. The
+       midpoint does still land on a *contextual* button at several widths --
+       measured, and recorded as an xfail in
+       tests/ui/test_whiteboard_note_card.py's TestHeaderGrabPoint -- but that
+       costs a swallowed press, not the wrong gesture. Clearing it needs the
+       header's resting control count to come down, which is #1250's open
+       question 3 and the maintainer's call. Do not read "the link handle is
+       safe now" as licence to round these: the buttons that would move onto
+       the midpoint instead are the ones that swallow the press. */
     gap: 6px;
     padding: 8px 10px;
     background: transparent;
     color: var(--wb-note-text);
-    border-bottom: 1px solid var(--np-border);
+    border-bottom: 1px solid var(--wb-note-rule);
     flex-shrink: 0;
     cursor: grab;
     touch-action: none;
@@ -196,9 +291,49 @@
 
 .wb-note-title {
     margin: 0;
+    /* Raw, and staying raw (#1250). The type scale in visual-system.css is em
+       multipliers -- --np-text-90 is 0.9em -- so a token here resolves against
+       whatever the card inherits rather than to a fixed size, and the header's
+       height is a hit-test surface, not just a look. 13px is also not on that
+       scale: the nearest steps land at 12.6 and 13.3 on a 14px base, either of
+       which moves the header's height and its midpoint. Tokenising these is a
+       change to the geometry the comment on .wb-note-header protects, and
+       belongs with whatever eventually re-derives it.
+
+       Font *family* is inherited rather than declared, and that is worth
+       knowing rather than defending: the title is an <h3>, so
+       visual-system.css's `h1, h2, h3 { font-family: var(--np-font-heading) }`
+       gives it the Newsreader serif while the checklist below it resolves to
+       the UI face. Serif 700 over a sans body is a side effect of the element
+       chosen, not a decision anyone made. #1250's open question 5 asks the
+       maintainer whether to keep it; until that is answered, changing it here
+       would be this file deciding the note's voice by itself.
+
+       Long titles: ellipsised at rest, and the full text is reachable through
+       the `title` attribute wbUpdateNoteNode() sets on every render. While
+       being renamed the same box scrolls instead (overflow-x: auto,
+       text-overflow: clip below), so the whole title is reachable in both
+       states, by two different means. */
     font-size: 13px;
     font-weight: 700;
     line-height: 1.3;
+    /* Two jobs, one declaration (issue #1250).
+
+       It puts the title's text at 12px from the card's left edge -- 10 from
+       the header's own locked padding plus these 2 -- which is where the
+       checklist rows and the footer already start (8 of body padding plus 4
+       of row padding). The title was the one thing on the card not on that
+       edge.
+
+       And it is on the base rule rather than on `.wb-note-title.editing`,
+       where it used to live. `flex: 1` is `1 1 0%`, so with the global
+       `box-sizing: border-box` in base.css the title's *outer* width is
+       whatever free space the header has either way: padding here moves the
+       text, never the button row that .wb-note-header's comment protects.
+       What it did move was the text, by 2px, at the moment a rename began --
+       under a comment two rules down claiming nothing shifted. Now the box
+       is identical in both states and the claim is true. */
+    padding: 0 var(--np-space-2);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -226,7 +361,86 @@
 .wb-note-menu-btn:hover,
 .wb-note-menu-btn:focus-visible {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.1);
+    /* The note's own ink, not a fixed black tint (#1249). `rgba(0, 0, 0, 0.1)`
+       is built for a light surface, which is why dark-mode.css carried a
+       `rgba(255, 255, 255, 0.15)` override for this rule -- and that override
+       was wrong, because a note is a light pastel in *both* themes, so dark
+       mode lightened a hover that sits on light paper. Deriving it from
+       --wb-note-text is correct in either theme and on every swatch, and the
+       override is gone. */
+    background: var(--wb-note-hover-strong);
+}
+
+/* A real focus indicator (#1247). This button only changed opacity and
+   background on focus, with no outline at all -- while the swatches *inside*
+   the menu it opens have had one all along. */
+.wb-note-menu-btn:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: 1px;
+}
+
+/* Row indicators: one visual language (issue #1248) -----------------------
+ *
+ * Five things hang off a checklist row -- the `$` deliverable badge, the
+ * planning-hint coach, the detected-date chip, the child-count badge and the
+ * dependency handle. Each arrived with its own issue and none was designed
+ * against the others, so the row carried three declared heights and one
+ * undeclared, three radii, four unrelated colour sources and four resting
+ * opacities, inside one 8px-gap flex row on one card.
+ *
+ * SIZE. One height, `--wb-ind-size`, for all five.
+ *
+ * SHAPE. Two, by a stated rule rather than by accident: a control that
+ * carries *text* is a pill (`--wb-ind-chip-radius`); one that carries a single
+ * glyph or icon is a rounded square (`--wb-ind-radius`). The coach moves from
+ * a circle to the square for that reason.
+ *
+ * SCOPE -- size and shape are row-scoped, and the note *header*'s twins of
+ * these controls (`.wb-note-coach-btn`, `.wb-note-smart-btn` and friends) are
+ * deliberately excluded. Not an oversight: the header's geometry is load
+ * bearing. Its `gap: 6px; padding: 8px 10px` is off the spacing scale on
+ * purpose, because rounding it walks the button row far enough left to put
+ * `.wb-note-link-handle` under the header's own midpoint -- at which point
+ * grabbing the middle of a header starts a *link* drag instead of a move and a
+ * note dragged to the parking lot is silently not parked. Resizing those
+ * buttons moves the row the same way, and
+ * tests/ui/test_whiteboard_parking_lot.py catches it. The header is #1250's,
+ * and re-deriving that geometry is explicitly its job.
+ *
+ * Colour *is* shared with the twins, because it moves nothing: the header's
+ * date chip carried the same fixed light-mode palette and the same 1.02:1
+ * against the note fill.
+ *
+ * COLOUR. One rule: an indicator takes its colour from the note, through
+ * `currentColor` -- which is `--wb-note-text`, the value wbContrastTextColour()
+ * measured against this note's own fill. That is what keeps them legible on
+ * all ten pastels in both themes, and it is why the date chip's fixed
+ * light-mode palette and the count badge's theme-surface tokens are gone: both
+ * painted a value chosen against a *theme* surface onto a *note* fill, which
+ * is a different colour entirely.
+ *
+ * The two exceptions are deliberate and are the only hue-coded indicators on
+ * the row: orange for a deliverable, purple for a dependency. Those are kinds
+ * of *thing*, not states, and the hue is the meaning -- see the palette block
+ * in visual-system.css. Anything else that wants a colour of its own has to
+ * argue its way past this paragraph.
+ *
+ * AT REST. One rule with a stated criterion: an indicator that carries
+ * information is visible at rest; a control that only initiates a gesture and
+ * says nothing on its own is revealed on hover or focus, and is permanently
+ * visible where there is no hover at all (coarse pointers). That classifies
+ * all five without a special case -- the badge, the chip, the count and the
+ * coach each tell you something, and the dependency handle does not.
+ *
+ * Known gap, deliberately not closed here: keyboard focus reveals the
+ * dependency handle but cannot operate it, because only `mousedown` and
+ * `touchstart` start a drag. Making it operable is a new gesture and belongs
+ * with #874, not with a rule about what things look like.
+ */
+.wb-note-card {
+    --wb-ind-size: 18px;
+    --wb-ind-radius: 4px;
+    --wb-ind-chip-radius: 9px;
 }
 
 .wb-note-coach-btn,
@@ -245,7 +459,6 @@
     font-size: 10px;
     font-weight: 700;
     cursor: pointer;
-    opacity: 0.72;
 }
 
 .wb-note-smart-btn,
@@ -260,18 +473,19 @@
     color: inherit;
     font: 700 10px/1 inherit;
     cursor: pointer;
-    opacity: 0.78;
 }
 
+/* No palette of its own: it inherits the note's measured ink like every other
+   indicator. Its old fixed light-mode blue measured 1.02-1.63:1 against the
+   ten note swatches -- a chip the design treats as distinct, with effectively
+   no edge on the card it sat on, and unchanged in dark mode. */
 .wb-note-date-btn,
 .wb-note-row-date {
     max-width: 86px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    background: #e3f2fd;
-    color: #174c78;
-    border-color: #83b8e4;
+    background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 .wb-note-resource-btn,
@@ -285,14 +499,14 @@
 .wb-note-smart-btn:focus-visible,
 .wb-note-row-smart:hover,
 .wb-note-row-smart:focus-visible {
-    opacity: 1;
     box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 20%, transparent);
 }
 
 .wb-note-row-smart {
-    height: 18px;
-    min-width: 18px;
-    color: var(--np-text-secondary, #666);
+    min-width: var(--wb-ind-size);
+    height: var(--wb-ind-size);
+    border-radius: var(--wb-ind-chip-radius);
+    color: inherit;
 }
 
 .wb-note-row-date {
@@ -311,6 +525,9 @@
     box-shadow: 0 10px 28px var(--np-shadow, rgba(0, 0, 0, 0.22));
     font-family: inherit;
     font-size: 13px;
+    /* wbOpenSmartMenu() sets a max-height from whichever side of the trigger
+       it lands on; without this the overflow is clipped, not scrollable. */
+    overflow-y: auto;
 }
 
 .wb-smart-menu > strong {
@@ -352,7 +569,7 @@
     text-align: left;
 }
 
-.wb-resource-choice[aria-pressed="true"] {
+.wb-resource-choice[aria-checked="true"] {
     background: color-mix(in srgb, var(--np-accent, #667eea) 16%, var(--np-surface, #fff));
     border-color: var(--np-accent, #667eea);
 }
@@ -361,17 +578,17 @@
 .wb-note-coach-btn:focus-visible,
 .wb-note-row-coach:hover,
 .wb-note-row-coach:focus-visible {
-    opacity: 1;
-    background: rgba(255, 255, 255, 0.2);
+    background: color-mix(in srgb, currentColor 18%, transparent);
     border-color: currentColor;
 }
 
+/* "This wording may describe an activity" -- a stronger tint of the note's own
+   ink rather than the fixed yellow it used to carry, which was a light-mode
+   palette painted on a note fill in both themes. */
 .wb-note-coach-btn.suspected-activity,
 .wb-note-row-coach.suspected-activity {
-    opacity: 1;
-    background: #fff3b0;
-    color: #5b4300;
-    border-color: #d4b030;
+    background: color-mix(in srgb, currentColor 18%, transparent);
+    border-color: currentColor;
 }
 
 .wb-note-coach-btn.typed,
@@ -379,10 +596,13 @@
     border-color: currentColor;
 }
 
+/* The row's own geometry, from the shared indicator tokens. The base rule
+   above keeps the header twin's 20px circle -- see the SCOPE note. */
 .wb-note-row-coach {
-    width: 18px;
-    height: 18px;
-    color: var(--np-text-secondary, #666);
+    width: var(--wb-ind-size);
+    height: var(--wb-ind-size);
+    border-radius: var(--wb-ind-radius);
+    color: inherit;
 }
 
 .wb-coaching-menu {
@@ -494,38 +714,155 @@
 }
 
 .wb-note-empty {
-    padding: var(--np-space-12) var(--np-space-8);
+    padding: var(--np-space-12) var(--np-space-12);
     font-size: 12px;
-    color: var(--wb-note-text);
-    opacity: 0.65;
+    color: var(--wb-note-ink-muted);
     font-style: italic;
     text-align: center;
 }
 
+/* Checklist row layout (issue #1243, epic #1241) ------------------------
+ *
+ * Three zones, left to right. The point of all of it is that the third one
+ * starts at the same x on every row of a note, which is what the row did not
+ * do before: controls were appended in the order the features arrived, every
+ * trailing one was conditional, and none reserved any width -- so where the
+ * cluster began was a function of which optional controls a given child
+ * happened to have, and nothing lined up down the card.
+ *
+ *   1. LEAD    checkbox, then `.wb-note-row-badge` -- a slot that reserves its
+ *              width whether or not the child has a deliverable, so names
+ *              start on the same x. The `$` badge used to sit inline between
+ *              the checkbox and the name, which moved the name on any row that
+ *              had one.
+ *   2. NAME    `.wb-note-row-name`, then `.wb-note-row-content` for the
+ *              affordances that *describe* the task rather than act on it (the
+ *              detected-date chip, the child-count badge). Content shrinks
+ *              before the name does; the name keeps a floor and then ellipsises.
+ *   3. GUTTER  `.wb-note-row-gutter`, a constant width, holding three slots in
+ *              a fixed order: hint, people, dep. An unoccupied slot renders as
+ *              an empty box of its reserved width -- never `display: none`,
+ *              which is the whole mechanism.
+ *
+ * Degradation, by card width (see the container queries at the end of this
+ * block). Each step drops the least load-bearing thing left:
+ *   >= 240px  everything reserved.
+ *   200-239   the planning hint stops reserving -- it is a hint, and the only
+ *             slot holding nothing the user can lose work by missing.
+ *   < 200px   the deliverable badge stops reserving too, and the people slot
+ *             narrows to the assign control plus one overflow chip.
+ * The name keeps a floor throughout, so nothing is ever clipped by
+ * `.wb-note-body`'s `overflow-x: hidden` or the card's own `overflow: hidden`.
+ *
+ * Hover and focus change opacity only. Nothing in this row moves when the
+ * pointer enters it -- that is a rule, not an accident of the one control
+ * that currently reveals on hover.
+ *
+ * Every width here is row-scoped. The note *header* carries twins of several
+ * of these controls on shared selectors (`.wb-note-coach-btn,
+ * .wb-note-row-coach` and friends), so sizing them through those rules would
+ * silently resize the header too.
+ */
 .wb-note-row {
     display: flex;
     align-items: center;
-    gap: var(--np-space-8);
+    gap: var(--wb-row-gap);
     padding: var(--np-space-4);
     border-radius: 4px;
     min-width: 0;
 }
 
-.wb-note-row:hover {
-    background: var(--np-bg-hover);
+.wb-note-row-badge {
+    flex: 0 0 var(--wb-row-badge);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
 }
 
-.wb-note-checkbox {
-    flex-shrink: 0;
-    width: 15px;
-    height: 15px;
-    margin: 0;
-    cursor: pointer;
+.wb-note-row-content {
+    flex: 0 1 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-4);
+    min-width: 0;
+    overflow: hidden;
 }
+
+.wb-note-row-gutter {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--wb-row-slot-gap);
+    margin-left: auto;
+}
+
+.wb-note-row-slot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    /* `min-width: auto` is a flex item's default, and it would let a slot grow
+       past its reserved basis to fit its contents -- which is exactly the
+       behaviour this layout exists to stop. Without this the people slot on a
+       busy row widens the gutter and the alignment is gone again. */
+    min-width: 0;
+    overflow: hidden;
+}
+
+.wb-note-row-slot-hint { flex-basis: var(--wb-row-hint); }
+.wb-note-row-slot-people {
+    flex-basis: var(--wb-row-people);
+    gap: var(--np-space-4);
+}
+
+/* The row's people slot holds one <np-resource-stack> (#1246), which owns the
+   overlap, the cap and the overflow chip. The hand-rolled chips and the
+   `attr()`-driven counter that used to live here are gone with them. */
+.wb-note-row-slot-dep { flex-basis: var(--wb-row-dep); }
+
+/* NB: these set the custom properties on `.wb-note-row` and
+   `.wb-note-add-row`, not on `.wb-note-card`. The card is the query
+   container, and a container query styles its descendants -- a rule matching
+   the container itself never applies. The add row is named alongside the
+   checklist rows because it reserves the same lead-zone columns (#1250); a
+   tier that retunes one and not the other puts the "+" and "Add task…" out
+   of line with the checkboxes and names directly above them. */
+@container (max-width: 239px) {
+    .wb-note-row,
+    .wb-note-add-row { --wb-row-hint: 0px; }
+    .wb-note-row-coach { display: none; }
+}
+
+@container (max-width: 199px) {
+    .wb-note-row,
+    .wb-note-add-row {
+        --wb-row-badge: 0px;
+        --wb-row-people: 40px;
+        /* Buy back 16px of row by halving the inter-zone gaps, so the name
+           keeps its floor instead of the row overflowing the card. */
+        --wb-row-gap: var(--np-space-4);
+    }
+    .wb-note-deliverable-badge { display: none; }
+    /* Smaller chips rather than fewer: the cap lives in the component's `max`
+       attribute and CSS cannot reach it, so the stack shrinks to fit the
+       narrower slot instead of being clipped by it. */
+    .wb-note-row-avatar { --np-avatar-size: 12px; }
+}
+
+.wb-note-row:hover {
+    background: var(--wb-note-hover);
+}
+
 
 .wb-note-row-name {
-    flex: 1;
-    min-width: 0;
+    flex: 1 1 auto;
+    /* A floor, not `min-width: 0`: the gutter is a fixed width, so without one
+       a busy row would squeeze the name to nothing. Below this it ellipsises
+       instead. Sized so the narrowest tier's arithmetic still fits inside a
+       160px card -- see the degradation note above. */
+    min-width: 2.5em;
     font-size: 12px;
     color: var(--wb-note-text);
     overflow: hidden;
@@ -533,33 +870,43 @@
     white-space: nowrap;
 }
 
+/* One of the row's two hue-coded indicators: orange means "this is a
+   deliverable". The ink is `--np-orange-ink` rather than the raw `#111` this
+   rule used to carry under a comment claiming `#161616` -- the claim and the
+   declaration disagreed, and the test the comment pointed at measured
+   wbContrastTextColour()'s output rather than anything in this file.
+   scripts/check-contrast.mjs scores the pairing now. */
 .wb-note-deliverable-badge {
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 15px;
-    height: 15px;
-    border-radius: 4px;
+    width: var(--wb-ind-size);
+    height: var(--wb-ind-size);
+    border-radius: var(--wb-ind-radius);
     background: var(--np-orange);
-    /* #161616 on var(--np-orange) measures ~6.97:1 -- comfortably past WCAG AA (4.5:1),
-       confirmed by tests/test_whiteboard_notes.js's contrast-ratio checks. */
-    color: #111;
+    color: var(--np-orange-ink);
     font-size: 10px;
     font-weight: 700;
-    flex-shrink: 0;
 }
 
+/* A text chip, so a pill -- and an explicit height, where this rule used to
+   have none at all and derived one from `font-size` x `line-height`. Colour
+   comes from the note like every other indicator; the theme surface tokens it
+   carried were chosen against a theme background, not a pastel note. */
 .wb-note-count-badge {
     flex-shrink: 0;
-    border: 1px solid var(--np-border);
-    border-radius: 10px;
-    background: var(--np-bg-alt);
-    color: var(--np-text-secondary);
+    display: inline-flex;
+    align-items: center;
+    height: var(--wb-ind-size);
+    border: 1px solid currentColor;
+    border-radius: var(--wb-ind-chip-radius);
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    color: inherit;
     font-size: 10px;
-    padding: 1px var(--np-space-8);
+    padding: 0 var(--np-space-8);
     cursor: pointer;
-    line-height: 1.5;
+    line-height: 1;
 }
 
 .wb-note-count-badge:hover,
@@ -569,45 +916,22 @@
     border-color: var(--np-accent);
 }
 
-/* Quick resource-assign bubble (issue #1162, part of epic #878): a small
-   avatar per child row's already-assigned resource, plus a "+" bubble
-   that opens the assign dropdown (wbBuildAssignMenu(), reusing the
-   `.wb-note-menu` popup below as-is). Sits at the row's right-hand end,
-   after the drill-down badge if one is present -- "a bubble at the right
-   of a task", per the epic's own wording. */
+/* A small avatar per child row's already-assigned resource (issue #1162,
+   part of epic #878), at the row's right-hand end after the drill-down
+   badge if one is present.
+
+   This block used to also carry `.wb-note-assign-bubble`, a second "+"
+   opening its own dropdown. Every row rendered two always-visible
+   resource-assign controls -- that bubble and `.wb-note-row-resource`
+   above -- with the same accessible name, over two different resource
+   lists. The bubble is gone; `.wb-note-row-resource` is the survivor. */
+/* `.wb-note-row-avatar` is now the class on the row's <np-resource-stack>,
+   kept as a selector hook for call sites and tests. The component draws the
+   chips; nothing here does. */
 .wb-note-row-avatar {
     flex-shrink: 0;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--np-info-gradient);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 7px;
-    font-weight: bold;
-}
-
-.wb-note-assign-bubble {
-    flex-shrink: 0;
-    width: 15px;
-    height: 15px;
-    border-radius: 50%;
-    border: 1px solid var(--np-border);
-    background: var(--np-bg-alt);
-    color: var(--np-text-secondary);
-    font-size: 11px;
-    line-height: 1;
-    padding: 0;
-    cursor: pointer;
-}
-
-.wb-note-assign-bubble:hover,
-.wb-note-assign-bubble:focus-visible {
-    background: var(--np-accent);
-    color: var(--np-on-accent);
-    border-color: var(--np-accent);
+    display: inline-flex;
+    --np-avatar-size: 14px;
 }
 
 /* Row-level dependency-drag handle (issue #1106, epic #1090): the
@@ -663,7 +987,7 @@
 .wb-note-row.wb-dep-row-target {
     outline: 2px solid var(--np-green);
     outline-offset: -2px;
-    background: var(--np-bg-hover);
+    background: var(--wb-note-hover);
 }
 
 .wb-note-row.wb-dep-row-target-invalid {
@@ -686,28 +1010,36 @@
 .wb-note-add-row {
     display: flex;
     align-items: center;
-    gap: var(--np-space-8);
+    /* The same gap the checklist rows use, and retuned with them by the
+       container queries above -- see the sibling block there that names
+       this selector alongside `.wb-note-row`. */
+    gap: var(--wb-row-gap);
     padding: var(--np-space-4);
     border-radius: 4px;
     min-width: 0;
     cursor: text;
 }
 
-.wb-note-add-row:hover {
-    background: var(--np-bg-hover);
+.wb-note-add-row:hover,
+.wb-note-add-row:focus-within {
+    background: var(--wb-note-hover);
 }
 
 .wb-note-add-icon {
     flex-shrink: 0;
-    width: 15px;
-    height: 15px;
+    /* <np-checkbox>'s hit target, not the 15px this used to be: the "+"
+       stands in for a checkbox, so it occupies a checkbox's column. */
+    width: var(--np-checkbox-target, 24px);
+    height: var(--np-checkbox-target, 24px);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 13px;
     line-height: 1;
-    color: var(--wb-note-text);
-    opacity: 0.45;
+    /* Non-text: a decorative glyph next to an input that already carries
+       its own placeholder and aria-label, so 1.4.11's 3:1 rather than
+       4.5:1. It was 0.45, which is 2.58:1 on #F7A8B8. */
+    color: var(--wb-note-ink-faint);
 }
 
 .wb-note-add-input {
@@ -720,19 +1052,18 @@
     font-size: 12px;
     color: var(--wb-note-text);
     padding: 0;
+    /* The checklist rows put a badge slot between the checkbox and the
+       name (`.wb-note-row-badge`, plus one row gap). This row has no badge,
+       so it reserves the identical width here instead -- which is what
+       makes "Add task…" start at the same x as every task name above it,
+       at every container-query tier, including the one that collapses the
+       badge to 0. */
+    margin-left: calc(var(--wb-row-badge) + var(--wb-row-gap));
 }
 
 .wb-note-add-input::placeholder {
-    color: var(--wb-note-text);
-    opacity: 0.55;
+    color: var(--wb-note-ink-muted);
     font-style: italic;
-}
-
-.wb-note-menu-empty {
-    display: block;
-    padding: var(--np-space-8);
-    color: var(--np-text-secondary);
-    font-size: 12px;
 }
 
 .wb-note-footer {
@@ -741,21 +1072,41 @@
     justify-content: space-between;
     gap: var(--np-space-8);
     padding: var(--np-space-8) var(--np-space-12);
-    border-top: 1px solid var(--np-border);
+    border-top: 1px solid var(--wb-note-rule);
     flex-shrink: 0;
 }
 
 .wb-note-progress {
     font-size: 11px;
     font-weight: 600;
-    color: var(--wb-note-text);
-    opacity: 0.8;
+    color: var(--wb-note-ink-muted);
+    /* "12 / 30" is the footer's fixed half and the avatars are the elastic
+       one (#1250). The footer is `justify-content: space-between` with no
+       rule about which side gives way, so on a 160px note with six
+       resources the count was the thing that wrapped or clipped -- the one
+       item in that band with no other way to read it. */
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 .wb-note-avatars {
     display: flex;
+    min-width: 0;
+    overflow: hidden;
+    justify-content: flex-end;
 }
 
+/* `.wb-note-avatar` survives this file's own migration to
+   <np-resource-stack> (#1246) because the note is no longer its only
+   consumer: task-peek.js sets this class itself for the peek popover's own
+   stack, and task-peek.css sizes it down from there. Deleting it would take
+   that surface's avatars with it. Converting the peek popover is part of
+   #1199's rollout, and this rule goes when it does.
+
+   The overlap is the one declaration of that off-scale value in this file.
+   docs/design/standardisation-backlog.md records it as a deliberate survivor
+   of the spacing pass: a stack overlaps by design and no step on the 4px scale
+   gives the same result. */
 .wb-note-avatar {
     width: 20px;
     height: 20px;
@@ -767,8 +1118,8 @@
     justify-content: center;
     font-size: 9px;
     font-weight: bold;
-    margin-left: -5px;
     border: 1.5px solid var(--np-surface);
+    margin-left: -5px;
 }
 
 .wb-note-avatar:first-child {
@@ -900,6 +1251,24 @@
     display: none;
 }
 
+/* ...and so do the four contextual header buttons (issue #1250). At this
+   tier the header *is* the card, and it was still laying out six 22px
+   buttons across a note drawn at 40% -- rendering them at ~9px each and
+   leaving the title, the one thing this tier exists to show, with a
+   sliver. The date/resource/coach/promote buttons all open a popover that
+   is unusable at that zoom anyway.
+   The two that stay are the two that are still worth hitting: the link
+   handle, because noodling two distant notes together is exactly what you
+   zoom out to do, and the menu, which is how you get to everything else.
+   Removing buttons only moves the remaining ones *right*, further from the
+   header's midpoint, so this cannot recreate the grab-point regression
+   .wb-note-header's comment describes. */
+.wb-note-title-only .wb-note-smart-btn,
+.wb-note-title-only .wb-note-coach-btn,
+.wb-note-title-only .wb-note-promote-btn {
+    display: none;
+}
+
 /* Free-form note (issue #1015): a task with zero children has no checklist
    to summarise, so its progress/avatar footer is hidden -- unlike
    title-only above (a zoom/collapse state that hides the body too), this
@@ -915,7 +1284,7 @@
    Left unstyled-empty (no placeholder) when there is no comment, per
    #885's "nothing prompts for detail". */
 .wb-note-freetext {
-    padding: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
     font-size: 12px;
     line-height: 1.5;
     color: var(--wb-note-text);
@@ -1061,9 +1430,14 @@
     height: 16px;
     cursor: nwse-resize;
     touch-action: none;
+    /* Drawn in the note's own ink, not --np-border (#1250). A theme
+       hairline on a pastel fill measured 1.1-1.9:1 -- the one drag target
+       with no long-press fallback was the least visible thing on the card.
+       --wb-note-ink-faint is 3.31:1 at worst, over 1.4.11's 3:1 floor for a
+       non-text control. */
     background:
-        linear-gradient(135deg, transparent 0 calc(100% - 7px), var(--np-border) calc(100% - 7px) calc(100% - 5px), transparent calc(100% - 5px) 100%),
-        linear-gradient(135deg, transparent 0 calc(100% - 11px), var(--np-border) calc(100% - 11px) calc(100% - 9px), transparent calc(100% - 9px) 100%);
+        linear-gradient(135deg, transparent 0 calc(100% - 7px), var(--wb-note-ink-faint) calc(100% - 7px) calc(100% - 5px), transparent calc(100% - 5px) 100%),
+        linear-gradient(135deg, transparent 0 calc(100% - 11px), var(--wb-note-ink-faint) calc(100% - 11px) calc(100% - 9px), transparent calc(100% - 9px) 100%);
 }
 
 /* body-level class set for the duration of a drag/resize gesture
@@ -1644,7 +2018,7 @@ body.wb-note-drag-active * {
 
 .wb-note-link-handle:hover {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--wb-note-hover-strong);
 }
 
 /* Touch has no hover, so the handle can never be revealed by one --
@@ -1681,7 +2055,7 @@ body.wb-note-drag-active * {
 .wb-note-promote-btn:hover,
 .wb-note-promote-btn:focus-visible {
     opacity: 1;
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--wb-note-hover-strong);
 }
 
 @media (pointer: coarse) {
@@ -1699,9 +2073,14 @@ body.wb-note-drag-active * {
     font-weight: 600;
     letter-spacing: 0.02em;
     text-transform: uppercase;
-    color: var(--np-text-muted);
-    background: var(--np-bg-alt);
-    border-bottom: 1px solid var(--np-border);
+    /* Note ink, not theme ink. --np-text-muted on --np-bg-alt is a pair
+       that agrees with itself and with nothing else on the card: painted
+       over a pastel fill it is 1.07:1 on #F7A8B8 in dark, and the
+       --np-bg-alt patch made a themed stripe across an otherwise solid
+       note. Dropping the fill lets the note's colour run unbroken behind
+       the caption, and --wb-note-ink-muted is legible on every swatch. */
+    color: var(--wb-note-ink-muted);
+    border-bottom: 1px solid var(--wb-note-rule);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1709,11 +2088,13 @@ body.wb-note-drag-active * {
 
 .wb-note-linked-summary {
     margin-top: var(--np-space-4);
-    padding: var(--np-space-4) var(--np-space-8);
+    padding: var(--np-space-4) var(--np-space-12);
     font-size: 11px;
     font-style: italic;
-    color: var(--np-text-muted);
-    border-top: 1px dashed var(--np-border);
+    color: var(--wb-note-ink-muted);
+    /* Solid, like the header's and the footer's. A dashed hairline was
+       the card's fourth divider treatment (#1250). */
+    border-top: 1px solid var(--wb-note-rule);
 }
 
 .wb-note-title-only .wb-note-parent {
@@ -1723,6 +2104,21 @@ body.wb-note-drag-active * {
 /* ── Note: inline rename ─────────────────────────────────────────────
    The title becomes editable in place rather than being swapped for an
    <input>, so nothing shifts as editing starts. */
+/* The title says it is editable, without saying so on every note at rest
+   (#1250). Until now the only signal was the `title` attribute's tooltip and
+   the menu's "Rename" item -- nothing visible at all.
+
+   Revealed on card hover and on focus rather than painted permanently: this
+   epic exists because the note carries too much at rest, and a dotted rule
+   under every title on the board is exactly the kind of thing it is removing.
+   Touch, which has no hover, reaches rename through the ⋮ menu, which is the
+   same route it already had. */
+.wb-note-card:hover .wb-note-title,
+.wb-note-card:focus-within .wb-note-title {
+    text-decoration: underline dotted var(--wb-note-ink-faint);
+    text-underline-offset: 3px;
+}
+
 .wb-note-title.editing {
     white-space: nowrap;
     overflow-x: auto;
@@ -1731,9 +2127,17 @@ body.wb-note-drag-active * {
     outline: 2px solid var(--np-blue);
     outline-offset: 2px;
     border-radius: 4px;
-    background: var(--np-surface);
-    color: var(--np-text);
-    padding: 0 var(--np-space-2);
+    /* The hover hint above has done its job by now -- the outline is the
+       editing state, and two affordances at once is one too many. */
+    text-decoration: none;
+    /* The note keeps its own colour while being renamed. This used to swap
+       to var(--np-surface)/var(--np-text) -- a theme surface patched over a
+       pastel fill, which both broke the card in half visually and reopened
+       the contrast question the fill had already settled, since
+       --wb-note-text was measured against the *note*, not against
+       --np-surface. The blue outline is the editing affordance; it does not
+       need a second one. The padding is on the base rule above, so the
+       text does not move as editing starts. */
 }
 
 /* ── Note: link-drop targets and the outline's "found it" flash ────── */

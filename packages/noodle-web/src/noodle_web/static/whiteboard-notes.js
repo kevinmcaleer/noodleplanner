@@ -264,6 +264,26 @@
 // ── Configuration ───────────────────────────────────────────────────────
 const WB_NOTE_DEFAULT_WIDTH = 260;
 const WB_NOTE_DEFAULT_HEIGHT = 220;
+
+/** Avatars rendered inline on a checklist row before the overflow chip takes
+ * over (issue #1243). The row used to render one per assignee, uncapped, while
+ * the note footer capped the same list at six.
+ *
+ * Read from the shared builder at use time rather than declared here, so the
+ * board and <np-note> cannot cap the same stack differently (#1249). The
+ * fallback covers the window before the deferred module has run -- nothing
+ * renders a note that early, but a `const` evaluated at script-eval time
+ * would capture `undefined` if one did. */
+function wbRowAvatarCap() {
+    const markup = globalThis.NoodleNoteMarkup;
+    return (markup && markup.ROW_AVATAR_CAP) || 3;
+}
+
+/** `.wb-note-menu-grid`'s `grid-template-columns: repeat(6, ...)` in
+ * views/whiteboard.css, which the menu's arrow-key navigation has to know to
+ * move a *row* rather than one swatch (#1247). The two have to stay in step. */
+const WB_NOTE_MENU_SWATCH_COLUMNS = 6;
+
 const WB_NOTE_MIN_WIDTH = 160;
 const WB_NOTE_MIN_HEIGHT = 120;
 // "Sensible maximum" per #848 -- generous enough for a note-with-many-
@@ -589,13 +609,44 @@ function wbApplyDateChoiceToPlanText(planText, taskName, kind, date) {
     return model.serialize();
 }
 
+/**
+ * Resources offerable for quick assignment, richest source first.
+ *
+ * Front matter (`- @short: Full Name, Role`) is preferred, because it is the
+ * only source carrying a display name and a role. When a plan declares none,
+ * fall back to the `@shortname` tokens already used on its task lines --
+ * getAllResourceNames() (script.js) has always done this, so before the two
+ * assign controls were merged (#1162's bubble read that list, this menu read
+ * front matter) a plan that used tokens without declaring them got a working
+ * bubble and an empty menu. Harvested here from `planText` rather than by
+ * calling getAllResourceNames(), which reads #planEditor directly: this
+ * function is pure and unit-tested, and must stay callable without a DOM.
+ */
 function wbResourceOptionsFromPlanText(planText) {
+    const text = String(planText || '');
     const result = [];
-    const match = /^---\s*$([\s\S]*?)^---\s*$/m.exec(String(planText || ''));
-    if (!match) return result;
-    const re = /^\s*-\s*@([A-Za-z0-9_]+):\s*([^,\n]+)(?:,\s*([^\n]+))?/gm;
-    let item;
-    while ((item = re.exec(match[1]))) result.push({ shortname: item[1], name: item[2].trim(), role: (item[3] || '').trim() });
+    const match = /^---\s*$([\s\S]*?)^---\s*$/m.exec(text);
+    if (match) {
+        const re = /^\s*-\s*@([A-Za-z0-9_]+):\s*([^,\n]+)(?:,\s*([^\n]+))?/gm;
+        let item;
+        while ((item = re.exec(match[1]))) result.push({ shortname: item[1], name: item[2].trim(), role: (item[3] || '').trim() });
+    }
+    if (result.length) return result;
+
+    // Strip the front matter block before harvesting, so a declaration block
+    // that parsed to nothing cannot leak its own `@` tokens back in here.
+    const body = match ? text.slice(match.index + match[0].length) : text;
+    const seen = new Set();
+    const token = /@([A-Za-z0-9_]+)/g;
+    let hit;
+    while ((hit = token.exec(body))) {
+        const shortname = hit[1];
+        const key = shortname.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        result.push({ shortname, name: shortname, role: '' });
+    }
+    result.sort((a, b) => a.shortname.localeCompare(b.shortname));
     return result;
 }
 
@@ -1661,28 +1712,30 @@ function wbCreateNoteNode() {
     const fo = document.createElementNS(SVG_NS, 'foreignObject');
     fo.setAttribute('class', 'wb-note');
 
-    const card = document.createElementNS(XHTML_NS, 'div');
-    card.setAttribute('class', 'wb-note-card');
+    // Markup from components/note/note-markup.js, listeners from here (#1249).
+    //
+    // The card's header, caption, body, footer and resize grip -- their
+    // elements, classes, ARIA and glyphs, and the header's load-bearing child
+    // order -- used to be ~120 lines here and another ~50 in <np-note>, typed
+    // out twice. That is what made Storybook a second drawing of the note
+    // rather than the place it is designed, and it had already produced real
+    // divergences: the title was an <h3> here and a <p> there, and the promote
+    // button's glyph was a different icon in each.
+    //
+    // What stays is everything the component neither has nor wants: the drag,
+    // resize, link and menu gestures, all of which read `fo.dataset.wbTask` at
+    // event time rather than closing over a view model, so they keep working
+    // across the re-renders that reuse this same node for the same task.
+    const { card, refs } = globalThis.NoodleNoteMarkup.buildNoteCard();
+    const {
+        header, title, menuBtn, linkHandle, coachBtn, dateBtn, resourceBtn,
+        promoteBtn, parentCaption, body, footer, progress, avatars, resizeHandle,
+    } = refs;
 
-    const header = document.createElementNS(XHTML_NS, 'div');
-    header.setAttribute('class', 'wb-note-header');
-
-    const title = document.createElementNS(XHTML_NS, 'h3');
-    title.setAttribute('class', 'wb-note-title');
-
-    const menuBtn = document.createElementNS(XHTML_NS, 'button');
-    menuBtn.setAttribute('class', 'wb-note-menu-btn');
-    menuBtn.setAttribute('type', 'button');
-    menuBtn.setAttribute('aria-haspopup', 'true');
-    menuBtn.setAttribute('aria-expanded', 'false');
-    menuBtn.setAttribute('aria-label', 'Note options');
-    menuBtn.textContent = '⋮'; // vertical ellipsis
-    // Colour swatches are this button's contents for issue #849; two
+    // Colour swatches are the menu button's contents for issue #849; two
     // later issues (#847 "Remove from board", #850 "Open task") add more
     // items to the same menu -- see wbBuildNoteMenu()'s doc comment for
-    // the structure they extend. `fo` is read at click time (not closed
-    // over an early vm) so this keeps working across re-renders that
-    // reuse this same node for the same task.
+    // the structure they extend.
     menuBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const taskName = fo.dataset.wbTask;
@@ -1704,17 +1757,7 @@ function wbCreateNoteNode() {
     // the visibility toggle in wbUpdateNoteNode() below); a checklist note
     // hides it rather than offering a "demote back to text note" the other
     // way, since undoing that would mean deleting real child tasks with no
-    // existing precedent in this codebase for doing so safely -- out of
-    // scope here, see this issue's own notes on why only the forward
-    // direction is wired.
-    const promoteBtn = document.createElementNS(XHTML_NS, 'button');
-    promoteBtn.setAttribute('class', 'wb-note-promote-btn');
-    promoteBtn.setAttribute('type', 'button');
-    promoteBtn.setAttribute('title', "Turn this text note into a summary task");
-    promoteBtn.innerHTML =
-        '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
-        'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-        '<rect x="2" y="3" width="8" height="8" rx="1"/><path d="M8 12h6M11 9l3 3-3 3"/></svg>';
+    // existing precedent in this codebase for doing so safely.
     promoteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const taskName = fo.dataset.wbTask;
@@ -1724,16 +1767,6 @@ function wbCreateNoteNode() {
     // The noodle handle: drag from here to another note to make that note
     // a child of this one. Lives in the header rather than floating over
     // the card edge so it never sits on top of the note's own content.
-    const linkHandle = document.createElementNS(XHTML_NS, 'button');
-    linkHandle.setAttribute('class', 'wb-note-link-handle');
-    linkHandle.setAttribute('type', 'button');
-    linkHandle.setAttribute('title', 'Drag to another note to make it a subtask');
-    linkHandle.setAttribute('aria-label', 'Draw a noodle to another note');
-    linkHandle.innerHTML =
-        '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
-        'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
-        '<circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/>' +
-        '<path d="M4 6 C4 11, 7 12, 10 12"/></svg>';
     linkHandle.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         e.preventDefault();
@@ -1751,23 +1784,15 @@ function wbCreateNoteNode() {
     }, { passive: false });
     linkHandle.addEventListener('click', (e) => e.stopPropagation());
 
-    const coachBtn = document.createElementNS(XHTML_NS, 'button');
-    coachBtn.setAttribute('class', 'wb-note-coach-btn');
-    coachBtn.setAttribute('type', 'button');
-    coachBtn.setAttribute('aria-label', 'Planning prompts');
-    coachBtn.setAttribute('aria-haspopup', 'dialog');
-    coachBtn.textContent = '✦';
     coachBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const taskName = fo.dataset.wbTask;
         if (taskName) wbToggleCoachingMenu(taskName, coachBtn);
     });
 
-    const dateBtn = document.createElementNS(XHTML_NS, 'button');
-    dateBtn.setAttribute('class', 'wb-note-smart-btn wb-note-date-btn');
-    dateBtn.setAttribute('type', 'button');
-    dateBtn.setAttribute('aria-label', 'Attach detected date');
-    dateBtn.textContent = 'Date';
+    // Hidden until wbUpdateNoteNode() finds a date in this task's text --
+    // a render-time state rather than part of the skeleton, so it is set
+    // here and not in the builder.
     dateBtn.style.display = 'none';
     dateBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1777,58 +1802,12 @@ function wbCreateNoteNode() {
         if (taskName && suggestion) wbToggleDateMenu(taskName, suggestion, dateBtn);
     });
 
-    const resourceBtn = document.createElementNS(XHTML_NS, 'button');
-    resourceBtn.setAttribute('class', 'wb-note-smart-btn wb-note-resource-btn');
-    resourceBtn.setAttribute('type', 'button');
-    resourceBtn.setAttribute('aria-label', 'Assign a resource');
-    resourceBtn.textContent = '＋';
-    resourceBtn.title = 'Quick assign';
     resourceBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const taskName = fo.dataset.wbTask;
         if (taskName) wbToggleResourceMenu(taskName, resourceBtn);
     });
 
-    header.appendChild(title);
-    header.appendChild(dateBtn);
-    header.appendChild(resourceBtn);
-    header.appendChild(linkHandle);
-    header.appendChild(coachBtn);
-    header.appendChild(promoteBtn);
-    header.appendChild(menuBtn);
-
-    // A caption naming the note this one hangs off, when its parent is
-    // also on the board -- the noodle says *that* there is a link, this
-    // says which way round it goes without following the curve by eye.
-    const parentCaption = document.createElementNS(XHTML_NS, 'div');
-    parentCaption.setAttribute('class', 'wb-note-parent');
-
-    const body = document.createElementNS(XHTML_NS, 'div');
-    body.setAttribute('class', 'wb-note-body');
-
-    const footer = document.createElementNS(XHTML_NS, 'div');
-    footer.setAttribute('class', 'wb-note-footer');
-
-    const progress = document.createElementNS(XHTML_NS, 'span');
-    progress.setAttribute('class', 'wb-note-progress');
-
-    const avatars = document.createElementNS(XHTML_NS, 'div');
-    avatars.setAttribute('class', 'wb-note-avatars');
-
-    footer.appendChild(progress);
-    footer.appendChild(avatars);
-
-    // Resize handle (issue #848): a small grip in the bottom-right corner,
-    // positioned by CSS (views/whiteboard.css), never by JS.
-    const resizeHandle = document.createElementNS(XHTML_NS, 'div');
-    resizeHandle.setAttribute('class', 'wb-note-resize-handle');
-    resizeHandle.setAttribute('aria-hidden', 'true');
-
-    card.appendChild(header);
-    card.appendChild(parentCaption);
-    card.appendChild(body);
-    card.appendChild(footer);
-    card.appendChild(resizeHandle);
     fo.appendChild(card);
 
     const entry = {
@@ -2018,14 +1997,11 @@ function wbUpdateNoteNode(entry, vm) {
     // there is nothing here to gate; `vm.progress` is always `0 / 0` in
     // that case anyway (wbIsFreeformNote() is defined in terms of it).
     wbSetText(refs.progress, `${vm.progress.completed} / ${vm.progress.total}`);
-    refs.avatars.innerHTML = '';
-    vm.resources.slice(0, 6).forEach(resource => {
-        const avatar = document.createElementNS(XHTML_NS, 'div');
-        avatar.setAttribute('class', 'wb-note-avatar');
-        avatar.setAttribute('title', resource);
-        avatar.textContent = wbGetInitials(resource);
-        refs.avatars.appendChild(avatar);
-    });
+    // <np-resource-stack> (#1246, under #1199) rather than a hand-rolled run
+    // of divs. This footer capped at six with no indication it had; the row
+    // below it did not cap at all. One component, one cap, and an overflow
+    // chip that reveals the names it hid.
+    wbFillResourceStack(refs.avatars, vm.resources, 6, null, vm.task && vm.task.name);
 }
 
 // ── Free-floating text objects (issue #1018) ────────────────────────────
@@ -2401,20 +2377,6 @@ function wbIsRepeatHeaderPress(entry, clientX, clientY) {
 
 function wbNoteHeaderMouseDown(e, entry) {
     if (e.button !== 0 || wbActiveDrag) return;
-    // Double-click-to-rename is detected here, from consecutive
-    // mousedowns, rather than from a native 'dblclick' listener: the first
-    // press of the pair raises the note to the front of the notes layer,
-    // and moving a node in the DOM cancels the browser's own double-click
-    // tracking, so a dblclick handler on the header would simply never
-    // fire for any note that wasn't already frontmost. Detecting it
-    // ourselves also gives touch the same gesture for free (see
-    // wbNoteHeaderTouchStart()), which 'dblclick' does not.
-    if (wbIsRepeatHeaderPress(entry, e.clientX, e.clientY)) {
-        e.preventDefault();
-        e.stopPropagation();
-        wbBeginTitleEdit(entry);
-        return;
-    }
     // The menu button (issue #849, not this issue's to build or wire) is
     // a sibling inside the same header -- never hijack its own click.
     if (e.target && e.target.closest && e.target.closest('.wb-note-menu-btn')) return;
@@ -2425,6 +2387,28 @@ function wbNoteHeaderMouseDown(e, entry) {
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-promote-btn')) return;
     if (e.target && e.target.isContentEditable) return;
+    // Double-click-to-rename is detected here, from consecutive
+    // mousedowns, rather than from a native 'dblclick' listener: the first
+    // press of the pair raises the note to the front of the notes layer,
+    // and moving a node in the DOM cancels the browser's own double-click
+    // tracking, so a dblclick handler on the header would simply never
+    // fire for any note that wasn't already frontmost. Detecting it
+    // ourselves also gives touch the same gesture for free (see
+    // wbNoteHeaderTouchStart()), which 'dblclick' does not.
+    //
+    // Below the guards, not above them, since issue #1250. It used to run
+    // first, which made the rename gesture's hit area device-dependent:
+    // wbNoteHeaderTouchStart() has always run its identical guards before
+    // its own repeat-press check, so a fast second press on the `⋮` menu
+    // button or the coach button renamed the note on a mouse and did
+    // nothing on a touchscreen. The two paths now agree -- rename is the
+    // header minus its controls, on both.
+    if (wbIsRepeatHeaderPress(entry, e.clientX, e.clientY)) {
+        e.preventDefault();
+        e.stopPropagation();
+        wbBeginTitleEdit(entry);
+        return;
+    }
     e.preventDefault();
     e.stopPropagation(); // never let this fall through to canvas panning
     wbBeginDrag('move', entry, e.clientX, e.clientY);
@@ -2466,6 +2450,10 @@ function wbNoteHeaderTouchStart(e, entry) {
     if (e.target && e.target.closest && e.target.closest('.wb-note-smart-btn')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-promote-btn')) return;
+    // The fifth guard the mouse path has always carried, added here for the
+    // same parity (#1250): a second tap inside a title already being
+    // renamed places the caret, it does not re-enter the edit.
+    if (e.target && e.target.isContentEditable) return;
 
     const touch = e.touches[0];
     // Double-tap the header to rename, the touch twin of the mouse
@@ -2973,118 +2961,139 @@ function wbCreateTextObjectInViewportCentre() {
     return wbCreateTextObjectAt(rect.x + rect.width / 2, rect.y + rect.height / 2);
 }
 
+/**
+ * Fill (or build) an <np-resource-stack> for `resources`.
+ *
+ * Both of the note's stacks go through here -- the footer's, which shows the
+ * note's own task's resources, and a checklist row's, which shows that child's.
+ * They keep their different *data*; what they no longer keep is two sizes, two
+ * caps, two elements and two copies of the initials algorithm.
+ *
+ * `details` comes from the plan's front matter, which already carries the role
+ * and the email the profile card wants (`- @short: Full Name, Role, email,
+ * ...`). parseResourceDetails() (script.js) reads it; this tolerates that
+ * function being absent so the whiteboard still renders in isolation.
+ */
+function wbFillResourceStack(host, resources, cap, size, taskName) {
+    const stack = document.createElementNS(XHTML_NS, 'np-resource-stack');
+    stack.setAttribute('max', String(cap));
+    if (size) stack.setAttribute('size', String(size));
+    stack.names = resources || [];
+    if (typeof parseResourceDetails === 'function') {
+        try {
+            stack.details = parseResourceDetails(wbLastPlanText || '');
+        } catch { /* front matter is optional; the card degrades to the name */ }
+    }
+
+    // The component reports rather than reaching for the app itself, which is
+    // what keeps it usable in Storybook. Wiring it up is this end's job.
+    //
+    // Clicking a chip opens the same assign menu the row's own "+" opens, so
+    // seeing who is on a task and changing it are one control -- they used to
+    // be a chip and a detached "+" that looked nothing like each other.
+    if (taskName) {
+        stack.addEventListener('resource-activate', (e) => {
+            e.stopPropagation();
+            wbToggleResourceMenu(taskName, stack);
+        });
+    }
+    stack.addEventListener('resource-open', (e) => {
+        e.stopPropagation();
+        const shortname = e.detail && e.detail.shortname;
+        if (shortname && typeof openResourceForm === 'function') openResourceForm(shortname);
+    });
+
+    if (host) host.replaceChildren(stack);
+    return stack;
+}
+
 /** Build one child-task row for a note body. */
 function wbBuildChildRow(childVm) {
     const child = childVm.task;
-    const row = document.createElementNS(XHTML_NS, 'div');
-    row.setAttribute('class', 'wb-note-row');
-    // Read by whiteboard-dep-noodles.js's wbNoteRowRectFor() (to draw a
-    // committed dependency noodle at this row's own position) and by its
-    // row-drag drop handling (wbUpdateRowDepDrag()/wbEndRowDepDrag(), to
-    // find which task a dependency handle was dropped onto) -- see that
-    // file's header comment for #1106.
-    row.dataset.wbRowTask = child.name;
-    row.dataset.wbRowSummary = childVm.hasChildren ? 'true' : 'false';
+    const markup = globalThis.NoodleNoteMarkup;
 
-    const checkbox = document.createElementNS(XHTML_NS, 'input');
-    checkbox.setAttribute('type', 'checkbox');
-    checkbox.setAttribute('class', 'wb-note-checkbox');
-    const isComplete = childVm.complete;
-    if (isComplete) checkbox.setAttribute('checked', 'checked');
-    checkbox.checked = isComplete;
-    checkbox.title = isComplete ? 'Mark as incomplete' : 'Mark as complete';
-    checkbox.setAttribute('aria-label', `Mark "${child.name}" as ${isComplete ? 'incomplete' : 'complete'}`);
-    checkbox.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const checked = checkbox.checked;
+    // Markup from components/note/note-markup.js, listeners from here (#1249).
+    //
+    // The zones, classes, ARIA and glyphs this row is made of used to be typed
+    // out twice -- once here and once in <np-note>'s _buildRow() -- which is
+    // the duplication that made Storybook a second drawing of the note rather
+    // than the place it is designed. One builder now, and the view-model
+    // derivation below is the part that stays here, because it reads plan text
+    // and Storybook has none.
+    const dateSuggestion = wbTaskDateSuggestions(child)[0];
+    const planningType = wbTaskPlanningType(child);
+    const languageHint = wbActivityLanguageHint(child.name);
+    const { row, refs } = markup.buildChecklistRow({
+        name: child.name,
+        complete: childVm.complete,
+        // Nothing sets `indeterminate` yet: doing so needs each summary child's
+        // own descendants' progress, which wbBuildNoteViewModel() does not
+        // compute -- so a summary at 40% still looks like one at 0%. The
+        // component and the builder are ready for it; the view model is the
+        // missing half.
+        indeterminate: false,
+        hasChildren: childVm.hasChildren,
+        childCount: childVm.childCount,
+        deliverable: child.deliverable,
+        date: dateSuggestion ? {
+            text: dateSuggestion.raw,
+            label: `Attach the detected date ${dateSuggestion.raw} (${dateSuggestion.date}) to ${child.name}`,
+        } : null,
+        coach: (languageHint || planningType) ? {
+            glyph: planningType === 'product' ? 'P' : planningType === 'activity' ? 'A' : '\u2726',
+            suspected: !!languageHint && !planningType,
+            label: planningType
+                ? `Planning hint for ${child.name}: this is a ${planningType}`
+                : `Planning hint for ${child.name}: this wording may describe an activity`,
+        } : null,
+        depHandle: true,
+    });
+
+    // ── Behaviour ──────────────────────────────────────────────────────
+    // The row itself is a peek target on a summary row, so a click on the
+    // checkbox must not also drill in.
+    refs.checkbox.addEventListener('click', (e) => e.stopPropagation());
+    refs.checkbox.addEventListener('change', (e) => {
+        const checked = e.detail.checked;
+        // spawnConfetti() appends its particles to document.body and they are
+        // styled by `.confetti-particle` in views/kanban.css, so this stays a
+        // light-DOM effect fired against the host. Particles created inside the
+        // shadow root would lose that stylesheet and render as bare divs.
         if (checked && typeof spawnConfetti === 'function') {
-            spawnConfetti(checkbox);
+            spawnConfetti(refs.checkbox);
         }
         wbToggleChildComplete(child, checked);
     });
-    row.appendChild(checkbox);
 
-    if (child.deliverable) {
-        const badge = document.createElementNS(XHTML_NS, 'span');
-        badge.setAttribute('class', 'wb-note-deliverable-badge');
-        badge.setAttribute('title', `Deliverable: ${child.deliverable}`);
-        badge.textContent = '$';
-        row.appendChild(badge);
-    }
-
-    const name = document.createElementNS(XHTML_NS, 'span');
-    name.setAttribute('class', 'wb-note-row-name');
-    name.textContent = child.name;
-    name.setAttribute('title', child.name);
-    row.appendChild(name);
-
-    const planningType = wbTaskPlanningType(child);
-    const languageHint = wbActivityLanguageHint(child.name);
-    if (languageHint || planningType) {
-        const coach = document.createElementNS(XHTML_NS, 'button');
-        coach.setAttribute('type', 'button');
-        coach.setAttribute('class', 'wb-note-row-coach' + (languageHint && !planningType ? ' suspected-activity' : ''));
-        coach.setAttribute('aria-label', `Planning hint for ${child.name}`);
-        coach.textContent = planningType === 'product' ? 'P' : planningType === 'activity' ? 'A' : '✦';
-        coach.title = planningType ? `Planning type: ${planningType}` : 'This wording may describe an activity';
-        coach.addEventListener('click', (e) => {
+    if (refs.dateBtn) {
+        refs.dateBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            wbToggleCoachingMenu(child.name, coach);
+            wbToggleDateMenu(child.name, dateSuggestion, refs.dateBtn);
         });
-        row.appendChild(coach);
     }
 
-    const dateSuggestion = wbTaskDateSuggestions(child)[0];
-    if (dateSuggestion) {
-        const date = document.createElementNS(XHTML_NS, 'button');
-        date.setAttribute('type', 'button');
-        date.setAttribute('class', 'wb-note-row-smart wb-note-row-date');
-        date.setAttribute('aria-label', `Attach detected date ${dateSuggestion.raw} to ${child.name}`);
-        date.textContent = dateSuggestion.raw;
-        date.title = `Attach ${dateSuggestion.date}`;
-        date.addEventListener('click', (e) => {
+    if (refs.countBadge) {
+        refs.countBadge.addEventListener('click', (e) => {
             e.stopPropagation();
-            wbToggleDateMenu(child.name, dateSuggestion, date);
+            wbTogglePeekFor(child.name, refs.countBadge);
         });
-        row.appendChild(date);
+        // The badge's own click already stopPropagation()s, so this row-level
+        // listener only ever fires for a click on the row's own name/blank
+        // area -- the issue's "click a todo's child-count badge, or the todo
+        // row itself" affordance. `.wb-note-row-drillable` comes with the
+        // badge, from the builder.
+        row.addEventListener('click', () => wbTogglePeekFor(child.name, refs.countBadge));
     }
 
-    const assign = document.createElementNS(XHTML_NS, 'button');
-    assign.setAttribute('type', 'button');
-    assign.setAttribute('class', 'wb-note-row-smart wb-note-row-resource');
-    assign.setAttribute('aria-label', `Assign a resource to ${child.name}`);
-    assign.textContent = '＋';
-    assign.title = 'Quick assign';
-    assign.addEventListener('click', (e) => {
-        e.stopPropagation();
-        wbToggleResourceMenu(child.name, assign);
-    });
-    row.appendChild(assign);
-
-    if (childVm.hasChildren) {
-        const badge = document.createElementNS(XHTML_NS, 'button');
-        badge.setAttribute('type', 'button');
-        badge.setAttribute('class', 'wb-note-count-badge');
-        badge.setAttribute('aria-haspopup', 'dialog');
-        badge.setAttribute('aria-expanded', 'false');
-        badge.textContent = `${childVm.childCount} ▾`;
-        badge.setAttribute('aria-label', `${child.name} has ${childVm.childCount} subtasks. Peek subtasks.`);
-        badge.addEventListener('click', (e) => {
+    if (refs.coachBtn) {
+        refs.coachBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            wbTogglePeekFor(child.name, badge);
+            wbToggleCoachingMenu(child.name, refs.coachBtn);
         });
-        row.appendChild(badge);
-
-        // The badge's own click already stopPropagation()s, so this row-
-        // level listener only ever fires for a click on the row's own
-        // name/blank area -- the issue's "click a todo's child-count
-        // badge, or the todo row itself" affordance.
-        row.classList.add('wb-note-row-drillable');
-        row.addEventListener('click', () => wbTogglePeekFor(child.name, badge));
     }
 
-    wbAppendChildResourceControls(row, childVm);
-    wbAppendRowDependencyHandle(row, childVm);
+    wbAppendChildResourceControls(refs.peopleSlot, childVm, refs.assignBtn);
+    if (refs.depHandle) wbWireRowDependencyHandle(refs.depHandle, childVm);
 
     return row;
 }
@@ -3110,20 +3119,8 @@ function wbBuildChildRow(childVm) {
  * both the drag's source and whatever it's dropped on), so this is a
  * usability guard, not the only guard.
  */
-function wbAppendRowDependencyHandle(row, childVm) {
-    if (childVm.hasChildren) return;
+function wbWireRowDependencyHandle(handle, childVm) {
     const child = childVm.task;
-
-    const handle = document.createElementNS(XHTML_NS, 'button');
-    handle.setAttribute('type', 'button');
-    handle.setAttribute('class', 'wb-note-row-dep-handle');
-    handle.setAttribute('title', 'Drag to another task to make it depend on this one');
-    handle.setAttribute('aria-label', `Draw a dependency from "${child.name}" to another task`);
-    handle.innerHTML =
-        '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
-        'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
-        '<circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/>' +
-        '<path d="M4 6 C4 11, 7 12, 10 12"/></svg>';
     handle.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         e.preventDefault();
@@ -3134,44 +3131,49 @@ function wbAppendRowDependencyHandle(row, childVm) {
         if (typeof wbRowDepHandleTouchStart === 'function') wbRowDepHandleTouchStart(e, child.name);
     }, { passive: false });
     handle.addEventListener('click', (e) => e.stopPropagation());
-
-    row.appendChild(handle);
 }
 
 /**
- * Append the quick resource-assign affordance (issue #1162, part of epic
- * #878) to the right-hand end of a checklist row: a small avatar per
- * already-assigned resource (mirrors the note footer's own
- * `.wb-note-avatar` treatment -- wbGetInitials(), same initials -- just
- * smaller, since several may sit in one row), then a "+" bubble that opens
- * a dropdown of the plan's resources for one-click assignment. Deliberately
- * the row's last children in DOM order -- "a bubble at the right of a
- * task", per the epic's own wording.
+ * Append a small avatar per already-assigned resource to the right-hand end
+ * of a checklist row -- mirrors the note footer's own `.wb-note-avatar`
+ * treatment (wbGetInitials(), same initials), just smaller, since several
+ * may sit in one row.
+ *
+ * This used to also append a second "+" bubble (`.wb-note-assign-bubble`,
+ * issue #1162) opening its own dropdown. Every row therefore rendered *two*
+ * resource-assign controls: that bubble and the `.wb-note-row-resource` "+"
+ * wbBuildChildRow() adds above, both always visible, both labelled "Assign a
+ * resource to <name>", opening two different menus over two different
+ * resource lists. They arrived from different issues under the same epic
+ * (#878) and were never reconciled. The bubble is gone; the survivor is the
+ * `.wb-note-row-resource` control, which reads the same plan front matter
+ * either way, shows names and roles rather than raw shortnames, can
+ * *un*assign, and writes through PlanModel rather than a second regex
+ * line-rewriter. The bubble's better behaviours -- menu semantics, roving
+ * arrow keys, viewport flipping -- moved onto wbOpenSmartMenu() so the date
+ * menu gained them too.
  */
-function wbAppendChildResourceControls(row, childVm) {
+function wbAppendChildResourceControls(slot, childVm, assign) {
     const child = childVm.task;
+    const resources = childVm.resources || [];
 
-    (childVm.resources || []).forEach(resource => {
-        const avatar = document.createElementNS(XHTML_NS, 'span');
-        avatar.setAttribute('class', 'wb-note-row-avatar');
-        avatar.textContent = wbGetInitials(resource);
-        avatar.title = resource;
-        row.appendChild(avatar);
-    });
+    // The stack goes in before the "+", which the builder has already made but
+    // not placed -- the order is avatars then assign, and only this side knows
+    // whether there are any avatars.
+    if (resources.length) {
+        const stack = wbFillResourceStack(null, resources, wbRowAvatarCap(), 14, child.name);
+        stack.setAttribute('class', 'wb-note-row-avatar');
+        slot.appendChild(stack);
+    }
 
-    const bubble = document.createElementNS(XHTML_NS, 'button');
-    bubble.setAttribute('type', 'button');
-    bubble.setAttribute('class', 'wb-note-assign-bubble');
-    bubble.setAttribute('aria-haspopup', 'menu');
-    bubble.setAttribute('aria-expanded', 'false');
-    bubble.textContent = '+';
-    bubble.title = `Assign a resource to "${child.name}"`;
-    bubble.setAttribute('aria-label', `Assign a resource to ${child.name}`);
-    bubble.addEventListener('click', (e) => {
+    // `aria-haspopup`/`aria-expanded` are declared by the builder rather than
+    // set once wbOpenSmartMenu() has run: a screen reader reaching a
+    // never-opened row must still be told this opens a menu.
+    assign.addEventListener('click', (e) => {
         e.stopPropagation();
-        wbToggleAssignMenu(child.name, bubble);
+        wbToggleResourceMenu(child.name, assign);
     });
-    row.appendChild(bubble);
+    slot.appendChild(assign);
 }
 
 /**
@@ -3192,7 +3194,13 @@ function wbAppendChildResourceControls(row, childVm) {
  *
  * Deliberately its own `.wb-note-add-row` class rather than sharing
  * `.wb-note-row` (views/whiteboard.css gives it the identical padding/
- * layout rhythm on its own): several existing call sites -- both here
+ * layout rhythm on its own, and since #1250 the identical lead-zone
+ * columns as well -- the "+" occupies a checkbox's --np-checkbox-target
+ * and the input reserves the badge slot's width, so this row's two glyphs
+ * line up with the checkboxes and names above it at every container-query
+ * tier; the two rules have to move together, and the comment above
+ * `.wb-note-add-row` in views/whiteboard.css says so from its end):
+ * several existing call sites -- both here
  * (peek/menu wiring) and in tests -- find a real child row via
  * `.wb-note-row` then assume `.wb-note-row-name` exists on it; sharing the
  * class would make this placeholder row match that query too and break
@@ -3200,21 +3208,9 @@ function wbAppendChildResourceControls(row, childVm) {
  * renders it.
  */
 function wbBuildAddChildRow(taskName) {
-    const row = document.createElementNS(XHTML_NS, 'div');
-    row.setAttribute('class', 'wb-note-add-row');
-
-    const icon = document.createElementNS(XHTML_NS, 'span');
-    icon.setAttribute('class', 'wb-note-add-icon');
-    icon.setAttribute('aria-hidden', 'true');
-    icon.textContent = '+';
-    row.appendChild(icon);
-
-    const input = document.createElementNS(XHTML_NS, 'input');
-    input.setAttribute('type', 'text');
-    input.setAttribute('class', 'wb-note-add-input');
-    input.setAttribute('placeholder', 'Add task…');
-    input.setAttribute('aria-label', `Add a task under "${taskName}"`);
-    row.appendChild(input);
+    // Markup from components/note/note-markup.js (#1249), listeners from here.
+    const { row, refs } = globalThis.NoodleNoteMarkup.buildAddRow(taskName);
+    const input = refs.input;
 
     // Clicking anywhere on the row -- the "+" glyph, the row's own
     // padding, not just the input itself -- focuses the input, matching
@@ -3458,7 +3454,19 @@ function wbCloseSmartMenu() {
     if (trigger) trigger.setAttribute('aria-expanded', 'false');
     wbSmartMenuState = null;
     document.removeEventListener('mousedown', wbSmartMenuOutsideClick, true);
-    document.removeEventListener('keydown', wbSmartMenuEscape, true);
+    document.removeEventListener('keydown', wbSmartMenuKeydown, true);
+}
+
+/** A smart menu's focusable choices, in DOM order. Prefers explicit menu
+ * items -- note `menuitemcheckbox`, not just `menuitem`: the resource menu's
+ * choices toggle, so a bare `[role="menuitem"]` selector would match none of
+ * them and fall through to the button sweep below by accident. Falls back to
+ * every button for the date menu, which is a real dialog (a heading, a
+ * question, four choices) rather than a list of menu items. */
+function wbSmartMenuItems(popup) {
+    const items = popup.querySelectorAll(
+        '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]');
+    return Array.from(items.length ? items : popup.querySelectorAll('button'));
 }
 
 function wbSmartMenuOutsideClick(event) {
@@ -3467,27 +3475,91 @@ function wbSmartMenuOutsideClick(event) {
     wbCloseSmartMenu();
 }
 
-function wbSmartMenuEscape(event) {
-    if (event.key !== 'Escape' || !wbSmartMenuState) return;
-    const trigger = wbSmartMenuState.trigger;
-    wbCloseSmartMenu();
-    if (trigger) trigger.focus();
+/**
+ * Escape closes and restores focus to the trigger; Arrow/Home/End rove
+ * between choices. The roving half came from the assign bubble's own menu
+ * (#1162) when the two assign controls were merged -- this menu previously
+ * focused nothing on open and handled no arrow keys, so it was reachable by
+ * Tab only. The date menu shares this handler and gains the same.
+ */
+function wbSmartMenuKeydown(event) {
+    if (!wbSmartMenuState) return;
+    const { popup, trigger } = wbSmartMenuState;
+
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        wbCloseSmartMenu();
+        if (trigger) trigger.focus();
+        return;
+    }
+
+    const items = wbSmartMenuItems(popup);
+    if (!items.length) return;
+    const index = items.indexOf(document.activeElement);
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        items[index < 0 ? 0 : (index + 1) % items.length].focus();
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        items[index < 0 ? items.length - 1 : (index - 1 + items.length) % items.length].focus();
+    } else if (event.key === 'Home') {
+        event.preventDefault();
+        items[0].focus();
+    } else if (event.key === 'End') {
+        event.preventDefault();
+        items[items.length - 1].focus();
+    }
 }
 
 function wbOpenSmartMenu(taskName, trigger, popup) {
     wbCloseSmartMenu();
     if (wbCoachingMenuState) wbCloseCoachingMenu();
+    if (typeof wbCloseNoteMenu === 'function') wbCloseNoteMenu();
     document.body.appendChild(popup);
+
+    // Positioned like wbOpenNoteMenu(): clamped into the whiteboard's own
+    // safe band rather than the raw viewport, flipped above the trigger when
+    // there is more room there, and given a max-height for whichever side it
+    // lands on (`.wb-smart-menu` scrolls past that). The previous rule had no
+    // flip and no max-height, so a note low on the canvas opened a menu whose
+    // lower half was unreachable. Ported from the assign bubble's own menu
+    // (#1162) when the two assign controls were merged.
+    const edgeGap = 8;
+    const bounds = (typeof wbNoteMenuSafeBounds === 'function')
+        ? wbNoteMenuSafeBounds(edgeGap)
+        : { top: edgeGap, bottom: window.innerHeight - edgeGap };
     const rect = trigger.getBoundingClientRect();
+    const popupHeight = popup.getBoundingClientRect().height;
     const width = Math.max(240, popup.offsetWidth || 0);
-    popup.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, rect.left))}px`;
-    popup.style.top = `${Math.max(8, Math.min(window.innerHeight - popup.offsetHeight - 8, rect.bottom + 6))}px`;
+
+    let left = Math.min(rect.left, window.innerWidth - width - edgeGap);
+    left = Math.max(edgeGap, left);
+
+    const spaceBelow = bounds.bottom - (rect.bottom + 6);
+    const spaceAbove = (rect.top - 6) - bounds.top;
+
+    let top;
+    if (popupHeight <= spaceBelow || spaceBelow >= spaceAbove) {
+        top = rect.bottom + 6;
+        popup.style.maxHeight = `${Math.max(80, Math.min(popupHeight, spaceBelow))}px`;
+    } else {
+        const height = Math.max(80, Math.min(popupHeight, spaceAbove));
+        top = rect.top - 6 - height;
+        popup.style.maxHeight = `${height}px`;
+    }
+    popup.style.left = `${left}px`;
+    popup.style.top = `${top}px`;
+
     trigger.setAttribute('aria-expanded', 'true');
     wbSmartMenuState = { taskName, trigger, popup };
     setTimeout(() => {
         document.addEventListener('mousedown', wbSmartMenuOutsideClick, true);
-        document.addEventListener('keydown', wbSmartMenuEscape, true);
+        document.addEventListener('keydown', wbSmartMenuKeydown, true);
     }, 0);
+
+    const first = wbSmartMenuItems(popup)[0];
+    if (first) first.focus();
 }
 
 function wbToggleDateMenu(taskName, suggestion, trigger) {
@@ -3539,17 +3611,23 @@ function wbToggleResourceMenu(taskName, trigger) {
         wbCloseSmartMenu();
         return;
     }
+    // role="menu", not the role="dialog" this used to carry: every child but
+    // the heading is a choice, and a menu is what the trigger's own
+    // aria-haspopup advertises. The heading and the empty-state line are
+    // marked presentational so the menu's only children are menuitems.
     const popup = document.createElement('section');
     popup.className = 'wb-smart-menu wb-resource-menu';
-    popup.setAttribute('role', 'dialog');
+    popup.setAttribute('role', 'menu');
     popup.setAttribute('aria-label', `Assign resources to ${taskName}`);
     const heading = document.createElement('strong');
+    heading.setAttribute('role', 'presentation');
     heading.textContent = 'Quick assign';
     popup.appendChild(heading);
     const resources = wbResourceOptionsFromPlanText(wbLastPlanText);
     if (!resources.length) {
         const empty = document.createElement('p');
-        empty.textContent = 'No resources in plan front matter.';
+        empty.setAttribute('role', 'presentation');
+        empty.textContent = 'No resources defined yet.';
         popup.appendChild(empty);
     }
     for (const resource of resources) {
@@ -3557,9 +3635,11 @@ function wbToggleResourceMenu(taskName, trigger) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'wb-resource-choice';
-        button.setAttribute('aria-pressed', assigned ? 'true' : 'false');
+        button.setAttribute('role', 'menuitemcheckbox');
+        button.setAttribute('aria-checked', assigned ? 'true' : 'false');
         button.textContent = `${assigned ? '✓ ' : ''}${resource.name}`;
         button.title = resource.role ? `${resource.name} — ${resource.role}` : resource.name;
+        button.setAttribute('aria-label', `${assigned ? 'Unassign' : 'Assign'} ${resource.name}`);
         button.addEventListener('click', () => {
             wbCommitMarkdown(wbApplyResourceToPlanText(wbLastPlanText, taskName, resource.shortname, !assigned));
             wbCloseSmartMenu();
@@ -3738,229 +3818,6 @@ function wbSpawnCoachingNote(sourceTaskName, relation, suggestedName) {
     return name;
 }
 
-// ── Quick resource-assign bubble (issue #1162, part of epic #878) ───────
-//
-// A child row's own resource list, not the summary task's -- see
-// wbBuildNoteViewModel()'s `resources` addition above. Follows
-// wbToggleChildComplete()'s exact commit shape: findTaskLineNumber()
-// locates the child's own markdown line (it need not have a whiteboard
-// row of its own -- it is only ever shown as a row *inside* this note's
-// body), a small pure line-rewriter adds the `@shortname` token, and
-// wbCommitMarkdown() pushes the result through #planEditor like every
-// other whiteboard mutation.
-//
-// The resource *list* offered is getAllResourceNames() (script.js) -- the
-// exact same list the task-details form's own resource field draws from
-// -- which is the "reusing the task details form['s] resource-assignment
-// logic" #878 asks for. Writing the chosen name onto the line is its own
-// small, free-standing tokenizer rather than a call through
-// `window.kanbanBoard.addResourceToTaskLine()` (kanban.js already has an
-// equivalent method): that singleton is only ever constructed once the
-// Kanban view has been opened this session, and this bubble must work on
-// the whiteboard whether or not Kanban has ever been visible.
-
-/**
- * Add `@shortname` to a task line -- mirrors kanban.js's
- * KanbanBoard.addResourceToTaskLine() exactly (see that method for the
- * same logic used by the boards view's own drag-drop resource assignment).
- */
-function wbAddResourceToLine(line, shortname) {
-    const trimmed = line.trim();
-    const indent = (line.match(/^(\s*)/) || ['', ''])[1];
-
-    if (trimmed.includes('@')) {
-        return line.replace(/(@\w+(?:\s+@\w+)*)/, `$1 @${shortname}`);
-    }
-
-    const tokens = trimmed.split(/\s+/);
-    let insertIndex = 0;
-    for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
-        if (token.startsWith('*')) { insertIndex = i + 1; continue; }
-        if (token.startsWith('@') || token.startsWith('#') || /^\d+[dwmy]$/.test(token) ||
-            /^\d+%$/.test(token) || /^\d{4}-\d{2}-\d{2}$/.test(token) || token.startsWith('"')) {
-            break;
-        }
-        insertIndex = i + 1;
-    }
-    tokens.splice(insertIndex, 0, `@${shortname}`);
-    return indent + tokens.join(' ');
-}
-
-/** Write `shortname` onto `childTaskName`'s own line and commit. */
-function wbAssignResourceToChild(childTaskName, shortname) {
-    const editor = document.getElementById('planEditor');
-    if (!editor || !shortname) return false;
-    if (typeof findTaskLineNumber !== 'function') return false;
-
-    const lineNumber = findTaskLineNumber({ name: childTaskName });
-    if (lineNumber === -1) return false;
-
-    const lines = editor.value.split('\n');
-    const line = lines[lineNumber - 1];
-    if (!line && line !== '') return false;
-
-    lines[lineNumber - 1] = wbAddResourceToLine(line, shortname);
-    return wbCommitMarkdown(lines.join('\n'));
-}
-
-/**
- * Build the assign bubble's dropdown: every plan resource
- * (getAllResourceNames(), script.js) not already assigned to `taskName`,
- * each a clickable menuitem -- reuses `.wb-note-menu`/`.wb-note-menu-list`/
- * `.wb-note-menu-action` as-is (see views/whiteboard.css's note on that
- * section) rather than a second popup skin, since this is the exact same
- * "single floating list, appended to document.body" shape as the note's
- * own `...` menu (wbBuildNoteMenu()).
- */
-function wbBuildAssignMenu(taskName) {
-    const menu = document.createElement('div');
-    menu.id = 'wbAssignMenu';
-    menu.className = 'wb-note-menu';
-    menu.setAttribute('role', 'menu');
-    menu.setAttribute('aria-label', `Assign a resource to ${taskName}`);
-
-    const list = document.createElement('ul');
-    list.className = 'wb-note-menu-list';
-    menu.appendChild(list);
-
-    const key = String(taskName).toLowerCase();
-    const task = (wbLastTasks || []).find(t => t && String(t.name).toLowerCase() === key);
-    const assigned = new Set(wbResourceList(task && task.resources).map(r => r.toLowerCase()));
-    const allNames = (typeof getAllResourceNames === 'function') ? getAllResourceNames() : [];
-    const available = allNames.filter(name => !assigned.has(String(name).toLowerCase()));
-
-    if (!available.length) {
-        const li = document.createElement('li');
-        const span = document.createElement('span');
-        span.className = 'wb-note-menu-empty';
-        span.textContent = allNames.length ? 'All resources already assigned' : 'No resources defined yet';
-        li.appendChild(span);
-        list.appendChild(li);
-        return menu;
-    }
-
-    available.forEach(name => {
-        const li = document.createElement('li');
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'wb-note-menu-action';
-        btn.setAttribute('role', 'menuitem');
-        btn.textContent = name;
-        btn.setAttribute('aria-label', `Assign ${name} to ${taskName}`);
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            wbCloseAssignMenu();
-            wbAssignResourceToChild(taskName, name);
-        });
-        li.appendChild(btn);
-        list.appendChild(li);
-    });
-
-    return menu;
-}
-
-/** Single-slot popup state, mirrors wbNoteMenuState. */
-let wbAssignMenuState = null;
-
-/** Toggle the assign menu for `taskName`: closes it if already open for
- * this same task, otherwise opens (re-rooting if a different task's menu
- * was open) -- mirrors wbTogglePeekFor()'s own open/close toggle. */
-function wbToggleAssignMenu(taskName, anchorEl) {
-    if (wbAssignMenuState && wbAssignMenuState.taskName === taskName) {
-        wbCloseAssignMenu();
-        return;
-    }
-    wbOpenAssignMenu(taskName, anchorEl);
-}
-
-/** Open the assign menu, positioned/clamped exactly like wbOpenNoteMenu()
- * (reuses wbNoteMenuSafeBounds() as-is). */
-function wbOpenAssignMenu(taskName, btn) {
-    wbCloseAssignMenu();
-    wbCloseNoteMenu();
-
-    const menu = wbBuildAssignMenu(taskName);
-    document.body.appendChild(menu);
-
-    const edgeGap = 8;
-    const bounds = wbNoteMenuSafeBounds(edgeGap);
-    const btnRect = btn.getBoundingClientRect();
-    const menuRect = menu.getBoundingClientRect();
-
-    let left = Math.min(btnRect.left, window.innerWidth - menuRect.width - edgeGap);
-    left = Math.max(edgeGap, left);
-
-    const spaceBelow = bounds.bottom - (btnRect.bottom + 4);
-    const spaceAbove = (btnRect.top - 4) - bounds.top;
-
-    let top;
-    if (menuRect.height <= spaceBelow || spaceBelow >= spaceAbove) {
-        top = btnRect.bottom + 4;
-        menu.style.maxHeight = `${Math.max(80, Math.min(menuRect.height, spaceBelow))}px`;
-    } else {
-        const height = Math.max(80, Math.min(menuRect.height, spaceAbove));
-        top = btnRect.top - 4 - height;
-        menu.style.maxHeight = `${height}px`;
-    }
-
-    menu.style.left = `${left}px`;
-    menu.style.top = `${top}px`;
-
-    btn.setAttribute('aria-expanded', 'true');
-    wbAssignMenuState = { taskName, btn };
-
-    document.addEventListener('mousedown', wbAssignMenuOutsideClick, true);
-    document.addEventListener('keydown', wbAssignMenuKeydown, true);
-
-    const first = menu.querySelector('[role="menuitem"]');
-    if (first) first.focus();
-}
-
-function wbCloseAssignMenu() {
-    const menu = document.getElementById('wbAssignMenu');
-    if (menu) menu.remove();
-    document.removeEventListener('mousedown', wbAssignMenuOutsideClick, true);
-    document.removeEventListener('keydown', wbAssignMenuKeydown, true);
-    if (wbAssignMenuState && wbAssignMenuState.btn) {
-        wbAssignMenuState.btn.setAttribute('aria-expanded', 'false');
-    }
-    wbAssignMenuState = null;
-}
-
-function wbAssignMenuOutsideClick(e) {
-    const menu = document.getElementById('wbAssignMenu');
-    if (!menu) return;
-    if (menu.contains(e.target)) return;
-    if (wbAssignMenuState && wbAssignMenuState.btn && wbAssignMenuState.btn.contains(e.target)) return;
-    wbCloseAssignMenu();
-}
-
-function wbAssignMenuKeydown(e) {
-    const menu = document.getElementById('wbAssignMenu');
-    if (!menu) return;
-
-    if (e.key === 'Escape') {
-        e.preventDefault();
-        const btn = wbAssignMenuState && wbAssignMenuState.btn;
-        wbCloseAssignMenu();
-        if (btn) btn.focus();
-        return;
-    }
-
-    const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
-    if (!items.length) return;
-    const index = items.indexOf(document.activeElement);
-
-    if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        items[(index + 1 + items.length) % items.length].focus();
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        items[(index - 1 + items.length) % items.length].focus();
-    }
-}
-
 // ── Note colour menu (issue #849) ───────────────────────────────────────
 //
 // A single floating popup, appended to document.body and rebuilt on each
@@ -4071,6 +3928,10 @@ function wbBuildNoteMenu(taskName) {
 
     const list = document.createElement('ul');
     list.className = 'wb-note-menu-list';
+    // A menu's children must be menu items. Without this the implicit `list`
+    // and `listitem` roles sat unowned between the menu and its buttons -- only
+    // the colour section's two wrappers carried `role="presentation"` (#1247).
+    list.setAttribute('role', 'none');
     menu.appendChild(list);
 
     wbAppendColourMenuSection(list, taskName);
@@ -4355,7 +4216,9 @@ function wbBuildColourSwatchButton(colour, taskName, currentColour) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'wb-note-menu-swatch';
-    btn.setAttribute('role', 'menuitem');
+    // menuitemradio, not menuitem: `aria-checked` below is not supported on a
+    // plain menuitem, so the selected colour was never announced (#1247).
+    btn.setAttribute('role', 'menuitemradio');
     btn.style.background = colour;
     btn.title = colour;
     btn.setAttribute('aria-label', `Set note colour to ${colour}`);
@@ -4423,6 +4286,10 @@ function wbNoteMenuSafeBounds(edgeGap) {
  */
 function wbOpenNoteMenu(taskName, btn) {
     wbCloseNoteMenu();
+    // One popup at a time. None of the three open paths used to close all the
+    // others, so a smart menu and the note menu could sit open together (#1247).
+    if (typeof wbCloseSmartMenu === 'function') wbCloseSmartMenu();
+    if (typeof wbCloseCoachingMenu === 'function') wbCloseCoachingMenu();
 
     const menu = wbBuildNoteMenu(taskName);
     document.body.appendChild(menu);
@@ -4533,16 +4400,55 @@ function wbNoteMenuKeydown(e) {
         return;
     }
 
-    const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+    if (e.key === 'Tab') {
+        // Every item is a real <button> and nothing used to intercept Tab, so
+        // focus could walk out of an open menu and leave it open behind (#1247).
+        const btn = wbNoteMenuState && wbNoteMenuState.btn;
+        wbCloseNoteMenu();
+        if (btn) btn.focus();
+        return;
+    }
+
+    const items = Array.from(menu.querySelectorAll('[role="menuitem"], [role="menuitemradio"]'));
     if (!items.length) return;
     const index = items.indexOf(document.activeElement);
 
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+    // The swatch grid is a grid, and this used to walk it one swatch at a time
+    // in every direction -- so ArrowDown from "Default colour" stepped through
+    // all ten before reaching "Rename", and the grid's six columns were
+    // invisible to the keyboard. Left/Right move within a row, Up/Down between
+    // rows, and stepping off the top or bottom leaves the grid for the item
+    // before or after it.
+    const grid = document.activeElement && document.activeElement.closest
+        ? document.activeElement.closest('.wb-note-menu-grid')
+        : null;
+    if (grid && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+        const swatches = Array.from(grid.querySelectorAll('[role="menuitemradio"]'));
+        const columns = WB_NOTE_MENU_SWATCH_COLUMNS;
+        const within = swatches.indexOf(document.activeElement);
+        const next = within + (e.key === 'ArrowDown' ? columns : -columns);
+        if (next >= 0 && next < swatches.length) {
+            swatches[next].focus();
+        } else {
+            const edge = e.key === 'ArrowDown'
+                ? items.indexOf(swatches[swatches.length - 1]) + 1
+                : items.indexOf(swatches[0]) - 1;
+            items[Math.max(0, Math.min(items.length - 1, edge))].focus();
+        }
+        return;
+    }
+
+    if (e.key === 'ArrowDown' || (e.key === 'ArrowRight' && !grid)) {
         e.preventDefault();
         items[(index + 1 + items.length) % items.length].focus();
-    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+    } else if (e.key === 'ArrowUp' || (e.key === 'ArrowLeft' && !grid)) {
         e.preventDefault();
         items[(index - 1 + items.length) % items.length].focus();
+    } else if (grid && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+        e.preventDefault();
+        items[Math.max(0, Math.min(items.length - 1,
+            index + (e.key === 'ArrowRight' ? 1 : -1)))].focus();
     } else if (e.key === 'Home') {
         e.preventDefault();
         items[0].focus();

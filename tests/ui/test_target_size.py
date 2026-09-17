@@ -67,7 +67,14 @@ KNOWN_SMALL = {
 COLLECT = r"""
 () => {
     const out = [];
-    for (const el of document.querySelectorAll('button, [role="button"], a.btn')) {
+    // np-checkbox joins the sweep (#1245). Checkboxes were never measured
+    // here -- this selector matched none of them -- so every one of the app's
+    // nine treatments sat under MIN_SIDE unnoticed at 15, 16, 18 or 20px.
+    // The host is a light-DOM element, so it is reachable from here; note
+    // that querySelectorAll does not pierce shadow roots, so a control that
+    // renders its target *inside* one would still escape this.
+    for (const el of document.querySelectorAll(
+            'button, [role="button"], a.btn, np-checkbox')) {
         const cs = getComputedStyle(el);
         if (cs.display === 'none' || cs.visibility === 'hidden') continue;
         const r = el.getBoundingClientRect();

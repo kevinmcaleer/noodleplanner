@@ -180,7 +180,15 @@ test("the browser writes a real .mpp that reads back as the plan", { skip: !roun
   assert.equal(byName.Build.percentComplete, 50);
   assert.equal(byName.Approval.durationDays, 0);
   assert.equal(byName.Proposal.percentComplete, 100);
-  assert.equal(byName.Proposal.notes, "Signed off by the board");
+  // Proposal is a leaf, 1d, @kevin, 100% -- the shape that hits Project's
+  // 99%-on-reopen quirk, so the file carries the breadcrumb alongside the
+  // comment. This is the raw .mpp field; the test below reads the same bytes
+  // through importMppBytes() and asserts the breadcrumb is gone from the
+  // markdown, which is where it must not appear.
+  assert.equal(
+    byName.Proposal.notes,
+    "Signed off by the board\nNoodlePlanner export: task was 100% complete",
+  );
   // resources and assignments
   assert.deepEqual(back.resources.map((r) => r.name).sort(), ["Adam Reid", "Kevin McAleer"]);
   const kevin = back.resources.find((r) => r.name === "Kevin McAleer").uid;

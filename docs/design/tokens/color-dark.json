@@ -164,6 +164,11 @@
     "$value": "#6A6050",
     "$description": "--np-border-strong"
   },
+  "checkbox-target": {
+    "$type": "color",
+    "$value": "24px",
+    "$description": "--np-checkbox-target"
+  },
   "code-bg": {
     "$type": "color",
     "$value": "#39342C",
@@ -324,15 +329,95 @@
     "$value": "#C0B6A6",
     "$description": "--np-muted"
   },
+  "note-blue-1": {
+    "$type": "color",
+    "$value": "#C7E5FF",
+    "$description": "--np-note-blue-1"
+  },
+  "note-blue-2": {
+    "$type": "color",
+    "$value": "#A9D6F5",
+    "$description": "--np-note-blue-2"
+  },
+  "note-green-1": {
+    "$type": "color",
+    "$value": "#CFF4D2",
+    "$description": "--np-note-green-1"
+  },
+  "note-green-2": {
+    "$type": "color",
+    "$value": "#B8E6B8",
+    "$description": "--np-note-green-2"
+  },
+  "note-ink": {
+    "$type": "color",
+    "$value": "#161616",
+    "$description": "--np-note-ink"
+  },
+  "note-ink-faint": {
+    "$type": "color",
+    "$value": "#1616168c",
+    "$description": "--np-note-ink-faint"
+  },
+  "note-ink-muted": {
+    "$type": "color",
+    "$value": "#161616b3",
+    "$description": "--np-note-ink-muted"
+  },
+  "note-pink-1": {
+    "$type": "color",
+    "$value": "#FFD6E0",
+    "$description": "--np-note-pink-1"
+  },
+  "note-pink-2": {
+    "$type": "color",
+    "$value": "#F7A8B8",
+    "$description": "--np-note-pink-2"
+  },
+  "note-red-1": {
+    "$type": "color",
+    "$value": "#FFCBC1",
+    "$description": "--np-note-red-1"
+  },
+  "note-red-2": {
+    "$type": "color",
+    "$value": "#FFAFA3",
+    "$description": "--np-note-red-2"
+  },
+  "note-yellow-1": {
+    "$type": "color",
+    "$value": "#FFF3B0",
+    "$description": "--np-note-yellow-1"
+  },
+  "note-yellow-2": {
+    "$type": "color",
+    "$value": "#FCE38A",
+    "$description": "--np-note-yellow-2"
+  },
   "on-accent": {
     "$type": "color",
     "$value": "#23201C",
     "$description": "--np-on-accent"
   },
+  "on-info": {
+    "$type": "color",
+    "$value": "#161616",
+    "$description": "--np-on-info"
+  },
+  "on-success": {
+    "$type": "color",
+    "$value": "#161616",
+    "$description": "--np-on-success"
+  },
   "orange": {
     "$type": "color",
     "$value": "#ff7b01",
     "$description": "--np-orange"
+  },
+  "orange-ink": {
+    "$type": "color",
+    "$value": "#161616",
+    "$description": "--np-orange-ink"
   },
   "orange-subtle": {
     "$type": "color",

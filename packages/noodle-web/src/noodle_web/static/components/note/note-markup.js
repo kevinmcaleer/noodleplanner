@@ -1,0 +1,406 @@
+/**
+ * The whiteboard post-it's markup, in one place (issue #1249, epic #1241).
+ *
+ * ## Why this file exists
+ *
+ * Until now the note was built twice. `wbCreateNoteNode()` and
+ * `wbBuildChildRow()` in `whiteboard-notes.js` built what ships, and
+ * `NpNote._build()` / `_buildRow()` in `np-note.js` built what Storybook drew
+ * -- the same elements, the same class names, the same ARIA, typed out
+ * separately. That is the "Storybook is a parallel drawing of a note nobody
+ * sees" problem #1249 opens with, and it had already bitten twice in this epic
+ * alone: `getInitials` drifted between the two (#1246, "Mary Jane Watson" was
+ * MJ in one and MW in the other) and the title was an `<h3>` on the board and a
+ * `<p>` in the component, which matters because `visual-system.css` excludes
+ * `.wb-note-title` from its heading ink by *element* selector.
+ *
+ * So: one builder, two callers. The board gets its skeleton from here and
+ * wires its own listeners onto the refs; `<np-note>` gets the same skeleton and
+ * leaves it inert. A change to the note's markup is now a change to this file,
+ * which is what makes Storybook the place the note is designed rather than a
+ * second drawing of it.
+ *
+ * ## What is here and what is not
+ *
+ * Markup only -- structure, classes, ARIA, glyphs. No event listeners, no plan
+ * parsing, no view-model derivation. Everything conditional is driven by a
+ * plain model the caller has already resolved: the board works out whether a
+ * child has a detected date from `wbTaskDateSuggestions()`, Storybook takes it
+ * from a story arg, and this file only knows "there is a date chip, its text is
+ * X and its label is Y".
+ *
+ * That split is deliberate and is what makes the sharing possible at all. The
+ * board's behaviour -- drag, resize, the link and dependency gestures, the
+ * menus, rename, peek -- is 6,500 lines of app that Storybook neither has nor
+ * wants. Pulling it in here would mean pulling the app in with it.
+ *
+ * ## Namespace
+ *
+ * `createElementNS(XHTML_NS, ...)` rather than `createElement`, because the
+ * board's notes live inside an SVG `<foreignObject>`. In an HTML document the
+ * two are identical -- `createElement` is HTML-namespaced wherever it is
+ * called -- so Storybook is unaffected, and being explicit is what the app's
+ * own builders already did.
+ */
+
+export const XHTML_NS = 'http://www.w3.org/1999/xhtml';
+
+/**
+ * Avatars rendered inline on a checklist row before the overflow chip takes
+ * over (#1243). The note footer caps the same list at six; the row is tighter.
+ */
+export const ROW_AVATAR_CAP = 3;
+
+/** One element, with a class and attributes. */
+export function el(tag, className, attrs) {
+    const node = document.createElementNS(XHTML_NS, tag);
+    if (className) node.setAttribute('class', className);
+    for (const [key, value] of Object.entries(attrs || {})) {
+        if (value !== null && value !== undefined) node.setAttribute(key, String(value));
+    }
+    return node;
+}
+
+/**
+ * The noodle: two nodes joined by a curve, at `size` px.
+ *
+ * `stroke="currentColor"` on purpose -- it is how the link handle and the row's
+ * dependency handle inherit the note's measured ink rather than carrying a
+ * colour of their own (#1248).
+ */
+export function noodleGlyph(size) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" ` +
+        'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
+        '<circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/>' +
+        '<path d="M4 6 C4 11, 7 12, 10 12"/></svg>';
+}
+
+/**
+ * The card skeleton: header, "under X" caption, body, footer, resize grip.
+ *
+ * Returns `{ card, refs }`. Everything a caller needs to reach later is in
+ * `refs`, so neither caller has to re-query the tree it just built -- which is
+ * also what lets the board keep its existing `entry.refs` shape unchanged.
+ *
+ * The header's child order is load bearing; the comment on the append run
+ * below and the one on `.wb-note-header` in `views/whiteboard.css` say why.
+ */
+export function buildNoteCard() {
+    const card = el('div', 'wb-note-card');
+    const header = el('div', 'wb-note-header');
+
+    // An <h3>, not a <p>. visual-system.css gives headings --np-font-heading
+    // and then excludes this one class from the heading *ink*, by element
+    // selector, because painting --np-ink over a note measured 1.12:1. The
+    // element is therefore part of the contract, not a tag choice.
+    const title = el('h3', 'wb-note-title');
+
+    const dateBtn = el('button', 'wb-note-smart-btn wb-note-date-btn', {
+        type: 'button',
+        'aria-label': 'Attach detected date',
+    });
+    dateBtn.textContent = 'Date';
+
+    const resourceBtn = el('button', 'wb-note-smart-btn wb-note-resource-btn', {
+        type: 'button',
+        'aria-label': 'Assign a resource',
+        'aria-haspopup': 'menu',
+        'aria-expanded': 'false',
+        title: 'Quick assign',
+    });
+    resourceBtn.textContent = '＋';
+
+    const coachBtn = el('button', 'wb-note-coach-btn', {
+        type: 'button',
+        'aria-label': 'Planning prompts',
+        'aria-haspopup': 'dialog',
+    });
+    coachBtn.textContent = '✦';
+
+    const promoteBtn = el('button', 'wb-note-promote-btn', {
+        type: 'button',
+        title: 'Turn this text note into a summary task',
+        'aria-label': 'Turn this text note into a summary task',
+    });
+    // The board's glyph, not an approximation of it: a box with an arrow
+    // leaving it, for "turn this text into a task". <np-note> used to draw a
+    // plain up-arrow, which is the kind of small divergence that makes a
+    // Storybook note recognisably not the shipped one.
+    promoteBtn.innerHTML =
+        '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+        'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<rect x="2" y="3" width="8" height="8" rx="1"/><path d="M8 12h6M11 9l3 3-3 3"/></svg>';
+
+    const menuBtn = el('button', 'wb-note-menu-btn', {
+        type: 'button',
+        'aria-haspopup': 'true',
+        'aria-expanded': 'false',
+        'aria-label': 'Note options',
+    });
+    menuBtn.textContent = '⋮'; // vertical ellipsis
+
+    // One sentence, both places. The board's tooltip said "Drag to another
+    // note to make it a subtask" and its accessible name said "Draw a noodle
+    // to another note" -- the same disagreement #1248 fixed on the row's
+    // controls, describing the gesture to one user and the outcome to another.
+    const linkLabel = 'Drag to another note to make it a subtask';
+    const linkHandle = el('button', 'wb-note-link-handle', {
+        type: 'button',
+        title: linkLabel,
+        'aria-label': linkLabel,
+    });
+    linkHandle.innerHTML = noodleGlyph(14);
+
+    // Order matters, and the link handle's position is load bearing (#1250).
+    //
+    // The header is a right-aligned button cluster with a `flex: 1` title
+    // taking the slack, so the cluster spans past the header's own midpoint
+    // whenever it is wider than half the header -- measured, that is at 160px
+    // with four buttons and at 260px with five. Whatever sits at that midpoint
+    // receives the press a user means as "grab the middle and move it".
+    //
+    // For every button here but one that is merely a dead spot: the board's
+    // header mousedown handler returns early on them, so no drag starts. The
+    // link handle is the exception, because it carries its own mousedown
+    // listener that begins a *link* drag -- and the park branch requires a
+    // move, so a note dragged from that point to the parking lot is silently
+    // not parked. Appending it last makes that impossible by construction: as
+    // the final child of a right-aligned cluster it occupies [W - 10 - w,
+    // W - 10], and the midpoint W/2 can only fall there when W <= 2 * (10 + w),
+    // which is 64px for the 22px handle and 80px for the 30px coarse-pointer
+    // one -- both below WB_NOTE_MIN_WIDTH.
+    header.append(title, dateBtn, resourceBtn, coachBtn, promoteBtn, menuBtn, linkHandle);
+
+    const parentCaption = el('div', 'wb-note-parent');
+    const body = el('div', 'wb-note-body');
+
+    const footer = el('div', 'wb-note-footer');
+    const progress = el('span', 'wb-note-progress');
+    const avatars = el('div', 'wb-note-avatars');
+    footer.append(progress, avatars);
+
+    const resizeHandle = el('div', 'wb-note-resize-handle', { 'aria-hidden': 'true' });
+
+    card.append(header, parentCaption, body, footer, resizeHandle);
+
+    return {
+        card,
+        refs: {
+            card, header, title, dateBtn, resourceBtn, coachBtn, promoteBtn,
+            menuBtn, linkHandle, parentCaption, body, footer, progress,
+            avatars, resizeHandle,
+        },
+    };
+}
+
+/**
+ * One checklist row, in the three zones #1243 settled on.
+ *
+ *   LEAD    checkbox, then a badge slot that reserves its width whether or not
+ *           this child has a deliverable
+ *   NAME    the name, then a content box for things that describe the task
+ *   GUTTER  a constant width holding hint / people / dependency slots, each of
+ *           which renders as an empty box when unoccupied rather than
+ *           `display: none`
+ *
+ * That last rule is the whole point: a busy row and a bare row have identical
+ * geometry, which is what they did not have before.
+ *
+ * `model` is already resolved by the caller:
+ *
+ *   { name, complete, indeterminate, hasChildren, childCount, deliverable,
+ *     date: { text, label } | null,
+ *     coach: { glyph, label, suspected } | null,
+ *     depHandle: boolean }
+ *
+ * Returns `{ row, refs }`. Optional controls are `null` in `refs` when the
+ * model did not ask for them, which is how the board knows what to wire.
+ */
+export function buildChecklistRow(model) {
+    const name = model.name || '';
+    const row = el('div', 'wb-note-row');
+
+    // Read by whiteboard-dep-noodles.js's wbNoteRowRectFor() (to draw a
+    // committed dependency noodle at this row's own position) and by its
+    // row-drag drop handling, to find which task a handle was dropped onto.
+    row.dataset.wbRowTask = name;
+    row.dataset.wbRowSummary = model.hasChildren ? 'true' : 'false';
+
+    // ── Lead zone ──────────────────────────────────────────────────────
+    // <np-checkbox> (#1245) rather than a bare native input. It keeps the
+    // `.wb-note-checkbox` class: the rule behind that name is gone, but the
+    // name is what several call sites and browser tests find a row's checkbox
+    // by, and renaming it buys nothing.
+    //
+    // `row` reports whether this is a summary, which is the only kind that may
+    // render the mixed state.
+    const checkbox = el('np-checkbox', 'wb-note-checkbox', {
+        dense: '',
+        row: model.hasChildren ? 'summary' : 'leaf',
+        title: model.complete ? 'Mark as incomplete' : 'Mark as complete',
+        label: `Mark "${name}" as ${model.complete ? 'incomplete' : 'complete'}`,
+    });
+    if (model.complete) checkbox.setAttribute('checked', '');
+    if (model.indeterminate && model.hasChildren) checkbox.setAttribute('indeterminate', '');
+    row.appendChild(checkbox);
+
+    const badgeSlot = el('div', 'wb-note-row-badge');
+    if (model.deliverable) {
+        // Content, not decoration: it names a real deliverable. As a bare span
+        // with only a title it reached a screen reader as "$".
+        const badge = el('span', 'wb-note-deliverable-badge', {
+            role: 'img',
+            'aria-label': `Deliverable: ${model.deliverable}`,
+            title: `Deliverable: ${model.deliverable}`,
+        });
+        badge.textContent = '$';
+        badgeSlot.appendChild(badge);
+    }
+    row.appendChild(badgeSlot);
+
+    // ── Name zone ──────────────────────────────────────────────────────
+    const label = el('span', 'wb-note-row-name', { title: name });
+    label.textContent = name;
+    row.appendChild(label);
+
+    // Affordances that describe the task rather than act on it travel with the
+    // name and shrink before it does.
+    const content = el('div', 'wb-note-row-content');
+    row.appendChild(content);
+
+    let dateBtn = null;
+    if (model.date) {
+        dateBtn = el('button', 'wb-note-row-smart wb-note-row-date', {
+            type: 'button',
+            'aria-haspopup': 'dialog',
+            'aria-expanded': 'false',
+            'aria-label': model.date.label,
+            title: model.date.label,
+        });
+        dateBtn.textContent = model.date.text;
+        content.appendChild(dateBtn);
+    }
+
+    let countBadge = null;
+    if (model.hasChildren) {
+        countBadge = el('button', 'wb-note-count-badge', {
+            type: 'button',
+            'aria-haspopup': 'dialog',
+            'aria-expanded': 'false',
+            'aria-label': `${name} has ${model.childCount || 0} subtasks. Peek subtasks.`,
+        });
+        countBadge.textContent = `${model.childCount || 0} ▾`;
+        content.appendChild(countBadge);
+        row.classList.add('wb-note-row-drillable');
+    }
+
+    // ── Trailing gutter ────────────────────────────────────────────────
+    const gutter = el('div', 'wb-note-row-gutter');
+    row.appendChild(gutter);
+
+    const hintSlot = el('div', 'wb-note-row-slot wb-note-row-slot-hint');
+    gutter.appendChild(hintSlot);
+
+    let coachBtn = null;
+    if (model.coach) {
+        coachBtn = el('button',
+            'wb-note-row-coach' + (model.coach.suspected ? ' suspected-activity' : ''),
+            {
+                type: 'button',
+                'aria-haspopup': 'dialog',
+                'aria-expanded': 'false',
+                // One sentence, both places -- the tooltip and the accessible
+                // name used to describe different things.
+                'aria-label': model.coach.label,
+                title: model.coach.label,
+            });
+        coachBtn.textContent = model.coach.glyph;
+        hintSlot.appendChild(coachBtn);
+    }
+
+    const peopleSlot = el('div', 'wb-note-row-slot wb-note-row-slot-people');
+    gutter.appendChild(peopleSlot);
+
+    const assignBtn = el('button', 'wb-note-row-smart wb-note-row-resource', {
+        type: 'button',
+        'aria-haspopup': 'menu',
+        'aria-expanded': 'false',
+        'aria-label': `Assign a resource to ${name}`,
+        title: 'Quick assign',
+    });
+    assignBtn.textContent = '＋';
+
+    const depSlot = el('div', 'wb-note-row-slot wb-note-row-slot-dep');
+    gutter.appendChild(depSlot);
+
+    // Leaf rows only -- a summary row is never a dependency endpoint, so it
+    // shows the count badge instead and never both.
+    let depHandle = null;
+    if (model.depHandle && !model.hasChildren) {
+        depHandle = el('button', 'wb-note-row-dep-handle', {
+            type: 'button',
+            title: `Draw a dependency from "${name}": drag to the task that depends on it`,
+            'aria-label': `Draw a dependency from "${name}": drag to the task that depends on it`,
+        });
+        depHandle.innerHTML = noodleGlyph(12);
+        depSlot.appendChild(depHandle);
+    }
+
+    return {
+        row,
+        refs: {
+            row, checkbox, badgeSlot, name: label, content, dateBtn, countBadge,
+            gutter, hintSlot, coachBtn, peopleSlot, assignBtn, depSlot, depHandle,
+        },
+    };
+}
+
+/**
+ * The always-present "Add task…" row (#1104).
+ *
+ * Deliberately NOT given `.wb-note-row`: several call sites and tests find a
+ * real child row by that class and then assume `.wb-note-row-name` exists on
+ * it, so sharing it would break them on almost every note. Since #1250 it does
+ * share the row's *lead-zone columns* -- the "+" occupies a checkbox's width
+ * and the input reserves the badge slot's -- which is a CSS relationship, not
+ * a class one, and `views/whiteboard.css` carries the warning at its end.
+ */
+export function buildAddRow(taskName) {
+    const row = el('div', 'wb-note-add-row');
+    const icon = el('span', 'wb-note-add-icon', { 'aria-hidden': 'true' });
+    icon.textContent = '+';
+    const input = el('input', 'wb-note-add-input', {
+        type: 'text',
+        placeholder: 'Add task…',
+        'aria-label': `Add a task under "${taskName}"`,
+    });
+    row.append(icon, input);
+    return { row, refs: { row, icon, input } };
+}
+
+// ── The bridge to the app ────────────────────────────────────────────────
+//
+// `whiteboard-notes.js` is a classic script, not a module -- it is one of
+// ~40 loaded by <script src> at the end of index.html's body, and it declares
+// globals the other whiteboard files read. It therefore cannot `import` this
+// file, so this file hands itself over instead.
+//
+// Ordering is safe because of *when* the builders are called rather than when
+// the scripts run. Classic scripts execute during parse and modules are
+// deferred to after it, so `whiteboard-notes.js` is evaluated first -- but it
+// only reads `globalThis.NoodleNoteMarkup` inside wbCreateNoteNode() and
+// wbBuildChildRow(), which run when the whiteboard view is opened, long after
+// every deferred module has executed. `<np-checkbox>` and
+// `<np-resource-stack>` already depend on exactly this ordering: the app
+// creates those elements by tag name and they are inert until their modules
+// upgrade them.
+//
+// Storybook does not use this path at all -- `np-note.js` imports the named
+// exports above -- so the two callers share the builders without sharing a
+// loading mechanism.
+if (typeof globalThis !== 'undefined') {
+    globalThis.NoodleNoteMarkup = {
+        XHTML_NS, ROW_AVATAR_CAP, el, noodleGlyph,
+        buildNoteCard, buildChecklistRow, buildAddRow,
+    };
+}

@@ -38,9 +38,30 @@ _LINK_TYPES = {"0": "FF", "1": "FS", "2": "SF", "3": "SS"}
 _WORK_START = time.fromisoformat(WORK_DAY_START)
 _WORK_FINISH = time(17, 0)
 
+# Breadcrumb for the 99%-on-reopen quirk described in the assignment/date
+# consistency note further down: Project reads a 100%-complete task with an
+# assignment back as 99%, so the exporter records what the percentage really
+# was. The importer restores the 100% and strips the line, so it never reaches
+# plan content -- see static/mpp-export.js's isExportNote()/
+# hasFullCompleteExportNote(), which own the .mpp -> markdown direction.
+#
+# This must stay byte-identical to mpp-export.js's FULL_COMPLETE_EXPORT_NOTE.
+# The two exporters are required to produce the same model for the same plan,
+# and tests/test_mpp_browser_export.mjs compares them field for field.
+FULL_COMPLETE_EXPORT_NOTE = "NoodlePlanner export: task was 100% complete"
+
 
 class MppTemplateError(RuntimeError):
     """The template .mpp needed for native export is missing or unreadable."""
+
+
+def _has_assigned_resources(text) -> bool:
+    """Whether a task's `resources` field names anyone.
+
+    Mirrors splitResources() in static/mpp-export.js: comma-separated, a
+    leading `@` optional, blanks ignored.
+    """
+    return any(r.strip().lstrip("@") for r in str(text or "").split(","))
 
 
 def _require_pymppwriter():
@@ -105,6 +126,16 @@ def build_project_model(plan_text: str, project_name: str = "Project") -> dict:
             parents.pop()
         parent_uid = parents[-1][1] if level > 1 and parents else 0
         notes = [t.get("comment", "")] + dropped_links.get(idx, [])
+        percent_complete = int(t.get("percent", 0) or 0)
+        # Only a leaf task with real duration and an assignment hits Project's
+        # 99%-on-reopen quirk, so only that shape earns the breadcrumb.
+        if (
+            not is_summary
+            and max(0, duration_days) > 0
+            and percent_complete >= 100
+            and _has_assigned_resources(t.get("resources", ""))
+        ):
+            notes = notes + [FULL_COMPLETE_EXPORT_NOTE]
         out_tasks.append({
             "uid": idx,
             "name": _task_display_name(t),
@@ -113,7 +144,7 @@ def build_project_model(plan_text: str, project_name: str = "Project") -> dict:
             "durationDays": max(0, duration_days),
             "outlineLevel": level,
             "parentUid": parent_uid,
-            "percentComplete": int(t.get("percent", 0) or 0),
+            "percentComplete": percent_complete,
             "taskType": "fixed_duration",
             "notes": "\n".join(n for n in notes if n),
         })

@@ -413,15 +413,24 @@ class TestNoteMenuOpenClose:
         )
         assert first_item == "menuitem", "opening the menu focuses its first item"
 
+        # Issue #1247: swatches are `menuitemradio`, not `menuitem` carrying
+        # `aria-checked` -- which is not a supported combination, so the
+        # selected colour was never announced. Collect both roles.
         browser.switch_to.active_element.send_keys(Keys.ARROW_DOWN)
         second_active = browser.execute_script(
             """
             const menu = document.getElementById('wbNoteMenu');
-            const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
-            return items.indexOf(document.activeElement);
+            const items = Array.from(menu.querySelectorAll(
+                '[role="menuitem"], [role="menuitemradio"]'));
+            return {
+                index: items.indexOf(document.activeElement),
+                role: document.activeElement.getAttribute('role'),
+            };
             """
         )
-        assert second_active == 1, "ArrowDown must move focus to the next menu item"
+        assert second_active["index"] == 1, "ArrowDown must move focus to the next menu item"
+        assert second_active["role"] == "menuitemradio", \
+            "the item after 'Default colour' is the first swatch"
 
 
 class TestNoteColourPrecedenceAndPersistence:
@@ -594,6 +603,102 @@ class TestNoteColourContrast:
         browser.execute_script("document.documentElement.setAttribute('data-theme', 'dark');")
 
         self._assert_all_swatches_meet_aa(browser, "Build")
+
+    # ── Past the header (issue #1250) ────────────────────────────────────
+    #
+    # Everything above measures one element: `.wb-note-header`'s computed
+    # colour against the card's fill. That left the rest of the card
+    # unscored, and five separate `opacity` declarations were quietly
+    # dimming --wb-note-text below its threshold over the same fill --
+    # the empty state at 4.29:1, the add-row placeholder at 3.31:1 and the
+    # add "+" glyph at 2.58:1, none of which any test or either design gate
+    # could see. They are one two-step ink ladder now
+    # (--wb-note-ink-muted / --wb-note-ink-faint, views/whiteboard.css),
+    # and this is the assertion that keeps them honest on the real render.
+    #
+    # Composited rather than nominal, because the ladder is
+    # `color-mix(... transparent)`: getComputedStyle hands back a colour
+    # with an alpha channel, and scoring that raw would report a 70% ink as
+    # if it were opaque -- exactly the mistake that made the old `opacity`
+    # values look fine.
+
+    # (selector, minimum, what). 4.5:1 is WCAG AA for text; 3:1 is SC
+    # 1.4.11 for a non-text glyph or control boundary.
+    CARD_ELEMENTS = [
+        (".wb-note-title", 4.5, "the note title"),
+        (".wb-note-row-name", 4.5, "a checklist row's task name"),
+        (".wb-note-progress", 4.5, "the footer's progress count"),
+        (".wb-note-add-input", 4.5, "the add row's input"),
+        (".wb-note-add-icon", 3.0, "the add row's + glyph"),
+    ]
+
+    def _composited_ratio(self, driver, task_name, selector, prop="color"):
+        return driver.execute_script(
+            """
+            const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+            for (const n of notes) {
+                if (n.dataset.wbTask !== arguments[0]) continue;
+                const card = n.querySelector('.wb-note-card');
+                const el = card.querySelector(arguments[1]);
+                if (!el) return null;
+                const parse = (s) => {
+                    const v = String(s).match(/[\d.]+/g).map(Number);
+                    return { r: v[0], g: v[1], b: v[2], a: v.length > 3 ? v[3] : 1 };
+                };
+                const chan = (c) => {
+                    const x = c / 255;
+                    return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+                };
+                const lum = (c) =>
+                    0.2126 * chan(c.r) + 0.7152 * chan(c.g) + 0.0722 * chan(c.b);
+                const bg = parse(getComputedStyle(card).backgroundColor);
+                const raw = parse(getComputedStyle(el).getPropertyValue(arguments[2]));
+                const fg = {
+                    r: raw.r * raw.a + bg.r * (1 - raw.a),
+                    g: raw.g * raw.a + bg.g * (1 - raw.a),
+                    b: raw.b * raw.a + bg.b * (1 - raw.a),
+                };
+                const [hi, lo] = lum(fg) > lum(bg)
+                    ? [lum(fg), lum(bg)] : [lum(bg), lum(fg)];
+                return (hi + 0.05) / (lo + 0.05);
+            }
+            return null;
+            """,
+            task_name,
+            selector,
+            prop,
+        )
+
+    def _assert_card_elements_meet_threshold(self, driver, task_name):
+        for colour in self._swatch_hexes(driver):
+            pick_swatch(driver, task_name, colour)
+            for selector, minimum, what in self.CARD_ELEMENTS:
+                ratio = self._composited_ratio(driver, task_name, selector)
+                if ratio is None:
+                    continue  # not rendered on this note -- nothing to score
+                assert ratio >= minimum, (
+                    f"{colour} -> {what} ({selector}) reaches only {ratio:.2f}:1, "
+                    f"below its {minimum}:1 threshold"
+                )
+
+    def test_card_elements_meet_their_threshold_in_light_mode(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+        browser.execute_script("document.documentElement.setAttribute('data-theme', 'light');")
+
+        self._assert_card_elements_meet_threshold(browser, "Build")
+
+    def test_card_elements_meet_their_threshold_in_dark_mode(self, browser, app_server):
+        # The one that mattered most: --np-text-muted, which four of these
+        # elements used to take, resolves to #C0B6A6 in dark mode and
+        # measures 1.07:1 on #F7A8B8. A theme token on a note fill.
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+        browser.execute_script("document.documentElement.setAttribute('data-theme', 'dark');")
+
+        self._assert_card_elements_meet_threshold(browser, "Build")
 
 
 class TestFixedPastelPalette:

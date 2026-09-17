@@ -25,6 +25,22 @@
     --np-muted: #635E55;
     --np-faint: #736C60;
     --np-on-accent: #23201C;
+    /* The tick on a checked checkbox (#1245). It has to flip with the theme:
+       --np-success is --np-sage, which is #6B7A5E in light and #A9BC98 in
+       dark, so white measures 4.59:1 on the first and 2.03:1 on the second --
+       under the 3:1 SC 1.4.11 floor for a non-text indicator. The pilot
+       components' hardcoded white tick had that fault and nothing could see
+       it, because check-contrast.mjs only scores the pairings it is told
+       about. It scores this one now. */
+    --np-on-success: #ffffff;
+    /* Initials on a resource avatar (#1246/#1199). Single-valued, like the
+       hue tokens: --np-info is #108bb9 light and #3fb6e0 dark, and a dark ink
+       clears 4.5:1 on both (4.71 and 7.75) where white clears neither (3.88
+       and 2.36). Every avatar in the app painted white over
+       `var(--np-info-gradient)` -- a gradient, which check-contrast.mjs cannot
+       parse, so the one thing about an avatar that could be wrong was the one
+       thing nothing measured. */
+    --np-on-info: #161616;
     --np-font-heading: 'Newsreader', Georgia, serif;
     --np-font-ui: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --np-font-data: 'IBM Plex Mono', 'DejaVu Sans Mono', monospace;
@@ -156,6 +172,14 @@
     --np-light-grey-subtle: #f2f2f2;
     --np-dark-blue-subtle: #cfe0e7;
 
+    /* Ink for text sitting *on* a hue token. Single-valued like the hue it
+       pairs with -- the whole point of these is that the hue does not change
+       with the theme, so its ink cannot either. Added for the whiteboard
+       note's deliverable badge (#1248), whose rule had been carrying a raw
+       `#111` under a comment claiming `#161616`; scripts/check-contrast.mjs
+       now scores this pairing so the claim is measured rather than asserted. */
+    --np-orange-ink: #161616;
+
     /* --- Motion (#1194, moved here from base.css). */
     --np-anim-duration-fast: 0.15s;
     --np-anim-duration: 0.2s;
@@ -217,6 +241,61 @@
        dark page, so no one colour clears 3:1 everywhere. Painting an inner
        halo in the page colour first means the ring always meets --np-paper,
        whatever it is actually sitting on top of. */
+    /* Checkbox shape (#1245). Square, because a circle reads as a radio --
+       "one of these" rather than "this one, on or off" -- and because it puts
+       the control in the same shape vocabulary as the whiteboard note row's
+       glyph indicators (#1248). It is a token, not a literal in the component,
+       because it is a design call rather than a fact: flipping the app back to
+       the round control kanban's `.round-checkbox` ships is this one line.
+       docs/design/design-system.md section 6 records the reasoning. */
+    --np-checkbox-radius: 4px;
+
+    /* The checkbox's hit target, as distinct from the box it draws (#1250).
+       WCAG 2.2 SC 2.5.8 wants 24x24 for a pointer target, and <np-checkbox>
+       already used exactly that as a hard-coded fallback. It is here because
+       it is a column width as much as a hit area: the whiteboard note's
+       add-task row reserves the same width for its "+" so that glyph, every
+       checkbox above it and every task name line up. A literal in two files
+       cannot express "these are the same measurement". */
+    --np-checkbox-target: 24px;
+
+    /* The whiteboard note palette (#1017, tokenised for #1250).
+       Two soft shades each of yellow, pink, green, blue and red. It is the
+       list wbPalette() offers in the note's colour menu and the list
+       wbDerivedPaletteColour() assigns from, and the values here are the
+       canonical ones -- whiteboard-notes.js's WB_NOTE_PASTEL_COLOURS is
+       checked against them by tests/test_note_ink.mjs.
+
+       They live here so scripts/check-contrast.mjs can score them, which it
+       could not while they were a JS array. Nothing had ever measured the
+       note's own de-emphasised text against its own fill, and three of those
+       pairings were below AA -- see --np-note-ink-muted below. */
+    --np-note-yellow-1: #FFF3B0;
+    --np-note-yellow-2: #FCE38A;
+    --np-note-pink-1: #FFD6E0;
+    --np-note-pink-2: #F7A8B8;
+    --np-note-green-1: #CFF4D2;
+    --np-note-green-2: #B8E6B8;
+    --np-note-blue-1: #C7E5FF;
+    --np-note-blue-2: #A9D6F5;
+    --np-note-red-1: #FFCBC1;
+    --np-note-red-2: #FFAFA3;
+
+    /* A note's ink, and its two de-emphasis levels.
+       Every swatch above is light, so wbContrastTextColour() measures
+       --np-note-ink as the better of near-black/near-white on all ten; the
+       alpha values are the ones views/whiteboard.css mixes for
+       --wb-note-ink-muted and --wb-note-ink-faint, restated as literals so
+       the checker can composite them. b3 is 70% and 8c is 55%; the ink
+       ladder's comment in views/whiteboard.css explains why those two, and
+       tests/test_note_ink.mjs fails if the two files drift apart.
+
+       Not theme-flipped, and deliberately so: a note's ink is chosen against
+       the note's own fill, which is plan data and the same in both themes. */
+    --np-note-ink: #161616;
+    --np-note-ink-muted: #161616b3;
+    --np-note-ink-faint: #1616168c;
+
     --np-focus-ring-color: #8A6205;
     --np-focus-ring-width: 2px;
     --np-focus-ring-offset: 2px;
@@ -264,6 +343,9 @@
     --np-danger-hover: #e87070;
     --np-success: var(--np-sage);
     --np-success-hover: #BBCBAB;
+    /* Dark --np-sage is much lighter than light --np-sage, so the tick that
+       reads on it is dark rather than white. See the light block above. */
+    --np-on-success: #161616;
     --np-success-tint: var(--np-sage-tint);
     --np-success-ink: var(--np-sage-ink);
     --np-warning: var(--np-accent);

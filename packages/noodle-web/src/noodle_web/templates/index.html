@@ -4245,6 +4245,14 @@ Build
     <script type="module" src="/static/components/close-button/np-close-button.js?v={{ v }}"></script>
     <script type="module" src="/static/components/empty-state/np-empty-state.js?v={{ v }}"></script>
     <script type="module" src="/static/components/button/np-button.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/checkbox/np-checkbox.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/resource-stack/np-resource-stack.js?v={{ v }}"></script>
+    <!-- The whiteboard note's markup (#1249). Not a custom element: it is the
+         builder <np-note> and whiteboard-notes.js both make the note from, so
+         Storybook and the board cannot drift. whiteboard-notes.js is a classic
+         script and cannot import it, so it arrives as globalThis.NoodleNoteMarkup
+         -- see that file's own note on the ordering. -->
+    <script type="module" src="/static/components/note/note-markup.js?v={{ v }}"></script>
 
     <!-- Collab Session Modal (#963) -->
     <div id="collabSessionOverlay" class="modal-overlay" onclick="if(event.target===this) closeCollabSessionModal()" role="dialog" aria-modal="true" aria-label="Planning session">

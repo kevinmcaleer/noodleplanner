@@ -166,6 +166,10 @@
 </section>
 
 <script type="module">
+// The gallery's `inputs` section renders <np-checkbox> (#1245), so the page
+// has to define the element. index.html loads this alongside the other
+// registered components; this page builds its own document.
+import '/static/components/checkbox/np-checkbox.js?v={{ v }}';
 import { GALLERY, TOKEN_GROUPS } from '/static/component-gallery.js?v={{ v }}';
 
 (function () {
