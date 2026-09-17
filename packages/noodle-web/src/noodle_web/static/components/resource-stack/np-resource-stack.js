@@ -91,7 +91,14 @@ TEMPLATE.innerHTML = `
       box-sizing: border-box;
       width: var(--np-avatar-size, 20px);
       height: var(--np-avatar-size, 20px);
-      padding: 0;
+      /* Breathing room inside the circle. Two bold capitals set at half the
+         chip's diameter run right up to the curve, which is where a circle
+         reads as cramped rather than small -- the letters touch the edge at
+         exactly the point the edge is closest to them. This is a padding
+         rather than a smaller font because the type size is what makes the
+         initials readable at all; the box-sizing above keeps the circle 20px
+         either way. */
+      padding: 2px;
       /* The separator ring is a theme surface by default, which is right
          on a themed panel and wrong on a whiteboard note: a pastel fill
          is not --np-surface in either theme, so the ring either vanished
@@ -101,7 +108,9 @@ TEMPLATE.innerHTML = `
       border-radius: 50%;
       background: var(--np-avatar-bg, var(--np-info));
       color: var(--np-avatar-ink, var(--np-on-info));
-      font-size: calc(var(--np-avatar-size, 20px) * 0.5);
+      /* Trimmed with the padding above: at 0.5 the pair is wider than the
+         13px of content box that 2px of padding and a 1.5px ring leave. */
+      font-size: calc(var(--np-avatar-size, 20px) * 0.44);
       font-weight: bold;
       line-height: 1;
       cursor: pointer;

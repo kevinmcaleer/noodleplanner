@@ -210,12 +210,11 @@
          body           8 of padding + 4 on .wb-note-row / .wb-note-add-row
          empty state   12
          free text     12
-         linked notes  12
          footer        12
 
        The header is the one band that reaches it by a route rather than by
        a number, because its own padding is load-bearing -- see its comment
-       below. Before this the same seven bands used 10, 12 and 8 and nothing
+       below. Before this the same bands used 10, 12 and 8 and nothing
        on the card lined up with anything else. */
     display: flex;
     flex-direction: column;
@@ -2149,26 +2148,11 @@ body.wb-note-drag-active * {
        note. Dropping the fill lets the note's colour run unbroken behind
        the caption, and --wb-note-ink-muted is legible on every swatch. */
     color: var(--wb-note-ink-muted);
-    /* No rule under it either, for the reason the linked summary below has
-       none: this is a one-line caption, not the head of a section. */
+    /* No rule under it. This is a one-line caption, not the head of a
+       section, and the card has no dividers left to be consistent with. */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.wb-note-linked-summary {
-    margin-top: var(--np-space-4);
-    padding: var(--np-space-4) var(--np-space-12);
-    font-size: 11px;
-    font-style: italic;
-    color: var(--wb-note-ink-muted);
-    /* No rule above it. This was the last divider left on the card after the
-       header's and the footer's went, and it was the one that showed: a note
-       with a linked child drew a full-width line across its body for no
-       reason the reader could act on. The line said "a section ends here",
-       which is not what this caption means -- it is one quiet footnote about
-       children that live elsewhere, and the italic muted ink says that on its
-       own. Spacing separates it now. */
 }
 
 .wb-note-title-only .wb-note-parent {

@@ -336,14 +336,7 @@ export class NpNote extends HTMLElement {
         const over = this._rows.some((row) => (row.resources || []).length > ROW_AVATAR_CAP);
         const chips = widest + (over ? 1 : 0);
         const stack = chips ? chips * 20 - (chips - 1) * 5 : 0;
-        r.card.style.setProperty('--wb-row-people', `${stack + (stack ? 4 : 0) + 20}px`);
-
-        const linkedSummary = this.getAttribute('linked-summary');
-        if (linkedSummary) {
-            const line = el('div', 'wb-note-linked-summary');
-            line.textContent = linkedSummary;
-            children.push(line);
-        }
+        r.card.style.setProperty('--wb-row-people', `${Math.max(stack, 20)}px`);
 
         // Always present (#1104), on every render, free-form branch included.
         children.push(this._buildAddRow());
@@ -389,10 +382,14 @@ export class NpNote extends HTMLElement {
             depHandle: true,
         });
 
+        // One control, never two -- the chips open the assign menu themselves,
+        // so a "+" beside them is a second button for the same job. Mirrors
+        // wbAppendChildResourceControls() in whiteboard-notes.js.
         const resources = vm.resources || [];
         if (resources.length) {
             // One <np-resource-stack> (#1246, under #1199), which owns the
             // overlap, the cap, the overflow chip and the hover profile card.
+            //
             // No `size` attribute -- it would write --np-avatar-size inline
             // and outrank both `.wb-note-row-avatar` and the narrow-tier
             // container query, which is exactly the bug the board just lost.
@@ -402,8 +399,9 @@ export class NpNote extends HTMLElement {
             stack.names = resources;
             if (this._details) stack.details = this._details;
             refs.peopleSlot.appendChild(stack);
+        } else {
+            refs.peopleSlot.appendChild(refs.assignBtn);
         }
-        refs.peopleSlot.appendChild(refs.assignBtn);
 
         if (vm.depTarget === 'valid') row.classList.add('wb-dep-row-target');
         if (vm.depTarget === 'invalid') row.classList.add('wb-dep-row-target-invalid');

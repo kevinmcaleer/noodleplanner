@@ -227,18 +227,18 @@
     --np-info-ink: #0A5A78;
 
     /* Resource avatars have their own pair rather than borrowing --np-info's.
-       A chip is a filled circle carrying two letters at ~10px, which wants
-       more headroom than "passes 4.5:1"; --np-blue gave --np-on-info 4.66:1,
-       which is a pass on paper and a squint on a 20px circle. This is the same
-       hue a step lighter: 5.41:1 for the initials, and still 3.17:1 against
-       --np-paper so the circle itself has an edge (SC 1.4.11). Scored in
-       scripts/check-contrast.mjs on both counts.
+       A chip is a filled circle carrying two letters at ~9px; that is the
+       hardest text in the app to read, so it takes the strongest pairing the
+       app has rather than a status hue that also has to sit next to other
+       status hues. Near-black and white is 18.4:1 for the initials and 17.5:1
+       for the circle against the page -- both scored in
+       scripts/check-contrast.mjs.
 
-       Separate from --np-info because the two are asked different questions:
-       an info surface has to sit next to other status colours, an avatar has
-       to carry small bold text. Tying them means one has to lose. */
-    --np-avatar-bg: #2F97C0;
-    --np-avatar-ink: var(--np-on-info);
+       Identity colour is not this chip's job. It never was: the avatars were
+       all one blue whoever they stood for, so the hue carried no information
+       and only had to be legible. */
+    --np-avatar-bg: var(--np-ink);
+    --np-avatar-ink: var(--np-paper);
     --np-danger-gradient: linear-gradient(135deg, var(--np-red) 0%, #a01717 100%);
     --np-success-gradient: linear-gradient(135deg, var(--np-green) 0%, #16812f 100%);
     --np-info-gradient: linear-gradient(135deg, var(--np-blue) 0%, #0d7096 100%);
@@ -372,10 +372,13 @@
     --np-info-hover: #5cc5e8;
     --np-info-tint: #1c3a47;
     --np-info-ink: #8FD3EC;
-    /* Dark already runs a light blue, so the initials have 7.75:1 here without
-       help; the chip keeps it rather than inventing a second value. */
-    --np-avatar-bg: var(--np-info);
-    --np-avatar-ink: var(--np-on-info);
+    /* The same pairing, which in this theme means the light one on top: dark
+       mode's --np-ink is #FAF8F4 and its --np-paper is #201E1A. A literally
+       black chip would be the note's own darkness again, and the ring the note
+       draws around it would be the only thing keeping it visible. Taking the
+       tokens rather than the values is what makes it invert on its own. */
+    --np-avatar-bg: var(--np-ink);
+    --np-avatar-ink: var(--np-paper);
     --np-danger-gradient: linear-gradient(135deg, #e05252 0%, #c94040 100%);
     --np-success-gradient: linear-gradient(135deg, #4ecb72 0%, #3aad5c 100%);
     --np-info-gradient: linear-gradient(135deg, #3fb6e0 0%, #2a93b8 100%);

@@ -98,13 +98,37 @@ def _line_for(page, task_name):
 
 
 def _open_menu(page, child_name):
-    _row(page, child_name).locator(".wb-note-row-resource").dispatch_event("click")
+    """Open `child_name`'s resource menu through whichever control that row has.
+
+    A row shows the avatars or the empty circle, never both -- the chips have
+    opened this same menu since #1246, so a "+" beside them was a second button
+    for a job the first one was already doing. Which one the row is wearing is
+    a function of whether anyone is assigned, and every caller here wants "open
+    the menu" rather than "click that specific element".
+
+    The chip lives in the component's shadow root, so it is reached through the
+    host rather than by a page-level selector.
+    """
+    row = _row(page, child_name)
+    stack = row.locator(".wb-note-row-avatar")
+    if stack.count():
+        stack.evaluate("n => n.shadowRoot.querySelector('.chip').click()")
+    else:
+        row.locator(".wb-note-row-resource").dispatch_event("click")
     page.wait_for_selector(".wb-resource-menu", state="visible")
     return page.locator(".wb-resource-menu")
 
 
 class TestExactlyOneAssignControl:
     def test_each_row_has_one_assign_control_and_no_bubble(self, page, app_server):
+        """One control per row, still -- but it is the avatars on a row that
+        has any, and the empty circle only on a row that has none.
+
+        The rule this file was written for has not changed; what changed is
+        that the "+" stopped being the answer in both cases. It used to sit
+        beside the avatars, which is two controls opening one menu -- the same
+        duplication as the bubble it replaced, one layer in.
+        """
         open_app(page, app_server)
         load_plan(page, DECLARED_PLAN)
         switch_to_whiteboard(page)
@@ -114,13 +138,27 @@ class TestExactlyOneAssignControl:
 
         for child in ("Solo", "Paired", "Noted"):
             row = _row(page, child)
-            assert (
-                row.locator(".wb-note-row-resource").count() == 1
-            ), f"{child} renders exactly one resource-assign control"
+            controls = (row.locator(".wb-note-row-resource").count()
+                        + row.locator(".wb-note-row-avatar").count())
+            assert controls == 1, (
+                f"{child} renders {controls} resource controls, not one"
+            )
 
         # Board-wide, not just on the rows above: the bubble is gone from the
         # tree entirely, not merely absent from the two rows this plan draws.
         assert page.locator(".wb-note-assign-bubble").count() == 0
+
+    def test_the_empty_circle_is_only_for_rows_with_nobody_on_them(
+        self, page, app_server
+    ):
+        open_app(page, app_server)
+        load_plan(page, DECLARED_PLAN)
+        switch_to_whiteboard(page)
+
+        assert _row(page, "Solo").locator(".wb-note-row-resource").count() == 1
+        assert _row(page, "Paired").locator(".wb-note-row-resource").count() == 0, (
+            "an assigned row is offering the empty circle as well as its people"
+        )
 
     def test_an_assigned_row_still_renders_its_avatar(self, page, app_server):
         """The avatars were the bubble's neighbours, not the bubble."""
