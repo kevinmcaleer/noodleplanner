@@ -629,7 +629,6 @@ class TestNoteColourContrast:
         (".wb-note-row-name", 4.5, "a checklist row's task name"),
         (".wb-note-progress", 4.5, "the footer's progress count"),
         (".wb-note-add-input", 4.5, "the add row's input"),
-        (".wb-note-add-icon", 3.0, "the add row's + glyph"),
     ]
 
     def _composited_ratio(self, driver, task_name, selector, prop="color"):

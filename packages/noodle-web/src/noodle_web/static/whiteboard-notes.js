@@ -1728,7 +1728,7 @@ function wbCreateNoteNode() {
     // across the re-renders that reuse this same node for the same task.
     const { card, refs } = globalThis.NoodleNoteMarkup.buildNoteCard();
     const {
-        header, title, menuBtn, linkHandle, coachBtn, dateBtn, resourceBtn,
+        header, title, menuBtn, linkHandle, coachBtn, dateBtn,
         promoteBtn, parentCaption, body, footer, progress, avatars, resizeHandle,
     } = refs;
 
@@ -1802,18 +1802,12 @@ function wbCreateNoteNode() {
         if (taskName && suggestion) wbToggleDateMenu(taskName, suggestion, dateBtn);
     });
 
-    resourceBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const taskName = fo.dataset.wbTask;
-        if (taskName) wbToggleResourceMenu(taskName, resourceBtn);
-    });
-
     fo.appendChild(card);
 
     const entry = {
         fo,
         refs: {
-            card, header, title, menuBtn, linkHandle, coachBtn, dateBtn, resourceBtn, promoteBtn, parentCaption,
+            card, header, title, menuBtn, linkHandle, coachBtn, dateBtn, promoteBtn, parentCaption,
             body, footer, progress, avatars, resizeHandle,
         },
     };

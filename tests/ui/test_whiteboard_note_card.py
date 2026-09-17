@@ -143,7 +143,6 @@ class TestInkLadder:
             (".wb-note-row-name", 4.5, "a task name"),
             (".wb-note-progress", 4.5, "the footer's progress count"),
             (".wb-note-add-input", 4.5, "the add row's input"),
-            (".wb-note-add-icon", 3.0, "the add row's + glyph"),
         ],
     )
     def test_note_text_clears_its_threshold_on_the_worst_swatch(
@@ -262,20 +261,18 @@ class TestAddRowAlignment:
                 return {
                     checkbox: box(row.querySelector('.wb-note-checkbox')),
                     name: box(row.querySelector('.wb-note-row-name')),
-                    plus: box(add.querySelector('.wb-note-add-icon')),
                     input: box(add.querySelector('.wb-note-add-input')),
+                    glyph: add.querySelector('.wb-note-add-icon'),
                 };
             }"""
         )
 
+        # The leading "+" is gone: it repeated the placeholder beside it, in a
+        # column that means "tick this", on a row that cannot be ticked.
+        assert geometry["glyph"] is None, "the add row still renders a + glyph"
+
         # Sub-pixel, because the board is a zoom-transformed canvas: the same
         # tolerance tests/ui/test_whiteboard_row_layout.py uses.
-        assert abs(geometry["plus"]["left"] - geometry["checkbox"]["left"]) < 1.5, (
-            f"the + glyph does not start at the checkbox column: {geometry}"
-        )
-        assert abs(geometry["plus"]["width"] - geometry["checkbox"]["width"]) < 1.5, (
-            f"the + glyph is not a checkbox wide: {geometry}"
-        )
         assert abs(geometry["input"]["left"] - geometry["name"]["left"]) < 1.5, (
             f"'Add task…' does not start at the task-name column: {geometry}"
         )
@@ -336,7 +333,6 @@ class TestTitleOnlyTier:
                 };
                 return {
                     coach: visible('.wb-note-coach-btn'),
-                    resource: visible('.wb-note-resource-btn'),
                     link: visible('.wb-note-link-handle'),
                     menu: visible('.wb-note-menu-btn'),
                     body: visible('.wb-note-body'),
@@ -344,7 +340,6 @@ class TestTitleOnlyTier:
             }"""
         )
         assert shown["coach"] is False, "the coach button survives the title-only tier"
-        assert shown["resource"] is False, "the resource chip survives the title-only tier"
         assert shown["body"] is False, "the body should already be hidden at this tier"
         # The two that are worth hitting at 40%: noodling two distant notes
         # together is what you zoom out to do, and the menu is the way to
