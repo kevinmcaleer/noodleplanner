@@ -64,23 +64,32 @@ def _loaded(page, app_server):
     page.wait_for_selector(".wb-note[data-wb-task=Build] np-resource-stack")
 
 
-class TestBothRenderingsUseOneComponent:
-    def test_the_row_and_the_footer_are_the_same_component(self, page, app_server):
+class TestTheRowIsTheOnlyRendering:
+    """The note used to render this component twice: once per checklist row,
+    and once in the footer for the note's own task.
+
+    The footer one is gone. A note maps to a summary task, and assigning
+    resources to a summary is bad practice in a plan -- so the board showed,
+    as a first-class part of every card, something a planner should not be
+    doing. Resources live on the tasks inside the note, which is where the
+    rows show them.
+    """
+
+    def test_the_row_renders_the_component_and_the_footer_does_not(
+        self, page, app_server
+    ):
         _loaded(page, app_server)
         card = note(page, "Build")
         assert card.locator(".wb-note-row-slot-people np-resource-stack").count() >= 1
-        assert card.locator(".wb-note-avatars np-resource-stack").count() == 1
+        assert card.locator(".wb-note-footer np-resource-stack").count() == 0, (
+            "the footer is rendering a resource stack again"
+        )
 
-    def test_they_keep_their_different_data(self, page, app_server):
-        """The row shows that child's resources; the footer shows the note's
-        own task's. Same component, different input."""
+    def test_the_row_shows_that_child_s_own_resources(self, page, app_server):
         _loaded(page, app_server)
         row = _shadow(_row_stack(page, "Just one"),
                       "[...s.querySelectorAll('.chip:not(.more)')].map(c => c.getAttribute('aria-label'))")
-        footer = _shadow(note(page, "Build").locator(".wb-note-avatars np-resource-stack"),
-                         "[...s.querySelectorAll('.chip:not(.more)')].map(c => c.getAttribute('aria-label'))")
         assert row == ["Sam Smith"], row
-        assert sorted(footer) == ["Jo Lee", "Sam Smith"], footer
 
     def test_a_child_with_no_resources_of_its_own_inherits_its_parent_s(
         self, page, app_server

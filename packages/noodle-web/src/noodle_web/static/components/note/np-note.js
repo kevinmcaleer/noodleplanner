@@ -146,7 +146,7 @@ export class NpNote extends HTMLElement {
     static get observedAttributes() {
         return [
             'task', 'title', 'colour', 'color', 'parent', 'comment', 'rows',
-            'resources', 'width', 'height',
+            'width', 'height',
             'freeform', 'title-only', 'selected', 'flash', 'park-armed',
             'parking', 'link-target', 'link-target-invalid', 'editing',
         ];
@@ -155,7 +155,6 @@ export class NpNote extends HTMLElement {
     constructor() {
         super();
         this._rows = [];
-        this._resources = [];
         this._built = false;
     }
 
@@ -168,9 +167,6 @@ export class NpNote extends HTMLElement {
         if (name === 'rows' && value) {
             try { this._rows = JSON.parse(value); } catch { this._rows = []; }
         }
-        if (name === 'resources' && value) {
-            this._resources = value.split(',').map((r) => r.trim()).filter(Boolean);
-        }
         if (this._built) this._render();
     }
 
@@ -182,8 +178,6 @@ export class NpNote extends HTMLElement {
     get details() { return this._details; }
     set details(value) { this._details = value || {}; if (this._built) this._render(); }
 
-    get resources() { return this._resources; }
-    set resources(value) { this._resources = Array.isArray(value) ? value : []; if (this._built) this._render(); }
 
     /** The task name, as `.wb-note`'s `data-wb-task` carries it. */
     get task() { return this.getAttribute('task') || this.getAttribute('title') || 'Untitled note'; }
@@ -265,8 +259,6 @@ export class NpNote extends HTMLElement {
 
         // Header buttons, under their real conditions.
         const date = this.getAttribute('data-date-suggestion');
-        r.dateBtn.style.display = date ? '' : 'none';
-        if (date) r.dateBtn.textContent = date;
         const planningType = this.getAttribute('data-planning-type');
         r.coachBtn.textContent = planningType === 'product' ? 'P' : planningType === 'activity' ? 'A' : '✦';
         r.coachBtn.classList.toggle('typed', Boolean(planningType));
@@ -405,13 +397,6 @@ export class NpNote extends HTMLElement {
         // The app's exact spacing: `${completed} / ${total}`. The pilot took an
         // arbitrary string.
         r.progress.textContent = freeform || !total ? '' : `${done} / ${total}`;
-        // Capped at six, as the app caps it -- not five.
-        // The footer's stack, same component as the row's, different data:
-        // the row shows a child's resources, the footer shows the note's own.
-        const stack = el('np-resource-stack', null, { max: '6' });
-        stack.names = this._resources;
-        if (this._details) stack.details = this._details;
-        r.avatars.replaceChildren(stack);
     }
 
     // ── The ⋮ menu ──────────────────────────────────────────────────────
