@@ -329,6 +329,11 @@
     "$value": "#23201C",
     "$description": "--np-on-accent"
   },
+  "on-success": {
+    "$type": "color",
+    "$value": "#161616",
+    "$description": "--np-on-success"
+  },
   "orange": {
     "$type": "color",
     "$value": "#ff7b01",

@@ -1475,7 +1475,14 @@ input[type="text"]:focus-visible {
     margin: var(--np-space-12) 0;
 }
 
-input[type="checkbox"] {
+/* Scoped to the group it sits in (#1245). Unscoped, this rule sized *every*
+   checkbox in the app -- views/gantt.css is linked globally, and
+   `input[type="checkbox"]` at 0-1-1 outranks every single-class rule that
+   tried to size one. `.wb-note-checkbox`'s 15px, `.round-checkbox`'s 16px
+   circle and `.task-peek-checkbox`'s coarse-pointer bump were all dead
+   letters because of it. The app's checkbox is <np-checkbox> now, which
+   renders in a shadow root where no element selector can reach it. */
+.checkbox-group input[type="checkbox"] {
     width: 20px;
     height: 20px;
     cursor: pointer;

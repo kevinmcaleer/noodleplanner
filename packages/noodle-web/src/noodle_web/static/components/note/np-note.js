@@ -71,6 +71,10 @@
  *    planningType, languageHint, date, depTarget }`.
  */
 
+// The row's checkbox is a component of its own (#1245); importing it here
+// means a story only has to load np-note.
+import '../checkbox/np-checkbox.js';
+
 // whiteboard-notes.js's own constants, which are what decide how crowded a
 // row looks. A component previewing 40px narrower than a real note (the
 // pilot was 220) is not a cosmetic difference here.
@@ -377,16 +381,20 @@ export class NpNote extends HTMLElement {
         row.dataset.wbRowSummary = vm.hasChildren ? 'true' : 'false';
 
         // ── Lead zone ──────────────────────────────────────────────────
-        // The bare native checkbox the app ships. Not the round
-        // `--np-success`-green one the pilot invented, which exists nowhere in
-        // NoodlePlanner. Whether the app *should* have a designed checkbox is
-        // a later question, and it cannot be asked honestly while Storybook
-        // already shows one.
-        const checkbox = el('input', 'wb-note-checkbox', { type: 'checkbox' });
-        checkbox.checked = Boolean(vm.complete);
-        checkbox.title = vm.complete ? 'Mark as incomplete' : 'Mark as complete';
-        checkbox.setAttribute('aria-label',
-            `Mark "${name}" as ${vm.complete ? 'incomplete' : 'complete'}`);
+        // <np-checkbox>, the same control the app now renders (#1245). Phase A
+        // deliberately showed the bare native input, because the pilot had
+        // invented a round green one that existed nowhere in NoodlePlanner and
+        // "should the app have a designed checkbox" could not be asked honestly
+        // while Storybook already showed one. It has been asked and answered,
+        // so both sides render the component.
+        const checkbox = el('np-checkbox', 'wb-note-checkbox', {
+            dense: '',
+            row: vm.hasChildren ? 'summary' : 'leaf',
+            title: vm.complete ? 'Mark as incomplete' : 'Mark as complete',
+            label: `Mark "${name}" as ${vm.complete ? 'incomplete' : 'complete'}`,
+        });
+        if (vm.complete) checkbox.setAttribute('checked', '');
+        if (vm.indeterminate && vm.hasChildren) checkbox.setAttribute('indeterminate', '');
         row.appendChild(checkbox);
 
         // The deliverable badge's slot reserves its width whether or not this

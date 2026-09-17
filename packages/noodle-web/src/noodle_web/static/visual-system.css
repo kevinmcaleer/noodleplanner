@@ -25,6 +25,14 @@
     --np-muted: #635E55;
     --np-faint: #736C60;
     --np-on-accent: #23201C;
+    /* The tick on a checked checkbox (#1245). It has to flip with the theme:
+       --np-success is --np-sage, which is #6B7A5E in light and #A9BC98 in
+       dark, so white measures 4.59:1 on the first and 2.03:1 on the second --
+       under the 3:1 SC 1.4.11 floor for a non-text indicator. The pilot
+       components' hardcoded white tick had that fault and nothing could see
+       it, because check-contrast.mjs only scores the pairings it is told
+       about. It scores this one now. */
+    --np-on-success: #ffffff;
     --np-font-heading: 'Newsreader', Georgia, serif;
     --np-font-ui: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --np-font-data: 'IBM Plex Mono', 'DejaVu Sans Mono', monospace;
@@ -225,6 +233,15 @@
        dark page, so no one colour clears 3:1 everywhere. Painting an inner
        halo in the page colour first means the ring always meets --np-paper,
        whatever it is actually sitting on top of. */
+    /* Checkbox shape (#1245). Square, because a circle reads as a radio --
+       "one of these" rather than "this one, on or off" -- and because it puts
+       the control in the same shape vocabulary as the whiteboard note row's
+       glyph indicators (#1248). It is a token, not a literal in the component,
+       because it is a design call rather than a fact: flipping the app back to
+       the round control kanban's `.round-checkbox` ships is this one line.
+       docs/design/design-system.md section 6 records the reasoning. */
+    --np-checkbox-radius: 4px;
+
     --np-focus-ring-color: #8A6205;
     --np-focus-ring-width: 2px;
     --np-focus-ring-offset: 2px;
@@ -272,6 +289,9 @@
     --np-danger-hover: #e87070;
     --np-success: var(--np-sage);
     --np-success-hover: #BBCBAB;
+    /* Dark --np-sage is much lighter than light --np-sage, so the tick that
+       reads on it is dark rather than white. See the light block above. */
+    --np-on-success: #161616;
     --np-success-tint: var(--np-sage-tint);
     --np-success-ink: var(--np-sage-ink);
     --np-warning: var(--np-accent);

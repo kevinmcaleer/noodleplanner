@@ -29,14 +29,14 @@
   ],
   "filesNotLoaded": [],
   "stylesheet": {
-    "sourceLinesOfCode": 17361,
-    "complexity": 50223
+    "sourceLinesOfCode": 17358,
+    "complexity": 50221
   },
   "rules": {
-    "total": 3877
+    "total": 3876
   },
   "selectors": {
-    "totalUnique": 3794,
+    "totalUnique": 3793,
     "maxSpecificity": [
       1,
       4,
@@ -44,8 +44,8 @@
     ]
   },
   "customProperties": {
-    "totalDeclarations": 349,
-    "totalUniqueNames": 212,
+    "totalDeclarations": 352,
+    "totalUniqueNames": 214,
     "unused": [
       "--np-elevation-2",
       "--np-elevation-4",
@@ -70,11 +70,58 @@
     "unknown": [],
     "conflictingMultiFileDefinitions": []
   },
-  "canonicalTokenCount": 164,
+  "canonicalTokenCount": 166,
   "colors": {
     "totalUnique": 396,
-    "duplicateOfTokenCount": 23,
+    "duplicateOfTokenCount": 31,
     "duplicateOfToken": [
+      {
+        "id": "white-edecb6ba",
+        "hex": "#FFFFFF",
+        "authoredAs": "white",
+        "usage": 120,
+        "props": [
+          "stroke",
+          "background",
+          "color",
+          "border",
+          "text-shadow",
+          "border-color",
+          "border-bottom",
+          "--mm-btn-bg",
+          "--mm-btn-hover-text",
+          "--mm-node-text",
+          "--mm-root-text",
+          "--mm-selection-stroke",
+          "--mm-inline-input-bg",
+          "--mm-canvas-bg",
+          "--mm-node-fill",
+          "--np-on-success"
+        ],
+        "matchedToken": "--np-on-success"
+      },
+      {
+        "id": "white-2599f23d",
+        "hex": "#FFFFFF",
+        "authoredAs": "rgba(255, 255, 255, 0.2)",
+        "usage": 9,
+        "props": [
+          "background",
+          "background-color",
+          "border-right"
+        ],
+        "matchedToken": "--np-on-success"
+      },
+      {
+        "id": "white-8da45579",
+        "hex": "#FFFFFF",
+        "authoredAs": "rgba(255, 255, 255, 0.15)",
+        "usage": 8,
+        "props": [
+          "background"
+        ],
+        "matchedToken": "--np-on-success"
+      },
       {
         "id": "blue-c957f1dd",
         "hex": "#108BB9",
@@ -97,6 +144,30 @@
           "--np-info-gradient"
         ],
         "matchedToken": "--np-info-hover"
+      },
+      {
+        "id": "white-2599f23c",
+        "hex": "#FFFFFF",
+        "authoredAs": "rgba(255, 255, 255, 0.1)",
+        "usage": 7,
+        "props": [
+          "background",
+          "background-color",
+          "border"
+        ],
+        "matchedToken": "--np-on-success"
+      },
+      {
+        "id": "white-2599f23e",
+        "hex": "#FFFFFF",
+        "authoredAs": "rgba(255, 255, 255, 0.3)",
+        "usage": 6,
+        "props": [
+          "background",
+          "border-right",
+          "border-bottom"
+        ],
+        "matchedToken": "--np-on-success"
       },
       {
         "id": "blue-ae4edc34",
@@ -163,6 +234,16 @@
           "--np-danger"
         ],
         "matchedToken": "--np-danger"
+      },
+      {
+        "id": "white-8da45558",
+        "hex": "#FFFFFF",
+        "authoredAs": "rgba(255, 255, 255, 0.03)",
+        "usage": 3,
+        "props": [
+          "background"
+        ],
+        "matchedToken": "--np-on-success"
       },
       {
         "id": "blue-c957f1e1",
@@ -327,6 +408,28 @@
           "--np-danger-gradient"
         ],
         "matchedToken": "--np-danger-hover"
+      },
+      {
+        "id": "grey-477de72d",
+        "hex": "#161616",
+        "authoredAs": "#161616",
+        "usage": 2,
+        "props": [
+          "--np-on-success",
+          "--np-orange-ink"
+        ],
+        "matchedToken": "--np-orange-ink"
+      },
+      {
+        "id": "white-2599f240",
+        "hex": "#FFFFFF",
+        "authoredAs": "rgba(255, 255, 255, 0.5)",
+        "usage": 2,
+        "props": [
+          "border-right",
+          "border-color"
+        ],
+        "matchedToken": "--np-on-success"
       }
     ],
     "topUnmatched": [
@@ -345,29 +448,6 @@
           "box-shadow",
           "border",
           "border-top"
-        ]
-      },
-      {
-        "id": "white-edecb6ba",
-        "hex": "#FFFFFF",
-        "authoredAs": "white",
-        "usage": 119,
-        "props": [
-          "stroke",
-          "background",
-          "color",
-          "border",
-          "text-shadow",
-          "border-color",
-          "border-bottom",
-          "--mm-btn-bg",
-          "--mm-btn-hover-text",
-          "--mm-node-text",
-          "--mm-root-text",
-          "--mm-selection-stroke",
-          "--mm-inline-input-bg",
-          "--mm-canvas-bg",
-          "--mm-node-fill"
         ]
       },
       {
@@ -667,14 +747,24 @@
         ]
       },
       {
-        "id": "white-2599f23d",
-        "hex": "#FFFFFF",
-        "authoredAs": "rgba(255, 255, 255, 0.2)",
-        "usage": 9,
+        "id": "blue-f0733271",
+        "hex": "#D8DCE1",
+        "authoredAs": "#d8dce1",
+        "usage": 8,
+        "props": [
+          "border-bottom",
+          "border",
+          "border-top"
+        ]
+      },
+      {
+        "id": "blue-3cfe999e",
+        "hex": "#667EEA",
+        "authoredAs": "#667eea",
+        "usage": 8,
         "props": [
           "background",
-          "background-color",
-          "border-right"
+          "border-color"
         ]
       }
     ]
@@ -1620,7 +1710,7 @@
     }
   ],
   "spacing": {
-    "declarations": 1584,
+    "declarations": 1583,
     "indirectedDeclarations": 1342,
     "totalUniqueValues": 38,
     "offGridUniqueValues": 15,
@@ -1628,7 +1718,7 @@
     "top": [
       {
         "value": "0",
-        "uses": 177,
+        "uses": 176,
         "onGrid": true,
         "props": [
           "gap",
@@ -2602,7 +2692,7 @@
         "active": 0,
         "disabled": 0
       },
-      "distinctClassNames": 68,
+      "distinctClassNames": 67,
       "topClassNames": [
         {
           "name": "form-group",
@@ -2692,8 +2782,8 @@
     ],
     "templateInlineStyleTotal": 267,
     "templateInlineStyleWithColour": 3,
-    "scriptFilesWithColourLiterals": 36,
-    "scriptColourLineTotal": 351,
+    "scriptFilesWithColourLiterals": 37,
+    "scriptColourLineTotal": 353,
     "topScripts": [
       {
         "file": "packages/noodle-web/src/noodle_web/static/script.js",

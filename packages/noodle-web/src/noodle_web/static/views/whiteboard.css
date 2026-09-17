@@ -737,13 +737,6 @@
     background: var(--np-bg-hover);
 }
 
-.wb-note-checkbox {
-    flex-shrink: 0;
-    width: 15px;
-    height: 15px;
-    margin: 0;
-    cursor: pointer;
-}
 
 .wb-note-row-name {
     flex: 1 1 auto;

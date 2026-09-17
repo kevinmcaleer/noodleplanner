@@ -3038,17 +3038,34 @@ function wbBuildChildRow(childVm) {
     row.dataset.wbRowSummary = childVm.hasChildren ? 'true' : 'false';
 
     // ── Lead zone ──────────────────────────────────────────────────────
-    const checkbox = document.createElementNS(XHTML_NS, 'input');
-    checkbox.setAttribute('type', 'checkbox');
-    checkbox.setAttribute('class', 'wb-note-checkbox');
+    // <np-checkbox> (issue #1245) rather than the bare native input this used
+    // to build. It keeps the `.wb-note-checkbox` class: the rule behind that
+    // name is gone, but the name is what several call sites and browser tests
+    // find a row's checkbox by, and renaming it buys nothing.
+    //
+    // `row` reports whether this is a summary, which is the only kind that may
+    // ever render the mixed state. Nothing sets `indeterminate` yet: doing so
+    // needs each summary child's own descendants' progress, which
+    // wbBuildNoteViewModel() does not currently compute -- so a summary at 40%
+    // still looks like one at 0%. The component is ready for it; the view model
+    // is the missing half.
     const isComplete = childVm.complete;
-    if (isComplete) checkbox.setAttribute('checked', 'checked');
-    checkbox.checked = isComplete;
-    checkbox.title = isComplete ? 'Mark as incomplete' : 'Mark as complete';
-    checkbox.setAttribute('aria-label', `Mark "${child.name}" as ${isComplete ? 'incomplete' : 'complete'}`);
-    checkbox.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const checked = checkbox.checked;
+    const checkbox = document.createElementNS(XHTML_NS, 'np-checkbox');
+    checkbox.setAttribute('class', 'wb-note-checkbox');
+    checkbox.setAttribute('dense', '');
+    checkbox.setAttribute('row', childVm.hasChildren ? 'summary' : 'leaf');
+    if (isComplete) checkbox.setAttribute('checked', '');
+    checkbox.setAttribute('title', isComplete ? 'Mark as incomplete' : 'Mark as complete');
+    checkbox.setAttribute('label', `Mark "${child.name}" as ${isComplete ? 'incomplete' : 'complete'}`);
+    // The row itself is a peek target on a summary row, so a click on the
+    // checkbox must not also drill in.
+    checkbox.addEventListener('click', (e) => e.stopPropagation());
+    checkbox.addEventListener('change', (e) => {
+        const checked = e.detail.checked;
+        // spawnConfetti() appends its particles to document.body and they are
+        // styled by `.confetti-particle` in views/kanban.css, so this stays a
+        // light-DOM effect fired against the host. Particles created inside the
+        // shadow root would lose that stylesheet and render as bare divs.
         if (checked && typeof spawnConfetti === 'function') {
             spawnConfetti(checkbox);
         }

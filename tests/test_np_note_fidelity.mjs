@@ -155,17 +155,24 @@ test('the component offers the shipped pastel palette', () => {
     assert.deepEqual(missing, [], `component is missing shipped swatches: ${missing.join(', ')}`);
 });
 
-test('the checklist row renders the bare native checkbox', () => {
-    // The pilot styled a round, --np-success-filled control that exists nowhere
-    // in the app. Whether the app *should* have a designed checkbox is #1245's
-    // question, and it cannot be asked honestly while Storybook already shows
-    // one.
+test('the checklist row renders the app\'s checkbox component', () => {
+    // This assertion has flipped, deliberately. In phase A it required the bare
+    // native input, because the pilot had invented a round --np-success-filled
+    // control that existed nowhere in NoodlePlanner, and "should the app have a
+    // designed checkbox" could not be asked honestly while Storybook already
+    // showed one. #1245 asked and answered it, so now both sides must render
+    // the same component -- and neither may style a checkbox of its own.
     assert.ok(
-        !/border-radius:\s*50%/.test(componentCode),
-        'component still styles a custom round checkbox'
+        componentSource.includes('np-checkbox'),
+        'component should render <np-checkbox>, the control the app now builds'
     );
     assert.ok(
-        !componentCode.includes('--np-success'),
-        'component still fills a checkbox with --np-success'
+        !/border-radius:\s*50%/.test(componentCode),
+        'component styles a checkbox of its own instead of using the component'
+    );
+    assert.ok(
+        appSource.includes('np-checkbox'),
+        'the app should build <np-checkbox> too -- otherwise Storybook and the '
+        + 'board show different controls again'
     );
 });
