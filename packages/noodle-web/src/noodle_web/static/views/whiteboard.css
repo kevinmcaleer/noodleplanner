@@ -885,6 +885,118 @@
     background: var(--wb-note-hover);
 }
 
+/* ── Scissors cut (issue #874) ───────────────────────────────────────────
+   A zero-height sibling of the row, sitting in the 8px padding-gap
+   between two checklist items. Resting state is empty -- no line, no
+   icon -- so a note with ten children does not grow a row of chrome.
+   Hovering the gap (or focusing the button) reveals the scissors; the
+   button itself is 44×44 so it meets SC 2.5.5 without the row having to
+   reserve any width for it.
+
+   `z-index` lifts the gap above the next row. Both rows are in-flow with
+   no stacking context of their own, so a positioned z-index here paints
+   on top of the padding the cut sits in, which is what makes the hover
+   target actually hittable. */
+.wb-note-cut {
+    position: relative;
+    z-index: 3;
+    height: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
+/* Full-width 8px strip in the padding-gap: hovering anywhere between the
+   two rows reveals the scissors. The strip is a ::before so the cut
+   itself can stay height 0 and add no space to the list. */
+.wb-note-cut::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    transform: translateY(-50%);
+    height: var(--np-space-8);
+    pointer-events: auto;
+}
+
+/* The dashed "tear here" line, only with the scissors. Hairline, so 1px
+   is on the fine-spacing exception rather than the 4px grid. */
+.wb-note-cut::after {
+    content: '';
+    position: absolute;
+    left: var(--np-space-8);
+    right: var(--np-space-8);
+    top: 0;
+    transform: translateY(-50%);
+    height: 0;
+    border-top: 1px dashed color-mix(in srgb, var(--wb-note-text) 40%, transparent);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.wb-note-cut:hover::after,
+.wb-note-cut[data-wb-armed]::after,
+.wb-note-cut:focus-within::after {
+    opacity: 1;
+}
+
+.wb-note-scissors {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 1px solid color-mix(in srgb, var(--wb-note-text) 35%, transparent);
+    border-radius: 4px;
+    background: var(--wb-note-accent);
+    color: var(--wb-note-text);
+    box-shadow: 0 1px 2px var(--np-shadow);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.wb-note-cut:hover .wb-note-scissors,
+.wb-note-cut[data-wb-armed] .wb-note-scissors,
+.wb-note-scissors:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.wb-note-scissors:hover,
+.wb-note-scissors:focus-visible {
+    background: color-mix(in srgb, var(--wb-note-text) 12%, var(--wb-note-accent));
+}
+
+.wb-note-scissors:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: 2px;
+}
+
+/* Coarse pointers have no hover, so the 44×44 in the gap centre is the
+   tap target even while the icon is still hidden. Arming (a pointerdown
+   on the row above) also reveals it, matching the rails. */
+@media (pointer: coarse) {
+    .wb-note-cut::before {
+        left: 50%;
+        right: auto;
+        width: 44px;
+        height: 44px;
+        transform: translate(-50%, -50%);
+    }
+    .wb-note-scissors {
+        pointer-events: auto;
+    }
+}
+
 
 .wb-note-row-name {
     flex: 1 1 auto;

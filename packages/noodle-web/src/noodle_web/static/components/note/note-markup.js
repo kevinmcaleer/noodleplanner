@@ -76,6 +76,19 @@ export function noodleGlyph(size) {
 }
 
 /**
+ * Scissors for the cut between two checklist rows (issue #874).
+ *
+ * `stroke="currentColor"` for the same reason as noodleGlyph(): the control
+ * inherits the note's measured ink rather than carrying a colour of its own.
+ */
+export function scissorsGlyph(size) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" ` +
+        'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<circle cx="4" cy="3.5" r="2"/><circle cx="4" cy="12.5" r="2"/>' +
+        '<path d="M5.7 4.8 L14 12.5 M5.7 11.2 L14 3.5"/></svg>';
+}
+
+/**
  * The card skeleton: header, "under X" caption, body, footer, resize grip.
  *
  * Returns `{ card, refs }`. Everything a caller needs to reach later is in
@@ -259,10 +272,18 @@ export function buildNoteCard() {
  *   { name, complete, indeterminate, hasChildren, childCount, deliverable,
  *     date: { text, label } | null,
  *     coach: { glyph, label, suspected } | null,
- *     depHandle: boolean }
+ *     depHandle: boolean,
+ *     scissors: { label } | null }
  *
- * Returns `{ row, refs }`. Optional controls are `null` in `refs` when the
- * model did not ask for them, which is how the board knows what to wire.
+ * `scissors` is the cut *after* this row (issue #874). It is a sibling of
+ * the row, not a child of it: the cut sits in the gap between two checklist
+ * items, and a child of the row would be clipped by the next row painting
+ * over it. Callers append `cut` immediately after `row` when it is non-null.
+ * The last visible row never asks for one -- there is no cut after it.
+ *
+ * Returns `{ row, cut, refs }`. Optional controls are `null` in `refs` when
+ * the model did not ask for them, which is how the board knows what to wire.
+ * `cut` is null when the model did not ask for scissors.
  */
 export function buildChecklistRow(model) {
     const name = model.name || '';
@@ -390,11 +411,29 @@ export function buildChecklistRow(model) {
     // re-derive it.
     row.dataset.wbRowDep = (model.depHandle && !model.hasChildren) ? 'true' : 'false';
 
+    // Scissors live in the gap *after* this row, as a sibling. The last
+    // visible row of a note never asks for one: a cut with nothing below
+    // it would lift the whole remainder into an empty-bodied post-it.
+    let cut = null;
+    let scissors = null;
+    if (model.scissors) {
+        row.classList.add('wb-note-row-splittable');
+        cut = el('div', 'wb-note-cut');
+        scissors = el('button', 'wb-note-scissors', {
+            type: 'button',
+            'aria-label': model.scissors.label,
+            title: model.scissors.label,
+        });
+        scissors.innerHTML = scissorsGlyph(16);
+        cut.appendChild(scissors);
+    }
+
     return {
         row,
+        cut,
         refs: {
             row, checkbox, name: label, content, dateBtn, countBadge,
-            gutter, delivSlot, peopleSlot, assignBtn,
+            gutter, delivSlot, peopleSlot, assignBtn, cut, scissors,
         },
     };
 }
@@ -447,7 +486,7 @@ export function buildAddRow(taskName) {
 // loading mechanism.
 if (typeof globalThis !== 'undefined') {
     globalThis.NoodleNoteMarkup = {
-        XHTML_NS, ROW_AVATAR_CAP, el, noodleGlyph,
+        XHTML_NS, ROW_AVATAR_CAP, el, noodleGlyph, scissorsGlyph,
         buildNoteCard, buildChecklistRow, buildAddRow,
     };
 }

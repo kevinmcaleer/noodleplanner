@@ -56,6 +56,8 @@ const {
     wbMoveTaskInPlanText,
     wbRenameTaskInPlanText,
     wbDeleteTaskFromPlanText,
+    wbSplitChecklistAt,
+    wbOutlineTaskNames,
     wbBuildOutlineTree,
     wbFlattenOutline,
 } = sandbox;
@@ -316,6 +318,127 @@ assert(!searchRows[0].matched, 'an ancestor kept for context is not flagged as a
 
 const searchThroughCollapse = wbFlattenOutline(tree, new Set(['build']), 'wire');
 assertEqual(searchThroughCollapse.length, 3, 'search ignores collapse so results are never hidden');
+
+// ── Scissors split (issue #874) ─────────────────────────────────────────
+
+const CLUSTER = [
+    '---',
+    'title: Split Plan',
+    'Theme:',
+    '  Cluster: #FCE38A',
+    '---',
+    '',
+    'Cluster',
+    '  Alpha @sam 1d [depends Kick-off] 2026-03-12 #urgent 10% "needs sign-off"',
+    '  Beta @jo 2d',
+    '    Nested @jo 1d',
+    '  Gamma @sam 3d',
+    '',
+    '---whiteboard---',
+    '| Task    | X   | Y  | Colour  | Width | Height | Collapsed |',
+    '|---------|-----|----|---------|-------|--------|-----------|',
+    '| Cluster | 120 | 80 | #FCE38A | 240   | 200    | no        |',
+    '',
+    '---parking lot---',
+    '| ID | Text | Date Parked |',
+    '|----|------|-------------|',
+    '| p1 | leftover idea | 2026-03-01 |',
+].join('\n');
+
+const splitMid = wbSplitChecklistAt(CLUSTER, 'Cluster', 'Alpha', 'New idea');
+const splitMidNames = wbParseOutline(splitMid).entries.map(e => e.name);
+assertEqual(
+    JSON.stringify(splitMidNames),
+    JSON.stringify(['Cluster', 'Alpha', 'New idea', 'Beta', 'Nested', 'Gamma']),
+    'split after first of three: Alpha stays, Beta+Gamma become the new note'
+);
+assertEqual(
+    wbParseOutline(splitMid).entries.find(e => e.name === 'Cluster').indent, 0,
+    'original parent stays top-level'
+);
+assertEqual(
+    wbParseOutline(splitMid).entries.find(e => e.name === 'Alpha').indent, 2,
+    'the staying child is still indented under the original parent'
+);
+assertEqual(
+    wbParseOutline(splitMid).entries.find(e => e.name === 'New idea').indent, 0,
+    'the new note is a top-level task'
+);
+assertEqual(
+    wbParseOutline(splitMid).entries.find(e => e.name === 'Beta').indent, 2,
+    'moved children sit under the new note at one indent'
+);
+assertEqual(
+    wbParseOutline(splitMid).entries.find(e => e.name === 'Nested').indent, 4,
+    'nested children of a cut row travel with it, relative depth kept'
+);
+assertEqual(
+    wbParseOutline(splitMid).entries.find(e => e.name === 'Gamma').indent, 2,
+    'a later sibling of the cut row moves too'
+);
+
+const alphaLine = splitMid.split('\n').find(l => l.includes('Alpha'));
+assert(alphaLine.includes('@sam 1d'), 'staying row keeps resources and duration');
+assert(alphaLine.includes('[depends Kick-off]'), 'staying row keeps a dependency token');
+assert(alphaLine.includes('2026-03-12'), 'staying row keeps a date');
+assert(alphaLine.includes('#urgent'), 'staying row keeps a label');
+assert(alphaLine.includes('10%'), 'staying row keeps a percent');
+assert(alphaLine.includes('"needs sign-off"'), 'staying row keeps a comment');
+
+const betaLine = splitMid.split('\n').find(l => /^\s+Beta /.test(l));
+assert(betaLine.includes('@jo 2d'), 'moved row keeps resources and duration');
+assert(splitMid.includes('    Nested @jo 1d'), 'moved grandchild keeps its tokens');
+assert(splitMid.includes('  Gamma @sam 3d'), 'moved later sibling keeps its tokens');
+
+assert(splitMid.includes('Theme:'), 'split leaves front matter byte-for-byte');
+assert(splitMid.includes('  Cluster: #FCE38A'), 'split leaves Theme: entries');
+assert(splitMid.includes('---whiteboard---'), 'split leaves the whiteboard marker');
+assert(splitMid.includes('| Cluster | 120 | 80 | #FCE38A |'),
+    'split does not add or rewrite the source whiteboard row');
+assert(!splitMid.includes('| New idea |'),
+    'the structure helper does not write a whiteboard row (the board layer does)');
+assert(splitMid.includes('---parking lot---'), 'split leaves later back-matter sections');
+assert(splitMid.includes('| p1 | leftover idea | 2026-03-01 |'),
+    'parking-lot rows come back byte-for-byte');
+
+const lastRow = wbSplitChecklistAt(CLUSTER, 'Cluster', 'Beta', 'Torn off');
+assertEqual(
+    JSON.stringify(wbParseOutline(lastRow).entries.map(e => e.name)),
+    JSON.stringify(['Cluster', 'Alpha', 'Beta', 'Nested', 'Torn off', 'Gamma']),
+    'splitting off the last row is allowed: only Gamma lifts off'
+);
+assert(lastRow.includes('    Nested @jo 1d'),
+    'a last-row split leaves an earlier sibling\'s subtree on the original note');
+
+assertEqual(wbSplitChecklistAt(CLUSTER, 'Nope', 'Alpha', 'New idea'), CLUSTER,
+    'an unknown parent is a no-op');
+assertEqual(wbSplitChecklistAt(CLUSTER, 'Cluster', 'Nope', 'New idea'), CLUSTER,
+    'an unknown child is a no-op');
+assertEqual(wbSplitChecklistAt(CLUSTER, 'Cluster', 'Nested', 'New idea'), CLUSTER,
+    'a grandchild is not a cut point (scissors sit between direct rows)');
+assertEqual(wbSplitChecklistAt(CLUSTER, 'Cluster', 'Gamma', 'New idea'), CLUSTER,
+    'cutting after the last child (nothing below) is a no-op');
+assertEqual(wbSplitChecklistAt(CLUSTER, 'Cluster', 'Alpha', '   '), CLUSTER,
+    'a blank new name is a no-op');
+assertEqual(wbSplitChecklistAt(CLUSTER, 'Cluster', 'Alpha', 'Cluster'), CLUSTER,
+    'a new name that already exists is a no-op');
+
+const withIdea = wbAppendTopLevelTask(CLUSTER, 'New idea');
+assertEqual(wbSplitChecklistAt(withIdea, 'Cluster', 'Alpha', 'New idea'), withIdea,
+    'refusing a colliding new name leaves the plan unchanged');
+const unique = wbUniqueTaskName(wbOutlineTaskNames(withIdea), 'New idea');
+assertEqual(unique, 'New idea 2', 'the uniquifier yields New idea 2 when New idea is taken');
+const splitUnique = wbSplitChecklistAt(withIdea, 'Cluster', 'Alpha', unique);
+assert(splitUnique.includes('\nNew idea 2\n'), 'the caller-supplied unique name is what gets written');
+assert(splitUnique.includes('\nNew idea\n') || splitUnique.split('\n').includes('New idea'),
+    'the pre-existing New idea task is still there');
+
+const twoKids = [
+    'Parent',
+    '  Only',
+].join('\n');
+assertEqual(wbSplitChecklistAt(twoKids, 'Parent', 'Only', 'New idea'), twoKids,
+    'a note with a single checklist row cannot split');
 
 console.log(failures === 0 ? '\nAll structure tests passed.' : `\n${failures} test(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);
