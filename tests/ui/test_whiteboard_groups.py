@@ -110,11 +110,15 @@ def outline(page):
 
 
 def group_selection(page, name):
+    """Group the current selection and wait for the boundary to be on screen.
+
+    Waited on the board rather than on the plan text: the commit rewrites the
+    editor and the board re-renders from it a tick later, so a wait that stops
+    at the text hands back a page whose boundary does not exist yet -- and
+    every caller here goes straight on to measure one."""
     page.once("dialog", lambda d: d.accept(name))
     page.click(".wb-selection-group")
-    page.wait_for_function(
-        "n => document.getElementById('planEditor').value.includes(n)", arg=name
-    )
+    page.wait_for_selector(f'.wb-group[data-wb-group="{name}"] .wb-group-box')
 
 
 class TestMultiSelect:
@@ -489,8 +493,13 @@ class TestMerging:
         select(page, ["Alpha", "Beta"])
         page.once("dialog", lambda d: d.accept("Everything"))
         page.click(".wb-selection-combine")
-        page.wait_for_function(
-            "() => document.getElementById('planEditor').value.includes('Everything')"
+        # Waited on the board, not on the plan text. The commit rewrites the
+        # editor and the board re-renders from it a tick later, so a wait that
+        # stops at the text can return before the note exists -- a check-then-
+        # act race that only loses under `-n auto`, which is exactly where CI
+        # runs this.
+        page.wait_for_selector(
+            '#whiteboardContainer .wb-note[data-wb-task="Everything"]'
         )
         assert note(page, "Everything").count() == 1
 

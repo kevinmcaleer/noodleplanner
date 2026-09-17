@@ -517,7 +517,7 @@ class TestTheResourceChip:
     @staticmethod
     def _chip(page):
         return page.evaluate(
-            """() => {
+            r"""() => {
                 const card = document.querySelector(
                     ".wb-note[data-wb-task='Build'] .wb-note-card");
                 const stack = card.querySelector('.wb-note-row-avatar');
@@ -559,11 +559,16 @@ class TestTheResourceChip:
         )
 
     def test_the_chip_is_big_enough_to_read(self, page, app_server):
+        """Rounded, not compared raw: `diameter` is a zoom-scaled rect divided
+        back out by the card's own scale, so a 20px chip lands on 19.9999 as
+        often as on 20. Asserting the exact bound made this fail on CI at
+        1e-4 of a pixel, which is not the thing the test is about."""
         open_app(page, app_server)
         board(page)
-        assert self._chip(page)["diameter"] >= 20, (
-            "the chip is back under 20px, which puts the initials below the "
-            "smallest type the app renders anywhere else"
+        diameter = self._chip(page)["diameter"]
+        assert round(diameter) >= 20, (
+            f"the chip is back under 20px ({diameter:.2f}), which puts the "
+            "initials below the smallest type the app renders anywhere else"
         )
 
     def test_the_initials_do_not_touch_the_edge(self, page, app_server):

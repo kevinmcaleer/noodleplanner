@@ -99,25 +99,39 @@ class TestTabNavigation:
     carries the same reasoning in its own comment.
     """
 
+    # A whole app boot plus a scope switch, not a UI transition, so these get
+    # their own budget rather than the suite-wide 5s default -- the same
+    # reasoning tests/ui/test_whiteboard_parking_lot.py gives for its reload.
+    #
+    # The 5s default is tuned for "an element appears once the app is already
+    # up". These three wait for that *after* a page load and a view rebuild,
+    # and under `-n auto` on a loaded runner the two together can spend the
+    # whole budget before the wait even starts. That is what CI reported, and
+    # why it has never reproduced serially. Raising the global default instead
+    # would blunt the timeout everywhere it currently catches a real hang.
+    BOOT_TIMEOUT_MS = 15_000
+
     def test_plan_tab_shows_editor(self, page, app_server):
         """Clicking the Plan tab should display the editor view."""
         open_portfolio_view(page, app_server)
         click_scope(page, "project")
 
-        page.wait_for_selector("#editor-tab.active")
+        page.wait_for_selector("#editor-tab.active", timeout=self.BOOT_TIMEOUT_MS)
 
     def test_portfolio_tab_shows_portfolio(self, page, app_server):
         """Clicking the Portfolio tab should display the portfolio view."""
         open_portfolio_view(page, app_server)
 
-        page.wait_for_selector("#portfolio-tab.active")
+        page.wait_for_selector("#portfolio-tab.active", timeout=self.BOOT_TIMEOUT_MS)
 
     def test_tab_switching_hides_previous(self, page, app_server):
         """Switching tabs should hide the previous tab content."""
         open_project_view(page, app_server)
         click_scope(page, "portfolio")
 
-        page.wait_for_selector("#editor-tab.active", state="detached")
+        page.wait_for_selector(
+            "#editor-tab.active", state="detached", timeout=self.BOOT_TIMEOUT_MS
+        )
 
     def test_tools_menu_opens(self, page, app_server):
         """The ribbon display menu should open when clicked."""
