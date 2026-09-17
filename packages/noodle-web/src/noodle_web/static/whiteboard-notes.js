@@ -589,13 +589,44 @@ function wbApplyDateChoiceToPlanText(planText, taskName, kind, date) {
     return model.serialize();
 }
 
+/**
+ * Resources offerable for quick assignment, richest source first.
+ *
+ * Front matter (`- @short: Full Name, Role`) is preferred, because it is the
+ * only source carrying a display name and a role. When a plan declares none,
+ * fall back to the `@shortname` tokens already used on its task lines --
+ * getAllResourceNames() (script.js) has always done this, so before the two
+ * assign controls were merged (#1162's bubble read that list, this menu read
+ * front matter) a plan that used tokens without declaring them got a working
+ * bubble and an empty menu. Harvested here from `planText` rather than by
+ * calling getAllResourceNames(), which reads #planEditor directly: this
+ * function is pure and unit-tested, and must stay callable without a DOM.
+ */
 function wbResourceOptionsFromPlanText(planText) {
+    const text = String(planText || '');
     const result = [];
-    const match = /^---\s*$([\s\S]*?)^---\s*$/m.exec(String(planText || ''));
-    if (!match) return result;
-    const re = /^\s*-\s*@([A-Za-z0-9_]+):\s*([^,\n]+)(?:,\s*([^\n]+))?/gm;
-    let item;
-    while ((item = re.exec(match[1]))) result.push({ shortname: item[1], name: item[2].trim(), role: (item[3] || '').trim() });
+    const match = /^---\s*$([\s\S]*?)^---\s*$/m.exec(text);
+    if (match) {
+        const re = /^\s*-\s*@([A-Za-z0-9_]+):\s*([^,\n]+)(?:,\s*([^\n]+))?/gm;
+        let item;
+        while ((item = re.exec(match[1]))) result.push({ shortname: item[1], name: item[2].trim(), role: (item[3] || '').trim() });
+    }
+    if (result.length) return result;
+
+    // Strip the front matter block before harvesting, so a declaration block
+    // that parsed to nothing cannot leak its own `@` tokens back in here.
+    const body = match ? text.slice(match.index + match[0].length) : text;
+    const seen = new Set();
+    const token = /@([A-Za-z0-9_]+)/g;
+    let hit;
+    while ((hit = token.exec(body))) {
+        const shortname = hit[1];
+        const key = shortname.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        result.push({ shortname, name: shortname, role: '' });
+    }
+    result.sort((a, b) => a.shortname.localeCompare(b.shortname));
     return result;
 }
 
@@ -3052,6 +3083,10 @@ function wbBuildChildRow(childVm) {
     const assign = document.createElementNS(XHTML_NS, 'button');
     assign.setAttribute('type', 'button');
     assign.setAttribute('class', 'wb-note-row-smart wb-note-row-resource');
+    // Declared up front, not only once wbOpenSmartMenu() has run: a screen
+    // reader reaching a never-opened row must still be told this opens a menu.
+    assign.setAttribute('aria-haspopup', 'menu');
+    assign.setAttribute('aria-expanded', 'false');
     assign.setAttribute('aria-label', `Assign a resource to ${child.name}`);
     assign.textContent = '＋';
     assign.title = 'Quick assign';
@@ -3139,18 +3174,26 @@ function wbAppendRowDependencyHandle(row, childVm) {
 }
 
 /**
- * Append the quick resource-assign affordance (issue #1162, part of epic
- * #878) to the right-hand end of a checklist row: a small avatar per
- * already-assigned resource (mirrors the note footer's own
- * `.wb-note-avatar` treatment -- wbGetInitials(), same initials -- just
- * smaller, since several may sit in one row), then a "+" bubble that opens
- * a dropdown of the plan's resources for one-click assignment. Deliberately
- * the row's last children in DOM order -- "a bubble at the right of a
- * task", per the epic's own wording.
+ * Append a small avatar per already-assigned resource to the right-hand end
+ * of a checklist row -- mirrors the note footer's own `.wb-note-avatar`
+ * treatment (wbGetInitials(), same initials), just smaller, since several
+ * may sit in one row.
+ *
+ * This used to also append a second "+" bubble (`.wb-note-assign-bubble`,
+ * issue #1162) opening its own dropdown. Every row therefore rendered *two*
+ * resource-assign controls: that bubble and the `.wb-note-row-resource` "+"
+ * wbBuildChildRow() adds above, both always visible, both labelled "Assign a
+ * resource to <name>", opening two different menus over two different
+ * resource lists. They arrived from different issues under the same epic
+ * (#878) and were never reconciled. The bubble is gone; the survivor is the
+ * `.wb-note-row-resource` control, which reads the same plan front matter
+ * either way, shows names and roles rather than raw shortnames, can
+ * *un*assign, and writes through PlanModel rather than a second regex
+ * line-rewriter. The bubble's better behaviours -- menu semantics, roving
+ * arrow keys, viewport flipping -- moved onto wbOpenSmartMenu() so the date
+ * menu gained them too.
  */
 function wbAppendChildResourceControls(row, childVm) {
-    const child = childVm.task;
-
     (childVm.resources || []).forEach(resource => {
         const avatar = document.createElementNS(XHTML_NS, 'span');
         avatar.setAttribute('class', 'wb-note-row-avatar');
@@ -3158,20 +3201,6 @@ function wbAppendChildResourceControls(row, childVm) {
         avatar.title = resource;
         row.appendChild(avatar);
     });
-
-    const bubble = document.createElementNS(XHTML_NS, 'button');
-    bubble.setAttribute('type', 'button');
-    bubble.setAttribute('class', 'wb-note-assign-bubble');
-    bubble.setAttribute('aria-haspopup', 'menu');
-    bubble.setAttribute('aria-expanded', 'false');
-    bubble.textContent = '+';
-    bubble.title = `Assign a resource to "${child.name}"`;
-    bubble.setAttribute('aria-label', `Assign a resource to ${child.name}`);
-    bubble.addEventListener('click', (e) => {
-        e.stopPropagation();
-        wbToggleAssignMenu(child.name, bubble);
-    });
-    row.appendChild(bubble);
 }
 
 /**
@@ -3458,7 +3487,19 @@ function wbCloseSmartMenu() {
     if (trigger) trigger.setAttribute('aria-expanded', 'false');
     wbSmartMenuState = null;
     document.removeEventListener('mousedown', wbSmartMenuOutsideClick, true);
-    document.removeEventListener('keydown', wbSmartMenuEscape, true);
+    document.removeEventListener('keydown', wbSmartMenuKeydown, true);
+}
+
+/** A smart menu's focusable choices, in DOM order. Prefers explicit menu
+ * items -- note `menuitemcheckbox`, not just `menuitem`: the resource menu's
+ * choices toggle, so a bare `[role="menuitem"]` selector would match none of
+ * them and fall through to the button sweep below by accident. Falls back to
+ * every button for the date menu, which is a real dialog (a heading, a
+ * question, four choices) rather than a list of menu items. */
+function wbSmartMenuItems(popup) {
+    const items = popup.querySelectorAll(
+        '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]');
+    return Array.from(items.length ? items : popup.querySelectorAll('button'));
 }
 
 function wbSmartMenuOutsideClick(event) {
@@ -3467,27 +3508,90 @@ function wbSmartMenuOutsideClick(event) {
     wbCloseSmartMenu();
 }
 
-function wbSmartMenuEscape(event) {
-    if (event.key !== 'Escape' || !wbSmartMenuState) return;
-    const trigger = wbSmartMenuState.trigger;
-    wbCloseSmartMenu();
-    if (trigger) trigger.focus();
+/**
+ * Escape closes and restores focus to the trigger; Arrow/Home/End rove
+ * between choices. The roving half came from the assign bubble's own menu
+ * (#1162) when the two assign controls were merged -- this menu previously
+ * focused nothing on open and handled no arrow keys, so it was reachable by
+ * Tab only. The date menu shares this handler and gains the same.
+ */
+function wbSmartMenuKeydown(event) {
+    if (!wbSmartMenuState) return;
+    const { popup, trigger } = wbSmartMenuState;
+
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        wbCloseSmartMenu();
+        if (trigger) trigger.focus();
+        return;
+    }
+
+    const items = wbSmartMenuItems(popup);
+    if (!items.length) return;
+    const index = items.indexOf(document.activeElement);
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        items[index < 0 ? 0 : (index + 1) % items.length].focus();
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        items[index < 0 ? items.length - 1 : (index - 1 + items.length) % items.length].focus();
+    } else if (event.key === 'Home') {
+        event.preventDefault();
+        items[0].focus();
+    } else if (event.key === 'End') {
+        event.preventDefault();
+        items[items.length - 1].focus();
+    }
 }
 
 function wbOpenSmartMenu(taskName, trigger, popup) {
     wbCloseSmartMenu();
     if (wbCoachingMenuState) wbCloseCoachingMenu();
     document.body.appendChild(popup);
+
+    // Positioned like wbOpenNoteMenu(): clamped into the whiteboard's own
+    // safe band rather than the raw viewport, flipped above the trigger when
+    // there is more room there, and given a max-height for whichever side it
+    // lands on (`.wb-smart-menu` scrolls past that). The previous rule had no
+    // flip and no max-height, so a note low on the canvas opened a menu whose
+    // lower half was unreachable. Ported from the assign bubble's own menu
+    // (#1162) when the two assign controls were merged.
+    const edgeGap = 8;
+    const bounds = (typeof wbNoteMenuSafeBounds === 'function')
+        ? wbNoteMenuSafeBounds(edgeGap)
+        : { top: edgeGap, bottom: window.innerHeight - edgeGap };
     const rect = trigger.getBoundingClientRect();
+    const popupHeight = popup.getBoundingClientRect().height;
     const width = Math.max(240, popup.offsetWidth || 0);
-    popup.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, rect.left))}px`;
-    popup.style.top = `${Math.max(8, Math.min(window.innerHeight - popup.offsetHeight - 8, rect.bottom + 6))}px`;
+
+    let left = Math.min(rect.left, window.innerWidth - width - edgeGap);
+    left = Math.max(edgeGap, left);
+
+    const spaceBelow = bounds.bottom - (rect.bottom + 6);
+    const spaceAbove = (rect.top - 6) - bounds.top;
+
+    let top;
+    if (popupHeight <= spaceBelow || spaceBelow >= spaceAbove) {
+        top = rect.bottom + 6;
+        popup.style.maxHeight = `${Math.max(80, Math.min(popupHeight, spaceBelow))}px`;
+    } else {
+        const height = Math.max(80, Math.min(popupHeight, spaceAbove));
+        top = rect.top - 6 - height;
+        popup.style.maxHeight = `${height}px`;
+    }
+    popup.style.left = `${left}px`;
+    popup.style.top = `${top}px`;
+
     trigger.setAttribute('aria-expanded', 'true');
     wbSmartMenuState = { taskName, trigger, popup };
     setTimeout(() => {
         document.addEventListener('mousedown', wbSmartMenuOutsideClick, true);
-        document.addEventListener('keydown', wbSmartMenuEscape, true);
+        document.addEventListener('keydown', wbSmartMenuKeydown, true);
     }, 0);
+
+    const first = wbSmartMenuItems(popup)[0];
+    if (first) first.focus();
 }
 
 function wbToggleDateMenu(taskName, suggestion, trigger) {
@@ -3539,17 +3643,23 @@ function wbToggleResourceMenu(taskName, trigger) {
         wbCloseSmartMenu();
         return;
     }
+    // role="menu", not the role="dialog" this used to carry: every child but
+    // the heading is a choice, and a menu is what the trigger's own
+    // aria-haspopup advertises. The heading and the empty-state line are
+    // marked presentational so the menu's only children are menuitems.
     const popup = document.createElement('section');
     popup.className = 'wb-smart-menu wb-resource-menu';
-    popup.setAttribute('role', 'dialog');
+    popup.setAttribute('role', 'menu');
     popup.setAttribute('aria-label', `Assign resources to ${taskName}`);
     const heading = document.createElement('strong');
+    heading.setAttribute('role', 'presentation');
     heading.textContent = 'Quick assign';
     popup.appendChild(heading);
     const resources = wbResourceOptionsFromPlanText(wbLastPlanText);
     if (!resources.length) {
         const empty = document.createElement('p');
-        empty.textContent = 'No resources in plan front matter.';
+        empty.setAttribute('role', 'presentation');
+        empty.textContent = 'No resources defined yet.';
         popup.appendChild(empty);
     }
     for (const resource of resources) {
@@ -3557,9 +3667,11 @@ function wbToggleResourceMenu(taskName, trigger) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'wb-resource-choice';
-        button.setAttribute('aria-pressed', assigned ? 'true' : 'false');
+        button.setAttribute('role', 'menuitemcheckbox');
+        button.setAttribute('aria-checked', assigned ? 'true' : 'false');
         button.textContent = `${assigned ? '✓ ' : ''}${resource.name}`;
         button.title = resource.role ? `${resource.name} — ${resource.role}` : resource.name;
+        button.setAttribute('aria-label', `${assigned ? 'Unassign' : 'Assign'} ${resource.name}`);
         button.addEventListener('click', () => {
             wbCommitMarkdown(wbApplyResourceToPlanText(wbLastPlanText, taskName, resource.shortname, !assigned));
             wbCloseSmartMenu();
@@ -3736,229 +3848,6 @@ function wbSpawnCoachingNote(sourceTaskName, relation, suggestedName) {
     items.push({ task: name, x: Math.round(x), y: Math.round(y), colour: '', width, height, collapsed: false });
     wbCommitMarkdown(updatePlanWhiteboardText(nextText, items));
     return name;
-}
-
-// ── Quick resource-assign bubble (issue #1162, part of epic #878) ───────
-//
-// A child row's own resource list, not the summary task's -- see
-// wbBuildNoteViewModel()'s `resources` addition above. Follows
-// wbToggleChildComplete()'s exact commit shape: findTaskLineNumber()
-// locates the child's own markdown line (it need not have a whiteboard
-// row of its own -- it is only ever shown as a row *inside* this note's
-// body), a small pure line-rewriter adds the `@shortname` token, and
-// wbCommitMarkdown() pushes the result through #planEditor like every
-// other whiteboard mutation.
-//
-// The resource *list* offered is getAllResourceNames() (script.js) -- the
-// exact same list the task-details form's own resource field draws from
-// -- which is the "reusing the task details form['s] resource-assignment
-// logic" #878 asks for. Writing the chosen name onto the line is its own
-// small, free-standing tokenizer rather than a call through
-// `window.kanbanBoard.addResourceToTaskLine()` (kanban.js already has an
-// equivalent method): that singleton is only ever constructed once the
-// Kanban view has been opened this session, and this bubble must work on
-// the whiteboard whether or not Kanban has ever been visible.
-
-/**
- * Add `@shortname` to a task line -- mirrors kanban.js's
- * KanbanBoard.addResourceToTaskLine() exactly (see that method for the
- * same logic used by the boards view's own drag-drop resource assignment).
- */
-function wbAddResourceToLine(line, shortname) {
-    const trimmed = line.trim();
-    const indent = (line.match(/^(\s*)/) || ['', ''])[1];
-
-    if (trimmed.includes('@')) {
-        return line.replace(/(@\w+(?:\s+@\w+)*)/, `$1 @${shortname}`);
-    }
-
-    const tokens = trimmed.split(/\s+/);
-    let insertIndex = 0;
-    for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
-        if (token.startsWith('*')) { insertIndex = i + 1; continue; }
-        if (token.startsWith('@') || token.startsWith('#') || /^\d+[dwmy]$/.test(token) ||
-            /^\d+%$/.test(token) || /^\d{4}-\d{2}-\d{2}$/.test(token) || token.startsWith('"')) {
-            break;
-        }
-        insertIndex = i + 1;
-    }
-    tokens.splice(insertIndex, 0, `@${shortname}`);
-    return indent + tokens.join(' ');
-}
-
-/** Write `shortname` onto `childTaskName`'s own line and commit. */
-function wbAssignResourceToChild(childTaskName, shortname) {
-    const editor = document.getElementById('planEditor');
-    if (!editor || !shortname) return false;
-    if (typeof findTaskLineNumber !== 'function') return false;
-
-    const lineNumber = findTaskLineNumber({ name: childTaskName });
-    if (lineNumber === -1) return false;
-
-    const lines = editor.value.split('\n');
-    const line = lines[lineNumber - 1];
-    if (!line && line !== '') return false;
-
-    lines[lineNumber - 1] = wbAddResourceToLine(line, shortname);
-    return wbCommitMarkdown(lines.join('\n'));
-}
-
-/**
- * Build the assign bubble's dropdown: every plan resource
- * (getAllResourceNames(), script.js) not already assigned to `taskName`,
- * each a clickable menuitem -- reuses `.wb-note-menu`/`.wb-note-menu-list`/
- * `.wb-note-menu-action` as-is (see views/whiteboard.css's note on that
- * section) rather than a second popup skin, since this is the exact same
- * "single floating list, appended to document.body" shape as the note's
- * own `...` menu (wbBuildNoteMenu()).
- */
-function wbBuildAssignMenu(taskName) {
-    const menu = document.createElement('div');
-    menu.id = 'wbAssignMenu';
-    menu.className = 'wb-note-menu';
-    menu.setAttribute('role', 'menu');
-    menu.setAttribute('aria-label', `Assign a resource to ${taskName}`);
-
-    const list = document.createElement('ul');
-    list.className = 'wb-note-menu-list';
-    menu.appendChild(list);
-
-    const key = String(taskName).toLowerCase();
-    const task = (wbLastTasks || []).find(t => t && String(t.name).toLowerCase() === key);
-    const assigned = new Set(wbResourceList(task && task.resources).map(r => r.toLowerCase()));
-    const allNames = (typeof getAllResourceNames === 'function') ? getAllResourceNames() : [];
-    const available = allNames.filter(name => !assigned.has(String(name).toLowerCase()));
-
-    if (!available.length) {
-        const li = document.createElement('li');
-        const span = document.createElement('span');
-        span.className = 'wb-note-menu-empty';
-        span.textContent = allNames.length ? 'All resources already assigned' : 'No resources defined yet';
-        li.appendChild(span);
-        list.appendChild(li);
-        return menu;
-    }
-
-    available.forEach(name => {
-        const li = document.createElement('li');
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'wb-note-menu-action';
-        btn.setAttribute('role', 'menuitem');
-        btn.textContent = name;
-        btn.setAttribute('aria-label', `Assign ${name} to ${taskName}`);
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            wbCloseAssignMenu();
-            wbAssignResourceToChild(taskName, name);
-        });
-        li.appendChild(btn);
-        list.appendChild(li);
-    });
-
-    return menu;
-}
-
-/** Single-slot popup state, mirrors wbNoteMenuState. */
-let wbAssignMenuState = null;
-
-/** Toggle the assign menu for `taskName`: closes it if already open for
- * this same task, otherwise opens (re-rooting if a different task's menu
- * was open) -- mirrors wbTogglePeekFor()'s own open/close toggle. */
-function wbToggleAssignMenu(taskName, anchorEl) {
-    if (wbAssignMenuState && wbAssignMenuState.taskName === taskName) {
-        wbCloseAssignMenu();
-        return;
-    }
-    wbOpenAssignMenu(taskName, anchorEl);
-}
-
-/** Open the assign menu, positioned/clamped exactly like wbOpenNoteMenu()
- * (reuses wbNoteMenuSafeBounds() as-is). */
-function wbOpenAssignMenu(taskName, btn) {
-    wbCloseAssignMenu();
-    wbCloseNoteMenu();
-
-    const menu = wbBuildAssignMenu(taskName);
-    document.body.appendChild(menu);
-
-    const edgeGap = 8;
-    const bounds = wbNoteMenuSafeBounds(edgeGap);
-    const btnRect = btn.getBoundingClientRect();
-    const menuRect = menu.getBoundingClientRect();
-
-    let left = Math.min(btnRect.left, window.innerWidth - menuRect.width - edgeGap);
-    left = Math.max(edgeGap, left);
-
-    const spaceBelow = bounds.bottom - (btnRect.bottom + 4);
-    const spaceAbove = (btnRect.top - 4) - bounds.top;
-
-    let top;
-    if (menuRect.height <= spaceBelow || spaceBelow >= spaceAbove) {
-        top = btnRect.bottom + 4;
-        menu.style.maxHeight = `${Math.max(80, Math.min(menuRect.height, spaceBelow))}px`;
-    } else {
-        const height = Math.max(80, Math.min(menuRect.height, spaceAbove));
-        top = btnRect.top - 4 - height;
-        menu.style.maxHeight = `${height}px`;
-    }
-
-    menu.style.left = `${left}px`;
-    menu.style.top = `${top}px`;
-
-    btn.setAttribute('aria-expanded', 'true');
-    wbAssignMenuState = { taskName, btn };
-
-    document.addEventListener('mousedown', wbAssignMenuOutsideClick, true);
-    document.addEventListener('keydown', wbAssignMenuKeydown, true);
-
-    const first = menu.querySelector('[role="menuitem"]');
-    if (first) first.focus();
-}
-
-function wbCloseAssignMenu() {
-    const menu = document.getElementById('wbAssignMenu');
-    if (menu) menu.remove();
-    document.removeEventListener('mousedown', wbAssignMenuOutsideClick, true);
-    document.removeEventListener('keydown', wbAssignMenuKeydown, true);
-    if (wbAssignMenuState && wbAssignMenuState.btn) {
-        wbAssignMenuState.btn.setAttribute('aria-expanded', 'false');
-    }
-    wbAssignMenuState = null;
-}
-
-function wbAssignMenuOutsideClick(e) {
-    const menu = document.getElementById('wbAssignMenu');
-    if (!menu) return;
-    if (menu.contains(e.target)) return;
-    if (wbAssignMenuState && wbAssignMenuState.btn && wbAssignMenuState.btn.contains(e.target)) return;
-    wbCloseAssignMenu();
-}
-
-function wbAssignMenuKeydown(e) {
-    const menu = document.getElementById('wbAssignMenu');
-    if (!menu) return;
-
-    if (e.key === 'Escape') {
-        e.preventDefault();
-        const btn = wbAssignMenuState && wbAssignMenuState.btn;
-        wbCloseAssignMenu();
-        if (btn) btn.focus();
-        return;
-    }
-
-    const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
-    if (!items.length) return;
-    const index = items.indexOf(document.activeElement);
-
-    if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        items[(index + 1 + items.length) % items.length].focus();
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        items[(index - 1 + items.length) % items.length].focus();
-    }
 }
 
 // ── Note colour menu (issue #849) ───────────────────────────────────────

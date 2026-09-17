@@ -81,7 +81,6 @@ const {
     wbResourceOptionsFromPlanText,
     wbApplyResourceToLine,
     wbApplyResourceToPlanText,
-    wbAddResourceToLine,
 } = sandbox;
 
 // WB_NOTE_TITLE_ONLY_ZOOM is declared `const` at module scope in
@@ -542,23 +541,37 @@ const tasks = [
     }
 }
 
-// ── Quick resource-assign bubble (issue #1162, part of epic #878) ───────
+// ── Quick resource assign: the plan-text fallback ──────────────────────
+//
+// A plan that uses @tokens without declaring them in front matter used to
+// get an empty menu here and a populated one from the assign bubble
+// (#1162), because the two controls read two different resource lists.
+// With the controls merged, this menu covers both.
 {
+    const declared = [
+        '---', 'resources:', '  - @sam: Sam Smith, Developer', '---', '',
+        '# Plan', '* Phase', '  Child @alex 2d',
+    ].join('\n');
+    const options = wbResourceOptionsFromPlanText(declared);
     assert(
-        wbAddResourceToLine('Design review 2d', 'sam') === 'Design review @sam 2d',
-        'a resource is inserted right after the task name, before duration/other metadata'
+        options.length === 1 && options[0].shortname === 'sam' && options[0].role === 'Developer',
+        'front matter wins: it is the only source carrying a display name and a role'
+    );
+
+    const undeclared = ['# Plan', '* Phase', '  Child A @sam 2d', '  Child B @alex @sam 1d'].join('\n');
+    const harvested = wbResourceOptionsFromPlanText(undeclared);
+    assert(
+        harvested.map(o => o.shortname).join(',') === 'alex,sam',
+        'with no front matter, @tokens on task lines are harvested, deduped and sorted'
     );
     assert(
-        wbAddResourceToLine('Design review @alex 2d', 'sam') === 'Design review @alex @sam 2d',
-        'a resource is appended after existing @resource tokens, not at the end of the line'
+        harvested.every(o => o.name === o.shortname && o.role === ''),
+        'a harvested resource has no display name or role to offer, only its shortname'
     );
+
     assert(
-        wbAddResourceToLine('  Design review 2d', 'sam') === '  Design review @sam 2d',
-        'leading indentation is preserved'
-    );
-    assert(
-        wbAddResourceToLine('Design review 2d 50% "notes"', 'sam') === 'Design review @sam 2d 50% "notes"',
-        'a resource is inserted after a multi-word name, before duration/percent/comment metadata'
+        wbResourceOptionsFromPlanText('# Plan\n* Phase\n  Child 2d').length === 0,
+        'a plan with no resources anywhere still yields no options'
     );
 }
 {
@@ -572,7 +585,7 @@ const tasks = [
     const childB = vm.children.find(c => c.task.name === 'Child B');
     assert(
         JSON.stringify(childA.resources) === JSON.stringify(['alex', 'sam']),
-        "a child row's view model carries its own resources for the assign bubble's avatars"
+        "a child row's view model carries its own resources for the row's avatars"
     );
     assert(
         JSON.stringify(childB.resources) === JSON.stringify([]),
