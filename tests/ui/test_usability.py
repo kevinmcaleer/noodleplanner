@@ -83,7 +83,21 @@ class TestPageLoad:
 
 
 class TestTabNavigation:
-    """Verify that clicking navigation tabs switches views correctly."""
+    """Verify that clicking navigation tabs switches views correctly.
+
+    Each of these waits for the state and stops there, rather than waiting and
+    then re-reading the class in a second call. The two-step form is a
+    check-then-act race: `wait_for_selector` retries until the class appears,
+    but the `get_attribute` that followed it was a fresh, non-retrying query,
+    and the app re-applies these classes during a view switch. So there is a
+    window where the wait has already succeeded and the re-read sees
+    `class="tab-content"` without `active` -- which is exactly what CI reported
+    on a loaded runner, and why it never reproduced serially.
+
+    `wait_for_selector` raises on timeout, so it is the assertion; the second
+    statement only ever weakened it. `test_tools_menu_opens` below already
+    carries the same reasoning in its own comment.
+    """
 
     def test_plan_tab_shows_editor(self, page, app_server):
         """Clicking the Plan tab should display the editor view."""
@@ -91,18 +105,12 @@ class TestTabNavigation:
         click_scope(page, "project")
 
         page.wait_for_selector("#editor-tab.active")
-        assert "active" in (page.locator("#editor-tab").get_attribute("class") or ""), (
-            "Editor tab content not active after clicking Plan tab"
-        )
 
     def test_portfolio_tab_shows_portfolio(self, page, app_server):
         """Clicking the Portfolio tab should display the portfolio view."""
         open_portfolio_view(page, app_server)
 
         page.wait_for_selector("#portfolio-tab.active")
-        assert "active" in (page.locator("#portfolio-tab").get_attribute("class") or ""), (
-            "Portfolio tab content not active after clicking Portfolio tab"
-        )
 
     def test_tab_switching_hides_previous(self, page, app_server):
         """Switching tabs should hide the previous tab content."""
@@ -110,9 +118,6 @@ class TestTabNavigation:
         click_scope(page, "portfolio")
 
         page.wait_for_selector("#editor-tab.active", state="detached")
-        assert "active" not in (page.locator("#editor-tab").get_attribute("class") or ""), (
-            "Editor tab still active after switching to Portfolio"
-        )
 
     def test_tools_menu_opens(self, page, app_server):
         """The ribbon display menu should open when clicked."""
