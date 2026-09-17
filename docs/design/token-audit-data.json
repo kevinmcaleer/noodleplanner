@@ -29,14 +29,14 @@
   ],
   "filesNotLoaded": [],
   "stylesheet": {
-    "sourceLinesOfCode": 17322,
-    "complexity": 50117
+    "sourceLinesOfCode": 17342,
+    "complexity": 50189
   },
   "rules": {
-    "total": 3868
+    "total": 3870
   },
   "selectors": {
-    "totalUnique": 3783,
+    "totalUnique": 3786,
     "maxSpecificity": [
       1,
       4,
@@ -44,8 +44,8 @@
     ]
   },
   "customProperties": {
-    "totalDeclarations": 355,
-    "totalUniqueNames": 216,
+    "totalDeclarations": 372,
+    "totalUniqueNames": 233,
     "unused": [
       "--np-elevation-2",
       "--np-elevation-4",
@@ -53,6 +53,19 @@
       "--np-ink-hover",
       "--np-leading-normal",
       "--np-leading-tight",
+      "--np-note-blue-1",
+      "--np-note-blue-2",
+      "--np-note-green-1",
+      "--np-note-green-2",
+      "--np-note-ink",
+      "--np-note-ink-faint",
+      "--np-note-ink-muted",
+      "--np-note-pink-1",
+      "--np-note-pink-2",
+      "--np-note-red-1",
+      "--np-note-red-2",
+      "--np-note-yellow-1",
+      "--np-note-yellow-2",
       "--np-radius-card",
       "--np-radius-circle",
       "--np-radius-xs",
@@ -70,10 +83,10 @@
     "unknown": [],
     "conflictingMultiFileDefinitions": []
   },
-  "canonicalTokenCount": 167,
+  "canonicalTokenCount": 181,
   "colors": {
-    "totalUnique": 396,
-    "duplicateOfTokenCount": 31,
+    "totalUnique": 407,
+    "duplicateOfTokenCount": 32,
     "duplicateOfToken": [
       {
         "id": "white-edecb6ba",
@@ -192,6 +205,19 @@
         "matchedToken": "--np-info"
       },
       {
+        "id": "grey-477de72d",
+        "hex": "#161616",
+        "authoredAs": "#161616",
+        "usage": 4,
+        "props": [
+          "--np-on-success",
+          "--np-on-info",
+          "--np-orange-ink",
+          "--np-note-ink"
+        ],
+        "matchedToken": "--np-orange-ink"
+      },
+      {
         "id": "blue-61a649f8",
         "hex": "#108BB9",
         "authoredAs": "rgba(16, 139, 185, 0.15)",
@@ -234,18 +260,6 @@
           "--np-danger"
         ],
         "matchedToken": "--np-danger"
-      },
-      {
-        "id": "grey-477de72d",
-        "hex": "#161616",
-        "authoredAs": "#161616",
-        "usage": 3,
-        "props": [
-          "--np-on-success",
-          "--np-on-info",
-          "--np-orange-ink"
-        ],
-        "matchedToken": "--np-orange-ink"
       },
       {
         "id": "white-8da45558",
@@ -431,6 +445,17 @@
           "border-color"
         ],
         "matchedToken": "--np-on-success"
+      },
+      {
+        "id": "yellow-441043db",
+        "hex": "#FFF3B0",
+        "authoredAs": "#fff3b0",
+        "usage": 2,
+        "props": [
+          "background",
+          "--np-note-yellow-1"
+        ],
+        "matchedToken": "--np-note-yellow-1"
       }
     ],
     "topUnmatched": [
@@ -438,7 +463,7 @@
         "id": "black-edec3e7a",
         "hex": "#000000",
         "authoredAs": "transparent",
-        "usage": 132,
+        "usage": 135,
         "props": [
           "background",
           "color",
@@ -448,7 +473,10 @@
           "border-left",
           "box-shadow",
           "border",
-          "border-top"
+          "border-top",
+          "--wb-note-ink-muted",
+          "--wb-note-ink-faint",
+          "--wb-note-rule"
         ]
       },
       {
@@ -1701,8 +1729,8 @@
     }
   ],
   "spacing": {
-    "declarations": 1581,
-    "indirectedDeclarations": 1341,
+    "declarations": 1582,
+    "indirectedDeclarations": 1342,
     "totalUniqueValues": 38,
     "offGridUniqueValues": 15,
     "offGridUses": 31,
@@ -2180,8 +2208,8 @@
     },
     {
       "family": "button",
-      "rules": 450,
-      "uniqueSelectors": 384,
+      "rules": 454,
+      "uniqueSelectors": 387,
       "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2208,7 +2236,7 @@
       ],
       "stateRules": {
         "hover": 142,
-        "focus": 30,
+        "focus": 31,
         "active": 5,
         "disabled": 21
       },
@@ -2267,11 +2295,11 @@
           "rules": 6
         },
         {
-          "name": "portfolio-subnav-btn",
+          "name": "wb-note-menu-btn",
           "rules": 6
         },
         {
-          "name": "ns-toolbar-btn",
+          "name": "wb-note-coach-btn",
           "rules": 6
         }
       ]
@@ -2470,7 +2498,7 @@
     },
     {
       "family": "modal",
-      "rules": 210,
+      "rules": 211,
       "uniqueSelectors": 187,
       "spreadAcrossFiles": 14,
       "files": [
@@ -2491,7 +2519,7 @@
       ],
       "stateRules": {
         "hover": 26,
-        "focus": 16,
+        "focus": 17,
         "active": 0,
         "disabled": 0
       },
@@ -2526,6 +2554,10 @@
           "rules": 6
         },
         {
+          "name": "wb-note-menu-btn",
+          "rules": 6
+        },
+        {
           "name": "portfolio-more-menu-item",
           "rules": 6
         },
@@ -2535,10 +2567,6 @@
         },
         {
           "name": "modal-body",
-          "rules": 5
-        },
-        {
-          "name": "wb-note-menu-btn",
           "rules": 5
         },
         {
@@ -2773,8 +2801,8 @@
     ],
     "templateInlineStyleTotal": 267,
     "templateInlineStyleWithColour": 3,
-    "scriptFilesWithColourLiterals": 37,
-    "scriptColourLineTotal": 353,
+    "scriptFilesWithColourLiterals": 39,
+    "scriptColourLineTotal": 357,
     "topScripts": [
       {
         "file": "packages/noodle-web/src/noodle_web/static/script.js",
@@ -2809,11 +2837,11 @@
         "lines": 14
       },
       {
-        "file": "packages/noodle-web/src/noodle_web/static/mindmap.js",
-        "lines": 12
+        "file": "packages/noodle-web/src/noodle_web/static/whiteboard-notes.js",
+        "lines": 14
       },
       {
-        "file": "packages/noodle-web/src/noodle_web/static/whiteboard-notes.js",
+        "file": "packages/noodle-web/src/noodle_web/static/mindmap.js",
         "lines": 12
       },
       {

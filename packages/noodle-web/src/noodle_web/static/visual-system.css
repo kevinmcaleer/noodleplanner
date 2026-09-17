@@ -250,6 +250,52 @@
        docs/design/design-system.md section 6 records the reasoning. */
     --np-checkbox-radius: 4px;
 
+    /* The checkbox's hit target, as distinct from the box it draws (#1250).
+       WCAG 2.2 SC 2.5.8 wants 24x24 for a pointer target, and <np-checkbox>
+       already used exactly that as a hard-coded fallback. It is here because
+       it is a column width as much as a hit area: the whiteboard note's
+       add-task row reserves the same width for its "+" so that glyph, every
+       checkbox above it and every task name line up. A literal in two files
+       cannot express "these are the same measurement". */
+    --np-checkbox-target: 24px;
+
+    /* The whiteboard note palette (#1017, tokenised for #1250).
+       Two soft shades each of yellow, pink, green, blue and red. It is the
+       list wbPalette() offers in the note's colour menu and the list
+       wbDerivedPaletteColour() assigns from, and the values here are the
+       canonical ones -- whiteboard-notes.js's WB_NOTE_PASTEL_COLOURS is
+       checked against them by tests/test_note_ink.mjs.
+
+       They live here so scripts/check-contrast.mjs can score them, which it
+       could not while they were a JS array. Nothing had ever measured the
+       note's own de-emphasised text against its own fill, and three of those
+       pairings were below AA -- see --np-note-ink-muted below. */
+    --np-note-yellow-1: #FFF3B0;
+    --np-note-yellow-2: #FCE38A;
+    --np-note-pink-1: #FFD6E0;
+    --np-note-pink-2: #F7A8B8;
+    --np-note-green-1: #CFF4D2;
+    --np-note-green-2: #B8E6B8;
+    --np-note-blue-1: #C7E5FF;
+    --np-note-blue-2: #A9D6F5;
+    --np-note-red-1: #FFCBC1;
+    --np-note-red-2: #FFAFA3;
+
+    /* A note's ink, and its two de-emphasis levels.
+       Every swatch above is light, so wbContrastTextColour() measures
+       --np-note-ink as the better of near-black/near-white on all ten; the
+       alpha values are the ones views/whiteboard.css mixes for
+       --wb-note-ink-muted and --wb-note-ink-faint, restated as literals so
+       the checker can composite them. b3 is 70% and 8c is 55%; the ink
+       ladder's comment in views/whiteboard.css explains why those two, and
+       tests/test_note_ink.mjs fails if the two files drift apart.
+
+       Not theme-flipped, and deliberately so: a note's ink is chosen against
+       the note's own fill, which is plan data and the same in both themes. */
+    --np-note-ink: #161616;
+    --np-note-ink-muted: #161616b3;
+    --np-note-ink-faint: #1616168c;
+
     --np-focus-ring-color: #8A6205;
     --np-focus-ring-width: 2px;
     --np-focus-ring-offset: 2px;

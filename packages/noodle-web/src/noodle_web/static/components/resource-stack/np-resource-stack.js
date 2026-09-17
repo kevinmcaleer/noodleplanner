@@ -92,7 +92,12 @@ TEMPLATE.innerHTML = `
       width: var(--np-avatar-size, 20px);
       height: var(--np-avatar-size, 20px);
       padding: 0;
-      border: 1.5px solid var(--np-surface);
+      /* The separator ring is a theme surface by default, which is right
+         on a themed panel and wrong on a whiteboard note: a pastel fill
+         is not --np-surface in either theme, so the ring either vanished
+         or went dark over light paper. The note sets --np-avatar-ring to
+         its own fill (#1250); everything else keeps the default. */
+      border: 1.5px solid var(--np-avatar-ring, var(--np-surface));
       border-radius: 50%;
       background: var(--np-info);
       color: var(--np-on-info);
@@ -108,8 +113,11 @@ TEMPLATE.innerHTML = `
        reveals the names the cap hid. kanban's own overflow rule hides the
        eleventh avatar onward with nothing to say it did. */
     .chip.more {
-      background: var(--np-surface-alt);
-      color: var(--np-text-secondary);
+      /* Same story as the ring above -- and worse here, because the
+         overflow chip is a *fill*: --np-surface-alt on a light pastel is
+         a chip with no edge at all. */
+      background: var(--np-avatar-overflow-bg, var(--np-surface-alt));
+      color: var(--np-avatar-overflow-ink, var(--np-text-secondary));
       font-size: calc(var(--np-avatar-size, 20px) * 0.4);
     }
 

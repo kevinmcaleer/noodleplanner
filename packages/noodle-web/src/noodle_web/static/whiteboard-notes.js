@@ -1845,13 +1845,46 @@ function wbCreateNoteNode() {
         if (taskName) wbToggleResourceMenu(taskName, resourceBtn);
     });
 
+    // Order matters, and the link handle's position is load bearing (#1250).
+    //
+    // The header is a right-aligned button cluster with a `flex: 1` title
+    // taking the slack, so the cluster spans past the header's own midpoint
+    // whenever it is wider than half the header -- which, measured on the
+    // declared sizes, it is at 160px with four buttons (cluster ~106 of a
+    // 158px header, midpoint 79) and at 260px with five (cluster ~136 of
+    // 258, midpoint 129). Whatever sits at that midpoint receives the press
+    // that a user means as "grab the middle of this note and move it".
+    //
+    // For every button here except one that is merely a dead spot:
+    // wbNoteHeaderMouseDown() returns early on them, so no drag starts and
+    // the note does not move. The link handle is the exception, because it
+    // carries its own mousedown listener that begins a *link* drag -- and
+    // wbFinishDrag()'s park branch requires `drag.type === 'move'`, so a
+    // note dragged from that point to the parking lot is silently not
+    // parked. That regression has shipped once already; see
+    // tests/ui/test_whiteboard_parking_lot.py's comment and
+    // views/whiteboard.css's on `.wb-note-header`.
+    //
+    // Appending it last makes that case impossible by construction rather
+    // than by arithmetic. As the final child of a right-aligned cluster it
+    // occupies [W - 10 - w, W - 10], and the midpoint W/2 can only fall in
+    // that span when W <= 2 * (10 + w) -- 64px for the 22px fine-pointer
+    // handle, 80px for the 30px coarse one, both below
+    // WB_NOTE_MIN_WIDTH = 160. No note can be resized to where it holds.
+    //
+    // How many controls the header should carry at all, which is what would
+    // clear the *remaining* dead spots, is issue #1250's open question 3 and
+    // the maintainer's call. The budget it needs: for the midpoint to be
+    // dead space the cluster must be under half the header, which is ~69px
+    // at 160 (three 20-22px controls, gaps included) and ~119px at 260
+    // (four).
     header.appendChild(title);
     header.appendChild(dateBtn);
     header.appendChild(resourceBtn);
-    header.appendChild(linkHandle);
     header.appendChild(coachBtn);
     header.appendChild(promoteBtn);
     header.appendChild(menuBtn);
+    header.appendChild(linkHandle);
 
     // A caption naming the note this one hangs off, when its parent is
     // also on the board -- the noodle says *that* there is a link, this
@@ -2454,20 +2487,6 @@ function wbIsRepeatHeaderPress(entry, clientX, clientY) {
 
 function wbNoteHeaderMouseDown(e, entry) {
     if (e.button !== 0 || wbActiveDrag) return;
-    // Double-click-to-rename is detected here, from consecutive
-    // mousedowns, rather than from a native 'dblclick' listener: the first
-    // press of the pair raises the note to the front of the notes layer,
-    // and moving a node in the DOM cancels the browser's own double-click
-    // tracking, so a dblclick handler on the header would simply never
-    // fire for any note that wasn't already frontmost. Detecting it
-    // ourselves also gives touch the same gesture for free (see
-    // wbNoteHeaderTouchStart()), which 'dblclick' does not.
-    if (wbIsRepeatHeaderPress(entry, e.clientX, e.clientY)) {
-        e.preventDefault();
-        e.stopPropagation();
-        wbBeginTitleEdit(entry);
-        return;
-    }
     // The menu button (issue #849, not this issue's to build or wire) is
     // a sibling inside the same header -- never hijack its own click.
     if (e.target && e.target.closest && e.target.closest('.wb-note-menu-btn')) return;
@@ -2478,6 +2497,28 @@ function wbNoteHeaderMouseDown(e, entry) {
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-promote-btn')) return;
     if (e.target && e.target.isContentEditable) return;
+    // Double-click-to-rename is detected here, from consecutive
+    // mousedowns, rather than from a native 'dblclick' listener: the first
+    // press of the pair raises the note to the front of the notes layer,
+    // and moving a node in the DOM cancels the browser's own double-click
+    // tracking, so a dblclick handler on the header would simply never
+    // fire for any note that wasn't already frontmost. Detecting it
+    // ourselves also gives touch the same gesture for free (see
+    // wbNoteHeaderTouchStart()), which 'dblclick' does not.
+    //
+    // Below the guards, not above them, since issue #1250. It used to run
+    // first, which made the rename gesture's hit area device-dependent:
+    // wbNoteHeaderTouchStart() has always run its identical guards before
+    // its own repeat-press check, so a fast second press on the `⋮` menu
+    // button or the coach button renamed the note on a mouse and did
+    // nothing on a touchscreen. The two paths now agree -- rename is the
+    // header minus its controls, on both.
+    if (wbIsRepeatHeaderPress(entry, e.clientX, e.clientY)) {
+        e.preventDefault();
+        e.stopPropagation();
+        wbBeginTitleEdit(entry);
+        return;
+    }
     e.preventDefault();
     e.stopPropagation(); // never let this fall through to canvas panning
     wbBeginDrag('move', entry, e.clientX, e.clientY);
@@ -2519,6 +2560,10 @@ function wbNoteHeaderTouchStart(e, entry) {
     if (e.target && e.target.closest && e.target.closest('.wb-note-smart-btn')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-promote-btn')) return;
+    // The fifth guard the mouse path has always carried, added here for the
+    // same parity (#1250): a second tap inside a title already being
+    // renamed places the caret, it does not re-enter the edit.
+    if (e.target && e.target.isContentEditable) return;
 
     const touch = e.touches[0];
     // Double-tap the header to rename, the touch twin of the mouse
@@ -3351,7 +3396,13 @@ function wbAppendChildResourceControls(slot, childVm) {
  *
  * Deliberately its own `.wb-note-add-row` class rather than sharing
  * `.wb-note-row` (views/whiteboard.css gives it the identical padding/
- * layout rhythm on its own): several existing call sites -- both here
+ * layout rhythm on its own, and since #1250 the identical lead-zone
+ * columns as well -- the "+" occupies a checkbox's --np-checkbox-target
+ * and the input reserves the badge slot's width, so this row's two glyphs
+ * line up with the checkboxes and names above it at every container-query
+ * tier; the two rules have to move together, and the comment above
+ * `.wb-note-add-row` in views/whiteboard.css says so from its end):
+ * several existing call sites -- both here
  * (peek/menu wiring) and in tests -- find a real child row via
  * `.wb-note-row` then assume `.wb-note-row-name` exists on it; sharing the
  * class would make this placeholder row match that query too and break

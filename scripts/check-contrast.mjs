@@ -190,6 +190,28 @@ const PAIRINGS = [
 	// which this checker cannot parse and so never scored.
 	{ fg: '--np-on-info', bg: '--np-info', min: 4.5, what: 'resource avatar initials on their chip' },
 
+	// The whiteboard note's own ink on its own paper (#1250). Every one of
+	// these is a pairing the app renders and nothing scored, because the
+	// palette was a JS array in whiteboard-notes.js until this issue moved it
+	// into the token file. The note picks --np-note-ink over each fill via
+	// wbContrastTextColour(), and views/whiteboard.css derives two
+	// de-emphasis levels from it with color-mix -- the empty state, the
+	// "under X" caption, the linked-children summary, the footer's progress
+	// count and the add row's placeholder are all muted; the add row's "+"
+	// glyph is faint.
+	//
+	// Muted is scored as text (4.5:1) and faint as a non-text glyph (3:1),
+	// which is the whole reason there are two levels rather than the five
+	// hand-picked opacities this replaces. Worst swatch either way is
+	// --np-note-pink-2: 4.90:1 muted, 3.31:1 faint.
+	...['yellow-1', 'yellow-2', 'pink-1', 'pink-2', 'green-1', 'green-2', 'blue-1', 'blue-2', 'red-1', 'red-2'].flatMap(
+		(swatch) => [
+			{ fg: '--np-note-ink', bg: `--np-note-${swatch}`, min: 4.5, what: `note text on ${swatch}` },
+			{ fg: '--np-note-ink-muted', bg: `--np-note-${swatch}`, min: 4.5, what: `muted note text on ${swatch}` },
+			{ fg: '--np-note-ink-faint', bg: `--np-note-${swatch}`, min: 3, what: `a faint note glyph on ${swatch}` },
+		],
+	),
+
 	{ fg: '--np-danger', bg: '--np-paper', min: 3, what: 'filled danger against the page' },
 	{ fg: '--np-success', bg: '--np-paper', min: 3, what: 'filled success against the page' },
 	{ fg: '--np-info', bg: '--np-paper', min: 3, what: 'filled info against the page' },
