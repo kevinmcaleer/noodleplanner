@@ -326,7 +326,8 @@ export class NpNote extends HTMLElement {
                 : 'No subtasks yet';
             children.push(empty);
         } else {
-            children.push(...this._rows.map((row) => this._buildRow(row)));
+            children.push(...this._rows.flatMap((row, i) =>
+                this._buildRow(row, i < this._rows.length - 1)));
         }
 
         // Same per-note people-slot reservation the board makes, so a story
@@ -360,14 +361,14 @@ export class NpNote extends HTMLElement {
      * *between* the checkbox and the name, so the name's start position moves
      * row to row.
      */
-    _buildRow(vm) {
+    _buildRow(vm, splittable) {
         const name = vm.name || '';
 
         // Same builder the board uses (#1249). The story's arg shape and the
         // board's view model are different objects, so each side resolves its
         // own model and the markup is built once, here and there, from the
         // same code.
-        const { row, refs } = buildChecklistRow({
+        const { row, cut, refs } = buildChecklistRow({
             name,
             complete: vm.complete,
             indeterminate: vm.indeterminate,
@@ -387,6 +388,9 @@ export class NpNote extends HTMLElement {
                     : `Planning hint for ${name}: this wording may describe an activity`,
             } : null,
             depHandle: true,
+            scissors: splittable ? {
+                label: `Split note after ${name}`,
+            } : null,
         });
 
         const resources = vm.resources || [];
@@ -408,7 +412,7 @@ export class NpNote extends HTMLElement {
         if (vm.depTarget === 'valid') row.classList.add('wb-dep-row-target');
         if (vm.depTarget === 'invalid') row.classList.add('wb-dep-row-target-invalid');
 
-        return row;
+        return cut ? [row, cut] : [row];
     }
 
     /**

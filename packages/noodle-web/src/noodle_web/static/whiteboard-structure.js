@@ -11,7 +11,9 @@
  *   - dragging a noodle from note A to note B re-parents B's whole
  *     subtree underneath A (wbReparentTaskInPlanText()), and
  *   - "promoting" a free-form note (issue #1020) appends one brand-new
- *     child task under it (wbAppendChildTask()).
+ *     child task under it (wbAppendChildTask()),
+ *   - scissors between two checklist rows (issue #874) lift everything
+ *     below the cut into a new top-level note (wbSplitChecklistAt()).
  *
  * Storage decision: a noodle has *no storage of its own*. A noodle from A
  * to B means exactly "B is indented under A in the plan outline", so the
@@ -369,6 +371,105 @@ function wbAppendChildTask(planText, parentName, name) {
     const lines = parsed.lines.slice();
     lines.splice(insertAt, 0, wbSetLineIndent(clean, targetIndent));
     return lines.join('\n');
+}
+
+/**
+ * Direct children of the outline entry at `parentPos`: every subsequent
+ * task whose indent is the shallowest indent strictly deeper than the
+ * parent, up to the parent's subtree end. Grandchildren (deeper still)
+ * are skipped -- they travel with their own parent, not as siblings of
+ * it. Used by wbSplitChecklistAt() to know which checklist rows a cut
+ * can fall between.
+ */
+function wbDirectChildEntries(parsed, parentPos) {
+    const parent = parsed && parsed.entries && parsed.entries[parentPos];
+    if (!parent) return [];
+    const end = wbSubtreeEndIndex(parsed, parentPos);
+    const deeper = [];
+    for (let i = parentPos + 1; i < parsed.entries.length; i++) {
+        const entry = parsed.entries[i];
+        if (entry.index > end) break;
+        if (entry.indent > parent.indent) deeper.push({ pos: i, entry });
+    }
+    if (!deeper.length) return [];
+    const childIndent = Math.min(...deeper.map(d => d.entry.indent));
+    return deeper.filter(d => d.entry.indent === childIndent);
+}
+
+/**
+ * Split a checklist note after `lastStayingChildName`: every later
+ * sibling of the same parent (each with its whole subtree) leaves the
+ * parent and becomes a child of a new top-level task named
+ * `newParentName`. The named child and everything above it stay. Tokens
+ * on moved lines (`[depends …]`, dates, `@resources`, labels, `%`,
+ * comments) are kept verbatim -- only indent changes, the same rule as a
+ * re-parent.
+ *
+ * This is the write behind issue #874's scissors gesture: the cut sits
+ * in the gap *after* a checklist row, so the row the scissors belongs
+ * to is the last one that remains. Conceptually the inverse of
+ * wbAppendChildTask() / promote. The new task is always top-level (a
+ * new post-it, not a sibling still nested under the original's parent).
+ * The ---whiteboard--- row for that post-it is *not* this function's
+ * job; the caller (wbSplitNoteAtChild() in whiteboard-notes.js) appends
+ * it in the same commit.
+ *
+ * No-ops (input returned unchanged, so wbCommitMarkdown() writes nothing)
+ * when: a name is missing, the parent or child cannot be found, the
+ * named child is not a direct child of the parent, the parent has fewer
+ * than two direct children, the named child is the last direct child
+ * (nothing below the cut; scissors never render after the last row), or
+ * `newParentName` already exists in the outline.
+ */
+function wbSplitChecklistAt(planText, parentName, lastStayingChildName, newParentName) {
+    const text = String(planText == null ? '' : planText);
+    const newName = String(newParentName || '').trim();
+    if (!parentName || !lastStayingChildName || !newName) return text;
+
+    const parsed = wbParseOutline(text);
+    const { entries } = parsed;
+    if (wbFindOutlineIndex(entries, newName) !== -1) return text;
+
+    const parentPos = wbFindOutlineIndex(entries, parentName);
+    if (parentPos === -1) return text;
+
+    const kids = wbDirectChildEntries(parsed, parentPos);
+    if (kids.length < 2) return text;
+
+    const stayIdx = kids.findIndex(k =>
+        String(k.entry.name).toLowerCase() === String(lastStayingChildName).toLowerCase());
+    // stayIdx === -1: not a direct child. stayIdx === last: nothing below.
+    if (stayIdx === -1 || stayIdx === kids.length - 1) return text;
+
+    const moved = kids.slice(stayIdx + 1);
+    const startLine = moved[0].entry.index;
+    const lastMoved = moved[moved.length - 1];
+    const endLine = wbSubtreeEndIndex(parsed, lastMoved.pos);
+
+    const lines = parsed.lines.slice();
+    const block = lines.slice(startLine, endLine + 1);
+    lines.splice(startLine, block.length);
+
+    const afterCut = wbParseOutline(lines.join('\n'));
+    let insertAt = afterCut.start;
+    for (let i = afterCut.end - 1; i >= afterCut.start; i--) {
+        if (String(afterCut.lines[i]).trim()) { insertAt = i + 1; break; }
+    }
+
+    const indentDelta = WB_INDENT_UNIT.length - moved[0].entry.indent;
+    const reindented = indentDelta === 0
+        ? block.slice()
+        : block.map(line => (String(line).trim()
+            ? wbSetLineIndent(line, Math.max(0, wbLineIndent(line) + indentDelta))
+            : line));
+
+    while (reindented.length > 1 && !String(reindented[reindented.length - 1]).trim()) {
+        reindented.pop();
+    }
+
+    const out = afterCut.lines.slice();
+    out.splice(insertAt, 0, newName, ...reindented);
+    return out.join('\n');
 }
 
 /**

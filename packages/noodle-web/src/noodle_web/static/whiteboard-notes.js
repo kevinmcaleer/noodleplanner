@@ -463,6 +463,13 @@ const wbPendingColourPicks = new Map(); // taskName -> colour|null
 // taskName -> colour|null (null = "picked default/clear").
 const wbColourOverrides = new Map();
 
+// A scissors split (issue #874) creates a uniquely-named outline task
+// ("New idea", "New idea 2", …) but the new post-it should look untitled
+// until the user names it. Set for that one task name around the commit;
+// wbUpdateNoteNode() shows an empty title and wbBeginTitleEdit() starts
+// the inline rename with the box already blank.
+let wbBlankTitleUntilNamed = null;
+
 // ── Pure helpers (no DOM — unit tested directly) ───────────────────────
 
 /**
@@ -1878,9 +1885,17 @@ function wbUpdateNoteNode(entry, vm) {
     refs.card.style.setProperty('--wb-note-text', wbContrastTextColour(vm.colour) || '');
 
     // Don't clobber a title the user is in the middle of retyping.
+    // A freshly scissors-split note keeps a unique placeholder in the
+    // outline ("New idea") but shows a blank title so naming it is the
+    // next action (issue #874).
     if (!refs.title.isContentEditable) {
-        wbSetText(refs.title, vm.task.name);
-        refs.title.setAttribute('title', vm.task.name + ' — double-click to rename');
+        if (wbBlankTitleUntilNamed && wbBlankTitleUntilNamed === vm.task.name) {
+            wbSetText(refs.title, '');
+            refs.title.setAttribute('title', 'Name this note');
+        } else {
+            wbSetText(refs.title, vm.task.name);
+            refs.title.setAttribute('title', vm.task.name + ' — double-click to rename');
+        }
     }
     const planningType = wbTaskPlanningType(vm.task);
     const languageHint = wbActivityLanguageHint(vm.task && vm.task.name);
@@ -1948,8 +1963,11 @@ function wbUpdateNoteNode(entry, vm) {
             : 'No subtasks yet';
         refs.body.appendChild(empty);
     } else {
-        vm.children.forEach(childVm => {
-            refs.body.appendChild(wbBuildChildRow(childVm));
+        vm.children.forEach((childVm, i) => {
+            refs.body.appendChild(wbBuildChildRow(childVm, {
+                parentName: vm.task.name,
+                scissors: i < vm.children.length - 1,
+            }));
         });
     }
     wbSizeNotePeopleSlot(refs.card, vm.children);
@@ -3027,10 +3045,18 @@ function wbFillResourceStack(host, resources, cap, size, taskName) {
     return stack;
 }
 
-/** Build one child-task row for a note body. */
-function wbBuildChildRow(childVm) {
+/** Build one child-task row for a note body.
+ *
+ * `options.scissors` (issue #874): the cut *after* this row, only when
+ * another visible checklist row follows. The last row never gets one.
+ * The cut is a sibling of the row (see buildChecklistRow()), so this
+ * returns a DocumentFragment of `[row, cut]` when scissors are asked
+ * for, and the row alone otherwise -- the caller always `appendChild`s
+ * the return value. */
+function wbBuildChildRow(childVm, options) {
     const child = childVm.task;
     const markup = globalThis.NoodleNoteMarkup;
+    const opts = options || {};
 
     // Markup from components/note/note-markup.js, listeners from here (#1249).
     //
@@ -3067,6 +3093,9 @@ function wbBuildChildRow(childVm) {
                 : `Planning hint for ${child.name}: this wording may describe an activity`,
         } : null,
         depHandle: true,
+        scissors: opts.scissors ? {
+            label: `Split note after ${child.name}`,
+        } : null,
     });
 
     // ── Behaviour ──────────────────────────────────────────────────────
@@ -3112,6 +3141,36 @@ function wbBuildChildRow(childVm) {
 
     wbAppendChildResourceControls(refs.peopleSlot, childVm, refs.assignBtn);
 
+    if (refs.scissors) {
+        const parentName = opts.parentName;
+        const stop = (e) => e.stopPropagation();
+        refs.scissors.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const from = parentName || (row.closest && row.closest('.wb-note') && row.closest('.wb-note').dataset.wbTask);
+            if (from) wbSplitNoteAtChild(from, child.name);
+        });
+        refs.scissors.addEventListener('mousedown', stop);
+        refs.scissors.addEventListener('pointerdown', stop);
+        // Touch has no hover, so a press on the row above the cut arms it
+        // -- the scissors become visible, then a second tap fires click.
+        // Fine pointers already get hover-reveal on the gap itself.
+        row.addEventListener('pointerdown', () => {
+            const body = row.parentElement;
+            if (body) {
+                body.querySelectorAll('.wb-note-cut[data-wb-armed]').forEach(el => {
+                    delete el.dataset.wbArmed;
+                });
+            }
+            if (refs.cut) refs.cut.dataset.wbArmed = 'true';
+        });
+    }
+
+    if (refs.cut) {
+        const frag = document.createDocumentFragment();
+        frag.append(row, refs.cut);
+        return frag;
+    }
     return row;
 }
 
@@ -5649,23 +5708,33 @@ function wbCreateNoteInViewportCentre() {
  * exact position, font and colour while being edited -- a note's title
  * jumping half a pixel as you click it reads as a glitch on a surface that
  * is meant to feel like paper.
+ *
+ * `options.blank` (issue #874): start with an empty box so the next
+ * keystroke *is* the name, rather than replacing a placeholder. The
+ * outline still holds a unique task name (`originalName`); blurring
+ * without typing restores that, so we never write a blank outline line.
  */
-function wbBeginTitleEdit(entry) {
+function wbBeginTitleEdit(entry, options) {
     if (!entry || !entry.refs || !entry.refs.title) return;
     const title = entry.refs.title;
     if (title.isContentEditable) return;
 
     const originalName = entry.fo.dataset.wbTask || title.textContent;
+    const startBlank = !!(options && options.blank) ||
+        !!(wbBlankTitleUntilNamed && wbBlankTitleUntilNamed === originalName);
     title.contentEditable = 'true';
     title.spellcheck = false;
     title.classList.add('editing');
+    if (startBlank) title.textContent = '';
     title.focus();
 
-    const selection = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(title);
-    selection.removeAllRanges();
-    selection.addRange(range);
+    if (!startBlank) {
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(title);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
 
     let settled = false;
     const finish = (commit) => {
@@ -5675,6 +5744,7 @@ function wbBeginTitleEdit(entry) {
         title.classList.remove('editing');
         title.removeEventListener('keydown', onKeydown);
         title.removeEventListener('blur', onBlur);
+        if (wbBlankTitleUntilNamed === originalName) wbBlankTitleUntilNamed = null;
 
         const typed = title.textContent.replace(/\s+/g, ' ').trim();
         if (!commit || !typed || typed === originalName) {
@@ -5738,6 +5808,8 @@ function wbRenameNoteTask(oldName, newName) {
     // render updates the existing node instead of building a second one
     // and leaving the old one behind until the next pass sweeps it.
     const entry = wbNoteNodes.get(oldName);
+    if (wbBlankTitleUntilNamed === oldName) wbBlankTitleUntilNamed = null;
+
     if (entry) {
         wbNoteNodes.delete(oldName);
         wbNoteNodes.set(newName, entry);
@@ -5762,6 +5834,91 @@ function wbUnlinkNoteFromParent(taskName) {
     if (!task || !task.parent) return false;
     if (typeof wbCutNoodle !== 'function') return false;
     return wbCutNoodle(task.parent, taskName);
+}
+
+/**
+ * Scissors split (issue #874): lift every visible checklist row below
+ * `lastStayingChildName` off `parentName` onto a new post-it alongside.
+ *
+ * Outline rewrite is wbSplitChecklistAt() (pure, plan text in / plan text
+ * out). This function uniquifies the new task's name, places a
+ * ---whiteboard--- row (offset in X, same Y, source colour and size),
+ * commits once, and starts the inline title rename with the box blank so
+ * naming the new note is the next action. No window.prompt().
+ *
+ * Returns the new task name, or null on a no-op.
+ */
+function wbSplitNoteAtChild(parentName, lastStayingChildName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !parentName || !lastStayingChildName) return null;
+    if (typeof wbSplitChecklistAt !== 'function' || typeof wbUniqueTaskName !== 'function' ||
+        typeof wbOutlineTaskNames !== 'function' ||
+        typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return null;
+    }
+
+    const planText = editor.value;
+    const newName = wbUniqueTaskName(wbOutlineTaskNames(planText), WB_NEW_NOTE_BASE_NAME);
+    const splitText = wbSplitChecklistAt(planText, parentName, lastStayingChildName, newName);
+    if (splitText === planText) return null;
+
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(splitText));
+    const sourceKey = String(parentName).toLowerCase();
+    const source = items.find(it => it && it.task && String(it.task).toLowerCase() === sourceKey);
+
+    const sourceEntry = wbNoteNodes.get(parentName);
+    const rect = sourceEntry ? wbNoteCurrentRect(sourceEntry) : null;
+    const width = (rect && rect.width) || (source && source.width) || WB_NOTE_DEFAULT_WIDTH;
+    const height = (rect && rect.height) || (source && source.height) || WB_NOTE_DEFAULT_HEIGHT;
+    const gap = 24;
+
+    let colour = (source && source.colour) || '';
+    if (!colour && sourceEntry && sourceEntry.refs && sourceEntry.refs.card) {
+        colour = (sourceEntry.refs.card.style.getPropertyValue('--wb-note-accent') || '').trim();
+    }
+
+    let x = Math.round((rect ? rect.x : (source && source.x) || 0) + width + gap);
+    const y = Math.round(rect ? rect.y : (source && source.y) || 0);
+
+    const existingRects = items.map(item => ({
+        x: item.x || 0,
+        y: item.y || 0,
+        width: item.width || WB_NOTE_DEFAULT_WIDTH,
+        height: item.height || WB_NOTE_DEFAULT_HEIGHT,
+    }));
+    const wanted = () => ({ x, y, width, height });
+    let guard = 0;
+    while (existingRects.some(r => wbRectsOverlap(wanted(), r, 8)) && guard < 50) {
+        x += width + gap;
+        guard++;
+    }
+
+    items.push({
+        task: newName,
+        x, y,
+        colour,
+        width, height,
+        collapsed: false,
+    });
+
+    wbBlankTitleUntilNamed = newName;
+    if (!wbCommitMarkdown(updatePlanWhiteboardText(splitText, items))) {
+        wbBlankTitleUntilNamed = null;
+        return null;
+    }
+
+    let attempts = 0;
+    const focusWhenReady = () => {
+        const entry = wbNoteNodes.get(newName);
+        if (entry) { wbBeginTitleEdit(entry, { blank: true }); return; }
+        if (++attempts < 60) setTimeout(focusWhenReady, 50);
+        else wbBlankTitleUntilNamed = null;
+    };
+    setTimeout(focusWhenReady, 50);
+
+    return newName;
 }
 
 /**
