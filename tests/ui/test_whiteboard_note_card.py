@@ -277,6 +277,57 @@ class TestAddRowAlignment:
             f"'Add task…' does not start at the task-name column: {geometry}"
         )
 
+    def test_it_hovers_like_a_real_task_row(self, page, app_server):
+        """The add row is one more line of the list, so it lights up like one.
+
+        Asserted by comparing the two computed backgrounds rather than by
+        naming a colour, because the point is that they *agree* -- both come
+        from `--wb-note-hover`, mixed from the note's own ink, so a literal
+        here would just be a second place to update.
+
+        This exists because the rule went missing and nothing noticed for
+        three merges. The commit that was meant to drop only the
+        `:focus-within` half of the add row's hover removed the whole rule,
+        as collateral from a scripted deletion of the neighbouring
+        `.wb-note-add-icon` block. A removed rule adds no design-lint
+        violation and no test named this behaviour, so the add row simply
+        stopped responding to the pointer while every row above it still did.
+        """
+        open_app(page, app_server)
+        board(page)
+
+        def background(selector):
+            return page.evaluate(
+                """(sel) => {
+                    const card = document.querySelector(
+                        ".wb-note[data-wb-task='Build'] .wb-note-card");
+                    return getComputedStyle(card.querySelector(sel)).backgroundColor;
+                }""",
+                selector,
+            )
+
+        row_rest = background(".wb-note-row")
+        add_rest = background(".wb-note-add-row")
+        assert row_rest == add_rest, (
+            f"they already differ at rest: row={row_rest} add={add_rest}"
+        )
+
+        # Hover each in turn and read the background back. `hover()` scrolls
+        # the note into view, so both reads are taken after their own hover
+        # rather than compared across one.
+        note(page, "Build").locator(".wb-note-row").first.hover()
+        row_hot = background(".wb-note-row")
+        note(page, "Build").locator(".wb-note-add-row").hover()
+        add_hot = background(".wb-note-add-row")
+
+        assert row_hot != row_rest, (
+            f"the checklist row itself stopped responding to hover: {row_hot}"
+        )
+        assert add_hot == row_hot, (
+            "the add row does not hover like a task row: "
+            f"add={add_hot} row={row_hot}"
+        )
+
     def test_they_still_line_up_at_the_narrow_tier(self, page, app_server):
         # Below 200px the container query collapses the badge slot to 0 and
         # halves the row gap. The add row reserves both from the same custom

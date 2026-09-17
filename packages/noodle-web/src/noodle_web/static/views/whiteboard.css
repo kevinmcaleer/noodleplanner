@@ -1003,13 +1003,17 @@
    empty checklist row at the bottom of every checklist note (never a
    free-form one -- see .wb-note-freeform above), so a new child task can
    be typed in and committed with Enter without leaving the board. Same
-   padding/hover rhythm as an ordinary .wb-note-row child row above (kept
-   as its own rule rather than sharing that class -- see
-   wbBuildAddChildRow()'s own comment in whiteboard-notes.js for why) --
-   with a faint "+" glyph in place of a checkbox and a transparent,
-   borderless text input in place of the name, so a note that has only
-   this row still reads as one more slot rather than a form bolted onto
-   the card. */
+   padding, gap, radius and hover as an ordinary .wb-note-row child row
+   above (kept as its own rule rather than sharing that class -- see
+   wbBuildAddChildRow()'s own comment in whiteboard-notes.js for why).
+
+   A transparent, borderless input in place of the name, indented to the
+   same column, and nothing in the checkbox column: it reads as the next
+   line of the list rather than a form bolted onto the card, and the
+   italic placeholder is the only thing marking it out. It briefly carried
+   a faint "+" where a checkbox would sit, which said what the placeholder
+   beside it already said, in a column that means "tick this", on a row
+   that cannot be ticked. */
 .wb-note-add-row {
     display: flex;
     align-items: center;
@@ -1023,6 +1027,20 @@
     cursor: text;
 }
 
+/* The same hover as `.wb-note-row` above, and for the same reason: this row
+   is one more line of the list, so it lights up like one.
+
+   It went missing between #1252 and here, and not by decision -- the commit
+   that was meant to drop only the `:focus-within` half of this rule removed
+   the whole thing, because the scripted edit that deleted the neighbouring
+   `.wb-note-add-icon` block searched backwards for "the preceding comment"
+   and found the one that had just been written onto this rule. Nothing
+   caught it: no test asserted the add row's hover, and a deleted rule adds
+   no design-lint violation. tests/ui/test_whiteboard_note_card.py now covers
+   it. */
+.wb-note-add-row:hover {
+    background: var(--wb-note-hover);
+}
 
 .wb-note-add-input {
     flex: 1;
