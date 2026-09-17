@@ -588,37 +588,13 @@ class TestWhiteboardSmartTags:
         WebDriverWait(browser, 8).until(lambda d: "2026-03-15" in line_for_task(get_plan_text(d), "Empty Phase"))
         assert '"Go live 15th March"' in line_for_task(get_plan_text(browser), "Empty Phase")
 
-    def test_quick_assign_lists_front_matter_resources_and_writes_token(self, browser, app_server):
-        open_app(browser, app_server)
-        load_sample_plan(browser)
-        editor = browser.find_element(By.ID, "planEditor")
-        text = get_plan_text(browser).replace(
-            "title: Whiteboard Notes Test Plan\n",
-            "title: Whiteboard Notes Test Plan\nResources:\n  - @sam: Sam Smith, Developer\n  - @jo: Jo Lee, Reviewer\n",
-        )
-        browser.execute_script(
-            "arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles:true}));",
-            editor,
-            text,
-        )
-        wait_for_stable_plan_text(browser, timeout=8.0, quiet=1.0)
-        switch_to_whiteboard(browser)
-        browser.execute_script("whiteboardZoomFit();")
-
-        browser.find_element(
-            By.CSS_SELECTOR, '.wb-note[data-wb-task="Empty Phase"] .wb-note-resource-btn'
-        ).click()
-        menu = WebDriverWait(browser, 3).until(
-            EC.visibility_of_element_located((By.CSS_SELECTOR, ".wb-resource-menu"))
-        )
-        assert "Sam Smith" in menu.text and "Jo Lee" in menu.text
-        menu.find_element(By.XPATH, ".//button[contains(normalize-space(), 'Sam Smith')]").click()
-
-        WebDriverWait(browser, 8).until(
-            lambda d: "@sam" in line_for_task(get_plan_text(d), "Empty Phase")
-        )
-        line = line_for_task(get_plan_text(browser), "Empty Phase")
-        assert '"Chase the vendor for a quote."' in line
+    # The note header's quick-assign test lived here. The control went with
+    # #1250's open question 3 -- resources belong on the tasks inside a
+    # post-it, not on the summary the post-it stands for -- so there is no
+    # header button left to drive. Its one assertion that was about the write
+    # path rather than the button (a comment on the line surviving the
+    # assignment) moved to the surviving row control, in
+    # tests/ui/test_whiteboard_row_assign.py.
 
 
 class TestChecklistTicking:

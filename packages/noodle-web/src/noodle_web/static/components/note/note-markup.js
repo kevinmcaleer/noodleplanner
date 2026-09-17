@@ -101,14 +101,13 @@ export function buildNoteCard() {
     });
     dateBtn.textContent = 'Date';
 
-    const resourceBtn = el('button', 'wb-note-smart-btn wb-note-resource-btn', {
-        type: 'button',
-        'aria-label': 'Assign a resource',
-        'aria-haspopup': 'menu',
-        'aria-expanded': 'false',
-        title: 'Quick assign',
-    });
-    resourceBtn.textContent = '＋';
+    // No quick-assign on the note itself. A post-it is a summary task, and
+    // resources belong on the tasks inside it -- the checklist rows keep their
+    // own `.wb-note-row-resource` control, which is the one that assigns to a
+    // thing somebody actually does. The header's twin assigned to the summary
+    // line, which is a different act wearing the same `＋`, and it was the
+    // only header control that was neither about the note's identity (title,
+    // colour, menu) nor about its place in the graph (the noodle handle).
 
     const coachBtn = el('button', 'wb-note-coach-btn', {
         type: 'button',
@@ -169,7 +168,7 @@ export function buildNoteCard() {
     // W - 10], and the midpoint W/2 can only fall there when W <= 2 * (10 + w),
     // which is 64px for the 22px handle and 80px for the 30px coarse-pointer
     // one -- both below WB_NOTE_MIN_WIDTH.
-    header.append(title, dateBtn, resourceBtn, coachBtn, promoteBtn, menuBtn, linkHandle);
+    header.append(title, dateBtn, coachBtn, promoteBtn, menuBtn, linkHandle);
 
     const parentCaption = el('div', 'wb-note-parent');
     const body = el('div', 'wb-note-body');
@@ -186,7 +185,7 @@ export function buildNoteCard() {
     return {
         card,
         refs: {
-            card, header, title, dateBtn, resourceBtn, coachBtn, promoteBtn,
+            card, header, title, dateBtn, coachBtn, promoteBtn,
             menuBtn, linkHandle, parentCaption, body, footer, progress,
             avatars, resizeHandle,
         },
@@ -367,15 +366,18 @@ export function buildChecklistRow(model) {
  */
 export function buildAddRow(taskName) {
     const row = el('div', 'wb-note-add-row');
-    const icon = el('span', 'wb-note-add-icon', { 'aria-hidden': 'true' });
-    icon.textContent = '+';
+    // No leading glyph. A "+" in the checkbox column said the same thing as
+    // the placeholder immediately beside it, and a second thing it did not
+    // mean -- a checkbox column is for ticking, and this row cannot be ticked.
+    // The row now reads as one more task line, in italic, which is the only
+    // difference it needs from the lines above it.
     const input = el('input', 'wb-note-add-input', {
         type: 'text',
         placeholder: 'Add task…',
         'aria-label': `Add a task under "${taskName}"`,
     });
-    row.append(icon, input);
-    return { row, refs: { row, icon, input } };
+    row.appendChild(input);
+    return { row, refs: { row, input } };
 }
 
 // ── The bridge to the app ────────────────────────────────────────────────

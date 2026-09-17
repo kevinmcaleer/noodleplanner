@@ -142,7 +142,9 @@ class TestOnePopupAtATime:
         load_plan(page, PLAN)
         switch_to_whiteboard(page)
 
-        note(page, "Build").locator(".wb-note-resource-btn").dispatch_event("click")
+        # The row's assign control, not the header's -- the header's twin went
+        # with #1250's open question 3. Same smart menu, same subject.
+        note(page, "Build").locator(".wb-note-row-resource").first.dispatch_event("click")
         page.wait_for_selector(".wb-resource-menu", state="visible")
         note(page, "Build").locator(".wb-note-menu-btn").dispatch_event("click")
         page.wait_for_selector(MENU, state="visible")

@@ -17,8 +17,11 @@ reconciled. The dashed "+" survived; the bubble is gone.
 
 This file is the browser-level guard on that, because there wasn't one: the
 row-level control had no coverage at all before this. The only resource test in
-`tests/test_whiteboard_notes.py` drives the note *header* button, and the pure
-functions underneath are covered by `tests/test_whiteboard_notes.js`.
+The note *header* used to carry a twin of this control. It was removed when the
+header's resting inventory was settled (open question 3 on #1250 -- resources
+belong on tasks, not on the summary a post-it stands for), and the one
+assertion its test still earned moved here. The pure functions underneath are
+covered by `tests/test_whiteboard_notes.js`.
 
 Clicks are dispatched rather than mouse-clicked, for the reason
 `tests/ui/test_task_peek.py`'s module docstring gives: the whiteboard is a
@@ -47,6 +50,7 @@ Phase 1
   Build
     Solo 2d
     Paired @jo 1d
+    Noted 1d "Chase the vendor for a quote."
 
 ---whiteboard---
 | Task  | X   | Y  | Colour | Width | Height | Collapsed |
@@ -106,9 +110,9 @@ class TestExactlyOneAssignControl:
         switch_to_whiteboard(page)
 
         rows = _rows(page)
-        assert rows.count() == 2, "the Build note renders a row per child task"
+        assert rows.count() == 3, "the Build note renders a row per child task"
 
-        for child in ("Solo", "Paired"):
+        for child in ("Solo", "Paired", "Noted"):
             row = _row(page, child)
             assert (
                 row.locator(".wb-note-row-resource").count() == 1
@@ -148,6 +152,38 @@ class TestTheSurvivingControl:
         # The child's own line, and only it.
         assert "@sam" in _line_for(page, "Solo")
         assert "@sam" not in _line_for(page, "Paired")
+
+    def test_assigning_leaves_the_rest_of_the_line_alone(self, page, app_server):
+        """A comment on the task survives the assignment.
+
+        Inherited from tests/test_whiteboard_notes.py's header quick-assign
+        test, which went when that control did -- resources belong on tasks,
+        not on the summary a post-it stands for (open question 3 on #1250).
+        The behaviour it happened to guard is a property of the write path
+        rather than of the button that triggered it: wbToggleResourceMenu()
+        commits through PlanModel.updateLine(), and the regression it protects
+        against is a regex rewriter that rebuilds the line from the tokens it
+        recognises and silently drops everything else. That path is still live,
+        still shared, and this is the control that still reaches it.
+        """
+        open_app(page, app_server)
+        load_plan(page, DECLARED_PLAN)
+        switch_to_whiteboard(page)
+
+        menu = _open_menu(page, "Noted")
+        menu.locator("button", has_text=re.compile("Sam Smith")).dispatch_event("click")
+
+        page.wait_for_function(
+            "() => document.getElementById('planEditor').value"
+            "        .split('\\n').some(l => l.trim().startsWith('Noted')"
+            "                                  && l.includes('@sam'))"
+        )
+        line = _line_for(page, "Noted")
+        assert "@sam" in line
+        assert '"Chase the vendor for a quote."' in line, (
+            f"the assignment rewrote the line and lost the comment: {line!r}"
+        )
+        assert "1d" in line, f"the assignment lost the duration: {line!r}"
 
     def test_it_declares_a_popup_before_it_is_ever_opened(self, page, app_server):
         """`aria-haspopup` at render time, not only once the menu has opened.
