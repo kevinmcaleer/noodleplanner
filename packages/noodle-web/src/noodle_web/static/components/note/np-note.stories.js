@@ -114,7 +114,8 @@ export const KitchenSink = {
 };
 
 /** The zoomed-out tier: body, footer *and* parent caption all hidden by the
- * app's own CSS -- but not a single header button, which is its own finding. */
+ * app's own CSS, and the coach button with them -- what is left is the noodle
+ * handle and the menu, the two worth hitting at 40%. */
 export const TitleOnly = {
     args: { task: 'Zoomed-out note', parent: 'Phase 1', 'title-only': true },
 };
@@ -129,8 +130,11 @@ export const FreeformWithComment = {
     },
 };
 
-/** Deliberately blank (#885): a free-form note with no comment prompts for
- * nothing. The previous component always appended a paragraph, empty or not. */
+/** No prose at all (#885): a free-form note with no comment prompts for
+ * nothing. The previous component always appended a paragraph, empty or not.
+ * The "Add task..." row is the one thing that does follow -- typing into it
+ * is how a note stops being free-form, which is why the header no longer
+ * carries a button for that. */
 export const FreeformEmpty = {
     args: { task: 'Loose Idea', colour: '#CFF4D2', freeform: true, rows: [], resources: '' },
 };

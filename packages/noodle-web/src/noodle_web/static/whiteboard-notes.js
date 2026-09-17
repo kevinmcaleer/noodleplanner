@@ -217,6 +217,17 @@
  * kanban.js's addNewPhase(). One wbCommitMarkdown() call either way, so
  * promotion is a single undo step like every other whiteboard mutation.
  *
+ * Promotion is no longer something the note asks you to do. Every note,
+ * free-form included, carries #1104's "Add task..." row (see
+ * wbBuildAddChildRow()); typing a task into it appends the same child line
+ * through the same wbAppendChildTask(), so the note becomes a summary task
+ * as a side effect of the thing the user came to do. The header's
+ * quick-promote button (#1107) is gone with that: it occupied a header
+ * slot to offer a structural change in the abstract, one keystroke ahead
+ * of the content that would have caused it anyway. What is left of #1020
+ * is the `...` menu item, which still does the one thing typing cannot --
+ * reuse the note's existing comment text as the first child's name.
+ *
  * Free-floating text objects (issue #1018, part of #885): a second, wholly
  * separate canvas object type living alongside post-it notes -- bare text
  * at a position, no card, no border, no background, not backed by a task
@@ -1728,7 +1739,7 @@ function wbCreateNoteNode() {
     const { card, refs } = globalThis.NoodleNoteMarkup.buildNoteCard();
     const {
         header, title, menuBtn, linkHandle, coachBtn,
-        promoteBtn, parentCaption, body, footer, progress, resizeHandle,
+        parentCaption, body, footer, progress, resizeHandle,
     } = refs;
 
     // Colour swatches are the menu button's contents for issue #849; two
@@ -1744,23 +1755,6 @@ function wbCreateNoteNode() {
         } else {
             wbOpenNoteMenu(taskName, menuBtn);
         }
-    });
-
-    // Promote-to-task quick button (issue #1107, part of epic #1090's
-    // "button at the top right of the board, to the left of the `...`, to
-    // change this from a text note into a summary task"): a one-click
-    // header shortcut for exactly the `...` menu's existing "Promote to
-    // task" item (wbAppendPromoteMenuSection()/wbPromoteFreeformNote(),
-    // issue #1020) -- same commit, same single undo step, no new promotion
-    // logic. Only ever shown for a free-form note (wbIsFreeformNote(), see
-    // the visibility toggle in wbUpdateNoteNode() below); a checklist note
-    // hides it rather than offering a "demote back to text note" the other
-    // way, since undoing that would mean deleting real child tasks with no
-    // existing precedent in this codebase for doing so safely.
-    promoteBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const taskName = fo.dataset.wbTask;
-        if (taskName && typeof wbPromoteFreeformNote === 'function') wbPromoteFreeformNote(taskName);
     });
 
     // The noodle handle: drag from here to another note to make that note
@@ -1794,7 +1788,7 @@ function wbCreateNoteNode() {
     const entry = {
         fo,
         refs: {
-            card, header, title, menuBtn, linkHandle, coachBtn, promoteBtn, parentCaption,
+            card, header, title, menuBtn, linkHandle, coachBtn, parentCaption,
             body, footer, progress, resizeHandle,
         },
     };
@@ -1912,13 +1906,6 @@ function wbUpdateNoteNode(entry, vm) {
     const freeform = wbIsFreeformNote(vm);
     refs.card.classList.toggle('wb-note-freeform', freeform);
 
-    // Header quick "promote to task" button (#1107): visible only for a
-    // free-form note, same condition wbAppendPromoteMenuSection() uses for
-    // the `...` menu's own "Promote to task" item, so the two affordances
-    // never disagree about when promoting makes sense.
-    refs.promoteBtn.style.display = freeform ? '' : 'none';
-    refs.promoteBtn.setAttribute('aria-label', `Promote ${vm.task.name} to a task`);
-
     if (freeform) {
         // A free-form note's body is its own `comment` field -- the same
         // single-line free-text the task-details form's "Comment" textarea
@@ -1956,14 +1943,21 @@ function wbUpdateNoteNode(entry, vm) {
         linked.setAttribute('title', vm.linkedChildren.map(c => c.task.name).join(', '));
         refs.body.appendChild(linked);
     }
-    // Issue #1104, part of epic #1090: every checklist note (never a
-    // free-form one -- see the `freeform` branch above) always ends in one
-    // empty "Add task..." row, whether it currently has zero rows (the
-    // "No subtasks yet"/"N linked notes" placeholder above), some rows, or
-    // all of its children noodled elsewhere. wbBuildAddChildRow() below.
-    if (!freeform) {
-        refs.body.appendChild(wbBuildAddChildRow(vm.task.name));
-    }
+    // Issue #1104, part of epic #1090: every note always ends in one empty
+    // "Add task..." row, whether it currently has zero rows (the "No
+    // subtasks yet"/"N linked notes" placeholder above), some rows, or all
+    // of its children noodled elsewhere. wbBuildAddChildRow() below.
+    //
+    // Free-form notes get it too, which #1104 originally withheld from them
+    // on the reading that #885's "nothing prompts for detail" forbade it.
+    // The row is how a note becomes a summary task now: typing a task into
+    // it gives the note its first child, and gaining a child is exactly
+    // what flips wbIsFreeformNote() to false (see this file's header
+    // comment on #1015). Withholding the row from free-form notes meant the
+    // one kind of note that had no structure was the one kind that could
+    // not be given any without first pressing a "promote" button -- which
+    // is why that button existed, and why it no longer needs to.
+    refs.body.appendChild(wbBuildAddChildRow(vm.task.name));
     refs.body.scrollTop = savedScrollTop;
 
     // Footer: completed/total fraction + resource avatar chips. Populated
@@ -2355,7 +2349,6 @@ function wbNoteHeaderMouseDown(e, entry) {
     // Nor the noodle handle, nor a title mid-rename: both are their own
     // gestures that happen to start inside the drag handle.
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
-    if (e.target && e.target.closest && e.target.closest('.wb-note-promote-btn')) return;
     if (e.target && e.target.isContentEditable) return;
     // Double-click-to-rename is detected here, from consecutive
     // mousedowns, rather than from a native 'dblclick' listener: the first
@@ -2419,7 +2412,6 @@ function wbNoteHeaderTouchStart(e, entry) {
     if (e.target && e.target.closest && e.target.closest('.wb-note-coach-btn')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-smart-btn')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
-    if (e.target && e.target.closest && e.target.closest('.wb-note-promote-btn')) return;
     // The fifth guard the mouse path has always carried, added here for the
     // same parity (#1250): a second tap inside a title already being
     // renamed places the caret, it does not re-enter the edit.
@@ -3148,28 +3140,31 @@ function wbAppendChildResourceControls(slot, childVm, assign) {
 
 /**
  * "Add task..." row (issue #1104, part of epic #1090): an always-present,
- * empty checklist row at the bottom of every checklist note's body, so a
- * new child task can be typed in and committed on the spot -- previously
- * the only ways to add one were dragging a noodle from another note in,
- * editing the outline/markdown by hand, or (only for a still-freeform
- * note -- see wbIsFreeformNote()) "Promote to task"'s prompt(). Styled
- * like an ordinary .wb-note-row (same padding/hover rhythm, views/
- * whiteboard.css) but with a "+" glyph where a checkbox would sit and a
- * borderless text <input> where the name would sit, so it reads as one
- * more slot rather than a form bolted onto the card. Only ever appended
- * for a checklist note (wbUpdateNoteNode() gates this on `!freeform`) --
- * a free-form note keeps #885's "nothing prompts for detail" and gains
- * this row automatically the moment it earns its first child, on the very
- * next render pass, same as the rest of #1015's split.
+ * empty checklist row at the bottom of every note's body, so a new child
+ * task can be typed in and committed on the spot -- previously the only
+ * ways to add one were dragging a noodle from another note in, editing the
+ * outline/markdown by hand, or (only for a still-freeform note -- see
+ * wbIsFreeformNote()) "Promote to task". Styled like an ordinary
+ * .wb-note-row (same padding, hover and lead-zone rhythm, views/
+ * whiteboard.css) with a borderless italic text <input> where the name
+ * would sit, so it reads as one more slot rather than a form bolted onto
+ * the card.
+ *
+ * Appended for every note, free-form ones included -- see
+ * wbUpdateNoteNode()'s own comment at the append site for why the
+ * `!freeform` gate this row used to carry is gone. An empty italic
+ * placeholder is the lightest affordance the board has; it states what the
+ * row is for and asks for nothing, which is the side of #885's "nothing
+ * prompts for detail" that matters.
  *
  * Deliberately its own `.wb-note-add-row` class rather than sharing
  * `.wb-note-row` (views/whiteboard.css gives it the identical padding/
- * layout rhythm on its own, and since #1250 the identical lead-zone
- * columns as well -- the "+" occupies a checkbox's --np-checkbox-target
- * and the input reserves the badge slot's width, so this row's two glyphs
- * line up with the checkboxes and names above it at every container-query
- * tier; the two rules have to move together, and the comment above
- * `.wb-note-add-row` in views/whiteboard.css says so from its end):
+ * hover/layout rhythm on its own, and since #1250 the identical lead-zone
+ * columns as well -- the input is offset by a checkbox's
+ * --np-checkbox-target so this row's text lines up with the names above it
+ * at every container-query tier; the two rules have to move together, and
+ * the comment above `.wb-note-add-row` in views/whiteboard.css says so
+ * from its end):
  * several existing call sites -- both here
  * (peek/menu wiring) and in tests -- find a real child row via
  * `.wb-note-row` then assume `.wb-note-row-name` exists on it; sharing the
@@ -3182,8 +3177,8 @@ function wbBuildAddChildRow(taskName) {
     const { row, refs } = globalThis.NoodleNoteMarkup.buildAddRow(taskName);
     const input = refs.input;
 
-    // Clicking anywhere on the row -- the "+" glyph, the row's own
-    // padding, not just the input itself -- focuses the input, matching
+    // Clicking anywhere on the row -- its lead gutter and its own padding,
+    // not just the input itself -- focuses the input, matching
     // how the ordinary child rows above treat their whole row as the
     // click target rather than just the name text.
     row.addEventListener('click', (e) => { e.stopPropagation(); input.focus(); });
@@ -5578,8 +5573,8 @@ function wbUnlinkNoteFromParent(taskName) {
  * the same reason), disambiguated against every existing task name via
  * wbUniqueTaskName() before being written.
  *
- * Only ever called for a free-form note (the menu item that calls this is
- * itself only shown when wbIsFreeformNote() is true -- see
+ * Only ever called for a free-form note (the `...` menu item that calls
+ * this is itself only shown when wbIsFreeformNote() is true -- see
  * wbAppendPromoteMenuSection() below), but re-checked here too since this
  * is also the function tests exercise directly.
  */

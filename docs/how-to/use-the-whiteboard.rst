@@ -38,9 +38,11 @@ A brand-new post-it starts as a **free-form note**: just a title, with no checkl
 
 If you also want a line or two of detail, open **Open task details** on the note's ``...`` menu and fill in **Comment**. It shows up in the note's body.
 
-The moment you give the note its *first* subtask — indenting a task under it in the outline, adding one from the task form, or noodling an existing note underneath it — the note switches to a checklist automatically (see `Tick Off a Todo`_ below). There is no separate "add a checklist" step and no way to switch back short of removing every subtask again.
+The moment you give the note its *first* subtask — typing one into the ``Add task…`` row at the bottom of the note, indenting a task under it in the outline, adding one from the task form, or noodling an existing note underneath it — the note switches to a checklist automatically (see `Tick Off a Todo`_ below). There is no separate "add a checklist" step, no button to press first, and no way to switch back short of removing every subtask again.
 
-**Promote to task** on a free-form note's ``...`` menu is a shortcut for exactly that first-subtask step: it turns the note's own **Comment** text into a real subtask underneath it, and the note switches to a checklist right away. If the note has no comment yet, it asks you to name the new subtask instead. Either way it is one action, and undoing it removes the subtask and returns the note to free-form. A free-form note also shows the same action as a small button in its header, next to the ``...`` menu, so you don't have to open the menu just to promote it.
+The ``Add task…`` row is the usual way. Every note has one, free-form notes included: click it, type the task, press ``Enter``. On a free-form note that first task *is* the switch to a checklist — the note becomes a summary task because it now has something underneath it, not because you asked it to become one.
+
+**Promote to task** on a free-form note's ``...`` menu does the same thing from the text you have already written: it turns the note's own **Comment** into a real subtask underneath it. If the note has no comment yet, it asks you to name the new subtask instead. Either way it is one action, and undoing it removes the subtask and returns the note to free-form.
 
 The **Text note** button in the toolbar (next to **Add title**) creates the same free-form note as **New post-it** — it's simply a second way to reach it from alongside the board's other bare-canvas tools.
 
