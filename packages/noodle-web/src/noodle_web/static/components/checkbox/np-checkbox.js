@@ -36,7 +36,15 @@
  *
  * It is driven by the real `HTMLInputElement.indeterminate` property rather
  * than a class that merely looks mixed, so assistive technology reports it.
- * Only a `row="summary"` may be indeterminate; a leaf never is.
+ * Only a `row="summary"` may be indeterminate; a leaf never is -- the
+ * component enforces that rather than trusting the caller, because a leaf is
+ * one task, done or not, and there is nothing for it to be mixed about.
+ *
+ * What decides it lives in the view model, not here: wbBuildNoteViewModel()
+ * gives each summary child its own { completed, total } and
+ * wbIsPartlyComplete() turns that into the boolean this attribute carries.
+ * The rule is "some but not all of my direct children are complete" -- ticks,
+ * not the engine's averaged percent. See docs/design/design-system.md §6.
  *
  * ## Semantics this control must not imply
  *
@@ -92,7 +100,12 @@ TEMPLATE.innerHTML = `
       background: var(--np-surface);
       cursor: inherit;
       display: grid;
-      place-content: center;
+      /* stretch, not center. The glyph below is sized 100% x 100% of its grid
+         area, and place-content: center sizes that area to the item's own
+         (empty) content -- which resolved to 0x0, so neither the tick nor the
+         dash was ever drawn, in any consumer. Stretching gives the glyph the
+         box's content area to clip its shape out of. */
+      place-content: stretch;
       transition: background-color 0.15s ease, border-color 0.15s ease;
     }
 

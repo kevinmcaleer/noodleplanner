@@ -208,6 +208,38 @@ The decision is a token, `--np-checkbox-radius`, not a literal in the
 component, because it is a judgement rather than a fact — flipping the app
 back to round is that one line.
 
+**The mixed state counts ticks, not percent.** `<np-checkbox>` shipped able
+to render `indeterminate` before anything asked it to, so a whiteboard
+summary row at 40% still looked identical to one at 0%. It is now driven from
+the view model (`wbChildProgressIndex()` / `wbIsPartlyComplete()` in
+`whiteboard-notes.js`), and the rule is *some but not all of my direct
+children are complete* — the same completed-count fraction the note's footer
+shows, one level down, not the engine's averaged rollup.
+
+Wiring it up exposed that the mark itself had never been drawn. The tick and
+the dash are one `::before` sized to 100% of its grid area, and the box
+centred that area with `place-content: center`, which sizes it to the item's
+own (empty) content — so it resolved to 0×0 in every consumer. No checkbox in
+the app had ever rendered a tick; a completed row was a filled square. That
+made "mixed" and "complete" the same picture, which is precisely the
+distinction this feature exists to draw, so the fix ships here and
+`tests/ui/test_whiteboard_row_checkbox.py` measures the glyph rather than
+trusting it.
+
+That the rule counts ticks is a deliberate fork, because the two measures
+disagree. A summary whose every
+child sits at 50% has a rolled-up percent of 50, but drilling into it (task
+peek renders those children with the same `wbIsChildComplete()` rule) shows
+nothing ticked. Counting ticks is what keeps the box and the drill-down
+telling the same story.
+
+**It reports; it does not cascade.** Checking a summary marks *that row*:
+`wbToggleChildComplete()` writes `100%`/`0%` onto that task's own markdown
+line and leaves its descendants' percentages alone. A tri-state checkbox in a
+file tree usually *controls* its children, so the component's header comment
+says plainly that this one does not, and a leaf (`row="leaf"`) may never
+render mixed at all — it is one task, done or not.
+
 Still to migrate, each deliberately its own change so a regression is
 attributable: kanban's `.round-checkbox` (and `.subtask-checkbox`), task
 peek, the portfolio project-select checkbox, and the settings panel's

@@ -30,12 +30,27 @@ Phase 1
     Done already 1d 100%
     Summary
       Child A 1d
+    Partly done
+      Part A 1d 100%
+      Part B 1d
+    All done
+      Whole A 1d 100%
+      Whole B 1d 100%
+    Halfway
+      Half A 1d 50%
+      Half B 1d 50%
 
 ---whiteboard---
 | Task  | X   | Y  | Colour | Width | Height | Collapsed |
 |-------|-----|----|--------|-------|--------|-----------|
 | Build | 480 | 80 |        | 300   | 300    | no        |
 """
+# Height stays 300 deliberately. The board zooms to fit its content on load,
+# and a taller note drops the zoom below 1 -- which shrinks every screen-space
+# measurement, so TestTheTargetIsBigEnough would be measuring 24px * zoom and
+# failing for a reason that has nothing to do with the target. The extra rows
+# below overflow the note's body instead, which none of these assertions
+# depends on: they read attributes and the shadow input, not visibility.
 
 
 def _row(page, child_name):
@@ -48,6 +63,19 @@ def _row(page, child_name):
 
 def _checkbox(page, child_name):
     return _row(page, child_name).locator(".wb-note-checkbox")
+
+
+def _input_state(page, child_name):
+    """What the real `<input>` inside the shadow root actually is.
+
+    The attribute on the host is only the request; `indeterminate` is not a
+    reflected content attribute, so the property on the input is the thing
+    assistive technology reports and the only honest assertion.
+    """
+    return _checkbox(page, child_name).evaluate(
+        "n => { const i = n.shadowRoot.querySelector('input');"
+        "       return { checked: i.checked, indeterminate: i.indeterminate }; }"
+    )
 
 
 def _line_for(page, task_name):
@@ -119,6 +147,114 @@ class TestClickingItWritesThePlan:
         assert page.locator("#taskPeekPopover").count() == 0 or not page.locator(
             "#taskPeekPopover"
         ).is_visible()
+
+
+class TestTheSummaryRowReportsItsChildren:
+    """The half #1245 left open: the component could render the mixed state,
+    but nothing ever asked it to, so a summary at 40% rendered pixel-identically
+    to one at 0%. The view model now computes each summary child's own
+    completion (wbChildProgressIndex()/wbIsPartlyComplete()).
+    """
+
+    def test_no_children_done_is_plain_unchecked(self, page, app_server):
+        _loaded(page, app_server)
+        assert _input_state(page, "Summary") == {
+            "checked": False,
+            "indeterminate": False,
+        }
+
+    def test_some_children_done_is_mixed(self, page, app_server):
+        """The state that did not exist before this change."""
+        _loaded(page, app_server)
+        assert _input_state(page, "Partly done") == {
+            "checked": False,
+            "indeterminate": True,
+        }
+
+    def test_every_child_done_is_checked_and_not_mixed(self, page, app_server):
+        _loaded(page, app_server)
+        assert _input_state(page, "All done") == {
+            "checked": True,
+            "indeterminate": False,
+        }
+
+    def test_a_leaf_is_never_mixed(self, page, app_server):
+        """A leaf is one task, done or not -- the component refuses the mixed
+        state for `row="leaf"` regardless of what it is handed."""
+        _loaded(page, app_server)
+        assert _input_state(page, "Leaf task")["indeterminate"] is False
+        assert _input_state(page, "Done already")["indeterminate"] is False
+
+    def test_it_counts_completed_children_not_the_rolled_up_percent(
+        self, page, app_server
+    ):
+        """Halfway's own percent is 50, but neither of its children is done, so
+        drilling into it shows two unticked rows. Mixed there would promise
+        something the drill-down does not show."""
+        _loaded(page, app_server)
+        assert _input_state(page, "Halfway") == {
+            "checked": False,
+            "indeterminate": False,
+        }
+
+    def test_the_mixed_state_reports_and_does_not_cascade(self, page, app_server):
+        """Checking a summary marks *that row*. wbToggleChildComplete() writes
+        100%/0% onto its own markdown line and leaves its children's
+        percentages alone -- the mixed box is a report, not a control."""
+        _loaded(page, app_server)
+        assert "100%" not in _line_for(page, "Part B")
+
+        _checkbox(page, "Partly done").dispatch_event("click")
+        page.wait_for_function(
+            "() => document.getElementById('planEditor').value"
+            "        .split('\\n').some(l => l.trim().startsWith('Partly done')"
+            "                                  && l.includes('100%'))"
+        )
+        assert "100%" in _line_for(page, "Partly done")
+        assert "100%" not in _line_for(page, "Part B"), (
+            "checking a summary must not cascade to its children"
+        )
+        assert "100%" in _line_for(page, "Part A"), (
+            "the child that was already complete keeps its own percentage"
+        )
+
+
+class TestTheGlyphIsActuallyDrawn:
+    """The tick and the dash are one `::before` inside the shadow root, sized
+    100% of its grid area and clipped to shape. The box originally centred that
+    area with `place-content: center`, which sizes it to the item's own (empty)
+    content -- so it resolved to 0x0 and *no* checkbox in the app ever drew a
+    mark, checked or mixed. A filled box with no glyph made "mixed" and
+    "complete" identical, which is the whole thing this feature exists to tell
+    apart, so it is measured rather than trusted.
+    """
+
+    def _glyph(self, page, child_name):
+        return _checkbox(page, child_name).evaluate(
+            "n => { const i = n.shadowRoot.querySelector('input');"
+            "       const c = getComputedStyle(i, '::before');"
+            "       return { w: parseFloat(c.width), h: parseFloat(c.height),"
+            "                clip: c.clipPath }; }"
+        )
+
+    def test_the_tick_has_a_box_to_be_drawn_in(self, page, app_server):
+        _loaded(page, app_server)
+        g = self._glyph(page, "Done already")
+        assert g["w"] > 0 and g["h"] > 0, g
+
+    def test_the_dash_has_a_box_to_be_drawn_in(self, page, app_server):
+        _loaded(page, app_server)
+        g = self._glyph(page, "Partly done")
+        assert g["w"] > 0 and g["h"] > 0, g
+
+    def test_mixed_and_complete_are_not_the_same_shape(self, page, app_server):
+        """Both fill the box with --np-success, so the clip-path is the only
+        thing distinguishing them."""
+        _loaded(page, app_server)
+        mixed = self._glyph(page, "Partly done")["clip"]
+        complete = self._glyph(page, "Done already")["clip"]
+        assert mixed != complete, (mixed, complete)
+        assert mixed not in ("none", ""), mixed
 
 
 class TestTheTargetIsBigEnough:

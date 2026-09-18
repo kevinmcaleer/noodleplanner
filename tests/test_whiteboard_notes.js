@@ -49,6 +49,8 @@ const {
     wbChildCount,
     wbIsChildComplete,
     wbNoteProgress,
+    wbChildProgressIndex,
+    wbIsPartlyComplete,
     wbGetInitials,
     wbResourceList,
     wbRelativeLuminance,
@@ -162,6 +164,109 @@ const tasks = [
 
     const emptyProgress = wbNoteProgress(tasks, 'Empty Phase');
     assert(emptyProgress.completed === 0 && emptyProgress.total === 0, 'an empty summary has 0/0 progress');
+}
+
+// ── wbChildProgressIndex / wbIsPartlyComplete (#1245 -- the mixed state) ─
+{
+    // The index is wbNoteProgress()'s answer for every parent at once, so the
+    // two must agree everywhere or a row's mixed box and the note footer that
+    // sits below it would be reporting different arithmetic.
+    const index = wbChildProgressIndex(tasks);
+    for (const parent of ['Phase 1', 'Discovery', 'Build', 'Nested']) {
+        const viaFilter = wbNoteProgress(tasks, parent);
+        const viaIndex = index.get(parent);
+        assert(viaIndex.completed === viaFilter.completed && viaIndex.total === viaFilter.total,
+            `the index agrees with wbNoteProgress() for ${parent} `
+            + `(${viaIndex.completed}/${viaIndex.total} vs ${viaFilter.completed}/${viaFilter.total})`);
+    }
+    assert(index.get('Widget') === undefined, 'a leaf never gets an index entry');
+    assert(index.get('Empty Phase') === undefined, 'a childless task never gets an index entry');
+    assert(wbChildProgressIndex(null).size === 0, 'no tasks yields an empty index');
+
+    // The index is also where hasChildren and the child-count badge now come
+    // from, so it must match the scans it replaced.
+    assert(index.get('Nested').total === wbChildCount(tasks, 'Nested'),
+        'the index total is the child-count badge\'s number');
+    assert((index.get('Widget') !== undefined) === wbHasChildren(tasks, 'Widget'),
+        'having an index entry is having children (leaf case)');
+    assert((index.get('Nested') !== undefined) === wbHasChildren(tasks, 'Nested'),
+        'having an index entry is having children (summary case)');
+
+    assert(wbIsPartlyComplete({ completed: 1, total: 2 }) === true, '1 of 2 done is mixed');
+    assert(wbIsPartlyComplete({ completed: 0, total: 2 }) === false, 'none done is not mixed');
+    assert(wbIsPartlyComplete({ completed: 2, total: 2 }) === false, 'all done is not mixed');
+    assert(wbIsPartlyComplete({ completed: 0, total: 0 }) === false, 'a childless task is not mixed');
+    assert(wbIsPartlyComplete(null) === false, 'a leaf (no progress at all) is not mixed');
+}
+
+// ── The three states a summary child's row can report (#1245) ───────────
+{
+    // Its own fixture rather than the shared one above, because the shared
+    // outline has no all-complete summary and adding one would shift the
+    // document-order index wbDerivedPaletteColour() reads.
+    //
+    // Roadmap
+    //   None      (summary) -- 0 of 2 children done  -> plain unchecked
+    //   Some      (summary) -- 1 of 2 children done  -> MIXED
+    //   All       (summary) -- 2 of 2 children done  -> checked, not mixed
+    //   Halfway   (summary) -- 2 children at 50%     -> rollup 50, none done
+    //   Loose     (leaf)                             -> never mixed
+    const mixedTasks = [
+        { name: 'Roadmap', is_summary: true, parent: null, percent: 44, resources: '' },
+        { name: 'None', is_summary: true, parent: 'Roadmap', percent: 0, resources: '' },
+        { name: 'None A', is_summary: false, parent: 'None', percent: 0, resources: '' },
+        { name: 'None B', is_summary: false, parent: 'None', percent: 0, resources: '' },
+        { name: 'Some', is_summary: true, parent: 'Roadmap', percent: 50, resources: '' },
+        { name: 'Some A', is_summary: false, parent: 'Some', percent: 100, resources: '' },
+        { name: 'Some B', is_summary: false, parent: 'Some', percent: 0, resources: '' },
+        { name: 'All', is_summary: true, parent: 'Roadmap', percent: 100, resources: '' },
+        { name: 'All A', is_summary: false, parent: 'All', percent: 100, resources: '' },
+        { name: 'All B', is_summary: false, parent: 'All', percent: 100, resources: '' },
+        { name: 'Halfway', is_summary: true, parent: 'Roadmap', percent: 50, resources: '' },
+        { name: 'Halfway A', is_summary: false, parent: 'Halfway', percent: 50, resources: '' },
+        { name: 'Halfway B', is_summary: false, parent: 'Halfway', percent: 50, resources: '' },
+        { name: 'Loose', is_summary: false, parent: 'Roadmap', percent: 50, resources: '' },
+    ];
+    const vm = wbBuildNoteViewModel(
+        { task: 'Roadmap', x: 0, y: 0, colour: '', width: null, height: null, collapsed: false },
+        mixedTasks,
+    );
+    const child = name => vm.children.find(c => c.task.name === name);
+
+    assert(child('None').indeterminate === false, 'a summary with no children done is not mixed');
+    assert(child('None').complete === false, 'a summary with no children done is not complete either');
+    assert(child('Some').indeterminate === true, 'a summary with some children done is mixed');
+    assert(child('Some').complete === false, 'a mixed summary is not also checked');
+    assert(child('All').indeterminate === false, 'a summary with every child done is not mixed');
+    assert(child('All').complete === true, 'a summary with every child done is checked');
+
+    // The reason the mixed state counts ticks rather than reading the rollup:
+    // Halfway's percent is 50, but drilling into it (task peek renders these
+    // same children with the same wbIsChildComplete() rule) shows two
+    // unticked rows. A mixed box there would be promising something the
+    // drill-down does not show.
+    assert(child('Halfway').task.percent === 50, 'Halfway\'s own rolled-up percent is 50');
+    assert(child('Halfway').indeterminate === false,
+        'a summary whose children are all half-done is not mixed -- none of them is ticked');
+
+    assert(child('Loose').hasChildren === false, 'Loose is a leaf');
+    assert(child('Loose').indeterminate === false, 'a leaf is never mixed, whatever its percent');
+    assert(child('Loose').childProgress === null, 'a leaf carries no child progress to report');
+
+    assert(child('Some').childProgress.completed === 1 && child('Some').childProgress.total === 2,
+        'a summary child carries its own { completed, total }, the footer\'s shape one level down');
+    assert(vm.children.every(c => !(c.complete && c.indeterminate)),
+        'no child is ever both checked and mixed');
+
+    // Passing the shared index must give the same answer as letting the view
+    // model build its own -- the render path takes the first branch.
+    const shared = wbNoteViewModels(
+        [{ task: 'Roadmap', x: 0, y: 0, colour: '', width: null, height: null, collapsed: false }],
+        mixedTasks,
+    )[0];
+    assert(shared.children.map(c => `${c.task.name}:${c.indeterminate}`).join(',')
+        === vm.children.map(c => `${c.task.name}:${c.indeterminate}`).join(','),
+        'the shared per-render index and a locally built one agree');
 }
 
 // ── wbGetInitials / wbResourceList ───────────────────────────────────────
