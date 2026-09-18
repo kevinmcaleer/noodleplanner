@@ -464,6 +464,9 @@ const NavigationController = (() => {
     // its own activate() hook, which by then only sees the new currentView.
     let previousView = null;
     let transitioning = false;
+    // A navigation asked for while the fade below was still running. It is
+    // remembered rather than dropped -- see navigateTo().
+    let queuedView = null;
 
     // Duration must match the CSS animation duration for np-context-fade-out/in
     const TRANSITION_MS = 150;
@@ -523,7 +526,21 @@ const NavigationController = (() => {
             console.warn('NavigationController: unknown view "' + viewName + '"');
             return;
         }
-        if (transitioning) return;
+        // A context switch fades for TRANSITION_MS. A navigation asked for
+        // inside that window used to be discarded outright, which is a
+        // different thing from being slow: click Portfolio and then Project
+        // faster than the fade, and the ribbon switched scope while the view
+        // stayed on the portfolio -- permanently, because nothing ever
+        // retried. The chrome said one thing and the page showed another.
+        //
+        // Remembering it instead makes the drop impossible without breaking
+        // what the guard was for, which is re-entering mid-fade. Only the
+        // last request is kept: someone who clicks three tabs in a second
+        // wants the third, not an animation of all three.
+        if (transitioning) {
+            queuedView = viewName;
+            return;
+        }
 
         const isContextSwitch = currentView &&
             contextOf(currentView) !== contextOf(viewName);
@@ -591,6 +608,12 @@ const NavigationController = (() => {
 
             showLoadingIndicator(false);
             transitioning = false;
+
+            // Run whatever was asked for mid-fade. Cleared before the call so
+            // a navigation that starts another transition can queue its own.
+            const pending = queuedView;
+            queuedView = null;
+            if (pending && pending !== currentView) navigateTo(pending);
         }, TRANSITION_MS);
     }
 
