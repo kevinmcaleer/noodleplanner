@@ -461,6 +461,14 @@ function wbHandleWheel(e) {
 function wbHandleMouseDown(e) {
     if (e.button !== 0) return;
     if (e.target === wbSvg || e.target === wbGroup || (e.target.closest && e.target.closest('.wb-grid'))) {
+        // Shift-drag lassos instead of panning (issue #874). Panning keeps
+        // the unmodified drag because it is the gesture people use
+        // constantly, and shift already means "add to the selection" on a
+        // note's header, so the modifier says one thing in both places.
+        if (e.shiftKey && typeof wbBeginLasso === 'function' && wbBeginLasso(e.clientX, e.clientY)) {
+            e.preventDefault();
+            return;
+        }
         // A press on bare canvas dismisses any selected noodle, the same
         // way clicking away from a note closes its `...` menu -- and
         // (issue #1109) deselects any selected note too.
@@ -479,6 +487,7 @@ function wbHandleMouseDown(e) {
 }
 
 function wbHandleMouseMove(e) {
+    if (typeof wbLasso !== 'undefined' && wbLasso) { wbUpdateLasso(e.clientX, e.clientY); return; }
     if (!wbIsDragging) return;
     wbPanX = wbDragStartPanX + (e.clientX - wbDragStartX);
     wbPanY = wbDragStartPanY + (e.clientY - wbDragStartY);
@@ -486,6 +495,7 @@ function wbHandleMouseMove(e) {
 }
 
 function wbHandleMouseUp() {
+    if (typeof wbLasso !== 'undefined' && wbLasso) { wbEndLasso(); return; }
     if (wbIsDragging) {
         wbIsDragging = false;
         if (wbSvg) wbSvg.classList.remove('wb-dragging');

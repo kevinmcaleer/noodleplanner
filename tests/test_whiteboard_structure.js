@@ -57,6 +57,9 @@ const {
     wbRenameTaskInPlanText,
     wbDeleteTaskFromPlanText,
     wbSplitChecklistAt,
+    wbGroupTasksInPlanText,
+    wbUngroupTasksInPlanText,
+    wbMergeTasksInPlanText,
     wbOutlineTaskNames,
     wbBuildOutlineTree,
     wbFlattenOutline,
@@ -439,6 +442,117 @@ const twoKids = [
 ].join('\n');
 assertEqual(wbSplitChecklistAt(twoKids, 'Parent', 'Only', 'New idea'), twoKids,
     'a note with a single checklist row cannot split');
+
+// ── Grouping and merging (issue #874) ───────────────────────────────────
+
+const BOARD = [
+    'Alpha',
+    '  Alpha one',
+    '  Alpha two',
+    'Beta',
+    '  Beta one',
+    'Gamma',
+].join('\n');
+
+const grouped = wbGroupTasksInPlanText(BOARD, ['Alpha', 'Beta'], 'Discovery');
+assertEqual(grouped, [
+    'Gamma',
+    'Discovery',
+    '  Alpha',
+    '    Alpha one',
+    '    Alpha two',
+    '  Beta',
+    '    Beta one',
+].join('\n'), 'grouping gathers both members, subtrees intact, under a new summary task');
+
+const orderSwapped = wbGroupTasksInPlanText(BOARD, ['Beta', 'Alpha'], 'Discovery');
+assert(orderSwapped.indexOf('\n  Beta') < orderSwapped.indexOf('\n  Alpha'),
+    'members land in the order they were selected, not their outline order');
+
+assertEqual(wbGroupTasksInPlanText(BOARD, ['Alpha'], 'Discovery'), BOARD,
+    'grouping one note is a no-op -- a group of one is not a group');
+assertEqual(wbGroupTasksInPlanText(BOARD, ['Alpha', 'Nope'], 'Discovery'), BOARD,
+    'a member missing from the outline refuses the whole gesture');
+assertEqual(wbGroupTasksInPlanText(BOARD, ['Alpha', 'Beta'], 'Alpha'), BOARD,
+    'a group name that is already a task is a no-op');
+assertEqual(wbGroupTasksInPlanText(BOARD, ['Alpha', 'Beta'], '   '), BOARD,
+    'a blank group name is a no-op');
+assertEqual(wbGroupTasksInPlanText(BOARD, ['Alpha', 'Alpha one'], 'Discovery'), BOARD,
+    'grouping a note with its own child is refused rather than half-done');
+
+// Nesting: a group is just a task, so grouping one with a note nests it.
+const nested = wbGroupTasksInPlanText(grouped, ['Discovery', 'Gamma'], 'Phase 1');
+assertEqual(nested, [
+    'Phase 1',
+    '  Discovery',
+    '    Alpha',
+    '      Alpha one',
+    '      Alpha two',
+    '    Beta',
+    '      Beta one',
+    '  Gamma',
+].join('\n'), 'a group nests inside another group, subtree depths shifting together');
+
+assertEqual(wbUngroupTasksInPlanText(grouped, 'Discovery'), [
+    'Gamma',
+    'Alpha',
+    '  Alpha one',
+    '  Alpha two',
+    'Beta',
+    '  Beta one',
+].join('\n'), 'ungrouping hands the members back at the top level with their subtrees');
+
+const innerKept = wbUngroupTasksInPlanText(nested, 'Phase 1');
+assert(innerKept.includes('Discovery\n  Alpha'),
+    'ungrouping the outer group leaves the inner group whole');
+
+assertEqual(wbUngroupTasksInPlanText(BOARD, 'Nope'), BOARD,
+    'ungrouping something that is not there is a no-op');
+
+const merged = wbMergeTasksInPlanText(BOARD, 'Alpha', ['Beta']);
+assertEqual(merged, [
+    'Alpha',
+    '  Alpha one',
+    '  Alpha two',
+    '  Beta one',
+    'Gamma',
+].join('\n'), "merging appends the source's items to the target and the emptied source goes");
+
+const mergedBare = wbMergeTasksInPlanText(BOARD, 'Alpha', ['Gamma']);
+assertEqual(mergedBare, [
+    'Alpha',
+    '  Alpha one',
+    '  Alpha two',
+    '  Gamma',
+    'Beta',
+    '  Beta one',
+].join('\n'), 'a note with nothing inside it becomes an item on the target, not nothing');
+
+const mergedMany = wbMergeTasksInPlanText(BOARD, 'Alpha', ['Beta', 'Gamma']);
+assertEqual(mergedMany, [
+    'Alpha',
+    '  Alpha one',
+    '  Alpha two',
+    '  Beta one',
+    '  Gamma',
+].join('\n'), 'combining several sources folds them all in, in order');
+
+assertEqual(wbMergeTasksInPlanText(BOARD, 'Alpha', ['Alpha']), BOARD,
+    'merging a note into itself is a no-op');
+assertEqual(wbMergeTasksInPlanText(BOARD, 'Alpha', ['Nope']), BOARD,
+    'a missing source refuses the whole merge');
+assertEqual(wbMergeTasksInPlanText(BOARD, 'Nope', ['Beta']), BOARD,
+    'a missing target refuses the merge');
+assertEqual(wbMergeTasksInPlanText(BOARD, 'Alpha', []), BOARD,
+    'merging nothing is a no-op');
+assertEqual(wbMergeTasksInPlanText(BOARD, 'Alpha one', ['Alpha']), BOARD,
+    'merging a note into its own child is refused -- that is a move, not a merge');
+
+// The two gestures have to end somewhere different, which is the thing the
+// issue asks to be obvious at the moment of choosing.
+assert(grouped !== merged, 'group and merge do not produce the same outline');
+assert(grouped.includes('\n  Alpha\n'), 'group leaves each member a task of its own');
+assert(!merged.split('\n').includes('Beta'), 'merge leaves one task holding everything');
 
 console.log(failures === 0 ? '\nAll structure tests passed.' : `\n${failures} test(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

@@ -81,7 +81,15 @@ def _measure(page):
                 out[sel] = nodes.map(n => {
                     const cs = getComputedStyle(n);
                     return {
-                        height: Math.round(n.getBoundingClientRect().height),
+                        // `offsetHeight`, not the bounding rect: the board is
+                        // a zoom-transformed canvas, so a rect is *scaled*
+                        // pixels -- an 18px indicator measures 17.5 at a zoom
+                        // of 0.97 and rounds to 17. That is a property of the
+                        // viewport the suite happened to restore, not of the
+                        // indicator, and it only loses under `-n auto`, where
+                        // the zoom differs run to run. Layout pixels are what
+                        // this rule is written in.
+                        height: n.offsetHeight,
                         radius: cs.borderTopLeftRadius,
                         colour: cs.color,
                         background: cs.backgroundColor,

@@ -422,6 +422,36 @@ log uses for the ``---baseline---`` section:
   if the split found one) -- not as complete as a #1110 item's detail,
   but strictly better than no restore at all.
 
+Group boundaries
+~~~~~~~~~~~~~~~~
+
+A **group** (issue #874) is a titled boundary drawn around several post-its
+on the board. It is a row in this same table with ``Kind`` set to the
+literal string ``group`` and ``Task`` naming the summary task the group
+*is* -- because a group is not a separate concept in the plan: grouping
+notes indents their tasks under a new summary task, and this row only says
+"draw that task as a boundary around its children rather than as a
+post-it".
+
+Nothing else about a group is stored.
+
+- **Membership** is the summary task's children in the outline, the same
+  relationship a noodle draws. Storing it again here would make two places
+  that can disagree about one fact, which is the rule this table already
+  follows for noodles.
+- **Geometry** is the box the members occupy, derived on every render. The
+  ``X``, ``Y``, ``Width`` and ``Height`` cells are written from that
+  derivation so the table still reads sensibly on its own, and are ignored
+  when the plan is read back; a boundary cannot be dragged away from its
+  own contents, so there is no separate position for it to have.
+
+``Collapsed`` is left blank -- a boundary has no checklist to collapse.
+
+A group row is only written for a grouping the user actually made. A
+summary task that simply has no post-it of its own is *not* drawn as a
+boundary: those are different facts, and inferring one from the other would
+have the board invent an intent nobody expressed.
+
 Free-floating text objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -435,7 +465,8 @@ was dragged), discriminated by three more columns that a post-it row
 leaves blank:
 
 - ``Kind`` is the literal string ``text``; blank (the default) means an
-  ordinary post-it row, exactly as before this issue.
+  ordinary post-it row, exactly as before this issue, and ``group`` means a
+  group boundary (above).
 - ``Id`` is an opaque, app-generated identifier standing in for ``Task``'s
   role as the row's unique key -- a text object has no task name to key
   off. A ``Kind=text`` row with no ``Id`` is dropped, the same as a

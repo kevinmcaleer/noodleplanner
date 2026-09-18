@@ -14352,6 +14352,24 @@ function parseWhiteboardMarkdown(text) {
         // post-its just below. Returns a deliberately different, smaller
         // shape than a post-it row -- see this file's header comment.
         const kindStr = getCell('kind', '').trim().toLowerCase();
+
+        // Issue #874: a group boundary. Keyed by Task like a post-it,
+        // because a group *is* a summary task -- the row exists only to say
+        // "draw this task as a boundary round its children rather than as a
+        // post-it", which is the one thing the outline cannot say on its own.
+        //
+        // No geometry is read back. A boundary is the box its members
+        // occupy, so storing a rect would be a second source of truth that
+        // could disagree with them; the X/Y/Width/Height cells are written
+        // from the derived box each time the table is rewritten, so the
+        // markdown still reads sensibly on its own, and are ignored here.
+        if (kindStr === 'group') {
+            const groupTask = getCell('task', '');
+            if (!groupTask) continue;
+            items.push({ kind: 'group', task: groupTask, colour: getCell('colour', '') });
+            continue;
+        }
+
         if (kindStr === 'text') {
             const idStr = getCell('id', '').trim();
             if (!idStr) continue;
@@ -14411,10 +14429,12 @@ function generateWhiteboardText(items) {
     // objects -- a plan with none still writes (and round-trips through)
     // the exact same seven-column post-it table it always has.
     const hasTextObjects = items.some(item => item && item.kind === 'text');
-    if (hasTextObjects) headers.push('Kind', 'Id', 'Text');
+    const hasGroups = items.some(item => item && item.kind === 'group');
+    if (hasTextObjects || hasGroups) headers.push('Kind', 'Id', 'Text');
 
     const rows = items.map(item => {
         const isText = !!(item && item.kind === 'text');
+        const isGroup = !!(item && item.kind === 'group');
         const cells = [
             escapePipe(isText ? '' : (item.task || '')),
             escapePipe(String(item.x != null ? item.x : 0)),
@@ -14422,11 +14442,13 @@ function generateWhiteboardText(items) {
             escapePipe(isText ? '' : (item.colour || '')),
             escapePipe(isText ? '' : cellOrBlank(item.width)),
             escapePipe(isText ? '' : cellOrBlank(item.height)),
-            escapePipe(isText ? '' : (item.collapsed ? 'yes' : 'no')),
+            // A boundary has no checklist to collapse, so it leaves the cell
+            // blank rather than claiming a state it does not have.
+            escapePipe((isText || isGroup) ? '' : (item.collapsed ? 'yes' : 'no')),
         ];
-        if (hasTextObjects) {
+        if (hasTextObjects || hasGroups) {
             cells.push(
-                escapePipe(isText ? 'text' : ''),
+                escapePipe(isText ? 'text' : (isGroup ? 'group' : '')),
                 escapePipe(isText ? (item.id || '') : ''),
                 escapeTextCell(isText ? (item.text || '') : '')
             );

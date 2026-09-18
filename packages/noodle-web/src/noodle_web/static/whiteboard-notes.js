@@ -369,22 +369,90 @@ let wbTextNodes = new Map(); // text-object id -> { fo, refs: {...} }
 // something to act on without requiring a note's own `...` menu.
 let wbSelectedNoteTask = null;
 
+// Issue #874's group and combine gestures both act on *several* notes, so
+// the selection is a set and `wbSelectedNoteTask` above is the last name
+// added to it -- kept because the ribbon's Colour button, the `...` menu
+// and the keyboard handlers all want "the one note in hand" and would each
+// have to pick one otherwise. One source of truth, one derived convenience:
+// every write goes through wbApplySelection() below.
+let wbSelectedNoteTasks = new Set();
+
+/**
+ * Make `names` the selection exactly, repainting only the cards whose state
+ * actually changed.
+ *
+ * Order matters on the way in: the last name wins `wbSelectedNoteTask`,
+ * which is what makes shift-clicking a fourth note leave *that* one as the
+ * one a colour pick or a menu acts on.
+ */
+function wbApplySelection(names) {
+    const next = new Set();
+    let last = null;
+    for (const name of (names || [])) {
+        if (!name) continue;
+        next.add(name);
+        last = name;
+    }
+
+    for (const name of wbSelectedNoteTasks) {
+        if (next.has(name)) continue;
+        const entry = wbNoteNodes.get(name);
+        if (entry && entry.refs && entry.refs.card) {
+            entry.refs.card.classList.remove('wb-note-selected');
+        }
+    }
+    for (const name of next) {
+        if (wbSelectedNoteTasks.has(name)) continue;
+        const entry = wbNoteNodes.get(name);
+        if (entry && entry.refs && entry.refs.card) {
+            entry.refs.card.classList.add('wb-note-selected');
+        }
+    }
+
+    wbSelectedNoteTasks = next;
+    wbSelectedNoteTask = last;
+    if (typeof wbUpdateSelectionToolbar === 'function') wbUpdateSelectionToolbar();
+}
+
 /** Select (or, with a falsy name, deselect) one note, updating the
  * `.wb-note-selected` class on its card. A no-op when the same note is
- * already selected, so re-raising an already-frontmost note on repeated
- * clicks doesn't thrash the class. */
+ * already the whole selection, so re-raising an already-frontmost note on
+ * repeated clicks doesn't thrash the class. */
 function wbSetSelectedNote(taskName) {
     const next = taskName || null;
-    if (wbSelectedNoteTask === next) return;
-    const prevEntry = wbSelectedNoteTask ? wbNoteNodes.get(wbSelectedNoteTask) : null;
-    if (prevEntry && prevEntry.refs && prevEntry.refs.card) {
-        prevEntry.refs.card.classList.remove('wb-note-selected');
-    }
-    wbSelectedNoteTask = next;
-    const nextEntry = next ? wbNoteNodes.get(next) : null;
-    if (nextEntry && nextEntry.refs && nextEntry.refs.card) {
-        nextEntry.refs.card.classList.add('wb-note-selected');
-    }
+    if (!next) { wbApplySelection([]); return; }
+    if (wbSelectedNoteTasks.size === 1 && wbSelectedNoteTasks.has(next)) return;
+    wbApplySelection([next]);
+}
+
+/**
+ * Add `taskName` to the selection, or take it out if it is already in --
+ * the shift-click half of #874's multi-select.
+ */
+function wbToggleSelectedNote(taskName) {
+    if (!taskName) return;
+    const next = [...wbSelectedNoteTasks];
+    const at = next.indexOf(taskName);
+    if (at === -1) next.push(taskName);
+    else next.splice(at, 1);
+    wbApplySelection(next);
+}
+
+/** Replace the selection wholesale -- the lasso's way in. */
+function wbSetSelectedNotes(names) {
+    wbApplySelection(names);
+}
+
+/**
+ * Every currently selected note, in selection order, dropping any that have
+ * left the board since. Self-healing for the same reason
+ * wbGetSelectedNoteTask() is: wbRenderNotes()' sweep deletes straight from
+ * wbNoteNodes without going through the setters here.
+ */
+function wbGetSelectedNoteTasks() {
+    const live = [...wbSelectedNoteTasks].filter(name => wbNoteNodes.has(name));
+    if (live.length !== wbSelectedNoteTasks.size) wbApplySelection(live);
+    return live;
 }
 
 function wbClearNoteSelection() {
@@ -397,7 +465,7 @@ function wbClearNoteSelection() {
  * going through wbSetSelectedNote()). */
 function wbGetSelectedNoteTask() {
     if (wbSelectedNoteTask && !wbNoteNodes.has(wbSelectedNoteTask)) {
-        wbSelectedNoteTask = null;
+        wbGetSelectedNoteTasks(); // drops the dangling name and re-derives this one
     }
     return wbSelectedNoteTask;
 }
@@ -1115,10 +1183,16 @@ function wbSanitiseChildTaskName(text) {
 
 /** wbBuildNoteViewModel() for every row, skipping orphans. */
 function wbNoteViewModels(rows, tasks, themeColours = {}, boardNames = null) {
+    // A group row (issue #874) names a task like a post-it row does, but it
+    // asks for a boundary rather than a card -- so it is not a note, and it
+    // is not "on the board" for the purpose of deciding which of a note's
+    // children became noodles either. Without the second exclusion a group's
+    // members would each draw a noodle to a card that is not there.
+    const postIts = (rows || []).filter(r => r && r.task && r.kind !== 'group' && r.kind !== 'text');
     const names = boardNames || new Set(
-        (rows || []).map(r => r && r.task).filter(Boolean).map(n => String(n).toLowerCase())
+        postIts.map(r => String(r.task).toLowerCase())
     );
-    return (rows || [])
+    return postIts
         .map(row => wbBuildNoteViewModel(row, tasks, themeColours, names))
         .filter(Boolean);
 }
@@ -1716,6 +1790,10 @@ function wbRenderNotes() {
     // same rows/tasks this pass just used, in the same pass, so a note, the
     // noodle arriving at it, and its row in the outline can never disagree
     // about the hierarchy. Both are no-ops if their file isn't loaded.
+    // Group boundaries (issue #874) are measured from the notes inside them,
+    // so they are derived after the notes have their rects -- and before the
+    // noodles, which want the same settled geometry.
+    if (typeof wbRenderGroups === 'function') wbRenderGroups(rows, wbLastTasks);
     if (typeof wbRenderNoodles === 'function') wbRenderNoodles(rows, wbLastTasks);
     if (typeof wbRenderDependencyNoodles === 'function') wbRenderDependencyNoodles();
     if (typeof wbRenderOutlinePanel === 'function') wbRenderOutlinePanel();
@@ -2370,6 +2448,19 @@ function wbFinishDrag(clientX, clientY) {
         return;
     }
 
+    // Drag-to-stack (issue #874): released on top of another note, this one
+    // merges into it. Checked before the ordinary move commit below, and
+    // confirmed rather than silent -- landing on a note is one pixel from
+    // landing beside it, and the two outcomes are "nothing happened" and
+    // "that note is gone". A declined confirm falls through to the move, so
+    // the note stays where the user dropped it.
+    if (drag.type === 'move' && drag.moved &&
+        typeof clientX === 'number' && typeof clientY === 'number' &&
+        typeof wbNoteAt === 'function' && typeof wbMergeDroppedNote === 'function') {
+        const onto = wbNoteAt(clientX, clientY, taskName);
+        if (onto && wbMergeDroppedNote(taskName, onto)) return;
+    }
+
     const rect = wbNoteCurrentRect(drag.entry);
     wbCommitNoteChange(taskName, (item) => {
         if (drag.type === 'move') {
@@ -2449,6 +2540,18 @@ function wbNoteHeaderMouseDown(e, entry) {
         e.preventDefault();
         e.stopPropagation();
         wbBeginTitleEdit(entry);
+        return;
+    }
+    // Shift-click adds to (or removes from) the selection instead of picking
+    // the note up -- issue #874's multi-select, which group and combine both
+    // read. It deliberately starts no drag: shift is how you build a
+    // selection, and a build step that also moved something would make every
+    // fourth click a small accident.
+    if (e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        const name = entry && entry.fo && entry.fo.dataset.wbTask;
+        if (name && typeof wbToggleSelectedNote === 'function') wbToggleSelectedNote(name);
         return;
     }
     e.preventDefault();
