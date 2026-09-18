@@ -18,9 +18,29 @@ def open_app(page, app_server):
     return page
 
 
+# The tab-content pane each ribbon scope lands on.
+SCOPE_PANE = {"portfolio": "#portfolio-tab", "project": "#editor-tab"}
+
+
 def click_scope(page, scope):
-    """Switch the ribbon between the `project` and `portfolio` scopes."""
+    """Switch the ribbon between the `project` and `portfolio` scopes, and
+    wait until the switch has actually landed.
+
+    Returning the instant the click was dispatched made every caller racy in a
+    way that reads as a pass. Crossing between portfolio and project contexts
+    plays a 150ms fade, and the fade swaps the panes at its *end* -- so for
+    those 150ms the *previous* scope's pane is still the active one. A test
+    that clicked again inside that window, or asserted on a pane, was reading
+    the state it was trying to leave. `#editor-tab.active` is true on boot,
+    which is what let that stale read look like success.
+
+    Waiting on `isTransitioning()` as well as the pane is what makes it
+    honest: the pane alone cannot distinguish "arrived" from "has not left
+    yet" when the destination is where you started.
+    """
     page.click(f'.ribbon-scope-btn[data-scope="{scope}"]')
+    page.wait_for_function("() => !NavigationController.isTransitioning()")
+    page.wait_for_selector(f"{SCOPE_PANE[scope]}.active")
 
 
 def open_project_view(page, app_server):

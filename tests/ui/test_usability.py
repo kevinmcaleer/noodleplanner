@@ -99,39 +99,63 @@ class TestTabNavigation:
     carries the same reasoning in its own comment.
     """
 
-    # A whole app boot plus a scope switch, not a UI transition, so these get
-    # their own budget rather than the suite-wide 5s default -- the same
-    # reasoning tests/ui/test_whiteboard_parking_lot.py gives for its reload.
+    # These used to carry a 15s budget of their own, on a theory that a page
+    # load plus a view rebuild could eat the suite-wide 5s default before the
+    # wait even started. That theory was wrong, and the timeout was hiding the
+    # real fault rather than absorbing it: each of these clicks two scopes in
+    # quick succession, and NavigationController used to *discard* a
+    # navigation that arrived during the 150ms context fade the first click
+    # started. Nothing retried, so the second view never arrived -- no budget
+    # would have been long enough. See the queue in navigateTo(), and
+    # test_a_second_scope_click_during_the_fade_still_lands below.
     #
-    # The 5s default is tuned for "an element appears once the app is already
-    # up". These three wait for that *after* a page load and a view rebuild,
-    # and under `-n auto` on a loaded runner the two together can spend the
-    # whole budget before the wait even starts. That is what CI reported, and
-    # why it has never reproduced serially. Raising the global default instead
-    # would blunt the timeout everywhere it currently catches a real hang.
-    BOOT_TIMEOUT_MS = 15_000
+    # They are back on the default, which is what makes them worth running:
+    # the wait now fails on a real hang instead of on a race.
 
     def test_plan_tab_shows_editor(self, page, app_server):
         """Clicking the Plan tab should display the editor view."""
         open_portfolio_view(page, app_server)
         click_scope(page, "project")
 
-        page.wait_for_selector("#editor-tab.active", timeout=self.BOOT_TIMEOUT_MS)
+        page.wait_for_selector("#editor-tab.active")
 
     def test_portfolio_tab_shows_portfolio(self, page, app_server):
         """Clicking the Portfolio tab should display the portfolio view."""
         open_portfolio_view(page, app_server)
 
-        page.wait_for_selector("#portfolio-tab.active", timeout=self.BOOT_TIMEOUT_MS)
+        page.wait_for_selector("#portfolio-tab.active")
 
     def test_tab_switching_hides_previous(self, page, app_server):
         """Switching tabs should hide the previous tab content."""
         open_project_view(page, app_server)
         click_scope(page, "portfolio")
 
-        page.wait_for_selector(
-            "#editor-tab.active", state="detached", timeout=self.BOOT_TIMEOUT_MS
-        )
+        page.wait_for_selector("#editor-tab.active", state="detached")
+
+    def test_a_second_scope_click_during_the_fade_still_lands(self, page, app_server):
+        """A scope click made mid-fade is honoured, not thrown away.
+
+        Both clicks are raw rather than `click_scope`, because the helper now
+        waits for each switch to land and so cannot produce the overlap this
+        is about. The first assertion is load bearing for the same reason:
+        without it, a machine on which the two clicks happened to straddle the
+        150ms window would pass this test having never entered the state that
+        used to swallow the second one.
+
+        `getCurrentView()` is the subject rather than a pane, because
+        `#editor-tab` is already active on boot -- asserting on it here would
+        pass against the very bug this covers.
+        """
+        open_app(page, app_server)
+        page.click('.ribbon-scope-btn[data-scope="portfolio"]')
+
+        assert page.evaluate(
+            "() => NavigationController.isTransitioning()"
+        ), "the first click did not start a transition -- this test proves nothing"
+
+        page.click('.ribbon-scope-btn[data-scope="project"]')
+
+        page.wait_for_function("() => NavigationController.getCurrentView() === 'editor'")
 
     def test_tools_menu_opens(self, page, app_server):
         """The ribbon display menu should open when clicked."""
