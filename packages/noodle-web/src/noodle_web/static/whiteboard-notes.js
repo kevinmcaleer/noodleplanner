@@ -589,6 +589,60 @@ function wbNoteProgress(tasks, summaryTaskName) {
     return { completed, total: children.length };
 }
 
+/**
+ * wbNoteProgress()'s answer for every parent at once: one pass over `tasks`
+ * producing a Map of parent name -> { completed, total } across that task's
+ * direct children. Keyed by the parent string exactly as wbDirectChildren()
+ * matches it, so the two can never disagree about who a child belongs to.
+ *
+ * This exists for cost, not for expressiveness. A note's body needs this
+ * answer once per summary *row* (issue #1245's mixed checkbox), and
+ * wbNoteProgress() answers it with a filter over the whole task list -- so
+ * asking per row would be a nested scan on every whiteboard render, and the
+ * view model is rebuilt on every one. One O(n) pass, then O(1) per row.
+ *
+ * `total` is also the child-count badge's number and `total > 0` is also
+ * "has children", which is why wbBuildNoteViewModel() reads all three from
+ * here rather than calling wbChildCount()/wbHasChildren() per child: those
+ * are the same scan, once each, per child.
+ */
+function wbChildProgressIndex(tasks) {
+    const index = new Map();
+    if (!tasks) return index;
+    for (const t of tasks) {
+        if (!t || !t.parent) continue;
+        let entry = index.get(t.parent);
+        if (!entry) {
+            entry = { completed: 0, total: 0 };
+            index.set(t.parent, entry);
+        }
+        entry.total += 1;
+        if (wbIsChildComplete(t)) entry.completed += 1;
+    }
+    return index;
+}
+
+/**
+ * Whether a summary row's checkbox should render the mixed state: some, but
+ * not all, of its own direct children are complete (issue #1245).
+ *
+ * Deliberately the completed-count rule wbNoteProgress() uses, not the
+ * engine's averaged percent. A row's mixed box is a *report* of the children
+ * the user sees when they drill into it -- task peek renders exactly these
+ * children, each with a checkbox that is ticked iff wbIsChildComplete() --
+ * so counting ticks is what makes the box and the drill-down agree. Reading
+ * the rollup instead would show mixed for a summary whose every child sits
+ * at 50% and whose peek therefore shows nothing ticked at all.
+ *
+ * Neither 0/n nor n/n is mixed, which is what keeps this exclusive with the
+ * checked state: a summary's rolled-up percent reaches 100 exactly when all
+ * of its children do, so `complete` and `indeterminate` are never both true.
+ */
+function wbIsPartlyComplete(progress) {
+    if (!progress || !progress.total) return false;
+    return progress.completed > 0 && progress.completed < progress.total;
+}
+
 /** First-plus-last-initial (or first two letters) -- mirrors KanbanBoard.getInitials(). */
 function wbGetInitials(name) {
     const trimmed = String(name || '').trim();
@@ -1042,8 +1096,12 @@ function wbNoteZoomTier(zoom, collapsed) {
  * none is equivalent to no Theme: entries existing, which is exactly
  * right for a caller (e.g. the existing unit tests) that only cares
  * about a note's children/progress, not its colour.
+ *
+ * `childProgressIndex` (optional) is wbChildProgressIndex(tasks), shared
+ * across a render pass for the same reason `themeColours` is -- omitting it
+ * just builds one locally and costs a second walk of the task list.
  */
-function wbBuildNoteViewModel(row, tasks, themeColours = {}, boardNames = null) {
+function wbBuildNoteViewModel(row, tasks, themeColours = {}, boardNames = null, childProgressIndex = null) {
     if (!row || !row.task || !tasks) return null;
     const key = row.task.toLowerCase();
     // Matched by name only, not is_summary: the outline parser
@@ -1070,19 +1128,45 @@ function wbBuildNoteViewModel(row, tasks, themeColours = {}, boardNames = null) 
         ? boardNames
         : new Set((boardNames || []).map(n => String(n).toLowerCase()));
 
-    const allChildren = wbDirectChildren(tasks, task.name).map(child => ({
-        task: child,
-        hasChildren: wbHasChildren(tasks, child.name),
-        childCount: wbChildCount(tasks, child.name),
-        complete: wbIsChildComplete(child),
-        onBoard: onBoard.has(String(child.name).toLowerCase()),
-        // Issue #1162's resource-assign bubble shows a child row's own
-        // current assignees (not the summary task's, unlike the note
-        // footer's avatars) -- same shape as wbBuildPeekLevel()'s own
-        // per-child `resources`, so the bubble and the peek can never
-        // disagree about who a child is assigned to.
-        resources: wbResourceList(child.resources),
-    }));
+    // One O(n) pass answering "how many of your children are done" for every
+    // task at once -- see wbChildProgressIndex(). Built by wbNoteViewModels()
+    // and passed down so a render pass only ever walks the task list once,
+    // the same reason `themeColours` is passed in rather than re-parsed here.
+    // A caller with no index (the pure unit tests, task peek) still works.
+    const childProgress = childProgressIndex || wbChildProgressIndex(tasks);
+
+    const allChildren = wbDirectChildren(tasks, task.name).map(child => {
+        // hasChildren, childCount and the mixed-state report are the same
+        // question asked three ways, so they come from the one index rather
+        // than from a wbHasChildren()/wbChildCount() scan each.
+        const progress = childProgress.get(child.name) || { completed: 0, total: 0 };
+        const hasChildren = progress.total > 0;
+        return {
+            task: child,
+            hasChildren,
+            childCount: progress.total,
+            complete: wbIsChildComplete(child),
+            // A summary child reports its own children's completion so its
+            // row can render the mixed checkbox (#1245) -- the same
+            // { completed, total } shape as this note's own footer progress,
+            // one level down. A leaf has none: it is one task, done or not.
+            childProgress: hasChildren ? { ...progress } : null,
+            // The decision the row's checkbox needs, made once here so the
+            // live whiteboard (wbBuildChildRow()) and Storybook's <np-note>
+            // cannot drift apart about when a summary looks mixed. It is a
+            // report of the children, never a control over them:
+            // wbToggleChildComplete() writes 100%/0% onto this row's own
+            // markdown line and leaves its descendants' percentages alone.
+            indeterminate: hasChildren && wbIsPartlyComplete(progress),
+            onBoard: onBoard.has(String(child.name).toLowerCase()),
+            // Issue #1162's resource-assign bubble shows a child row's own
+            // current assignees (not the summary task's, unlike the note
+            // footer's avatars) -- same shape as wbBuildPeekLevel()'s own
+            // per-child `resources`, so the bubble and the peek can never
+            // disagree about who a child is assigned to.
+            resources: wbResourceList(child.resources),
+        };
+    });
     const children = allChildren.filter(c => !c.onBoard);
     const linkedChildren = allChildren.filter(c => c.onBoard);
 
@@ -1192,8 +1276,11 @@ function wbNoteViewModels(rows, tasks, themeColours = {}, boardNames = null) {
     const names = boardNames || new Set(
         postIts.map(r => String(r.task).toLowerCase())
     );
+    // Walked once here, not once per note: every row's body asks the same
+    // "how many of your children are done" question of the same task list.
+    const childProgress = wbChildProgressIndex(tasks);
     return postIts
-        .map(row => wbBuildNoteViewModel(row, tasks, themeColours, names))
+        .map(row => wbBuildNoteViewModel(row, tasks, themeColours, names, childProgress))
         .filter(Boolean);
 }
 
@@ -1693,7 +1780,8 @@ function wbLayoutRows(items, tasks, mode, options = {}) {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         wbDirectChildren, wbHasChildren, wbChildCount, wbIsChildComplete,
-        wbNoteProgress, wbGetInitials, wbResourceList, wbRelativeLuminance,
+        wbNoteProgress, wbChildProgressIndex, wbIsPartlyComplete,
+        wbGetInitials, wbResourceList, wbRelativeLuminance,
         wbContrastRatio, wbContrastTextColour, wbNoteZoomTier,
         wbBuildNoteViewModel, wbNoteViewModels, wbBuildPeekLevel, wbIsFreeformNote,
         wbSanitiseChildTaskName,
@@ -3178,12 +3266,14 @@ function wbBuildChildRow(childVm, options) {
     const { row, refs } = markup.buildChecklistRow({
         name: child.name,
         complete: childVm.complete,
-        // Nothing sets `indeterminate` yet: doing so needs each summary child's
-        // own descendants' progress, which wbBuildNoteViewModel() does not
-        // compute -- so a summary at 40% still looks like one at 0%. The
-        // component and the builder are ready for it; the view model is the
-        // missing half.
-        indeterminate: false,
+        // Decided in wbBuildNoteViewModel() from this child's own
+        // { completed, total } -- see wbIsPartlyComplete(). Only a summary can
+        // be mixed, and buildChecklistRow() re-checks that against
+        // `hasChildren` below. It reports the children's state and does not
+        // control it: checking a summary calls wbToggleChildComplete(), which
+        // writes 100%/0% onto this row's own markdown line only, and its
+        // children keep their own percentages.
+        indeterminate: childVm.indeterminate,
         hasChildren: childVm.hasChildren,
         childCount: childVm.childCount,
         deliverable: child.deliverable,
