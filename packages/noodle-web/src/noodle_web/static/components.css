@@ -1577,7 +1577,12 @@ tr:hover .task-context-btn,
     box-shadow: 0 4px 12px var(--np-shadow-strong);
     min-width: 200px;
     z-index: 10000;
-    overflow: hidden;
+    /* Horizontal clipping keeps the first/last items inside the 6px corners.
+       Vertical scrolling lets the inline submenu expand near the viewport
+       bottom without being cut off. */
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: calc(100vh - var(--np-space-16));
     font-size: 0.9em;
 }
 
@@ -1635,21 +1640,16 @@ tr:hover .task-context-btn,
     position: relative;
 }
 
+/* The completion options expand inline, indented beneath their trigger, so
+   they can never be clipped by the menu and need no edge-flip maths. */
 .task-context-submenu-items {
     display: none;
-    position: absolute;
-    left: 100%;
-    top: 0;
-    background: var(--np-surface);
-    border: 1px solid var(--np-border);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px var(--np-shadow-strong);
-    min-width: 120px;
-    z-index: 10001;
-    overflow: hidden;
+    background: var(--np-surface-alt);
+    border-top: 1px solid var(--np-border);
+    border-bottom: 1px solid var(--np-border);
 }
 
-.task-context-submenu:hover .task-context-submenu-items {
+.task-context-submenu.open > .task-context-submenu-items {
     display: block;
 }
 
@@ -1657,11 +1657,16 @@ tr:hover .task-context-btn,
     margin-left: auto;
     color: var(--np-text-muted);
     font-size: 0.8em;
+    transition: transform 0.15s;
+}
+
+.task-context-submenu.open > .task-context-menu-item .menu-arrow {
+    transform: rotate(90deg);
 }
 
 .task-context-menu-item.completion-item {
-    justify-content: center;
-    padding: var(--np-space-8) var(--np-space-16);
+    justify-content: flex-start;
+    padding-left: var(--np-space-40);
     font-weight: 500;
 }
 
