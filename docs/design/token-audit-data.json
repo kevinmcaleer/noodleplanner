@@ -29,14 +29,14 @@
   ],
   "filesNotLoaded": [],
   "stylesheet": {
-    "sourceLinesOfCode": 17327,
-    "complexity": 50173
+    "sourceLinesOfCode": 17490,
+    "complexity": 50640
   },
   "rules": {
-    "total": 3867
+    "total": 3895
   },
   "selectors": {
-    "totalUnique": 3777,
+    "totalUnique": 3808,
     "maxSpecificity": [
       1,
       4,
@@ -44,8 +44,8 @@
     ]
   },
   "customProperties": {
-    "totalDeclarations": 379,
-    "totalUniqueNames": 239,
+    "totalDeclarations": 381,
+    "totalUniqueNames": 240,
     "unused": [
       "--np-elevation-2",
       "--np-elevation-4",
@@ -83,9 +83,9 @@
     "unknown": [],
     "conflictingMultiFileDefinitions": []
   },
-  "canonicalTokenCount": 183,
+  "canonicalTokenCount": 184,
   "colors": {
-    "totalUnique": 409,
+    "totalUnique": 410,
     "duplicateOfTokenCount": 32,
     "duplicateOfToken": [
       {
@@ -463,8 +463,9 @@
         "id": "black-edec3e7a",
         "hex": "#000000",
         "authoredAs": "transparent",
-        "usage": 136,
+        "usage": 143,
         "props": [
+          "stroke",
           "background",
           "color",
           "background-color",
@@ -473,6 +474,7 @@
           "border-left",
           "box-shadow",
           "border",
+          "fill",
           "border-top",
           "--wb-note-ink-muted",
           "--wb-note-ink-faint",
@@ -814,7 +816,7 @@
     {
       "id": "fontSize-170fe9",
       "authoredAs": "12px",
-      "usage": 74
+      "usage": 77
     },
     {
       "id": "fontSize-1713aa",
@@ -1220,7 +1222,7 @@
     {
       "id": "radius-d13c",
       "authoredAs": "4px",
-      "usage": 170
+      "usage": 171
     },
     {
       "id": "radius-d8be",
@@ -1273,6 +1275,11 @@
       "usage": 3
     },
     {
+      "id": "radius-b7201cb6",
+      "authoredAs": "var(--np-radius-panel)",
+      "usage": 3
+    },
+    {
       "id": "radius-da7a1ca0",
       "authoredAs": "10px 10px 0 0",
       "usage": 2
@@ -1298,8 +1305,8 @@
       "usage": 2
     },
     {
-      "id": "radius-b7201cb6",
-      "authoredAs": "var(--np-radius-panel)",
+      "id": "radius-e8aec3d",
+      "authoredAs": "var(--np-radius-control)",
       "usage": 2
     },
     {
@@ -1368,11 +1375,6 @@
       "usage": 1
     },
     {
-      "id": "radius-e8aec3d",
-      "authoredAs": "var(--np-radius-control)",
-      "usage": 1
-    },
-    {
       "id": "radius-ccd99f20",
       "authoredAs": "14px 14px 0 0",
       "usage": 1
@@ -1430,6 +1432,11 @@
       "usage": 3
     },
     {
+      "id": "boxShadow-f6f3040c",
+      "authoredAs": "var(--np-floating-shadow)",
+      "usage": 3
+    },
+    {
       "id": "boxShadow-96b1c8bd",
       "authoredAs": "-4px 0 20px rgba(0, 0, 0, 0.3)",
       "usage": 2
@@ -1482,11 +1489,6 @@
     {
       "id": "boxShadow-c51ca647",
       "authoredAs": "0 6px 20px var(--np-shadow)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-f6f3040c",
-      "authoredAs": "var(--np-floating-shadow)",
       "usage": 2
     },
     {
@@ -1567,6 +1569,11 @@
     {
       "id": "boxShadow-a30c91d9",
       "authoredAs": "0 0 0 2px color-mix(in srgb, currentColor 20%, transparent)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-9be3b35c",
+      "authoredAs": "0 1px 2px var(--np-shadow)",
       "usage": 1
     },
     {
@@ -1731,15 +1738,15 @@
     }
   ],
   "spacing": {
-    "declarations": 1586,
-    "indirectedDeclarations": 1344,
+    "declarations": 1589,
+    "indirectedDeclarations": 1345,
     "totalUniqueValues": 38,
     "offGridUniqueValues": 15,
     "offGridUses": 33,
     "top": [
       {
         "value": "0",
-        "uses": 174,
+        "uses": 176,
         "onGrid": true,
         "props": [
           "gap",
@@ -2117,8 +2124,8 @@
   "components": [
     {
       "family": "table",
-      "rules": 835,
-      "uniqueSelectors": 707,
+      "rules": 838,
+      "uniqueSelectors": 710,
       "spreadAcrossFiles": 18,
       "files": [
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -2141,7 +2148,7 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 126,
+        "hover": 127,
         "focus": 22,
         "active": 0,
         "disabled": 1
@@ -2150,7 +2157,7 @@
       "topClassNames": [
         {
           "name": "gantt-info-table",
-          "rules": 29
+          "rules": 31
         },
         {
           "name": "timesheet-table",
@@ -2212,8 +2219,8 @@
     },
     {
       "family": "button",
-      "rules": 444,
-      "uniqueSelectors": 377,
+      "rules": 446,
+      "uniqueSelectors": 379,
       "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2239,12 +2246,12 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 139,
+        "hover": 140,
         "focus": 28,
         "active": 5,
         "disabled": 21
       },
-      "distinctClassNames": 125,
+      "distinctClassNames": 126,
       "topClassNames": [
         {
           "name": "btn-primary",
@@ -2310,8 +2317,8 @@
     },
     {
       "family": "nav",
-      "rules": 370,
-      "uniqueSelectors": 332,
+      "rules": 372,
+      "uniqueSelectors": 334,
       "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/animations.css",
@@ -2338,7 +2345,7 @@
         "active": 2,
         "disabled": 12
       },
-      "distinctClassNames": 125,
+      "distinctClassNames": 126,
       "topClassNames": [
         {
           "name": "ribbon-tab-btn",

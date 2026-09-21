@@ -214,6 +214,14 @@ const PAIRINGS = [
 		],
 	),
 
+	// The Gantt <-> editor cross-reference highlight (#1271). Both the
+	// highlighted Gantt row and the highlighted markdown line keep rendering
+	// --np-ink on top of the band, so the band has to clear AA in both
+	// themes -- which is exactly what --np-yellow-subtle could not do, having
+	// no dark value at all.
+	{ fg: '--np-ink', bg: '--np-xref-highlight', min: 4.5, what: 'text on the cross-reference highlight' },
+	{ fg: '--np-body', bg: '--np-xref-highlight', min: 4.5, what: 'body text on the cross-reference highlight' },
+
 	{ fg: '--np-danger', bg: '--np-paper', min: 3, what: 'filled danger against the page' },
 	{ fg: '--np-success', bg: '--np-paper', min: 3, what: 'filled success against the page' },
 	{ fg: '--np-info', bg: '--np-paper', min: 3, what: 'filled info against the page' },

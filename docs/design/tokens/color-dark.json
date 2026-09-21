@@ -111,12 +111,12 @@
   },
   "avatar-bg": {
     "$type": "color",
-    "$value": "#3fb6e0",
+    "$value": "#FAF8F4",
     "$description": "--np-avatar-bg"
   },
   "avatar-ink": {
     "$type": "color",
-    "$value": "#161616",
+    "$value": "#201E1A",
     "$description": "--np-avatar-ink"
   },
   "badge-bg": {
@@ -618,6 +618,11 @@
     "$type": "color",
     "$value": "#453A20",
     "$description": "--np-warning-tint"
+  },
+  "xref-highlight": {
+    "$type": "color",
+    "$value": "#4a3a12",
+    "$description": "--np-xref-highlight"
   },
   "yellow": {
     "$type": "color",

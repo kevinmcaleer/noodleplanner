@@ -274,6 +274,22 @@
     background: var(--np-info-tint);
 }
 
+/* The Gantt <-> editor cross-reference highlight (#1271). Distinct from the
+   :hover shade above (--np-paper) and from tr.selected, because it has to
+   read as "this row and that markdown line are the same thing" from across
+   the pane. !important is here for one reason: conditional formatting writes
+   an inline background-color onto the info row, and an inline style beats a
+   class. The bar row has no such inline colour and does not need it. */
+.gantt-info-table tbody tr.np-xref-highlight,
+.gantt-info-table tbody tr.np-xref-highlight:hover {
+    background: var(--np-xref-highlight) !important;
+    color: var(--np-ink) !important;
+}
+
+.gantt-bar-row.np-xref-highlight {
+    background: var(--np-xref-highlight);
+}
+
 .gantt-info-table tr.gantt-phase-row {
     background: #e8eaf6;
     font-weight: 600;
@@ -976,6 +992,28 @@
     overflow: auto;
     resize: none;
     -webkit-overflow-scrolling: touch;
+}
+
+/* The editor half of the cross-reference highlight (#1271).
+   #planEditor is transparent-text over .editor-highlight-layer, so a single
+   line cannot be styled and the layer cannot take the mouse. The highlight is
+   a band in its own overlay, inserted as the first child of .editor-area so
+   it paints *under* the highlight layer (z-index 1) and the text keeps
+   rendering on top of it. Its `top` is offset by -editor.scrollTop, exactly
+   as syncScroll() offsets the layer, so the two cannot drift apart. */
+.editor-xref-band {
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: none;
+    background: var(--np-xref-highlight);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.line-number.np-xref-highlight {
+    background: var(--np-xref-highlight);
+    color: var(--np-ink);
 }
 
 .editor-textarea::selection {

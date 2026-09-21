@@ -172,6 +172,15 @@
     --np-light-grey-subtle: #f2f2f2;
     --np-dark-blue-subtle: #cfe0e7;
 
+    /* The cross-reference highlight (#1271): the band that marks a Gantt row
+       and its markdown line as the same thing while the pointer is on either
+       of them. It is its own token rather than --np-yellow-subtle because
+       that one is light-only by design -- search.css and animations.css pair
+       it with a fixed dark ink -- and this one has to invert with the theme
+       so --np-ink stays legible on it. Deliberately distinct from the row
+       :hover shade (--np-paper) and from --np-info-tint. */
+    --np-xref-highlight: #ffecb3;
+
     /* Ink for text sitting *on* a hue token. Single-valued like the hue it
        pairs with -- the whole point of these is that the hue does not change
        with the theme, so its ink cannot either. Added for the whiteboard
@@ -385,6 +394,10 @@
     --np-shadow: rgba(0, 0, 0, 0.3);
     --np-shadow-strong: rgba(0, 0, 0, 0.5);
     --np-overlay: rgba(0, 0, 0, 0.75);
+    /* Dark counterpart of the cross-reference highlight. A light amber here
+       would put near-white --np-ink on it at about 1:1; this amber keeps the
+       same "yellow" reading while clearing AA against --np-ink. */
+    --np-xref-highlight: #4a3a12;
 }
 /* Bridge existing semantic consumers, including chart/table surface tokens. */
 :root, [data-theme="dark"] {
