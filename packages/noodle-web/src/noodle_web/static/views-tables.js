@@ -1010,6 +1010,13 @@ function updateReportRaid() {
             row.title = 'Click to view details';
             row.addEventListener('click', () => openRaidForm(item.id));
 
+            // Right-click menu for the entry (#1286)
+            row.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                showRaidContextMenu(e, item.id);
+            });
+
             const typeCell = document.createElement('td');
             typeCell.classList.add('col-type');
             const typeBadge = document.createElement('span');

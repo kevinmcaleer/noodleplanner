@@ -8199,6 +8199,94 @@ function deleteRaidItem(id) {
     updateReportRaid();
 }
 
+/**
+ * Close a risk or issue in one step from the context menu (#1286).
+ *
+ * Sets the status to 'closed' and appends the closure date to the
+ * mitigation actions, so the RAID log keeps a record of when the item
+ * stopped being live without the user having to open the form.
+ */
+function closeRaidItemQuickly(id) {
+    const item = raidItems.find(i => i.id === id);
+    if (!item) return;
+    if (item.status === 'closed') return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const note = `Closed ${today}`;
+    const existing = (item.mitigation_actions || '').trim();
+    if (!new RegExp(`Closed \\d{4}-\\d{2}-\\d{2}`).test(existing)) {
+        item.mitigation_actions = existing ? `${existing} — ${note}` : note;
+    }
+    item.status = 'closed';
+
+    renderRaidTable();
+    syncRaidLogToPlanText();
+    updateReportRaid();
+}
+
+/**
+ * Right-click menu for a RAID entry (#1286), shared by the dashboard's
+ * Risks & Issues widget and the RAID log view's rows. Reuses the task
+ * context menu's chrome so the two menus look and behave alike.
+ */
+function showRaidContextMenu(event, itemId) {
+    closeTaskContextMenu();
+
+    const item = raidItems.find(i => i.id === itemId) || null;
+
+    const menu = document.createElement('div');
+    menu.className = 'task-context-menu show';
+    menu.id = 'activeTaskContextMenu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'RAID actions');
+
+    const items = [];
+
+    if (item) {
+        items.push(createContextMenuItem('Edit', '✎', () => {
+            openRaidForm(item.id);
+        }));
+    }
+
+    items.push(createContextMenuItem('New Risk…', '➕', () => {
+        openRaidForm();
+    }));
+
+    if (item && item.status !== 'closed') {
+        const closeLabel = item.type === 'issue' ? 'Close Issue' : 'Close Risk';
+        items.push(createContextMenuItem(closeLabel, '✔', () => {
+            closeRaidItemQuickly(item.id);
+        }));
+    }
+
+    items.push(createContextMenuSeparator());
+
+    items.push(createContextMenuItem('Open RAID Log', '📋', () => {
+        switchToView('raid');
+    }));
+
+    items.forEach(entry => menu.appendChild(entry));
+    document.body.appendChild(menu);
+
+    let left = event.clientX;
+    let top = event.clientY;
+    const menuRect = menu.getBoundingClientRect();
+    if (left + menuRect.width > window.innerWidth) left = window.innerWidth - menuRect.width - 8;
+    if (top + menuRect.height > window.innerHeight) top = window.innerHeight - menuRect.height - 8;
+    if (top < 0) top = 8;
+    if (left < 0) left = 8;
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+
+    const firstItem = menu.querySelector('button[role="menuitem"]');
+    if (firstItem) firstItem.focus();
+
+    menu.addEventListener('keydown', handleContextMenuKeydown);
+    setTimeout(() => {
+        document.addEventListener('click', closeTaskContextMenuOnOutsideClick);
+    }, 0);
+}
+
 // raidItemPendingDeleteId is now in state.js
 
 function confirmDeleteRaidItem() {
@@ -8309,6 +8397,14 @@ function renderRaidTable() {
                 <np-button icon-only variant="danger" size="small" title="Delete" label="Delete" onclick="deleteRaidItem(${item.id})"><span slot="icon">🗑️</span></np-button>
             </td>
         `;
+
+        // Right-click menu for the entry (#1286)
+        row.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showRaidContextMenu(e, item.id);
+        });
+
         tbody.appendChild(row);
         } catch (itemError) {
             console.warn('Skipping malformed RAID item during render:', item, itemError);
