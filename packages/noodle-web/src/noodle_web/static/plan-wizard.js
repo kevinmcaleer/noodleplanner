@@ -199,7 +199,16 @@
         // never happens as a side effect of merely opening or stepping
         // through the wizard.
         if (stage.view !== 'backstage' && typeof switchToView === 'function') switchToView(stage.view);
-        if (typeof HighlightToggles !== 'undefined' && HighlightToggles.applyPreset) HighlightToggles.applyPreset(stage.preset);
+        // #1278: a stage preset is a lens the wizard holds open, not a
+        // change to the user's own highlighting preference. applyPreset()
+        // persists; applyOverride() does not, so closing the wizard puts
+        // the editor's colours back exactly as the user left them. Before
+        // this, merely opening the wizard (it starts on Design, whose
+        // preset is everything-off) silently turned the editor's
+        // resource/date/dependency highlighting off for good.
+        if (typeof HighlightToggles !== 'undefined' && HighlightToggles.applyOverride) {
+            HighlightToggles.applyOverride(stage.preset);
+        }
     }
 
     function enterStage(index) {
@@ -240,6 +249,9 @@
 
     function close() {
         if (panelEl) { panelEl.remove(); panelEl = null; }
+        if (typeof HighlightToggles !== 'undefined' && HighlightToggles.clearOverride) {
+            HighlightToggles.clearOverride();
+        }
     }
 
     // ---- Rendering ----

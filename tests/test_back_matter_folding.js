@@ -223,5 +223,46 @@ const PLAN = [
         'repeated Enter presses append blank task lines before back matter without changing its contents');
 })();
 
+// #1278: in the structured view the Back Matter panel below the editor
+// already shows every one of these sections, so the editor must not also
+// show them as collapsible header rows. Hiding them is a projection-only
+// change -- the raw text is untouched, and a caret anywhere in the hidden
+// range still maps to a sensible visible position.
+(function hiddenSectionTests() {
+    const state = { defaultExpanded: false, overrides: {} };
+    const hidden = SF.buildProjection(PLAN, DESCRIPTORS, state, { hideSections: true });
+
+    equal(hidden.sectionsHidden, true, 'the projection reports that sections are hidden');
+    equal(hidden.displayLines.some((line) => line.kind === 'header'), false,
+        'no back-matter header row is projected into the editor');
+    equal(hidden.displayText.includes('Highlights'), false, 'the Highlights section is gone from the editor');
+    equal(hidden.displayText.includes('RAID log'), false, 'the RAID log section is gone from the editor');
+    equal(hidden.displayText.includes('---whiteboard---'), false, 'no raw section marker leaks through');
+    equal(hidden.displayText, 'Project X\n  Build feature @Alice 3d\n', 'only the task body remains visible');
+    equal(hidden.rawText, PLAN, 'the underlying plan text is untouched');
+    equal(hidden.sections.length, 4, 'the sections are still known to the controller, just not shown');
+    equal(hidden.sections.every((section) => section.hidden && !section.expanded), true,
+        'every section reports itself hidden and not expanded');
+
+    // A caret inside the hidden block maps forward to a real visible
+    // position rather than off the end of the projection.
+    const rawInHighlights = PLAN.indexOf('- First demo landed');
+    const visible = SF.visibleOffsetFromRawOffset(hidden, rawInHighlights, 'start');
+    assert(visible >= 0 && visible <= hidden.displayText.length,
+        'a caret in a hidden section maps inside the visible text');
+
+    // Editing the visible body still rewrites only the visible body.
+    const edited = SF.applyVisibleEdit(hidden, hidden.displayText.replace('Project X', 'Project Y'), null);
+    assert(!edited.blocked, 'editing the task body above hidden back matter is never blocked');
+    equal(edited.rawText, PLAN.replace('Project X', 'Project Y'),
+        'the edit rewrites only the task body, leaving every hidden section intact');
+
+    // Without the flag nothing changes: the default view still folds.
+    const folded = SF.buildProjection(PLAN, DESCRIPTORS, state);
+    equal(folded.sectionsHidden, false, 'the default projection still folds rather than hides');
+    equal(folded.displayText.includes('Highlights (2 entries)'), true,
+        'the default projection still shows the collapsible header row');
+})();
+
 if (failures) process.exit(1);
 console.log('\nAll tests passed.');
