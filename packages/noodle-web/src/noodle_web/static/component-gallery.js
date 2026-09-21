@@ -509,7 +509,8 @@ export const GALLERY = [
             'The Gantt view (#gantt-view) is the Tasks table (above) plus this chart panel ' +
             '(`static/views-gantt.js`), split by a draggable `.gantt-splitter`. Dependencies ' +
             '(#ganttShowDependencies), critical path (#ganttShowCriticalPath) and baseline ' +
-            '(#ganttShowBaseline) are three independent toggles in the Gantt toolbar — each variant ' +
+            '(#ganttShowBaseline) are three independent toggles, driven from the Gantt Tools ' +
+            'ribbon and backed by hidden inputs in the view (#1287) — each variant ' +
             'below isolates one against the same three rows (one phase, two tasks).',
         variants: [
             {

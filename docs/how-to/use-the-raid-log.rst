@@ -33,6 +33,19 @@ Edit an Item
 
 Click any row in the RAID table to open the item form and make changes.
 
+Right-Click an Entry
+---------------------
+
+Right-clicking a row — either in the RAID log table or in the **Risks &
+Issues** panel on the Project Dashboard — opens a menu with:
+
+- **Edit** — open this item in the RAID form
+- **New Risk…** — open a blank RAID form to record a new item
+- **Close Risk** (**Close Issue** for an issue) — set the status to Closed
+  and append ``Closed <date>`` to the item's Mitigation Actions, so the log
+  records when it stopped being live. Hidden for items already closed.
+- **Open RAID Log** — switch to the full RAID Log view
+
 Filter and Sort
 ----------------
 

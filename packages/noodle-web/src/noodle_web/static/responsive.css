@@ -189,11 +189,12 @@
         width: 4px;
     }
 
-    .gantt-toolbar {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--np-space-12);
-    }
+    /* #1287: the `.gantt-toolbar` restack is gone with the toolbar itself.
+       It turned a two-item row into a column at this breakpoint; by the time
+       the scale selector and the toggles had all moved to the ribbon, the row
+       held one visible child and there was nothing left to restack. The Gantt
+       title is now a direct child of `.gantt-content` and needs no
+       breakpoint-specific layout. */
 
     /* Resources table scroll */
     .resources-content {
