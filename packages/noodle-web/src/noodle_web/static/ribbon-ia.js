@@ -249,7 +249,19 @@ export const CONTEXTUAL_TABS = [
         trigger: 'Gantt view open',
         groups: [
             { name: 'Schedule', launcher: true, lg: [['link', 'Link'], ['unlink', 'Unlink']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['target', 'Critical Path'], ['clock', 'Baseline']]] },
-            { name: 'Zoom', cols: [[['calendar', 'Day/Week/Month', 'caret'], ['search', 'Fit']], [['clock', 'Today'], ['target', 'Go to Task']]] },
+            // #1267: the scale's own subsection. Five mutually exclusive
+            // buttons (exactly one pressed, driven by isButtonActive()'s
+            // `gantt` block against the ganttScale global) replacing both the
+            // Gantt toolbar's <select> and the old ['calendar',
+            // 'Day/Week/Month', 'caret'] popover that used to sit in `Zoom`.
+            // The five icons are deliberately all DIFFERENT: the simple
+            // ribbon (#955/#1026) collapses buttons to icon-only, where five
+            // identical icons would be indistinguishable. There is no
+            // per-duration glyph in _icon_sprite.html, so these are reused
+            // sprite icons chosen only to be tellable apart, ordered
+            // shortest-to-longest span.
+            { name: 'Scale', cols: [[['calendar', 'Days'], ['grid', 'Weeks'], ['timeline', 'Months']], [['chart', 'Quarters'], ['clock', 'Years']]] },
+            { name: 'Zoom', cols: [[['search', 'Fit'], ['clock', 'Today']], [['target', 'Go to Task']]] },
             { name: 'Show', cols: [[['timeline', 'Slack'], ['milestones', 'Milestones']], [['link', 'Deps'], ['chart', 'Progress']]] },
             // #1266: Set Baseline / Show Baseline moved off the Gantt toolbar
             // into their own one-column group rather than deepening Schedule's

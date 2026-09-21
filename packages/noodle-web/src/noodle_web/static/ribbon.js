@@ -95,6 +95,11 @@ function getLiveState() {
         ganttShowCriticalPath: !!document.getElementById('ganttShowCriticalPath')?.checked,
         ganttShowBaseline: !!document.getElementById('ganttShowBaseline')?.checked,
         ganttShowDependencies: !!document.getElementById('ganttShowDependencies')?.checked,
+        // #1267: the Gantt scale, for the `Scale` group's five mutually
+        // exclusive buttons. `ganttScale` is a plain global (state.js),
+        // defaulting to 'days' -- so the right button is pressed on first
+        // render, before any click. Not persisted anywhere today.
+        ganttScale: (typeof ganttScale !== 'undefined') ? ganttScale : 'days',
         // #1112: the ribbon's Baseline button opens the Baseline dialog
         // rather than toggling ganttShowBaseline, so its pressed state now
         // reflects whether a baseline is actually active, not display prefs.
@@ -412,7 +417,20 @@ function scopedAction(scopeId, label) {
         // whiteboard toolbar's own "New post-it"/"Text note" buttons and
         // the `n` keyboard shortcut already call.
         'whiteboard:Note': () => { if (typeof wbCreateNoteInViewportCentre === 'function') wbCreateNoteInViewportCentre(); },
-        'gantt:Day/Week/Month': () => openFormatMenu(GANTT_SCALES, 'Scale'),
+        // #1267: the Gantt scale's five ribbon buttons (group `Scale` in
+        // ribbon-ia.js). Scoped rather than added flat to LABEL_ACTIONS so
+        // generic words like "Days"/"Years" can never resolve for buttons on
+        // other tabs. They reuse GANTT_SCALES' existing run() closures, which
+        // set #ganttScale's value and dispatch `change` -- the one wiring
+        // views-gantt.js listens on. These replace the old caret popover
+        // entry, removed together with its ribbon-ia.js label so nothing
+        // falls through to a "not available yet" toast (see
+        // tests/test_ribbon_action_coverage.mjs's header).
+        'gantt:Days': GANTT_SCALES[0].run,
+        'gantt:Weeks': GANTT_SCALES[1].run,
+        'gantt:Months': GANTT_SCALES[2].run,
+        'gantt:Quarters': GANTT_SCALES[3].run,
+        'gantt:Years': GANTT_SCALES[4].run,
     };
     return table[`${scopeId}:${label}`];
 }
@@ -536,7 +554,7 @@ function resolveAction(scopeId, label) {
  * refreshRibbon() replaces .ribbon-tabstrip's innerHTML wholesale, which
  * would destroy that popover the instant it opened, so these must skip
  * the post-action refresh rather than re-render over their own menu. */
-const OPENS_OWN_POPOVER = new Set(['Export', 'Export…', 'Import', 'Import from Excel / MS Project', 'Group by', 'Day/Week/Month', 'Highlight Preset']);
+const OPENS_OWN_POPOVER = new Set(['Export', 'Export…', 'Import', 'Import from Excel / MS Project', 'Group by', 'Highlight Preset']);
 
 function runAction(scopeId, label, anchorEl = null) {
     ribbonActionAnchor = anchorEl;
@@ -761,6 +779,14 @@ function isButtonActive(scopeId, label, live) {
     if (label === 'Show Tags') return !!live.highlightToggles?.tag;
     if (label === 'Show Comments') return !!live.highlightToggles?.comment;
     if (label === 'Show Dependencies') return !!live.highlightToggles?.dependency;
+    if (scopeId === 'gantt') {
+        // #1267: radio-style group -- same shape as the kanban view modes below.
+        if (label === 'Days') return live.ganttScale === 'days';
+        if (label === 'Weeks') return live.ganttScale === 'weeks';
+        if (label === 'Months') return live.ganttScale === 'months';
+        if (label === 'Quarters') return live.ganttScale === 'quarters';
+        if (label === 'Years') return live.ganttScale === 'years';
+    }
     if (scopeId === 'kanban') {
         if (label === 'Phase') return live.kanbanViewMode === 'phase';
         if (label === 'Resource') return live.kanbanViewMode === 'resource';
