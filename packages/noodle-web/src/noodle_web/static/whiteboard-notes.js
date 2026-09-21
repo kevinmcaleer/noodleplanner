@@ -3272,6 +3272,38 @@ function wbFillResourceStack(host, resources, cap, size, taskName) {
     return stack;
 }
 
+/** Clear the touch-armed state from every scissors cut on the board,
+ * optionally sparing one.
+ *
+ * Arming is document-wide state (only one cut should ever show its
+ * scissors at a time), so disarming has to be too. Scoping the sweep to
+ * the pressed row's own note body -- which is what it used to do -- left
+ * an armed cut on note A showing forever once the press moved to note B,
+ * because nothing in note B could see note A's cuts.
+ */
+function wbDisarmCuts(except) {
+    document.querySelectorAll('.wb-note-cut[data-wb-armed]').forEach((el) => {
+        if (el !== except) delete el.dataset.wbArmed;
+    });
+}
+
+// Any press that is not the arming press itself disarms: tapping another
+// note, the canvas, or a toolbar all put the scissors away. Capture phase,
+// so this runs before the row's own pointerdown handler re-arms its cut.
+if (typeof document !== 'undefined' && !globalThis.__wbCutDisarmWired) {
+    globalThis.__wbCutDisarmWired = true;
+    document.addEventListener('pointerdown', (e) => {
+        // A press on the armed cut itself (the scissors button, or the gap
+        // strip around it) is the second tap the arming exists for.
+        if (e.target && e.target.closest && e.target.closest('.wb-note-cut')) return;
+        wbDisarmCuts(null);
+    }, true);
+    // Keyboard dismissal, to match every other transient affordance here.
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') wbDisarmCuts(null);
+    }, true);
+}
+
 /** Build one child-task row for a note body.
  *
  * `options.scissors` (issue #874): the cut *after* this row, only when
@@ -3383,14 +3415,18 @@ function wbBuildChildRow(childVm, options) {
         refs.scissors.addEventListener('pointerdown', stop);
         // Touch has no hover, so a press on the row above the cut arms it
         // -- the scissors become visible, then a second tap fires click.
-        // Fine pointers already get hover-reveal on the gap itself.
-        row.addEventListener('pointerdown', () => {
-            const body = row.parentElement;
-            if (body) {
-                body.querySelectorAll('.wb-note-cut[data-wb-armed]').forEach(el => {
-                    delete el.dataset.wbArmed;
-                });
-            }
+        // Fine pointers already get hover-reveal on the gap itself, so a
+        // mouse press must NOT arm: it has no second tap to spend, and the
+        // armed cut would then outlive the press (#874 follow-up -- clicking
+        // a row's count badge left the scissors showing on a note that had
+        // since lost focus).
+        row.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'mouse') return;
+            // A press aimed at one of the row's own controls -- the count
+            // badge, the checkbox, the date or assign buttons -- is that
+            // control's gesture, not a bid to split the note.
+            if (e.target && e.target.closest && e.target.closest('button, input, np-resource-stack')) return;
+            wbDisarmCuts(refs.cut);
             if (refs.cut) refs.cut.dataset.wbArmed = 'true';
         });
     }
