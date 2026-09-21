@@ -29,6 +29,27 @@ const TIMELINE_CAPTURE_SCALE = 2;
 const TIMELINE_CAPTURE_WIDTH = 1200;
 
 /**
+ * The width the portfolio timeline is rasterised at (#1276).
+ *
+ * The capture used to be taken from the live `#portfolioTimelineView`, so the
+ * deck's timeline came out as wide as whatever window the export happened to
+ * run in. It is rendered offscreen at a fixed width now, which both keeps the
+ * image the same for everyone and leaves the user's view alone.
+ */
+const PORTFOLIO_TIMELINE_CAPTURE_WIDTH = 1600;
+
+/**
+ * Hand the main thread back to the browser, so queued input and a paint can
+ * run before the export takes it again (#1276).
+ */
+function yieldToUi() {
+    if (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.yield === 'function') {
+        return scheduler.yield();
+    }
+    return new Promise(function(resolve) { setTimeout(resolve, 0); });
+}
+
+/**
  * The markup for one project's timeline block: a date scale header, the SVG
  * swimlane, and a "today" marker when today falls inside the range.
  *
@@ -215,7 +236,7 @@ async function rasteriseTimelineBlocks(blocks) {
  * @param {Array<{tasks: Array, name: string}>} projects
  * @returns {Promise<Array<string|null>>} Base64 PNGs, aligned with `projects`.
  */
-async function captureProjectTimelineImages(projects) {
+async function captureProjectTimelineImages(projects, onProgress) {
     if (typeof html2canvas === 'undefined') return projects.map(function() { return null; });
 
     var blocks = projects.map(function(project) {
@@ -227,22 +248,86 @@ async function captureProjectTimelineImages(projects) {
         }
     });
 
+    // Hand the main thread back before and after the capture. html2canvas
+    // itself is one long task -- measured at ~2.5s fixed plus ~0.15s per
+    // block on a ten-project portfolio -- and there is no way to chunk it
+    // from out here: splitting the blocks across calls pays that 2.5s again
+    // per call to shave under a second off the longest pause. So the export
+    // yields around it instead, which is what lets the toast repaint and the
+    // queued clicks run (#1276).
+    await yieldToUi();
+
+    var images;
     try {
-        return await rasteriseTimelineBlocks(blocks);
+        images = await rasteriseTimelineBlocks(blocks);
     } catch (err) {
         console.warn('Batched timeline capture failed, falling back to one at a time:', err);
+        images = [];
+        for (var i = 0; i < blocks.length; i++) {
+            await yieldToUi();
+            try {
+                images.push((await rasteriseTimelineBlocks([blocks[i]]))[0]);
+            } catch (inner) {
+                console.warn('Could not capture project timeline for ' + projects[i].name + ':', inner);
+                images.push(null);
+            }
+            if (onProgress) onProgress(images.length, blocks.length);
+        }
+        return images;
     }
 
-    var images = [];
-    for (var i = 0; i < blocks.length; i++) {
-        try {
-            images.push((await rasteriseTimelineBlocks([blocks[i]]))[0]);
-        } catch (err) {
-            console.warn('Could not capture project timeline for ' + projects[i].name + ':', err);
-            images.push(null);
-        }
-    }
+    if (onProgress) onProgress(images.length, blocks.length);
+    await yieldToUi();
     return images;
+}
+
+/**
+ * Capture the portfolio-wide timeline as a PNG, rendered offscreen (#1276).
+ *
+ * The export used to force `#portfolioTimelineView` visible, re-render it
+ * from scratch and rasterise it in place. That made an export the user had
+ * left running in the background reach in and rebuild a view they might be
+ * reading -- and it tied the deck's image to the current window width. The
+ * same markup is built into a detached, fixed-width element here instead, so
+ * nothing the user can see moves.
+ *
+ * @param {Array} parsedProjects Results in parseAllProjects() shape
+ * @returns {Promise<string|null>} Base64 PNG, or null when there is nothing
+ *   to draw or the capture fails.
+ */
+async function capturePortfolioTimelineImage(parsedProjects) {
+    if (typeof html2canvas === 'undefined') return null;
+    if (typeof buildPortfolioTimelineMarkup !== 'function') return null;
+
+    var built;
+    try {
+        built = buildPortfolioTimelineMarkup(parsedProjects);
+    } catch (err) {
+        console.warn('Could not build the portfolio timeline for export:', err);
+        return null;
+    }
+    if (!built) return null;
+
+    var host = document.createElement('div');
+    host.style.position = 'absolute';
+    host.style.left = '-9999px';
+    host.style.top = '0';
+    host.style.width = PORTFOLIO_TIMELINE_CAPTURE_WIDTH + 'px';
+    host.style.background = '#ffffff';
+    host.innerHTML = built.html;
+    document.body.appendChild(host);
+
+    try {
+        var target = host.querySelector('.portfolio-timeline-container');
+        if (!target) return null;
+        var canvas = await html2canvas(target, { backgroundColor: '#ffffff', scale: TIMELINE_CAPTURE_SCALE });
+        return canvas.toDataURL('image/png').split(',')[1] || null;
+    } catch (err) {
+        console.warn('Could not capture portfolio timeline as image:', err);
+        return null;
+    } finally {
+        host.remove();
+    }
 }
 
 /**
@@ -257,12 +342,41 @@ async function captureProjectTimelineImage(tasks, projectName) {
     return images[0];
 }
 
+/** The export in flight, if there is one -- see exportPortfolioReport. */
+let portfolioExportInFlight = null;
+
 /**
  * Export the portfolio as a PowerPoint report.
- * Parses all projects via /api/parse, collects report data for each,
- * then sends it to /api/portfolio/export-pptx.
+ *
+ * The work runs in the background (#1276): it is one task, app-wide, that
+ * keeps going while the user moves around the app, reports into a toast that
+ * outlives the portfolio view, and hands the main thread back between steps
+ * so the rest of the app stays responsive. A second click while one is
+ * running joins the export already under way rather than starting another --
+ * two exports would compete for the same main thread and rasterise the same
+ * timelines twice.
+ *
+ * @returns {Promise} Resolves when the export finishes (or fails).
  */
-async function exportPortfolioReport() {
+function exportPortfolioReport() {
+    if (portfolioExportInFlight) {
+        if (typeof showMessage === 'function') {
+            showMessage('editor', 'info', 'A portfolio report export is already running.');
+        }
+        return portfolioExportInFlight;
+    }
+
+    portfolioExportInFlight = runPortfolioReportExport().finally(function() {
+        portfolioExportInFlight = null;
+    });
+    return portfolioExportInFlight;
+}
+
+/**
+ * The export itself. Parses all projects via /api/parse, collects report data
+ * for each, captures the timelines, and builds the deck.
+ */
+async function runPortfolioReportExport() {
     // Show a loading indicator
     const btn = document.getElementById('portfolioExportBtn');
     const originalText = btn ? btn.textContent : '';
@@ -299,6 +413,9 @@ async function exportPortfolioReport() {
 
         for (const { project, parsedResult } of parsedProjects) {
             projectIndex++;
+            // One project's worth of work per task, so a portfolio of any
+            // size never holds the main thread for the whole loop (#1276).
+            await yieldToUi();
             if (progress) {
                 progress.update(
                     'Collecting data: ' + (project.name || 'project') + ' (' + projectIndex + '/' + totalProjects + ')',
@@ -367,7 +484,14 @@ async function exportPortfolioReport() {
         if (progress) {
             progress.update('Capturing project timelines (' + totalProjects + ')...', 40);
         }
-        const timelineImages = await captureProjectTimelineImages(timelineSpecs);
+        const timelineImages = await captureProjectTimelineImages(timelineSpecs, function(done, total) {
+            if (progress) {
+                progress.update(
+                    'Capturing project timelines (' + done + '/' + total + ')...',
+                    40 + (done / Math.max(total, 1)) * 12
+                );
+            }
+        });
         timelineImages.forEach(function(image, index) {
             if (image) projectReports[index].timeline_image = image;
         });
@@ -378,41 +502,12 @@ async function exportPortfolioReport() {
             return (ragOrder[a.rag] || 2) - (ragOrder[b.rag] || 2);
         });
 
-        if (progress) progress.update('Rendering portfolio timeline...', 52);
+        if (progress) progress.update('Capturing portfolio timeline...', 56);
 
-        // Ensure the portfolio timeline SVG is rendered before capture
-        if (typeof renderPortfolioTimeline === 'function') {
-            const timelineView = document.getElementById('portfolioTimelineView');
-            const wasHiddenPre = timelineView && timelineView.style.display === 'none';
-            if (wasHiddenPre) timelineView.style.display = 'block';
-            await renderPortfolioTimeline(parsedProjects);
-            if (wasHiddenPre) timelineView.style.display = 'none';
-        }
-
-        if (progress) progress.update('Capturing portfolio timeline...', 58);
-
-        // Capture the portfolio timeline as a PNG image using html2canvas
-        // so the PPTX gets a high-fidelity rendering of the SVG-based timeline.
-        let timelineImageB64 = null;
-        const timelineContainer = document.querySelector('#portfolioTimelineView .portfolio-timeline-container');
-        if (timelineContainer && typeof html2canvas !== 'undefined') {
-            try {
-                // Temporarily ensure timeline view is visible for capture
-                const timelineView = document.getElementById('portfolioTimelineView');
-                const wasHidden = timelineView && timelineView.style.display === 'none';
-                if (wasHidden) timelineView.style.display = 'block';
-
-                const canvas = await html2canvas(timelineContainer, { backgroundColor: '#ffffff', scale: 2 });
-
-                if (wasHidden) timelineView.style.display = 'none';
-
-                const dataUrl = canvas.toDataURL('image/png');
-                // Strip the data:image/png;base64, prefix
-                timelineImageB64 = dataUrl.split(',')[1] || null;
-            } catch (err) {
-                console.warn('Could not capture portfolio timeline as image:', err);
-            }
-        }
+        // Built and rasterised offscreen, so an export running in the
+        // background never touches the view the user is on (#1276).
+        await yieldToUi();
+        const timelineImageB64 = await capturePortfolioTimelineImage(parsedProjects);
 
         const payload = {
             portfolio_name: 'Portfolio',

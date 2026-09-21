@@ -6,6 +6,106 @@
 let currentTimelineScale = 'months';
 
 /**
+ * Build the portfolio timeline's swimlane markup from parsed projects.
+ *
+ * Split out of renderPortfolioTimeline so the PowerPoint export can render
+ * the same markup into an offscreen element and rasterise it there (#1276).
+ * The export used to force `#portfolioTimelineView` visible and re-render it
+ * in place, which rebuilt a view the user might have been reading -- or
+ * flashed one up over whichever page they had navigated to while the export
+ * ran in the background.
+ *
+ * @param {Array} parsedProjects Results in parseAllProjects() shape
+ * @param {string} [scale] Date scale; defaults to the view's current one
+ * @returns {{html: string, timelines: Array, globalStart: Date, globalEnd: Date}|null}
+ *   null when no project carries enough date data to draw.
+ */
+function buildPortfolioTimelineMarkup(parsedProjects, scale) {
+    const timelineScale = scale || currentTimelineScale;
+    const timelines = [];
+    let globalStart = null;
+    let globalEnd = null;
+
+    parsedProjects.forEach(({ project, parsedResult }) => {
+        if (!parsedResult || !parsedResult.success || !parsedResult.tasks) return;
+
+        const tasks = parsedResult.tasks;
+        const phases = tasks.filter(t => t.is_summary && t.start && t.finish);
+        const milestones = tasks.filter(t => !t.is_summary && t.duration_days === 0 && t.finish);
+
+        // Skip projects with no date data
+        if (phases.length === 0 && milestones.length === 0) return;
+
+        // Compute project date range
+        let projectStart = null;
+        let projectEnd = null;
+
+        tasks.forEach(t => {
+            if (t.start) {
+                const s = new Date(t.start);
+                if (!projectStart || s < projectStart) projectStart = s;
+            }
+            if (t.finish) {
+                const f = new Date(t.finish);
+                if (!projectEnd || f > projectEnd) projectEnd = f;
+            }
+        });
+
+        if (!projectStart || !projectEnd) return;
+
+        // Calculate overall project progress from leaf tasks
+        const leafTasks = tasks.filter(t => !t.is_summary);
+        let overallPercent = 0;
+        if (leafTasks.length > 0) {
+            const totalPct = leafTasks.reduce((sum, t) => sum + (parseFloat(t.percent) || 0), 0);
+            overallPercent = Math.round(totalPct / leafTasks.length);
+        }
+
+        timelines.push({
+            projectId: project.id,
+            projectName: project.name,
+            phases,
+            milestones,
+            startDate: projectStart,
+            endDate: projectEnd,
+            overallPercent
+        });
+
+        if (!globalStart || projectStart < globalStart) globalStart = projectStart;
+        if (!globalEnd || projectEnd > globalEnd) globalEnd = projectEnd;
+    });
+
+    if (timelines.length === 0) return null;
+
+    // No extra padding — start and end sit at the edges
+
+    let html = '<div class="portfolio-timeline-wrapper">' +
+        '<div class="portfolio-timeline-container" style="position: relative;">';
+
+    // Date scale header
+    html += renderTimelineScale(globalStart, globalEnd, timelineScale);
+
+    // Render each project as a swimlane
+    timelines.forEach(timeline => {
+        html += renderProjectSwimlane(timeline, globalStart, globalEnd);
+    });
+
+    // Today marker spanning all swimlanes (positioned within the track area)
+    const today = new Date();
+    if (today >= globalStart && today <= globalEnd) {
+        const todayPct = ((today - globalStart) / (globalEnd - globalStart)) * 100;
+        // The track area starts after the 200px label column.
+        // Use calc to position: 200px label + todayPct% of remaining width
+        html += '<div class="portfolio-today-line" style="left: calc(200px + (100% - 200px) * ' +
+            (todayPct / 100) + ');"></div>';
+    }
+
+    html += '</div></div>';
+
+    return { html: html, timelines: timelines, globalStart: globalStart, globalEnd: globalEnd };
+}
+
+/**
  * Render portfolio timeline view (async — uses /api/parse)
  *
  * @param {Array} [preParsed] Already-parsed projects, in the shape
@@ -33,61 +133,9 @@ async function renderPortfolioTimeline(preParsed) {
             return;
         }
 
-        // Build timeline data from parsed results
-        const timelines = [];
-        let globalStart = null;
-        let globalEnd = null;
+        const built = buildPortfolioTimelineMarkup(parsedProjects, currentTimelineScale);
 
-        parsedProjects.forEach(({ project, parsedResult }) => {
-            if (!parsedResult || !parsedResult.success || !parsedResult.tasks) return;
-
-            const tasks = parsedResult.tasks;
-            const phases = tasks.filter(t => t.is_summary && t.start && t.finish);
-            const milestones = tasks.filter(t => !t.is_summary && t.duration_days === 0 && t.finish);
-
-            // Skip projects with no date data
-            if (phases.length === 0 && milestones.length === 0) return;
-
-            // Compute project date range
-            let projectStart = null;
-            let projectEnd = null;
-
-            tasks.forEach(t => {
-                if (t.start) {
-                    const s = new Date(t.start);
-                    if (!projectStart || s < projectStart) projectStart = s;
-                }
-                if (t.finish) {
-                    const f = new Date(t.finish);
-                    if (!projectEnd || f > projectEnd) projectEnd = f;
-                }
-            });
-
-            if (!projectStart || !projectEnd) return;
-
-            // Calculate overall project progress from leaf tasks
-            const leafTasks = tasks.filter(t => !t.is_summary);
-            let overallPercent = 0;
-            if (leafTasks.length > 0) {
-                const totalPct = leafTasks.reduce((sum, t) => sum + (parseFloat(t.percent) || 0), 0);
-                overallPercent = Math.round(totalPct / leafTasks.length);
-            }
-
-            timelines.push({
-                projectId: project.id,
-                projectName: project.name,
-                phases,
-                milestones,
-                startDate: projectStart,
-                endDate: projectEnd,
-                overallPercent
-            });
-
-            if (!globalStart || projectStart < globalStart) globalStart = projectStart;
-            if (!globalEnd || projectEnd > globalEnd) globalEnd = projectEnd;
-        });
-
-        if (timelines.length === 0) {
+        if (!built) {
             container.innerHTML = '<np-empty-state variant="card" heading="No Timeline Data">' +
                 '<p>Add tasks with dates or durations to your project plans to see the timeline.</p>' +
                 '<p>The backend scheduler computes dates from <code>@resource 5d</code> notation automatically.</p>' +
@@ -95,10 +143,9 @@ async function renderPortfolioTimeline(preParsed) {
             return;
         }
 
-        // No extra padding — start and end sit at the edges
+        const { timelines, globalStart, globalEnd } = built;
 
-        // Build HTML
-        let html = '<div class="portfolio-timeline-header">' +
+        container.innerHTML = '<div class="portfolio-timeline-header">' +
             '<h2><span class="ribbon-banner ribbon-banner--green">Portfolio Timeline</span></h2>' +
             '<div class="timeline-controls">' +
             '<label>Scale: </label>' +
@@ -108,32 +155,7 @@ async function renderPortfolioTimeline(preParsed) {
             '<option value="years"' + (currentTimelineScale === 'years' ? ' selected' : '') + '>Years</option>' +
             '</select>' +
             '</div>' +
-            '</div>';
-
-        html += '<div class="portfolio-timeline-wrapper">' +
-            '<div class="portfolio-timeline-container" style="position: relative;">';
-
-        // Date scale header
-        html += renderTimelineScale(globalStart, globalEnd, currentTimelineScale);
-
-        // Render each project as a swimlane
-        timelines.forEach(timeline => {
-            html += renderProjectSwimlane(timeline, globalStart, globalEnd);
-        });
-
-        // Today marker spanning all swimlanes (positioned within the track area)
-        const today = new Date();
-        if (today >= globalStart && today <= globalEnd) {
-            const todayPct = ((today - globalStart) / (globalEnd - globalStart)) * 100;
-            // The track area starts after the 200px label column.
-            // Use calc to position: 200px label + todayPct% of remaining width
-            html += '<div class="portfolio-today-line" style="left: calc(200px + (100% - 200px) * ' +
-                (todayPct / 100) + ');"></div>';
-        }
-
-        html += '</div></div>';
-
-        container.innerHTML = html;
+            '</div>' + built.html;
 
         // Draw inter-project dependency arrows if the module is loaded
         if (typeof drawDependencyArrows === 'function' && typeof propagateProgrammeDependencies === 'function') {
