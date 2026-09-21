@@ -34,37 +34,10 @@
     flex-shrink: 0;
 }
 
-.gantt-scale-selector {
-    display: flex;
-    align-items: center;
-    gap: var(--np-space-12);
-}
-
-.gantt-scale-selector label {
-    font-weight: 600;
-    color: var(--np-accent);
-}
-
-.gantt-scale-selector select {
-    padding: var(--np-space-8) var(--np-space-12);
-    border: 2px solid var(--np-accent);
-    border-radius: 4px;
-    background: white;
-    color: #2c3e50;
-    font-size: 0.95em;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.gantt-scale-selector select:hover {
-    background: #e8eaf6;
-}
-
-.gantt-scale-selector select:focus {
-    outline: none;
-    border-color: var(--np-accent-hover);
-    box-shadow: 0 0 0 3px rgba(16, 139, 185, 0.15);
-}
+/* #1267: `.gantt-scale-selector` and its <select> styling are gone -- the
+   scale now lives in the Gantt Tools ribbon's "Scale" button group. The
+   #ganttScale <select> itself is kept hidden in index.html as the wiring's
+   source of truth, so it needs no visual styling. */
 
 .gantt-toolbar-controls {
     display: flex;
