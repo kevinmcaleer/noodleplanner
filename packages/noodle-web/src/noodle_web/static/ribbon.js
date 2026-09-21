@@ -254,6 +254,10 @@ const LABEL_HELP = {
     'Show Dependencies': 'Toggle dependency syntax highlighting in the markdown editor (opens it if hidden)',
     'Highlight Preset': 'Choose a markdown editor syntax-highlighting preset (opens the editor if hidden)',
     Editor: 'Show or hide the markdown editor panel',
+    // #1266: moved off the Gantt toolbar, where these were the button
+    // titles; Baseline itself still opens the dialog (#1112).
+    'Set Baseline': 'Save the current schedule as the baseline',
+    'Show Baseline': 'Show or hide the baseline overlay on the Gantt chart',
     // #1123: the per-target RAID Excel / MS Project sync already built in
     // #868 lives in Settings > Sync -- there is no consolidated one-click
     // control yet (that's #913's single-button, multi-target work). This
@@ -465,10 +469,26 @@ const LABEL_ACTIONS = {
     'Critical Path': () => toggleGanttCheckbox('ganttShowCriticalPath'),
     // #1112: used to just toggle the Gantt "show baseline overlay" checkbox
     // (ganttShowBaseline), which did nothing to actually create or manage a
-    // baseline. That checkbox is still reachable from its own control next
-    // to the Gantt view's "Set Baseline" button; this button now opens the
-    // full Baseline dialog (create/list/clear/delete) instead.
+    // baseline. That checkbox is now flipped by this tab's own "Show
+    // Baseline" button (#1266); this button opens the full Baseline dialog
+    // (create/list/clear/delete) instead.
     Baseline: () => { if (typeof openBaselineDialog === 'function') openBaselineDialog(); },
+    // #1266: the Gantt toolbar's own "Set Baseline" / "Show Baseline"
+    // controls moved here. "Set Baseline" is the one-click snapshot (it
+    // asks for confirmation itself); "Show Baseline" flips the overlay
+    // checkbox that is still the front-matter source of truth.
+    'Set Baseline': () => { if (typeof setBaseline === 'function') setBaseline(); },
+    // With no baseline saved there is nothing to draw, and the old
+    // control simply wasn't rendered in that state. A ribbon button has no
+    // hidden state, so it says why instead of toggling an empty overlay.
+    'Show Baseline': () => {
+        const hasBaseline = (typeof baselineItems !== 'undefined') && baselineItems.length > 0;
+        if (!hasBaseline) {
+            if (typeof showToast === 'function') showToast('No baseline saved yet -- use Set Baseline first.', 'info');
+            return;
+        }
+        toggleGanttCheckbox('ganttShowBaseline');
+    },
     Dependencies: () => toggleGanttCheckbox('ganttShowDependencies'),
     Deps: () => toggleGanttCheckbox('ganttShowDependencies'),
     Risk: () => addRaidItem(),
@@ -730,6 +750,9 @@ function isButtonActive(scopeId, label, live) {
     if (label === 'Editor') return live.editorVisible;
     if (label === 'Critical Path') return live.ganttShowCriticalPath;
     if (label === 'Baseline') return live.hasActiveBaseline;
+    // #1266: the overlay toggle is its own label with its own state --
+    // 'Baseline' above deliberately means "a baseline exists" (#1112).
+    if (label === 'Show Baseline') return live.ganttShowBaseline;
     if (label === 'Dependencies' || label === 'Deps') return live.ganttShowDependencies;
     if (label === 'Dark Mode') return live.isDark;
     if (label === 'System Theme') return live.themeChoice === 'system';

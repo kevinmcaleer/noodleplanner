@@ -249,6 +249,11 @@ export const CONTEXTUAL_TABS = [
         trigger: 'Gantt view open',
         groups: [
             { name: 'Schedule', launcher: true, lg: [['link', 'Link'], ['unlink', 'Unlink']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['target', 'Critical Path'], ['clock', 'Baseline']]] },
+            // #1266: Set Baseline / Show Baseline moved off the Gantt toolbar.
+            // They sit in their own one-column group rather than deepening
+            // Schedule's columns to 4, which would have changed where the
+            // whole strip collapses into "More" (see ribbon-layout.js).
+            { name: 'Baseline', cols: [[['save', 'Set Baseline'], ['timeline', 'Show Baseline']]] },
             { name: 'Zoom', cols: [[['calendar', 'Day/Week/Month', 'caret'], ['search', 'Fit']], [['clock', 'Today'], ['target', 'Go to Task']]] },
             { name: 'Show', cols: [[['timeline', 'Slack'], ['milestones', 'Milestones']], [['link', 'Deps'], ['chart', 'Progress']]] },
         ],
