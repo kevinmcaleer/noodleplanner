@@ -690,10 +690,6 @@ body {
     accent-color: var(--np-accent);
 }
 
-[data-theme="dark"] .gantt-title {
-    color: var(--np-text);
-}
-
 [data-theme="dark"] .tasks-title {
     color: var(--np-text);
 }

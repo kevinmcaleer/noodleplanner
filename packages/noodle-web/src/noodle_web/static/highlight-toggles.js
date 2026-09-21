@@ -19,6 +19,18 @@
 (function (root) {
     const STORAGE_KEY = 'noodleplanner:highlight-toggles';
 
+    // Bumped to 2 by #1278. Before that fix the DADESRC wizard applied a
+    // stage preset through applyPreset(), which *persists* -- so merely
+    // opening the wizard (it always starts on Design, whose preset is
+    // everything-off) permanently wrote an all-off state to this key and
+    // the editor's resources/dates/dependencies stayed plain text long
+    // after the wizard was closed. A stored payload without this version
+    // marker is that legacy state and is discarded rather than migrated:
+    // there is no way to tell a genuine user preference apart from the
+    // wizard's side effect, and "highlighting on" is the default the
+    // module has always documented.
+    const STORAGE_VERSION = 2;
+
     const CATEGORIES = ['duration', 'resource', 'tag', 'comment', 'dependency'];
 
     // Stage presets (#783's DADESRC) a caller -- today the ribbon's own
@@ -50,6 +62,7 @@
             const raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(STORAGE_KEY) : null;
             if (!raw) return defaultState();
             const parsed = JSON.parse(raw);
+            if (!parsed || parsed.v !== STORAGE_VERSION) return defaultState();
             const state = defaultState();
             for (const key of CATEGORIES) if (typeof parsed[key] === 'boolean') state[key] = parsed[key];
             return state;
@@ -60,9 +73,17 @@
 
     let state = load();
 
+    // A transient, never-persisted preset applied *over* the user's own
+    // state -- see applyOverride(). Null whenever no caller is overriding.
+    let override = null;
+
+    function effectiveState() { return override || state; }
+
     function save() {
         try {
-            if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, v: STORAGE_VERSION }));
+            }
         } catch (error) {
             // Private mode / quota exceeded -- state just won't persist.
         }
@@ -71,8 +92,9 @@
     function applyToDom() {
         const body = (typeof document !== 'undefined') ? document.body : null;
         if (!body) return;
+        const active = effectiveState();
         for (const key of CATEGORIES) {
-            body.classList.toggle('hl-off-' + key, !state[key]);
+            body.classList.toggle('hl-off-' + key, !active[key]);
         }
     }
 
@@ -80,6 +102,9 @@
 
     function setCategory(category, on) {
         if (CATEGORIES.indexOf(category) === -1) return;
+        // An explicit user toggle is the user speaking: it ends any
+        // transient override rather than being silently masked by it.
+        override = null;
         state[category] = !!on;
         save();
         applyToDom();
@@ -92,6 +117,7 @@
     function applyPreset(name) {
         const preset = PRESETS[name];
         if (!preset) return false;
+        override = null;
         state = { ...preset };
         save();
         applyToDom();
@@ -100,9 +126,36 @@
 
     function getState() { return { ...state }; }
 
+    /**
+     * Apply a preset for as long as some mode is active, without touching
+     * the user's saved preference (#1278). The DADESRC wizard uses this:
+     * its stage presets are a temporary lens over the editor, so closing
+     * the wizard (clearOverride()) must restore whatever highlighting the
+     * user had before it opened. getState()/isOn() keep reporting the
+     * user's own state so the ribbon's checkmarks stay truthful.
+     */
+    function applyOverride(name) {
+        const preset = PRESETS[name];
+        if (!preset) return false;
+        override = { ...preset };
+        applyToDom();
+        return true;
+    }
+
+    function clearOverride() {
+        if (!override) return;
+        override = null;
+        applyToDom();
+    }
+
+    function getEffectiveState() { return { ...effectiveState() }; }
+
     applyToDom();
 
-    const api = { CATEGORIES, PRESETS, isOn, setCategory, toggleCategory, applyPreset, getState };
+    const api = {
+        CATEGORIES, PRESETS, isOn, setCategory, toggleCategory, applyPreset, getState,
+        applyOverride, clearOverride, getEffectiveState,
+    };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     root.HighlightToggles = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

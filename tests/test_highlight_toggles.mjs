@@ -151,3 +151,83 @@ test('getState() returns a copy, not a live reference to internal state', () => 
     snapshot.duration = false;
     assert.equal(mod.isOn('duration'), true);
 });
+
+// #1278: the reported bug was "resources, dependencies and dates show as
+// plain white text while % complete is still coloured" -- exactly the
+// shape of an all-off toggle state (percent is the one token with no
+// toggle category), written by the wizard's Design-stage preset through
+// the persisting applyPreset() and never undone.
+test('applyOverride recolours the DOM without touching the saved preference, and clearOverride restores it', () => {
+    const { mod, storage, body } = loadModule();
+    const before = storage.getItem('noodleplanner:highlight-toggles');
+
+    assert.equal(mod.applyOverride('design'), true);
+    for (const c of mod.CATEGORIES) assert.equal(body.classList.contains('hl-off-' + c), true);
+    // The user's own state is untouched, in memory and on disk.
+    for (const c of mod.CATEGORIES) assert.equal(mod.isOn(c), true);
+    assert.equal(storage.getItem('noodleplanner:highlight-toggles'), before);
+
+    mod.clearOverride();
+    for (const c of mod.CATEGORIES) assert.equal(body.classList.contains('hl-off-' + c), false);
+});
+
+test('an override does not survive into a fresh module instance', () => {
+    const storage = makeStorage();
+    const first = loadModule({ storage });
+    first.mod.applyOverride('plain');
+
+    const second = loadModule({ storage, body: makeBody() });
+    for (const c of second.mod.CATEGORIES) {
+        assert.equal(second.mod.isOn(c), true);
+        assert.equal(second.body.classList.contains('hl-off-' + c), false);
+    }
+});
+
+test('applyOverride with an unknown name is a no-op and returns false', () => {
+    const { mod, body } = loadModule();
+    assert.equal(mod.applyOverride('nonexistent'), false);
+    for (const c of mod.CATEGORIES) assert.equal(body.classList.contains('hl-off-' + c), false);
+});
+
+// An explicit toggle is the user speaking, so it ends the override rather
+// than being masked by it -- otherwise flipping a category from the ribbon
+// while the wizard is open would appear to do nothing.
+test('an explicit toggle while an override is active ends the override and persists', () => {
+    const { mod, storage, body } = loadModule();
+    mod.applyOverride('plain');
+    mod.setCategory('resource', false);
+
+    assert.equal(body.classList.contains('hl-off-resource'), true);
+    assert.equal(body.classList.contains('hl-off-duration'), false, 'the override no longer masks the saved state');
+    assert.equal(JSON.parse(storage.getItem('noodleplanner:highlight-toggles')).resource, false);
+});
+
+test('getEffectiveState reports what is on screen; getState reports the user preference', () => {
+    const { mod } = loadModule();
+    mod.applyOverride('dependencies');
+    assert.deepEqual({ ...mod.getEffectiveState() }, { ...mod.PRESETS.dependencies });
+    assert.deepEqual({ ...mod.getState() }, { ...mod.PRESETS.all });
+});
+
+// Browsers that already ran the buggy wizard carry an all-off payload
+// under this key. It predates the version marker, so it is discarded on
+// load rather than migrated -- otherwise the fix would not reach anyone
+// who had already hit the bug.
+test('a pre-versioned stored payload is discarded in favour of the "all" default', () => {
+    const storage = makeStorage();
+    storage.setItem('noodleplanner:highlight-toggles',
+        JSON.stringify({ duration: false, resource: false, tag: false, comment: false, dependency: false }));
+    const { mod } = loadModule({ storage });
+    assert.deepEqual({ ...mod.getState() }, { ...mod.PRESETS.all });
+});
+
+test('a versioned stored payload is still honoured', () => {
+    const storage = makeStorage();
+    const first = loadModule({ storage });
+    first.mod.setCategory('comment', false);
+    const raw = JSON.parse(storage.getItem('noodleplanner:highlight-toggles'));
+    assert.equal(raw.v, 2, 'saved payloads carry the version marker');
+
+    const second = loadModule({ storage, body: makeBody() });
+    assert.equal(second.mod.isOn('comment'), false);
+});

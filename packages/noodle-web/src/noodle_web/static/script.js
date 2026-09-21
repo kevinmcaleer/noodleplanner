@@ -2961,19 +2961,104 @@ function showTaskContextMenuAtPosition(event, task, taskIndex) {
 }
 
 /**
+ * Collect the menu items the user can actually see: everything except the
+ * options of a collapsed inline submenu. Keeps arrow-key navigation in step
+ * with what is on screen.
+ */
+function getVisibleContextMenuItems(menu) {
+    return Array.from(menu.querySelectorAll('button[role="menuitem"]')).filter(item => {
+        const wrapper = item.closest('.task-context-submenu-items');
+        if (!wrapper) return true;
+        const submenu = wrapper.closest('.task-context-submenu');
+        return !!(submenu && submenu.classList.contains('open'));
+    });
+}
+
+/**
+ * Open or close an inline submenu, keeping aria-expanded honest and moving
+ * focus the way a disclosure is expected to.
+ */
+function setCompletionSubmenuOpen(wrapper, open) {
+    if (!wrapper) return;
+    const trigger = wrapper.querySelector(':scope > .task-context-menu-item');
+    wrapper.classList.toggle('open', open);
+    if (trigger) trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+
+    if (open) {
+        const first = wrapper.querySelector('.task-context-submenu-items button[role="menuitem"]');
+        const current = wrapper.querySelector('.task-context-submenu-items .completion-active');
+        (current || first)?.focus();
+    } else if (trigger) {
+        trigger.focus();
+    }
+
+    // Expanding can push the menu past the bottom of the viewport; re-clamp it.
+    clampContextMenuToViewport(wrapper.closest('.task-context-menu'));
+}
+
+/**
+ * Re-clamp an open context menu so it stays inside the viewport after its
+ * height changes.
+ */
+function clampContextMenuToViewport(menu) {
+    if (!menu) return;
+    const rect = menu.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.top;
+    if (left + rect.width > window.innerWidth) {
+        left = window.innerWidth - rect.width - 8;
+    }
+    if (top + rect.height > window.innerHeight) {
+        top = window.innerHeight - rect.height - 8;
+    }
+    if (top < 0) top = 8;
+    if (left < 0) left = 8;
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+}
+
+/**
  * Handle keyboard navigation within the task context menu.
  */
 function handleContextMenuKeydown(e) {
     const menu = document.getElementById('activeTaskContextMenu');
     if (!menu) return;
 
-    const menuItems = Array.from(menu.querySelectorAll('button[role="menuitem"]'));
+    const menuItems = getVisibleContextMenuItems(menu);
     const currentIndex = menuItems.indexOf(document.activeElement);
 
+    const active = document.activeElement;
+    const submenuWrapper = active && active.closest ? active.closest('.task-context-submenu') : null;
+    const isTrigger = submenuWrapper && active === submenuWrapper.querySelector(':scope > .task-context-menu-item');
+    const isInsideSubmenu = submenuWrapper && !isTrigger;
+
     switch (e.key) {
+        case 'Enter':
+        case ' ':
+            if (isTrigger) {
+                e.preventDefault();
+                setCompletionSubmenuOpen(submenuWrapper, true);
+            }
+            break;
+        case 'ArrowRight':
+            if (isTrigger) {
+                e.preventDefault();
+                setCompletionSubmenuOpen(submenuWrapper, true);
+            }
+            break;
+        case 'ArrowLeft':
+            if (isInsideSubmenu) {
+                e.preventDefault();
+                setCompletionSubmenuOpen(submenuWrapper, false);
+            }
+            break;
         case 'Escape':
             e.preventDefault();
-            closeTaskContextMenu();
+            if (isInsideSubmenu) {
+                setCompletionSubmenuOpen(submenuWrapper, false);
+            } else {
+                closeTaskContextMenu();
+            }
             break;
         case 'ArrowDown':
             e.preventDefault();
@@ -3110,12 +3195,12 @@ function createCompletionSubmenu(task, taskIndex) {
         submenu.appendChild(item);
     });
 
-    // Show submenu on hover and update aria-expanded
-    wrapper.addEventListener('mouseenter', () => {
-        trigger.setAttribute('aria-expanded', 'true');
-    });
-    wrapper.addEventListener('mouseleave', () => {
-        trigger.setAttribute('aria-expanded', 'false');
+    // Click (and Enter/Space, which the browser dispatches as a click on a
+    // button) toggles the inline expansion.
+    trigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setCompletionSubmenuOpen(wrapper, !wrapper.classList.contains('open'));
     });
 
     wrapper.appendChild(submenu);
@@ -13867,10 +13952,15 @@ function clearBaseline() {
  * Show or hide the baseline toggle controls in Gantt and Milestones views.
  */
 function showBaselineToggle(show) {
-    const ganttLabel = document.getElementById('baselineToggleLabel');
     const msLabel = document.getElementById('milestonesBaselineToggleLabel');
-    if (ganttLabel) ganttLabel.style.display = show ? '' : 'none';
     if (msLabel) msLabel.style.display = show ? '' : 'none';
+    // #1266: the Gantt toggle now lives on the ribbon, and the ribbon's
+    // Baseline button is pressed while a baseline exists (#1112). Every
+    // path that creates, clears or deletes a baseline goes through here,
+    // so this is the one place that has to re-render the ribbon for those
+    // pressed states to be right without a further interaction --
+    // including the Baseline dialog's own create/clear/delete actions.
+    if (typeof refreshRibbon === 'function') refreshRibbon();
 }
 
 /**

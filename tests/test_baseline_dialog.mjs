@@ -68,11 +68,13 @@ test('ribbon.js\'s isButtonActive() reflects an active baseline for the "Baselin
 // index.html: the dialog and its Gantt toolbar entry point exist
 // ---------------------------------------------------------------------------
 
-test('index.html has the Baseline dialog overlay, name input, list and Manage Baselines button', () => {
+test('index.html has the Baseline dialog overlay, name input and list, and no duplicate Manage Baselines button', () => {
   assert.match(html, /id="baselineDialogOverlay"/);
   assert.match(html, /id="newBaselineName"/);
   assert.match(html, /id="baselineHistoryList"/);
-  assert.match(html, /id="manageBaselinesBtn"[^>]*onclick="openBaselineDialog\(\)"/);
+  // #1266: the Gantt toolbar's "Manage Baselines..." button was removed as
+  // a duplicate -- the ribbon's Baseline button is now the only way in.
+  assert.doesNotMatch(html, /id="manageBaselinesBtn"/);
 });
 
 // ---------------------------------------------------------------------------

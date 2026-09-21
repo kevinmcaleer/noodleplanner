@@ -14,7 +14,8 @@
  * NoodlePlanModel), so every existing consumer of the editor's value
  * (autosave, collab sync, undo history, exports) keeps working unchanged.
  *
- * Depends on: plan-model.js
+ * Depends on: plan-model.js, section-folding.js (optional -- only to hide
+ * the same sections in the editor above, see _syncEditorProjection)
  */
 const BackMatterPanel = (function () {
     const UI_KEY = 'noodleplanner_backmatter_ui';
@@ -97,6 +98,20 @@ const BackMatterPanel = (function () {
             this.present = model.suffix.length > 0;
             this.rawText = suffixToText(model.suffix);
             this.render();
+            this._syncEditorProjection();
+        }
+
+        // #1278: while this panel is showing the back matter, the editor
+        // above must not *also* show those sections as collapsible header
+        // rows -- that duplication is what the issue reports. The front
+        // matter panel does the same thing for the leading `---` block
+        // (front-matter-panel.js's _syncEditorProjection).
+        _syncEditorProjection() {
+            if (typeof SectionFolding === 'undefined' || !SectionFolding.controllerFor) return;
+            const controller = SectionFolding.controllerFor(this.editor);
+            if (controller && typeof controller.setSectionsHidden === 'function') {
+                controller.setSectionsHidden(this.present);
+            }
         }
 
         get collapsed() {
