@@ -770,18 +770,12 @@ Press Enter to render..."></textarea>
                                             </select>
                                         </div>
                                         <div class="gantt-checkbox-group">
-                                            <div class="gantt-dependency-toggle">
-                                                <label>
-                                                    <input type="checkbox" id="ganttShowDependencies">
-                                                    Show Dependencies
-                                                </label>
-                                            </div>
-                                            <div class="gantt-critical-path-toggle">
-                                                <label>
-                                                    <input type="checkbox" id="ganttShowCriticalPath">
-                                                    Critical Path
-                                                </label>
-                                            </div>
+                                            <!-- The visible dependency and critical-path toggles now live in the
+                                                 Gantt Tools ribbon (Show > Deps, Schedule > Critical Path). These
+                                                 inputs stay in the DOM as the shared source of truth that ribbon.js,
+                                                 views-gantt.js and settings.js all read and write. -->
+                                            <input type="checkbox" id="ganttShowDependencies" hidden>
+                                            <input type="checkbox" id="ganttShowCriticalPath" hidden>
                                             <label class="baseline-toggle-label" id="baselineToggleLabel" style="display: none;">
                                                 <input type="checkbox" id="ganttShowBaseline" onchange="toggleBaselineDisplay()">
                                                 Show Baseline
