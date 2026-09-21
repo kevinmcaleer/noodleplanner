@@ -175,10 +175,6 @@
     }
 
     /* Gantt: horizontal scroll on mobile */
-    .gantt-content {
-        padding: var(--np-space-12);
-    }
-
     .gantt-wrapper {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
