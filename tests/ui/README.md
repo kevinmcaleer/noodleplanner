@@ -163,6 +163,74 @@ red gate. It stays in the tree and stays runnable — `-m unstable` runs exactly
 the tests in this state — and nothing joins that marker without a defect
 written down here beside it.
 
+## Investigated and not reproduced: the row-layout sweep failure (#1288)
+
+`test_whiteboard_row_layout.py::TestTheGutterHoldsItsPosition::test_every_row_reserves_the_same_slots_even_when_empty`
+was reported failing only inside the full `tests/ui` sweep, seen three times
+during the #1264 work and attributed to order or load. Ten sweeps at CI's own
+configuration did not reproduce it, and reading the render path says the
+reported symptom cannot happen the way the report assumed. Both halves are
+worth having written down, because the next person to see this test go red
+should start from better information than "it is flaky".
+
+**It is deliberately not marked `unstable`.** The marker above is for tests
+that are right about an app defect nobody has fixed. Nothing here identified a
+defect, so there is nothing to write down beside it, and the test is unchanged.
+
+### The counts cannot be transiently wrong
+
+The test asserts, per row, one `.wb-note-row-gutter`, one `-slot-deliv`, one
+`-slot-people`, and zero of the retired `-slot-hint` / `-slot-dep`. All four
+are structural: `buildChecklistRow()` (`components/note/note-markup.js`) builds
+the gutter and both surviving slots unconditionally, and builds neither retired
+slot at all. So once a row exists in the DOM those four counts are fixed.
+
+Nor is a half-built note observable. `wbRenderNotes()` appends the note and
+fills its body in one synchronous task, and Playwright's waits poll between
+tasks, never inside one — so there is no instant at which the note exists with
+its rows missing. The only way this test can fail is the `Build` note being
+*absent*, and that surfaces as a timeout inside `switch_to_whiteboard()`, not
+as a count assertion. The issue's "a count assertion on rendered DOM" was an
+inference from what the test asserts, not a recorded observation.
+
+### What each of the three hypotheses came to
+
+- **A missing wait — eliminated.** See above: the counts are structural and no
+  partial DOM is observable. Adding `settled()` here, as the geometry tests do,
+  would wait for something that is already true.
+- **Cross-test state — eliminated.** Every test gets a fresh browser context,
+  so localStorage, cookies and the HTTP cache are its own, and the plan reaches
+  the app only through this test's `load_plan()`. That call's `rag:` wait is a
+  real barrier rather than a guess: in `updateAllViews()` the `whiteboard`
+  entry runs *before* the `statusBar` entry that writes `rag:` back, so `rag:`
+  being present already implies the whiteboard cache holds this plan's tasks.
+- **Parallelism interaction — not eliminated, but not observed** in 286
+  executions of the test's exact shape at CI's configuration.
+
+### The numbers
+
+`pytest tests/ui -m "ui and not unstable" -n auto -p no:cacheprovider`, four
+workers on four cores, ~4.5–5.2 min per sweep. Amplified sweeps carried a
+throwaway file that repeated this test's body 24 or 60 times per sweep, so one
+sweep bought many independent samples at the sweep's own load.
+
+| Base | Sweeps | Executions of the test's shape | Times it fired |
+|---|---:|---:|---:|
+| `b7033d10` (pre-#1290) | 3 plain + 4 amplified | 103 | 0 |
+| `00d11012` (post-#1290) | 3 amplified | 183 | 0 |
+
+**Do not "amplify" by oversubscribing workers.** Three sweeps at `-n 8` on four
+cores did make this test fail — and the failure was `Page.goto: Timeout 5000ms
+exceeded` in `open_app()`, i.e. the machine, not the test. The same three runs
+also blew `test_whiteboard_note_perf.py`'s 800ms drag budget every time. That
+configuration manufactures its own failures and proves nothing about this one.
+
+Also on the record: the issue lists
+`test_usability.py::TestPlanRendering::test_render_does_not_show_error` as a
+known sweep failure. It passed in all ten sweeps here, so that part of the
+premise is stale. `test_usability.py::TestTabNavigation::test_a_second_scope_click_during_the_fade_still_lands`
+failed once in ten — a separate intermittent, not chased here.
+
 ## Still on Selenium
 
 `test_whiteboard_notes.py` (35), `test_whiteboard_structure.py` (28),
