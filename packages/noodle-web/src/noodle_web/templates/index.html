@@ -4189,6 +4189,9 @@ Build
     <script src="/static/editor-undo.js?v={{ v }}"></script>
     <script src="/static/task-row-actions.js?v={{ v }}"></script>
     <script src="/static/views-gantt.js?v={{ v }}"></script>
+    <!-- #1271: two-way hover highlight between a Gantt row and its markdown line.
+         Loaded after views-gantt.js and editor.js, both of whose DOM it binds to. -->
+    <script src="/static/gantt-editor-link.js?v={{ v }}"></script>
     <script src="/static/views-timeline.js?v={{ v }}"></script>
     <script src="/static/views-tables.js?v={{ v }}"></script>
     <script src="/static/script.js?v={{ v }}"></script>

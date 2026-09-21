@@ -396,6 +396,13 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             highlightLayer.innerHTML = highlightSyntax(content);
         }
 
+        // The gutter has just been rebuilt, so any #1271 hover band is
+        // pointing at a line that no longer exists at that offset.
+        if (window.GanttEditorLink && typeof window.GanttEditorLink.clear === 'function') {
+            window.GanttEditorLink.invalidate();
+            window.GanttEditorLink.clear();
+        }
+
         if (sectionFoldingController) sectionFoldingController.renderOverlay();
         syncScroll();
         updateActiveLine();
@@ -449,6 +456,14 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         }
         if (sectionFoldingController && sectionFoldingController.overlay) {
             sectionFoldingController.overlay.style.transform = 'translate(' + (-editor.scrollLeft) + 'px, ' + (-editor.scrollTop) + 'px)';
+        }
+        // #1271's Gantt<->markdown hover band rides the same plane as the
+        // fold overlay, so it is translated from here rather than from its
+        // own scroll listener -- this is the one path every way of scrolling
+        // the editor goes through, which is what keeps the band, the fold
+        // chrome, the gutter and the caret on the same line.
+        if (window.GanttEditorLink && typeof window.GanttEditorLink.syncOverlay === 'function') {
+            window.GanttEditorLink.syncOverlay(editor.scrollTop, editor.scrollLeft);
         }
         lineNumbers.scrollTop = editor.scrollTop;
     }

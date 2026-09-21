@@ -172,6 +172,21 @@
     --np-light-grey-subtle: #f2f2f2;
     --np-dark-blue-subtle: #cfe0e7;
 
+    /* #1271: the two-way hover link between a Gantt row and the markdown
+       line it came from. A state of its own, not a reuse of `:hover`
+       (--np-paper) or of `tr.selected` (--np-info-tint), because it has to
+       read as "this is the same task over there" from across two panes.
+
+       --np-yellow-subtle is the light value, but it cannot be used on its
+       own: it is declared only here and has no dark counterpart, so a row
+       painted with it in dark mode puts --np-ink (#FAF8F4) on #fff4d1 at
+       ~1.03:1. The pair below is themed, and the ink is pinned rather than
+       inherited so the row's contrast does not depend on which theme's
+       --np-ink lands on it. Both pairings are scored by
+       scripts/check-contrast.mjs. */
+    --np-link-highlight: #fff4d1;
+    --np-link-highlight-ink: #3A2D05;
+
     /* Ink for text sitting *on* a hue token. Single-valued like the hue it
        pairs with -- the whole point of these is that the hue does not change
        with the theme, so its ink cannot either. Added for the whiteboard
@@ -337,6 +352,8 @@
     --np-sage-ink: #C5D8B5;
     --np-danger-tint: #4B2D27;
     --np-danger-ink: #F4B7AA;
+    --np-link-highlight: #5A4A14;
+    --np-link-highlight-ink: #FAF0D6;
     --np-ink: #FAF8F4;
     --np-ink-hover: #E5DCCD;
     --np-body: #D4CCBF;
@@ -667,6 +684,15 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 :root body .ns-row-num.ns-selected-row { background: var(--np-selected); color: var(--np-ink); }
 :root, [data-theme="dark"] {
     --np-editor-bg: #201E1A;
+    /* The editor's text colour, previously a raw #d4d4d4 in views/gantt.css.
+       It is a token now so the band drawn behind it for #1271 has something
+       to be scored against. */
+    --np-editor-ink: #d4d4d4;
+    /* The #1271 band behind a linked markdown line. It cannot be
+       --np-link-highlight: that is light in the light theme, and the editor
+       is dark in *both* themes, so the light value would put #d4d4d4 text on
+       near-white. This is the dark-surface sibling of the same idea. */
+    --np-editor-link-highlight: #55471A;
     --np-editor-tip-bg: #312D26;
     --np-editor-tip-text: #D4CCBF;
 }
