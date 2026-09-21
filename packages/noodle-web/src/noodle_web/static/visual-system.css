@@ -401,6 +401,16 @@
 }
 /* Bridge existing semantic consumers, including chart/table surface tokens. */
 :root, [data-theme="dark"] {
+    /* The plan editor is a code surface: it is dark in both themes, and its
+       highlight layer has always drawn this grey on it. Naming it is what
+       lets the contrast checker score anything painted behind that text --
+       which is how #1271 found that a light amber band there measured about
+       1.3:1 whatever the page theme said.
+       Hence the editor's own copy of the cross-reference highlight: same
+       amber reading as --np-xref-highlight, but sized for a dark surface,
+       and single-valued because the surface under it is too. */
+    --np-editor-ink: #d4d4d4;
+    --np-xref-highlight-editor: #4a3a12;
     --np-bg: var(--np-paper);
     --np-bg-alt: var(--np-surface-alt);
     --np-bg-hover: var(--np-sunken);

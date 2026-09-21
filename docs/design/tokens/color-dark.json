@@ -224,6 +224,11 @@
     "$value": "#201E1A",
     "$description": "--np-editor-bg"
   },
+  "editor-ink": {
+    "$type": "color",
+    "$value": "#d4d4d4",
+    "$description": "--np-editor-ink"
+  },
   "editor-tip-bg": {
     "$type": "color",
     "$value": "#312D26",
@@ -623,6 +628,11 @@
     "$type": "color",
     "$value": "#4a3a12",
     "$description": "--np-xref-highlight"
+  },
+  "xref-highlight-editor": {
+    "$type": "color",
+    "$value": "#4a3a12",
+    "$description": "--np-xref-highlight-editor"
   },
   "yellow": {
     "$type": "color",

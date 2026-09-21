@@ -926,7 +926,7 @@
     bottom: 0;
     overflow: hidden;
     pointer-events: none;
-    color: #d4d4d4;
+    color: var(--np-editor-ink);
     z-index: 1;
     margin: 0;
 }
@@ -952,20 +952,25 @@
    a band in its own overlay, inserted as the first child of .editor-area so
    it paints *under* the highlight layer (z-index 1) and the text keeps
    rendering on top of it. Its `top` is offset by -editor.scrollTop, exactly
-   as syncScroll() offsets the layer, so the two cannot drift apart. */
+   as syncScroll() offsets the layer, so the two cannot drift apart.
+
+   It uses --np-xref-highlight-editor rather than --np-xref-highlight: the
+   editor is a dark code surface in both themes and its text is
+   --np-editor-ink, so the light-theme amber that reads on a Gantt row
+   measures about 1.3:1 here. Same hue, sized for the surface it sits on. */
 .editor-xref-band {
     position: absolute;
     left: 0;
     right: 0;
     display: none;
-    background: var(--np-xref-highlight);
+    background: var(--np-xref-highlight-editor);
     pointer-events: none;
     z-index: 0;
 }
 
 .line-number.np-xref-highlight {
-    background: var(--np-xref-highlight);
-    color: var(--np-ink);
+    background: var(--np-xref-highlight-editor);
+    color: var(--np-editor-ink);
 }
 
 .editor-textarea::selection {

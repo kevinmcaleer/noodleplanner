@@ -221,6 +221,11 @@ const PAIRINGS = [
 	// no dark value at all.
 	{ fg: '--np-ink', bg: '--np-xref-highlight', min: 4.5, what: 'text on the cross-reference highlight' },
 	{ fg: '--np-body', bg: '--np-xref-highlight', min: 4.5, what: 'body text on the cross-reference highlight' },
+	// The editor's copy of it. The plan editor is a dark code surface in both
+	// themes and draws --np-editor-ink on it, so the page theme says nothing
+	// about what reads here -- which is exactly the trap a screenshot caught:
+	// the light-theme band measured about 1.3:1 against this text.
+	{ fg: '--np-editor-ink', bg: '--np-xref-highlight-editor', min: 4.5, what: 'editor text on the cross-reference highlight' },
 
 	{ fg: '--np-danger', bg: '--np-paper', min: 3, what: 'filled danger against the page' },
 	{ fg: '--np-success', bg: '--np-paper', min: 3, what: 'filled success against the page' },

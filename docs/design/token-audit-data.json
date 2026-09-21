@@ -29,14 +29,14 @@
   ],
   "filesNotLoaded": [],
   "stylesheet": {
-    "sourceLinesOfCode": 17490,
-    "complexity": 50640
+    "sourceLinesOfCode": 17448,
+    "complexity": 50505
   },
   "rules": {
-    "total": 3895
+    "total": 3885
   },
   "selectors": {
-    "totalUnique": 3808,
+    "totalUnique": 3797,
     "maxSpecificity": [
       1,
       4,
@@ -44,8 +44,8 @@
     ]
   },
   "customProperties": {
-    "totalDeclarations": 381,
-    "totalUniqueNames": 240,
+    "totalDeclarations": 383,
+    "totalUniqueNames": 242,
     "unused": [
       "--np-elevation-2",
       "--np-elevation-4",
@@ -83,22 +83,22 @@
     "unknown": [],
     "conflictingMultiFileDefinitions": []
   },
-  "canonicalTokenCount": 184,
+  "canonicalTokenCount": 186,
   "colors": {
     "totalUnique": 410,
-    "duplicateOfTokenCount": 32,
+    "duplicateOfTokenCount": 34,
     "duplicateOfToken": [
       {
         "id": "white-edecb6ba",
         "hex": "#FFFFFF",
         "authoredAs": "white",
-        "usage": 119,
+        "usage": 118,
         "props": [
           "stroke",
-          "background",
           "color",
           "border",
           "text-shadow",
+          "background",
           "border-color",
           "border-bottom",
           "--mm-btn-bg",
@@ -112,6 +112,19 @@
           "--np-on-success"
         ],
         "matchedToken": "--np-on-success"
+      },
+      {
+        "id": "grey-5392f67",
+        "hex": "#D4D4D4",
+        "authoredAs": "#d4d4d4",
+        "usage": 9,
+        "props": [
+          "color",
+          "--mm-btn-hover-bg",
+          "caret-color",
+          "--np-editor-ink"
+        ],
+        "matchedToken": "--np-editor-ink"
       },
       {
         "id": "white-2599f23d",
@@ -218,17 +231,6 @@
         "matchedToken": "--np-orange-ink"
       },
       {
-        "id": "blue-61a649f8",
-        "hex": "#108BB9",
-        "authoredAs": "rgba(16, 139, 185, 0.15)",
-        "usage": 3,
-        "props": [
-          "background",
-          "box-shadow"
-        ],
-        "matchedToken": "--np-info"
-      },
-      {
         "id": "blue-c957f1e0",
         "hex": "#108BB9",
         "authoredAs": "rgba(16, 139, 185, 0.4)",
@@ -288,6 +290,17 @@
         "authoredAs": "rgba(16, 139, 185, 0.55)",
         "usage": 2,
         "props": [
+          "box-shadow"
+        ],
+        "matchedToken": "--np-info"
+      },
+      {
+        "id": "blue-61a649f8",
+        "hex": "#108BB9",
+        "authoredAs": "rgba(16, 139, 185, 0.15)",
+        "usage": 2,
+        "props": [
+          "background",
           "box-shadow"
         ],
         "matchedToken": "--np-info"
@@ -423,6 +436,17 @@
           "--np-editor-tip-text"
         ],
         "matchedToken": "--text-secondary"
+      },
+      {
+        "id": "orange-16d26bb7",
+        "hex": "#4A3A12",
+        "authoredAs": "#4a3a12",
+        "usage": 2,
+        "props": [
+          "--np-xref-highlight",
+          "--np-xref-highlight-editor"
+        ],
+        "matchedToken": "--np-xref-highlight-editor"
       },
       {
         "id": "red-c6d37e23",
@@ -681,15 +705,6 @@
         ]
       },
       {
-        "id": "blue-75a2e9b5",
-        "hex": "#E8EAF6",
-        "authoredAs": "#e8eaf6",
-        "usage": 11,
-        "props": [
-          "background"
-        ]
-      },
-      {
         "id": "orange-2982d6f0",
         "hex": "#FFF3BF",
         "authoredAs": "#fff3bf",
@@ -711,6 +726,15 @@
           "border",
           "--mm-btn-border",
           "--mm-placeholder-heading"
+        ]
+      },
+      {
+        "id": "blue-75a2e9b5",
+        "hex": "#E8EAF6",
+        "authoredAs": "#e8eaf6",
+        "usage": 10,
+        "props": [
+          "background"
         ]
       },
       {
@@ -769,17 +793,6 @@
         ]
       },
       {
-        "id": "grey-5392f67",
-        "hex": "#D4D4D4",
-        "authoredAs": "#d4d4d4",
-        "usage": 9,
-        "props": [
-          "color",
-          "--mm-btn-hover-bg",
-          "caret-color"
-        ]
-      },
-      {
         "id": "blue-f0733271",
         "hex": "#D8DCE1",
         "authoredAs": "#d8dce1",
@@ -798,6 +811,15 @@
         "props": [
           "background",
           "border-color"
+        ]
+      },
+      {
+        "id": "blue-7f0f11a6",
+        "hex": "#D3E2E8",
+        "authoredAs": "#d3e2e8",
+        "usage": 8,
+        "props": [
+          "color"
         ]
       }
     ]
@@ -834,14 +856,14 @@
       "usage": 34
     },
     {
-      "id": "fontSize-548b93c2",
-      "authoredAs": "0.95em",
-      "usage": 33
-    },
-    {
       "id": "fontSize-170c28",
       "authoredAs": "11px",
       "usage": 33
+    },
+    {
+      "id": "fontSize-548b93c2",
+      "authoredAs": "0.95em",
+      "usage": 32
     },
     {
       "id": "fontSize-170867",
@@ -909,11 +931,6 @@
       "usage": 6
     },
     {
-      "id": "fontSize-3cd8fd3f",
-      "authoredAs": "0.85rem",
-      "usage": 6
-    },
-    {
       "id": "fontSize-5665b42f",
       "authoredAs": "11.5px",
       "usage": 6
@@ -921,6 +938,11 @@
     {
       "id": "fontSize-563dae66",
       "authoredAs": "1.1rem",
+      "usage": 5
+    },
+    {
+      "id": "fontSize-3cd8fd3f",
+      "authoredAs": "0.85rem",
       "usage": 5
     },
     {
@@ -1222,7 +1244,7 @@
     {
       "id": "radius-d13c",
       "authoredAs": "4px",
-      "usage": 171
+      "usage": 170
     },
     {
       "id": "radius-d8be",
@@ -1457,11 +1479,6 @@
       "usage": 2
     },
     {
-      "id": "boxShadow-bf5f37d8",
-      "authoredAs": "0 0 0 3px rgba(16, 139, 185, 0.15)",
-      "usage": 2
-    },
-    {
       "id": "boxShadow-f692dcdb",
       "authoredAs": "0 2px 8px rgba(0, 0, 0, 0.2)",
       "usage": 2
@@ -1657,6 +1674,11 @@
       "usage": 1
     },
     {
+      "id": "boxShadow-bf5f37d8",
+      "authoredAs": "0 0 0 3px rgba(16, 139, 185, 0.15)",
+      "usage": 1
+    },
+    {
       "id": "boxShadow-6c8aeacf",
       "authoredAs": "0 0 0 3px rgba(63, 182, 224, 0.25)",
       "usage": 1
@@ -1738,15 +1760,15 @@
     }
   ],
   "spacing": {
-    "declarations": 1589,
-    "indirectedDeclarations": 1345,
+    "declarations": 1585,
+    "indirectedDeclarations": 1342,
     "totalUniqueValues": 38,
     "offGridUniqueValues": 15,
     "offGridUses": 33,
     "top": [
       {
         "value": "0",
-        "uses": 176,
+        "uses": 175,
         "onGrid": true,
         "props": [
           "gap",
