@@ -13952,10 +13952,15 @@ function clearBaseline() {
  * Show or hide the baseline toggle controls in Gantt and Milestones views.
  */
 function showBaselineToggle(show) {
-    const ganttLabel = document.getElementById('baselineToggleLabel');
     const msLabel = document.getElementById('milestonesBaselineToggleLabel');
-    if (ganttLabel) ganttLabel.style.display = show ? '' : 'none';
     if (msLabel) msLabel.style.display = show ? '' : 'none';
+    // #1266: the Gantt toggle now lives on the ribbon, and the ribbon's
+    // Baseline button is pressed while a baseline exists (#1112). Every
+    // path that creates, clears or deletes a baseline goes through here,
+    // so this is the one place that has to re-render the ribbon for those
+    // pressed states to be right without a further interaction --
+    // including the Baseline dialog's own create/clear/delete actions.
+    if (typeof refreshRibbon === 'function') refreshRibbon();
 }
 
 /**

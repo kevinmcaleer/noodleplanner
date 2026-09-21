@@ -592,6 +592,13 @@
     white-space: nowrap;
 }
 
+/* #1266: the Gantt copy of this toggle moved to the ribbon; its checkbox
+   stays in the DOM (front-matter source of truth) behind the hidden
+   attribute, which the display:flex above would otherwise override. */
+.baseline-toggle-label[hidden] {
+    display: none;
+}
+
 .baseline-toggle-label input[type="checkbox"] {
     margin: 0;
 }

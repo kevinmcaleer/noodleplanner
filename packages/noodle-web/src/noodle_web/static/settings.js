@@ -581,6 +581,12 @@ function onSettingChanged(settingType) {
             const val = document.getElementById('settingsGanttBaseline')?.checked ?? false;
             applyToggle('ganttShowBaseline', val);
             if (typeof toggleBaselineDisplay === 'function') toggleBaselineDisplay();
+            // #1266: the ribbon's Show Baseline button reads this checkbox for
+            // its pressed state, and toggleBaselineDisplay() does not go
+            // through showBaselineToggle() (that path is about whether a
+            // baseline *exists*), so this is the only place that can keep the
+            // button in step when the change comes from the Settings panel.
+            if (typeof refreshRibbon === 'function') refreshRibbon();
             break;
         }
         case 'board_hide_completed': {
