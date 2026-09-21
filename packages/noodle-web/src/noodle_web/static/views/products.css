@@ -446,6 +446,7 @@
 [data-theme="dark"] .dm-role-dropdown-item.dm-role-approver { color: #6fd66f; }
 
 /* ── Ribbon title spacing ────────────────────────────────────────── */
+/* .gantt-title in views/gantt.css carries the same margin -- keep in step. */
 
 .pbs-title,
 .deliverables-title,
