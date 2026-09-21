@@ -76,6 +76,39 @@ export function noodleGlyph(size) {
 }
 
 /**
+ * The pin (issue #1291). One drawing, two states: `pinGlyph()` is a pushpin
+ * pressed into the board, `unpinGlyph()` is the same pin with a stroke through
+ * it. Both are `stroke="currentColor"`, like noodleGlyph() above, so wherever
+ * they land -- a note header measured against its own pastel, the outline
+ * panel's row against the app surface -- they inherit that surface's ink
+ * rather than carrying a colour of their own.
+ *
+ * "Pinned" is the board's word for what the plan file has always stored:
+ * a note is on the whiteboard because there is a row for its task in the
+ * Whiteboard section. Pinning adds that row, unpinning removes it, and
+ * neither touches the task itself. See wbRemoveNoteFromBoard() and
+ * wbCommitAddNotes() in whiteboard-notes.js -- the two functions every pin
+ * control in the app ends up calling.
+ */
+export function pinGlyph(size) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" ` +
+        'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M9.8 1.6 14.4 6.2"/>' +
+        '<path d="M10.6 2.4 9 4 6.2 4.6 3.3 7.5l5.2 5.2 2.9-2.9L12 7l1.6-1.6"/>' +
+        '<path d="M5.9 10.1 2.2 13.8"/></svg>';
+}
+
+/** The pin, struck through: "this is on the board -- take it off". */
+export function unpinGlyph(size) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" ` +
+        'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M9.8 1.6 14.4 6.2"/>' +
+        '<path d="M10.6 2.4 9 4 6.2 4.6 3.3 7.5l5.2 5.2 2.9-2.9L12 7l1.6-1.6"/>' +
+        '<path d="M5.9 10.1 2.2 13.8"/>' +
+        '<path d="M1.6 1.6 14.4 14.4"/></svg>';
+}
+
+/**
  * Scissors for the cut between two checklist rows (issue #874).
  *
  * `stroke="currentColor"` for the same reason as noodleGlyph(): the control
@@ -107,6 +140,31 @@ export function buildNoteCard() {
     // selector, because painting --np-ink over a note measured 1.12:1. The
     // element is therefore part of the contract, not a tag choice.
     const title = el('h3', 'wb-note-title');
+
+    // The pin (issue #1291). A note on the board is pinned to it, and this is
+    // how you take it off -- the same act as the outline panel's own unpin
+    // control and the `...` menu's "Remove from board", never a third way to
+    // do it (whiteboard-notes.js wires all three to wbRemoveNoteFromBoard()).
+    //
+    // Left of the title, not in the right-hand cluster, and that is the whole
+    // point of where it sits: the cluster is note *options*, while this says
+    // something about the note's relationship to the board, so it reads with
+    // the identity the title carries rather than with the tools. It is also
+    // the one header control that must not widen the cluster the comment on
+    // the appendChild run below protects.
+    //
+    // Hidden at rest: it collapses to zero width and the title sits where it
+    // always has, so a board of notes is not a board of pins. `.wb-note-card`
+    // hover or keyboard focus slides it in and the title slides over to make
+    // room -- see `.wb-note-pin-btn` in views/whiteboard.css, which owns the
+    // transition and the reduced-motion opt-out.
+    const pinBtn = el('button', 'wb-note-pin-btn', {
+        type: 'button',
+        tabindex: '0',
+        title: 'Unpin from the board',
+        'aria-label': 'Unpin this note from the board. This only removes the note; the task and its subtasks stay in your plan.',
+    });
+    pinBtn.innerHTML = pinGlyph(13);
 
     // No date chip on the note. A detected date belongs to the task line it
     // was detected in, and the checklist rows carry their own
@@ -175,7 +233,7 @@ export function buildNoteCard() {
     // W - 10], and the midpoint W/2 can only fall there when W <= 2 * (10 + w),
     // which is 64px for the 22px handle and 80px for the 30px coarse-pointer
     // one -- both below WB_NOTE_MIN_WIDTH.
-    header.append(title, coachBtn, menuBtn, linkHandle);
+    header.append(pinBtn, title, coachBtn, menuBtn, linkHandle);
 
     const parentCaption = el('div', 'wb-note-parent');
     const body = el('div', 'wb-note-body');
@@ -241,7 +299,7 @@ export function buildNoteCard() {
         card,
         rails,
         refs: {
-            card, header, title, coachBtn,
+            card, header, pinBtn, title, coachBtn,
             menuBtn, linkHandle, parentCaption, body, footer, progress,
             resizeHandle, rails, railHint, railDep,
         },
@@ -487,6 +545,7 @@ export function buildAddRow(taskName) {
 if (typeof globalThis !== 'undefined') {
     globalThis.NoodleNoteMarkup = {
         XHTML_NS, ROW_AVATAR_CAP, el, noodleGlyph, scissorsGlyph,
+        pinGlyph, unpinGlyph,
         buildNoteCard, buildChecklistRow, buildAddRow,
     };
 }

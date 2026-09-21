@@ -350,6 +350,80 @@
     flex: 1;
 }
 
+/* The note's pin (issue #1291) ------------------------------------------
+ *
+ * Every note on the board is there because a row in the plan's Whiteboard
+ * section pins it there, and this is the control that unpins it. It lives to
+ * the LEFT of the title, so it is the one header control that cannot push the
+ * right-hand cluster around -- the geometry `.wb-note-header`'s comment
+ * protects is untouched by it at any width.
+ *
+ * At rest it takes no space at all: zero width, zero margin, no ink. Hovering
+ * the card (or tabbing into it) slides it open to 18px and the title slides
+ * right by exactly that much, because the title is the flex item taking the
+ * slack -- there is no second rule moving the title, and nothing else on the
+ * header moves at all. Losing the hover slides it shut again.
+ *
+ * Width, not `display: none`, is what makes that a slide rather than a jump:
+ * a display swap has no intermediate state to animate, and the title would
+ * snap sideways on every pointer cross. The glyph fades on its own slightly
+ * faster curve so it never renders squashed inside a part-open box.
+ */
+.wb-note-pin-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 0;
+    height: 18px;
+    padding: 0;
+    /* Cancels the header's own 6px gap while the pin is shut. Without it a
+       zero-width button still costs a gap, and the title -- and with it the
+       one left inset the card's title, rows and footer share -- sits 6px
+       right of where it has always been on every note on the board, hover or
+       no hover. tests/ui/test_whiteboard_note_card.py measures that edge. */
+    margin-right: -6px;
+    overflow: hidden;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0;
+    transition: width 140ms ease, margin-right 140ms ease, opacity 100ms ease;
+}
+
+.wb-note-card:hover .wb-note-pin-btn,
+.wb-note-card:focus-within .wb-note-pin-btn,
+.wb-note-pin-btn:focus-visible {
+    width: 18px;
+    margin-right: 0;
+    opacity: 0.75;
+}
+
+.wb-note-pin-btn:hover,
+.wb-note-pin-btn:focus-visible {
+    opacity: 1;
+    /* The note's own measured ink, like every other control on the card --
+       never a fixed black tint, which is built for one surface and wrong on
+       the other nine pastels. See .wb-note-menu-btn:hover. */
+    background: var(--wb-note-hover-strong);
+}
+
+.wb-note-pin-btn:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: 1px;
+}
+
+/* A user who has asked for less motion still gets the control, and still
+   gets it only on hover -- they just get it at once instead of sliding. */
+@media (prefers-reduced-motion: reduce) {
+    .wb-note-pin-btn {
+        transition: none;
+    }
+}
+
 .wb-note-menu-btn {
     flex-shrink: 0;
     width: 22px;
