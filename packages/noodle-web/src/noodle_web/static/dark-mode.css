@@ -681,24 +681,13 @@ body {
     border-bottom-color: var(--np-accent);
 }
 
-/* Show dependencies / show baseline labels - white text */
-[data-theme="dark"] .gantt-dependency-toggle label {
-    color: var(--np-text);
-}
-
+/* Show baseline label - white text */
 [data-theme="dark"] .baseline-toggle-label {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .gantt-dependency-toggle input[type="checkbox"],
 [data-theme="dark"] .baseline-toggle-label input[type="checkbox"] {
     accent-color: var(--np-accent);
-}
-
-[data-theme="dark"] .gantt-scale-selector select {
-    background: var(--np-input-bg);
-    color: var(--np-text);
-    border-color: var(--np-accent);
 }
 
 [data-theme="dark"] .tasks-title {

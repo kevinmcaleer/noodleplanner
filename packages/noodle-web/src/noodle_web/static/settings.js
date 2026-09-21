@@ -563,12 +563,18 @@ function onSettingChanged(settingType) {
             const val = document.getElementById('settingsGanttDeps')?.checked ?? false;
             applyToggle('ganttShowDependencies', val);
             if (typeof renderDependencyLines === 'function') renderDependencyLines();
+            // #1265: the ribbon is now the only visible affordance for this
+            // toggle, so its pressed state has to follow the Settings panel.
+            if (typeof refreshRibbon === 'function') refreshRibbon();
             break;
         }
         case 'gantt_critical_path': {
             const val = document.getElementById('settingsGanttCriticalPath')?.checked ?? false;
             applyToggle('ganttShowCriticalPath', val);
             if (typeof renderGanttChart === 'function') renderGanttChart();
+            // #1265: the ribbon is now the only visible affordance for this
+            // toggle, so its pressed state has to follow the Settings panel.
+            if (typeof refreshRibbon === 'function') refreshRibbon();
             break;
         }
         case 'gantt_baseline': {
