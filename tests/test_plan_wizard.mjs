@@ -118,7 +118,7 @@ test('loadState tolerates corrupt JSON and falls back to default', () => {
 test('applyStageHost never auto-switches into Backstage, but still switches into every other stage host', () => {
     const switched = [];
     globalThis.switchToView = (view) => switched.push(view);
-    globalThis.HighlightToggles = { applyPreset: () => {} };
+    globalThis.HighlightToggles = { applyOverride: () => {} };
 
     const designStage = wizard.STAGES.find(s => s.key === 'design');
     assert.equal(designStage.view, 'backstage', 'sanity: Design still hosts Backstage');
@@ -136,14 +136,37 @@ test('applyStageHost never auto-switches into Backstage, but still switches into
     delete globalThis.HighlightToggles;
 });
 
-test('applyStageHost still applies the stage highlight preset for Backstage', () => {
-    const presets = [];
+// #1278: a stage preset is a lens the wizard holds open, never a change to
+// the user's saved highlighting preference -- so applyStageHost() must go
+// through applyOverride() (transient, not persisted) and never
+// applyPreset() (persisted). Before this, opening the wizard at all -- it
+// always starts on Design, whose preset is everything-off -- silently and
+// permanently turned the editor's resource/date/dependency colours off.
+test('applyStageHost applies the stage highlight preset as a transient override, not a saved preference', () => {
+    const overrides = [];
+    const persisted = [];
     globalThis.switchToView = () => {};
-    globalThis.HighlightToggles = { applyPreset: (p) => presets.push(p) };
+    globalThis.HighlightToggles = {
+        applyOverride: (p) => overrides.push(p),
+        applyPreset: (p) => persisted.push(p),
+    };
 
     const designStage = wizard.STAGES.find(s => s.key === 'design');
     wizard.applyStageHost(designStage);
-    assert.deepEqual(presets, [designStage.preset]);
+    assert.deepEqual(overrides, [designStage.preset]);
+    assert.deepEqual(persisted, [], 'a stage must never write the user\'s saved highlight preference');
+
+    delete globalThis.switchToView;
+    delete globalThis.HighlightToggles;
+});
+
+test('close() drops the stage override so the editor returns to the user\'s own highlighting (#1278)', () => {
+    let cleared = 0;
+    globalThis.switchToView = () => {};
+    globalThis.HighlightToggles = { applyOverride: () => {}, clearOverride: () => { cleared++; } };
+
+    wizard.close();
+    assert.equal(cleared, 1);
 
     delete globalThis.switchToView;
     delete globalThis.HighlightToggles;

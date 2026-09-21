@@ -263,6 +263,14 @@
         const syntheticRanges = [];
         const visibleLineToSection = new Map();
         const foldingEnabled = !(options && options.disableSectionFolding);
+        // #1278: the structured view already shows every back-matter
+        // section in the Back Matter panel below the editor, so repeating
+        // them as collapsible header rows inside the editor is pure
+        // duplication. Hiding them here is the same move the structured
+        // front-matter view already makes for the leading `---` block
+        // (hideLeadingFrontMatter below): the raw text is untouched, the
+        // lines simply do not appear in the editor's projection.
+        const hideSections = foldingEnabled && !!(options && options.hideSections);
         let visibleOffset = 0;
         const hideLeadingFrontMatter = !!(options && options.hideLeadingFrontMatter);
         let rawLineIndex = hideLeadingFrontMatter ? sfLeadingFrontMatterEndLine(rawLines) : 0;
@@ -303,6 +311,10 @@
 
         while (rawLineIndex < rawLines.length) {
             const section = foldingEnabled ? collected.byStartLine.get(rawLineIndex) : null;
+            if (section && hideSections) {
+                rawLineIndex = section.endExclusiveLine;
+                continue;
+            }
             if (section) {
                 const expanded = sfIsExpanded(state, section.marker);
                 const markerLineText = section.summary;
@@ -359,8 +371,10 @@
             displayLines: displayLines,
             displayText: displayLines.map((line) => line.text).join('\n'),
             sections: foldingEnabled ? collected.sections.map((section) => Object.assign({}, section, {
-                expanded: sfIsExpanded(state, section.marker),
+                expanded: !hideSections && sfIsExpanded(state, section.marker),
+                hidden: hideSections,
             })) : [],
+            sectionsHidden: hideSections,
             rawLineSections: foldingEnabled ? collected.rawLineSections : new Array(rawLines.length).fill(null),
             segments: segments,
             syntheticRanges: syntheticRanges,
@@ -565,9 +579,11 @@
             this.state = { defaultExpanded: false, overrides: {} };
             this.hideLeadingFrontMatter = false;
             this.disableSectionFolding = false;
+            this.hideSections = false;
             this.projection = sfBuildProjection('', this.descriptors, this.state, {
                 hideLeadingFrontMatter: this.hideLeadingFrontMatter,
                 disableSectionFolding: this.disableSectionFolding,
+                hideSections: this.hideSections,
             });
 
             const proto = Object.getPrototypeOf(this.editor);
@@ -744,6 +760,7 @@
             this.projection = sfBuildProjection(rawText, this.descriptors, this.state, {
                 hideLeadingFrontMatter: this.hideLeadingFrontMatter,
                 disableSectionFolding: this.disableSectionFolding,
+                hideSections: this.hideSections,
             });
             this.nativeValue.set.call(this.editor, this.projection.displayText);
             const visibleStart = sfVisibleOffsetFromRawOffset(this.projection, rawSelectionStart, 'start');
@@ -772,10 +789,23 @@
             this.refreshProjection();
         }
 
+        /**
+         * #1278: hide (true) or fold (false) the back-matter sections in
+         * the editor. The Back Matter panel calls this with `true` while
+         * it is showing that block itself, so a section never appears in
+         * both places at once.
+         */
+        setSectionsHidden(hidden) {
+            const next = !!hidden;
+            if (next === this.hideSections) return;
+            this.hideSections = next;
+            this.refreshProjection();
+        }
+
         renderOverlay() {
             if (!this.overlay) return;
             this.overlay.innerHTML = '';
-            if (!this.projection.sections.length) {
+            if (!this.projection.sections.length || this.projection.sectionsHidden) {
                 this.overlay.style.display = 'none';
                 return;
             }
