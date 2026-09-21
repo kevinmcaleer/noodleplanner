@@ -26,34 +26,25 @@
     flex-shrink: 0;
 }
 
-.gantt-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+/* #1287: the title is now a direct child of the column flex `.gantt-content`,
+   where `.gantt-toolbar` used to sit. That wrapper carried `flex-shrink: 0`,
+   so the title inherits it here rather than losing it -- otherwise the chart
+   below could squeeze the heading when vertical space runs short. */
+.gantt-content > .gantt-title {
     flex-shrink: 0;
 }
 
 /* #1267: `.gantt-scale-selector` and its <select> styling are gone -- the
    scale now lives in the Gantt Tools ribbon's "Scale" button group. The
    #ganttScale <select> itself is kept hidden in index.html as the wiring's
-   source of truth, so it needs no visual styling. */
+   source of truth, so it needs no visual styling.
 
-.gantt-toolbar-controls {
-    display: flex;
-    align-items: center;
-    gap: var(--np-space-20);
-}
-
-.gantt-checkbox-group {
-    display: flex;
-    align-items: center;
-    gap: var(--np-space-16);
-}
-
-.gantt-set-baseline-btn {
-    margin-left: auto;
-    align-self: center;
-}
+   #1287: likewise `.gantt-toolbar`, `.gantt-toolbar-controls`,
+   `.gantt-checkbox-group` and `.gantt-set-baseline-btn`. The first three laid
+   out boxes whose every remaining child was `hidden` (flex/gap/space-between
+   over nothing); the fourth targeted `#setBaselineBtn`, which #1266 deleted.
+   The hidden state-holders themselves survive in a plain `.gantt-hidden-state`
+   container at the end of the view and need no styling at all. */
 
 /* Tasks view: same flex layout as gantt view */
 #tasks-view.output-tab-content {
@@ -1721,9 +1712,10 @@ input[type="text"]:focus-visible {
 /* Baseline dialog (issue #1112): create/list/clear/delete baselines.
    Recovered from static/style.css, which #571 stopped linking -- see the
    note in components.css. */
-.gantt-manage-baselines-btn {
-    align-self: center;
-}
+/* #1287: `.gantt-manage-baselines-btn` removed -- #1266 deleted
+   `#manageBaselinesBtn` when the control moved to the ribbon's Baseline
+   group, leaving the rule with nothing to target. The dialog rules below
+   are still live. */
 .baseline-history-list {
     max-height: 320px;
     overflow-y: auto;
