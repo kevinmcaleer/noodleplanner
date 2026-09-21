@@ -14,11 +14,12 @@
     overflow: hidden;
 }
 
+/* Ribbon title spacing: mirrors the .pbs-title / .deliverables-title /
+   .product-flow-title rule in views/products.css -- keep the two in step.
+   Everything else (family, size, weight, colour) is inherited from the
+   heading rules in visual-system.css, deliberately overriding nothing. */
 .gantt-title {
-    font-size: 1.8em;
-    font-weight: 600;
-    color: var(--np-ink);
-    margin-bottom: 0;
+    margin: var(--np-space-12) var(--np-space-16) var(--np-space-8);
 }
 
 .gantt-content > .embedded-timeline-section {
