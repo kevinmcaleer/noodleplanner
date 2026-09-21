@@ -13,6 +13,10 @@
  * button?"), "Deps", "Risk", "Issue", "Editor", "Day/Week/Month" and
  * "Group by" -- each silently falling through to a "not available yet"
  * toast instead of doing the real, already-existing thing it should.
+ * ("Day/Week/Month" no longer exists: #1267 replaced that caret popover
+ * with the Gantt Tools `Scale` group's five mutually exclusive buttons,
+ * removing the label and its resolver entry together so it could not
+ * regress into the unresolved state this header describes.)
  *
  * This test parses ribbon.js's source (a lightweight, deliberately
  * conservative regex extraction -- see extractKnownLabels()) rather than
