@@ -1919,7 +1919,7 @@ function wbCreateNoteNode() {
     // across the re-renders that reuse this same node for the same task.
     const { card, rails, refs } = globalThis.NoodleNoteMarkup.buildNoteCard();
     const {
-        header, title, menuBtn, linkHandle, coachBtn,
+        header, title, menuBtn, linkHandle, coachBtn, pinBtn,
         parentCaption, body, footer, progress, resizeHandle,
         railHint, railDep,
     } = refs;
@@ -1928,6 +1928,24 @@ function wbCreateNoteNode() {
     // later issues (#847 "Remove from board", #850 "Open task") add more
     // items to the same menu -- see wbBuildNoteMenu()'s doc comment for
     // the structure they extend.
+    // The pin (issue #1291): unpin this note from the board. Deliberately the
+    // same wbRemoveNoteFromBoard() call the `...` menu's "Remove from board"
+    // item and the outline panel's own unpin control make -- one action, three
+    // places to reach it -- so it removes the note and nothing else: the task,
+    // its subtasks and every other section of the plan are left exactly as
+    // they were, and the single commit that removes the row is undoable like
+    // any other edit.
+    pinBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const taskName = fo.dataset.wbTask;
+        if (taskName) wbRemoveNoteFromBoard(taskName);
+    });
+    // Both press paths, or the pin becomes a drag handle: the header's own
+    // mousedown/touchstart guards skip this button (see
+    // wbNoteHeaderMouseDown()), but a press that starts here must not bubble
+    // into a selection change either.
+    pinBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+
     menuBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const taskName = fo.dataset.wbTask;
@@ -1973,7 +1991,7 @@ function wbCreateNoteNode() {
     const entry = {
         fo,
         refs: {
-            card, header, title, menuBtn, linkHandle, coachBtn, parentCaption,
+            card, header, title, menuBtn, linkHandle, coachBtn, pinBtn, parentCaption,
             body, footer, progress, resizeHandle, rails, railHint, railDep,
         },
     };
@@ -2062,6 +2080,17 @@ function wbUpdateNoteNode(entry, vm) {
             refs.title.setAttribute('title', vm.task.name + ' — double-click to rename');
         }
     }
+    // Name the pin's target (#1291). The skeleton carries a generic label
+    // because it is built before it belongs to any task; from here on it says
+    // which note it would unpin, which is what a screen reader needs when it
+    // meets the same control on twenty notes.
+    if (refs.pinBtn) {
+        const pinLabel = `Unpin "${vm.task.name}" from the board`;
+        refs.pinBtn.setAttribute('title', pinLabel);
+        refs.pinBtn.setAttribute('aria-label',
+            `${pinLabel}. This only removes the note; the task and its subtasks stay in your plan.`);
+    }
+
     const planningType = wbTaskPlanningType(vm.task);
     const languageHint = wbActivityLanguageHint(vm.task && vm.task.name);
     refs.coachBtn.classList.toggle('suspected-activity', !!languageHint && !planningType);
@@ -2607,6 +2636,9 @@ function wbNoteHeaderMouseDown(e, entry) {
     // Nor the noodle handle, nor a title mid-rename: both are their own
     // gestures that happen to start inside the drag handle.
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
+    // Nor the pin (#1291) -- it is a click, and a press that landed on it must
+    // never start a move or a rename.
+    if (e.target && e.target.closest && e.target.closest('.wb-note-pin-btn')) return;
     if (e.target && e.target.isContentEditable) return;
     // Double-click-to-rename is detected here, from consecutive
     // mousedowns, rather than from a native 'dblclick' listener: the first
@@ -2682,6 +2714,7 @@ function wbNoteHeaderTouchStart(e, entry) {
     if (e.target && e.target.closest && e.target.closest('.wb-note-coach-btn')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-smart-btn')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
+    if (e.target && e.target.closest && e.target.closest('.wb-note-pin-btn')) return;
     // The fifth guard the mouse path has always carried, added here for the
     // same parity (#1250): a second tap inside a title already being
     // renamed places the caret, it does not re-enter the edit.
@@ -3788,7 +3821,40 @@ function wbOpenChildPeek(taskName, anchorEl) {
         resolveLevel: (name) => wbBuildPeekLevel(name, wbLastTasks),
         onToggle: (task, checked) => wbToggleChildComplete(task, checked),
         onOpenDetails: (task) => wbOpenChildTask(task.name),
+        // The peek's pin (#1291): put this child on the board as a note of
+        // its own, where the peek was. Same wbCommitAddNotes() the outline's
+        // pin and the picker's "Add" call -- only the placement differs, and
+        // only as a starting point for the usual free-space scan.
+        onPin: (task, rect) => wbPinTaskFromPeek(task.name, rect),
+        isPinned: (task) => wbTaskIsOnBoard(task.name),
     });
+}
+
+/**
+ * Pin `taskName` to the board from the peek popover (issue #1291), landing
+ * the new note at the popover's own position -- "pin that note to the
+ * whiteboard (at that position)", verbatim.
+ *
+ * `rect` is the popover's client rect, captured before it closed, and the
+ * point taken from it is its top-*right*: the peek is anchored over the note
+ * whose badge opened it, so its top-left is inside that note and the
+ * free-space scan starting there would step the new note down past the whole
+ * parent card before it found room. Starting just clear of the popover's
+ * right edge puts the note beside where the user was looking, which is what
+ * "at that position" can mean on a board that will not stack two notes.
+ * wbClientToBoard() is the same screen-to-board conversion every other
+ * gesture on this canvas makes. Without a rect (or without
+ * the converter, in a build where whiteboard-groups.js has not loaded) the
+ * add falls back to ordinary viewport placement rather than refusing: the
+ * user asked for the note, and the position is the refinement.
+ */
+function wbPinTaskFromPeek(taskName, rect) {
+    if (!taskName) return false;
+    let at = null;
+    if (rect && typeof wbClientToBoard === 'function') {
+        at = wbClientToBoard(rect.right, rect.top);
+    }
+    return wbCommitAddNotes([taskName], at ? { at } : {});
 }
 
 /**
@@ -5112,6 +5178,37 @@ function wbRemoveNoteFromBoard(taskName) {
 }
 
 /**
+ * The rect wbCommitAddNotes() scans for free space.
+ *
+ * Normally the current viewport (wbCurrentViewportBoardRect(), which already
+ * excludes the part of the canvas the outline panel covers). Given a
+ * board-space `at` point -- the peek's pin (#1291) -- the same rect is
+ * re-anchored to that point so the shelf-pack in wbFindFreeSpacePosition()
+ * starts there, keeping its size so an occupied point still resolves to
+ * somewhere on screen rather than off the bottom of the board.
+ */
+function wbAddNotesViewport(at) {
+    const viewport = (typeof wbCurrentViewportBoardRect === 'function') ? wbCurrentViewportBoardRect() : null;
+    if (!at || !Number.isFinite(at.x) || !Number.isFinite(at.y)) return viewport;
+    const base = viewport || { x: 0, y: 0, width: 1200, height: 800 };
+    return { x: at.x, y: at.y, width: base.width, height: base.height };
+}
+
+/** Whether `taskName` already has a note pinned to the board right now --
+ * read from the plan text rather than the DOM, so it is the same source of
+ * truth the commit paths write to. */
+function wbTaskIsOnBoard(taskName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !taskName) return false;
+    if (typeof extractWhiteboardFromPlanText !== 'function' || typeof parseWhiteboardMarkdown !== 'function') {
+        return false;
+    }
+    const key = String(taskName).toLowerCase();
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(editor.value)) || [];
+    return items.some(item => item && item.task && String(item.task).toLowerCase() === key);
+}
+
+/**
  * Add `taskNames` to the board: one free-space rect per name (via
  * wbBuildAddNoteRows(), scanning the *current* viewport -- see
  * whiteboard.js's wbCurrentViewportBoardRect()), appended to the current
@@ -5119,8 +5216,15 @@ function wbRemoveNoteFromBoard(taskName) {
  * place new whiteboard rows get written, whether the caller is the
  * picker's multi-select "Add" button or the empty state's "Add all
  * summary tasks" shortcut -- see this section's header comment.
+ *
+ * `options.at` (issue #1291) is an optional board-space point to lay the
+ * batch out from instead of the viewport's own top-left: the peek popover's
+ * pin passes the popover's position so a child note appears where the user
+ * was looking rather than wherever the next free viewport cell happens to
+ * be. It is a *starting point*, not a placement -- free-space scanning still
+ * runs from there, so a pin never drops a note on top of an existing one.
  */
-function wbCommitAddNotes(taskNames) {
+function wbCommitAddNotes(taskNames, options = {}) {
     const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
     const names = (taskNames || []).filter(Boolean);
     if (!editor || !names.length) return false;
@@ -5133,7 +5237,7 @@ function wbCommitAddNotes(taskNames) {
     const planText = editor.value;
     const section = extractWhiteboardFromPlanText(planText);
     const items = parseWhiteboardMarkdown(section);
-    const viewport = (typeof wbCurrentViewportBoardRect === 'function') ? wbCurrentViewportBoardRect() : null;
+    const viewport = wbAddNotesViewport(options.at);
     const newRows = wbBuildAddNoteRows(items, viewport, names, {
         width: WB_NOTE_DEFAULT_WIDTH,
         height: WB_NOTE_DEFAULT_HEIGHT,

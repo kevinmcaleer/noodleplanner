@@ -96,11 +96,58 @@ test('wbOutlineBoardToggleClicked tolerates a missing target function (returns f
     assert.equal(addSandbox.wbOutlineBoardToggleClicked('X', false), false);
 });
 
-test('wbBuildOutlineRow renders a "+"/.wb-outline-add button when the row is not on the board', () => {
+test('wbBuildOutlineRow keeps the one-slot toggle, now glyphed by wbOutlineSetToggleGlyph', () => {
     const m = outlineSrc.match(/const toggle = document\.createElement\('button'\);[\s\S]*?el\.appendChild\(toggle\);/);
     assert.ok(m, 'could not find the outline row toggle button block');
     assert.match(m[0], /className = 'wb-outline-add' \+ \(row\.onBoard \? ' wb-outline-remove' : ''\)/);
-    assert.match(m[0], /textContent = row\.onBoard \? '−' : '\+'/);
+    assert.match(m[0], /wbOutlineSetToggleGlyph\(toggle, row\.onBoard\)/);
+    // The labels say pin/unpin now (#1291), not add/remove.
+    assert.match(m[0], /Unpin "\$\{row\.name\}" from the board/);
+    assert.match(m[0], /Pin "\$\{row\.name\}" to the board/);
+});
+
+// ── #1291: the toggle's glyphs ──────────────────────────────────────────
+
+/** A button stand-in with just the two properties the glyph setter writes. */
+function fakeButton() {
+    return { innerHTML: '', textContent: '' };
+}
+
+function glyphSandbox(markup) {
+    const sandbox = { globalThis: null };
+    sandbox.globalThis = sandbox;
+    if (markup !== undefined) sandbox.NoodleNoteMarkup = markup;
+    liftFunctions(sandbox, outlineSrc, ['wbOutlineSetToggleGlyph']);
+    return sandbox;
+}
+
+test('wbOutlineSetToggleGlyph paints the shared pin glyph, struck through when on the board', () => {
+    const sandbox = glyphSandbox({
+        pinGlyph: (size) => `<svg data-pin="${size}"></svg>`,
+        unpinGlyph: (size) => `<svg data-unpin="${size}"></svg>`,
+    });
+
+    const add = fakeButton();
+    sandbox.wbOutlineSetToggleGlyph(add, false);
+    assert.equal(add.innerHTML, '<svg data-pin="13"></svg>');
+    assert.equal(add.textContent, '', 'the glyph replaces the "+", it does not sit beside it');
+
+    const remove = fakeButton();
+    sandbox.wbOutlineSetToggleGlyph(remove, true);
+    assert.equal(remove.innerHTML, '<svg data-unpin="13"></svg>');
+});
+
+test('wbOutlineSetToggleGlyph falls back to +/- when the note-markup module never loaded', () => {
+    const sandbox = glyphSandbox(undefined);
+
+    const add = fakeButton();
+    sandbox.wbOutlineSetToggleGlyph(add, false);
+    assert.equal(add.textContent, '+');
+    assert.equal(add.innerHTML, '');
+
+    const remove = fakeButton();
+    sandbox.wbOutlineSetToggleGlyph(remove, true);
+    assert.equal(remove.textContent, '−');
 });
 
 test('index.html/whiteboard.css: the remove state has its own hover styling distinct from add', () => {

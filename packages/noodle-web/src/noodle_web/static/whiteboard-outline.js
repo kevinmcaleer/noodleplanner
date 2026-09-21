@@ -385,21 +385,25 @@ function wbBuildOutlineRow(row) {
         el.appendChild(pct);
     }
 
-    // Add-to-board / remove-from-board toggle (#1108). Same slot either
-    // way: a task with no note yet gets a "+"; one that already has a note
-    // on the board gets a "−" instead, so the control always reflects
-    // whether *this* row is currently represented on the canvas -- see
-    // wbOutlineBoardToggleClicked() for what each side actually does.
+    // Pin / unpin toggle (#1108, reglyphed in #1291). Same slot either way:
+    // a task with no note yet gets a pin ("pin it to the board"); one that
+    // already has a note gets a struck-through pin ("unpin it"), so the
+    // control always reflects whether *this* row is currently represented on
+    // the canvas -- see wbOutlineBoardToggleClicked() for what each side
+    // actually does. The glyphs replaced a bare "+" and "−", which named the
+    // mechanics (a row appears in, or leaves, the plan's Whiteboard section)
+    // rather than the act, and read as "add a task" / "delete a task" on a
+    // panel that also restructures the plan.
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'wb-outline-add' + (row.onBoard ? ' wb-outline-remove' : '');
     toggle.title = row.onBoard
-        ? `Remove "${row.name}" from the board`
-        : `Add "${row.name}" to the board`;
+        ? `Unpin "${row.name}" from the board`
+        : `Pin "${row.name}" to the board`;
     toggle.setAttribute('aria-label', row.onBoard
-        ? `Remove ${row.name} from the board. This only removes the note; the task and its subtasks stay in your plan.`
-        : `Add ${row.name} to the board`);
-    toggle.textContent = row.onBoard ? '−' : '+';
+        ? `Unpin ${row.name} from the board. This only removes the note; the task and its subtasks stay in your plan.`
+        : `Pin ${row.name} to the board`);
+    wbOutlineSetToggleGlyph(toggle, row.onBoard);
     toggle.addEventListener('click', (e) => {
         e.stopPropagation();
         wbOutlineBoardToggleClicked(row.name, row.onBoard);
@@ -407,6 +411,31 @@ function wbBuildOutlineRow(row) {
     el.appendChild(toggle);
 
     return el;
+}
+
+/**
+ * Paint the outline toggle's two states (#1291): a pin when the row is not on
+ * the board, the same pin struck through when it is.
+ *
+ * The glyphs come from components/note/note-markup.js, through the global the
+ * board's own notes already take them from, so the pin on an outline row and
+ * the pin on a note are one drawing rather than two that can drift. This file
+ * is a classic script and cannot import the module, but rows are only ever
+ * built once the whiteboard view is open -- long after every deferred module
+ * has run -- which is the same ordering wbCreateNoteNode() relies on.
+ *
+ * The `+`/`−` fallback is for the case that ordering cannot happen at all
+ * (the module failed to load): a text toggle that still works beats a row
+ * with an empty button on it.
+ */
+function wbOutlineSetToggleGlyph(button, onBoard) {
+    const markup = (typeof globalThis !== 'undefined') ? globalThis.NoodleNoteMarkup : null;
+    const glyph = markup && (onBoard ? markup.unpinGlyph : markup.pinGlyph);
+    if (typeof glyph === 'function') {
+        button.innerHTML = glyph(13);
+    } else {
+        button.textContent = onBoard ? '−' : '+';
+    }
 }
 
 /**

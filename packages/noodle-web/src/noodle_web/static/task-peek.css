@@ -119,6 +119,44 @@
     border-color: var(--np-accent);
 }
 
+/* The peek's pin (issue #1291) ------------------------------------------
+ *
+ * Top right of the popover, between "Open task details" and the close button:
+ * the last thing before the dismiss, and the only control here that acts on
+ * the board rather than on the task. Square and quiet, so it reads as an icon
+ * action next to the labelled button rather than competing with it.
+ *
+ * Disabled when the task is already on the board. It stays visible in that
+ * state on purpose -- it is the answer to "is this one up there already?",
+ * which is worth more than the pixels hiding it would save.
+ */
+.task-peek-pin-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--np-border);
+    border-radius: 6px;
+    background: var(--np-bg-alt);
+    color: var(--np-text);
+    cursor: pointer;
+}
+
+.task-peek-pin-btn:hover:not(:disabled),
+.task-peek-pin-btn:focus-visible {
+    background: var(--np-accent);
+    color: var(--np-on-accent);
+    border-color: var(--np-accent);
+}
+
+.task-peek-pin-btn:disabled {
+    cursor: default;
+    opacity: 0.45;
+}
+
 .task-peek-list {
     list-style: none;
     margin: 0;
