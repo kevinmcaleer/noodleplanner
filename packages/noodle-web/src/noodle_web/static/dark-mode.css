@@ -695,12 +695,6 @@ body {
     accent-color: var(--np-accent);
 }
 
-[data-theme="dark"] .gantt-scale-selector select {
-    background: var(--np-input-bg);
-    color: var(--np-text);
-    border-color: var(--np-accent);
-}
-
 [data-theme="dark"] .gantt-title {
     color: var(--np-text);
 }
