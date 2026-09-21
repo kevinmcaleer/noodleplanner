@@ -178,6 +178,16 @@ const PAIRINGS = [
 	// hue-is-the-meaning palette, so one entry covers both.
 	{ fg: '--np-orange-ink', bg: '--np-orange', min: 4.5, what: 'deliverable badge glyph on its badge' },
 
+	// #1271's two-way hover link between a Gantt row and its markdown line.
+	// Two surfaces, not one: the Gantt row sits on the themed page, so its
+	// pair flips with the theme; the editor is dark in both themes, so its
+	// band is single-valued and scored once. Reusing --np-yellow-subtle for
+	// the dark row was the trap -- it has no dark value, and --np-ink on it
+	// measures 1.03:1 -- which is why the row ink is pinned rather than
+	// inherited and why both halves are scored here.
+	{ fg: '--np-link-highlight-ink', bg: '--np-link-highlight', min: 4.5, what: 'text on a hover-linked Gantt row' },
+	{ fg: '--np-editor-ink', bg: '--np-editor-link-highlight', min: 4.5, what: 'editor text on a hover-linked markdown line' },
+
 	// <np-checkbox>'s tick on a checked box (#1245). A non-text indicator, so
 	// 3:1 -- and this is the pairing nothing was scoring while kanban and both
 	// pilot components filled a checkbox with --np-success and drew a white

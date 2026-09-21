@@ -225,6 +225,25 @@
     background: var(--np-info-tint);
 }
 
+/* #1271: the hover link between a Gantt row and its markdown line. Both
+   halves of a row carry it -- the info row and the bar row are separate
+   elements in separately scrolling containers -- so the class is applied to
+   each and styled once here. `:hover` (--np-paper, above) says "the pointer
+   is here"; this says "this is the same task as the line over there", which
+   is why it is its own colour and not a reuse of the hover or of
+   `tr.selected`. The ink is pinned so the row reads in both themes; see the
+   token comment in visual-system.css. */
+.gantt-info-table tbody tr.gantt-linked-row,
+.gantt-info-table tbody tr.gantt-linked-row:hover {
+    background: var(--np-link-highlight);
+    color: var(--np-link-highlight-ink);
+}
+
+.gantt-bar-row.gantt-linked-row,
+.gantt-bar-row.gantt-linked-row:hover {
+    background: var(--np-link-highlight);
+}
+
 .gantt-info-table tr.gantt-phase-row {
     background: #e8eaf6;
     font-weight: 600;
@@ -916,7 +935,7 @@
     bottom: 0;
     overflow: hidden;
     pointer-events: none;
-    color: #d4d4d4;
+    color: var(--np-editor-ink);
     z-index: 1;
     margin: 0;
 }
@@ -939,6 +958,41 @@
 .editor-textarea::selection {
     background: rgba(16, 139, 185, 0.5);
     color: transparent;
+}
+
+/* #1271: the editor half of the Gantt<->markdown hover link.
+
+   The band cannot be drawn by styling #planEditor -- that textarea is
+   `color: transparent` over a highlight layer that renders every visible
+   glyph, and the two are held in lockstep by the shared metrics above.
+   So the band lives in its own overlay in the same plane as the fold
+   overlay, translated by the same syncScroll() in editor.js, and sits at
+   z-index 0: under the highlight layer's text (z-index 1) and under the
+   textarea (z-index 2), so it reads as a band *behind* the line rather
+   than as a wash over it. It never receives the mouse. */
+.editor-link-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+    transform: translate(0, 0);
+}
+
+.editor-link-band {
+    position: absolute;
+    left: 0;
+    right: 0;
+    background: var(--np-editor-link-highlight);
+    border-left: 3px solid var(--np-accent);
+    box-sizing: border-box;
+}
+
+/* The gutter row for the linked line, so the link is visible even when the
+   band is scrolled to the edge of the viewport. */
+.line-number.gantt-linked-line {
+    background: var(--np-editor-link-highlight);
+    color: var(--np-editor-ink);
 }
 
 /* Section folding overlay (shared folding chrome for back matter now,

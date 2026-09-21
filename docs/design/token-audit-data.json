@@ -29,14 +29,14 @@
   ],
   "filesNotLoaded": [],
   "stylesheet": {
-    "sourceLinesOfCode": 17327,
-    "complexity": 50173
+    "sourceLinesOfCode": 17448,
+    "complexity": 50506
   },
   "rules": {
-    "total": 3867
+    "total": 3886
   },
   "selectors": {
-    "totalUnique": 3777,
+    "totalUnique": 3800,
     "maxSpecificity": [
       1,
       4,
@@ -44,8 +44,8 @@
     ]
   },
   "customProperties": {
-    "totalDeclarations": 379,
-    "totalUniqueNames": 239,
+    "totalDeclarations": 385,
+    "totalUniqueNames": 243,
     "unused": [
       "--np-elevation-2",
       "--np-elevation-4",
@@ -83,22 +83,22 @@
     "unknown": [],
     "conflictingMultiFileDefinitions": []
   },
-  "canonicalTokenCount": 183,
+  "canonicalTokenCount": 187,
   "colors": {
-    "totalUnique": 409,
-    "duplicateOfTokenCount": 32,
+    "totalUnique": 412,
+    "duplicateOfTokenCount": 34,
     "duplicateOfToken": [
       {
         "id": "white-edecb6ba",
         "hex": "#FFFFFF",
         "authoredAs": "white",
-        "usage": 119,
+        "usage": 118,
         "props": [
           "stroke",
-          "background",
           "color",
           "border",
           "text-shadow",
+          "background",
           "border-color",
           "border-bottom",
           "--mm-btn-bg",
@@ -112,6 +112,19 @@
           "--np-on-success"
         ],
         "matchedToken": "--np-on-success"
+      },
+      {
+        "id": "grey-5392f67",
+        "hex": "#D4D4D4",
+        "authoredAs": "#d4d4d4",
+        "usage": 9,
+        "props": [
+          "color",
+          "--mm-btn-hover-bg",
+          "caret-color",
+          "--np-editor-ink"
+        ],
+        "matchedToken": "--np-editor-ink"
       },
       {
         "id": "white-2599f23d",
@@ -218,17 +231,6 @@
         "matchedToken": "--np-orange-ink"
       },
       {
-        "id": "blue-61a649f8",
-        "hex": "#108BB9",
-        "authoredAs": "rgba(16, 139, 185, 0.15)",
-        "usage": 3,
-        "props": [
-          "background",
-          "box-shadow"
-        ],
-        "matchedToken": "--np-info"
-      },
-      {
         "id": "blue-c957f1e0",
         "hex": "#108BB9",
         "authoredAs": "rgba(16, 139, 185, 0.4)",
@@ -288,6 +290,17 @@
         "authoredAs": "rgba(16, 139, 185, 0.55)",
         "usage": 2,
         "props": [
+          "box-shadow"
+        ],
+        "matchedToken": "--np-info"
+      },
+      {
+        "id": "blue-61a649f8",
+        "hex": "#108BB9",
+        "authoredAs": "rgba(16, 139, 185, 0.15)",
+        "usage": 2,
+        "props": [
+          "background",
           "box-shadow"
         ],
         "matchedToken": "--np-info"
@@ -381,6 +394,17 @@
         "matchedToken": "--text-primary"
       },
       {
+        "id": "orange-eeae20d",
+        "hex": "#FFF4D1",
+        "authoredAs": "#fff4d1",
+        "usage": 2,
+        "props": [
+          "--np-yellow-subtle",
+          "--np-link-highlight"
+        ],
+        "matchedToken": "--np-yellow-subtle"
+      },
+      {
         "id": "orange-634423e2",
         "hex": "#201E1A",
         "authoredAs": "#201e1a",
@@ -463,8 +487,9 @@
         "id": "black-edec3e7a",
         "hex": "#000000",
         "authoredAs": "transparent",
-        "usage": 136,
+        "usage": 143,
         "props": [
+          "stroke",
           "background",
           "color",
           "background-color",
@@ -473,6 +498,7 @@
           "border-left",
           "box-shadow",
           "border",
+          "fill",
           "border-top",
           "--wb-note-ink-muted",
           "--wb-note-ink-faint",
@@ -679,15 +705,6 @@
         ]
       },
       {
-        "id": "blue-75a2e9b5",
-        "hex": "#E8EAF6",
-        "authoredAs": "#e8eaf6",
-        "usage": 11,
-        "props": [
-          "background"
-        ]
-      },
-      {
         "id": "orange-2982d6f0",
         "hex": "#FFF3BF",
         "authoredAs": "#fff3bf",
@@ -709,6 +726,15 @@
           "border",
           "--mm-btn-border",
           "--mm-placeholder-heading"
+        ]
+      },
+      {
+        "id": "blue-75a2e9b5",
+        "hex": "#E8EAF6",
+        "authoredAs": "#e8eaf6",
+        "usage": 10,
+        "props": [
+          "background"
         ]
       },
       {
@@ -767,17 +793,6 @@
         ]
       },
       {
-        "id": "grey-5392f67",
-        "hex": "#D4D4D4",
-        "authoredAs": "#d4d4d4",
-        "usage": 9,
-        "props": [
-          "color",
-          "--mm-btn-hover-bg",
-          "caret-color"
-        ]
-      },
-      {
         "id": "blue-f0733271",
         "hex": "#D8DCE1",
         "authoredAs": "#d8dce1",
@@ -797,6 +812,15 @@
           "background",
           "border-color"
         ]
+      },
+      {
+        "id": "blue-7f0f11a6",
+        "hex": "#D3E2E8",
+        "authoredAs": "#d3e2e8",
+        "usage": 8,
+        "props": [
+          "color"
+        ]
       }
     ]
   },
@@ -814,7 +838,7 @@
     {
       "id": "fontSize-170fe9",
       "authoredAs": "12px",
-      "usage": 74
+      "usage": 77
     },
     {
       "id": "fontSize-1713aa",
@@ -832,14 +856,14 @@
       "usage": 34
     },
     {
-      "id": "fontSize-548b93c2",
-      "authoredAs": "0.95em",
-      "usage": 33
-    },
-    {
       "id": "fontSize-170c28",
       "authoredAs": "11px",
       "usage": 33
+    },
+    {
+      "id": "fontSize-548b93c2",
+      "authoredAs": "0.95em",
+      "usage": 32
     },
     {
       "id": "fontSize-170867",
@@ -852,14 +876,14 @@
       "usage": 19
     },
     {
-      "id": "fontSize-2c847a3",
-      "authoredAs": "1.8em",
-      "usage": 15
-    },
-    {
       "id": "fontSize-2c8389f",
       "authoredAs": "1.4em",
       "usage": 15
+    },
+    {
+      "id": "fontSize-2c847a3",
+      "authoredAs": "1.8em",
+      "usage": 14
     },
     {
       "id": "fontSize-2ba2c61",
@@ -907,11 +931,6 @@
       "usage": 6
     },
     {
-      "id": "fontSize-3cd8fd3f",
-      "authoredAs": "0.85rem",
-      "usage": 6
-    },
-    {
       "id": "fontSize-5665b42f",
       "authoredAs": "11.5px",
       "usage": 6
@@ -919,6 +938,11 @@
     {
       "id": "fontSize-563dae66",
       "authoredAs": "1.1rem",
+      "usage": 5
+    },
+    {
+      "id": "fontSize-3cd8fd3f",
+      "authoredAs": "0.85rem",
       "usage": 5
     },
     {
@@ -1225,7 +1249,7 @@
     {
       "id": "radius-d8be",
       "authoredAs": "6px",
-      "usage": 91
+      "usage": 90
     },
     {
       "id": "radius-e040",
@@ -1273,6 +1297,11 @@
       "usage": 3
     },
     {
+      "id": "radius-b7201cb6",
+      "authoredAs": "var(--np-radius-panel)",
+      "usage": 3
+    },
+    {
       "id": "radius-da7a1ca0",
       "authoredAs": "10px 10px 0 0",
       "usage": 2
@@ -1298,8 +1327,8 @@
       "usage": 2
     },
     {
-      "id": "radius-b7201cb6",
-      "authoredAs": "var(--np-radius-panel)",
+      "id": "radius-e8aec3d",
+      "authoredAs": "var(--np-radius-control)",
       "usage": 2
     },
     {
@@ -1368,11 +1397,6 @@
       "usage": 1
     },
     {
-      "id": "radius-e8aec3d",
-      "authoredAs": "var(--np-radius-control)",
-      "usage": 1
-    },
-    {
       "id": "radius-ccd99f20",
       "authoredAs": "14px 14px 0 0",
       "usage": 1
@@ -1392,7 +1416,7 @@
     {
       "id": "boxShadow-f6beb62c",
       "authoredAs": "0 4px 12px var(--np-shadow-strong)",
-      "usage": 16
+      "usage": 15
     },
     {
       "id": "boxShadow-5b04875",
@@ -1430,6 +1454,11 @@
       "usage": 3
     },
     {
+      "id": "boxShadow-f6f3040c",
+      "authoredAs": "var(--np-floating-shadow)",
+      "usage": 3
+    },
+    {
       "id": "boxShadow-96b1c8bd",
       "authoredAs": "-4px 0 20px rgba(0, 0, 0, 0.3)",
       "usage": 2
@@ -1447,11 +1476,6 @@
     {
       "id": "boxShadow-d7537976",
       "authoredAs": "0 20px 60px rgba(0, 0, 0, 0.5)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-bf5f37d8",
-      "authoredAs": "0 0 0 3px rgba(16, 139, 185, 0.15)",
       "usage": 2
     },
     {
@@ -1482,11 +1506,6 @@
     {
       "id": "boxShadow-c51ca647",
       "authoredAs": "0 6px 20px var(--np-shadow)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-f6f3040c",
-      "authoredAs": "var(--np-floating-shadow)",
       "usage": 2
     },
     {
@@ -1570,6 +1589,11 @@
       "usage": 1
     },
     {
+      "id": "boxShadow-9be3b35c",
+      "authoredAs": "0 1px 2px var(--np-shadow)",
+      "usage": 1
+    },
+    {
       "id": "boxShadow-7f1c3814",
       "authoredAs": "0 12px 40px var(--np-shadow)",
       "usage": 1
@@ -1647,6 +1671,11 @@
     {
       "id": "boxShadow-a2bf5e18",
       "authoredAs": "0 0 0 1px var(--np-shadow-strong)",
+      "usage": 1
+    },
+    {
+      "id": "boxShadow-bf5f37d8",
+      "authoredAs": "0 0 0 3px rgba(16, 139, 185, 0.15)",
       "usage": 1
     },
     {
@@ -1731,15 +1760,15 @@
     }
   ],
   "spacing": {
-    "declarations": 1586,
-    "indirectedDeclarations": 1344,
+    "declarations": 1582,
+    "indirectedDeclarations": 1339,
     "totalUniqueValues": 38,
     "offGridUniqueValues": 15,
     "offGridUses": 33,
     "top": [
       {
         "value": "0",
-        "uses": 174,
+        "uses": 175,
         "onGrid": true,
         "props": [
           "gap",
@@ -2117,8 +2146,8 @@
   "components": [
     {
       "family": "table",
-      "rules": 835,
-      "uniqueSelectors": 707,
+      "rules": 839,
+      "uniqueSelectors": 711,
       "spreadAcrossFiles": 18,
       "files": [
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -2141,16 +2170,16 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 126,
+        "hover": 128,
         "focus": 22,
         "active": 0,
         "disabled": 1
       },
-      "distinctClassNames": 217,
+      "distinctClassNames": 218,
       "topClassNames": [
         {
           "name": "gantt-info-table",
-          "rules": 29
+          "rules": 31
         },
         {
           "name": "timesheet-table",
@@ -2212,8 +2241,8 @@
     },
     {
       "family": "button",
-      "rules": 444,
-      "uniqueSelectors": 377,
+      "rules": 446,
+      "uniqueSelectors": 379,
       "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2239,12 +2268,12 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 139,
+        "hover": 140,
         "focus": 28,
         "active": 5,
         "disabled": 21
       },
-      "distinctClassNames": 125,
+      "distinctClassNames": 126,
       "topClassNames": [
         {
           "name": "btn-primary",
@@ -2310,8 +2339,8 @@
     },
     {
       "family": "nav",
-      "rules": 370,
-      "uniqueSelectors": 332,
+      "rules": 372,
+      "uniqueSelectors": 334,
       "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/animations.css",
@@ -2338,7 +2367,7 @@
         "active": 2,
         "disabled": 12
       },
-      "distinctClassNames": 125,
+      "distinctClassNames": 126,
       "topClassNames": [
         {
           "name": "ribbon-tab-btn",
@@ -2404,8 +2433,8 @@
     },
     {
       "family": "badge",
-      "rules": 236,
-      "uniqueSelectors": 220,
+      "rules": 237,
+      "uniqueSelectors": 221,
       "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2467,6 +2496,10 @@
           "rules": 5
         },
         {
+          "name": "baseline-toggle-label",
+          "rules": 5
+        },
+        {
           "name": "hl-off-tag",
           "rules": 5
         },
@@ -2480,10 +2513,6 @@
         },
         {
           "name": "msp-sync-kind-badge",
-          "rules": 4
-        },
-        {
-          "name": "baseline-toggle-label",
           "rules": 4
         },
         {
@@ -2502,8 +2531,8 @@
     },
     {
       "family": "modal",
-      "rules": 209,
-      "uniqueSelectors": 185,
+      "rules": 211,
+      "uniqueSelectors": 187,
       "spreadAcrossFiles": 14,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2527,7 +2556,7 @@
         "active": 0,
         "disabled": 0
       },
-      "distinctClassNames": 82,
+      "distinctClassNames": 83,
       "topClassNames": [
         {
           "name": "modal-header",
@@ -2547,7 +2576,7 @@
         },
         {
           "name": "task-context-menu-item",
-          "rules": 8
+          "rules": 9
         },
         {
           "name": "ribbon-more-popover",
@@ -2794,7 +2823,7 @@
       },
       {
         "file": "packages/noodle-web/src/noodle_web/templates/index.html",
-        "inlineStyleAttributes": 261,
+        "inlineStyleAttributes": 260,
         "containingColourLiteral": 2
       },
       {
@@ -2803,10 +2832,10 @@
         "containingColourLiteral": 1
       }
     ],
-    "templateInlineStyleTotal": 267,
+    "templateInlineStyleTotal": 266,
     "templateInlineStyleWithColour": 3,
     "scriptFilesWithColourLiterals": 41,
-    "scriptColourLineTotal": 359,
+    "scriptColourLineTotal": 362,
     "topScripts": [
       {
         "file": "packages/noodle-web/src/noodle_web/static/script.js",
@@ -2861,6 +2890,10 @@
         "lines": 8
       },
       {
+        "file": "packages/noodle-web/src/noodle_web/static/portfolio-report.js",
+        "lines": 8
+      },
+      {
         "file": "packages/noodle-web/src/noodle_web/static/portfolio-resources.js",
         "lines": 8
       },
@@ -2882,10 +2915,6 @@
       },
       {
         "file": "packages/noodle-web/src/noodle_web/static/kanban.js",
-        "lines": 5
-      },
-      {
-        "file": "packages/noodle-web/src/noodle_web/static/portfolio-report.js",
         "lines": 5
       }
     ]

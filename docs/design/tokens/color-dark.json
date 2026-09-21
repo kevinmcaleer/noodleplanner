@@ -111,12 +111,12 @@
   },
   "avatar-bg": {
     "$type": "color",
-    "$value": "#3fb6e0",
+    "$value": "#FAF8F4",
     "$description": "--np-avatar-bg"
   },
   "avatar-ink": {
     "$type": "color",
-    "$value": "#161616",
+    "$value": "#201E1A",
     "$description": "--np-avatar-ink"
   },
   "badge-bg": {
@@ -224,6 +224,16 @@
     "$value": "#201E1A",
     "$description": "--np-editor-bg"
   },
+  "editor-ink": {
+    "$type": "color",
+    "$value": "#d4d4d4",
+    "$description": "--np-editor-ink"
+  },
+  "editor-link-highlight": {
+    "$type": "color",
+    "$value": "#55471A",
+    "$description": "--np-editor-link-highlight"
+  },
   "editor-tip-bg": {
     "$type": "color",
     "$value": "#312D26",
@@ -323,6 +333,16 @@
     "$type": "color",
     "$value": "#F3C754",
     "$description": "--np-link"
+  },
+  "link-highlight": {
+    "$type": "color",
+    "$value": "#5A4A14",
+    "$description": "--np-link-highlight"
+  },
+  "link-highlight-ink": {
+    "$type": "color",
+    "$value": "#FAF0D6",
+    "$description": "--np-link-highlight-ink"
   },
   "link-hover": {
     "$type": "color",
