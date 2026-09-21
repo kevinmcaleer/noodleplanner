@@ -160,6 +160,14 @@ function tpGetInitials(name) {
  * @param {(task: Object) => void} opts.onOpenDetails - escalate to the
  *   full task-details form for whichever task is the *current* level's
  *   own task (the peek's header button, not a per-row action).
+ * @param {(task: Object, rect: DOMRect|null) => void} [opts.onPin] - pin the
+ *   *current* level's own task to the whiteboard (issue #1291). Given the
+ *   popover's own bounding rect, so the caller can place the new note where
+ *   the peek was rather than wherever the next free space is. Omit it and the
+ *   header simply has no pin -- this file never assumes a whiteboard.
+ * @param {(task: Object) => boolean} [opts.isPinned] - whether that task is
+ *   already on the board; the pin renders disabled when it is, rather than
+ *   quietly pinning a second copy.
  * @param {() => void} [opts.onClose] - called once the peek actually
  *   closes, for any reason (Escape, outside click, close button, or a
  *   fresh tpOpen() elsewhere replacing this one).
@@ -175,6 +183,8 @@ function tpOpen(opts) {
         resolveLevel: opts.resolveLevel,
         onToggle: opts.onToggle,
         onOpenDetails: opts.onOpenDetails,
+        onPin: opts.onPin,
+        isPinned: opts.isPinned,
         onClose: opts.onClose,
     };
 
@@ -299,6 +309,23 @@ function tpBuildBreadcrumb() {
     return nav;
 }
 
+/** The pushpin, shared with the board's own notes (#1291).
+ *
+ * Taken from components/note/note-markup.js through the global the whiteboard
+ * already reads it from, so the pin on a peek, on a note header and on an
+ * outline row are one drawing. The inline fallback keeps this file standalone
+ * -- the same arrangement tpGetInitials() above uses for wbGetInitials().
+ */
+function tpPinGlyph(size) {
+    const markup = (typeof globalThis !== 'undefined') ? globalThis.NoodleNoteMarkup : null;
+    if (markup && typeof markup.pinGlyph === 'function') return markup.pinGlyph(size);
+    return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" ` +
+        'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M9.8 1.6 14.4 6.2"/>' +
+        '<path d="M10.6 2.4 9 4 6.2 4.6 3.3 7.5l5.2 5.2 2.9-2.9L12 7l1.6-1.6"/>' +
+        '<path d="M5.9 10.1 2.2 13.8"/></svg>';
+}
+
 function tpBuildHeader(level) {
     const header = document.createElement('div');
     header.className = 'task-peek-header';
@@ -327,6 +354,44 @@ function tpBuildHeader(level) {
         if (typeof onOpenDetails === 'function') onOpenDetails(task);
     });
     header.appendChild(openBtn);
+
+    // Pin this level's task to the whiteboard (issue #1291), at the top right
+    // of the popover -- the issue's "pin button at the top right of that white
+    // note". It acts on the *current* level's task, like the "Open task
+    // details" button beside it, which is what makes it work at every depth:
+    // drill into a grandchild and the pin pins the grandchild.
+    //
+    // Only rendered when the caller supplied an onPin. This file also backs a
+    // future non-whiteboard consumer (see its header), and "pin to the board"
+    // is meaningless without one.
+    if (tpState && typeof tpState.onPin === 'function') {
+        const task = level.task;
+        const pinned = typeof tpState.isPinned === 'function' ? !!tpState.isPinned(task) : false;
+        const pinBtn = document.createElement('button');
+        pinBtn.type = 'button';
+        pinBtn.className = 'task-peek-pin-btn' + (pinned ? ' is-pinned' : '');
+        pinBtn.innerHTML = tpPinGlyph(13);
+        pinBtn.title = pinned
+            ? `"${task.name}" is already on the whiteboard`
+            : `Pin "${task.name}" to the whiteboard`;
+        pinBtn.setAttribute('aria-label', pinBtn.title);
+        if (pinned) {
+            pinBtn.disabled = true;
+        } else {
+            pinBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const onPin = tpState && tpState.onPin;
+                const popover = document.getElementById('taskPeekPopover');
+                const rect = popover ? popover.getBoundingClientRect() : null;
+                // Close first, like "Open task details" does: the pinned note
+                // lands where this popover is, and leaving the popover sitting
+                // on top of it would hide the very thing the click produced.
+                tpClose();
+                if (typeof onPin === 'function') onPin(task, rect);
+            });
+        }
+        header.appendChild(pinBtn);
+    }
 
     const closeBtn = document.createElement('np-close-button');
     closeBtn.setAttribute('size', 'small');

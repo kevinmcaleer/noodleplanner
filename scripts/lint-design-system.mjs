@@ -126,9 +126,20 @@ const ALLOW = [
 		// a note dragged to the parking lot was silently not parked. Caught by
 		// tests/ui/test_whiteboard_parking_lot.py. The scale does not get a
 		// vote on a value that is load-bearing for hit-testing.
+		//
+		// `.wb-note-pin-btn` is here for the same value and the same reason
+		// (#1291). The pin is collapsed to zero width at rest and a zero-width
+		// flex item still costs its neighbour a gap, so it carries
+		// `margin-right: -6px` to cancel that one -- the same 6 this rule
+		// already exempts, negated. Without it the title, and with it the one
+		// left inset the card's title, rows and footer share, sits 6px right
+		// of where it has always been on every note on the board;
+		// tests/ui/test_whiteboard_note_card.py measures that edge. A token
+		// cannot cancel a value the scale does not have.
 		why: 'whiteboard note header hit-testing',
 		rules: ['off-scale-spacing'],
-		match: ({ file, selector }) => file.endsWith('views/whiteboard.css') && /^\.wb-note-header$/.test(selector.trim()),
+		match: ({ file, selector }) => file.endsWith('views/whiteboard.css') &&
+			/^\.wb-note-header$|^\.wb-note-pin-btn$/.test(selector.trim()),
 	},
 	{
 		// Chart series, axis and grid colours are data encodings handed to a

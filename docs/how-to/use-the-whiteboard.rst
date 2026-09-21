@@ -129,7 +129,7 @@ The panel floating on the left of the canvas shows your whole plan as a collapsi
 - **A filled dot** marks a task that has a note on the board. A hollow one marks a task that doesn't.
 - **Click a row** to fly the board to that note, which flashes so you can spot it. This is the quickest way to find a note on a large board.
 - **Type in the search box** to filter to matching tasks and their parents. Search ignores collapsed branches, so a result is never hidden from you.
-- **Click the ``+``** on a row without a note to put that task on the board.
+- **Click the pin** on a row without a note to pin that task to the board. A row that already has a note shows a struck-through pin instead — click that to unpin it, which takes the note off the board and leaves the task itself untouched.
 - **Drag a row's grip** (``⠿``) to restructure the plan. Dropping on the top half of another row moves it to sit just above that row; dropping on the bottom half moves it to sit just below — either way, at that row's own level, so dragging a nested task next to a top-level one un-nests it in the same move. Dropping on the bottom half **and** well to the right instead nests it as that row's sub-task — a deliberately different spot so a plain reorder is never mistaken for "make this a sub-task", or the reverse.
 
 .. figure:: /_static/img/how-to/wb-04-plan-structure.png
@@ -216,6 +216,8 @@ A child task that itself has children shows a count badge (for example ``2 ▾``
 
    Drilling into "Requirements gathering" opens a popover for its own subtasks.
 
+The pin at the popover's top right puts *that* task on the board as a note of its own, next to where the popover was, so you can promote a subtask you have just drilled into without hunting for it in the plan structure panel afterwards. It appears greyed out for a task that is already on the board.
+
 This popover is deliberately lightweight — just name, assignee and completion. For anything else (dates, dependencies, comments, and so on), click **Open task details** at the top of the popover, or on the note's own ``...`` menu, to open the full task form for that task.
 
 Colour a Note
@@ -231,10 +233,10 @@ Click the ``...`` menu in a note's top-right corner. The menu opens a swatch gri
 
 A colour you pick here is the same colour the Kanban board's column header and the mind map's branch use for that task — set it on any one of the three views and it shows up on the other two. Pick **Default colour** to go back to the automatic pastel colour NoodlePlanner assigns every task, based on its place in the outline.
 
-Remove a Note from the Board
+Unpin a Note from the Board
 -------------------------------
 
-Open the note's ``...`` menu and choose **Remove from board**.
+Hover a note and a pin slides in to the left of its title; click it to unpin the note. The same thing is on the note's ``...`` menu as **Remove from board**, and on the plan structure panel as that row's struck-through pin — three ways to the one action.
 
 .. note::
 
