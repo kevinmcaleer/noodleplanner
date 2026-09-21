@@ -249,13 +249,17 @@ export const CONTEXTUAL_TABS = [
         trigger: 'Gantt view open',
         groups: [
             { name: 'Schedule', launcher: true, lg: [['link', 'Link'], ['unlink', 'Unlink']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['target', 'Critical Path'], ['clock', 'Baseline']]] },
-            // #1266: Set Baseline / Show Baseline moved off the Gantt toolbar.
-            // They sit in their own one-column group rather than deepening
-            // Schedule's columns to 4, which would have changed where the
-            // whole strip collapses into "More" (see ribbon-layout.js).
-            { name: 'Baseline', cols: [[['save', 'Set Baseline'], ['timeline', 'Show Baseline']]] },
             { name: 'Zoom', cols: [[['calendar', 'Day/Week/Month', 'caret'], ['search', 'Fit']], [['clock', 'Today'], ['target', 'Go to Task']]] },
             { name: 'Show', cols: [[['timeline', 'Slack'], ['milestones', 'Milestones']], [['link', 'Deps'], ['chart', 'Progress']]] },
+            // #1266: Set Baseline / Show Baseline moved off the Gantt toolbar
+            // into their own one-column group rather than deepening Schedule's
+            // columns to 4. It goes LAST on purpose: fitGroups() overflows
+            // strictly left-to-right, so a new group placed earlier would push
+            // Zoom and Show into "More" at widths where they used to fit
+            // (measured: Show at 1000px instead of 900px). Last means the new
+            // group is the first to fold away, and the existing groups keep
+            // their own collapse points.
+            { name: 'Baseline', cols: [[['save', 'Set Baseline'], ['timeline', 'Show Baseline']]] },
         ],
     },
     {
