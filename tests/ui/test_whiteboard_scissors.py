@@ -246,3 +246,72 @@ class TestScissorsSplit:
         )
         assert "New idea" not in plan_text(board).split("---whiteboard---")[0]
         assert plan_text(board).split("---whiteboard---")[0] == before.split("---whiteboard---")[0]
+
+
+class TestScissorsArming:
+    """The touch-arming state is board-wide and transient.
+
+    Coarse pointers have no hover, so a press on a row reveals the scissors
+    in the gap below it and a second tap splits. That armed state used to be
+    cleared only by a press on another row *of the same note*, so pressing a
+    row's count badge armed a cut that then stayed visible forever -- on a
+    note that had since lost focus (the reported bug).
+    """
+
+    @staticmethod
+    def _armed(page):
+        return page.evaluate(
+            "() => Array.from(document.querySelectorAll("
+            "  '.wb-note-cut[data-wb-armed]')).length"
+        )
+
+    @staticmethod
+    def _press(locator, pointer_type):
+        locator.dispatch_event(
+            "pointerdown", {"pointerType": pointer_type, "bubbles": True}
+        )
+
+    def _row(self, page, parent, child):
+        return note(page, parent).locator(
+            f".wb-note-row:has(.wb-note-row-name:text-is('{child}'))"
+        )
+
+    def test_a_mouse_press_never_arms(self, page, app_server):
+        _loaded(page, app_server)
+        self._press(self._row(page, "Build", "Keep"), "mouse")
+        assert self._armed(page) == 0, (
+            "fine pointers reveal the scissors by hovering the gap; arming "
+            "on a mouse press leaves them showing with no second tap to spend"
+        )
+
+    def test_pressing_the_count_badge_does_not_arm(self, page, app_server):
+        _loaded(page, app_server)
+        badge = note(page, "Build").locator(".wb-note-count-badge").first
+        assert badge.count() == 1
+        self._press(badge, "touch")
+        assert self._armed(page) == 0, (
+            "the badge press is the peek's gesture, not a bid to split"
+        )
+
+    def test_a_touch_press_arms_only_the_cut_below_that_row(self, page, app_server):
+        _loaded(page, app_server)
+        self._press(self._row(page, "Build", "Keep"), "touch")
+        assert self._armed(page) == 1
+
+    def test_pressing_another_note_disarms(self, page, app_server):
+        _loaded(page, app_server)
+        self._press(self._row(page, "Build", "Keep"), "touch")
+        assert self._armed(page) == 1
+        self._press(self._row(page, "Solo", "OnlyChild"), "touch")
+        assert self._armed(page) == 0, (
+            "an armed cut on one note must not survive a press on another"
+        )
+
+    def test_pressing_the_canvas_disarms(self, page, app_server):
+        _loaded(page, app_server)
+        self._press(self._row(page, "Build", "Keep"), "touch")
+        assert self._armed(page) == 1
+        page.locator("#whiteboardContainer").dispatch_event(
+            "pointerdown", {"pointerType": "touch", "bubbles": True}
+        )
+        assert self._armed(page) == 0
