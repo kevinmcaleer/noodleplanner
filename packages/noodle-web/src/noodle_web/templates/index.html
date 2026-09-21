@@ -756,42 +756,7 @@ Press Enter to render..."></textarea>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="gantt-toolbar">
-                                    <h2 class="gantt-title"><span class="ribbon-banner ribbon-banner--green">Gantt Chart</span></h2>
-                                    <div class="gantt-toolbar-controls">
-                                        <!-- #1267: the visible scale drop-down moved to the Gantt Tools
-                                             ribbon's "Scale" group (five mutually exclusive buttons). This
-                                             <select> is deliberately KEPT, hidden, as the source of truth:
-                                             views-gantt.js's one-time `change` listener (guarded on
-                                             dataset.initialized) is still the only wiring that sets the
-                                             `ganttScale` global and re-renders, and each ribbon button sets
-                                             this element's value and dispatches `change` on it. -->
-                                        <select id="ganttScale" hidden aria-hidden="true" tabindex="-1">
-                                            <option value="days" selected>Days</option>
-                                            <option value="weeks">Weeks</option>
-                                            <option value="months">Months</option>
-                                            <option value="quarters">Quarters</option>
-                                            <option value="years">Years</option>
-                                        </select>
-                                        <div class="gantt-checkbox-group">
-                                            <!-- The visible dependency and critical-path toggles now live in the
-                                                 Gantt Tools ribbon (Show > Deps, Schedule > Critical Path). These
-                                                 inputs stay in the DOM as the shared source of truth that ribbon.js,
-                                                 views-gantt.js and settings.js all read and write. -->
-                                            <input type="checkbox" id="ganttShowDependencies" hidden>
-                                            <input type="checkbox" id="ganttShowCriticalPath" hidden>
-                                        </div>
-                                        <!-- #1266: Set Baseline / Manage Baselines... / Show Baseline moved to the
-                                             ribbon's Baseline group. This checkbox stays in the DOM, hidden, because
-                                             it remains the source of truth for the gantt_show_baseline front matter
-                                             (settings.js) and for renderGanttChart()'s overlay; the ribbon's
-                                             "Show Baseline" button flips it via a real change event. -->
-                                        <label class="baseline-toggle-label" id="baselineToggleLabel" hidden>
-                                            <input type="checkbox" id="ganttShowBaseline" onchange="toggleBaselineDisplay()">
-                                            Show Baseline
-                                        </label>
-                                    </div>
-                                </div>
+                                <h2 class="gantt-title"><span class="ribbon-banner ribbon-banner--green">Gantt Chart</span></h2>
                                 <div class="gantt-wrapper">
                                     <div class="gantt-table-side">
                                         <table class="gantt-info-table">
@@ -827,6 +792,46 @@ Press Enter to render..."></textarea>
                                             <!-- Gantt bars will be populated by JavaScript -->
                                         </div>
                                     </div>
+                                </div>
+                                <!-- Hidden Gantt state (#1287). These four controls are the source of
+                                     truth for four working features; only their visible counterparts
+                                     moved to the Gantt Tools ribbon. They used to sit in a
+                                     `.gantt-toolbar-controls` wrapper inside a `.gantt-toolbar`, both of
+                                     which laid out nothing once every child was hidden. The wrappers are
+                                     gone; the controls live on here, at the end of the view, where they
+                                     lay out nothing either. Every consumer reaches them by
+                                     `getElementById`, never by position, so this container must stay
+                                     hidden and in the DOM but need not stay anywhere in particular. -->
+                                <div class="gantt-hidden-state" hidden>
+                                    <!-- #1267: the visible scale drop-down moved to the Gantt Tools
+                                         ribbon's "Scale" group (five mutually exclusive buttons). This
+                                         <select> is deliberately KEPT, hidden, as the source of truth:
+                                         views-gantt.js's one-time `change` listener (guarded on
+                                         dataset.initialized) is still the only wiring that sets the
+                                         `ganttScale` global and re-renders, and each ribbon button sets
+                                         this element's value and dispatches `change` on it. -->
+                                    <select id="ganttScale" hidden aria-hidden="true" tabindex="-1">
+                                        <option value="days" selected>Days</option>
+                                        <option value="weeks">Weeks</option>
+                                        <option value="months">Months</option>
+                                        <option value="quarters">Quarters</option>
+                                        <option value="years">Years</option>
+                                    </select>
+                                    <!-- The visible dependency and critical-path toggles now live in the
+                                         Gantt Tools ribbon (Show > Deps, Schedule > Critical Path). These
+                                         inputs stay in the DOM as the shared source of truth that ribbon.js,
+                                         views-gantt.js and settings.js all read and write. -->
+                                    <input type="checkbox" id="ganttShowDependencies" hidden>
+                                    <input type="checkbox" id="ganttShowCriticalPath" hidden>
+                                    <!-- #1266: Set Baseline / Manage Baselines... / Show Baseline moved to the
+                                         ribbon's Baseline group. This checkbox stays in the DOM, hidden, because
+                                         it remains the source of truth for the gantt_show_baseline front matter
+                                         (settings.js) and for renderGanttChart()'s overlay; the ribbon's
+                                         "Show Baseline" button flips it via a real change event. -->
+                                    <label class="baseline-toggle-label" id="baselineToggleLabel" hidden>
+                                        <input type="checkbox" id="ganttShowBaseline" onchange="toggleBaselineDisplay()">
+                                        Show Baseline
+                                    </label>
                                 </div>
                             </div>
                         </div>
