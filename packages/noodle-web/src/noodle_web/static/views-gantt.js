@@ -188,7 +188,200 @@ function wouldCreateLoop(taskId, proposedDepIds, tasks) {
 }
 
 
+// ----- Zoom, geometry and persistence (#787) -----
+//
+// `ganttPixelsPerDay` (state.js) is the one number the chart is drawn from.
+// The five named scales are detents on it, not modes: gantt-scale.js derives
+// the header bands, the drag snap unit and every bar's position from it, so
+// there is one rendering rule at every zoom rather than one per scale.
+
+/** Row height of `.gantt-bar-row` (views/gantt.css). The overlays compute
+ *  their Y positions from it rather than reading the DOM back. */
+const GANTT_ROW_HEIGHT = 40;
+/** A pointer must travel this far before a press becomes a drag. */
+const GANTT_DRAG_THRESHOLD_PX = 5;
+const GANTT_ZOOM_KEY_PREFIX = 'noodle_gantt_zoom_';
+/** Below this width a task bar drops its resize handles (see placeGanttElement). */
+const GANTT_NARROW_BAR_PX = 24;
+
+/** The chart range as day numbers (inclusive), mirroring ganttMinDate/MaxDate. */
+let ganttFromDay = null;
+let ganttToDay = null;
+/** The project whose zoom is loaded; a change reloads it and re-centres on today. */
+let ganttZoomProjectId;
+let ganttScrollToTodayPending = true;
+/** engine/gantt-drag.js, once loaded -- the live-preview scheduler. */
+let ganttDragEngine = null;
+/** Per-task bar spans (day numbers) while a drag preview is showing, keyed
+ *  by task index; the overlays draw from these instead of the committed dates. */
+let ganttPreviewSpans = null;
+/** The drag in progress, if any. A re-render arriving mid-drag (the editor's
+ *  debounced parse, an autosave) would replace the bars under the pointer,
+ *  so it is held until the drag ends. */
+let ganttActiveDrag = null;
+let ganttDeferredTasks = null;
+
+function ganttZoomStorageKey(projectId) {
+    return GANTT_ZOOM_KEY_PREFIX + (projectId || 'default');
+}
+
+function currentGanttProjectId() {
+    return (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : null;
+}
+
+/** Load this project's saved zoom the first time its chart is drawn. */
+function restoreGanttZoomForProject() {
+    const projectId = currentGanttProjectId();
+    if (projectId === ganttZoomProjectId) return;
+    ganttZoomProjectId = projectId;
+    ganttScrollToTodayPending = true;
+    let saved = null;
+    try { saved = localStorage.getItem(ganttZoomStorageKey(projectId)); } catch (_) { /* storage blocked */ }
+    const value = saved === null ? NaN : parseFloat(saved);
+    ganttPixelsPerDay = GanttScale.clampPixelsPerDay(
+        Number.isFinite(value) ? value : GanttScale.DEFAULT_PIXELS_PER_DAY);
+    ganttScale = GanttScale.exactDetent(ganttPixelsPerDay) || '';
+}
+
+function persistGanttZoom() {
+    try {
+        localStorage.setItem(ganttZoomStorageKey(currentGanttProjectId()), String(ganttPixelsPerDay));
+    } catch (_) { /* storage blocked -- zoom still works, it just isn't remembered */ }
+}
+
+/** Fetch the drag-preview engine once; the parse pipeline has usually
+ *  loaded its dependencies already, so this is a cache hit. */
+function loadGanttDragEngine() {
+    if (ganttDragEngine || loadGanttDragEngine.pending) return;
+    loadGanttDragEngine.pending = import('/static/engine/gantt-drag.js')
+        .then(module => { ganttDragEngine = module; })
+        .catch(error => console.warn('[gantt] drag preview engine unavailable:', error))
+        .finally(() => { loadGanttDragEngine.pending = null; });
+}
+
+function ganttX(day) {
+    return (day - ganttFromDay) * ganttPixelsPerDay;
+}
+
+function ganttTotalWidth() {
+    return (ganttToDay - ganttFromDay + 1) * ganttPixelsPerDay;
+}
+
+/** Wire the zoom slider and the hidden scale <select> once. */
+function setupGanttZoomControls() {
+    const slider = document.getElementById('ganttZoomSlider');
+    if (slider && !slider.dataset.initialized) {
+        slider.min = '0';
+        slider.max = String(GanttScale.SLIDER_MAX);
+        slider.step = '1';
+        slider.addEventListener('input', () => {
+            setGanttZoom(GanttScale.sliderToPixelsPerDay(slider.value), { fromSlider: true });
+        });
+        slider.addEventListener('change', () => refreshRibbonIfPresent());
+        const ticks = document.getElementById('ganttZoomTicks');
+        if (ticks) {
+            ticks.innerHTML = '';
+            GanttScale.DETENTS.forEach(detent => {
+                const option = document.createElement('option');
+                option.value = String(GanttScale.pixelsPerDayToSlider(detent.pixelsPerDay));
+                option.label = detent.label;
+                ticks.appendChild(option);
+            });
+        }
+        slider.dataset.initialized = 'true';
+    }
+    document.querySelectorAll('[data-gantt-zoom-step]').forEach(button => {
+        if (button.dataset.initialized) return;
+        button.addEventListener('click', () => {
+            setGanttZoom(GanttScale.stepZoom(ganttPixelsPerDay, Number(button.dataset.ganttZoomStep)));
+        });
+        button.dataset.initialized = 'true';
+    });
+
+    const chartSide = document.querySelector('.gantt-chart-side');
+    if (chartSide && !chartSide.dataset.zoomWheel) {
+        // Ctrl/Cmd + wheel (and a trackpad pinch, which browsers report as a
+        // ctrl-wheel) zooms about the pointer.
+        chartSide.addEventListener('wheel', event => {
+            if (!event.ctrlKey && !event.metaKey) return;
+            event.preventDefault();
+            setGanttZoom(GanttScale.stepZoom(ganttPixelsPerDay, event.deltaY < 0 ? 1 : -1),
+                { anchorClientX: event.clientX });
+        }, { passive: false });
+        chartSide.dataset.zoomWheel = 'true';
+    }
+}
+
+/** Reflect the current zoom in the slider and its readout. */
+function syncGanttZoomControls() {
+    const slider = document.getElementById('ganttZoomSlider');
+    if (slider && document.activeElement !== slider) {
+        slider.value = String(GanttScale.pixelsPerDayToSlider(ganttPixelsPerDay));
+    }
+    if (slider) {
+        const name = GanttScale.exactDetent(ganttPixelsPerDay);
+        const detent = name ? GanttScale.detentByName(name) : null;
+        slider.setAttribute('aria-valuetext', detent ? detent.label
+            : `${GanttScale.detentByName(GanttScale.nearestDetent(ganttPixelsPerDay)).label} (custom zoom)`);
+    }
+    const readout = document.getElementById('ganttZoomReadout');
+    if (readout) {
+        const name = GanttScale.exactDetent(ganttPixelsPerDay);
+        readout.textContent = name ? GanttScale.detentByName(name).label
+            : `~${GanttScale.detentByName(GanttScale.nearestDetent(ganttPixelsPerDay)).label}`;
+    }
+}
+
+function refreshRibbonIfPresent() {
+    if (typeof refreshRibbon === 'function') refreshRibbon();
+}
+
+/**
+ * Change the zoom, keeping the date under the anchor where it is: the
+ * pointer for Ctrl+wheel, otherwise the centre of the visible chart. Only
+ * the chart side is redrawn -- the task table does not change with zoom.
+ */
+function setGanttZoom(pixelsPerDay, options = {}) {
+    const next = GanttScale.clampPixelsPerDay(pixelsPerDay);
+    const previous = ganttPixelsPerDay;
+    const chartSide = document.querySelector('.gantt-chart-side');
+    let anchorPx = null;
+    if (chartSide) {
+        const rect = chartSide.getBoundingClientRect();
+        anchorPx = options.anchorClientX != null
+            ? options.anchorClientX - rect.left
+            : chartSide.clientWidth / 2;
+    }
+    const scrollLeft = chartSide ? chartSide.scrollLeft : 0;
+
+    ganttPixelsPerDay = next;
+    ganttScale = GanttScale.exactDetent(next) || '';
+    persistGanttZoom();
+
+    if (ganttFromDay !== null && ganttTasks && ganttTasks.length) {
+        relayoutGanttChart();
+        if (chartSide && anchorPx !== null) {
+            chartSide.scrollLeft = GanttScale.anchoredScrollLeft(scrollLeft, anchorPx, previous, next);
+        }
+    }
+    syncGanttZoomControls();
+    if (!options.fromSlider) refreshRibbonIfPresent();
+}
+
+/** Zoom so the whole project fits the visible chart width (ribbon "Fit"). */
+function fitGanttToView() {
+    const chartSide = document.querySelector('.gantt-chart-side');
+    if (!chartSide || ganttFromDay === null) return;
+    const days = ganttToDay - ganttFromDay + 1;
+    setGanttZoom(Math.max(1, chartSide.clientWidth - 2) / days);
+    chartSide.scrollLeft = 0;
+}
+
 function updateGantt(tasks) {
+    if (ganttActiveDrag) {
+        ganttDeferredTasks = tasks;
+        return;
+    }
     try {
         // Show gantt content, hide placeholder
         const placeholder = document.querySelector('#gantt-view .placeholder-view');
@@ -219,13 +412,20 @@ function updateGantt(tasks) {
         // Add 1 week (7 days) buffer before and after
         ganttMinDate.setDate(ganttMinDate.getDate() - 7);
         ganttMaxDate.setDate(ganttMaxDate.getDate() + 7);
+        ganttFromDay = GanttScale.dayOf(ganttMinDate);
+        ganttToDay = GanttScale.dayOf(ganttMaxDate);
 
-        // Set up scale selector if not already done
+        restoreGanttZoomForProject();
+        setupGanttZoomControls();
+        loadGanttDragEngine();
+
+        // The ribbon's Scale buttons (Days ... Years) set this hidden
+        // <select> and dispatch `change`; each lands on its detent.
         const scaleSelector = document.getElementById('ganttScale');
         if (scaleSelector && !scaleSelector.dataset.initialized) {
             scaleSelector.addEventListener('change', function() {
-                ganttScale = this.value;
-                renderGanttChart();
+                const detent = GanttScale.detentByName(this.value);
+                if (detent) setGanttZoom(detent.pixelsPerDay);
             });
             scaleSelector.dataset.initialized = 'true';
         }
@@ -259,24 +459,15 @@ function updateGantt(tasks) {
 }
 
 function renderGanttChart() {
-    // Adjust pixels per day based on scale
-    switch (ganttScale) {
-        case 'days':
-            ganttPixelsPerDay = 28;
-            break;
-        case 'weeks':
-            ganttPixelsPerDay = 12;
-            break;
-        case 'months':
-            ganttPixelsPerDay = 5;
-            break;
-        case 'quarters':
-            ganttPixelsPerDay = 3;
-            break;
-        case 'years':
-            ganttPixelsPerDay = 1;
-            break;
+    if (ganttFromDay === null && ganttMinDate && ganttMaxDate) {
+        ganttFromDay = GanttScale.dayOf(ganttMinDate);
+        ganttToDay = GanttScale.dayOf(ganttMaxDate);
     }
+    if (ganttFromDay === null) return;
+    ganttPixelsPerDay = GanttScale.clampPixelsPerDay(ganttPixelsPerDay);
+    ganttScale = GanttScale.exactDetent(ganttPixelsPerDay) || '';
+    ganttPreviewSpans = null;
+    syncGanttZoomControls();
 
     // Restore saved splitter position
     const savedWidth = localStorage.getItem('ganttTableWidth');
@@ -287,29 +478,75 @@ function renderGanttChart() {
         }
     }
 
-    // Render headers based on scale
-    renderGanttHeaders();
+    // A re-render (after an edit, a drag, a toggle) keeps the user's place;
+    // only a newly opened project scrolls to today.
+    const chartSide = document.querySelector('.gantt-chart-side');
+    const scrollLeft = chartSide ? chartSide.scrollLeft : 0;
 
-    // Render task rows
+    renderGanttHeaders();
     renderGanttRows();
 
     // Align task rows with Gantt bars by compensating for header height differences
     alignGanttRows();
 
-    // Render dependency lines if toggle is on
     renderDependencyLines();
-
-    // Render critical path connector lines if toggle is on
     renderCriticalPathLines();
 
-    // Size the gantt panels (handled by CSS flex layout now)
-
-    // Auto-scroll to current date (only in days view)
-    if (ganttScale === 'days') {
-        scrollGanttToToday();
+    if (ganttScrollToTodayPending) {
+        if (chartSide && chartSide.clientWidth > 0) {
+            scrollGanttToToday();
+            ganttScrollToTodayPending = false;
+        }
+    } else if (chartSide) {
+        chartSide.scrollLeft = scrollLeft;
     }
 }
 
+/**
+ * Redraw everything on the chart side that depends on the zoom -- header
+ * bands, the non-working-day grid, bar positions and the overlays -- without
+ * rebuilding the rows. What a slider drag calls on every input event.
+ */
+function relayoutGanttChart() {
+    const ganttBody = document.getElementById('ganttBody');
+    if (!ganttBody) return;
+    renderGanttHeaders();
+    const totalWidth = ganttTotalWidth();
+    ganttBody.style.minWidth = totalWidth + 'px';
+    ganttBody.querySelectorAll('.gantt-bar-row').forEach(row => { row.style.minWidth = totalWidth + 'px'; });
+    renderWeekendHighlights(ganttBody);
+    ganttBody.querySelectorAll('[data-gantt-kind]').forEach(placeGanttElement);
+    alignGanttRows();
+    renderDependencyLines();
+    renderCriticalPathLines();
+}
+
+/**
+ * Position one chart element from its day numbers (`data-start-day`,
+ * `data-finish-day`) and the current zoom. Every horizontal coordinate on
+ * the chart comes through here.
+ */
+function placeGanttElement(el) {
+    const kind = el.dataset.ganttKind;
+    const start = Number(el.dataset.startDay);
+    const finish = Number(el.dataset.finishDay);
+    if (kind === 'task' || kind === 'baseline') {
+        const geometry = GanttScale.barGeometry(start, finish, ganttFromDay, ganttPixelsPerDay);
+        el.style.left = geometry.left + 'px';
+        el.style.width = geometry.width + 'px';
+        // Too narrow to hold two resize handles and still be grabbed in the
+        // middle (a 2-day task at the Years zoom is 2px wide): the handles
+        // are hidden and the bar gets a wider invisible hit area, so it can
+        // still be moved.
+        if (kind === 'task') el.classList.toggle('gantt-bar-narrow', geometry.width < GANTT_NARROW_BAR_PX);
+    } else if (kind === 'milestone' || kind === 'baseline-milestone') {
+        el.style.left = (ganttX(start) - 9) + 'px';
+    } else if (kind === 'deadline') {
+        el.style.left = ganttX(start) + 'px';
+    } else if (kind === 'float') {
+        el.style.width = (Number(el.dataset.floatDays) * ganttPixelsPerDay) + 'px';
+    }
+}
 
 /**
  * Align the Gantt chart body rows with the task list rows by compensating
@@ -347,232 +584,54 @@ function alignGanttRows() {
 }
 
 function scrollGanttToToday() {
-    // Scroll the chart side so today is the second visible column
+    // Scroll the chart side so today sits one day (or a short margin at a
+    // coarse zoom) in from the left edge.
     const chartSide = document.querySelector('.gantt-chart-side');
-    const todayColumn = document.querySelector('.gantt-day-cell.gantt-today');
-
-    if (!chartSide || !todayColumn) {
-        return;
-    }
-
-    // Position today as the second column: offset by one column width
-    const todayOffset = todayColumn.offsetLeft;
-    const scrollPosition = todayOffset - ganttPixelsPerDay;
-
-    chartSide.scrollLeft = Math.max(0, scrollPosition);
+    if (!chartSide || ganttFromDay === null) return;
+    const today = GanttScale.dayOf(new Date());
+    if (today < ganttFromDay || today > ganttToDay) return;
+    chartSide.scrollLeft = Math.max(0, ganttX(today) - Math.max(ganttPixelsPerDay, 40));
 }
 
+/**
+ * Two header bands, chosen from the pixel density by GanttScale.headerBands:
+ * the finest unit whose cells are wide enough to label, with the next
+ * coarser unit above it. The same rule at every zoom -- there are no
+ * per-scale header functions any more.
+ */
 function renderGanttHeaders() {
     const ganttHeader = document.getElementById('ganttHeader');
-    if (!ganttHeader) return;
+    if (!ganttHeader || ganttFromDay === null) return;
 
     ganttHeader.innerHTML = '';
-
-    // Set header min-width to match the total date range width
-    // This prevents flex children from shrinking and misaligning with the body
-    const minDate = new Date(ganttMinDate);
-    const maxDate = new Date(ganttMaxDate);
-    minDate.setHours(0, 0, 0, 0);
-    maxDate.setHours(0, 0, 0, 0);
-    const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
-    const totalWidth = totalDays * ganttPixelsPerDay;
+    const totalWidth = ganttTotalWidth();
+    // Header min-width matches the body so the two scroll together
     ganttHeader.style.minWidth = totalWidth + 'px';
 
-    switch (ganttScale) {
-        case 'days':
-            renderDayHeaders(ganttHeader);
-            break;
-        case 'weeks':
-            renderWeekHeaders(ganttHeader);
-            break;
-        case 'months':
-            renderMonthHeaders(ganttHeader);
-            break;
-        case 'quarters':
-            renderQuarterHeaders(ganttHeader);
-            break;
-        case 'years':
-            renderYearHeaders(ganttHeader);
-            break;
-    }
-}
-
-function renderMonthHeaders(container) {
-    const months = [];
-    let currentMonth = new Date(ganttMinDate);
-    currentMonth.setDate(1);
-
-    while (currentMonth <= ganttMaxDate) {
-        const nextMonth = new Date(currentMonth);
-        nextMonth.setMonth(nextMonth.getMonth() + 1);
-
-        const monthStart = new Date(Math.max(currentMonth, ganttMinDate));
-        const monthEnd = new Date(Math.min(nextMonth, ganttMaxDate));
-        const daysInView = Math.ceil((monthEnd - monthStart) / (1000 * 60 * 60 * 24));
-
-        months.push({
-            name: currentMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-            days: daysInView
+    const today = GanttScale.dayOf(new Date());
+    const bands = GanttScale.headerBands(ganttFromDay, ganttToDay, ganttPixelsPerDay);
+    ganttHeader.dataset.fineUnit = bands[1].unit;
+    bands.forEach(band => {
+        const row = document.createElement('div');
+        row.className = `gantt-header-band gantt-header-band--${band.role}`;
+        row.dataset.unit = band.unit;
+        row.style.width = totalWidth + 'px';
+        band.cells.forEach(cell => {
+            const div = document.createElement('div');
+            div.className = 'gantt-header-cell';
+            if (band.unit === 'day') {
+                div.classList.add('gantt-day-cell');
+                if (cell.start === today) div.classList.add('gantt-today');
+            }
+            div.style.left = cell.left + 'px';
+            div.style.width = cell.width + 'px';
+            div.textContent = cell.label;
+            div.title = cell.title;
+            div.dataset.startDay = cell.start;
+            row.appendChild(div);
         });
-
-        currentMonth = nextMonth;
-    }
-
-    months.forEach(month => {
-        const monthDiv = document.createElement('div');
-        monthDiv.className = 'gantt-month';
-        monthDiv.style.width = (month.days * ganttPixelsPerDay) + 'px';
-        monthDiv.textContent = month.name;
-        container.appendChild(monthDiv);
+        ganttHeader.appendChild(row);
     });
-}
-
-function renderDayHeaders(container) {
-    // Use a two-row layout: week-commencing dates row on top, weekday
-    // initials below. Monday is the canonical start of the week, while the
-    // first/last displayed week may be clipped by the chart range.
-    container.style.flexWrap = 'wrap';
-
-    let currentDate = new Date(ganttMinDate);
-    const endDate = new Date(ganttMaxDate);
-    const today = new Date();
-
-    currentDate.setHours(0, 0, 0, 0);
-    endDate.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-
-    // First pass: build week spans for the week-commencing row.
-    const weekRow = document.createElement('div');
-    weekRow.className = 'gantt-week-row';
-
-    const weeks = [];
-    let iterDate = new Date(currentDate);
-    while (iterDate <= endDate) {
-        const monday = new Date(iterDate);
-        const daysSinceMonday = (monday.getDay() + 6) % 7;
-        monday.setDate(monday.getDate() - daysSinceMonday);
-        const weekKey = formatLocalDate(monday);
-        if (weeks.length === 0 || weeks[weeks.length - 1].key !== weekKey) {
-            weeks.push({
-                key: weekKey,
-                weekStart: monday,
-                days: 1
-            });
-        } else {
-            weeks[weeks.length - 1].days++;
-        }
-        iterDate.setDate(iterDate.getDate() + 1);
-    }
-
-    weeks.forEach(week => {
-        const weekDiv = document.createElement('div');
-        weekDiv.className = 'gantt-week-label';
-        weekDiv.style.width = (week.days * ganttPixelsPerDay) + 'px';
-        const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][week.weekStart.getMonth()];
-        const year = String(week.weekStart.getFullYear()).slice(-2);
-        weekDiv.textContent = `${week.weekStart.getDate()} ${month} '${year}`;
-        weekDiv.title = `Week commencing ${week.weekStart.toLocaleDateString()}`;
-        weekRow.appendChild(weekDiv);
-    });
-
-    container.appendChild(weekRow);
-
-    // Second pass: day-of-week initials (Monday through Sunday).
-    const dayRow = document.createElement('div');
-    dayRow.className = 'gantt-day-row';
-    const weekdayInitials = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-    currentDate = new Date(ganttMinDate);
-    currentDate.setHours(0, 0, 0, 0);
-
-    while (currentDate <= endDate) {
-        const dayDiv = document.createElement('div');
-        dayDiv.className = 'gantt-month gantt-day-cell';
-        dayDiv.style.width = ganttPixelsPerDay + 'px';
-        const weekday = (currentDate.getDay() + 6) % 7;
-        dayDiv.textContent = weekdayInitials[weekday];
-        dayDiv.title = currentDate.toLocaleDateString();
-
-        if (currentDate.getTime() === today.getTime()) {
-            dayDiv.classList.add('gantt-today');
-        }
-
-        dayRow.appendChild(dayDiv);
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    container.appendChild(dayRow);
-}
-
-function renderWeekHeaders(container) {
-    let currentDate = new Date(ganttMinDate);
-
-    while (currentDate <= ganttMaxDate) {
-        const weekStart = new Date(currentDate);
-        const weekEnd = new Date(currentDate);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-
-        const actualEnd = weekEnd > ganttMaxDate ? ganttMaxDate : weekEnd;
-        const daysInWeek = Math.ceil((actualEnd - weekStart) / (1000 * 60 * 60 * 24)) + 1;
-
-        const weekDiv = document.createElement('div');
-        weekDiv.className = 'gantt-month';
-        weekDiv.style.width = (daysInWeek * ganttPixelsPerDay) + 'px';
-        weekDiv.textContent = `Week ${getWeekNumber(weekStart)}`;
-        container.appendChild(weekDiv);
-
-        currentDate.setDate(currentDate.getDate() + 7);
-    }
-}
-
-function renderQuarterHeaders(container) {
-    let currentDate = new Date(ganttMinDate);
-    currentDate.setMonth(Math.floor(currentDate.getMonth() / 3) * 3, 1);
-
-    while (currentDate <= ganttMaxDate) {
-        const quarterStart = new Date(currentDate);
-        const quarterEnd = new Date(currentDate);
-        quarterEnd.setMonth(quarterEnd.getMonth() + 3);
-
-        const actualStart = quarterStart < ganttMinDate ? ganttMinDate : quarterStart;
-        const actualEnd = quarterEnd > ganttMaxDate ? ganttMaxDate : quarterEnd;
-        const daysInQuarter = Math.ceil((actualEnd - actualStart) / (1000 * 60 * 60 * 24));
-
-        const quarter = Math.floor(currentDate.getMonth() / 3) + 1;
-        const year = currentDate.getFullYear();
-
-        const quarterDiv = document.createElement('div');
-        quarterDiv.className = 'gantt-month';
-        quarterDiv.style.width = (daysInQuarter * ganttPixelsPerDay) + 'px';
-        quarterDiv.textContent = `Q${quarter} ${year}`;
-        container.appendChild(quarterDiv);
-
-        currentDate.setMonth(currentDate.getMonth() + 3);
-    }
-}
-
-function renderYearHeaders(container) {
-    let currentDate = new Date(ganttMinDate);
-    currentDate.setMonth(0, 1);
-
-    while (currentDate <= ganttMaxDate) {
-        const yearStart = new Date(currentDate);
-        const yearEnd = new Date(currentDate);
-        yearEnd.setFullYear(yearEnd.getFullYear() + 1);
-
-        const actualStart = yearStart < ganttMinDate ? ganttMinDate : yearStart;
-        const actualEnd = yearEnd > ganttMaxDate ? ganttMaxDate : yearEnd;
-        const daysInYear = Math.ceil((actualEnd - actualStart) / (1000 * 60 * 60 * 24));
-
-        const yearDiv = document.createElement('div');
-        yearDiv.className = 'gantt-month';
-        yearDiv.style.width = (daysInYear * ganttPixelsPerDay) + 'px';
-        yearDiv.textContent = currentDate.getFullYear();
-        container.appendChild(yearDiv);
-
-        currentDate.setFullYear(currentDate.getFullYear() + 1);
-    }
 }
 
 function renderGanttRows() {
@@ -586,19 +645,12 @@ function renderGanttRows() {
 
     if (!ganttTasks || ganttTasks.length === 0) return;
 
-    // Calculate total days in range and set body width to match header
-    const minDate = new Date(ganttMinDate);
-    const maxDate = new Date(ganttMaxDate);
-    minDate.setHours(0, 0, 0, 0);
-    maxDate.setHours(0, 0, 0, 0);
-    const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
-    const totalWidth = totalDays * ganttPixelsPerDay;
+    // Set body width to match header
+    const totalWidth = ganttTotalWidth();
     ganttBody.style.minWidth = totalWidth + 'px';
 
-    // Render weekend/day grid if scale is days
-    if (ganttScale === 'days') {
-        renderWeekendHighlights(ganttBody);
-    }
+    // Weekend / today grid, when days are wide enough to see
+    renderWeekendHighlights(ganttBody);
 
     // Build a set of task indices that should be hidden due to collapsed parents
     const hiddenIndices = new Set();
@@ -830,24 +882,8 @@ function renderGanttRows() {
         }
 
         if (task.start && task.finish) {
-            // Parse dates consistently as local dates to avoid timezone issues
-            const taskStart = parseLocalDate(task.start);
-            const taskFinish = parseLocalDate(task.finish);
-
-            // Reset times to midnight for accurate day counting
-            const minDate = new Date(ganttMinDate);
-            minDate.setHours(0, 0, 0, 0);
-            taskStart.setHours(0, 0, 0, 0);
-            taskFinish.setHours(0, 0, 0, 0);
-
-            // Calculate days from start by counting days (same method as header rendering)
-            // This ensures pixel-perfect alignment with day headers
-            let daysFromStart = 0;
-            let tempDate = new Date(minDate);
-            while (tempDate < taskStart) {
-                tempDate.setDate(tempDate.getDate() + 1);
-                daysFromStart++;
-            }
+            const startDay = GanttScale.dayOf(task.start);
+            const finishDay = GanttScale.dayOf(task.finish);
 
             // Milestones: render as diamond shape
             if (task.duration_days === 0 && !task.is_summary) {
@@ -856,8 +892,10 @@ function renderGanttRows() {
                 if (showCriticalPath && task.critical) {
                     diamond.classList.add('gantt-critical-bar');
                 }
-                const leftPos = daysFromStart * ganttPixelsPerDay - 9;
-                diamond.style.left = leftPos + 'px';
+                diamond.dataset.ganttKind = 'milestone';
+                diamond.dataset.startDay = startDay;
+                diamond.dataset.finishDay = finishDay;
+                placeGanttElement(diamond);
                 diamond.title = `${task.name}\nMilestone: ${task.finish}` +
                     (showCriticalPath && task.total_float != null ? `\nFloat: ${task.total_float}d` : '');
                 diamond.dataset.taskIndex = index;
@@ -872,16 +910,8 @@ function renderGanttRows() {
 
                 barRow.appendChild(diamond);
             } else {
-                // Regular task or summary bar
-                // Calculate bar width in calendar days (finish date is exclusive from backend)
-                let taskCalendarDays = 0;
-                tempDate = new Date(taskStart);
-                while (tempDate < taskFinish) {
-                    tempDate.setDate(tempDate.getDate() + 1);
-                    taskCalendarDays++;
-                }
-                // Ensure at least 1 day width for visibility
-                if (taskCalendarDays < 1) taskCalendarDays = 1;
+                // Regular task or summary bar; finish is exclusive
+                const taskCalendarDays = Math.max(1, finishDay - startDay);
 
                 // Use task.duration_days for display (working days) if available
                 const displayDuration = task.duration_days || taskCalendarDays;
@@ -899,25 +929,29 @@ function renderGanttRows() {
                         bar.classList.add('gantt-bar-' + barRagColour);
                     }
                 }
-                const leftPos = daysFromStart * ganttPixelsPerDay;
-                const barWidth = taskCalendarDays * ganttPixelsPerDay;
-                bar.style.left = leftPos + 'px';
-                bar.style.width = barWidth + 'px';
+                bar.dataset.ganttKind = 'task';
+                bar.dataset.startDay = startDay;
+                bar.dataset.finishDay = finishDay;
+                placeGanttElement(bar);
                 const floatInfo = (showCriticalPath && task.total_float != null && !task.is_summary)
                     ? `\nFloat: ${task.total_float}d` : '';
                 bar.title = `${task.name}\n${task.start} to ${task.finish}\nDuration: ${displayDuration} days${floatInfo}`;
                 bar.dataset.taskIndex = index;
 
-                // Add drag handles
-                const leftHandle = document.createElement('div');
-                leftHandle.className = 'gantt-bar-handle left';
-                leftHandle.dataset.handle = 'left';
-                bar.appendChild(leftHandle);
+                // Drag handles -- not on summary bars, which follow their children
+                if (!task.is_summary) {
+                    const leftHandle = document.createElement('div');
+                    leftHandle.className = 'gantt-bar-handle left';
+                    leftHandle.dataset.handle = 'left';
+                    leftHandle.title = 'Drag to change the start';
+                    bar.appendChild(leftHandle);
 
-                const rightHandle = document.createElement('div');
-                rightHandle.className = 'gantt-bar-handle right';
-                rightHandle.dataset.handle = 'right';
-                bar.appendChild(rightHandle);
+                    const rightHandle = document.createElement('div');
+                    rightHandle.className = 'gantt-bar-handle right';
+                    rightHandle.dataset.handle = 'right';
+                    rightHandle.title = 'Drag to change the duration';
+                    bar.appendChild(rightHandle);
+                }
 
                 // Add progress indicator if available
                 if (task.percent && !task.is_summary) {
@@ -931,8 +965,9 @@ function renderGanttRows() {
                 if (showCriticalPath && !task.is_summary && task.total_float > 0) {
                     const floatBar = document.createElement('div');
                     floatBar.className = 'gantt-float-bar';
-                    const floatWidth = task.total_float * ganttPixelsPerDay;
-                    floatBar.style.width = floatWidth + 'px';
+                    floatBar.dataset.ganttKind = 'float';
+                    floatBar.dataset.floatDays = task.total_float;
+                    placeGanttElement(floatBar);
                     floatBar.title = `Float: ${task.total_float} working days`;
                     bar.appendChild(floatBar);
                 }
@@ -950,10 +985,10 @@ function renderGanttRows() {
             }
 
             // Render baseline bar if baseline is visible
-            renderBaselineBar(barRow, task, minDate);
+            renderBaselineBar(barRow, task);
 
             // Render deadline slippage marker if a deadline is set (#877)
-            renderDeadlineMarker(barRow, task, minDate);
+            renderDeadlineMarker(barRow, task);
         }
 
         ganttInfoBody.appendChild(infoRow);
@@ -966,7 +1001,7 @@ function renderGanttRows() {
  * Render a baseline bar behind the current task bar in the Gantt chart.
  * The baseline bar is semi-transparent and shows the original schedule.
  */
-function renderBaselineBar(barRow, task, minDate) {
+function renderBaselineBar(barRow, task) {
     const ganttToggle = document.getElementById('ganttShowBaseline');
     if (!ganttToggle || !ganttToggle.checked) return;
     if (baselineItems.length === 0) return;
@@ -975,21 +1010,9 @@ function renderBaselineBar(barRow, task, minDate) {
     const baselineItem = baselineLookup[task.name];
     if (!baselineItem || !baselineItem.start || !baselineItem.finish) return;
 
-    const blStart = parseLocalDate(baselineItem.start);
-    const blFinish = parseLocalDate(baselineItem.finish);
-    if (!blStart || !blFinish) return;
-
-    blStart.setHours(0, 0, 0, 0);
-    blFinish.setHours(0, 0, 0, 0);
-
-    // Calculate position
-    let daysFromStart = 0;
-    let tempDate = new Date(minDate);
-    tempDate.setHours(0, 0, 0, 0);
-    while (tempDate < blStart) {
-        tempDate.setDate(tempDate.getDate() + 1);
-        daysFromStart++;
-    }
+    const blStart = GanttScale.dayOf(baselineItem.start);
+    const blFinish = GanttScale.dayOf(baselineItem.finish);
+    if (blStart === null || blFinish === null) return;
 
     const blDuration = baselineItem.duration ? parseInt(baselineItem.duration) : 0;
 
@@ -997,27 +1020,20 @@ function renderBaselineBar(barRow, task, minDate) {
     if (blDuration === 0 && !task.is_summary) {
         const diamond = document.createElement('div');
         diamond.className = 'gantt-bar gantt-milestone gantt-baseline-milestone';
-        const leftPos = daysFromStart * ganttPixelsPerDay - 9;
-        diamond.style.left = leftPos + 'px';
+        diamond.dataset.ganttKind = 'baseline-milestone';
+        diamond.dataset.startDay = blStart;
+        diamond.dataset.finishDay = blFinish;
+        placeGanttElement(diamond);
         diamond.title = `Baseline: ${task.name}\nMilestone: ${baselineItem.finish}`;
         barRow.appendChild(diamond);
     } else {
-        // Regular baseline bar
-        let blCalendarDays = 0;
-        tempDate = new Date(blStart);
-        while (tempDate < blFinish) {
-            tempDate.setDate(tempDate.getDate() + 1);
-            blCalendarDays++;
-        }
-        if (blCalendarDays < 1) blCalendarDays = 1;
-
         const blBar = document.createElement('div');
         blBar.className = 'gantt-bar gantt-baseline-bar';
-        const leftPos = daysFromStart * ganttPixelsPerDay;
-        const barWidth = blCalendarDays * ganttPixelsPerDay;
-        blBar.style.left = leftPos + 'px';
-        blBar.style.width = barWidth + 'px';
-        blBar.title = `Baseline: ${task.name}\n${baselineItem.start} to ${baselineItem.finish}\nDuration: ${baselineItem.duration || blCalendarDays + 'd'}`;
+        blBar.dataset.ganttKind = 'baseline';
+        blBar.dataset.startDay = blStart;
+        blBar.dataset.finishDay = blFinish;
+        placeGanttElement(blBar);
+        blBar.title = `Baseline: ${task.name}\n${baselineItem.start} to ${baselineItem.finish}\nDuration: ${baselineItem.duration || Math.max(1, blFinish - blStart) + 'd'}`;
         barRow.appendChild(blBar);
     }
 }
@@ -1027,24 +1043,17 @@ function renderBaselineBar(barRow, task, minDate) {
  * date, independent of its bar/diamond position. A deadline never moves
  * the schedule (#877) -- this only marks where it sits on the timeline.
  */
-function renderDeadlineMarker(barRow, task, minDate) {
+function renderDeadlineMarker(barRow, task) {
     if (!task.deadline) return;
 
-    const deadlineDate = parseLocalDate(task.deadline);
-    if (!deadlineDate) return;
-    deadlineDate.setHours(0, 0, 0, 0);
-
-    let daysFromStart = 0;
-    const tempDate = new Date(minDate);
-    tempDate.setHours(0, 0, 0, 0);
-    while (tempDate < deadlineDate) {
-        tempDate.setDate(tempDate.getDate() + 1);
-        daysFromStart++;
-    }
+    const deadlineDay = GanttScale.dayOf(task.deadline);
+    if (deadlineDay === null) return;
 
     const marker = document.createElement('div');
     marker.className = 'gantt-deadline-marker';
-    marker.style.left = (daysFromStart * ganttPixelsPerDay) + 'px';
+    marker.dataset.ganttKind = 'deadline';
+    marker.dataset.startDay = deadlineDay;
+    placeGanttElement(marker);
     marker.title = `Deadline: ${task.deadline}` +
         (task.rag && ragStatusToColour(task.rag) === 'red' ? ' (missed)' : '');
     barRow.appendChild(marker);
@@ -1074,42 +1083,38 @@ function setupBarClickToOpenTask(element, task) {
     });
 }
 
+/** Weekends are shaded once a day is at least this many pixels wide;
+ *  below that the stripes are noise rather than information. */
+const GANTT_WEEKEND_MIN_PX = 8;
+
 function renderWeekendHighlights(container) {
-    // Iterate through each day from min to max date
-    let currentDate = new Date(ganttMinDate);
-    const endDate = new Date(ganttMaxDate);
-    const today = new Date();
+    container.querySelectorAll(':scope > .gantt-weekend, :scope > .gantt-today-column').forEach(el => el.remove());
+    if (ganttFromDay === null) return;
+    const today = GanttScale.dayOf(new Date());
+    const fragment = document.createDocumentFragment();
 
-    // Reset times to midnight
-    currentDate.setHours(0, 0, 0, 0);
-    endDate.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-
-    let dayIndex = 0;
-    while (currentDate <= endDate) {
-        const dayOfWeek = currentDate.getDay();
-
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
+    if (ganttPixelsPerDay >= GANTT_WEEKEND_MIN_PX) {
+        for (let day = ganttFromDay; day <= ganttToDay; day++) {
+            // day 0 (1970-01-01) was a Thursday: (day + 3) % 7 is 5/6 on Sat/Sun
+            const weekday = ((day + 3) % 7 + 7) % 7;
+            if (weekday < 5) continue;
             const weekend = document.createElement('div');
             weekend.className = 'gantt-weekend';
-            weekend.style.left = (dayIndex * ganttPixelsPerDay) + 'px';
+            weekend.style.left = ganttX(day) + 'px';
             weekend.style.width = ganttPixelsPerDay + 'px';
-            container.appendChild(weekend);
+            fragment.appendChild(weekend);
         }
-
-        // Full-column highlight for today
-        if (currentDate.getTime() === today.getTime()) {
-            const todayHighlight = document.createElement('div');
-            todayHighlight.className = 'gantt-today-column';
-            todayHighlight.style.left = (dayIndex * ganttPixelsPerDay) + 'px';
-            todayHighlight.style.width = ganttPixelsPerDay + 'px';
-            container.appendChild(todayHighlight);
-        }
-
-        // Move to next day
-        currentDate.setDate(currentDate.getDate() + 1);
-        dayIndex++;
     }
+
+    // Full-column highlight for today, at any zoom (at least a hairline)
+    if (today >= ganttFromDay && today <= ganttToDay) {
+        const todayHighlight = document.createElement('div');
+        todayHighlight.className = 'gantt-today-column';
+        todayHighlight.style.left = ganttX(today) + 'px';
+        todayHighlight.style.width = Math.max(2, ganttPixelsPerDay) + 'px';
+        fragment.appendChild(todayHighlight);
+    }
+    container.insertBefore(fragment, container.firstChild);
 }
 
 /**
@@ -1188,12 +1193,130 @@ function makeBucketEditable(cell, task, taskIndex) {
     select.addEventListener('change', saveEdit);
 }
 
+// ----- Overlays -----
+//
+// Dependency and critical-path lines are drawn from the same geometry as the
+// bars -- task dates (or a drag preview's dates), the zoom and the row
+// height -- never read back out of element styles, so they cannot drift out
+// of alignment with the bars at any zoom or mid-drag.
+
+/** The horizontal span a task's bar occupies, in px, or null if it has none. */
+function ganttBarSpan(index) {
+    const override = ganttPreviewSpans && ganttPreviewSpans[index];
+    const task = ganttTasks[index];
+    if (!task) return null;
+    const startDay = override ? override.startDay : GanttScale.dayOf(task.start);
+    const finishDay = override ? override.finishDay : GanttScale.dayOf(task.finish);
+    if (startDay === null || finishDay === null) return null;
+    if (task.duration_days === 0 && !task.is_summary) {
+        return { left: ganttX(startDay) - 9, width: 18 };
+    }
+    return GanttScale.barGeometry(startDay, finishDay, ganttFromDay, ganttPixelsPerDay);
+}
+
+/** Row centre Y for each visible task index (collapsed rows have none). */
+function ganttVisibleRowCentres() {
+    const rows = document.querySelectorAll('#ganttBody .gantt-bar-row');
+    const centres = {};
+    let visible = 0;
+    rows.forEach((row, i) => {
+        if (row.style.display === 'none') return;
+        centres[i] = visible * GANTT_ROW_HEIGHT + GANTT_ROW_HEIGHT / 2;
+        visible++;
+    });
+    return centres;
+}
+
+function ganttNameToIndex() {
+    const map = {};
+    ganttTasks.forEach((t, i) => { if (t.name) map[t.name.toLowerCase()] = i; });
+    return map;
+}
+
+/** Orthogonal finish-to-start route from (startX, startY) into (endX, endY). */
+function ganttConnectorPath(startX, startY, endX, endY) {
+    const offset = 10;
+    if (endX > startX + offset * 2) {
+        const midX = startX + offset;
+        return `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} ` +
+            `L ${endX - offset} ${endY} L ${endX} ${endY}`;
+    }
+    // Overlap: the dependant starts at or before the predecessor ends, so
+    // route round in an S shape
+    const exitX = startX + offset;
+    const entryX = endX - offset;
+    const midY = startY + (endY - startY) / 2;
+    return `M ${startX} ${startY} L ${exitX} ${startY} L ${exitX} ${midY} ` +
+        `L ${entryX} ${midY} L ${entryX} ${endY} L ${endX} ${endY}`;
+}
+
+function ganttOverlaySvg(id, zIndex) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = id;
+    svg.classList.add('gantt-overlay');
+    svg.style.position = 'absolute';
+    svg.style.top = '0';
+    svg.style.left = '0';
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+    svg.style.pointerEvents = 'none';
+    svg.style.zIndex = String(zIndex);
+    return svg;
+}
+
+/**
+ * Draw one overlay of connector lines. `include(task, pred)` picks which
+ * dependency links to draw; `style` is the stroke and arrow styling.
+ */
+function drawGanttConnectors(svg, include, style) {
+    const nameToIndex = ganttNameToIndex();
+    const centres = ganttVisibleRowCentres();
+    const arrowSize = 5;
+    let count = 0;
+
+    ganttTasks.forEach((task, index) => {
+        if (!task.depends || task.depends.length === 0 || !task.start) return;
+        const depY = centres[index];
+        const depSpan = ganttBarSpan(index);
+        if (depY === undefined || !depSpan) return;
+
+        task.depends.forEach(depName => {
+            const predIndex = nameToIndex[depName.toLowerCase()];
+            if (predIndex === undefined) return;
+            const predTask = ganttTasks[predIndex];
+            if (!predTask || !predTask.start || !include(task, predTask)) return;
+            const predY = centres[predIndex];
+            const predSpan = ganttBarSpan(predIndex);
+            if (predY === undefined || !predSpan) return;
+
+            const startX = predSpan.left + predSpan.width;
+            const endX = depSpan.left;
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', ganttConnectorPath(startX, predY, endX, depY));
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', style.stroke);
+            path.setAttribute('stroke-width', style.width);
+            if (style.dash) path.setAttribute('stroke-dasharray', style.dash);
+
+            // Arrowhead pointing right into the left side of the dependant
+            const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            arrow.setAttribute('points',
+                `${endX},${depY} ${endX - arrowSize},${depY - arrowSize} ${endX - arrowSize},${depY + arrowSize}`);
+            arrow.setAttribute('fill', style.stroke);
+
+            svg.appendChild(path);
+            svg.appendChild(arrow);
+            count++;
+        });
+    });
+    return count;
+}
+
 /**
  * Draw SVG dependency lines on the gantt chart.
  * Lines run from the end of the dependency bar to the start of the dependent bar.
  */
 function renderDependencyLines() {
-    // Remove any existing dependency SVG
     const existing = document.getElementById('ganttDependencySvg');
     if (existing) existing.remove();
 
@@ -1203,276 +1326,9 @@ function renderDependencyLines() {
     const ganttBody = document.getElementById('ganttBody');
     if (!ganttBody || !ganttTasks || ganttTasks.length === 0) return;
 
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.id = 'ganttDependencySvg';
-    svg.style.position = 'absolute';
-    svg.style.top = '0';
-    svg.style.left = '0';
-    svg.style.width = '100%';
-    svg.style.height = '100%';
-    svg.style.pointerEvents = 'none';
-    svg.style.zIndex = '1';
-
-    const nameToIndex = {};
-    ganttTasks.forEach((t, i) => {
-        if (t.name) nameToIndex[t.name.toLowerCase()] = i;
-    });
-
-    const barRows = ganttBody.querySelectorAll('.gantt-bar-row');
-    const rowHeight = 40;
-
-    // Build a map of task index to visible row position (accounting for hidden rows)
-    const visibleRowY = {};
-    let visibleCount = 0;
-    for (let i = 0; i < barRows.length; i++) {
-        if (barRows[i].style.display !== 'none') {
-            visibleRowY[i] = visibleCount * rowHeight + rowHeight / 2;
-            visibleCount++;
-        }
-    }
-
-    ganttTasks.forEach((task, index) => {
-        if (!task.depends || task.depends.length === 0) return;
-        if (!task.start) return;
-
-        const depBarRow = barRows[index];
-        if (!depBarRow || depBarRow.style.display === 'none') return;
-
-        const depBar = depBarRow.querySelector('.gantt-bar');
-        if (!depBar) return;
-
-        const depLeft = parseInt(depBar.style.left) || 0;
-        const depY = visibleRowY[index];
-        if (depY === undefined) return;
-
-        task.depends.forEach(depName => {
-            const predIndex = nameToIndex[depName.toLowerCase()];
-            if (predIndex === undefined) return;
-
-            const predTask = ganttTasks[predIndex];
-            if (!predTask || !predTask.start) return;
-
-            const predBarRow = barRows[predIndex];
-            if (!predBarRow || predBarRow.style.display === 'none') return;
-
-            const predBar = predBarRow.querySelector('.gantt-bar');
-            if (!predBar) return;
-
-            const predLeft = parseInt(predBar.style.left) || 0;
-            const predWidth = parseInt(predBar.style.width) || 18;
-            const predY = visibleRowY[predIndex];
-            if (predY === undefined) return;
-
-            // Finish-to-Start: line from right edge of predecessor
-            // to left edge of dependent, with orthogonal routing
-            const startX = predLeft + predWidth;
-            const startY = predY;
-            const endX = depLeft;
-            const endY = depY;
-
-            const offset = 10;
-            const arrowSize = 5;
-            let d;
-
-            if (endX > startX + offset * 2) {
-                // Simple case: dependent is to the right of predecessor
-                // Route: right from pred, down/up to midpoint Y, left/right to dep, into dep
-                const midX = startX + offset;
-                const midY = startY + (endY - startY) / 2;
-                d = `M ${startX} ${startY} ` +
-                    `L ${midX} ${startY} ` +
-                    `L ${midX} ${endY} ` +
-                    `L ${endX - offset} ${endY} ` +
-                    `L ${endX} ${endY}`;
-            } else {
-                // Overlap case: dependent starts at or before predecessor ends
-                // Route in an S/5 shape going around:
-                // 1. Right from pred edge
-                // 2. Down/up halfway to dep row
-                // 3. Left past dep left edge
-                // 4. Down/up to dep row
-                // 5. Right into dep left edge
-                const exitX = startX + offset;
-                const entryX = endX - offset;
-                const midY = startY + (endY - startY) / 2;
-                d = `M ${startX} ${startY} ` +
-                    `L ${exitX} ${startY} ` +
-                    `L ${exitX} ${midY} ` +
-                    `L ${entryX} ${midY} ` +
-                    `L ${entryX} ${endY} ` +
-                    `L ${endX} ${endY}`;
-            }
-
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', d);
-            path.setAttribute('fill', 'none');
-            path.setAttribute('stroke', '#adb5bd');
-            path.setAttribute('stroke-width', '1.5');
-            path.setAttribute('stroke-dasharray', '4,3');
-
-            // Arrowhead pointing right into the left side of dependent task
-            const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-            arrow.setAttribute('points',
-                `${endX},${endY} ${endX - arrowSize},${endY - arrowSize} ${endX - arrowSize},${endY + arrowSize}`
-            );
-            arrow.setAttribute('fill', '#adb5bd');
-
-            svg.appendChild(path);
-            svg.appendChild(arrow);
-        });
-    });
-
+    const svg = ganttOverlaySvg('ganttDependencySvg', 1);
+    drawGanttConnectors(svg, () => true, { stroke: '#adb5bd', width: '1.5', dash: '4,3' });
     ganttBody.appendChild(svg);
-}
-
-/**
- * Update the standalone Tasks table (without gantt bars).
- */
-function setupBarDragListeners(bar, task, taskIndex) {
-    let dragState = null;
-
-    const onPointerDown = (e) => {
-        if (e.button !== 0) return;
-        if (task.is_summary) return;  // Don't drag summary tasks
-
-        const target = e.target;
-        const isHandle = target.classList.contains('gantt-bar-handle');
-        const handleType = isHandle ? target.dataset.handle : 'middle';
-
-        dragState = {
-            startX: e.clientX,
-            startLeft: parseInt(bar.style.left),
-            startWidth: parseInt(bar.style.width),
-            handleType: handleType,
-            task: task,
-            taskIndex: taskIndex,
-            pointerId: e.pointerId,
-            moved: false
-        };
-
-        bar.setPointerCapture(e.pointerId);
-        e.stopPropagation();
-    };
-
-    const onPointerMove = (e) => {
-        if (!dragState || e.pointerId !== dragState.pointerId) return;
-
-        const columnWidth = ganttPixelsPerDay;
-        const deltaX = e.clientX - dragState.startX;
-        const deltaDays = Math.round(deltaX / columnWidth);
-        if (!dragState.moved && Math.abs(deltaX) < 5) return;
-        dragState.moved = true;
-        bar.classList.add('dragging');
-        e.preventDefault();
-
-        if (dragState.handleType === 'left') {
-            // Adjust start date
-            const newLeft = dragState.startLeft + (deltaDays * columnWidth);
-            const newWidth = dragState.startWidth - (deltaDays * columnWidth);
-            if (newWidth > columnWidth) {
-                bar.style.left = newLeft + 'px';
-                bar.style.width = newWidth + 'px';
-            }
-        } else if (dragState.handleType === 'right') {
-            // Adjust finish date
-            const newWidth = dragState.startWidth + (deltaDays * columnWidth);
-            if (newWidth > columnWidth) {
-                bar.style.width = newWidth + 'px';
-            }
-        } else {
-            // Move entire bar
-            bar.style.left = (dragState.startLeft + (deltaDays * columnWidth)) + 'px';
-        }
-    };
-
-    const onPointerUp = (e) => {
-        if (!dragState || e.pointerId !== dragState.pointerId) return;
-
-        const columnWidth = ganttPixelsPerDay;
-        const deltaX = e.clientX - dragState.startX;
-        const deltaDays = Math.round(deltaX / columnWidth);
-        const cancelled = e.type === 'pointercancel';
-
-        if (!cancelled && dragState.moved && deltaDays !== 0) {
-            updateTaskDates(dragState.task, dragState.taskIndex, dragState.handleType, deltaDays);
-        } else if (cancelled) {
-            bar.style.left = dragState.startLeft + 'px';
-            bar.style.width = dragState.startWidth + 'px';
-        }
-
-        bar.classList.remove('dragging');
-        if (bar.hasPointerCapture(e.pointerId)) {
-            bar.releasePointerCapture(e.pointerId);
-        }
-        dragState = null;
-        document.removeEventListener('pointermove', onPointerMove);
-        document.removeEventListener('pointerup', onPointerUp);
-        document.removeEventListener('pointercancel', onPointerUp);
-    };
-
-    bar.addEventListener('pointerdown', (e) => {
-        onPointerDown(e);
-        if (!dragState) return;
-        document.addEventListener('pointermove', onPointerMove);
-        document.addEventListener('pointerup', onPointerUp);
-        document.addEventListener('pointercancel', onPointerUp);
-    });
-}
-
-function updateTaskDates(task, taskIndex, handleType, deltaDays) {
-    // Use parseLocalDate to avoid timezone issues
-    const startDate = parseLocalDate(task.start);
-    const finishDate = parseLocalDate(task.finish);
-
-    if (handleType === 'left') {
-        startDate.setDate(startDate.getDate() + deltaDays);
-        task.start = formatLocalDate(startDate);
-        ganttTasks[taskIndex].start = task.start;
-    } else if (handleType === 'right') {
-        finishDate.setDate(finishDate.getDate() + deltaDays);
-        task.finish = formatLocalDate(finishDate);
-        ganttTasks[taskIndex].finish = task.finish;
-    } else {
-        // Move both dates
-        startDate.setDate(startDate.getDate() + deltaDays);
-        finishDate.setDate(finishDate.getDate() + deltaDays);
-        task.start = formatLocalDate(startDate);
-        task.finish = formatLocalDate(finishDate);
-        ganttTasks[taskIndex].start = task.start;
-        ganttTasks[taskIndex].finish = task.finish;
-    }
-
-    // Recalculate duration by counting working days (matching the backend scheduler)
-    const newStartDate = parseLocalDate(task.start);
-    const newFinishDate = parseLocalDate(task.finish);
-
-    // Milestones (0-duration) stay as 0 when moved
-    if (newStartDate.getTime() === newFinishDate.getTime() && task.duration_days === 0) {
-        task.duration_days = 0;
-        ganttTasks[taskIndex].duration_days = 0;
-    } else {
-        // Count working days from start to finish (inclusive), skipping weekends
-        // This matches the backend scheduling engine which treats duration as working days
-        const taskDuration = countWorkingDays(newStartDate, newFinishDate);
-
-        task.duration_days = taskDuration;
-        ganttTasks[taskIndex].duration_days = task.duration_days;
-    }
-
-    // Sync changes to editor based on what was dragged:
-    // - Left handle: Start date changed (manual scheduling)
-    // - Right handle: Duration changed
-    // - Middle: Task shifted in time (manual scheduling)
-    if (handleType === 'left') {
-        syncGanttStartDateToEditor(task, taskIndex);
-    } else if (handleType === 'right') {
-        syncGanttDurationToEditor(task, taskIndex);
-    } else {
-        syncGanttStartDateToEditor(task, taskIndex);
-    }
-
-    // Trigger a full re-parse to recalculate dependencies
-    renderText();
 }
 
 /**
@@ -1480,7 +1336,6 @@ function updateTaskDates(task, taskIndex, handleType, deltaDays) {
  * Only shown when the "Critical Path" toggle is checked.
  */
 function renderCriticalPathLines() {
-    // Remove any existing critical path SVG
     const existing = document.getElementById('ganttCriticalPathSvg');
     if (existing) existing.remove();
 
@@ -1490,117 +1345,339 @@ function renderCriticalPathLines() {
     const ganttBody = document.getElementById('ganttBody');
     if (!ganttBody || !ganttTasks || ganttTasks.length === 0) return;
 
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.id = 'ganttCriticalPathSvg';
-    svg.style.position = 'absolute';
-    svg.style.top = '0';
-    svg.style.left = '0';
-    svg.style.width = '100%';
-    svg.style.height = '100%';
-    svg.style.pointerEvents = 'none';
-    svg.style.zIndex = '2';
+    const svg = ganttOverlaySvg('ganttCriticalPathSvg', 2);
+    const drawn = drawGanttConnectors(svg,
+        (task, pred) => task.critical && !task.is_summary && pred.critical,
+        { stroke: '#e03131', width: '2' });
+    if (drawn) ganttBody.appendChild(svg);
+}
 
-    const nameToIndex = {};
-    ganttTasks.forEach((t, i) => {
-        if (t.name) nameToIndex[t.name.toLowerCase()] = i;
-    });
+// ----- Drag to reschedule (#787) -----
+//
+// Dragging a bar's right handle changes its duration, the left handle its
+// start (the finish stays put), and the body moves the whole task. The drag
+// moves in whole snap units for the current zoom (days, weeks or months --
+// see GanttScale.snapUnit) so it is controllable at every zoom.
+//
+// While the pointer moves, engine/gantt-drag.js turns the drag into the edit
+// the plan would receive and schedules that edited plan with the page's own
+// engine. Every bar the edit moves -- dependants, successors down the chain,
+// the summary bars above them -- is repositioned live from that schedule, so
+// the preview is the result. Release commits the edited text to the editor
+// in one step (one undo), and the re-render that follows produces the same
+// schedule, so nothing snaps back.
 
-    const barRows = ganttBody.querySelectorAll('.gantt-bar-row');
-    const rowHeight = 40;
+function ganttEditor() {
+    return document.getElementById('planEditor');
+}
 
-    // Build visible row Y positions
-    const visibleRowY = {};
-    let visibleCount = 0;
-    for (let i = 0; i < barRows.length; i++) {
-        if (barRows[i].style.display !== 'none') {
-            visibleRowY[i] = visibleCount * rowHeight + rowHeight / 2;
-            visibleCount++;
-        }
-    }
+/** The main bar element (task bar or milestone) for a task index. */
+function ganttMainBar(index) {
+    const row = document.querySelector(`#ganttBody .gantt-bar-row[data-task-index="${index}"]`);
+    return row ? row.querySelector('[data-gantt-kind="task"], [data-gantt-kind="milestone"]') : null;
+}
 
-    let hasLines = false;
+function ganttInfoRow(index) {
+    return document.querySelector(`#ganttInfoBody tr[data-task-index="${index}"]`);
+}
 
+/**
+ * Show a drag preview: move every bar whose dates the edited schedule
+ * changes, mark them as previews, and update their Start / Finish /
+ * Duration cells. `spans` maps task index -> { startDay, finishDay,
+ * duration } for tasks that moved; null restores the committed layout.
+ */
+function applyGanttPreview(spans, draggedIndex) {
+    ganttPreviewSpans = spans;
     ganttTasks.forEach((task, index) => {
-        // Only draw lines between critical tasks
-        if (!task.critical || task.is_summary) return;
-        if (!task.depends || task.depends.length === 0) return;
-        if (!task.start) return;
-
-        const depBarRow = barRows[index];
-        if (!depBarRow || depBarRow.style.display === 'none') return;
-
-        const depBar = depBarRow.querySelector('.gantt-bar');
-        if (!depBar) return;
-
-        const depLeft = parseInt(depBar.style.left) || 0;
-        const depY = visibleRowY[index];
-        if (depY === undefined) return;
-
-        task.depends.forEach(depName => {
-            const predIndex = nameToIndex[depName.toLowerCase()];
-            if (predIndex === undefined) return;
-
-            const predTask = ganttTasks[predIndex];
-            if (!predTask || !predTask.critical || !predTask.start) return;
-
-            const predBarRow = barRows[predIndex];
-            if (!predBarRow || predBarRow.style.display === 'none') return;
-
-            const predBar = predBarRow.querySelector('.gantt-bar');
-            if (!predBar) return;
-
-            const predLeft = parseInt(predBar.style.left) || 0;
-            const predWidth = parseInt(predBar.style.width) || 18;
-            const predY = visibleRowY[predIndex];
-            if (predY === undefined) return;
-
-            const startX = predLeft + predWidth;
-            const startY = predY;
-            const endX = depLeft;
-            const endY = depY;
-
-            const offset = 10;
-            const arrowSize = 5;
-            let d;
-
-            if (endX > startX + offset * 2) {
-                const midX = startX + offset;
-                d = `M ${startX} ${startY} ` +
-                    `L ${midX} ${startY} ` +
-                    `L ${midX} ${endY} ` +
-                    `L ${endX - offset} ${endY} ` +
-                    `L ${endX} ${endY}`;
-            } else {
-                const exitX = startX + offset;
-                const entryX = endX - offset;
-                const midY = startY + (endY - startY) / 2;
-                d = `M ${startX} ${startY} ` +
-                    `L ${exitX} ${startY} ` +
-                    `L ${exitX} ${midY} ` +
-                    `L ${entryX} ${midY} ` +
-                    `L ${entryX} ${endY} ` +
-                    `L ${endX} ${endY}`;
+        const bar = ganttMainBar(index);
+        const row = ganttInfoRow(index);
+        const span = spans && spans[index];
+        const startDay = span ? span.startDay : GanttScale.dayOf(task.start);
+        const finishDay = span ? span.finishDay : GanttScale.dayOf(task.finish);
+        if (bar && startDay !== null) {
+            bar.dataset.startDay = startDay;
+            bar.dataset.finishDay = finishDay;
+            placeGanttElement(bar);
+            bar.classList.toggle('gantt-bar-preview', Boolean(span) && index !== draggedIndex);
+        }
+        if (row) {
+            const cells = {
+                start: span ? GanttScale.isoOf(span.startDay) : (task.start || '-'),
+                finish: span ? GanttScale.isoOf(span.finishDay) : (task.finish || '-'),
+                duration: span ? `${span.duration}d` : (task.duration_days ? `${task.duration_days}d` : '-'),
+            };
+            for (const [field, text] of Object.entries(cells)) {
+                const cell = row.querySelector(`td[data-field="${field}"]`);
+                if (!cell || cell.classList.contains('editing')) continue;
+                cell.textContent = text;
+                cell.classList.toggle('gantt-cell-preview', Boolean(span));
             }
-
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', d);
-            path.setAttribute('fill', 'none');
-            path.setAttribute('stroke', '#e03131');
-            path.setAttribute('stroke-width', '2');
-
-            const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-            arrow.setAttribute('points',
-                `${endX},${endY} ${endX - arrowSize},${endY - arrowSize} ${endX - arrowSize},${endY + arrowSize}`
-            );
-            arrow.setAttribute('fill', '#e03131');
-
-            svg.appendChild(path);
-            svg.appendChild(arrow);
-            hasLines = true;
-        });
+        }
     });
+    renderDependencyLines();
+    renderCriticalPathLines();
+}
 
-    if (hasLines) {
-        ganttBody.appendChild(svg);
+/** Spans for the tasks whose dates differ between the committed schedule
+ *  and a preview schedule. Tasks are matched by `_uid`, else by position
+ *  (a drag never changes the outline, so positions line up). */
+function ganttChangedSpans(previewTasks) {
+    const byUid = new Map();
+    previewTasks.forEach(t => { if (t._uid !== undefined) byUid.set(t._uid, t); });
+    const spans = {};
+    let any = false;
+    ganttTasks.forEach((task, index) => {
+        const next = (task._uid !== undefined && byUid.get(task._uid)) || previewTasks[index];
+        if (!next || !next.start || !next.finish) return;
+        if (next.start === task.start && next.finish === task.finish &&
+            next.duration_days === task.duration_days) return;
+        spans[index] = {
+            startDay: GanttScale.dayOf(next.start),
+            finishDay: GanttScale.dayOf(next.finish),
+            duration: next.duration_days,
+        };
+        any = true;
+    });
+    return any ? spans : null;
+}
+
+function showGanttDragLabel(drag, text) {
+    let label = document.getElementById('ganttDragLabel');
+    if (!text) { if (label) label.remove(); return; }
+    const bar = ganttMainBar(drag.index);
+    if (!bar) return;
+    if (!label) {
+        label = document.createElement('div');
+        label.id = 'ganttDragLabel';
+        label.className = 'gantt-drag-label';
+        label.setAttribute('role', 'status');
+        label.setAttribute('aria-live', 'polite');
     }
+    bar.parentElement.appendChild(label);
+    label.style.left = (parseFloat(bar.style.left) || 0) + 'px';
+    label.textContent = text;
+}
+
+/** Recompute the preview for the drag's current snap step. */
+function updateGanttDragPreview(drag) {
+    drag.previewSteps = drag.steps;
+    const engine = ganttDragEngine;
+    if (!engine || !drag.baseText) {
+        // No engine: move just this bar, geometrically (the pre-#787 behaviour)
+        const shiftedStart = GanttScale.shiftBySteps(drag.startDay, drag.steps, ganttPixelsPerDay);
+        const shiftedFinish = GanttScale.shiftBySteps(drag.finishDay, drag.steps, ganttPixelsPerDay);
+        const span = drag.handle === 'right' ? { startDay: drag.startDay, finishDay: shiftedFinish }
+            : drag.handle === 'left' ? { startDay: shiftedStart, finishDay: drag.finishDay }
+            : { startDay: shiftedStart, finishDay: shiftedFinish };
+        if (span.finishDay <= span.startDay && !drag.milestone) return;
+        span.duration = drag.task.duration_days;
+        applyGanttPreview({ [drag.index]: span }, drag.index);
+        return;
+    }
+
+    if (drag.calendar === undefined) {
+        drag.calendar = engine.dragCalendar(drag.baseText, drag.uid);
+    }
+    const preview = drag.steps ? engine.previewDrag(drag.baseText, drag, drag.steps, ganttPixelsPerDay) : null;
+    if (preview && preview.blocked && drag.handle === 'left') {
+        // A predecessor holds the start later than the handle asks; keep
+        // the last valid preview rather than grow the bar at the far end.
+        showGanttDragLabel(drag, 'Held by a predecessor');
+        return;
+    }
+    drag.preview = preview;
+    if (!preview) {
+        applyGanttPreview(null, drag.index);
+        showGanttDragLabel(drag, null);
+        return;
+    }
+    const spans = ganttChangedSpans(preview.result.tasks || []);
+    applyGanttPreview(spans, drag.index);
+    const moved = spans && spans[drag.index];
+    if (moved) {
+        const others = Object.keys(spans).filter(i => Number(i) !== drag.index &&
+            !ganttTasks[Number(i)].is_summary).length;
+        showGanttDragLabel(drag, `${GanttScale.isoOf(moved.startDay)} → ` +
+            `${GanttScale.isoOf(moved.finishDay - (drag.milestone ? 0 : 1))} · ${moved.duration}d` +
+            (others ? ` · moves ${others} other task${others === 1 ? '' : 's'}` : ''));
+    } else {
+        showGanttDragLabel(drag, preview.blocked ? 'Held by a predecessor' : null);
+    }
+}
+
+/** Write a finished drag to the plan: one editor change, one undo step. */
+function commitGanttDrag(drag) {
+    const editor = ganttEditor();
+    if (!ganttDragEngine || !editor) {
+        updateTaskDates(drag.task, drag.index, drag.handle, drag.steps);
+        return;
+    }
+    // The plan can change under a drag without the user touching it -- a
+    // render writing back the front matter's `rag:`, an autosave merge. The
+    // edit is addressed by `_uid`, not by text position, so it is simply
+    // re-applied to whatever the editor holds now.
+    if (editor.value !== drag.baseText) {
+        drag.baseText = editor.value;
+        drag.calendar = undefined;
+        drag.preview = null;
+    }
+    // Make sure the preview reflects the final step, even if the last
+    // animation frame never ran.
+    if (!drag.preview || drag.previewSteps !== drag.steps) updateGanttDragPreview(drag);
+    const preview = drag.preview;
+    if (!preview) {
+        // Nothing to write (no net change, or the task is gone)
+        applyGanttPreview(null, drag.index);
+        return;
+    }
+
+    if (typeof EditorUndoManager !== 'undefined') EditorUndoManager.captureImmediate(editor.value);
+    editor.value = preview.text;
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    if (typeof EditorUndoManager !== 'undefined') EditorUndoManager.captureImmediate(editor.value);
+
+    // Re-schedule now rather than on the editor's input debounce, so the
+    // committed chart replaces the preview immediately
+    renderText();
+}
+
+function setupBarDragListeners(bar, task, taskIndex) {
+    let drag = null;
+
+    const finish = (e, cancelled) => {
+        if (!drag || (e && e.pointerId !== drag.pointerId)) return;
+        const current = drag;
+        drag = null;
+        if (current.frame) cancelAnimationFrame(current.frame);
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        document.removeEventListener('pointercancel', onPointerCancel);
+        document.removeEventListener('keydown', onKeyDown, true);
+        bar.classList.remove('dragging');
+        document.body.classList.remove('gantt-dragging');
+        if (e && bar.hasPointerCapture && bar.hasPointerCapture(e.pointerId)) {
+            bar.releasePointerCapture(e.pointerId);
+        }
+        showGanttDragLabel(current, null);
+        ganttActiveDrag = null;
+        const deferred = ganttDeferredTasks;
+        ganttDeferredTasks = null;
+
+        if (!cancelled && current.moved && current.steps) {
+            commitGanttDrag(current);   // re-renders from the committed text
+        } else if (deferred) {
+            updateGantt(deferred);
+        } else {
+            applyGanttPreview(null, current.index);
+        }
+    };
+
+    const onPointerMove = (e) => {
+        if (!drag || e.pointerId !== drag.pointerId) return;
+        const deltaX = e.clientX - drag.startX;
+        if (!drag.moved && Math.abs(deltaX) < GANTT_DRAG_THRESHOLD_PX) return;
+        if (!drag.moved) {
+            drag.moved = true;
+            ganttActiveDrag = drag;
+            bar.classList.add('dragging');
+            document.body.classList.add('gantt-dragging');
+        }
+        e.preventDefault();
+
+        const steps = GanttScale.snapSteps(deltaX, ganttPixelsPerDay);
+        if (steps === drag.steps) return;
+        drag.steps = steps;
+        if (!drag.frame) {
+            drag.frame = requestAnimationFrame(() => {
+                if (!drag) return;
+                drag.frame = 0;
+                updateGanttDragPreview(drag);
+            });
+        }
+    };
+
+    const onPointerUp = (e) => finish(e, false);
+    const onPointerCancel = (e) => finish(e, true);
+    const onKeyDown = (e) => {
+        if (e.key !== 'Escape' || !drag) return;
+        e.preventDefault();
+        e.stopPropagation();
+        finish({ pointerId: drag.pointerId }, true);
+    };
+
+    bar.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        if (task.is_summary) return;  // Summary bars follow their children
+        const handle = e.target.classList.contains('gantt-bar-handle') ? e.target.dataset.handle : 'middle';
+        const editor = ganttEditor();
+        drag = {
+            pointerId: e.pointerId,
+            startX: e.clientX,
+            handle,
+            task,
+            index: taskIndex,
+            uid: task._uid !== undefined ? task._uid : taskIndex,
+            startDay: GanttScale.dayOf(task.start),
+            finishDay: GanttScale.dayOf(task.finish),
+            milestone: task.duration_days === 0,
+            baseText: editor ? editor.value : '',
+            calendar: undefined,
+            steps: 0,
+            moved: false,
+            frame: 0,
+            preview: null,
+        };
+        if (bar.setPointerCapture) bar.setPointerCapture(e.pointerId);
+        e.stopPropagation();
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+        document.addEventListener('pointercancel', onPointerCancel);
+        document.addEventListener('keydown', onKeyDown, true);
+    });
+}
+
+/**
+ * Fallback commit when the preview engine could not be loaded: shift the
+ * task's dates by whole snap steps and write them through the
+ * `_uid`-addressed model path in editor-sync.js.
+ */
+function updateTaskDates(task, taskIndex, handleType, steps) {
+    const startDay = GanttScale.dayOf(task.start);
+    const finishDay = GanttScale.dayOf(task.finish);
+    const newStart = GanttScale.shiftBySteps(startDay, steps, ganttPixelsPerDay);
+    const newFinish = GanttScale.shiftBySteps(finishDay, steps, ganttPixelsPerDay);
+
+    if (handleType === 'right') {
+        task.finish = GanttScale.isoOf(newFinish);
+    } else if (handleType === 'left') {
+        task.start = GanttScale.isoOf(newStart);
+    } else {
+        task.start = GanttScale.isoOf(newStart);
+        task.finish = GanttScale.isoOf(newFinish);
+    }
+    ganttTasks[taskIndex].start = task.start;
+    ganttTasks[taskIndex].finish = task.finish;
+
+    if (task.duration_days !== 0) {
+        // finish is exclusive; count Mon-Fri between them
+        let count = 0;
+        for (let d = GanttScale.dayOf(task.start); d < GanttScale.dayOf(task.finish); d++) {
+            if (((d + 3) % 7 + 7) % 7 < 5) count++;
+        }
+        task.duration_days = Math.max(1, count);
+        ganttTasks[taskIndex].duration_days = task.duration_days;
+    }
+
+    if (handleType === 'right') {
+        syncGanttDurationToEditor(task, taskIndex);
+    } else if (handleType === 'left') {
+        syncGanttStartDateToEditor(task, taskIndex);
+        syncGanttDurationToEditor(task, taskIndex);
+    } else {
+        syncGanttStartDateToEditor(task, taskIndex);
+    }
+
+    // Trigger a full re-parse to recalculate dependencies
+    renderText();
 }

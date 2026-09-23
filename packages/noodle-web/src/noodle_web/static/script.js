@@ -755,7 +755,9 @@ const OUTPUT_VIEWS = {
     'pbs': 'planTab',
     'deliverables': 'planTab',
     'product-flow': 'planTab',
-    'benefits': 'planTab'
+    'benefits': 'planTab',
+    'assignments': 'planTab',
+    'slippage': 'planTab'
 };
 
 Object.entries(OUTPUT_VIEWS).forEach(([viewName, navTabId]) => {
@@ -1687,6 +1689,7 @@ async function updateAllViews(planText, projectName) {
         let result = null;
         try {
             const engine = await import('/static/engine/local-parse.js');
+            if (engine.projectWorkingDay) projectIsWorkingDay = engine.projectWorkingDay(planText);
             if (engine.useLocalEngine()) {
                 const localResult = engine.localParse(planText, projectName);
                 if (localResult.success) result = localResult;
@@ -1774,6 +1777,9 @@ async function updateAllViews(planText, projectName) {
             // PV/EV/AC/EAC/ETC/VAC/TCPI/schedule forecast.
             { name: 'forecast',                fn: () => updateForecastView() },
             { name: 'baseline',                fn: () => updateBaselineView(result, planText) },
+            // #776: after 'baseline', which loads baselineItems for this text
+            { name: 'assignments',             fn: () => updateAssignmentsView(result, planText) },
+            { name: 'slippage',                fn: () => updateSlippageView(result, planText) },
             { name: 'editorLabels',            fn: () => updateEditorLabels(result, planText, generation) },
             { name: 'statusBar',               fn: () => { if (typeof updateStatusBarRAG === 'function') updateStatusBarRAG(result.front_matter, result.tasks); } },
             { name: 'localFileStatus',         fn: () => { if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator(); } },
@@ -9209,48 +9215,6 @@ async function applyRaidSyncReview() {
 }
 
 
-/**
- * Interface Tour System
- */
-
-function checkTasksWithoutExplicitDuration(planText, tasks) {
-    const tasksWithoutDuration = [];
-
-    // Parse the plan text to find which tasks have explicit durations
-    const lines = planText.split('\n');
-    const taskLinesWithDuration = new Set();
-
-    for (let line of lines) {
-        const trimmed = line.trim();
-
-        // Skip empty lines, front matter, comments, headers
-        if (!trimmed || trimmed.startsWith('---') || trimmed.startsWith('#')) continue;
-
-        // Check if line has a duration pattern: Xd, Xw, Xm, Xy
-        const durationMatch = trimmed.match(/\b(\d+[dwmy])\b/);
-        if (durationMatch) {
-            // Extract task name (before duration, resources, dates, etc.)
-            // Task format: [indent]TaskName duration [resources] [dates] {comment}
-            const taskNameMatch = trimmed.match(/^(\*?)(.+?)\s+\d+[dwmy]/);
-            if (taskNameMatch) {
-                const taskName = taskNameMatch[2].trim();
-                taskLinesWithDuration.add(taskName);
-            }
-        }
-    }
-
-    // Filter tasks that don't have explicit duration in the plan text
-    for (let task of tasks) {
-        if (task.is_summary) continue; // Skip summary tasks
-
-        // Check if this task name appears in our set of tasks with explicit durations
-        if (!taskLinesWithDuration.has(task.name)) {
-            tasksWithoutDuration.push(task);
-        }
-    }
-
-    return tasksWithoutDuration;
-}
 
 /**
  * Update Analysis tab with project health checks and actionable insights
@@ -9272,19 +9236,20 @@ function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
         // Clear existing insights
         insightsContainer.innerHTML = '';
 
+        // The plan review (#782) -- structure, dependencies, schedule
+        // quality, governance -- runs server-side and renders into
+        // #planReview. It replaced this view's own overdue-task,
+        // missing-resource, missing-stakeholder and missing-duration checks
+        // and its health score; what remains below is insight that needs
+        // the page's live data (EVM, RAID, baseline, progress).
+        if (typeof PlanReview !== 'undefined') PlanReview.onPlanRendered(planText);
+
         const insights = [];
         const actions = [];
 
-        // 1. Check for overdue tasks
+        // 1. Overdue tasks become an action (the review lists each one)
         const overdueTasks = getOverdueTasks(tasks);
         if (overdueTasks.length > 0) {
-            insights.push({
-                type: 'warning',
-                title: 'Overdue Tasks',
-                description: overdueTasks.length + ' task(s) are past their finish date and not yet complete',
-                items: overdueTasks.slice(0, 5).map(t => '"' + t.name + '" was due ' + t.finish),
-                fixable: false
-            });
             actions.push({
                 text: 'Review ' + overdueTasks.length + ' overdue task(s) and update completion status or reschedule',
                 severity: 'high'
@@ -9320,32 +9285,6 @@ function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
             });
         }
 
-        // 6. Check for missing resource names in front matter
-        const missingResources = checkMissingResourceNames(tasks, resourceMap);
-        if (missingResources.length > 0) {
-            insights.push({
-                type: 'info',
-                title: 'Missing Resource Definitions',
-                description: 'Some resources used in tasks are not defined in the front matter',
-                items: missingResources.map(r => 'Resource @' + r + ' is used but not defined'),
-                fixable: true,
-                fixAction: () => addMissingResources(missingResources)
-            });
-        }
-
-        // 7. Check for missing stakeholders
-        const frontMatterStr = typeof frontMatter === 'string' ? frontMatter : '';
-        const hasStakeholders = frontMatterStr && frontMatterStr.toLowerCase().includes('stakeholders:');
-        if (!hasStakeholders) {
-            insights.push({
-                type: 'suggestion',
-                title: 'Missing Stakeholders',
-                description: 'Consider adding key stakeholders to the project front matter',
-                items: ['Add "Stakeholders:" section to track project stakeholders'],
-                fixable: false
-            });
-        }
-
         // 8. Check for missing front matter fields
         const missingFields = checkMissingFrontMatterFields(frontMatter);
         if (missingFields.length > 0) {
@@ -9358,34 +9297,18 @@ function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
             });
         }
 
-        // 9. Check for tasks with missing durations (not explicitly set)
-        const tasksWithoutExplicitDuration = checkTasksWithoutExplicitDuration(planText, tasks);
-        if (tasksWithoutExplicitDuration.length > 0) {
-            insights.push({
-                type: 'warning',
-                title: 'Tasks Without Duration',
-                description: tasksWithoutExplicitDuration.length + ' task(s) have no duration specified',
-                items: tasksWithoutExplicitDuration.slice(0, 5).map(t => 'Task "' + t.name + '" has no duration'),
-                fixable: false
-            });
-        }
-
         // 10. Task completion summary
         const completionInsight = getTaskCompletionInsight(tasks);
         if (completionInsight) {
             insights.push(completionInsight);
         }
 
-        // Project health summary (render first)
-        const healthScore = calculateHealthScore(insights);
-        renderHealthScore(insightsContainer, healthScore);
-
         // Render all insights
         insights.forEach(insight => renderInsight(insightsContainer, insight));
 
         // Show success message if no issues
         if (insights.length === 0) {
-            insightsContainer.innerHTML += '<div class="analysis-success"><h3>✓ Project Looks Good!</h3><p>No issues found. Your project plan is well-structured.</p></div>';
+            insightsContainer.innerHTML += '<div class="analysis-success"><p>No further insights yet: add progress, a baseline or RAID entries and they will appear here.</p></div>';
         }
 
         // Render actions section
@@ -9630,24 +9553,21 @@ function getBaselineInsights(tasks) {
     if (typeof baselineItems === 'undefined' || baselineItems.length === 0) return [];
     if (!tasks || tasks.length === 0) return [];
 
+    // The same comparison the Slippage view (#776) shows: tasks matched to
+    // the baseline by name, variance in working days on the plan's calendar
+    const isWorkingDay = (typeof projectIsWorkingDay === 'function') ? projectIsWorkingDay : undefined;
+    const report = PlanReports.slippageReport(tasks, baselineItems, { isWorkingDay });
     const insights = [];
 
-    const currentNames = new Set(tasks.filter(t => !t.is_summary).map(t => t.name));
-    const baselineNames = new Set(baselineItems.map(b => b.name));
-
-    // Scope changes: tasks added since baseline
-    const addedTasks = tasks.filter(t => !t.is_summary && !baselineNames.has(t.name));
-    const removedTasks = baselineItems.filter(b => !currentNames.has(b.name));
-
-    if (addedTasks.length > 0 || removedTasks.length > 0) {
+    if (report.added.length > 0 || report.removed.length > 0) {
         const items = [];
-        if (addedTasks.length > 0) {
-            items.push(addedTasks.length + ' task(s) added since baseline');
-            addedTasks.slice(0, 3).forEach(t => items.push('  Added: "' + t.name + '"'));
+        if (report.added.length > 0) {
+            items.push(report.added.length + ' task(s) added since baseline');
+            report.added.slice(0, 3).forEach(t => items.push('  Added: "' + t.name + '"'));
         }
-        if (removedTasks.length > 0) {
-            items.push(removedTasks.length + ' task(s) removed since baseline');
-            removedTasks.slice(0, 3).forEach(t => items.push('  Removed: "' + t.name + '"'));
+        if (report.removed.length > 0) {
+            items.push(report.removed.length + ' task(s) removed since baseline');
+            report.removed.slice(0, 3).forEach(t => items.push('  Removed: "' + t.name + '"'));
         }
         insights.push({
             type: 'info',
@@ -9658,27 +9578,17 @@ function getBaselineInsights(tasks) {
         });
     }
 
-    // Schedule variance: tasks whose dates shifted
-    const slippedTasks = [];
-    tasks.filter(t => !t.is_summary && t.finish).forEach(t => {
-        const baselineTask = baselineItems.find(b => b.name === t.name);
-        if (!baselineTask || !baselineTask.finish) return;
-        const currentFinish = new Date(t.finish);
-        const baselineFinish = new Date(baselineTask.finish);
-        if (isNaN(currentFinish) || isNaN(baselineFinish)) return;
-        const diffDays = Math.round((currentFinish - baselineFinish) / (1000 * 60 * 60 * 24));
-        if (diffDays > 0) {
-            slippedTasks.push({ name: t.name, days: diffDays });
-        }
-    });
-
-    if (slippedTasks.length > 0) {
-        slippedTasks.sort((a, b) => b.days - a.days);
+    const slipped = report.rows.filter(r => !r.summary && r.finishVariance > 0);
+    if (slipped.length > 0) {
+        const critical = report.critical.length;
         insights.push({
             type: 'warning',
-            title: 'Schedule Slippage (' + slippedTasks.length + ' tasks)',
-            description: slippedTasks.length + ' task(s) have slipped from their baseline finish dates',
-            items: slippedTasks.slice(0, 5).map(t => '"' + t.name + '" slipped by ' + t.days + ' day(s)'),
+            title: 'Schedule Slippage (' + slipped.length + ' tasks)',
+            description: slipped.length + ' task(s) have slipped from their baseline finish dates' +
+                (critical ? ', ' + critical + ' of them on the critical path' : '') +
+                '. See the Slippage report for the full comparison.',
+            items: slipped.slice(0, 5).map(r => '"' + r.name + '" slipped by ' + r.finishVariance +
+                ' working day(s)' + (r.critical ? ' (critical path)' : '')),
             fixable: false
         });
     }
@@ -9743,42 +9653,7 @@ function renderAnalysisActions(actions) {
     container.appendChild(list);
 }
 
-function calculateHealthScore(insights) {
-    const weights = {
-        warning: -10,
-        info: -5,
-        suggestion: -2
-    };
 
-    let score = 100;
-    insights.forEach(insight => {
-        score += weights[insight.type] || 0;
-    });
-
-    return Math.max(0, Math.min(100, score));
-}
-
-function renderHealthScore(container, score) {
-    let status, color;
-    if (score >= 90) {
-        status = 'Excellent';
-        color = '#4caf50';
-    } else if (score >= 70) {
-        status = 'Good';
-        color = '#8bc34a';
-    } else if (score >= 50) {
-        status = 'Fair';
-        color = '#ff9800';
-    } else {
-        status = 'Needs Attention';
-        color = '#f44336';
-    }
-
-    const healthDiv = document.createElement('div');
-    healthDiv.className = 'analysis-health-score';
-    healthDiv.innerHTML = '<h3>Project Health Score</h3><div class="health-score-value" style="color: ' + color + ';">' + score + '/100</div><div class="health-score-status" style="color: ' + color + ';">' + status + '</div>';
-    container.appendChild(healthDiv);
-}
 
 function renderInsight(container, insight) {
     const insightDiv = document.createElement('div');
@@ -9872,25 +9747,6 @@ function checkResourceCapitalization(planText, resourceMap) {
     return issues;
 }
 
-function checkMissingResourceNames(tasks, resourceMap) {
-    const missing = new Set();
-
-    tasks.forEach(task => {
-        if (task.resources) {
-            const resources = task.resources.split(',').map(r => r.trim().toLowerCase());
-            resources.forEach(r => {
-                if (r && r.startsWith('@')) {
-                    const shortname = r.substring(1);
-                    if (!resourceMap[shortname] && !resourceMap[shortname.toLowerCase()]) {
-                        missing.add(shortname);
-                    }
-                }
-            });
-        }
-    });
-
-    return Array.from(missing);
-}
 
 function checkMissingFrontMatterFields(frontMatter) {
     const missing = [];
@@ -9929,44 +9785,6 @@ function fixResourceCapitalization(issues) {
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-function addMissingResources(missingResources) {
-    const editor = document.getElementById('planEditor');
-    if (!editor) return;
-
-    const lines = editor.value.split('\n');
-    let resourceSectionEnd = -1;
-
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].trim() === 'Resources:') {
-            for (let j = i + 1; j < lines.length; j++) {
-                if (lines[j].startsWith('-') && lines[j].includes(':')) {
-                    resourceSectionEnd = j;
-                } else if (lines[j].trim() === '---' || (!lines[j].startsWith('-') && lines[j].trim() !== '')) {
-                    break;
-                }
-            }
-            break;
-        }
-    }
-
-    if (resourceSectionEnd === -1) {
-        const frontMatterEnd = lines.findIndex((line, idx) => idx > 0 && line.trim() === '---');
-        if (frontMatterEnd > 0) {
-            lines.splice(frontMatterEnd, 0, 'Resources:');
-            resourceSectionEnd = frontMatterEnd;
-        }
-    }
-
-    missingResources.forEach(shortname => {
-        const capitalized = shortname.charAt(0).toUpperCase() + shortname.slice(1);
-        const newLine = '- @' + capitalized + ': ' + capitalized + ', Role';
-        lines.splice(resourceSectionEnd + 1, 0, newLine);
-        resourceSectionEnd++;
-    });
-
-    editor.value = lines.join('\n');
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
-}
 
 // ===== Quality Analyser (ProjectQA checks) =====
 

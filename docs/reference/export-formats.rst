@@ -215,6 +215,27 @@ Exports RAID log items as a formatted Excel table.
 - Access: **Tracking** → **RAID Log** → Export icon
 - Filename: ``raid-log.xlsx``
 
+Tasks by Assignment (``.xlsx``, ``.pptx``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Tasks by Assignment report as it is showing, filters included. Excel: a
+Summary sheet (one row per person) and a sheet per person listing their tasks.
+PowerPoint: an overview slide, then a slide (or more) per person.
+
+- Access: **Report** → **By Assignment** → **Excel** / **PowerPoint**
+- Filename: ``<project>_tasks_by_assignment.xlsx`` / ``.pptx``
+
+Slippage (``.xlsx``, ``.pptx``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Slippage report: variance against the baseline in working days. Excel:
+Summary, Critical path, Phases, Tasks and Scope changes sheets. PowerPoint: a
+headline slide, then critical-path slippage, phases, every task and scope
+changes.
+
+- Access: **Report** → **Slippage** → **Excel** / **PowerPoint**
+- Filename: ``<project>_slippage.xlsx`` / ``.pptx``
+
 Portfolio Exports
 ------------------
 

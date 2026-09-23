@@ -419,6 +419,28 @@ function updateSendButtonState() {
 
 /* ── Agent system prompt with plan injection ──────────────────── */
 
+/** The plan-quality review (/api/analyse) as plain text for an agent prompt. */
+async function planReviewForPrompt(planText) {
+    try {
+        const resp = await fetch('/api/analyse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan_text: planText }),
+        });
+        if (!resp.ok) return '(The automated review is unavailable.)';
+        const review = await resp.json();
+        const lines = [`Plan health: ${review.score}/100 (${review.grade}).`];
+        if (!review.findings.length) lines.push('No problems found.');
+        review.findings.slice(0, 40).forEach(f => {
+            lines.push(`- [${f.severity}] ${f.title}${f.line ? ` (line ${f.line})` : ''}: ${f.message} ` +
+                `Fix: ${f.fix}`);
+        });
+        return lines.join('\n');
+    } catch (_) {
+        return '(The automated review is unavailable.)';
+    }
+}
+
 async function getAgentSystemPrompt() {
     if (!aiSelectedAgentId) return '';
 
@@ -439,6 +461,11 @@ async function getAgentSystemPrompt() {
         : planText;
 
     prompt = prompt.replace(/\{\{plan_markdown\}\}/g, truncatedPlan);
+
+    // The automated plan review (#782), for agents whose prompt asks for it
+    if (prompt.includes('{{plan_review}}')) {
+        prompt = prompt.replace(/\{\{plan_review\}\}/g, await planReviewForPrompt(planText));
+    }
 
     // Append plan format reference and update instructions
     prompt += '\n\n## NoodlePlanner Format Reference\n\n' +

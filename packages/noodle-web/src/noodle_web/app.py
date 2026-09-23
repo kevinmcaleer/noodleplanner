@@ -649,6 +649,113 @@ async def parse_plan(data: RenderRequest):
     return response
 
 
+class AnalyseRequest(BaseModel):
+    plan_text: str = Field(..., max_length=MAX_FILE_SIZE)
+    # "Today" for the date-dependent checks; the server's date when omitted.
+    today: Optional[str] = Field(None, max_length=10)
+
+
+class AnalyseFixRequest(BaseModel):
+    plan_text: str = Field(..., max_length=MAX_FILE_SIZE)
+    # The fix_action from a finding, applied as-is ...
+    action: Optional[dict] = None
+    # ... or a finding id, re-found in this text and its fix applied.
+    finding_id: Optional[str] = Field(None, max_length=1000)
+    today: Optional[str] = Field(None, max_length=10)
+
+
+def _parse_today(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=422, detail="today must be YYYY-MM-DD")
+
+
+@app.post("/api/analyse")
+async def analyse_plan_endpoint(data: AnalyseRequest):
+    """Review a plan for common problems (#782): findings, fixes, health score.
+
+    Stateless like /api/parse: the plan is reviewed and forgotten.
+    """
+    from noodle_core.plan_quality import review_plan
+
+    return review_plan(data.plan_text, today=_parse_today(data.today))
+
+
+@app.post("/api/analyse/fix")
+async def analyse_fix_endpoint(data: AnalyseFixRequest):
+    """Apply one finding's one-click fix and return the new plan text."""
+    from noodle_core.plan_quality import FixError, apply_finding_fix, apply_fix
+
+    if not data.action and not data.finding_id:
+        raise HTTPException(status_code=422, detail="Give an action or a finding_id")
+    try:
+        if data.action:
+            plan_text = apply_fix(data.plan_text, data.action)
+        else:
+            plan_text = apply_finding_fix(data.plan_text, data.finding_id,
+                                          today=_parse_today(data.today))
+    except FixError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid fix: {exc}")
+    return {"plan_text": plan_text}
+
+
+class PlanReportExportRequest(BaseModel):
+    report: str = Field(..., pattern="^(assignments|slippage)$")
+    format: str = Field(..., pattern="^(xlsx|pptx)$")
+    project_name: Optional[str] = Field(None, max_length=200)
+    # The report's rows as the browser computed them (static/plan-reports.js)
+    data: dict
+
+
+_REPORT_MEDIA_TYPES = {
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+}
+
+
+@app.post("/api/reports/export")
+async def export_plan_report(data: PlanReportExportRequest):
+    """Export the Tasks by Assignment or Slippage report (#776) to Excel or PowerPoint.
+
+    The browser sends the rows it is showing; the exporter only lays them
+    out, so the file always matches the view (filters included).
+    """
+    from noodle_core.exporters import (
+        export_assignment_report_to_excel,
+        export_assignment_report_to_powerpoint,
+        export_slippage_report_to_excel,
+        export_slippage_report_to_powerpoint,
+    )
+
+    exporters = {
+        ("assignments", "xlsx"): export_assignment_report_to_excel,
+        ("assignments", "pptx"): export_assignment_report_to_powerpoint,
+        ("slippage", "xlsx"): export_slippage_report_to_excel,
+        ("slippage", "pptx"): export_slippage_report_to_powerpoint,
+    }
+    exporter = exporters[(data.report, data.format)]
+    project_name = data.project_name or "Project"
+    try:
+        file_bytes = export_to_file(
+            lambda path: exporter(path, data.data, project_name=project_name),
+            suffix=f".{data.format}",
+        )
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid report data: {exc}")
+    stem = re.sub(r"[^\w.-]+", "_", project_name).strip("_") or "plan"
+    suffix = "tasks_by_assignment" if data.report == "assignments" else "slippage"
+    return Response(
+        content=file_bytes,
+        media_type=_REPORT_MEDIA_TYPES[data.format],
+        headers={"Content-Disposition": f'attachment; filename="{stem}_{suffix}.{data.format}"'},
+    )
+
+
 class ReportMilestone(BaseModel):
     name: str = Field("", max_length=500)
     date: str = Field("", max_length=50)

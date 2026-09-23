@@ -98,7 +98,9 @@ function getLiveState() {
         // #1267: the Gantt scale, for the `Scale` group's five mutually
         // exclusive buttons. `ganttScale` is a plain global (state.js),
         // defaulting to 'days' -- so the right button is pressed on first
-        // render, before any click. Not persisted anywhere today.
+        // render, before any click. Since #787 it names the detent the
+        // continuous zoom sits on, or '' between detents (no button pressed);
+        // the zoom itself persists per project in views-gantt.js.
         ganttScale: (typeof ganttScale !== 'undefined') ? ganttScale : 'days',
         // #1112: the ribbon's Baseline button opens the Baseline dialog
         // rather than toggling ganttShowBaseline, so its pressed state now
@@ -172,6 +174,7 @@ const VIEW_FOR_LABEL = {
     Tasks: 'tasks', Outline: 'notepad', Board: 'kanban', Gantt: 'gantt', Timeline: 'timeline', Calendar: 'calendar',
     RAID: 'raid', 'RAID Log': 'raid', Actions: 'actions', Highlights: 'highlights', Lookahead: 'lookahead',
     Lessons: 'lessons', Budget: 'budget', EVM: 'evm', Forecast: 'forecast', Benefits: 'benefits', Analysis: 'analysis', Escalations: 'escalations',
+    'By Assignment': 'assignments', Slippage: 'slippage',
     Resources: 'resources', Stakeholders: 'stakeholders', Timesheet: 'timesheet', Workload: 'user-workload',
     'Resource Sheet': 'resource-sheet', 'Comms Plan': 'comms', Report: 'project-report', 'Project Report': 'project-report',
     Dashboard: 'project-report',
@@ -431,6 +434,10 @@ function scopedAction(scopeId, label) {
         'gantt:Months': GANTT_SCALES[2].run,
         'gantt:Quarters': GANTT_SCALES[3].run,
         'gantt:Years': GANTT_SCALES[4].run,
+        // #787: the Zoom group. Fit zooms so the whole project fills the
+        // chart width; Today scrolls today into view at the current zoom.
+        'gantt:Fit': () => { if (typeof fitGanttToView === 'function') fitGanttToView(); },
+        'gantt:Today': () => { if (typeof scrollGanttToToday === 'function') scrollGanttToToday(); },
     };
     return table[`${scopeId}:${label}`];
 }

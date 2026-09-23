@@ -13,7 +13,6 @@ from noodle_core import (
     yaml_to_markdown_table,
     text_to_markdown_table,
     export_to_excel,
-    analyze_plan,
     export_timeline_to_powerpoint,
     convert_plan_format_to_standard,
 )
@@ -218,54 +217,37 @@ def _command_export_ppt(args: argparse.Namespace) -> int:
 
 
 def _command_analyze(args: argparse.Namespace) -> int:
+    from noodle_core.plan_quality import review_plan
+
     input_path = args.input_path
     content = input_path.read_text(encoding="utf-8")
 
-    # Convert plan format (strip front matter) for parsing
-    converted_content = convert_plan_format_to_standard(content)
+    # The review schedules the plan itself, exactly as the web app does (#782)
+    result = review_plan(content)
+    findings = result["findings"]
 
-    # Analyze the plan
-    suggestions = analyze_plan(converted_content, original_text=content)
+    print(f"\nPlan review for {input_path.name}")
+    print("=" * 80)
+    print(f"Plan health: {result['score']}/100 ({result['grade']})")
 
-    if not suggestions:
-        print("✓ No issues found! Your plan looks good.")
+    if not findings:
+        print("\n✓ No issues found! Your plan looks good.")
         return 0
 
-    # Group suggestions by severity
-    high_priority = [s for s in suggestions if s['severity'] == 'High']
-    medium_priority = [s for s in suggestions if s['severity'] == 'Medium']
-    low_priority = [s for s in suggestions if s['severity'] == 'Low']
-    warnings = [s for s in suggestions if s['severity'] == 'Warning']
-
-    print(f"\nPlan Analysis for {input_path.name}")
-    print("=" * 80)
-    print(f"\nFound {len(suggestions)} suggestion(s) for improvement:\n")
-
-    if high_priority:
-        print("HIGH PRIORITY:")
+    headings = {"error": "ERRORS", "warning": "WARNINGS", "suggestion": "SUGGESTIONS"}
+    for severity, heading in headings.items():
+        group = [f for f in findings if f["severity"] == severity]
+        if not group:
+            continue
+        print(f"\n{heading} ({len(group)}):")
         print("-" * 80)
-        for s in high_priority:
-            print(f"  [{s['type']}] {s['message']}\n")
+        for f in group:
+            where = f" line {f['line']}:" if f.get("line") else ""
+            print(f"  [{f['title']}]{where} {f['message']}")
+            print(f"      Fix: {f['fix']}")
+            print(f"      Docs: {f['docs']}\n")
 
-    if medium_priority:
-        print("MEDIUM PRIORITY:")
-        print("-" * 80)
-        for s in medium_priority:
-            print(f"  [{s['type']}] {s['message']}\n")
-
-    if low_priority:
-        print("LOW PRIORITY:")
-        print("-" * 80)
-        for s in low_priority:
-            print(f"  [{s['type']}] {s['message']}\n")
-
-    if warnings:
-        print("WARNINGS:")
-        print("-" * 80)
-        for s in warnings:
-            print(f"  [{s['type']}] {s['message']}\n")
-
-    return 0
+    return 1 if result["counts"]["error"] else 0
 
 
 def build_parser() -> argparse.ArgumentParser:
