@@ -64,6 +64,7 @@ from .scheduling_engine import (
     _calendar_or_holidays_for_task,
     natural_language_to_yaml,
     schedule_tasks,
+    task_name_lookup,
 )
 
 DOCS_BASE = "https://docs.noodleplanner.com/reference/plan-quality-checks.html"
@@ -569,7 +570,7 @@ def _dependency_entries(raw):
 
 def _check_dependencies(review, ctx):
     tasks = ctx["tasks"]
-    names = {t.get("name", "").lower(): t for t in tasks if t.get("name")}
+    names = task_name_lookup(tasks)
     deliverables = {str(t.get("deliverable") or "").lower() for t in tasks if t.get("deliverable")}
     all_names = [t.get("name") for t in tasks if t.get("name")]
 
@@ -700,7 +701,7 @@ def _check_non_working_days(review, ctx):
 def _predecessor_graph(tasks):
     """leaf uid -> set of predecessor leaf uids (depends + sequential)."""
     leaves = [t for t in tasks if not t.get("summary")]
-    by_name = {t.get("name", "").lower(): t for t in tasks if t.get("name")}
+    by_name = task_name_lookup(tasks)  # first definition wins, as when scheduling
     children = {}
     for t in tasks:
         children.setdefault(t.get("_parent_uid"), []).append(t)

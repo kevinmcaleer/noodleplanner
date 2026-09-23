@@ -28,6 +28,7 @@ from .metadata import (
     detect_dependency_loops,
     detect_hierarchy_dependency_conflicts,
     inherit_summary_resources,
+    task_name_lookup,
     _propagate_resource_to_children,
     parse_recurrence,
     generate_recurrence_occurrences,
@@ -179,8 +180,9 @@ def calculate_critical_path(tasks, holidays=None):
     if not leaf_tasks:
         return
 
-    # Build name lookup
-    name_lookup = {t['name'].lower(): t for t in leaf_tasks if 'name' in t}
+    # Resolve names as schedule_tasks does, over every task, so a dependency
+    # on a duplicated name means the same task here as it did there.
+    name_lookup = task_name_lookup(tasks)
 
     # Forward pass — use already-scheduled dates as ES/EF
     for t in leaf_tasks:
@@ -190,13 +192,14 @@ def calculate_critical_path(tasks, holidays=None):
     # Find project end
     project_end = max(t['finish'] for t in leaf_tasks)
 
-    # Build successors map
-    successors = {t['name'].lower(): [] for t in leaf_tasks if 'name' in t}
+    # Build successors map, keyed by task identity: a dependency on a
+    # duplicated name belongs to its first definition only.
+    successors = {id(t): [] for t in leaf_tasks}
     for t in leaf_tasks:
         for dep_name in t.get('depends', []):
-            dep_lower = dep_name.lower()
-            if dep_lower in successors:
-                successors[dep_lower].append(t['name'].lower())
+            pred = name_lookup.get(dep_name.lower())
+            if pred is not None and id(pred) in successors:
+                successors[id(pred)].append(t)
 
     # Backward pass
     for t in leaf_tasks:
@@ -205,18 +208,15 @@ def calculate_critical_path(tasks, holidays=None):
 
     # Process in reverse order
     for t in reversed(leaf_tasks):
-        t_name = t.get('name', '').lower()
-        succ_list = successors.get(t_name, [])
+        succ_list = successors[id(t)]
 
         # A successor's latest start, less the lag on the link (or plus a
         # lead), is the latest this task may finish: a lagged gap is not
         # float. Mirrors the forward pass, which adds the lag.
         late_starts = []
-        for s in succ_list:
-            if s not in name_lookup:
-                continue
-            late_start = name_lookup[s]['late_start']
-            lag_days = _finish_start_lag(t, name_lookup[s])
+        for successor in succ_list:
+            late_start = successor['late_start']
+            lag_days = _finish_start_lag(t, successor)
             if lag_days:
                 late_start = add_working_days(late_start, -lag_days, holidays)
             late_starts.append(late_start)
@@ -442,8 +442,9 @@ def schedule_tasks(
             t['depends'] = resolved
 
     # Schedule leaf tasks (non-summary tasks)
-    # Use lowercase keys for case-insensitive task name lookup
-    name_lookup = {t['name'].lower(): t for t in all_tasks if 'name' in t}
+    # Case-insensitive; a dependency on a duplicated name means its first
+    # definition (see task_name_lookup).
+    name_lookup = task_name_lookup(all_tasks)
 
     # Prepare holiday sets
     if holidays is None:
@@ -770,9 +771,7 @@ def schedule_tasks(
     if loop_analysis['has_loops']:
         logger.warning(f"Circular dependencies detected: {', '.join(loop_analysis['loops'])}")
         affected = set(loop_analysis['affected_tasks'])
-        name_lookup_ordered = {
-            t['name'].lower(): t for t in ordered_tasks if t.get('name')
-        }
+        name_lookup_ordered = task_name_lookup(ordered_tasks)
         for task in ordered_tasks:
             task_name = task.get('name', '').lower()
             if task_name in affected:

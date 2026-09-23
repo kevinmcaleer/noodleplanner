@@ -34,6 +34,9 @@ _DQ_COMMENT = re.compile(r'"([^"]+)"')
 _SQ_COMMENT = re.compile(r"'([^']+)'")
 _EFFORT = re.compile(r'~(\d+(?:\.\d+)?)(h|d)(?:/(\d+(?:\.\d+)?)(h|d))?')
 _PERCENT = re.compile(r'(\d{1,3})%')
+# `@dev[30%]` gives a resource a share of their day (the Resource Sheet reads
+# it); that N% is an allocation, not the task's percent complete.
+_ALLOCATION = re.compile(r'@[^\s\[]+\[\d+%\]')
 _LEGACY_PERCENT = re.compile(r'\bp(\d{1,3})\b')
 _LEVELLED = re.compile(r'\[levelled\s+@?(\S+)\s+(\d{4}-\d{2}-\d{2})\s*\]', re.IGNORECASE)
 _DEADLINE = re.compile(r'\bD(\d{4}-\d{2}-\d{2})\b')
@@ -388,7 +391,7 @@ def extract_metadata(task_str, task_name=None):
             meta['effort_remaining_unit'] = completed_unit
 
     # Support both new format (10%) and old format (p10)
-    percent_match = _PERCENT.search(task_str)
+    percent_match = _PERCENT.search(_ALLOCATION.sub('', task_str))
     if percent_match:
         meta['percent'] = max(0, min(100, int(percent_match.group(1))))
     else:
@@ -475,6 +478,26 @@ def extract_metadata(task_str, task_name=None):
         desc = _PERCENT_TOKEN.sub('', desc).strip()
         meta['description'] = desc
     return meta
+
+
+def task_name_lookup(tasks):
+    """Map each lowercased task name to the task a dependency on it means.
+
+    When a name is defined more than once, the **first** definition in plan
+    order wins.  Both engines resolve ``[depends ...]`` this
+    way, as do the exporters and the Gantt's dependency arrows, so the link a
+    plan draws is the link it schedules.  The first definition is chosen over
+    the last because the single-pass scheduler has always reached it by the
+    time a later dependant asks for its dates; a later duplicate may not have
+    been scheduled yet, which used to drop the dependency and start the
+    dependant today.
+    """
+    lookup = {}
+    for task in tasks:
+        name = task.get('name')
+        if name:
+            lookup.setdefault(name.lower(), task)
+    return lookup
 
 
 def detect_dependency_loops(tasks):
@@ -609,11 +632,11 @@ def detect_hierarchy_dependency_conflicts(tasks):
             node = parent.get(node)
         return False
 
-    # Last occurrence wins, matching name_lookup in schedule_tasks.
+    # First occurrence wins, matching task_name_lookup.
     index_by_name = {}
     for idx, task in enumerate(tasks):
         if task.get('name'):
-            index_by_name[task['name'].lower()] = idx
+            index_by_name.setdefault(task['name'].lower(), idx)
 
     def display_name(task):
         return task.get('description') or task.get('name', '')

@@ -2513,7 +2513,8 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
     for _idx, _task in enumerate(tasks, start=1):
         _name = _task.get('name', '')
         if _name:
-            name_to_id[_name.lower()] = _idx
+            # first definition wins, as it does when scheduling
+            name_to_id.setdefault(_name.lower(), _idx)
 
     task_row_num = 2
     for idx, task in enumerate(tasks, start=1):

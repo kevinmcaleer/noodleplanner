@@ -536,11 +536,12 @@ def export_to_msproject_xml(
             if res_uid and res_uid not in assignments_by_task.get(idx, []):
                 assignments_by_task.setdefault(idx, []).append(res_uid)
 
-    # Build a name-to-UID map for dependencies
+    # Build a name-to-UID map for dependencies; the first definition of a
+    # duplicated name wins, as it does when scheduling (task_name_lookup).
     task_name_to_uid = {}
     for idx, task in enumerate(tasks, start=1):
         name = task.get("name", "")
-        task_name_to_uid[name.lower()] = idx
+        task_name_to_uid.setdefault(name.lower(), idx)
 
     # Work out which dependencies MS Project will accept before writing any
     # task, so a dropped link can be explained in that task's Notes.

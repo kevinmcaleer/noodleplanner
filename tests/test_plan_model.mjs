@@ -84,10 +84,11 @@ test('rename collapses an embedded newline instead of splitting the task onto ex
     assert.equal(model.serialize(), 'Foo ---whiteboard--- Bar 1d\nB 1d\n');
 });
 
-test('duplicate names keep distinct identities and last definition wins for lookup', () => {
+test('duplicate names keep distinct identities and first definition wins for lookup', () => {
+    // matches the schedulers, so the editor's link is the one that sets dates
     const model = PlanModel.parse('Same 1d\nSame 2d\nAfter 1d [depends Same]\n');
     assert.notEqual(model.tasks[0].id, model.tasks[1].id);
-    assert.equal(model.tasks[2].dependencies[0].target, model.tasks[1]);
+    assert.equal(model.tasks[2].dependencies[0].target, model.tasks[0]);
 });
 
 test('tree move carries descendants and never leaves splice blank lines', () => {
