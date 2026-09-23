@@ -258,7 +258,9 @@ Resolution rules
 ~~~~~~~~~~~~~~~~~
 
 * Dependency names are matched case-insensitively against task names. If
-  two tasks share a name the later one wins; avoid duplicate names.
+  two tasks share a name the **first** one in the plan wins -- for the
+  schedule, the critical path, the Gantt's arrows and the MS Project and
+  Excel exports alike. Avoid duplicate names.
 * A task that depends on its own phase, or a phase on its own subtask, is
   flagged in the editor and status bar; the MS Project exports leave such
   links out and say so in the task's notes.

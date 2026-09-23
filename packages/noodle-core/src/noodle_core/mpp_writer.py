@@ -91,9 +91,10 @@ def build_project_model(plan_text: str, project_name: str = "Project") -> dict:
     phases = phases_raw if isinstance(phases_raw, list) else [phases_raw]
     tasks = schedule_tasks(phases)
 
-    task_name_to_uid = {
-        t.get("name", "").lower(): idx for idx, t in enumerate(tasks, start=1)
-    }
+    # first definition of a duplicated name wins, as it does when scheduling
+    task_name_to_uid = {}
+    for idx, t in enumerate(tasks, start=1):
+        task_name_to_uid.setdefault(t.get("name", "").lower(), idx)
     links, dropped_links = _resolve_predecessor_links(tasks, task_name_to_uid)
 
     # resources: case-insensitive fold, one display name each (mirrors XML export)

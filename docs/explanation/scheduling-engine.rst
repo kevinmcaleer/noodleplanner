@@ -136,7 +136,7 @@ Remember that durations are in calendar days by default. ``5d`` means 5 calendar
 
 **Two tasks with the same name behave unexpectedly in dependencies**
 
-Task names must be unique within a plan for dependencies to resolve correctly. If two tasks share a name, ``[depends Task Name]`` will resolve to one of them (typically the first occurrence).
+Task names must be unique within a plan for dependencies to resolve as you intend. If two tasks share a name, ``[depends Task Name]`` always resolves to the first one in the plan, wherever the dependant sits -- even when a namesake is nearer to it. Rename one of them to point at the other.
 
 Related
 --------

@@ -9,7 +9,8 @@
  * this reproduces it rather than improving on it, because the conformance
  * corpus pins both engines to the same answers. One example worth knowing:
  *
- * * Dependency lookup is case-insensitive and last-definition-wins.
+ * * Dependency lookup is case-insensitive and first-definition-wins (see
+ *   taskNameLookup).
  *
  * (Two siblings sharing a name used to collapse into one while the tree was
  * built -- see the _uid/_parentUid note above buildTasks. That was a real,
@@ -276,9 +277,7 @@ export function scheduleTasks(allTasks, options = {}) {
     }
   }
 
-  // last definition wins, as the Python's dict comprehension does
-  const nameLookup = new Map();
-  for (const t of allTasks) if (t.name) nameLookup.set(t.name.toLowerCase(), t);
+  const nameLookup = taskNameLookup(allTasks);
 
   allTasks.forEach((t, idx) => {
     if (t.summary) return;
@@ -469,10 +468,26 @@ function inheritSummaryResources(tasks) {
   }
 }
 
+/**
+ * task_name_lookup: lowercased name to the task a dependency on it means.
+ * When a name is defined more than once the first definition wins, because
+ * the single-pass scheduler has always reached it by the time a later
+ * dependant asks for its dates; a later namesake may not have been
+ * scheduled yet.
+ */
+export function taskNameLookup(tasks) {
+  const lookup = new Map();
+  for (const t of tasks) {
+    if (!t.name) continue;
+    const key = t.name.toLowerCase();
+    if (!lookup.has(key)) lookup.set(key, t);
+  }
+  return lookup;
+}
+
 /** detect_dependency_loops plus detect_hierarchy_dependency_conflicts. */
 function flagCircularDependencies(tasks) {
-  const taskMap = new Map();
-  for (const t of tasks) if (t.name) taskMap.set(t.name.toLowerCase(), t);
+  const taskMap = taskNameLookup(tasks);
 
   // name-to-name cycles
   const graph = new Map();
@@ -547,7 +562,10 @@ function flagCircularDependencies(tasks) {
     return false;
   };
   const indexByName = new Map();
-  tasks.forEach((t, i) => { if (t.name) indexByName.set(t.name.toLowerCase(), i); });
+  tasks.forEach((t, i) => {
+    // first occurrence wins, matching taskNameLookup
+    if (t.name && !indexByName.has(t.name.toLowerCase())) indexByName.set(t.name.toLowerCase(), i);
+  });
   const display = (t) => t.description || t.name || "";
 
   tasks.forEach((t, idx) => {
@@ -584,8 +602,8 @@ function calculateCriticalPath(tasks, holidays) {
   const leaves = tasks.filter((t) => !t.summary && t.start !== undefined && t.finish !== undefined);
   if (!leaves.length) return;
 
-  const byName = new Map();
-  for (const t of leaves) if (t.name) byName.set(t.name.toLowerCase(), t);
+  // resolved over every task, as scheduling resolved them
+  const byName = taskNameLookup(tasks);
 
   for (const t of leaves) {
     t.early_start = t.start;
@@ -593,12 +611,14 @@ function calculateCriticalPath(tasks, holidays) {
   }
   const projectEnd = Math.max(...leaves.map((t) => t.finish));
 
+  // keyed by task: a dependency on a duplicated name belongs to its first
+  // definition only
   const successors = new Map();
-  for (const t of leaves) if (t.name) successors.set(t.name.toLowerCase(), []);
+  for (const t of leaves) successors.set(t, []);
   for (const t of leaves) {
     for (const dep of t.depends || []) {
-      const key = dep.toLowerCase();
-      if (successors.has(key)) successors.get(key).push((t.name || "").toLowerCase());
+      const pred = byName.get(dep.toLowerCase());
+      if (pred && successors.has(pred)) successors.get(pred).push(t);
     }
   }
 
@@ -608,9 +628,8 @@ function calculateCriticalPath(tasks, holidays) {
   }
   for (let i = leaves.length - 1; i >= 0; i--) {
     const t = leaves[i];
-    const succ = successors.get((t.name || "").toLowerCase()) || [];
-    const known = succ.filter((s) => byName.has(s)).map((s) => byName.get(s).late_start);
-    t.late_finish = known.length ? Math.min(...known) : projectEnd;
+    const succ = successors.get(t);
+    t.late_finish = succ.length ? Math.min(...succ.map((s) => s.late_start)) : projectEnd;
 
     const duration = durationDaysOf(t);
     if (duration === 0) {

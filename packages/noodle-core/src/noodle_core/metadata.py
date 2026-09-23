@@ -457,6 +457,26 @@ def extract_metadata(task_str, task_name=None):
     return meta
 
 
+def task_name_lookup(tasks):
+    """Map each lowercased task name to the task a dependency on it means.
+
+    When a name is defined more than once, the **first** definition in plan
+    order wins.  Both engines resolve ``[depends ...]`` this
+    way, as do the exporters and the Gantt's dependency arrows, so the link a
+    plan draws is the link it schedules.  The first definition is chosen over
+    the last because the single-pass scheduler has always reached it by the
+    time a later dependant asks for its dates; a later duplicate may not have
+    been scheduled yet, which used to drop the dependency and start the
+    dependant today.
+    """
+    lookup = {}
+    for task in tasks:
+        name = task.get('name')
+        if name:
+            lookup.setdefault(name.lower(), task)
+    return lookup
+
+
 def detect_dependency_loops(tasks):
     """Detect circular dependencies in tasks.
 
@@ -589,11 +609,11 @@ def detect_hierarchy_dependency_conflicts(tasks):
             node = parent.get(node)
         return False
 
-    # Last occurrence wins, matching name_lookup in schedule_tasks.
+    # First occurrence wins, matching task_name_lookup.
     index_by_name = {}
     for idx, task in enumerate(tasks):
         if task.get('name'):
-            index_by_name[task['name'].lower()] = idx
+            index_by_name.setdefault(task['name'].lower(), idx)
 
     def display_name(task):
         return task.get('description') or task.get('name', '')

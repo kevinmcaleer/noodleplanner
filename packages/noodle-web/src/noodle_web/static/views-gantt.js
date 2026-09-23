@@ -73,7 +73,8 @@ function setupGanttEditableCell(cell, edit) {
 function buildTaskNameToIdMap(tasks) {
     const map = {};
     tasks.forEach(t => {
-        if (t.name) {
+        // first definition of a duplicated name wins, as it does when scheduling
+        if (t.name && !Object.prototype.hasOwnProperty.call(map, t.name.toLowerCase())) {
             map[t.name.toLowerCase()] = t.id;
         }
     });
@@ -1215,7 +1216,7 @@ function renderDependencyLines() {
 
     const nameToIndex = {};
     ganttTasks.forEach((t, i) => {
-        if (t.name) nameToIndex[t.name.toLowerCase()] = i;
+        if (t.name && !Object.prototype.hasOwnProperty.call(nameToIndex, t.name.toLowerCase())) nameToIndex[t.name.toLowerCase()] = i;
     });
 
     const barRows = ganttBody.querySelectorAll('.gantt-bar-row');
@@ -1502,7 +1503,7 @@ function renderCriticalPathLines() {
 
     const nameToIndex = {};
     ganttTasks.forEach((t, i) => {
-        if (t.name) nameToIndex[t.name.toLowerCase()] = i;
+        if (t.name && !Object.prototype.hasOwnProperty.call(nameToIndex, t.name.toLowerCase())) nameToIndex[t.name.toLowerCase()] = i;
     });
 
     const barRows = ganttBody.querySelectorAll('.gantt-bar-row');
