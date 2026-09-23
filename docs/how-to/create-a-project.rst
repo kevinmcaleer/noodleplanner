@@ -161,7 +161,7 @@ Add a Comment
 Render the Plan
 ----------------
 
-Press **Ctrl+Enter** (Windows/Linux) or **Cmd+Enter** (Mac) to render.
+The plan renders automatically about a second after you stop typing, so there is no render step.
 
 Import a File by Dropping It on the Window
 -------------------------------------------

@@ -87,7 +87,7 @@ Use quotes to add a comment or note to a task:
 Step 5: Render and Check the Dashboard
 ----------------------------------------
 
-Press **Ctrl+Enter** / **Cmd+Enter** to render. Then click **Dashboard** in the sub-navigation.
+The plan renders automatically about a second after you stop typing. Then click **Dashboard** in the sub-navigation.
 
 The dashboard shows:
 
