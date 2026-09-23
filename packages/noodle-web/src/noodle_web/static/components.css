@@ -2633,11 +2633,6 @@ tr:hover .task-context-btn,
     transition: all 0.2s;
 }
 
-.tour-actions .btn-primary {
-    background: var(--np-accent);
-    color: var(--np-on-accent);
-}
-
 /* Kanban Breadcrumb Navigation */
 .kanban-breadcrumb {
     display: flex;
