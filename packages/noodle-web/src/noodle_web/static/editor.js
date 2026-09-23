@@ -161,6 +161,44 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         function escapeSyntaxHtml(value) {
             return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
+        // Decorate a [depends ...] block without rewriting it. The overlay must
+        // render char-for-char the same text as the textarea (style.css), so
+        // every comma, space, "Milestone:" prefix and the original case of a
+        // link type is kept; only sub-ranges are wrapped in spans.
+        function highlightDependencyBlock(text, lineIdx) {
+            const open = /^\[depends(?::\s*|\s+)/i.exec(text);
+            if (!open) return escapeSyntaxHtml(text);
+            const bodyEnd = text.endsWith(']') ? text.length - 1 : text.length;
+            const circular = circularByLine[lineIdx + 1];
+            const parts = text.slice(open[0].length, bodyEnd).split(',').map(part => {
+                const lead = /^\s*/.exec(part)[0];
+                const trail = /\s*$/.exec(part.slice(lead.length))[0];
+                const dependency = part.slice(lead.length, part.length - trail.length);
+                if (!dependency) return escapeSyntaxHtml(part);
+                const lagMatch = /^(.+?)(\s+)([+\-]\d+[dwmy])$/.exec(dependency);
+                const core = lagMatch ? lagMatch[1] : dependency;
+                const typeMatch = /^(.+?)(:(?:FS|SS|FF|SF))$/i.exec(core);
+                const nameText = typeMatch ? typeMatch[1] : core;
+                const milestone = /^Milestone:\s*/i.exec(nameText);
+                const prefix = milestone ? milestone[0] : '';
+                const nameBody = nameText.slice(prefix.length);
+                const nameCore = nameBody.trimEnd();
+                const name = nameCore.trim();
+                const normalised = name.toLowerCase().replace(/\s+/g, ' ');
+                const valid = allTaskNames.has(normalised) ||
+                    allTaskNames.has(normalised.replace(/_/g, ' ')) ||
+                    allTaskNames.has(normalised.replace(/ /g, '_')) ||
+                    allTaskNames.has(normalised.replace(/^[/^]?\$/, ''));
+                const nameHtml = circular && circular.has(normalised)
+                    ? '<span class="syntax-circular" title="Circular dependency">' + escapeSyntaxHtml(nameCore) + '</span>'
+                    : valid ? escapeSyntaxHtml(nameCore) : '<span class="syntax-error">' + escapeSyntaxHtml(nameCore) + '</span>';
+                return escapeSyntaxHtml(lead + prefix) + nameHtml + escapeSyntaxHtml(nameBody.slice(nameCore.length)) +
+                    (typeMatch ? '<span class="syntax-dep-type">' + escapeSyntaxHtml(typeMatch[2]) + '</span>' : '') +
+                    (lagMatch ? escapeSyntaxHtml(lagMatch[2]) + '<span class="syntax-lag-lead">' + escapeSyntaxHtml(lagMatch[3]) + '</span>' : '') +
+                    escapeSyntaxHtml(trail);
+            });
+            return escapeSyntaxHtml(open[0]) + parts.join(',') + escapeSyntaxHtml(text.slice(bodyEnd));
+        }
         function highlightTaskLine(line, lineIdx) {
             const classByType = {
                 star: 'syntax-star', 'star-lag': 'syntax-lag-lead', effort: 'syntax-effort',
@@ -177,26 +215,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 output += escapeSyntaxHtml(line.slice(cursor, token.start)).replace(/,/g,
                     '<span class="syntax-error" title="Commas in task names break dependency parsing">,</span>');
                 if (token.type === 'dependency') {
-                    const content = token.text.replace(/^\[depends(?::\s*|\s+)|\]$/gi, '');
-                    const parts = content.split(',').map(part => {
-                        const dependency = part.trim();
-                        const lagMatch = /^(.+?)\s+([+\-]\d+[dwmy])$/.exec(dependency);
-                        const core = (lagMatch ? lagMatch[1] : dependency).trim();
-                        const typeMatch = /^(.+?):(FS|SS|FF|SF)$/i.exec(core);
-                        const name = (typeMatch ? typeMatch[1] : core).trim().replace(/^Milestone:\s*/i, '');
-                        const normalised = name.toLowerCase().replace(/\s+/g, ' ');
-                        const circular = circularByLine[lineIdx + 1];
-                        const valid = allTaskNames.has(normalised) ||
-                            allTaskNames.has(normalised.replace(/_/g, ' ')) ||
-                            allTaskNames.has(normalised.replace(/ /g, '_')) ||
-                            allTaskNames.has(normalised.replace(/^[/^]?\$/, ''));
-                        const nameHtml = circular && circular.has(normalised)
-                            ? '<span class="syntax-circular" title="Circular dependency">' + escapeSyntaxHtml(name) + '</span>'
-                            : valid ? escapeSyntaxHtml(name) : '<span class="syntax-error">' + escapeSyntaxHtml(name) + '</span>';
-                        return nameHtml + (typeMatch ? '<span class="syntax-dep-type">:' + typeMatch[2].toUpperCase() + '</span>' : '') +
-                            (lagMatch ? ' <span class="syntax-lag-lead">' + lagMatch[2] + '</span>' : '');
-                    });
-                    output += '<span class="syntax-dependency">[depends ' + parts.join(', ') + ']</span>';
+                    output += '<span class="syntax-dependency">' + highlightDependencyBlock(token.text, lineIdx) + '</span>';
                 } else {
                     let className = classByType[token.type];
                     if (token.type === 'product') {
