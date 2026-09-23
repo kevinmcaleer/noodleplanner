@@ -526,6 +526,9 @@ const LABEL_ACTIONS = {
     // #909 ribbon-parity follow-up -- old top nav's AI button, when
     // unconfigured, opened this same modal (see ai-config.js's onAIButtonClick).
     'AI Settings': () => openAISettingsModal(),
+    // Replays the interface tour on demand, even after it has been
+    // completed or skipped (nav.js).
+    Tour: () => startTour({ force: true }),
 
     // Export/import formats named as individual buttons (Report > Share / Data)
     PDF: () => exportFile('pdf', 'editor'),

@@ -67,6 +67,7 @@ liftFunctions(sandbox, 'script.js', [
   'updatePlanWhiteboardText',
   'renamePlanWhiteboardTask',
   'mergeDuplicateSections',
+  'repairStrandedSeparator',
   'extractParkingLotFromPlanText',
   'parseParkingLotMarkdown',
   'generateParkingLotText',
@@ -78,7 +79,7 @@ liftFunctions(sandbox, 'script.js', [
 const {
   extractWhiteboardFromPlanText, parseWhiteboardMarkdown, generateWhiteboardText,
   validateWhiteboardRows, updatePlanWhiteboardText, renamePlanWhiteboardTask,
-  mergeDuplicateSections, extractParkingLotFromPlanText, parseParkingLotMarkdown,
+  mergeDuplicateSections, repairStrandedSeparator, extractParkingLotFromPlanText, parseParkingLotMarkdown,
   generateParkingLotText, updatePlanParkingLotText,
   generateParkingLotDetailComment, extractParkingLotDetailFromSectionText,
 } = sandbox;
@@ -655,4 +656,45 @@ test('a plan with a parking lot section schedules the same tasks as the same pla
   const namesWithout = scheduleTasksFromText(planBody(without), { today: '2026-06-01' }).map((t) => t.name);
   const namesWith = scheduleTasksFromText(planBody(withParkingLot), { today: '2026-06-01' }).map((t) => t.name);
   assert.deepEqual(namesWith, namesWithout);
+});
+
+// ---------------------------------------------------------------------------
+// repairStrandedSeparator -- plans whose new notes were inserted beneath the
+// `---` ahead of ---highlights--- (fixed for new notes by #1303) are
+// repaired when they load.
+// ---------------------------------------------------------------------------
+
+const HIGHLIGHTS_TAIL = '---highlights---\n## 2026-01-01 @kev\nAll good\n\n---end-highlights---\n';
+
+test('repairStrandedSeparator moves a stranded --- back below the outline', () => {
+  const broken = '---\ntitle: T\n---\n\nPhase A\n  Task 1 3d\n\n---\n\nNew idea\n  Child 1d\n\n' + HIGHLIGHTS_TAIL;
+  const repaired = repairStrandedSeparator(broken);
+  assert.equal(repaired,
+    '---\ntitle: T\n---\n\nPhase A\n  Task 1 3d\n\nNew idea\n  Child 1d\n\n---\n\n' + HIGHLIGHTS_TAIL);
+
+  const names = (plan) => scheduleTasksFromText(planBody(plan), { today: '2026-06-01' }).map((t) => t.name);
+  assert.ok(names(broken).includes('---'), 'the broken plan schedules a phantom "---" task');
+  assert.ok(!names(repaired).includes('---'), 'the repaired plan does not');
+  assert.ok(names(repaired).includes('Child'), 'the note\'s tasks survive the repair');
+});
+
+test('repairStrandedSeparator leaves a well-formed plan byte-for-byte unchanged', () => {
+  const clean = 'Phase A\n  Task 1 3d\n\n---\n\n' + HIGHLIGHTS_TAIL;
+  assert.equal(repairStrandedSeparator(clean), clean);
+  const noSeparator = 'Phase A\n  Task 1 3d\n';
+  assert.equal(repairStrandedSeparator(noSeparator), noSeparator);
+});
+
+test('repairStrandedSeparator only touches the outline, not the back matter', () => {
+  const ruleInHighlights = 'Phase A\n\n---\n\n---highlights---\n## 2026-01-01 @kev\nfoo\n---\nbar\n\n---end-highlights---\n';
+  assert.equal(repairStrandedSeparator(ruleInHighlights), ruleInHighlights);
+});
+
+test('repairStrandedSeparator handles a plan with no back matter', () => {
+  assert.equal(repairStrandedSeparator('A\n---\nB\n'), 'A\nB\n\n---\n');
+});
+
+test('repairStrandedSeparator leaves an unclosed front-matter fence alone', () => {
+  const unclosed = '---\ntitle: x\nTask A\n';
+  assert.equal(repairStrandedSeparator(unclosed), unclosed);
 });
