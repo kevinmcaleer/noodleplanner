@@ -198,6 +198,10 @@ let commsSortColumn = 'id';
 let commsSortAsc = true;
 let commsItemPendingDeleteId = null;
 let baselineItems = [];
+// The plan's working-day test, (dayNumber) => boolean, from its calendar and
+// non-working days; set on each parse from engine/local-parse.js
+// projectWorkingDay. The reports (#776) count variance in these days.
+let projectIsWorkingDay = null;
 // Baseline history (issue #1112): metadata (id/name/date) for every baseline
 // created via the Baseline dialog, most recent first. Only the most recent
 // non-cleared entry has real task data behind it -- that data lives in
@@ -244,7 +248,7 @@ let pendingGoKey = false;
 let goKeyTimeout = null;
 
 // Navigation constants
-const PLAN_VIEWS = ['project-report', 'tasks', 'notepad', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'whiteboard', 'pbs', 'deliverables', 'product-flow', 'benefits', 'guide'];
+const PLAN_VIEWS = ['project-report', 'tasks', 'notepad', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'whiteboard', 'pbs', 'deliverables', 'product-flow', 'benefits', 'guide', 'assignments', 'slippage'];
 const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'escalations', 'analysis', 'budget', 'evm', 'forecast', 'comms'];
 const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet', 'stakeholders'];
 const TOOLS_VIEWS = ['guide'];

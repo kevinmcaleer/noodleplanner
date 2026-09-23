@@ -37,7 +37,7 @@ belong to:
      - **Resources** ▸ Effort
    * - RAID Log, Actions, Highlights, Lookahead
      - **Track**
-   * - Analysis, Budget, Benefits, Project Report
+   * - Analysis, Budget, Benefits, Project Report, By Assignment, Slippage
      - **Report** ▸ Reports
 
 Project Views
@@ -156,6 +156,23 @@ severity, each with how to fix it and, where the fix is unambiguous, an
 **Apply fix** button. See :doc:`plan-quality-checks`. Below it, **Project
 insights** summarise earned value, the RAID log, baseline variance and
 progress, and the **Quality Analyser** counts schedule-structure statistics.
+
+By Assignment
+~~~~~~~~~~~~~~
+
+Every task grouped under the person or role it is assigned to -- shared tasks
+under each person, unassigned tasks in their own group first -- with each
+person's task count, open/complete split, work, next due date and overdue
+count. Filterable by person, phase, status and date range; exports to Excel and
+PowerPoint. See :doc:`../how-to/use-the-assignment-and-slippage-reports`.
+
+Slippage
+~~~~~~~~~
+
+The schedule compared with its baseline: variance in working days for every task
+and phase and for the project, critical-path slippage on its own, and tasks
+added or removed since the baseline. Exports to Excel and PowerPoint. See
+:doc:`../how-to/use-the-assignment-and-slippage-reports`.
 
 Budget
 ~~~~~~~

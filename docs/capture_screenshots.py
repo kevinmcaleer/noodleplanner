@@ -94,6 +94,56 @@ Testing & Launch
 | Wireframes            | 460 | 340 | #E58C8A | 280   | 200    | no        |
 """
 
+# rp-01/rp-02 (#776): the sample plan's shape with a baseline section, some
+# progress and one slip, so both reports have something to say.
+REPORTS_PLAN = """\
+---
+title: Website Redesign 2026
+Resources:
+- @alex: Alex Chen, Project Manager
+- @jamie: Jamie Smith, Developer
+- @sam: Sam Lee, Designer
+---
+
+Discovery & Planning
+  Stakeholder interviews @alex 3d 2026-04-13 100%
+  Requirements gathering @alex @jamie 2d [depends Stakeholder interviews] 100%
+  Sign-off on requirements @alex 0d [depends Requirements gathering]
+
+Design
+  Wireframes @sam 7d [depends Sign-off on requirements] 60%
+  Design review @alex @sam 1d [depends Wireframes]
+  Final designs @sam 3d [depends Design review]
+
+Development
+  Frontend build @jamie 10d [depends Final designs]
+  Backend integration @jamie 5d [depends Frontend build]
+  Content migration 3d [depends Final designs]
+
+Testing & Launch
+  UAT @alex @sam 3d [depends Backend integration]
+  Go Live 0d [depends UAT]
+
+---baseline---
+| Task Name | Start | Finish | Duration |
+|-----------|-------|--------|----------|
+| Discovery & Planning | 2026-04-13 | 2026-04-18 | 5d |
+| Stakeholder interviews | 2026-04-13 | 2026-04-16 | 3d |
+| Requirements gathering | 2026-04-16 | 2026-04-18 | 2d |
+| Sign-off on requirements | 2026-04-20 | 2026-04-20 | 0d |
+| Design | 2026-04-20 | 2026-04-29 | 7d |
+| Wireframes | 2026-04-20 | 2026-04-25 | 5d |
+| Design review | 2026-04-27 | 2026-04-28 | 1d |
+| Final designs | 2026-04-28 | 2026-05-01 | 3d |
+| Development | 2026-05-01 | 2026-05-22 | 15d |
+| Frontend build | 2026-05-01 | 2026-05-15 | 10d |
+| Backend integration | 2026-05-15 | 2026-05-22 | 5d |
+| Testing & Launch | 2026-05-22 | 2026-05-28 | 3d |
+| UAT | 2026-05-22 | 2026-05-28 | 3d |
+| Go Live | 2026-05-28 | 2026-05-28 | 0d |
+| Accessibility audit | 2026-05-18 | 2026-05-20 | 2d |
+"""
+
 # A small standalone plan for wb-03 (task-peek popover, issue #850): the
 # main SAMPLE_PLAN's summary tasks are all one level deep, so nothing on
 # its board ever shows a child-count badge. "Requirements gathering" here
@@ -394,6 +444,17 @@ def capture_how_to(driver, base_url):
 
     # Ensure plan is loaded and rendered
     driver.get(base_url)
+    load_plan(driver, SAMPLE_PLAN)
+    wait_for_render(driver)
+
+    # rp-01 / rp-02: the Tasks by Assignment and Slippage reports (#776).
+    # Slippage needs a baseline, so REPORTS_PLAN carries one.
+    load_plan(driver, REPORTS_PLAN)
+    wait_for_render(driver)
+    switch_to_view(driver, "assignments")
+    capture_full(driver, section / "rp-01-tasks-by-assignment.png")
+    switch_to_view(driver, "slippage")
+    capture_full(driver, section / "rp-02-slippage.png")
     load_plan(driver, SAMPLE_PLAN)
     wait_for_render(driver)
 

@@ -108,6 +108,7 @@
     <link rel="stylesheet" href="/static/layout.css?v={{ v }}">
     <link rel="stylesheet" href="/static/components.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/gantt.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/reports.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/kanban.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/notepad.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/estimating.css?v={{ v }}">
@@ -178,7 +179,7 @@
                 <!-- Views dropdown -->
                 <div class="plan-subnav-dropdown">
                     <button class="plan-subnav-btn" id="viewsDropdownBtn"
-                            data-dropdown-views="tasks,notepad,gantt,kanban,calendar,milestones,timeline,mindmap,whiteboard"
+                            data-dropdown-views="tasks,notepad,gantt,kanban,calendar,milestones,timeline,mindmap,whiteboard,assignments,slippage"
                             onclick="toggleDropdownMenu('viewsDropdownMenu', 'viewsDropdownBtn', event)"
                             aria-haspopup="true" aria-expanded="false" aria-controls="viewsDropdownMenu">
                         Views &#9662;
@@ -210,6 +211,12 @@
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="whiteboard" onclick="switchToView('whiteboard'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-whiteboard"/></svg> Whiteboard
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="assignments" onclick="switchToView('assignments'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-people"/></svg> By Assignment
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="slippage" onclick="switchToView('slippage'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-flag"/></svg> Slippage
                         </div>
                     </div>
                 </div>
@@ -1655,6 +1662,72 @@ Press Enter to render..."></textarea>
                              the schedule- and cost-at-completion forecast rather than
                              measurement-to-date. Rendered by updateForecastView(), which
                              reuses the EVM view's cached evmData -- see script.js. -->
+                        <!-- #776: Tasks by Assignment. views-reports.js builds it from the
+                             parsed tasks via PlanReports.tasksByAssignment. -->
+                        <div id="assignments-view" class="output-tab-content">
+                            <div class="report-placeholder placeholder-view">
+                                <h3>Tasks by Assignment</h3>
+                                <p>Render your plan to see who is carrying what.</p>
+                            </div>
+                            <div class="report-content assignments-content" style="display: none;">
+                                <div class="report-header">
+                                    <h2 class="report-title"><span class="ribbon-banner ribbon-banner--blue">Tasks by Assignment</span></h2>
+                                    <div class="report-export" role="group" aria-label="Export this report">
+                                        <button type="button" class="report-export-btn" onclick="exportPlanReport('assignments', 'xlsx')">Excel</button>
+                                        <button type="button" class="report-export-btn" onclick="exportPlanReport('assignments', 'pptx')">PowerPoint</button>
+                                    </div>
+                                </div>
+                                <div class="report-filters" role="group" aria-label="Filter the report">
+                                    <label>Person <select id="assignmentsPerson"></select></label>
+                                    <label>Phase <select id="assignmentsPhase"></select></label>
+                                    <label>Status
+                                        <select id="assignmentsStatus">
+                                            <option value="">Any</option>
+                                            <option value="open">Open</option>
+                                            <option value="overdue">Overdue</option>
+                                            <option value="complete">Complete</option>
+                                        </select>
+                                    </label>
+                                    <label>From <input type="date" id="assignmentsFrom"></label>
+                                    <label>To <input type="date" id="assignmentsTo"></label>
+                                    <label>Sort
+                                        <select id="assignmentsSort">
+                                            <option value="name">Name</option>
+                                            <option value="overdue">Most overdue</option>
+                                            <option value="tasks">Most tasks</option>
+                                            <option value="work">Most work</option>
+                                            <option value="nextDue">Next due</option>
+                                        </select>
+                                    </label>
+                                </div>
+                                <div id="assignmentsGroups" class="assignments-groups"></div>
+                            </div>
+                        </div>
+
+                        <!-- #776: Slippage against the baseline. views-reports.js builds it
+                             via PlanReports.slippageReport. -->
+                        <div id="slippage-view" class="output-tab-content">
+                            <div class="report-placeholder placeholder-view">
+                                <h3>Slippage</h3>
+                                <p>Render your plan to compare it with its baseline.</p>
+                            </div>
+                            <div class="report-content slippage-content" style="display: none;">
+                                <div class="report-header">
+                                    <h2 class="report-title"><span class="ribbon-banner ribbon-banner--red">Slippage</span></h2>
+                                    <div class="report-export" role="group" aria-label="Export this report">
+                                        <button type="button" class="report-export-btn" onclick="exportPlanReport('slippage', 'xlsx')">Excel</button>
+                                        <button type="button" class="report-export-btn" onclick="exportPlanReport('slippage', 'pptx')">PowerPoint</button>
+                                    </div>
+                                </div>
+                                <div id="slippageEmpty" class="report-empty" hidden>
+                                    <h3>No baseline yet</h3>
+                                    <p>Slippage is measured against a baseline: a saved copy of the schedule everyone agreed to. Set one now and this report will show what moves from here.</p>
+                                    <button type="button" class="report-empty-action" onclick="if (typeof openBaselineDialog === 'function') openBaselineDialog(); else if (typeof createBaseline === 'function') createBaseline();">Set a baseline</button>
+                                </div>
+                                <div id="slippageReport" class="slippage-report"></div>
+                            </div>
+                        </div>
+
                         <div id="forecast-view" class="output-tab-content">
                             <div class="evm-placeholder forecast-placeholder placeholder-view">
                                 <h3>Forecast</h3>
@@ -4224,6 +4297,8 @@ Build
     <script src="/static/task-row-actions.js?v={{ v }}"></script>
     <script src="/static/gantt-scale.js?v={{ v }}"></script>
     <script src="/static/plan-review.js?v={{ v }}"></script>
+    <script src="/static/plan-reports.js?v={{ v }}"></script>
+    <script src="/static/views-reports.js?v={{ v }}"></script>
     <script src="/static/views-gantt.js?v={{ v }}"></script>
     <!-- #1271: two-way hover highlight between a Gantt row and its markdown line.
          Loaded after views-gantt.js and editor.js, both of whose DOM it binds to. -->

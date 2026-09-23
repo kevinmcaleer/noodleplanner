@@ -755,7 +755,9 @@ const OUTPUT_VIEWS = {
     'pbs': 'planTab',
     'deliverables': 'planTab',
     'product-flow': 'planTab',
-    'benefits': 'planTab'
+    'benefits': 'planTab',
+    'assignments': 'planTab',
+    'slippage': 'planTab'
 };
 
 Object.entries(OUTPUT_VIEWS).forEach(([viewName, navTabId]) => {
@@ -1687,6 +1689,7 @@ async function updateAllViews(planText, projectName) {
         let result = null;
         try {
             const engine = await import('/static/engine/local-parse.js');
+            if (engine.projectWorkingDay) projectIsWorkingDay = engine.projectWorkingDay(planText);
             if (engine.useLocalEngine()) {
                 const localResult = engine.localParse(planText, projectName);
                 if (localResult.success) result = localResult;
@@ -1774,6 +1777,9 @@ async function updateAllViews(planText, projectName) {
             // PV/EV/AC/EAC/ETC/VAC/TCPI/schedule forecast.
             { name: 'forecast',                fn: () => updateForecastView() },
             { name: 'baseline',                fn: () => updateBaselineView(result, planText) },
+            // #776: after 'baseline', which loads baselineItems for this text
+            { name: 'assignments',             fn: () => updateAssignmentsView(result, planText) },
+            { name: 'slippage',                fn: () => updateSlippageView(result, planText) },
             { name: 'editorLabels',            fn: () => updateEditorLabels(result, planText, generation) },
             { name: 'statusBar',               fn: () => { if (typeof updateStatusBarRAG === 'function') updateStatusBarRAG(result.front_matter, result.tasks); } },
             { name: 'localFileStatus',         fn: () => { if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator(); } },
@@ -9547,24 +9553,21 @@ function getBaselineInsights(tasks) {
     if (typeof baselineItems === 'undefined' || baselineItems.length === 0) return [];
     if (!tasks || tasks.length === 0) return [];
 
+    // The same comparison the Slippage view (#776) shows: tasks matched to
+    // the baseline by name, variance in working days on the plan's calendar
+    const isWorkingDay = (typeof projectIsWorkingDay === 'function') ? projectIsWorkingDay : undefined;
+    const report = PlanReports.slippageReport(tasks, baselineItems, { isWorkingDay });
     const insights = [];
 
-    const currentNames = new Set(tasks.filter(t => !t.is_summary).map(t => t.name));
-    const baselineNames = new Set(baselineItems.map(b => b.name));
-
-    // Scope changes: tasks added since baseline
-    const addedTasks = tasks.filter(t => !t.is_summary && !baselineNames.has(t.name));
-    const removedTasks = baselineItems.filter(b => !currentNames.has(b.name));
-
-    if (addedTasks.length > 0 || removedTasks.length > 0) {
+    if (report.added.length > 0 || report.removed.length > 0) {
         const items = [];
-        if (addedTasks.length > 0) {
-            items.push(addedTasks.length + ' task(s) added since baseline');
-            addedTasks.slice(0, 3).forEach(t => items.push('  Added: "' + t.name + '"'));
+        if (report.added.length > 0) {
+            items.push(report.added.length + ' task(s) added since baseline');
+            report.added.slice(0, 3).forEach(t => items.push('  Added: "' + t.name + '"'));
         }
-        if (removedTasks.length > 0) {
-            items.push(removedTasks.length + ' task(s) removed since baseline');
-            removedTasks.slice(0, 3).forEach(t => items.push('  Removed: "' + t.name + '"'));
+        if (report.removed.length > 0) {
+            items.push(report.removed.length + ' task(s) removed since baseline');
+            report.removed.slice(0, 3).forEach(t => items.push('  Removed: "' + t.name + '"'));
         }
         insights.push({
             type: 'info',
@@ -9575,27 +9578,17 @@ function getBaselineInsights(tasks) {
         });
     }
 
-    // Schedule variance: tasks whose dates shifted
-    const slippedTasks = [];
-    tasks.filter(t => !t.is_summary && t.finish).forEach(t => {
-        const baselineTask = baselineItems.find(b => b.name === t.name);
-        if (!baselineTask || !baselineTask.finish) return;
-        const currentFinish = new Date(t.finish);
-        const baselineFinish = new Date(baselineTask.finish);
-        if (isNaN(currentFinish) || isNaN(baselineFinish)) return;
-        const diffDays = Math.round((currentFinish - baselineFinish) / (1000 * 60 * 60 * 24));
-        if (diffDays > 0) {
-            slippedTasks.push({ name: t.name, days: diffDays });
-        }
-    });
-
-    if (slippedTasks.length > 0) {
-        slippedTasks.sort((a, b) => b.days - a.days);
+    const slipped = report.rows.filter(r => !r.summary && r.finishVariance > 0);
+    if (slipped.length > 0) {
+        const critical = report.critical.length;
         insights.push({
             type: 'warning',
-            title: 'Schedule Slippage (' + slippedTasks.length + ' tasks)',
-            description: slippedTasks.length + ' task(s) have slipped from their baseline finish dates',
-            items: slippedTasks.slice(0, 5).map(t => '"' + t.name + '" slipped by ' + t.days + ' day(s)'),
+            title: 'Schedule Slippage (' + slipped.length + ' tasks)',
+            description: slipped.length + ' task(s) have slipped from their baseline finish dates' +
+                (critical ? ', ' + critical + ' of them on the critical path' : '') +
+                '. See the Slippage report for the full comparison.',
+            items: slipped.slice(0, 5).map(r => '"' + r.name + '" slipped by ' + r.finishVariance +
+                ' working day(s)' + (r.critical ? ' (critical path)' : '')),
             fixable: false
         });
     }

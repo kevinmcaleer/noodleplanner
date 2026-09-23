@@ -704,6 +704,58 @@ async def analyse_fix_endpoint(data: AnalyseFixRequest):
     return {"plan_text": plan_text}
 
 
+class PlanReportExportRequest(BaseModel):
+    report: str = Field(..., pattern="^(assignments|slippage)$")
+    format: str = Field(..., pattern="^(xlsx|pptx)$")
+    project_name: Optional[str] = Field(None, max_length=200)
+    # The report's rows as the browser computed them (static/plan-reports.js)
+    data: dict
+
+
+_REPORT_MEDIA_TYPES = {
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+}
+
+
+@app.post("/api/reports/export")
+async def export_plan_report(data: PlanReportExportRequest):
+    """Export the Tasks by Assignment or Slippage report (#776) to Excel or PowerPoint.
+
+    The browser sends the rows it is showing; the exporter only lays them
+    out, so the file always matches the view (filters included).
+    """
+    from noodle_core.exporters import (
+        export_assignment_report_to_excel,
+        export_assignment_report_to_powerpoint,
+        export_slippage_report_to_excel,
+        export_slippage_report_to_powerpoint,
+    )
+
+    exporters = {
+        ("assignments", "xlsx"): export_assignment_report_to_excel,
+        ("assignments", "pptx"): export_assignment_report_to_powerpoint,
+        ("slippage", "xlsx"): export_slippage_report_to_excel,
+        ("slippage", "pptx"): export_slippage_report_to_powerpoint,
+    }
+    exporter = exporters[(data.report, data.format)]
+    project_name = data.project_name or "Project"
+    try:
+        file_bytes = export_to_file(
+            lambda path: exporter(path, data.data, project_name=project_name),
+            suffix=f".{data.format}",
+        )
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid report data: {exc}")
+    stem = re.sub(r"[^\w.-]+", "_", project_name).strip("_") or "plan"
+    suffix = "tasks_by_assignment" if data.report == "assignments" else "slippage"
+    return Response(
+        content=file_bytes,
+        media_type=_REPORT_MEDIA_TYPES[data.format],
+        headers={"Content-Disposition": f'attachment; filename="{stem}_{suffix}.{data.format}"'},
+    )
+
+
 class ReportMilestone(BaseModel):
     name: str = Field("", max_length=500)
     date: str = Field("", max_length=50)
