@@ -597,17 +597,11 @@ def capture_reference(driver, base_url):
 
     # ks-01: Keyboard shortcuts modal
     # Open via JS since the ? key needs a non-input context
-    driver.execute_script(
-        "if (typeof openShortcutsModal === 'function') openShortcutsModal();"
-        "else if (typeof showKeyboardShortcuts === 'function') showKeyboardShortcuts();"
-    )
+    driver.execute_script("openShortcutsModal();")
     time.sleep(1)
     capture_full(driver, section / "ks-01-keyboard-shortcuts.png")
     # Close it
-    driver.execute_script(
-        "if (typeof closeShortcutsModal === 'function') closeShortcutsModal();"
-        "else if (typeof closeKeyboardShortcuts === 'function') closeKeyboardShortcuts();"
-    )
+    driver.execute_script("closeShortcutsModal();")
     time.sleep(0.5)
 
     # vw-01: the ribbon's Views group.
@@ -631,6 +625,19 @@ def capture_reference(driver, base_url):
         '.ribbon-group[data-group="Views"]',
         section / "vw-01-ribbon-views-group.png",
     )
+
+    # vw-02: the ribbon's View tab -- Layout, Window and Help, including the
+    # Help group's Tour button that replays the interface tour. The whole
+    # shell rather than just the body, so the selected tab is in the shot.
+    driver.execute_script(
+        "document.querySelector('.ribbon-tab-btn[data-tab=\"view\"]').click();"
+    )
+    time.sleep(0.5)
+    capture_element(driver, "#ribbonShell", section / "vw-02-ribbon-view-tab.png")
+    driver.execute_script(
+        "document.querySelector('.ribbon-tab-btn[data-tab=\"home\"]').click();"
+    )
+    time.sleep(0.3)
 
     # pq-01: the Analysis view's Plan review (#782), after the review has
     # come back from /api/analyse.

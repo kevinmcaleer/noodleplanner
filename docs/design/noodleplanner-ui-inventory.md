@@ -258,7 +258,7 @@ Declared in the template:
 - Sync RAID with Excel — `#raidSyncOverlay`
 - Sync MS Project Schedule — `#mspSyncOverlay`
 - Status Message Log — `#statusLogOverlay`
-- Keyboard Shortcuts — `#keyboardShortcutsOverlay` **and** `#shortcutsOverlay` (two of them, see section 5)
+- Keyboard Shortcuts — `#shortcutsOverlay`
 - Planning session — `#collabSessionOverlay`
 - Delete confirms — `#raidDeleteConfirmOverlay`, `#budgetDeleteConfirmOverlay`,
   `#commsDeleteConfirmOverlay`, `#lessonsDeleteConfirmOverlay`
@@ -588,9 +588,9 @@ appears on). Sorted descending, so read top-down as the build order.
 - **No real horizontal rule anywhere in the Dashboard.** The apparent dividers between
   report sections are `border-top` on the section wrappers, not an `<hr>` — so there is no
   divider component to build, but three different section wrappers draw their own line.
-- **Two keyboard-shortcuts dialogs.** `#keyboardShortcutsOverlay` (`.modal-overlay`) and
-  `#shortcutsOverlay` (`.shortcuts-modal-overlay`) both exist and both say "Keyboard
-  Shortcuts". One should go.
+- **~~Two keyboard-shortcuts dialogs.~~** Resolved: `#keyboardShortcutsOverlay`
+  (`.modal-overlay`) was removed and its shortcuts merged into `#shortcutsOverlay`
+  (`.shortcuts-modal-overlay`), which is now the only dialog `?` opens.
 - **Panel headers are inconsistent.** Only Task details, Product details and the Task
   Inspector use `.detail-pane-header`; the other thirteen `#detailPane` sections use
   `.modal-header` + `<h2>`, borrowed from the dialog shell — so the drawer and the modal

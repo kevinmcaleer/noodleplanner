@@ -4128,57 +4128,6 @@ Build
         </div>
     </div>
 
-    <!-- Keyboard Shortcuts Modal -->
-    <div id="keyboardShortcutsOverlay" class="modal-overlay" onclick="if(event.target===this) closeKeyboardShortcuts()" role="dialog" aria-modal="true" aria-label="Keyboard Shortcuts">
-        <div class="task-form-modal" style="max-width: 600px;">
-            <div class="modal-header">
-                <h2>Keyboard Shortcuts</h2>
-                <np-close-button onclick="closeKeyboardShortcuts()"></np-close-button>
-            </div>
-            <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
-                <h3>Navigation</h3>
-                <table class="help-table">
-                    <tr><td><kbd>Alt+D</kbd></td><td>Go to Project Dashboard</td></tr>
-                    <tr><td><kbd>Alt+P</kbd></td><td>Go to Portfolio</td></tr>
-                </table>
-
-                <h3>Create Items</h3>
-                <table class="help-table">
-                    <tr><td><kbd>Alt+N</kbd></td><td>New Project</td></tr>
-                    <tr><td><kbd>Alt+T</kbd></td><td>New Task</td></tr>
-                    <tr><td><kbd>Alt+R</kbd></td><td>New Risk</td></tr>
-                    <tr><td><kbd>Alt+I</kbd></td><td>New Issue</td></tr>
-                    <tr><td><kbd>Alt+Shift+R</kbd></td><td>New Resource</td></tr>
-                </table>
-
-                <h3>Export</h3>
-                <table class="help-table">
-                    <tr><td><kbd>Alt+E</kbd></td><td>Export Project to Excel</td></tr>
-                    <tr><td><kbd>Alt+Shift+P</kbd></td><td>Export Portfolio Report to PowerPoint</td></tr>
-                </table>
-
-                <h3>Editor</h3>
-                <table class="help-table">
-                    <tr><td><kbd>Ctrl+S</kbd></td><td>Save plan as Markdown file</td></tr>
-                    <tr><td><kbd>Ctrl+Z</kbd></td><td>Undo</td></tr>
-                    <tr><td><kbd>Ctrl+Shift+Z</kbd></td><td>Redo</td></tr>
-                    <tr><td><kbd>Ctrl+Enter</kbd></td><td>Render plan</td></tr>
-                </table>
-
-                <h3>AI</h3>
-                <table class="help-table">
-                    <tr><td><kbd>Ctrl+Shift+A</kbd></td><td>Toggle AI Chat panel</td></tr>
-                </table>
-
-                <h3>General</h3>
-                <table class="help-table">
-                    <tr><td><kbd>?</kbd></td><td>Show this help dialog</td></tr>
-                    <tr><td><kbd>Esc</kbd></td><td>Close open panel or modal</td></tr>
-                </table>
-            </div>
-        </div>
-    </div>
-
     <div id="statusLogOverlay" class="modal-overlay" onclick="if(event.target===this) closeStatusLogFullscreen()" role="dialog" aria-modal="true" aria-label="Status Message Log">
         <div class="task-form-modal status-log-modal" style="max-width: 900px;">
             <div class="modal-header">
@@ -4674,16 +4623,85 @@ Build
                         <span class="shortcut-desc">Timeline</span>
                         <span class="shortcut-keys"><kbd>g</kbd> <span class="shortcut-plus">then</span> <kbd>l</kbd></span>
                     </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Project Dashboard</span>
+                        <span class="shortcut-keys"><kbd>Alt</kbd> <span class="shortcut-plus">+</span> <kbd>D</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Portfolio</span>
+                        <span class="shortcut-keys"><kbd>Alt</kbd> <span class="shortcut-plus">+</span> <kbd>P</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Benefits Map</span>
+                        <span class="shortcut-keys"><kbd>Alt</kbd> <span class="shortcut-plus">+</span> <kbd>B</kbd></span>
+                    </div>
+                </div>
+                <div class="shortcuts-section">
+                    <h3>Create Items</h3>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">New project</span>
+                        <span class="shortcut-keys"><kbd>Alt</kbd> <span class="shortcut-plus">+</span> <kbd>N</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">New task</span>
+                        <span class="shortcut-keys"><kbd>Alt</kbd> <span class="shortcut-plus">+</span> <kbd>T</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">New risk</span>
+                        <span class="shortcut-keys"><kbd>Alt</kbd> <span class="shortcut-plus">+</span> <kbd>R</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">New issue</span>
+                        <span class="shortcut-keys"><kbd>Alt</kbd> <span class="shortcut-plus">+</span> <kbd>I</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">New resource</span>
+                        <span class="shortcut-keys"><kbd>Alt</kbd> <span class="shortcut-plus">+</span> <kbd>Shift</kbd> <span class="shortcut-plus">+</span> <kbd>R</kbd></span>
+                    </div>
+                </div>
+                <div class="shortcuts-section">
+                    <h3>Export</h3>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Export project to Excel</span>
+                        <span class="shortcut-keys"><kbd>Alt</kbd> <span class="shortcut-plus">+</span> <kbd>E</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Export portfolio report to PowerPoint</span>
+                        <span class="shortcut-keys"><kbd>Alt</kbd> <span class="shortcut-plus">+</span> <kbd>Shift</kbd> <span class="shortcut-plus">+</span> <kbd>P</kbd></span>
+                    </div>
                 </div>
                 <div class="shortcuts-section">
                     <h3>Editor</h3>
                     <div class="shortcut-row">
+                        <span class="shortcut-desc">Save plan as Markdown file</span>
+                        <span class="shortcut-keys"><kbd>Ctrl/Cmd</kbd> <span class="shortcut-plus">+</span> <kbd>S</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Undo</span>
+                        <span class="shortcut-keys"><kbd>Ctrl/Cmd</kbd> <span class="shortcut-plus">+</span> <kbd>Z</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Redo</span>
+                        <span class="shortcut-keys"><kbd>Ctrl/Cmd</kbd> <span class="shortcut-plus">+</span> <kbd>Shift</kbd> <span class="shortcut-plus">+</span> <kbd>Z</kbd> <span class="shortcut-plus">or</span> <kbd>Ctrl/Cmd</kbd> <span class="shortcut-plus">+</span> <kbd>Y</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
                         <span class="shortcut-desc">Indent line</span>
-                        <span class="shortcut-keys"><kbd>Cmd</kbd> <span class="shortcut-plus">+</span> <kbd>]</kbd></span>
+                        <span class="shortcut-keys"><kbd>Ctrl/Cmd</kbd> <span class="shortcut-plus">+</span> <kbd>]</kbd></span>
                     </div>
                     <div class="shortcut-row">
                         <span class="shortcut-desc">Outdent line</span>
-                        <span class="shortcut-keys"><kbd>Cmd</kbd> <span class="shortcut-plus">+</span> <kbd>[</kbd></span>
+                        <span class="shortcut-keys"><kbd>Ctrl/Cmd</kbd> <span class="shortcut-plus">+</span> <kbd>[</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Toggle comment</span>
+                        <span class="shortcut-keys"><kbd>Ctrl/Cmd</kbd> <span class="shortcut-plus">+</span> <kbd>/</kbd></span>
+                    </div>
+                </div>
+                <div class="shortcuts-section">
+                    <h3>AI</h3>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Toggle AI chat panel</span>
+                        <span class="shortcut-keys"><kbd>Ctrl/Cmd</kbd> <span class="shortcut-plus">+</span> <kbd>Shift</kbd> <span class="shortcut-plus">+</span> <kbd>A</kbd></span>
                     </div>
                 </div>
                 <div class="shortcuts-section">
