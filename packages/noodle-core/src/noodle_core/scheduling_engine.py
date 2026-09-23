@@ -151,6 +151,22 @@ def _calendar_or_holidays_for_task(task, holidays, resource_non_working_days, ca
         return base
     return dataclasses.replace(base, exceptions=base.exceptions | extra_exceptions)
 
+def _finish_start_lag(pred, succ):
+    """Working days of lag (negative: lead) on a finish-to-start pred -> succ link.
+
+    Covers `[depends X +2d]` and a sequential `* +2d`, both recorded in the
+    successor's `lag_lead`; 0 for any other link type or no lag.
+    """
+    pred_name = str(pred.get('name', '')).lower()
+    for key, dep_type in (succ.get('dependency_types') or {}).items():
+        if key.lower() == pred_name and str(dep_type).upper() != 'FS':
+            return 0
+    for key, value in (succ.get('lag_lead') or {}).items():
+        if key.lower() == pred_name:
+            return parse_duration_to_days(value)
+    return 0
+
+
 def calculate_critical_path(tasks, holidays=None):
     """Calculate critical path, slack/float for each leaf task.
 
@@ -194,10 +210,16 @@ def calculate_critical_path(tasks, holidays=None):
     for t in reversed(leaf_tasks):
         succ_list = successors[id(t)]
 
-        if succ_list:
-            t['late_finish'] = min(s['late_start'] for s in succ_list)
-        else:
-            t['late_finish'] = project_end
+        # A successor's lag pushes this task's latest finish earlier by the
+        # same gap (a lead, later): `[depends X +2d]` or `* +2d`.
+        late_starts = []
+        for successor in succ_list:
+            late_start = successor['late_start']
+            lag_days = _finish_start_lag(t, successor)
+            if lag_days:
+                late_start = add_working_days(late_start, -lag_days, holidays)
+            late_starts.append(late_start)
+        t['late_finish'] = min(late_starts) if late_starts else project_end
 
         duration_days = _get_duration_days(t)
         if duration_days == 0:

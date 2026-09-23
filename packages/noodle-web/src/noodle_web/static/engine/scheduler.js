@@ -613,6 +613,22 @@ function flagCircularDependencies(tasks) {
 }
 
 /** calculate_critical_path: float and the critical flag, on leaf tasks. */
+/**
+ * Working days of lag (negative: lead) on a finish-to-start pred -> succ
+ * link: `[depends X +2d]` or a sequential `* +2d`, both recorded in the
+ * successor's lag_lead (scheduling_engine.py's _finish_start_lag).
+ */
+function finishStartLag(pred, succ) {
+  const predName = String(pred.name || "").toLowerCase();
+  for (const [key, type] of Object.entries(succ.dependency_types || {})) {
+    if (key.toLowerCase() === predName && String(type).toUpperCase() !== "FS") return 0;
+  }
+  for (const [key, value] of Object.entries(succ.lag_lead || {})) {
+    if (key.toLowerCase() === predName) return parseDurationToDays(value);
+  }
+  return 0;
+}
+
 function calculateCriticalPath(tasks, holidays) {
   const leaves = tasks.filter((t) => !t.summary && t.start !== undefined && t.finish !== undefined);
   if (!leaves.length) return;
@@ -644,7 +660,13 @@ function calculateCriticalPath(tasks, holidays) {
   for (let i = leaves.length - 1; i >= 0; i--) {
     const t = leaves[i];
     const succ = successors.get(t);
-    t.late_finish = succ.length ? Math.min(...succ.map((s) => s.late_start)) : projectEnd;
+    // a successor's lag pushes this task's latest finish earlier by the same
+    // gap (a lead, later): `[depends X +2d]` or `* +2d`
+    const known = succ.map((successor) => {
+      const lag = finishStartLag(t, successor);
+      return lag ? addWorkingDays(successor.late_start, -lag, holidays) : successor.late_start;
+    });
+    t.late_finish = known.length ? Math.min(...known) : projectEnd;
 
     const duration = durationDaysOf(t);
     if (duration === 0) {
