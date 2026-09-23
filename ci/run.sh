@@ -53,7 +53,7 @@ fi
 
 # The jobs that gate a push. Everything in ci/jobs/ that is not listed here
 # still runs under --all or by name, but cannot fail the run.
-CI_BLOCKING_JOBS=(python js conformance roundtrip ui design)
+CI_BLOCKING_JOBS=(python js conformance roundtrip ui design storybook)
 
 ALL_JOBS=()
 for f in "$CI_DIR"/jobs/*.sh; do
@@ -103,7 +103,7 @@ JOBS_ARG=""
 # shared 30-minute ceiling would mean a deadlocked `python` job holding a push
 # open for half an hour, which is the problem, not the fix.
 declare -A JOB_TIMEOUT=(
-  [python]=600 [js]=600 [conformance]=900 [roundtrip]=900 [ui]=600 [usability]=2100
+  [python]=600 [js]=600 [conformance]=900 [roundtrip]=900 [ui]=600 [storybook]=600 [usability]=2100
 )
 JOB_TIMEOUT_DEFAULT=${CI_JOB_TIMEOUT:-900}
 TIMEOUT_OVERRIDE=""

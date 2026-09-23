@@ -296,13 +296,37 @@ function mindmapBuildTree(tasks, projectName) {
  * Measure text width using a hidden canvas context (cached).
  */
 let _mmMeasureCtx = null;
+let _mmMeasureFont = null;
 function mindmapMeasureText(text) {
     if (!_mmMeasureCtx) {
         const canvas = document.createElement('canvas');
         _mmMeasureCtx = canvas.getContext('2d');
-        _mmMeasureCtx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    }
+    // Compared against our own copy: reading ctx.font back returns the
+    // browser's normalised spelling, which never equals the string we set.
+    const font = `13px ${mindmapFontFamily()}`;
+    if (font !== _mmMeasureFont) {
+        _mmMeasureCtx.font = font;
+        _mmMeasureFont = font;
     }
     return _mmMeasureCtx.measureText(text).width;
+}
+
+/**
+ * The mind map's typeface: --np-font-ui, resolved to the stack it names.
+ *
+ * Three things use it and must agree: the canvas that measures each label to
+ * size its node, the SVG <text> that draws the label, and the inline input
+ * that replaces it while editing. If they name different faces, a label no
+ * longer fits the box that was measured for it. The canvas cannot read a
+ * custom property, so all three take the resolved stack rather than var().
+ *
+ * The fallback is the stack this file hard-coded before it used the token,
+ * for the moment before visual-system.css has applied.
+ */
+const MM_FONT_FALLBACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+function mindmapFontFamily() {
+    return mindmapCSSVar('--np-font-ui', MM_FONT_FALLBACK);
 }
 
 /**
@@ -614,7 +638,7 @@ function mindmapDrawNodes(node, depth) {
     text.setAttribute('fill', isRoot ? rootText : nodeText);
     text.setAttribute('font-size', isRoot ? '14px' : '13px');
     text.setAttribute('font-weight', isRoot ? '600' : (node.is_summary ? '600' : '400'));
-    text.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+    text.setAttribute('font-family', mindmapFontFamily());
     text.classList.add('mm-label');
 
     // Truncate text to fit node width (minus space for triangle and tick)
@@ -1155,7 +1179,7 @@ function mindmapDrawSingleNode(node, opacity, shrinkT, depth) {
     text.setAttribute('fill', isRoot ? rootText : nodeText);
     text.setAttribute('font-size', isRoot ? '14px' : '13px');
     text.setAttribute('font-weight', isRoot ? '600' : (node.is_summary ? '600' : '400'));
-    text.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+    text.setAttribute('font-family', mindmapFontFamily());
     text.classList.add('mm-label');
 
     let displayName = node.name;
@@ -1220,7 +1244,7 @@ function mindmapDrawSingleNodeFull(node, depth) {
     text.setAttribute('fill', isRoot ? rootText : nodeText);
     text.setAttribute('font-size', isRoot ? '14px' : '13px');
     text.setAttribute('font-weight', isRoot ? '600' : (node.is_summary ? '600' : '400'));
-    text.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+    text.setAttribute('font-family', mindmapFontFamily());
     text.classList.add('mm-label');
 
     let displayName = node.name;
@@ -1505,7 +1529,7 @@ function mindmapStartEditing(node) {
     input.style.cssText = `
         width: 100%; height: 100%; border: none; outline: none;
         background: ${inputBg}; color: ${inputText}; font-size: 13px;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-family: ${mindmapFontFamily()};
         text-align: center; padding: 0 4px; box-sizing: border-box;
         border-radius: 4px;
     `;
@@ -2318,7 +2342,24 @@ function updateMindmap(tasks, projectName) {
     if (mindmapPanX === 0 && mindmapPanY === 0) {
         mindmapZoomFit();
     }
+
+    // Node widths are measured with whatever face is loaded right now. If the
+    // UI webfont is still arriving, those are the fallback's widths, and every
+    // label would be drawn in a box sized for a different font. Lay out once
+    // more when it lands.
+    if (document.fonts && document.fonts.status === 'loading' && !mindmapRelayoutPending) {
+        mindmapRelayoutPending = true;
+        document.fonts.ready.then(() => {
+            mindmapRelayoutPending = false;
+            if (mindmapTree && !document.querySelector('.mm-edit-fo')) {
+                mindmapLayout(mindmapTree);
+                mindmapRender();
+            }
+        });
+    }
 }
+
+let mindmapRelayoutPending = false;
 
 // ── Colour picker (toolbar) ───────────────────────────────────────────
 

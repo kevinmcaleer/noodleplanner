@@ -46,7 +46,7 @@
     color: #e3e3e3;
     cursor: pointer;
     font: inherit;
-    font-family: 'Courier New', monospace;
+    font-family: var(--np-font-data);
     text-align: left;
     white-space: nowrap;
 }

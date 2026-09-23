@@ -431,7 +431,7 @@
 
 .ai-tool-call-name {
     font-weight: 600;
-    font-family: monospace;
+    font-family: var(--np-font-data);
 }
 
 .ai-tool-call-result {

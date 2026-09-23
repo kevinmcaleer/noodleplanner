@@ -268,7 +268,7 @@
 }
 
 .deliverable-id {
-    font-family: monospace;
+    font-family: var(--np-font-data);
     font-size: 12px;
     color: var(--np-text-muted);
     white-space: nowrap;

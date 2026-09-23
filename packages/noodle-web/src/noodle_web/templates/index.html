@@ -2864,7 +2864,7 @@ Build
                         <label for="productIdentifier">Identifier</label>
                         <div style="display: flex; align-items: center; gap: 4px;">
                             <span id="productIdentifierPrefix" style="font-size: 16px; font-weight: bold; color: var(--text-secondary);">$</span>
-                            <input type="text" id="productIdentifier" class="form-control" placeholder="e.g. fuselage" oninput="productIdentifierOnInput(this); saveProductForm()" style="font-family: monospace;">
+                            <input type="text" id="productIdentifier" class="form-control" placeholder="e.g. fuselage" oninput="productIdentifierOnInput(this); saveProductForm()" style="font-family: var(--np-font-data);">
                         </div>
                         <small>Unique identifier — no spaces allowed (underscores used instead)</small>
                     </div>
@@ -4069,7 +4069,7 @@ Build
                     <div id="wizardConvertWarnings" style="display:none;" class="alert alert-warning"></div>
                     <div id="wizardConvertStats" style="margin-bottom:10px; color: var(--np-faint);"></div>
                     <label>Generated Plan</label>
-                    <textarea id="wizardMarkdownPreview" class="form-control" rows="15" readonly style="font-family:monospace; font-size:0.85em;"></textarea>
+                    <textarea id="wizardMarkdownPreview" class="form-control" rows="15" readonly style="font-family:var(--np-font-data); font-size:0.85em;"></textarea>
                 </div>
 
                 <!-- Navigation buttons -->
@@ -4343,7 +4343,7 @@ Build
                         <div class="collab-presence-heading">Participants</div>
                         <div id="collabPresenceList"></div>
                     </div>
-                    <div id="collabSessionLog" style="max-height:120px; overflow-y:auto; font-family:ui-monospace,monospace; font-size:0.8rem;"></div>
+                    <div id="collabSessionLog" style="max-height:120px; overflow-y:auto; font-family:var(--np-font-data); font-size:0.8rem;"></div>
                     <!-- #965: host-initiated explicit end -- see collab-session.js's endCollabSession() -->
                     <button type="button" class="btn btn-outline-danger btn-sm" style="margin-top:12px;" onclick="endCollabSession()">
                         <i class="bi bi-stop-circle" aria-hidden="true"></i> End session
@@ -4474,7 +4474,7 @@ Build
                         <i class="bi bi-lightning-charge"></i> Generate Report
                     </button>
                 </div>
-                <textarea id="trendReportPreview" class="form-control" style="display: none; width: 100%; min-height: 250px; font-family: monospace; font-size: 13px; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); resize: vertical; background: var(--bg-secondary);" readonly></textarea>
+                <textarea id="trendReportPreview" class="form-control" style="display: none; width: 100%; min-height: 250px; font-family: var(--np-font-data); font-size: 13px; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); resize: vertical; background: var(--bg-secondary);" readonly></textarea>
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
                     <button type="button" class="btn-secondary" onclick="closeTrendReportDialog()" style="padding: 8px 20px; min-height: 44px;">Close</button>
                     <button type="button" id="trendReportAddBtn" class="btn-primary" onclick="addReportToHighlights()" style="display: none; padding: 8px 20px; min-height: 44px;">

@@ -52,7 +52,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 0.95em;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--np-font-ui);
 }
 
 .milestones-table thead {
@@ -277,7 +277,7 @@
 
 .resources-table .resource-shortname {
     color: var(--np-accent);
-    font-family: monospace;
+    font-family: var(--np-font-data);
     font-size: 0.9em;
     transition: color 0.2s, background 0.2s;
 }
@@ -288,7 +288,7 @@
 }
 
 .resource-inline-edit {
-    font-family: monospace;
+    font-family: var(--np-font-data);
     font-size: 0.9em;
 }
 
@@ -3461,7 +3461,7 @@ tr:hover .task-context-btn,
     min-height: 200px;
     max-height: 400px;
     padding: var(--np-space-12);
-    font-family: 'Courier New', Courier, monospace;
+    font-family: var(--np-font-data);
     font-size: 0.85em;
     border: none;
     outline: none;
@@ -6307,7 +6307,7 @@ tr:hover .task-context-btn,
     min-height: 200px;
     padding: var(--np-space-12);
     border: none;
-    font-family: 'Courier New', monospace;
+    font-family: var(--np-font-data);
     font-size: 0.85em;
     resize: vertical;
     box-sizing: border-box;
@@ -7217,7 +7217,7 @@ tr:hover .task-context-btn,
     border-radius: 4px;
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
-    font-family: monospace;
+    font-family: var(--np-font-data);
     white-space: pre-wrap;
     word-break: break-word;
 }

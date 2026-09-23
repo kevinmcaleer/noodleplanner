@@ -10799,7 +10799,7 @@ function createLookAheadRow(task, type, today) {
     // Task name with indentation and optional recurrence badge
     const nameCell = document.createElement('td');
     const indent = '  '.repeat(task.level || 0);
-    nameCell.style.fontFamily = 'monospace';
+    nameCell.style.fontFamily = 'var(--np-font-data)';
     nameCell.classList.add('task-level-' + (task.level || 0));
     const nameText = document.createTextNode(indent + task.name);
     nameCell.appendChild(nameText);
@@ -11311,7 +11311,7 @@ function displayUserWorkload(userMap, filterUser) {
             const nameCell = document.createElement('td');
             const indent = '  '.repeat(task.level || 0);
             nameCell.textContent = indent + task.name;
-            nameCell.style.fontFamily = 'monospace';
+            nameCell.style.fontFamily = 'var(--np-font-data)';
             row.appendChild(nameCell);
 
             // Start date

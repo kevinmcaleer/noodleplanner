@@ -307,7 +307,7 @@
 
 .status-bar-app-version {
     color: var(--np-text-muted);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--np-font-data);
     font-size: 0.85em;
     white-space: nowrap;
 }
@@ -746,7 +746,7 @@ body {
 .status-log-time {
     flex-shrink: 0;
     color: var(--np-text-muted);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--np-font-data);
     font-size: 0.85em;
     padding-top: 1px;
 }

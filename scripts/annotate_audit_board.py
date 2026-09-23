@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import re
 import subprocess
 import sys
@@ -115,7 +116,10 @@ def _attribute(base_url: str, findings: list[dict]) -> dict[str, dict[str, int]]
 
     hits: dict[str, list[int]] = {}
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
+        browser = pw.chromium.launch(
+            executable_path=os.environ.get("NOODLE_PW_CHROME") or None,
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
         ctx = browser.new_context(viewport={"width": 1600, "height": 1000})
         ctx.add_init_script("document.cookie = 'tourCompleted=true; path=/; max-age=31536000';")
         page = ctx.new_page()
@@ -293,7 +297,10 @@ def inline_images(svg: str, src_dir: Path, tile_w: int, tile_h: int) -> str:
 
     print(f"  inlining {len(hrefs)} image(s) at {tile_w}x{tile_h}")
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
+        browser = pw.chromium.launch(
+            executable_path=os.environ.get("NOODLE_PW_CHROME") or None,
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
         page = browser.new_context(viewport={"width": 200, "height": 200}).new_page()
         page.goto("about:blank")
         for i, href in enumerate(hrefs, 1):

@@ -63,7 +63,9 @@ const config = {
     '../packages/noodle-web/src/noodle_web/static/components/**/*.stories.@(js|ts)',
     '../.storybook/stories/*.stories.js',
   ],
-  addons: ['@storybook/addon-a11y', '@storybook/addon-docs'],
+  // pseudo-states forces :hover and :focus-visible for the States stories,
+  // which no script can otherwise put an element into.
+  addons: ['@storybook/addon-a11y', '@storybook/addon-docs', 'storybook-addon-pseudo-states'],
   framework: {
     name: '@storybook/web-components-vite',
     options: {},

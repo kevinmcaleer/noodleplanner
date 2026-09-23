@@ -2,7 +2,7 @@
 /**
  * Design-system linter (#1195).
  *
- * Checks the stylesheets index.html actually links for the four things the
+ * Checks the stylesheets index.html actually links for the five things the
  * #1187 audit found, and that bands 2-4 are working through:
  *
  *   raw-colour             a colour literal where a token should be
@@ -10,6 +10,8 @@
  *   unpaired-outline-none  a focus outline removed with nothing in its place
  *   token-outside-canonical  a --np-* declared at global scope outside
  *                          visual-system.css
+ *   raw-font-family        a typeface named directly instead of through one of
+ *                          the three --np-font-* tokens
  *
  * ## Why this is a ratchet and not a threshold
  *
@@ -197,6 +199,16 @@ const SPACING_PROPS = new Set([
 // 0, 1px and 2px are finer than the grid and legitimately so -- a hairline gap
 // is not a spacing step, and rounding it to 4px doubles it.
 const FINE_PX = new Set([0, 1, 2])
+
+// The type system is three families -- --np-font-ui, --np-font-heading and
+// --np-font-data -- and a rule that names one directly opts out of it. That
+// is how the editor, the Gantt pane, the status bar and a dozen tables ended
+// up in Courier New, `ui-monospace` and the macOS system stack while the rest
+// of the app was in the approved faces: nothing checked, so every author
+// reached for the monospace they knew. Keywords that defer to the cascade are
+// fine. Icon fonts are glyph sets, not typefaces, and have no token to use.
+const FONT_KEYWORDS = /^(inherit|initial|unset|revert|revert-layer)$/
+const ICON_FONT = /bootstrap-icons|material|icon/i
 const onGrid = (n) => FINE_PX.has(Math.abs(n)) || Math.abs(n) % 4 === 0
 
 function isAllowed(rule, context) {
@@ -233,6 +245,12 @@ function lint() {
 					if (COLOUR_RE.test(withoutVars)) {
 						findings.push({ rule: 'raw-colour', file, line: rule.line, detail: `${prop}: ${value.slice(0, 60)}`, selector: rule.selector })
 					}
+				}
+
+				// --- raw-font-family
+				if (prop === 'font-family' && !isAllowed('raw-font-family', context) &&
+					!/var\(--np-font-/.test(value) && !FONT_KEYWORDS.test(value) && !ICON_FONT.test(value)) {
+					findings.push({ rule: 'raw-font-family', file, line: rule.line, detail: `font-family: ${value.slice(0, 60)}`, selector: rule.selector })
 				}
 
 				// --- off-scale-spacing

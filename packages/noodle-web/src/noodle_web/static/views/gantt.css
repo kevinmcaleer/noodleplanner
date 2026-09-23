@@ -1041,7 +1041,7 @@ body.gantt-dragging * {
    These MUST remain identical on both elements to prevent cursor drift. */
 .editor-highlight-layer,
 .editor-textarea {
-    font-family: 'Courier New', monospace;
+    font-family: var(--np-font-data);
     font-size: 14px;
     line-height: 1.5;
     letter-spacing: normal;
@@ -1152,7 +1152,7 @@ body.gantt-dragging * {
     color: #f3f4f6;
     border-radius: 6px;
     padding: 0 var(--np-space-12) 0 var(--np-space-8);
-    font-family: 'Courier New', monospace;
+    font-family: var(--np-font-data);
     font-size: 14px;
     line-height: 1.5;
     text-align: left;
@@ -1382,7 +1382,7 @@ body.hl-off-dependency .syntax-star {
     color: #888;
     padding: var(--np-space-16) var(--np-space-12);
     text-align: right;
-    font-family: 'Courier New', monospace;
+    font-family: var(--np-font-data);
     font-size: 14px;
     line-height: 1.5;
     user-select: none;
@@ -1467,7 +1467,9 @@ textarea {
     flex: 1;
     padding: var(--np-space-16);
     border: none;
-    font-family: 'Courier New', monospace;
+    /* No font-family: visual-system.css loads after this file and sets every
+       textarea to --np-font-ui, so one here never applied. The plan editor
+       gets its monospace from .editor-textarea above, which outranks both. */
     font-size: 14px;
     line-height: 1.5;
     letter-spacing: normal;
@@ -1509,7 +1511,7 @@ textarea:hover {
     padding: var(--np-space-16);
     flex: 1;
     overflow: auto;
-    font-family: 'Courier New', monospace;
+    font-family: var(--np-font-data);
     font-size: 12px;
     white-space: pre;
     min-height: 0;
@@ -1577,7 +1579,7 @@ textarea:hover {
     border: 1px solid var(--np-border-strong);
     border-radius: 4px;
     padding: var(--np-space-2) var(--np-space-8);
-    font-family: monospace;
+    font-family: var(--np-font-data);
     font-size: 0.9em;
 }
 
@@ -1705,7 +1707,7 @@ input[type="text"]:focus-visible {
     background: var(--np-sunken);
     padding: var(--np-space-2) var(--np-space-8);
     border-radius: 4px;
-    font-family: 'Courier New', monospace;
+    font-family: var(--np-font-data);
 }
 
 .syntax-guide ul {

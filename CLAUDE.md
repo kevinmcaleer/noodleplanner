@@ -148,7 +148,7 @@ The design tokens live in
 Before pushing a change that touches CSS, run the two design gates:
 
 ```bash
-npm run lint:design      # hardcoded colours, off-scale spacing, focus, token placement
+npm run lint:design      # hardcoded colours and fonts, off-scale spacing, focus, token placement
 npm run check:contrast   # WCAG AA across every token pairing the app renders
 ```
 
@@ -161,6 +161,9 @@ down, and a number in prose is wrong the first time someone pays some off.
 
 `docs/design/contributing.md` explains the rules and when a raw value is
 legitimate. `/components` serves a gallery of every component in both themes.
+Storybook renders the same gallery plus a story that forces every base control
+into its hover, focus and disabled states. `ci/run.sh storybook` builds it and
+renders every story, and it is a gating CI job too.
 
 ## Reminders
 
