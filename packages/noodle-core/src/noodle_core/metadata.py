@@ -34,6 +34,9 @@ _DQ_COMMENT = re.compile(r'"([^"]+)"')
 _SQ_COMMENT = re.compile(r"'([^']+)'")
 _EFFORT = re.compile(r'~(\d+(?:\.\d+)?)(h|d)(?:/(\d+(?:\.\d+)?)(h|d))?')
 _PERCENT = re.compile(r'(\d{1,3})%')
+# `@dev[30%]` gives a resource a share of their day (the Resource Sheet reads
+# it); that N% is an allocation, not the task's percent complete.
+_ALLOCATION = re.compile(r'@[^\s\[]+\[\d+%\]')
 _LEGACY_PERCENT = re.compile(r'\bp(\d{1,3})\b')
 _LEVELLED = re.compile(r'\[levelled\s+@?(\S+)\s+(\d{4}-\d{2}-\d{2})\s*\]', re.IGNORECASE)
 _DEADLINE = re.compile(r'\bD(\d{4}-\d{2}-\d{2})\b')
@@ -372,7 +375,7 @@ def extract_metadata(task_str, task_name=None):
             meta['effort_remaining_unit'] = completed_unit
 
     # Support both new format (10%) and old format (p10)
-    percent_match = _PERCENT.search(task_str)
+    percent_match = _PERCENT.search(_ALLOCATION.sub('', task_str))
     if percent_match:
         meta['percent'] = max(0, min(100, int(percent_match.group(1))))
     else:

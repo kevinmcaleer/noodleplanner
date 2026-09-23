@@ -281,6 +281,16 @@ class TestPercentageEdgeCases:
         if 'percent' in meta:
             assert isinstance(meta['percent'], int)
 
+    def test_allocation_is_not_percent_complete(self):
+        """`@dev[30%]` is a share of the resource's day, not progress."""
+        meta = extract_metadata("Design @dev[30%] 5d 0%", "Design")
+        assert meta['percent'] == 0
+        assert meta['resources'] == 'dev[30%]'
+
+    def test_allocation_alone_sets_no_percent(self):
+        meta = extract_metadata("Design @dev[30%] 5d", "Design")
+        assert 'percent' not in meta
+
 
 class TestWeekendAndHolidayEdgeCases:
     """Tests for edge cases with weekends and holidays."""

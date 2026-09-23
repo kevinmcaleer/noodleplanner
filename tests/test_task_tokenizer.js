@@ -36,6 +36,11 @@ equal(context.parseTaskLine('Launch! 2d', 1).priority, 'Low', 'punctuation in ta
 equal(context.parseTaskLine('Launch! 2d', 1).name, 'Launch!', 'task-name punctuation is preserved');
 equal(context.parseTaskLine('Task A 0%', 1).percent, '0', 'trailing percentages are parsed');
 equal(context.parseTaskLine('Task A 0%', 1).name, 'Task A', 'trailing percentages are excluded from task names');
+equal(tokenTypes('Design @dev[30%] 5d 0%'), [['resource', '@dev[30%]'], ['duration', '5d'], ['percent', '0%']],
+    'a resource allocation is part of the resource, not a percent');
+equal(context.parseTaskLine('Design @dev[30%] 5d 0%', 1).percent, '0', 'an allocation does not set percent complete');
+equal(context.parseTaskLine('Design @dev[30%] 5d', 1).percent, '', 'an allocation alone leaves percent unset');
+equal(context.parseTaskLine('Design @dev[30%] 5d', 1).name, 'Design', 'an allocation is excluded from task names');
 equal(tokenTypes('Build ~8h 2d'), [['effort', '~8h'], ['duration', '2d']], 'effort and duration have source spans');
 equal(context.parseTaskLine('Build ~8h 2d', 1).effortTotal, '8', 'effort metadata is parsed from the shared grammar');
 equal(tokenTypes('Task 2d [depends $product:FS +2d]'), [['duration', '2d'], ['dependency', '[depends $product:FS +2d]']],
