@@ -229,6 +229,38 @@ def test_dependency_on_a_phase_line_is_reported():
     assert finding["task"] == "Build"
 
 
+def test_dependency_on_a_duplicated_name_warns_and_names_the_first():
+    body = ("Phase\n  Design @alex 3d 2026-03-16\n  Design UI @alex 2d [depends design]\n"
+            "Other\n  Design @sam 4d 2026-03-16\n")
+    [finding] = only(review(body), "ambiguous-dependency")
+    assert finding["severity"] == "warning"
+    assert finding["task"] == "Design UI"
+    assert finding["fix_action"] is None  # which task was meant is the author's call
+    assert "2 tasks have that name" in finding["message"]
+    lines = (FM + body).splitlines()
+    assert f"'Design' under 'Phase' (line {lines.index('  Design @alex 3d 2026-03-16') + 1})" \
+        in finding["message"]
+    assert lines[finding["line"] - 1] == "  Design UI @alex 2d [depends design]"
+
+
+def test_duplicated_names_nothing_depends_on_do_not_warn():
+    body = "Phase\n  Design @alex 3d 2026-03-16\nOther\n  Design @sam 4d 2026-03-16\n"
+    assert "ambiguous-dependency" not in checks(review(body))
+    unique = "Phase\n  Design @alex 3d 2026-03-16\n  Build @alex 2d [depends Design]\n"
+    assert "ambiguous-dependency" not in checks(review(unique))
+
+
+def test_phase_sharing_a_name_with_a_later_task_takes_the_dependency():
+    """The first definition wins, so the dependency lands on the phase and is ignored."""
+    body = ("Design\n  Spec @alex 2d 2026-03-16\nBuild\n  Design @alex 2d 2026-03-23\n"
+            "  Code @alex 2d [depends Design]\n")
+    result = review(body)
+    [phase] = only(result, "phase-dependency")
+    assert phase["task"] == "Code"
+    [ambiguous] = only(result, "ambiguous-dependency")
+    assert "the phase 'Design'" in ambiguous["message"]
+
+
 def test_circular_dependency_is_an_error():
     body = "Phase\n  A @alex 1d [depends B]\n  B @alex 1d [depends A]\n"
     found = only(review(body), "circular-dependency")

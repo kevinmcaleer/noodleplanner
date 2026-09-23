@@ -123,6 +123,10 @@ CHECKS = {
         "Link tasks, not phases: depend on the phase's last task (or a `0d` "
         "milestone at its end), and put a phase's own dependency on its first "
         "task. The scheduler ignores dependencies to and from phases."),
+    "ambiguous-dependency": ("warning", "Dependency on a duplicated name",
+        "Rename one of the tasks that share the name, so `[depends ...]` says "
+        "which one it means. A duplicated name always resolves to the first "
+        "task with that name in the plan."),
     "circular-dependency": ("error", "Circular dependency",
         "Remove one of the dependencies in the loop. Tasks in a loop cannot "
         "be scheduled in dependency order."),
@@ -573,9 +577,10 @@ def _check_dependencies(review, ctx):
     names = task_name_lookup(tasks)
     deliverables = {str(t.get("deliverable") or "").lower() for t in tasks if t.get("deliverable")}
     all_names = [t.get("name") for t in tasks if t.get("name")]
-
-    summaries = {t.get("name", "").lower() for t in tasks if t.get("summary") and t.get("name")}
-    leaf_names = {t.get("name", "").lower() for t in tasks if not t.get("summary") and t.get("name")}
+    name_counts = {}
+    for name in all_names:
+        name_counts[name.lower()] = name_counts.get(name.lower(), 0) + 1
+    by_uid = {t.get("_uid"): t for t in tasks}
 
     for task in tasks:
         raw = ctx["raw_of"](task)
@@ -591,13 +596,27 @@ def _check_dependencies(review, ctx):
             key = dep.lower()
             if key.startswith("$") and key[1:] in deliverables:
                 continue
-            if key in summaries and key not in leaf_names:
+            target = names.get(key)
+            if target is not None and name_counts[key] > 1:
+                parent = by_uid.get(target.get("_parent_uid"))
+                where = f" under '{parent.get('name')}'" if parent and parent.get("name") else ""
+                target_line = ctx["line_of"](target)
+                at = f" (line {target_line})" if target_line else ""
+                review.add("ambiguous-dependency",
+                           f"'{task.get('name')}' depends on '{dep}', but {name_counts[key]} tasks "
+                           f"have that name. It resolves to the first, "
+                           f"{'the phase ' if target.get('summary') else ''}'{target.get('name')}'"
+                           f"{where}{at}.",
+                           task=task.get("name"), line=line, subject=dep)
+            # the scheduler resolves a duplicated name to its first definition,
+            # so a phase that comes before a same-named task still takes it
+            if target is not None and target.get("summary"):
                 review.add("phase-dependency",
                            f"'{task.get('name')}' depends on '{dep}', which is a phase. The scheduler "
                            "ignores dependencies on phases, so this task does not wait for it.",
                            task=task.get("name"), line=line, subject=dep)
                 continue
-            elif key in names:
+            elif target is not None:
                 continue
             # A task whose name contains the dependency as whole words ("Gate"
             # for "$GW1 Gate") is the likeliest meaning; else the nearest spelling
