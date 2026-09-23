@@ -5835,6 +5835,13 @@ tr:hover .task-context-btn,
     font-weight: 600;
 }
 
+/* The header sits on --np-dark-blue, but visual-system.css paints every
+   h1-h3 with --np-ink at (0,2,2) -- dark on dark. Out-rank it so the title
+   takes the header's white instead. */
+:root body .shortcuts-modal .shortcuts-modal-header h2 {
+    color: inherit;
+}
+
 .shortcuts-modal-body {
     padding: var(--np-space-16) var(--np-space-20) var(--np-space-20);
 }

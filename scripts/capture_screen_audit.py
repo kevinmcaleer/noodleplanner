@@ -126,7 +126,7 @@ project manager: Alex Chen
 # candidates, `excelWizardOverlay` opens nothing visible without an upload in
 # progress and three others have no global opener at all, so they are absent.
 MODALS = [
-    ("keyboard-shortcuts", "showKeyboardShortcuts", "keyboardShortcutsOverlay"),
+    ("keyboard-shortcuts", "openShortcutsModal", "shortcutsOverlay"),
     ("ai-settings", "openAISettingsModal", "aiSettingsOverlay"),
     ("ai-chat", "openAIChat", "aiChatOverlay"),
     ("templates", "openTemplatesModal", "templatesModalOverlay"),

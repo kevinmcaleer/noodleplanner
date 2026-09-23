@@ -1,5 +1,7 @@
 """Tests for FastAPI application endpoints."""
 
+import re
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -637,41 +639,64 @@ class TestStaticFiles:
 class TestKeyboardShortcuts:
     """Test suite for keyboard shortcuts feature (#511)."""
 
+    @staticmethod
+    def _shortcuts_modal_text(html_content):
+        """The #shortcutsOverlay markup flattened to text, e.g. "Alt + D"."""
+        start = html_content.index('id="shortcutsOverlay"')
+        end = html_content.index("<!-- Status Bar -->", start)
+        text = re.sub(r"<[^>]+>", " ", html_content[start:end])
+        return re.sub(r"\s+", " ", text)
+
     def test_html_contains_keyboard_shortcuts_modal(self, client):
-        """Test that the HTML page contains the keyboard shortcuts modal."""
+        """Test that the HTML page contains exactly one keyboard shortcuts modal."""
         response = client.get("/")
         assert response.status_code == 200
         html_content = response.text
-        assert "keyboardShortcutsOverlay" in html_content
-        assert "Keyboard Shortcuts" in html_content
+        assert 'id="shortcutsOverlay"' in html_content
+        assert "keyboardShortcutsOverlay" not in html_content
+        assert html_content.count("<h2>Keyboard Shortcuts</h2>") == 1
 
     def test_html_shortcuts_modal_lists_all_shortcuts(self, client):
         """Test that the shortcuts modal lists all expected shortcuts."""
         response = client.get("/")
-        html_content = response.text
-        assert "Alt+D" in html_content
-        assert "Alt+P" in html_content
-        assert "Alt+N" in html_content
-        assert "Alt+T" in html_content
-        assert "Alt+R" in html_content
-        assert "Alt+I" in html_content
-        assert "Alt+Shift+R" in html_content
-        assert "Alt+E" in html_content
-        assert "Alt+Shift+P" in html_content
+        text = self._shortcuts_modal_text(response.text)
+        for keys in [
+            "Alt + D",
+            "Alt + P",
+            "Alt + B",
+            "Alt + N",
+            "Alt + T",
+            "Alt + R",
+            "Alt + I",
+            "Alt + Shift + R",
+            "Alt + E",
+            "Alt + Shift + P",
+            "Ctrl/Cmd + S",
+            "Ctrl/Cmd + Z",
+            "Ctrl/Cmd + Shift + Z",
+            "Ctrl/Cmd + Shift + A",
+        ]:
+            assert keys in text, keys
 
     def test_html_shortcuts_modal_lists_actions(self, client):
         """Test that the shortcuts modal describes the actions correctly."""
         response = client.get("/")
-        html_content = response.text
-        assert "Go to Project Dashboard" in html_content
-        assert "Go to Portfolio" in html_content
-        assert "New Project" in html_content
-        assert "New Task" in html_content
-        assert "New Risk" in html_content
-        assert "New Issue" in html_content
-        assert "New Resource" in html_content
-        assert "Export Project to Excel" in html_content
-        assert "Export Portfolio Report to PowerPoint" in html_content
+        text = self._shortcuts_modal_text(response.text)
+        for action in [
+            "Project Dashboard",
+            "Portfolio",
+            "Benefits Map",
+            "New project",
+            "New task",
+            "New risk",
+            "New issue",
+            "New resource",
+            "Export project to Excel",
+            "Export portfolio report to PowerPoint",
+            "Save plan as Markdown file",
+            "Toggle AI chat panel",
+        ]:
+            assert action in text, action
 
     def test_script_contains_keyboard_shortcut_functions(self, client):
         """Test that script.js contains the keyboard shortcut helper functions."""
@@ -679,8 +704,10 @@ class TestKeyboardShortcuts:
         assert response.status_code == 200
         js_content = response.text
         assert "function isTypingInInput" in js_content
-        assert "function showKeyboardShortcuts" in js_content
-        assert "function closeKeyboardShortcuts" in js_content
+        assert "function openShortcutsModal" in js_content
+        assert "function closeShortcutsModal" in js_content
+        assert "function showKeyboardShortcuts" not in js_content
+        assert "function closeKeyboardShortcuts" not in js_content
         assert "function openRaidFormWithType" in js_content
         assert "function addNewTaskViaShortcut" in js_content
 
@@ -715,14 +742,15 @@ class TestKeyboardShortcuts:
         """Test that ? key triggers the shortcuts help modal."""
         response = client.get("/static/script.js")
         js_content = response.text
-        assert "showKeyboardShortcuts()" in js_content
+        assert "openShortcutsModal()" in js_content
+        assert "showKeyboardShortcuts()" not in js_content
 
     def test_escape_closes_keyboard_shortcuts_modal(self, client):
         """Test that Escape key handler closes the keyboard shortcuts modal."""
         response = client.get("/static/script.js")
         js_content = response.text
-        assert "closeKeyboardShortcuts()" in js_content
-        assert "keyboardShortcutsOverlay" in js_content
+        assert "closeShortcutsModal()" in js_content
+        assert "keyboardShortcutsOverlay" not in js_content
 
     def test_tour_mentions_keyboard_shortcuts(self, client):
         """Test that the interface tour includes a keyboard shortcuts step."""

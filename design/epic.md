@@ -1069,9 +1069,9 @@ Global keyboard shortcuts provide quick access to common actions without using t
 #### Implementation Details
 
 - **Input guard**: The `isTypingInInput()` function checks if the focused element is a text input, textarea, or contenteditable element. Shortcuts are suppressed in these contexts to avoid interfering with typing.
-- **Help modal**: A `keyboardShortcutsOverlay` modal in `index.html` lists all available shortcuts. Triggered by pressing `?` or accessible from the UI.
+- **Help modal**: The `shortcutsOverlay` modal in `index.html` lists all available shortcuts. Triggered by pressing `?` (pressing it again closes it).
 - **Helper functions**:
-  - `showKeyboardShortcuts()` / `closeKeyboardShortcuts()` - toggle the help modal
+  - `openShortcutsModal()` / `closeShortcutsModal()` - open and close the help modal
   - `openRaidFormWithType(type)` - opens a new RAID form pre-set to a specific type
   - `addNewTaskViaShortcut()` - appends a new task line to the editor and opens the task form for editing
 - **Event listener**: A single `keydown` listener on `document` handles all Alt-based shortcuts, routing to the appropriate existing functions (`switchToView`, `switchTab`, `showCreateProjectDialog`, `exportFile`, `exportPortfolioReport`, `openResourceForm`).
