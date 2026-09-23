@@ -181,6 +181,29 @@ DEVICE_SCALE = 2
 
 
 
+VIEWPORT = (1440, 900)
+
+
+def fit_viewport(driver):
+    """Size the window so the *page* gets VIEWPORT, not the whole window.
+
+    --window-size sets the outer window, and how much of that the browser's
+    own frame takes varies by Chrome build: headless Chromium 141 keeps 139px
+    of it, leaving a 761px-tall page. Every full-page shot then comes out
+    short, with scrollbars the committed ones don't have. Measure the frame
+    and grow the window by it so the page is 1440x900 on any build.
+    """
+    width, height = VIEWPORT
+    inner_w, inner_h = driver.execute_script("return [innerWidth, innerHeight];")
+    size = driver.get_window_size()
+    if (inner_w, inner_h) != (width, height):
+        driver.set_window_size(
+            width + size["width"] - inner_w,
+            height + size["height"] - inner_h,
+        )
+    return driver
+
+
 def create_driver():
     """Create a headless Chrome WebDriver with high-DPI settings."""
     options = ChromeOptions()
@@ -188,7 +211,10 @@ def create_driver():
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1440,900")
+    options.add_argument(f"--window-size={VIEWPORT[0]},{VIEWPORT[1]}")
+    # Builds without overlay scrollbars otherwise paint classic ones into
+    # every scrollable panel, which the committed images don't have.
+    options.add_argument("--hide-scrollbars")
     options.add_argument(f"--force-device-scale-factor={DEVICE_SCALE}")
 
     # index.html pulls Bootstrap, Bootstrap Icons and three webfonts from
@@ -231,7 +257,7 @@ def create_driver():
         if os.path.exists(drv_path):
             try:
                 service = ChromeService(executable_path=drv_path)
-                return webdriver.Chrome(service=service, options=options)
+                return fit_viewport(webdriver.Chrome(service=service, options=options))
             except WebDriverException:
                 continue
 
@@ -240,13 +266,13 @@ def create_driver():
         from webdriver_manager.chrome import ChromeDriverManager
 
         service = ChromeService(ChromeDriverManager().install())
-        return webdriver.Chrome(service=service, options=options)
+        return fit_viewport(webdriver.Chrome(service=service, options=options))
     except (ImportError, Exception):
         pass
 
     # Fall back to default
     try:
-        return webdriver.Chrome(options=options)
+        return fit_viewport(webdriver.Chrome(options=options))
     except WebDriverException as exc:
         raise SystemExit(
             f"Chrome/chromedriver not available: {exc}"
