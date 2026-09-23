@@ -571,6 +571,20 @@ def capture_reference(driver, base_url):
         section / "vw-01-ribbon-views-group.png",
     )
 
+    # pq-01: the Analysis view's Plan review (#782), after the review has
+    # come back from /api/analyse.
+    switch_to_view(driver, "analysis")
+    try:
+        WebDriverWait(driver, 10).until(
+            lambda d: d.execute_script(
+                "return !!document.querySelector('#planReview .plan-review-score');"
+            )
+        )
+    except TimeoutException:
+        print("  [SKIP]    pq-01 -- the plan review did not load")
+    else:
+        capture_element(driver, "#planReview", section / "pq-01-plan-review.png")
+
 
 def capture_explanation(driver, base_url):
     """Capture screenshots for the explanation section."""

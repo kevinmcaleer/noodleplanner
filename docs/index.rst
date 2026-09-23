@@ -52,6 +52,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    reference/plan-format
    reference/keyboard-shortcuts
    reference/views
+   reference/plan-quality-checks
    reference/export-formats
    reference/front-matter
 

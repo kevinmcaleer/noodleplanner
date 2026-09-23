@@ -35,12 +35,12 @@ Content Development
 
 Development
   Development environment setup @dev 2days [depends Design approval milestone] 0% "Set up development tools and environments"
-  Frontend development @dev 12days [depends Development environment setup] 0% "HTML, CSS, and JavaScript implementation"
-  * Responsive framework @dev 3days 0%
-  * Component development @dev 5days 0%
-  * Interactive features @dev 3days 0%
-  * Performance optimization @dev 1day 0%
-  Content integration @dev 4days [depends Frontend development, Content ready milestone] 0% "Integrate content into website"
+  Frontend development "HTML, CSS, and JavaScript implementation"
+    Responsive framework @dev 3days [depends Development environment setup] 0%
+    * Component development @dev 5days 0%
+    * Interactive features @dev 3days 0%
+    * Performance optimization @dev 1day 0%
+  Content integration @dev 4days [depends Performance optimization, Content ready milestone] 0% "Integrate content into website"
   Testing and bug fixes @dev 3days [depends Content integration] 0% "Cross-browser testing and issue resolution"
   Development complete milestone @dev 0days [depends Testing and bug fixes] 0% "Website development finished"
 
@@ -52,11 +52,3 @@ Testing & Launch
   Website launch @dev 1day [depends Launch preparation] 0% "Go live with new website"
   Post-launch monitoring @dev 3days [depends Website launch] 0% "Monitor site performance and user feedback"
   Launch complete milestone @pm 0days [depends Post-launch monitoring] 0% "Website successfully launched"
-
-## Highlights
-
-*This section will be populated as the project progresses*
-
-## RAID Log
-
-*Risks, Actions, Issues, and Decisions will be tracked here*

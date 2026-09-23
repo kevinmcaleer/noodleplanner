@@ -353,12 +353,24 @@
         return { indent, content: line.slice(indent.length) };
     }
 
+    /** The long-form durations the converter rewrites before scheduling
+     *  (`5days` -> `5d`); see engine/local-parse.js normaliseDurationWords. */
+    const DURATION_WORD = /(\d+)(days?|weeks?|months?)/;
+
     /** Where the scheduler reads this line's duration from, or null. */
     function findDuration(content) {
         const masked = content.replace(STAR_LAG, m => ' '.repeat(m.length));
-        const match = DURATION.exec(masked);
-        if (!match) return null;
-        return { index: match.index, length: match[0].length, value: +match[1], unit: match[2] };
+        // The scheduler sees the line after `5days` has become `5d`, so the
+        // earlier of a short or a long-form token is the one it reads.
+        const short = DURATION.exec(masked.replace(new RegExp(DURATION_WORD.source, 'g'), m => ' '.repeat(m.length)));
+        const long = DURATION_WORD.exec(masked);
+        const shortAt = short ? short.index : Infinity;
+        const longAt = long ? long.index : Infinity;
+        if (shortAt === Infinity && longAt === Infinity) return null;
+        if (longAt < shortAt) {
+            return { index: long.index, length: long[0].length, value: +long[1], unit: long[2][0] };
+        }
+        return { index: short.index, length: short[0].length, value: +short[1], unit: short[2] };
     }
 
     /**

@@ -167,6 +167,8 @@ test('setLineDuration rewrites the token the scheduler reads, and only that', ()
         ['  Plan 2w', 14, '  Plan 2w'],                              // unit kept when it divides
         ['  Plan 2w', 21, '  Plan 3w'],
         ['  Plan 2w', 9, '  Plan 9d'],
+        ['  Build @a 5days 0%', 7, '  Build @a 7d 0%'],             // long form, as templates write it
+        ['  Build 2weeks', 21, '  Build 3w'],
     ];
     for (const [line, days, expected] of cases) {
         assert.equal(G.setLineDuration(line, days), expected, line);

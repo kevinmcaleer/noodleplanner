@@ -534,6 +534,11 @@ function switchOutputTab(tabName) {
         }, 50);
     }
 
+    // The plan review (#782) is fetched only while the Analysis view shows
+    if (tabName === 'analysis' && typeof PlanReview !== 'undefined') {
+        PlanReview.onViewShown();
+    }
+
     // If switching to project report view, re-render the report timeline
     if (tabName === 'project-report' && timelineTasks.length > 0) {
         setTimeout(() => {

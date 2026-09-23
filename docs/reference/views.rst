@@ -149,7 +149,13 @@ Overdue and upcoming tasks for the next 14 days. See :doc:`../how-to/use-the-2-w
 Analysis
 ~~~~~~~~~
 
-EVM (Earned Value Management) and other analytical views. Displays PV, EV, AC, SPI, CPI, and S-curve charts. See :doc:`../how-to/use-the-evm-view`.
+A health check of the plan. The **Plan review** at the top lists the problems
+found -- dangling or circular dependencies, tasks with no duration or owner,
+over-allocated people, work dated on non-working days and more -- grouped by
+severity, each with how to fix it and, where the fix is unambiguous, an
+**Apply fix** button. See :doc:`plan-quality-checks`. Below it, **Project
+insights** summarise earned value, the RAID log, baseline variance and
+progress, and the **Quality Analyser** counts schedule-structure statistics.
 
 Budget
 ~~~~~~~

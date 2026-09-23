@@ -63,6 +63,19 @@ export function planBody(planText) {
 }
 
 /**
+ * `5days`, `2weeks`, `1month` -> `5d`, `2w`, `1m`, exactly as the server's
+ * convert_plan_format_to_standard() rewrites them before scheduling. Without
+ * this the browser scheduled every long-form duration -- which is how every
+ * bundled template writes them -- as the one-day default (#782).
+ */
+export function normaliseDurationWords(body) {
+  return String(body || "")
+    .replace(/(\d+)days?/g, "$1d")
+    .replace(/(\d+)weeks?/g, "$1w")
+    .replace(/(\d+)months?/g, "$1m");
+}
+
+/**
  * Front matter as the server returns it: simple `key: value` pairs, with
  * list-valued keys collected. Values are kept as written.
  */
@@ -189,7 +202,7 @@ export function localParse(planText, projectName = null, options = {}) {
   let success = true;
   let error = null;
   try {
-    tasks = scheduleTasksFromText(planBody(text), scheduleOptions);
+    tasks = scheduleTasksFromText(normaliseDurationWords(planBody(text)), scheduleOptions);
   } catch (e) {
     success = false;
     error = e.message;
@@ -220,6 +233,6 @@ export function localParse(planText, projectName = null, options = {}) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     localParse, useLocalEngine, parseFrontMatter, parseResourceMap,
-    parseCalendar, planBody, frontMatterText, LOCAL_ENGINE_KEY,
+    parseCalendar, planBody, frontMatterText, normaliseDurationWords, LOCAL_ENGINE_KEY,
   };
 }

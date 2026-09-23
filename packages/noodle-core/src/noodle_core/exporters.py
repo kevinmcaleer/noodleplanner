@@ -793,129 +793,23 @@ def calculate_resource_allocation(tasks, start_date, finish_date):
 
 
 def analyze_plan(text, original_text=None):
-    """Analyze a project plan and provide suggestions for improvement.
+    """Review a plan for common problems (#782).
 
-    Args:
-        text: Converted text (without front matter)
-        original_text: Original text with front matter
+    A thin wrapper over :func:`noodle_core.plan_quality.review_plan`, kept
+    for existing callers. Pass the original plan text (with front matter)
+    as ``original_text``; ``text`` is used when it is not given.
 
     Returns:
-        List of suggestion dictionaries with 'type', 'severity', and 'message'
+        The findings, most severe first: each a dict with ``type`` (the
+        check's title), ``severity`` (``error`` / ``warning`` /
+        ``suggestion``), ``message``, ``fix``, ``docs``, ``line`` and
+        ``check``, plus ``fix_action`` where a one-click fix exists.
     """
-    # Import here to avoid circular imports
-    from .scheduling_engine import natural_language_to_yaml, schedule_tasks
+    from .plan_quality import review_plan
 
-    suggestions = []
+    result = review_plan(original_text if original_text is not None else text)
+    return [dict(finding, type=finding["title"]) for finding in result["findings"]]
 
-    # Parse the plan
-    data = natural_language_to_yaml(text, "Project")
-    phases_raw = data["Project"]
-
-    if isinstance(phases_raw, list):
-        phases = phases_raw
-    elif isinstance(phases_raw, dict):
-        phases = [phases_raw]
-    else:
-        phases = []
-
-    tasks = schedule_tasks(phases)
-
-    # Parse resource mappings from original text
-    resource_map = {}
-    has_frontmatter = False
-    if original_text:
-        resource_map, _ = parse_resource_mappings(original_text)
-        # Check if front matter exists
-        if '---' in original_text:
-            has_frontmatter = True
-
-    # Check 1: Missing front matter
-    if not has_frontmatter and original_text:
-        suggestions.append({
-            'type': 'Front Matter',
-            'severity': 'Warning',
-            'message': 'Plan is missing YAML front matter. Consider adding project metadata, resources, and holidays.'
-        })
-
-    # Collect all resources used in tasks
-    resources_used = set()
-    for task in tasks:
-        res = task.get('resources', '')
-        if res:
-            for r in res.split(','):
-                resources_used.add(r.strip())
-
-    # Check 2: Resources without full names/roles in front matter
-    if resource_map and resources_used:
-        # Compare resources case-insensitively
-        resources_used_lower = {r.lower() for r in resources_used}
-        missing_resource_details_lower = resources_used_lower - set(resource_map.keys())
-        # Find original case versions of missing resources
-        missing_resource_details = {r for r in resources_used if r.lower() in missing_resource_details_lower}
-        if missing_resource_details:
-            for res in sorted(missing_resource_details):
-                suggestions.append({
-                    'type': 'Resource Definition',
-                    'severity': 'Warning',
-                    'message': f'Resource "{res}" is used in tasks but not defined in front matter. Add full name and role.'
-                })
-    elif resources_used and not resource_map:
-        suggestions.append({
-            'type': 'Resource Definition',
-            'severity': 'Warning',
-            'message': f'Resources are used ({", ".join(sorted(resources_used))}) but none are defined in front matter with full names and roles.'
-        })
-
-    # Track first non-summary task for dependency checking
-    first_task_found = False
-
-    # Analyze each task
-    for idx, task in enumerate(tasks):
-        task_name = task.get('description', task.get('name', f'Task {idx+1}'))
-        is_summary = task.get('summary', False)
-
-        # Skip summary tasks for most checks
-        if is_summary:
-            continue
-
-        # Check 3: Tasks longer than 20 days
-        duration = task.get('duration')
-        if isinstance(duration, timedelta) and duration.days > 20:
-            suggestions.append({
-                'type': 'Task Duration',
-                'severity': 'High',
-                'message': f'Task "{task_name}" has duration of {duration.days} days. Consider breaking it down into smaller, more manageable tasks (< 20 days).'
-            })
-
-        # Check 4: Missing resources
-        if not task.get('resources'):
-            suggestions.append({
-                'type': 'Missing Resource',
-                'severity': 'Medium',
-                'message': f'Task "{task_name}" has no assigned resource. Assign a team member to this task.'
-            })
-
-        # Check 5: Missing percentage complete
-        if task.get('percent') is None or task.get('percent') == '':
-            suggestions.append({
-                'type': 'Missing Progress',
-                'severity': 'Low',
-                'message': f'Task "{task_name}" has no completion percentage. Add progress tracking (e.g., 0%, 50%, 100%).'
-            })
-
-        # Check 6: Missing dependencies (except first task)
-        if not first_task_found:
-            first_task_found = True
-        else:
-            has_dependency = task.get('depends') or task.get('sequential')
-            if not has_dependency:
-                suggestions.append({
-                    'type': 'Missing Dependency',
-                    'severity': 'Medium',
-                    'message': f'Task "{task_name}" has no dependencies. Link it to prerequisite tasks using [depends taskname] or use * for sequential ordering.'
-                })
-
-    return suggestions
 
 def export_timeline_to_powerpoint(text, output_path, is_yaml=True, project_name="Project", original_text=None):
     """Export project timeline to PowerPoint format.

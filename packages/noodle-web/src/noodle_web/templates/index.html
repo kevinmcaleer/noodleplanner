@@ -988,6 +988,23 @@ Press Enter to render..."></textarea>
                             </div>
                             <div class="analysis-content" style="display: none;">
                                 <h2 class="analysis-title"><span class="ribbon-banner ribbon-banner--red">Project Health Check & Analysis</span></h2>
+                                <!-- #782: the plan review. Checks run server-side in
+                                     noodle_core/plan_quality.py (POST /api/analyse), the same
+                                     findings the CLI and the AI tools report; plan-review.js
+                                     renders them here. -->
+                                <section id="planReview" class="plan-review" role="region" aria-labelledby="planReviewTitle">
+                                    <div class="plan-review-header">
+                                        <h3 id="planReviewTitle" class="plan-review-title">Plan review</h3>
+                                        <div class="plan-review-summary"></div>
+                                    </div>
+                                    <div class="plan-review-toolbar">
+                                        <div class="plan-review-filters" role="group" aria-label="Show findings by severity"></div>
+                                        <input type="search" class="plan-review-search" placeholder="Filter findings" aria-label="Filter findings">
+                                    </div>
+                                    <p class="plan-review-status" role="status" aria-live="polite"></p>
+                                    <div class="plan-review-list"></div>
+                                </section>
+                                <h3 class="analysis-insights-title">Project insights</h3>
                                 <div id="analysisInsights" class="analysis-insights">
                                     <!-- Insights will be populated by JavaScript -->
                                 </div>
@@ -4206,6 +4223,7 @@ Build
     <script src="/static/editor-undo.js?v={{ v }}"></script>
     <script src="/static/task-row-actions.js?v={{ v }}"></script>
     <script src="/static/gantt-scale.js?v={{ v }}"></script>
+    <script src="/static/plan-review.js?v={{ v }}"></script>
     <script src="/static/views-gantt.js?v={{ v }}"></script>
     <!-- #1271: two-way hover highlight between a Gantt row and its markdown line.
          Loaded after views-gantt.js and editor.js, both of whose DOM it binds to. -->
