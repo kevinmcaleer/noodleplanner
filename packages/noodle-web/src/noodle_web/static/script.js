@@ -8397,6 +8397,8 @@ function renderRaidTable() {
                 <span class="raid-status-badge raid-status-${item.status || 'open'}">${item.status || 'open'}</span>
                 ${item.escalated ? `<span class="raid-escalation-badge raid-escalation-${item.escalation_level}" title="Escalated to ${escapeHtml(item.escalation_level)}">&#9650; ${escapeHtml(item.escalation_level)}</span>` : ''}
             </td>
+            <td>${escapeHtml(item.priority || '')}</td>
+            <td>${escapeHtml(item.target_date || '')}</td>
             <td>
                 <np-button icon-only variant="neutral" size="small" title="Edit" label="Edit" onclick="openRaidForm(${item.id})"><span slot="icon">✏️</span></np-button>
                 <np-button icon-only variant="neutral" size="small" title="Open source row in plan editor" label="Open source row in plan editor" onclick="SectionFolding.jumpToBackMatterSection('---raid log---', ${item.id}, 'tasks')"><i class="bi bi-code-slash" slot="icon"></i></np-button>
