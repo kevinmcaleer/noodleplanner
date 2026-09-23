@@ -40,6 +40,18 @@ belong to:
    * - Analysis, Budget, Benefits, Project Report, By Assignment, Slippage
      - **Report** ▸ Reports
 
+The **View** tab holds the layout, window and help controls rather than
+views: **Editor** shows or hides the markdown editor panel, **Window** has
+**Settings**, the theme buttons and **AI Settings**, and **Help** has the
+**Syntax Guide**, a link to these **Docs** and **Tour**, which replays the
+interface tour.
+
+.. figure:: /_static/img/reference/vw-02-ribbon-view-tab.png
+   :alt: The ribbon's View tab, with the Layout, Window and Help groups; Help holds Syntax Guide, Docs and Tour
+   :width: 100%
+
+   The **View** tab.
+
 Project Views
 --------------
 
