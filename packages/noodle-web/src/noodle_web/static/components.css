@@ -2635,20 +2635,11 @@ tr:hover .task-context-btn,
 
 .tour-actions .btn-secondary {
     background: var(--np-muted);
-    color: white;
-}
-
-.tour-actions .btn-secondary:hover {
-    background: #5a6268;
 }
 
 .tour-actions .btn-primary {
     background: var(--np-accent);
     color: var(--np-on-accent);
-}
-
-.tour-actions .btn-primary:hover {
-    background: #0d7096;
 }
 
 /* Kanban Breadcrumb Navigation */
