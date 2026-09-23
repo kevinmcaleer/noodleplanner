@@ -136,7 +136,9 @@ export const TABS = [
             // Syntax Guide item and its standalone Docs link, which had no
             // ribbon equivalent before this. Docs is a plain external link, not
             // a command -- see the 'link:' button-flag convention below.
-            { name: 'Help', cols: [[['doc', 'Syntax Guide'], ['external', 'Docs', 'link:https://docs.noodleplanner.com']]] },
+            // "Tour" replays the first-run interface tour (nav.js's
+            // startTour), which otherwise only runs once per browser.
+            { name: 'Help', cols: [[['doc', 'Syntax Guide'], ['external', 'Docs', 'link:https://docs.noodleplanner.com']], [['bulb', 'Tour']]] },
         ],
     },
 ];
