@@ -31,6 +31,7 @@ try:
     from selenium.webdriver.chrome.service import Service as ChromeService
     from selenium.webdriver.common.by import By
     from selenium.webdriver.common.keys import Keys
+    from selenium.webdriver.common.action_chains import ActionChains
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.common.exceptions import (
@@ -91,6 +92,56 @@ Testing & Launch
 | Design                | 460 | 60  |         | 280   | 220    | no        |
 | Requirements gathering| 80  | 340 | #7FB069 | 280   | 200    | no        |
 | Wireframes            | 460 | 340 | #E58C8A | 280   | 200    | no        |
+"""
+
+# rp-01/rp-02 (#776): the sample plan's shape with a baseline section, some
+# progress and one slip, so both reports have something to say.
+REPORTS_PLAN = """\
+---
+title: Website Redesign 2026
+Resources:
+- @alex: Alex Chen, Project Manager
+- @jamie: Jamie Smith, Developer
+- @sam: Sam Lee, Designer
+---
+
+Discovery & Planning
+  Stakeholder interviews @alex 3d 2026-04-13 100%
+  Requirements gathering @alex @jamie 2d [depends Stakeholder interviews] 100%
+  Sign-off on requirements @alex 0d [depends Requirements gathering]
+
+Design
+  Wireframes @sam 7d [depends Sign-off on requirements] 60%
+  Design review @alex @sam 1d [depends Wireframes]
+  Final designs @sam 3d [depends Design review]
+
+Development
+  Frontend build @jamie 10d [depends Final designs]
+  Backend integration @jamie 5d [depends Frontend build]
+  Content migration 3d [depends Final designs]
+
+Testing & Launch
+  UAT @alex @sam 3d [depends Backend integration]
+  Go Live 0d [depends UAT]
+
+---baseline---
+| Task Name | Start | Finish | Duration |
+|-----------|-------|--------|----------|
+| Discovery & Planning | 2026-04-13 | 2026-04-18 | 5d |
+| Stakeholder interviews | 2026-04-13 | 2026-04-16 | 3d |
+| Requirements gathering | 2026-04-16 | 2026-04-18 | 2d |
+| Sign-off on requirements | 2026-04-20 | 2026-04-20 | 0d |
+| Design | 2026-04-20 | 2026-04-29 | 7d |
+| Wireframes | 2026-04-20 | 2026-04-25 | 5d |
+| Design review | 2026-04-27 | 2026-04-28 | 1d |
+| Final designs | 2026-04-28 | 2026-05-01 | 3d |
+| Development | 2026-05-01 | 2026-05-22 | 15d |
+| Frontend build | 2026-05-01 | 2026-05-15 | 10d |
+| Backend integration | 2026-05-15 | 2026-05-22 | 5d |
+| Testing & Launch | 2026-05-22 | 2026-05-28 | 3d |
+| UAT | 2026-05-22 | 2026-05-28 | 3d |
+| Go Live | 2026-05-28 | 2026-05-28 | 0d |
+| Accessibility audit | 2026-05-18 | 2026-05-20 | 2d |
 """
 
 # A small standalone plan for wb-03 (task-peek popover, issue #850): the
@@ -396,9 +447,53 @@ def capture_how_to(driver, base_url):
     load_plan(driver, SAMPLE_PLAN)
     wait_for_render(driver)
 
+    # rp-01 / rp-02: the Tasks by Assignment and Slippage reports (#776).
+    # Slippage needs a baseline, so REPORTS_PLAN carries one.
+    load_plan(driver, REPORTS_PLAN)
+    wait_for_render(driver)
+    switch_to_view(driver, "assignments")
+    capture_full(driver, section / "rp-01-tasks-by-assignment.png")
+    switch_to_view(driver, "slippage")
+    capture_full(driver, section / "rp-02-slippage.png")
+    load_plan(driver, SAMPLE_PLAN)
+    wait_for_render(driver)
+
     # gv-01: Gantt chart
     switch_to_view(driver, "gantt")
     capture_full(driver, section / "gv-01-gantt-full.png")
+
+    # gv-02: zoomed out between the Months and Quarters detents (#787), so
+    # the header shows quarters over months and the readout says "~Months"
+    driver.execute_script("setGanttZoom(4);")
+    time.sleep(0.8)
+    capture_full(driver, section / "gv-02-gantt-zoom.png")
+
+    # gv-03: mid-drag. Dependency lines on, the Wireframes bar's right end
+    # held and dragged three days on, so its dependants show in their
+    # preview positions; Escape then cancels, leaving the plan untouched.
+    driver.execute_script(
+        "setGanttZoom(28);"
+        "const deps = document.getElementById('ganttShowDependencies');"
+        "if (!deps.checked) { deps.checked = true; deps.dispatchEvent(new Event('change')); }"
+        "const i = ganttTasks.findIndex(t => t.name === 'Wireframes');"
+        "const bar = ganttMainBar(i);"
+        "bar.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'instant'});"
+        "document.querySelector('.gantt-chart-side').scrollLeft ="
+        "  Math.max(0, parseFloat(bar.style.left) - 200);"
+    )
+    time.sleep(0.5)
+    handle = driver.execute_script(
+        "return ganttMainBar(ganttTasks.findIndex(t => t.name === 'Wireframes'))"
+        ".querySelector('.gantt-bar-handle.right');"
+    )
+    if handle is not None:
+        ActionChains(driver).click_and_hold(handle).move_by_offset(30, 0) \
+            .move_by_offset(30, 0).move_by_offset(30, 0).pause(0.4).perform()
+        capture_full(driver, section / "gv-03-gantt-drag.png")
+        ActionChains(driver).send_keys(Keys.ESCAPE).release().perform()
+        time.sleep(0.3)
+    else:
+        print("  [SKIP]    gv-03 -- Wireframes bar not found")
 
     # np-01: Notepad list view
     switch_to_view(driver, "notepad")
@@ -536,6 +631,20 @@ def capture_reference(driver, base_url):
         '.ribbon-group[data-group="Views"]',
         section / "vw-01-ribbon-views-group.png",
     )
+
+    # pq-01: the Analysis view's Plan review (#782), after the review has
+    # come back from /api/analyse.
+    switch_to_view(driver, "analysis")
+    try:
+        WebDriverWait(driver, 10).until(
+            lambda d: d.execute_script(
+                "return !!document.querySelector('#planReview .plan-review-score');"
+            )
+        )
+    except TimeoutException:
+        print("  [SKIP]    pq-01 -- the plan review did not load")
+    else:
+        capture_element(driver, "#planReview", section / "pq-01-plan-review.png")
 
 
 def capture_explanation(driver, base_url):

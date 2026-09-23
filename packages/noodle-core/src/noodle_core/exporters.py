@@ -793,129 +793,23 @@ def calculate_resource_allocation(tasks, start_date, finish_date):
 
 
 def analyze_plan(text, original_text=None):
-    """Analyze a project plan and provide suggestions for improvement.
+    """Review a plan for common problems (#782).
 
-    Args:
-        text: Converted text (without front matter)
-        original_text: Original text with front matter
+    A thin wrapper over :func:`noodle_core.plan_quality.review_plan`, kept
+    for existing callers. Pass the original plan text (with front matter)
+    as ``original_text``; ``text`` is used when it is not given.
 
     Returns:
-        List of suggestion dictionaries with 'type', 'severity', and 'message'
+        The findings, most severe first: each a dict with ``type`` (the
+        check's title), ``severity`` (``error`` / ``warning`` /
+        ``suggestion``), ``message``, ``fix``, ``docs``, ``line`` and
+        ``check``, plus ``fix_action`` where a one-click fix exists.
     """
-    # Import here to avoid circular imports
-    from .scheduling_engine import natural_language_to_yaml, schedule_tasks
+    from .plan_quality import review_plan
 
-    suggestions = []
+    result = review_plan(original_text if original_text is not None else text)
+    return [dict(finding, type=finding["title"]) for finding in result["findings"]]
 
-    # Parse the plan
-    data = natural_language_to_yaml(text, "Project")
-    phases_raw = data["Project"]
-
-    if isinstance(phases_raw, list):
-        phases = phases_raw
-    elif isinstance(phases_raw, dict):
-        phases = [phases_raw]
-    else:
-        phases = []
-
-    tasks = schedule_tasks(phases)
-
-    # Parse resource mappings from original text
-    resource_map = {}
-    has_frontmatter = False
-    if original_text:
-        resource_map, _ = parse_resource_mappings(original_text)
-        # Check if front matter exists
-        if '---' in original_text:
-            has_frontmatter = True
-
-    # Check 1: Missing front matter
-    if not has_frontmatter and original_text:
-        suggestions.append({
-            'type': 'Front Matter',
-            'severity': 'Warning',
-            'message': 'Plan is missing YAML front matter. Consider adding project metadata, resources, and holidays.'
-        })
-
-    # Collect all resources used in tasks
-    resources_used = set()
-    for task in tasks:
-        res = task.get('resources', '')
-        if res:
-            for r in res.split(','):
-                resources_used.add(r.strip())
-
-    # Check 2: Resources without full names/roles in front matter
-    if resource_map and resources_used:
-        # Compare resources case-insensitively
-        resources_used_lower = {r.lower() for r in resources_used}
-        missing_resource_details_lower = resources_used_lower - set(resource_map.keys())
-        # Find original case versions of missing resources
-        missing_resource_details = {r for r in resources_used if r.lower() in missing_resource_details_lower}
-        if missing_resource_details:
-            for res in sorted(missing_resource_details):
-                suggestions.append({
-                    'type': 'Resource Definition',
-                    'severity': 'Warning',
-                    'message': f'Resource "{res}" is used in tasks but not defined in front matter. Add full name and role.'
-                })
-    elif resources_used and not resource_map:
-        suggestions.append({
-            'type': 'Resource Definition',
-            'severity': 'Warning',
-            'message': f'Resources are used ({", ".join(sorted(resources_used))}) but none are defined in front matter with full names and roles.'
-        })
-
-    # Track first non-summary task for dependency checking
-    first_task_found = False
-
-    # Analyze each task
-    for idx, task in enumerate(tasks):
-        task_name = task.get('description', task.get('name', f'Task {idx+1}'))
-        is_summary = task.get('summary', False)
-
-        # Skip summary tasks for most checks
-        if is_summary:
-            continue
-
-        # Check 3: Tasks longer than 20 days
-        duration = task.get('duration')
-        if isinstance(duration, timedelta) and duration.days > 20:
-            suggestions.append({
-                'type': 'Task Duration',
-                'severity': 'High',
-                'message': f'Task "{task_name}" has duration of {duration.days} days. Consider breaking it down into smaller, more manageable tasks (< 20 days).'
-            })
-
-        # Check 4: Missing resources
-        if not task.get('resources'):
-            suggestions.append({
-                'type': 'Missing Resource',
-                'severity': 'Medium',
-                'message': f'Task "{task_name}" has no assigned resource. Assign a team member to this task.'
-            })
-
-        # Check 5: Missing percentage complete
-        if task.get('percent') is None or task.get('percent') == '':
-            suggestions.append({
-                'type': 'Missing Progress',
-                'severity': 'Low',
-                'message': f'Task "{task_name}" has no completion percentage. Add progress tracking (e.g., 0%, 50%, 100%).'
-            })
-
-        # Check 6: Missing dependencies (except first task)
-        if not first_task_found:
-            first_task_found = True
-        else:
-            has_dependency = task.get('depends') or task.get('sequential')
-            if not has_dependency:
-                suggestions.append({
-                    'type': 'Missing Dependency',
-                    'severity': 'Medium',
-                    'message': f'Task "{task_name}" has no dependencies. Link it to prerequisite tasks using [depends taskname] or use * for sequential ordering.'
-                })
-
-    return suggestions
 
 def export_timeline_to_powerpoint(text, output_path, is_yaml=True, project_name="Project", original_text=None):
     """Export project timeline to PowerPoint format.
@@ -4105,3 +3999,281 @@ def export_to_csv(text, output_path, is_yaml=True, project_name="Project", origi
                 'Bucket': task.get('bucket', ''),
                 'Comment': comment
             })
+
+
+# ---------------------------------------------------------------------------
+# Tasks by Assignment and Slippage reports (#776)
+#
+# The browser computes both reports (static/plan-reports.js) and posts the
+# rows; these functions only lay them out, so the file matches the view.
+# ---------------------------------------------------------------------------
+
+_REPORT_BLUE = RGBColor(33, 60, 114)
+_REPORT_GREY = RGBColor(100, 100, 100)
+_REPORT_RED = RGBColor(192, 57, 43)
+_REPORT_GREEN = RGBColor(39, 124, 67)
+_REPORT_HEADER_FILL = PatternFill(start_color="213C72", end_color="213C72", fill_type="solid")
+_REPORT_ALERT_FILL = PatternFill(start_color="FDECEA", end_color="FDECEA", fill_type="solid")
+_REPORT_ROWS_PER_SLIDE = 14
+
+
+def _report_text(value):
+    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", "" if value is None else str(value))
+
+
+def _variance_text(days):
+    days = int(days or 0)
+    if days == 0:
+        return "0"
+    return f"{'+' if days > 0 else '-'}{abs(days)}d"
+
+
+def _write_report_sheet(ws, headers, rows, alert=None):
+    """Header row, data rows, widths; rows for which alert(row) holds are tinted."""
+    ws.append(headers)
+    for cell in ws[ws.max_row]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = _REPORT_HEADER_FILL
+    for row in rows:
+        ws.append([_report_text(v) if isinstance(v, str) else v for v in row])
+        if alert and alert(row):
+            for cell in ws[ws.max_row]:
+                cell.fill = _REPORT_ALERT_FILL
+    for index, header in enumerate(headers, start=1):
+        width = max([len(str(header))] + [len(str(r[index - 1])) for r in rows if index - 1 < len(r)])
+        ws.column_dimensions[get_column_letter(index)].width = min(60, width + 2)
+    ws.freeze_panes = "A2"
+
+
+def _report_deck():
+    prs = Presentation()
+    prs.slide_width = Inches(13.333)
+    prs.slide_height = Inches(7.5)
+    return prs
+
+
+def _report_slide(prs, title, subtitle=None):
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.3), Inches(0.6))
+    p = box.text_frame.paragraphs[0]
+    p.text = _report_text(title)
+    p.font.size = Pt(24)
+    p.font.bold = True
+    p.font.color.rgb = _REPORT_BLUE
+    if subtitle:
+        sub = slide.shapes.add_textbox(Inches(0.5), Inches(0.95), Inches(12.3), Inches(0.4))
+        sp = sub.text_frame.paragraphs[0]
+        sp.text = _report_text(subtitle)
+        sp.font.size = Pt(12)
+        sp.font.color.rgb = _REPORT_GREY
+    return slide
+
+
+def _report_table_slides(prs, title, subtitle, headers, rows, widths=None, highlight=None):
+    """One or more slides holding a table, paginated; `highlight(row)` reddens a row."""
+    chunks = [rows[i:i + _REPORT_ROWS_PER_SLIDE] for i in range(0, len(rows), _REPORT_ROWS_PER_SLIDE)] or [[]]
+    for page, chunk in enumerate(chunks, start=1):
+        suffix = f" ({page}/{len(chunks)})" if len(chunks) > 1 else ""
+        slide = _report_slide(prs, title + suffix, subtitle)
+        if not chunk:
+            note = slide.shapes.add_textbox(Inches(0.5), Inches(1.6), Inches(12), Inches(0.5))
+            note.text_frame.paragraphs[0].text = "Nothing to show."
+            continue
+        shape = slide.shapes.add_table(len(chunk) + 1, len(headers), Inches(0.5), Inches(1.5),
+                                       Inches(12.3), Inches(0.4) * (len(chunk) + 1))
+        table = shape.table
+        for c, header in enumerate(headers):
+            cell = table.cell(0, c)
+            cell.text = header
+            cell.text_frame.paragraphs[0].font.size = Pt(11)
+            cell.text_frame.paragraphs[0].font.bold = True
+            if widths:
+                table.columns[c].width = Inches(widths[c])
+        for r, row in enumerate(chunk, start=1):
+            for c, value in enumerate(row):
+                cell = table.cell(r, c)
+                cell.text = _report_text(value)
+                para = cell.text_frame.paragraphs[0]
+                para.font.size = Pt(10)
+                if highlight and highlight(row):
+                    para.font.color.rgb = _REPORT_RED
+
+
+def _assignment_rows(group):
+    return [
+        [t.get("name", ""), t.get("phase", ""), t.get("start", ""), t.get("finish", ""),
+         f"{t.get('duration', 0)}d", f"{t.get('percent', 0):g}%", str(t.get("status", "")).title(),
+         ", ".join(t.get("shared_with") or [])]
+        for t in group.get("tasks", [])
+    ]
+
+
+_ASSIGNMENT_HEADERS = ["Task", "Phase", "Start", "Finish", "Duration", "%", "Status", "Shared with"]
+
+
+def export_assignment_report_to_excel(output_path, data, project_name="Project"):
+    """Tasks by Assignment as a workbook: a Summary sheet, then one sheet per person."""
+    wb = Workbook()
+    summary = wb.active
+    summary.title = "Summary"
+    groups = data.get("groups", [])
+    _write_report_sheet(
+        summary,
+        ["Person", "Role", "Tasks", "Open", "Complete", "Work (days)", "Next due", "Overdue"],
+        [[g.get("name", ""), g.get("role", ""), g["totals"].get("tasks", 0), g["totals"].get("open", 0),
+          g["totals"].get("complete", 0), g["totals"].get("workDays", 0), g["totals"].get("nextDue") or "",
+          g["totals"].get("overdue", 0)] for g in groups],
+        alert=lambda row: row[0] == "Unassigned" or row[7],
+    )
+    used = {"Summary"}
+    for group in groups:
+        name = re.sub(r"[\[\]:*?/\\]", "", group.get("name") or "Person")[:31] or "Person"
+        base, n = name, 2
+        while name in used:
+            name = f"{base[:28]} {n}"
+            n += 1
+        used.add(name)
+        ws = wb.create_sheet(name)
+        _write_report_sheet(ws, _ASSIGNMENT_HEADERS, _assignment_rows(group),
+                            alert=lambda row: row[6] == "Overdue")
+    wb.save(output_path)
+    logger.info(f"Exported tasks by assignment to Excel: {output_path}")
+
+
+def export_assignment_report_to_powerpoint(output_path, data, project_name="Project"):
+    """Tasks by Assignment as a deck: an overview slide, then each person's tasks."""
+    prs = _report_deck()
+    groups = data.get("groups", [])
+    _report_table_slides(
+        prs, f"{project_name} — Tasks by assignment", "Who is carrying what",
+        ["Person", "Role", "Tasks", "Open", "Complete", "Work", "Next due", "Overdue"],
+        [[g.get("name", ""), g.get("role", ""), g["totals"].get("tasks", 0), g["totals"].get("open", 0),
+          g["totals"].get("complete", 0), f"{g['totals'].get('workDays', 0)}d",
+          g["totals"].get("nextDue") or "—", g["totals"].get("overdue", 0)] for g in groups],
+        widths=[2.8, 2.5, 0.9, 0.9, 1.1, 1.0, 1.6, 1.5],
+        highlight=lambda row: row[0] == "Unassigned" or row[7],
+    )
+    for group in groups:
+        totals = group.get("totals", {})
+        subtitle = (f"{totals.get('tasks', 0)} tasks · {totals.get('open', 0)} open · "
+                    f"{totals.get('overdue', 0)} overdue · next due {totals.get('nextDue') or '—'}")
+        _report_table_slides(
+            prs, group.get("name", ""), subtitle, _ASSIGNMENT_HEADERS, _assignment_rows(group),
+            widths=[3.2, 2.0, 1.2, 1.2, 0.9, 0.7, 1.1, 2.0],
+            highlight=lambda row: row[6] == "Overdue",
+        )
+    prs.save(output_path)
+    logger.info(f"Exported tasks by assignment to PowerPoint: {output_path}")
+
+
+_SLIPPAGE_HEADERS = ["Task", "Phase", "Baselined start", "Baselined finish", "Start", "Finish",
+                     "Start var.", "Finish var.", "Status", "Critical"]
+_SLIPPAGE_STATUS = {"slipped": "Slipped", "on-track": "On track", "pulled-forward": "Pulled forward"}
+
+
+def _slippage_row(t):
+    return [t.get("name", ""), t.get("phase", ""), t.get("baseline_start", ""), t.get("baseline_finish", ""),
+            t.get("start", ""), t.get("finish", ""), _variance_text(t.get("start_variance")),
+            _variance_text(t.get("finish_variance")), _SLIPPAGE_STATUS.get(t.get("status"), t.get("status", "")),
+            "Yes" if t.get("critical") else ""]
+
+
+def _slippage_headline(data, project_name):
+    project = data.get("project", {})
+    counts = data.get("counts", {})
+    variance = int(project.get("variance") or 0)
+    state = ("late" if variance > 0 else "early" if variance < 0 else "on the baseline")
+    lead = f"{abs(variance)} working days {state}" if variance else "On the baseline"
+    return (f"{lead}: finishing {project.get('finish') or '—'} against "
+            f"{project.get('baseline_finish') or '—'} ({data.get('baseline') or 'baseline'}). "
+            f"{counts.get('slipped', 0)} slipped, {counts.get('onTrack', 0)} on track, "
+            f"{counts.get('pulledForward', 0)} pulled forward, {counts.get('added', 0)} added, "
+            f"{counts.get('removed', 0)} removed.")
+
+
+def export_slippage_report_to_excel(output_path, data, project_name="Project"):
+    """The Slippage report as a workbook: Summary, Critical path, Phases, Tasks, Scope."""
+    wb = Workbook()
+    summary = wb.active
+    summary.title = "Summary"
+    project = data.get("project", {})
+    counts = data.get("counts", {})
+    _write_report_sheet(summary, ["Measure", "Value"], [
+        ["Project", project_name],
+        ["Compared with", data.get("baseline", "")],
+        ["Baselined finish", project.get("baseline_finish", "")],
+        ["Current finish", project.get("finish", "")],
+        ["Variance (working days)", int(project.get("variance") or 0)],
+        ["Slipped tasks", counts.get("slipped", 0)],
+        ["On track", counts.get("onTrack", 0)],
+        ["Pulled forward", counts.get("pulledForward", 0)],
+        ["Added since baseline", counts.get("added", 0)],
+        ["Removed since baseline", counts.get("removed", 0)],
+        ["Critical-path tasks slipped", len(data.get("critical", []))],
+    ])
+    _write_report_sheet(wb.create_sheet("Critical path"), _SLIPPAGE_HEADERS,
+                        [_slippage_row(t) for t in data.get("critical", [])], alert=lambda row: True)
+    _write_report_sheet(
+        wb.create_sheet("Phases"),
+        ["Phase", "Baselined finish", "Finish", "Finish var.", "Slipped tasks", "Worst slip"],
+        [[p.get("name", ""), p.get("baseline_finish", ""), p.get("finish", ""),
+          _variance_text(p.get("finish_variance")), p.get("slipped_tasks", 0),
+          _variance_text(p.get("worst_slip")) if p.get("worst_slip") else ""] for p in data.get("phases", [])],
+        alert=lambda row: str(row[3]).startswith("+"),
+    )
+    _write_report_sheet(wb.create_sheet("Tasks"), _SLIPPAGE_HEADERS,
+                        [_slippage_row(t) for t in data.get("tasks", [])],
+                        alert=lambda row: row[9] == "Yes" and str(row[7]).startswith("+"))
+    _write_report_sheet(
+        wb.create_sheet("Scope changes"), ["Task", "Phase", "Change"],
+        [[t.get("name", ""), t.get("phase", ""), "Added"] for t in data.get("added", [])]
+        + [[t.get("name", ""), "", "Removed"] for t in data.get("removed", [])],
+    )
+    wb.save(output_path)
+    logger.info(f"Exported slippage report to Excel: {output_path}")
+
+
+def export_slippage_report_to_powerpoint(output_path, data, project_name="Project"):
+    """The Slippage report as a deck: headline, critical path, phases, every task, scope."""
+    prs = _report_deck()
+    slide = _report_slide(prs, f"{project_name} — Slippage", data.get("baseline") and f"Against {data['baseline']}")
+    variance = int(data.get("project", {}).get("variance") or 0)
+    big = slide.shapes.add_textbox(Inches(0.5), Inches(1.8), Inches(12.3), Inches(1.4))
+    bp = big.text_frame.paragraphs[0]
+    bp.text = _variance_text(variance) + (" working days" if variance else "")
+    bp.font.size = Pt(54)
+    bp.font.bold = True
+    bp.font.color.rgb = _REPORT_RED if variance > 0 else _REPORT_GREEN
+    text = slide.shapes.add_textbox(Inches(0.5), Inches(3.4), Inches(12.3), Inches(2))
+    text.text_frame.word_wrap = True
+    tp = text.text_frame.paragraphs[0]
+    tp.text = _report_text(_slippage_headline(data, project_name))
+    tp.font.size = Pt(16)
+
+    _report_table_slides(prs, "Slippage on the critical path", "These slips move the end date",
+                         ["Task", "Baselined finish", "Finish", "Variance"],
+                         [[t.get("name", ""), t.get("baseline_finish", ""), t.get("finish", ""),
+                           _variance_text(t.get("finish_variance"))] for t in data.get("critical", [])],
+                         widths=[6.3, 2.0, 2.0, 2.0], highlight=lambda row: True)
+    _report_table_slides(prs, "Slippage by phase", None,
+                         ["Phase", "Baselined finish", "Finish", "Variance", "Slipped", "Worst"],
+                         [[p.get("name", ""), p.get("baseline_finish", ""), p.get("finish", ""),
+                           _variance_text(p.get("finish_variance")), p.get("slipped_tasks", 0),
+                           _variance_text(p.get("worst_slip")) if p.get("worst_slip") else "—"]
+                          for p in data.get("phases", [])],
+                         widths=[4.3, 1.8, 1.8, 1.4, 1.4, 1.6],
+                         highlight=lambda row: str(row[3]).startswith("+"))
+    _report_table_slides(prs, "Every task", "Largest slip first",
+                         ["Task", "Baselined finish", "Finish", "Finish var.", "Status"],
+                         [[t.get("name", ""), t.get("baseline_finish", ""), t.get("finish", ""),
+                           _variance_text(t.get("finish_variance")),
+                           _SLIPPAGE_STATUS.get(t.get("status"), "")] for t in data.get("tasks", [])],
+                         widths=[5.3, 1.9, 1.9, 1.5, 1.7],
+                         highlight=lambda row: str(row[3]).startswith("+"))
+    if data.get("added") or data.get("removed"):
+        _report_table_slides(prs, "Changed since the baseline", None, ["Task", "Change"],
+                             [[t.get("name", ""), "Added"] for t in data.get("added", [])]
+                             + [[t.get("name", ""), "Removed"] for t in data.get("removed", [])],
+                             widths=[9.3, 3.0])
+    prs.save(output_path)
+    logger.info(f"Exported slippage report to PowerPoint: {output_path}")

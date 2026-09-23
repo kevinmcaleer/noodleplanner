@@ -632,6 +632,12 @@ function syncGanttPredecessorsToEditor(task, taskIndex) {
  * This avoids fragile regex replacements and handles all edge cases
  */
 function updateDurationInLine(line, newDurationDays, indent, taskName) {
+    // gantt-scale.js rewrites the token the scheduler actually reads, and
+    // appends a missing duration at the end of the line rather than after
+    // the first word (which split multi-word names: "Design 2d UI").
+    if (typeof GanttScale !== 'undefined') {
+        return GanttScale.setLineDuration(line, newDurationDays);
+    }
     // Strip the indent from the line first, then tokenize
     const lineWithoutIndent = line.substring(indent.length);
 
@@ -692,6 +698,10 @@ function updateDurationInLine(line, newDurationDays, indent, taskName) {
  * Update start date in a task line by tokenizing, replacing/adding date token, and rebuilding
  */
 function updateStartDateInLine(line, newStartDate, indent, taskName) {
+    // As updateDurationInLine: the date the scheduler reads, never a D-deadline
+    if (typeof GanttScale !== 'undefined') {
+        return GanttScale.setLineStart(line, newStartDate);
+    }
     // Strip the indent from the line first, then tokenize
     const lineWithoutIndent = line.substring(indent.length);
 

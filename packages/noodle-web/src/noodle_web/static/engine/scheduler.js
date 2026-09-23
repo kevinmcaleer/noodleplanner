@@ -207,7 +207,7 @@ function taskResourceKeys(task) {
  * calendar, falling back to the project's `calendar` (or Standard), with
  * the project-wide and resource-specific exception days layered on top.
  */
-function calendarOrHolidaysForTask(task, holidays, resourceNwd, calendar, resourceCalendars) {
+export function calendarOrHolidaysForTask(task, holidays, resourceNwd, calendar, resourceCalendars) {
   const resourceKeys = taskResourceKeys(task);
 
   if (!calendar && (!resourceCalendars || !resourceCalendars.size)) {

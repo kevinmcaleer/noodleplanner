@@ -23,7 +23,7 @@ Venue & Logistics
   Layout and floor plan design @logistics 3days [depends Venue contract negotiation] 0% "Design event layout and space utilization"
   Catering planning and booking @catering 4days [depends Venue contract negotiation] 0% "Plan menu and book catering services"
   Audio-visual requirements @av 3days [depends Layout and floor plan design] 0% "Plan AV setup and equipment needs"
-  Transportation and parking @logistics 2days [depends Venue contract negotiation] 0% "Arrange transportation and parking solutions"
+  Transportation and parking @logistics 2days [depends Layout and floor plan design] 0% "Arrange transportation and parking solutions"
   Logistics milestone @logistics 0days [depends Transportation and parking, Audio-visual requirements, Catering planning and booking] 0% "All venue and logistics secured"
 
 Marketing & Promotion
@@ -44,25 +44,17 @@ Event Execution Preparation
   Final preparation milestone @manager 0days [depends Equipment and material delivery, Event day timeline creation] 0% "All preparations complete"
 
 Event Day Execution
-  Setup and venue preparation @logistics 4hours [depends Final preparation milestone] 0% "Set up venue, decorations, and equipment"
-  AV setup and sound check @av 2hours [depends Setup and venue preparation] 0% "Test all audio-visual equipment"
-  Registration and guest welcome @manager 2hours [depends AV setup and sound check] 0% "Manage registration and greet attendees"
-  Event execution and management @manager 6hours [depends Registration and guest welcome] 0% "Oversee event activities and troubleshoot"
-  Event breakdown and cleanup @logistics 3hours [depends Event execution and management] 0% "Clean up venue and return equipment"
+  Setup and venue preparation @logistics 1day [depends Final preparation milestone] 0% "Day before: set up venue, decorations, and equipment"
+  AV setup and sound check @av 1day [depends Final preparation milestone] 0% "Day before: test all audio-visual equipment"
+  Registration and guest welcome @marketing 1day [depends Setup and venue preparation, AV setup and sound check] 0% "Event day: manage registration and greet attendees"
+  Event execution and management @manager 1day [depends Setup and venue preparation, AV setup and sound check] 0% "Event day: oversee event activities and troubleshoot"
+  Event breakdown and cleanup @logistics 1day [depends Event execution and management, Registration and guest welcome] 0% "Day after: clean up venue and return equipment"
   Event day milestone @manager 0days [depends Event breakdown and cleanup] 0% "Event successfully executed"
 
 Post-Event Activities
   Post-event survey distribution @marketing 1day [depends Event day milestone] 0% "Send feedback surveys to attendees"
   Vendor payments and reconciliation @manager 3days [depends Event day milestone] 0% "Process payments and reconcile expenses"
-  Event performance analysis @manager 3days [depends Post-event survey distribution] 0% "Analyze event success and ROI"
+  Event performance analysis @manager 3days [depends Post-event survey distribution, Vendor payments and reconciliation] 0% "Analyze event success and ROI"
   Thank you communications @marketing 2days [depends Event performance analysis] 0% "Send thank you messages to attendees and partners"
   Final report and documentation @manager 2days [depends Thank you communications] 0% "Create comprehensive event report"
   Event completion milestone @manager 0days [depends Final report and documentation] 0% "Event project successfully completed"
-
-## Highlights
-
-*This section will be populated as the project progresses*
-
-## RAID Log
-
-*Risks, Actions, Issues, and Decisions will be tracked here*

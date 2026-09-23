@@ -21,7 +21,7 @@ Strategy & Research
 Creative Development
   Creative brief development @creative 2days [depends Strategy approval milestone] 0% "Creative direction and requirements"
   Concept development and ideation @creative 4days [depends Creative brief development] 0% "Campaign creative concepts and themes"
-  Visual design and artwork @creative 6days [depends Concept development and ideation] 0% "Create visual assets and graphics"
+  Visual design and artwork @creative 6days [depends Copywriting and messaging] 0% "Create visual assets and graphics"
   Copywriting and messaging @creative 4days [depends Concept development and ideation] 0% "Campaign copy and content creation"
   Creative asset production @creative 5days [depends Visual design and artwork, Copywriting and messaging] 0% "Final creative asset production"
   Creative approval milestone @manager 0days [depends Creative asset production] 0% "All creative assets approved"
@@ -35,11 +35,11 @@ Media Planning & Buying
 
 Campaign Execution
   Campaign launch @manager 1day [depends Media setup milestone] 0% "Launch all campaign elements"
-  Daily monitoring and optimization @analyst 14days [depends Campaign launch] 0% "Monitor performance and make optimizations"
-  * Performance tracking @analyst 14days 0%
-  * A/B testing @analyst 14days 0%
-  * Budget management @media 14days 0%
-  Weekly reporting and analysis @analyst 2days [depends Daily monitoring and optimization] 0% "Weekly performance reports"
+  Daily monitoring and optimization "Monitor performance and make optimizations"
+    Performance tracking @analyst 14days [depends Campaign launch] 0%
+    A/B testing @creative 14days [depends Campaign launch] 0%
+    Budget management @media 14days [depends Campaign launch] 0%
+  Weekly reporting and analysis @analyst 2days [depends Performance tracking, A/B testing, Budget management] 0% "Weekly performance reports"
   Mid-campaign optimization @media 2days [depends Weekly reporting and analysis] 0% "Adjust campaigns based on performance"
   Campaign execution milestone @manager 0days [depends Mid-campaign optimization] 0% "Campaign execution phase complete"
 
@@ -49,11 +49,3 @@ Analysis & Reporting
   Learnings and recommendations @strategist 3days [depends ROI and KPI evaluation] 0% "Document insights for future campaigns"
   Final campaign report @manager 2days [depends Learnings and recommendations] 0% "Complete campaign summary and results"
   Campaign completion milestone @manager 0days [depends Final campaign report] 0% "Campaign successfully completed"
-
-## Highlights
-
-*This section will be populated as the project progresses*
-
-## RAID Log
-
-*Risks, Actions, Issues, and Decisions will be tracked here*

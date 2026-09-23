@@ -1608,6 +1608,29 @@ def _update_non_working_day(plan_text: str, name: str,
 
 
 # ===================================================================
+# Plan quality review (#782)
+# ===================================================================
+
+
+def _analyse_plan(plan_text: str) -> tuple[str, str]:
+    """Review the plan for common problems. Read-only."""
+    from noodle_core.plan_quality import format_review, review_plan
+
+    return plan_text, format_review(review_plan(plan_text), limit=40)
+
+
+def _apply_plan_fix(plan_text: str, finding_id: str) -> tuple[str, str]:
+    """Apply the one-click fix for a finding reported by analyse_plan."""
+    from noodle_core.plan_quality import FixError, apply_finding_fix
+
+    try:
+        updated = apply_finding_fix(plan_text, finding_id)
+    except FixError as exc:
+        return plan_text, f"Could not apply the fix: {exc}"
+    return updated, f"Applied the fix for '{finding_id}'."
+
+
+# ===================================================================
 # Tool definitions (OpenAI function calling format)
 # ===================================================================
 
@@ -2146,6 +2169,38 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    # --- Plan quality (#782) ---
+    {
+        "type": "function",
+        "function": {
+            "name": "analyse_plan",
+            "description": (
+                "Review the plan for common problems -- dangling or circular dependencies, "
+                "tasks with no duration or owner, over-allocated resources, work on "
+                "non-working days, missing governance -- and return each finding with its "
+                "severity, line, how to fix it, and an id. Read-only; call it before "
+                "suggesting plan improvements."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "apply_plan_fix",
+            "description": (
+                "Apply the one-click fix for a finding that analyse_plan marked "
+                "'[one-click fix available]', by its id."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "finding_id": {"type": "string", "description": "The finding's id from analyse_plan"},
+                },
+                "required": ["finding_id"],
+            },
+        },
+    },
     # --- Non-working days ---
     {
         "type": "function",
@@ -2376,6 +2431,8 @@ TOOL_EXECUTORS = {
     "update_deliverable": _update_deliverable,
     "remove_deliverable": _remove_deliverable,
     "create_baseline": _create_baseline,
+    "analyse_plan": _analyse_plan,
+    "apply_plan_fix": _apply_plan_fix,
     "add_non_working_day": _add_non_working_day,
     "remove_non_working_day": _remove_non_working_day,
     "update_non_working_day": _update_non_working_day,
