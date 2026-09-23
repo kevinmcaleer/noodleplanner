@@ -5336,6 +5336,16 @@ function wbInsertNewSummaryTaskLine(planText, taskName) {
         if (idx !== -1 && idx < insertIdx) insertIdx = idx;
     });
 
+    // Step back over the bare `---` separator that precedes the highlights
+    // section (see wbOutlineRegion()), so the new task goes above it rather
+    // than beneath it as a phantom-"---"-headed stray.
+    const beforeLines = text.substring(0, insertIdx).split('\n');
+    let cut = beforeLines.length;
+    while (cut > 0 && (!beforeLines[cut - 1].trim() || beforeLines[cut - 1].trim() === '---')) cut--;
+    if (beforeLines.slice(cut).some(line => line.trim() === '---')) {
+        insertIdx = beforeLines.slice(0, cut).join('\n').length;
+    }
+
     const before = text.substring(0, insertIdx).replace(/\n+$/, '');
     const after = text.substring(insertIdx);
 

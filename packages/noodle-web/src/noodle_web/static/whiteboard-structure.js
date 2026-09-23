@@ -158,6 +158,17 @@ function wbOutlineRegion(lines) {
     for (let i = start; i < all.length; i++) {
         if (WB_BACK_MATTER_MARKERS.includes(String(all[i]).trim())) { end = i; break; }
     }
+
+    // A bare `---` just before the back matter is the separator
+    // updatePlanHighlightsText() writes ahead of ---highlights--- (or a
+    // hand-typed divider at the end), not part of the outline. Stop before
+    // it, or a task appended "at the end of the outline" lands *under*
+    // the separator -- where the parser no longer sees it as trailing and
+    // schedules a phantom task named "---".
+    let tail = end;
+    while (tail > start && (!String(all[tail - 1]).trim() || String(all[tail - 1]).trim() === '---')) tail--;
+    if (all.slice(tail, end).some(line => String(line).trim() === '---')) end = tail;
+
     return { start, end: Math.max(start, end) };
 }
 
