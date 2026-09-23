@@ -38,6 +38,9 @@
 
     function fallbackMetadata(line) {
         const protectedLine = line
+            // a sequential lag (`* +2d Build`) goes first, before the duration
+            // rule below can eat its `2d` and leave a stray `+` in the name
+            .replace(/^\s*\*\s*[+-]\d+[dwmy]\b/i, '*')
             .replace(/\[depends\s*:?\s*[^\]]*\]/gi, '')
             .replace(/\[repeats\s+[^\]]*\]/gi, '')
             .replace(/\{[^}]*\}/g, '')

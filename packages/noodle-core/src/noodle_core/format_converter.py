@@ -4,6 +4,8 @@ import json
 import re
 import yaml
 
+from .metadata import split_star_lag
+
 HIGHLIGHTS_START = '---highlights---'
 HIGHLIGHTS_END = '---end-highlights---'
 BUDGET_START = '---budget---'
@@ -180,6 +182,8 @@ def convert_plan_format_to_standard(text: str) -> str:
         if stripped and any(c in stripped for c in ['@', '%', '#', 'd', 'w', 'm']):
             # Extract leading whitespace and * if present
             leading_ws = line[:len(line) - len(stripped)]
+            # `* +2d Build 3d`: keep the sequential lag out of the name split
+            star_lag, stripped = split_star_lag(stripped)
             is_sequential = stripped.startswith('*')
             if is_sequential:
                 stripped = stripped[1:].lstrip()
@@ -213,7 +217,7 @@ def convert_plan_format_to_standard(text: str) -> str:
             # Task names are for display and should keep spaces
 
             # Reconstruct line
-            seq_prefix = '*' if is_sequential else ''
+            seq_prefix = ('* ' + star_lag + ' ' if star_lag else '*') if is_sequential else ''
             line = f"{leading_ws}{seq_prefix}{task_name} {metadata}" if metadata else f"{leading_ws}{seq_prefix}{task_name}"
 
         output_lines.append(line)

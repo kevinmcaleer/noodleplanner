@@ -50,9 +50,21 @@ const DEADLINE = /\bD(\d{4}-\d{2}-\d{2})\b/;
 const DATE = /(\d{4}-\d{2}-\d{2})/;
 const DURATION = /(?<!~)(?<![~/])\b(\d+)([dwmy])\b/;
 // A sequential line's own lag, `* +2d Build 3d`: the `+2d` is the gap after the
-// previous task, never the task's duration, so it is blanked before the
-// duration search (metadata.py's _STAR_LAG).
-const STAR_LAG = /^\*\s*[+-]\d+[dwmy]\b/;
+// previous task finishes, never part of the task's name or duration.
+const STAR_LAG_SPLIT = /^\*\s*([+-]\d+[dwmy])\b\s*/;
+
+/**
+ * Split a sequential line's lag off: `* +2d Build 3d` -> ['+2d', '* Build 3d'].
+ * Anything else comes back unchanged with a null lag (metadata.py's
+ * split_star_lag). The scheduler applies the lag as a finish-to-start lag
+ * on the previous task.
+ */
+export function splitStarLag(text) {
+  const value = String(text ?? "");
+  const match = STAR_LAG_SPLIT.exec(value);
+  if (!match) return [null, value];
+  return [match[1], "* " + value.slice(match[0].length)];
+}
 const LEGACY_DURATION = /:p(\d+)d/;
 const DESCRIPTION = /\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|"|\{|\[|D\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)/;
 const PERCENT_TOKEN = /\s*\b\d{1,3}%/g;
@@ -93,8 +105,9 @@ export function parseRecurrence(text) {
  * @returns {object} the same keys the Python returns, omitted the same way
  */
 export function extractMetadata(taskStr, taskName = null) {
-  const line = String(taskStr ?? "");
+  const [sequentialLag, line] = splitStarLag(taskStr);
   const meta = {};
+  if (sequentialLag) meta.sequential_lag = sequentialLag;
 
   // --- resources and quality roles ---
   const tokens = line.split(TOKEN_SPLIT);
@@ -293,7 +306,7 @@ export function extractMetadata(taskStr, taskName = null) {
   }
 
   // --- duration ---
-  const duration = DURATION.exec(line.replace(STAR_LAG, (m) => " ".repeat(m.length)));
+  const duration = DURATION.exec(line);
   if (duration) {
     meta.duration_days = durationToDays(parseInt(duration[1], 10), duration[2]);
   } else {

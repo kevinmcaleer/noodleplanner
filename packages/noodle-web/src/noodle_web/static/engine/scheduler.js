@@ -25,7 +25,7 @@ import {
   parseDurationToDays,
   todayWorkingDay,
 } from "./date-math.js";
-import { extractMetadata } from "./tokeniser.js";
+import { extractMetadata, splitStarLag } from "./tokeniser.js";
 import { STANDARD_CALENDAR } from "./calendar.js";
 
 export const MAX_NESTING_DEPTH = 20;
@@ -66,8 +66,10 @@ function hasDetails(stripped) {
  * so a task with an inline comment lost its clean name, and any whiteboard
  * row keyed on it (or anything else keyed on the task name) silently
  * orphaned, the moment it gained a child. */
-function taskNameOf(stripped) {
-  if (!hasDetails(stripped)) return stripped.replace(/^\*+/, "");
+function taskNameOf(line) {
+  if (!hasDetails(line)) return line.replace(/^\*+/, "").trim();
+  // A sequential lag (`* +2d Build`) is not part of the name
+  const stripped = splitStarLag(line)[1];
 
   let metadataStart = stripped.length;
   for (const ch of ["@", "#", "!", "$", "[", '"']) {
@@ -301,7 +303,14 @@ export function scheduleTasks(allTasks, options = {}) {
           if (!t.depends || !t.depends.length) t.depends = [];
           if (!t.depends.includes(prevName)) t.depends.push(prevName);
         }
-        const seqStart = isMilestone ? prev.finish : getNextWorkingDay(prev.finish, taskHolidays);
+        // `* +2d`: a lag (or `* -1d` lead) on the previous task's finish,
+        // applied exactly as `[depends X +2d]` applies one.
+        let ref = prev.finish;
+        if (t.sequential_lag) {
+          ref = addWorkingDays(ref, parseDurationToDays(t.sequential_lag), taskHolidays);
+          if (prevName) t.lag_lead = { ...(t.lag_lead || {}), [prevName]: t.sequential_lag };
+        }
+        const seqStart = isMilestone ? ref : getNextWorkingDay(ref, taskHolidays);
         const explicit = t.start;
         t.start = explicit && explicit > seqStart ? explicit : seqStart;
         if (isMilestone) t.finish = t.start;
@@ -580,6 +589,22 @@ function flagCircularDependencies(tasks) {
 }
 
 /** calculate_critical_path: float and the critical flag, on leaf tasks. */
+/**
+ * Working days of lag (negative: lead) on a finish-to-start pred -> succ
+ * link: `[depends X +2d]` or a sequential `* +2d`, both recorded in the
+ * successor's lag_lead (scheduling_engine.py's _finish_start_lag).
+ */
+function finishStartLag(pred, succ) {
+  const predName = String(pred.name || "").toLowerCase();
+  for (const [key, type] of Object.entries(succ.dependency_types || {})) {
+    if (key.toLowerCase() === predName && String(type).toUpperCase() !== "FS") return 0;
+  }
+  for (const [key, value] of Object.entries(succ.lag_lead || {})) {
+    if (key.toLowerCase() === predName) return parseDurationToDays(value);
+  }
+  return 0;
+}
+
 function calculateCriticalPath(tasks, holidays) {
   const leaves = tasks.filter((t) => !t.summary && t.start !== undefined && t.finish !== undefined);
   if (!leaves.length) return;
@@ -609,7 +634,13 @@ function calculateCriticalPath(tasks, holidays) {
   for (let i = leaves.length - 1; i >= 0; i--) {
     const t = leaves[i];
     const succ = successors.get((t.name || "").toLowerCase()) || [];
-    const known = succ.filter((s) => byName.has(s)).map((s) => byName.get(s).late_start);
+    // A successor's latest start, less the lag on the link (or plus a lead),
+    // is the latest this task may finish: a lagged gap is not float.
+    const known = succ.filter((s) => byName.has(s)).map((s) => {
+      const successor = byName.get(s);
+      const lag = finishStartLag(t, successor);
+      return lag ? addWorkingDays(successor.late_start, -lag, holidays) : successor.late_start;
+    });
     t.late_finish = known.length ? Math.min(...known) : projectEnd;
 
     const duration = durationDaysOf(t);

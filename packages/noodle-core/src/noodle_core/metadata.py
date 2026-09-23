@@ -40,9 +40,22 @@ _DEADLINE = re.compile(r'\bD(\d{4}-\d{2}-\d{2})\b')
 _DATE = re.compile(r'(\d{4}-\d{2}-\d{2})')
 _DURATION = re.compile(r'(?<!~)(?<![~/])\b(\d+)([dwmy])\b')
 # A sequential line's own lag, `* +2d Build 3d`: the `+2d` is the gap after the
-# previous task, never the task's duration, so it is blanked before the
-# duration search.
-_STAR_LAG = re.compile(r'^\*\s*[+-]\d+[dwmy]\b')
+# previous task finishes, never part of the task's name or duration.
+_STAR_LAG_SPLIT = re.compile(r'^\*\s*([+-]\d+[dwmy])\b\s*')
+
+
+def split_star_lag(text):
+    """Split a sequential line's lag off: `* +2d Build 3d` -> ('+2d', '* Build 3d').
+
+    Anything else comes back unchanged with no lag. Every parser takes the lag
+    off here first, so it never leaks into a name or reads as a duration, and
+    the scheduler applies it as a finish-to-start lag on the previous task.
+    """
+    text = str(text)
+    match = _STAR_LAG_SPLIT.match(text)
+    if not match:
+        return None, text
+    return match.group(1), '* ' + text[match.end():]
 _LEGACY_DURATION = re.compile(r':p(\d+)d')
 _DESCRIPTION = re.compile(r"\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|\"|{|\[|D\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)")
 _PERCENT_TOKEN = re.compile(r'\s*\b\d{1,3}%')
@@ -199,6 +212,9 @@ def generate_recurrence_occurrences(task, window_start, window_end):
 
 def extract_metadata(task_str, task_name=None):
     meta = {}
+    lag, task_str = split_star_lag(task_str)
+    if lag:
+        meta['sequential_lag'] = lag
     tokens = _TOKEN_SPLIT.split(task_str)
     resources = [t for t in tokens if t.startswith('@')]
 
@@ -434,9 +450,7 @@ def extract_metadata(task_str, task_name=None):
 
     # Support new simple format: 10d, 2w, 3m, 1y
     # Use negative lookbehind to avoid matching effort tokens (prefixed with ~)
-    duration_match = _DURATION.search(
-        _STAR_LAG.sub(lambda m: ' ' * len(m.group(0)), str(task_str))
-    )
+    duration_match = _DURATION.search(task_str)
     if duration_match:
         value = int(duration_match.group(1))
         unit = duration_match.group(2)

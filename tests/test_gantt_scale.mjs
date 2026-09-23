@@ -254,16 +254,17 @@ test('a drag on a $product, !priority and * +2d line writes to that line', () =>
     assert.ok(gw, 'no edit for the $product line');
     // Mon 12 Jan + two days, across the 14 Jan holiday: 2 working days
     assert.match(gw.text, /\$GW2 Gateway review 2d !! \[depends Design UI\]/);
-    // the engine names this task '+' (the star-lag prefix is only half
-    // supported); it is addressed by _uid, so the name does not matter
-    // Build finishes on a Friday: one or two days on is the weekend, which
-    // adds no working days, so it takes three to reach Tuesday.
-    assert.equal(planDragEdit(PLAN, dragFor(PLAN, '+', 0, 'right'), 1, 28, inject), null);
-    const build = previewDrag(PLAN, dragFor(PLAN, '+', 0, 'right'), 3, 28, inject);
+    // addressed by _uid; the lag is not part of the task's name. The gateway
+    // ends Tue 13 Jan; two working days on (the 14th is a holiday) Build
+    // starts Fri 16 and runs to Tue 20, so one day on adds one working day.
+    const drag = dragFor(PLAN, 'Build', 0, 'right');
+    assert.equal(GanttScale.isoOf(drag.startDay), '2026-01-16');
+    const build = previewDrag(PLAN, drag, 1, 28, inject);
     assert.ok(build, 'no edit for the * +2d line');
     assert.match(build.text, /\* \+2d Build 4d/);
-    const b = build.result.tasks.find(t => t.name === '+');
+    const b = build.result.tasks.find(t => t.name === 'Build');
     assert.equal(b.duration_days, 4);
+    assert.equal(b.start, '2026-01-16', 'the lag still applies after the edit');
 });
 
 test('middle drag moves the task; a predecessor blocks moving it earlier', () => {
