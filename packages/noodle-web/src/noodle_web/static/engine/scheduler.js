@@ -612,6 +612,20 @@ function flagCircularDependencies(tasks) {
   });
 }
 
+/**
+ * _late_finish_allowed_by: the latest a predecessor may finish without
+ * delaying the link's successor -- the forward pass run backwards. The
+ * successor's late start (FS, SS) or finish (FF, SF) is shifted back by the
+ * lag, and a start-anchored link (SS, SF) becomes a finish by adding the
+ * predecessor's own duration.
+ */
+function lateFinishAllowedBy({ succ, type, lag }, duration, holidays) {
+  let ref = type === "FS" || type === "SS" ? succ.late_start : succ.late_finish;
+  if (lag) ref = addWorkingDays(ref, -lag, holidays);
+  if ((type === "SS" || type === "SF") && duration) return addWorkingDays(ref, duration, holidays);
+  return ref;
+}
+
 /** calculate_critical_path: float and the critical flag, on leaf tasks. */
 function calculateCriticalPath(tasks, holidays) {
   const leaves = tasks.filter((t) => !t.summary && t.start !== undefined && t.finish !== undefined);
@@ -627,13 +641,18 @@ function calculateCriticalPath(tasks, holidays) {
   const projectEnd = Math.max(...leaves.map((t) => t.finish));
 
   // keyed by task: a dependency on a duplicated name belongs to its first
-  // definition only
+  // definition only. Each link keeps its type and lag/lead, looked up by the
+  // name as written -- exactly as scheduleTasks looked them up going forward.
   const successors = new Map();
   for (const t of leaves) successors.set(t, []);
   for (const t of leaves) {
+    const depTypes = t.dependency_types || {};
+    const lags = t.lag_lead || {};
     for (const dep of t.depends || []) {
       const pred = byName.get(dep.toLowerCase());
-      if (pred && successors.has(pred)) successors.get(pred).push(t);
+      if (!pred || !successors.has(pred)) continue;
+      const lag = lags[dep] !== undefined ? parseDurationToDays(lags[dep]) : 0;
+      successors.get(pred).push({ succ: t, type: depTypes[dep] || "FS", lag });
     }
   }
 
@@ -643,10 +662,12 @@ function calculateCriticalPath(tasks, holidays) {
   }
   for (let i = leaves.length - 1; i >= 0; i--) {
     const t = leaves[i];
-    const succ = successors.get(t);
-    t.late_finish = succ.length ? Math.min(...succ.map((s) => s.late_start)) : projectEnd;
-
     const duration = durationDaysOf(t);
+    t.late_finish = projectEnd;
+    for (const link of successors.get(t)) {
+      t.late_finish = Math.min(t.late_finish, lateFinishAllowedBy(link, duration, holidays));
+    }
+
     if (duration === 0) {
       t.late_start = t.late_finish;
     } else {

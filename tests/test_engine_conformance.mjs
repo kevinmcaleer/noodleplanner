@@ -187,3 +187,15 @@ test("a sequential lag shifts the start, and is not in the name or duration", ()
   assert.equal(byName.Review.start, byName.Build.finish, "the by-name dependency resolves to the lagged task");
   assert.ok(byName.Inspect.start < byName.Cure.finish, "a negative lag is a lead");
 });
+
+test("the critical path honours a link's lag and type", () => {
+  const floats = (plan) => Object.fromEntries(
+    scheduleTasksFromText(plan, { today: FROZEN_TODAY }).filter((t) => !t.is_summary).map((t) => [t.name, t.total_float]),
+  );
+  // a lag that drives the finish leaves its predecessor no float
+  assert.deepEqual(floats("P\n  A 2d\n  B 2d [depends A +2d]\n  Side 1d\n"), { A: 0, B: 0, Side: 5 });
+  assert.deepEqual(floats("P\n  First 2d\n  *Second 3d\n  * +2d Third 2d\n  * -1d Fourth 1d\n"),
+    { First: 0, Second: 0, Third: 0, Fourth: 0 });
+  // FF is measured from the successor's finish, not its start
+  assert.deepEqual(floats("P\n  A 4d\n  B 1d [depends A:FF]\n  Tail 6d\n"), { A: 2, B: 2, Tail: 0 });
+});

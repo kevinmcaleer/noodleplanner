@@ -57,7 +57,7 @@
    "bucket": "",
    "circular_dependencies": [],
    "comment": "",
-   "critical": false,
+   "critical": true,
    "deadline": "",
    "deliverable": "",
    "dependency_types": {},
@@ -88,13 +88,13 @@
    "recurrence": null,
    "resources": "",
    "start": "2026-06-01",
-   "total_float": 3
+   "total_float": 0
   },
   {
    "bucket": "",
    "circular_dependencies": [],
    "comment": "",
-   "critical": false,
+   "critical": true,
    "deadline": "",
    "deliverable": "",
    "dependency_types": {},
@@ -127,7 +127,7 @@
    "recurrence": null,
    "resources": "",
    "start": "2026-06-04",
-   "total_float": 3
+   "total_float": 0
   },
   {
    "bucket": "",
@@ -168,7 +168,7 @@
    "recurrence": null,
    "resources": "",
    "start": "2026-06-04",
-   "total_float": 8
+   "total_float": 11
   },
   {
    "bucket": "",
@@ -209,7 +209,7 @@
    "recurrence": null,
    "resources": "",
    "start": "2026-06-05",
-   "total_float": 9
+   "total_float": 11
   },
   {
    "bucket": "",

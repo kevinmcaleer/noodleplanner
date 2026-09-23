@@ -151,6 +151,26 @@ def _calendar_or_holidays_for_task(task, holidays, resource_non_working_days, ca
         return base
     return dataclasses.replace(base, exceptions=base.exceptions | extra_exceptions)
 
+def _late_finish_allowed_by(succ, dep_type, lag, duration_days, holidays):
+    """The latest a predecessor may finish without delaying *succ*.
+
+    The inverse of the forward pass in schedule_tasks: there a link pushes
+    the successor's start (FS, SS) or finish (FF, SF) to the predecessor's
+    finish (FS, FF) or start (SS, SF), shifted by *lag* working days. Here
+    the successor's late start or finish is shifted back by the same lag,
+    and a start-anchored link is turned into a finish by adding the
+    predecessor's own duration.
+    """
+    succ_ref = succ['late_start'] if dep_type in ('FS', 'SS') else succ['late_finish']
+    if lag:
+        succ_ref = add_working_days(succ_ref, -lag, holidays)
+    if dep_type in ('SS', 'SF') and duration_days:
+        # a start-anchored link bounds the predecessor's start; its finish
+        # may be no later than that plus its own duration
+        return add_working_days(succ_ref, duration_days, holidays)
+    return succ_ref
+
+
 def calculate_critical_path(tasks, holidays=None):
     """Calculate critical path, slack/float for each leaf task.
 
@@ -177,13 +197,18 @@ def calculate_critical_path(tasks, holidays=None):
     project_end = max(t['finish'] for t in leaf_tasks)
 
     # Build successors map, keyed by task identity: a dependency on a
-    # duplicated name belongs to its first definition only.
+    # duplicated name belongs to its first definition only. Each link keeps
+    # its type and lag/lead, looked up by the name as written -- exactly as
+    # schedule_tasks looked them up going forward.
     successors = {id(t): [] for t in leaf_tasks}
     for t in leaf_tasks:
+        dep_types = t.get('dependency_types', {})
+        lags = t.get('lag_lead', {})
         for dep_name in t.get('depends', []):
             pred = name_lookup.get(dep_name.lower())
             if pred is not None and id(pred) in successors:
-                successors[id(pred)].append(t)
+                lag = parse_duration_to_days(lags[dep_name]) if dep_name in lags else 0
+                successors[id(pred)].append((t, dep_types.get(dep_name, 'FS'), lag))
 
     # Backward pass
     for t in leaf_tasks:
@@ -192,14 +217,14 @@ def calculate_critical_path(tasks, holidays=None):
 
     # Process in reverse order
     for t in reversed(leaf_tasks):
-        succ_list = successors[id(t)]
-
-        if succ_list:
-            t['late_finish'] = min(s['late_start'] for s in succ_list)
-        else:
-            t['late_finish'] = project_end
-
         duration_days = _get_duration_days(t)
+        t['late_finish'] = project_end
+        for s, dep_type, lag in successors[id(t)]:
+            t['late_finish'] = min(
+                t['late_finish'],
+                _late_finish_allowed_by(s, dep_type, lag, duration_days, holidays),
+            )
+
         if duration_days == 0:
             t['late_start'] = t['late_finish']
         else:
