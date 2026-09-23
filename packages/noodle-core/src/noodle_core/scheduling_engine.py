@@ -210,9 +210,8 @@ def calculate_critical_path(tasks, holidays=None):
     for t in reversed(leaf_tasks):
         succ_list = successors[id(t)]
 
-        # A successor's latest start, less the lag on the link (or plus a
-        # lead), is the latest this task may finish: a lagged gap is not
-        # float. Mirrors the forward pass, which adds the lag.
+        # A successor's lag pushes this task's latest finish earlier by the
+        # same gap (a lead, later): `[depends X +2d]` or `* +2d`.
         late_starts = []
         for successor in succ_list:
             late_start = successor['late_start']
@@ -491,14 +490,16 @@ def schedule_tasks(
                     if prev_name not in t['depends']:
                         t['depends'].append(prev_name)
 
-                # `* +2d`: a lag (or `* -1d` lead) on the previous task's
-                # finish, applied exactly as `[depends X +2d]` applies one.
+                # A lag or lead on the star (`* +2d`, `* -1d`) shifts the
+                # predecessor's finish by that many working days first --
+                # exactly as `[depends Prev +2d]` would, and it is recorded
+                # the same way so exports and the Gantt see the offset.
                 ref_date = prev['finish']
                 seq_lag = t.get('sequential_lag')
                 if seq_lag:
                     ref_date = add_working_days(ref_date, parse_duration_to_days(seq_lag), task_holidays)
                     if prev_name:
-                        t.setdefault('lag_lead', {})[prev_name] = seq_lag
+                        t.setdefault('lag_lead', {}).setdefault(prev_name, seq_lag)
 
                 if is_milestone:
                     # Milestones (0-duration) align with the end of the predecessor.
@@ -859,9 +860,10 @@ def natural_language_to_yaml(text, project_name="Project"):
         has_brackets = '[' in stripped
         has_details = '@' in stripped or '%' in stripped or '!' in stripped or '#' in stripped or '2025-' in stripped or '2024-' in stripped or '2026-' in stripped or has_duration or has_quotes or has_deliverable or has_brackets
 
-        # Extract task name (everything before metadata)
-        # A sequential lag (`* +2d Build`) is not part of the name
-        name_source = split_star_lag(stripped)[1]
+        # Extract task name (everything before metadata), from the line
+        # with a sequential lag (`* +2d Build 3d`) blanked out, so neither
+        # the `+` nor the `2d` is mistaken for the name or its end.
+        named, _ = split_star_lag(stripped)
         if has_details:
             # Find where metadata starts
             #
@@ -880,37 +882,37 @@ def natural_language_to_yaml(text, project_name="Project"):
             # name, and anything keyed on the task name (e.g. a
             # whiteboard row) silently orphaned the moment it gained a
             # child.
-            metadata_start = len(name_source)
+            metadata_start = len(named)
             for char in ['@', '#', '!', '$', '[', '"']:
-                pos = name_source.find(char)
+                pos = named.find(char)
                 if pos > 0:
                     metadata_start = min(metadata_start, pos)
             # Also check for /$ and ^$ product type prefixes
             for prefix in ['/$', '^$']:
-                pos = name_source.find(prefix)
+                pos = named.find(prefix)
                 if pos > 0:
                     metadata_start = min(metadata_start, pos)
 
             # Check for percent token (digits followed by %) - use start of digits, not %
-            percent_match = re.search(r'\b(\d{1,3})%', name_source)
+            percent_match = re.search(r'\b(\d{1,3})%', named)
             if percent_match and percent_match.start() > 0:
                 metadata_start = min(metadata_start, percent_match.start())
 
             # Also check for dates and durations
-            date_match = re.search(r'\d{4}-\d{2}-\d{2}', name_source)
+            date_match = re.search(r'\d{4}-\d{2}-\d{2}', named)
             if date_match and date_match.start() > 0:
                 metadata_start = min(metadata_start, date_match.start())
 
-            duration_match = re.search(r'\d+[dwmy]', name_source)
+            duration_match = re.search(r'\d+[dwmy]', named)
             if duration_match and duration_match.start() > 0:
                 metadata_start = min(metadata_start, duration_match.start())
 
-            task_name = name_source[:metadata_start].strip().lstrip('*')
+            task_name = named[:metadata_start].strip().lstrip('*')
             # Safety: strip any percent tokens that slipped into the name
             task_name = re.sub(r'\s*\b\d{1,3}%', '', task_name).strip()
         else:
             # No metadata, entire line is the task name
-            task_name = name_source.lstrip('*').strip()
+            task_name = stripped.lstrip('*')
 
         full_name = task_name
 

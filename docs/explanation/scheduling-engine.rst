@@ -104,6 +104,19 @@ A task prefixed with ``*`` starts the day after the previous task in the same ph
      Task A @alice 3d
      * Task B @alice 2d   ← starts the day after Task A finishes
 
+A signed duration straight after the ``*`` adds lag (or, negative, lead) to
+that link, in working days: ``* +2d Task C 3d`` is exactly
+``Task C 3d [depends Task B +2d]``. The lag is not part of the name -- the
+task is ``Task C``, and ``[depends Task C]`` finds it -- nor its duration,
+which is still the ``3d``:
+
+.. code-block:: text
+
+   Phase
+     Pour @alice 1d
+     * +2d Strip formwork 1d   ← two working days after Pour, for curing
+     * -1d Inspect 1d          ← a day's lead: overlaps Strip formwork
+
 Milestones
 ~~~~~~~~~~~
 

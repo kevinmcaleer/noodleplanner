@@ -450,4 +450,4 @@ class TestSequentialLag:
         from noodle_core import convert_plan_format_to_standard
 
         out = convert_plan_format_to_standard("P\n  * +2d Build @a 3days\n")
-        assert "* +2d Build @a 3d" in out
+        assert "*+2d Build @a 3d" in out

@@ -68,9 +68,10 @@ function hasDetails(stripped) {
  * row keyed on it (or anything else keyed on the task name) silently
  * orphaned, the moment it gained a child. */
 function taskNameOf(line) {
-  if (!hasDetails(line)) return line.replace(/^\*+/, "").trim();
-  // A sequential lag (`* +2d Build`) is not part of the name
-  const stripped = splitStarLag(line)[1];
+  if (!hasDetails(line)) return line.replace(/^\*+/, "");
+  // A sequential lag (`* +2d Build 3d`) is blanked first, so neither the
+  // `+` nor the `2d` is mistaken for the name or its end.
+  const [stripped] = splitStarLag(line);
 
   let metadataStart = stripped.length;
   for (const ch of ["@", "#", "!", "$", "[", '"']) {
@@ -302,12 +303,17 @@ export function scheduleTasks(allTasks, options = {}) {
           if (!t.depends || !t.depends.length) t.depends = [];
           if (!t.depends.includes(prevName)) t.depends.push(prevName);
         }
-        // `* +2d`: a lag (or `* -1d` lead) on the previous task's finish,
-        // applied exactly as `[depends X +2d]` applies one.
+        // A lag or lead on the star (`* +2d`, `* -1d`) shifts the
+        // predecessor's finish by that many working days first -- exactly
+        // as `[depends Prev +2d]` would, and it is recorded the same way so
+        // exports and the Gantt see the offset.
         let ref = prev.finish;
         if (t.sequential_lag) {
           ref = addWorkingDays(ref, parseDurationToDays(t.sequential_lag), taskHolidays);
-          if (prevName) t.lag_lead = { ...(t.lag_lead || {}), [prevName]: t.sequential_lag };
+          if (prevName) {
+            if (!t.lag_lead) t.lag_lead = {};
+            if (t.lag_lead[prevName] === undefined) t.lag_lead[prevName] = t.sequential_lag;
+          }
         }
         const seqStart = isMilestone ? ref : getNextWorkingDay(ref, taskHolidays);
         const explicit = t.start;
@@ -654,8 +660,8 @@ function calculateCriticalPath(tasks, holidays) {
   for (let i = leaves.length - 1; i >= 0; i--) {
     const t = leaves[i];
     const succ = successors.get(t);
-    // A successor's latest start, less the lag on the link (or plus a lead),
-    // is the latest this task may finish: a lagged gap is not float.
+    // a successor's lag pushes this task's latest finish earlier by the same
+    // gap (a lead, later): `[depends X +2d]` or `* +2d`
     const known = succ.map((successor) => {
       const lag = finishStartLag(t, successor);
       return lag ? addWorkingDays(successor.late_start, -lag, holidays) : successor.late_start;

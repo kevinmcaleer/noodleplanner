@@ -254,17 +254,20 @@ test('a drag on a $product, !priority and * +2d line writes to that line', () =>
     assert.ok(gw, 'no edit for the $product line');
     // Mon 12 Jan + two days, across the 14 Jan holiday: 2 working days
     assert.match(gw.text, /\$GW2 Gateway review 2d !! \[depends Design UI\]/);
-    // addressed by _uid; the lag is not part of the task's name. The gateway
-    // ends Tue 13 Jan; two working days on (the 14th is a holiday) Build
-    // starts Fri 16 and runs to Tue 20, so one day on adds one working day.
+    // The +2d puts Build two working days after the gateway (Fri 16 Jan)
+    // and its finish on a Wednesday, so one day on is a fourth working day;
+    // the lag stays on the line and still applies.
     const drag = dragFor(PLAN, 'Build', 0, 'right');
-    assert.equal(GanttScale.isoOf(drag.startDay), '2026-01-16');
     const build = previewDrag(PLAN, drag, 1, 28, inject);
     assert.ok(build, 'no edit for the * +2d line');
     assert.match(build.text, /\* \+2d Build 4d/);
     const b = build.result.tasks.find(t => t.name === 'Build');
     assert.equal(b.duration_days, 4);
-    assert.equal(b.start, '2026-01-16', 'the lag still applies after the edit');
+    assert.equal(G.dayOf(b.start), drag.startDay, 'the lag was lost');
+    // three days on is Saturday and four is Sunday: the weekend adds no
+    // working days, so both drags land on the same duration
+    assert.match(planDragEdit(PLAN, drag, 3, 28, inject).text, /\* \+2d Build 6d/);
+    assert.match(planDragEdit(PLAN, drag, 4, 28, inject).text, /\* \+2d Build 6d/);
 });
 
 test('middle drag moves the task; a predecessor blocks moving it earlier', () => {

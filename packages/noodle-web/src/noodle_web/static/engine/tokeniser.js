@@ -52,25 +52,26 @@ const LEVELLED = /\[levelled\s+@?(\S+)\s+(\d{4}-\d{2}-\d{2})\s*\]/i;
 const DEADLINE = /\bD(\d{4}-\d{2}-\d{2})\b/;
 const DATE = /(\d{4}-\d{2}-\d{2})/;
 const DURATION = /(?<!~)(?<![~/])\b(\d+)([dwmy])\b/;
-// A sequential line's own lag, `* +2d Build 3d`: the `+2d` is the gap after the
-// previous task finishes, never part of the task's name or duration.
-const STAR_LAG_SPLIT = /^\*\s*([+-]\d+[dwmy])\b\s*/;
-
-/**
- * Split a sequential line's lag off: `* +2d Build 3d` -> ['+2d', '* Build 3d'].
- * Anything else comes back unchanged with a null lag (metadata.py's
- * split_star_lag). The scheduler applies the lag as a finish-to-start lag
- * on the previous task.
- */
-export function splitStarLag(text) {
-  const value = String(text ?? "");
-  const match = STAR_LAG_SPLIT.exec(value);
-  if (!match) return [null, value];
-  return [match[1], "* " + value.slice(match[0].length)];
-}
 const LEGACY_DURATION = /:p(\d+)d/;
 const DESCRIPTION = /\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|"|\{|\[|D\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)/;
 const PERCENT_TOKEN = /\s*\b\d{1,3}%/g;
+const STAR_LAG = /^\*\s*([+\-]\d+[dwmy])\b/;
+
+/**
+ * split_star_lag: blank a sequential task's lag/lead, `* +2d Build 3d`.
+ *
+ * Returns `[line, lag]`: the line with the `+2d` replaced by spaces -- so
+ * every other offset in it stays put -- and the lag itself, or null. The
+ * lag is task-tokenizer.js's `star-lag` token; blanked, it can be mistaken
+ * for neither the duration nor part of the name, and the scheduler applies
+ * it to the sequential start instead (`* +2d X` means `X [depends Prev +2d]`).
+ */
+export function splitStarLag(line) {
+  const match = STAR_LAG.exec(line);
+  if (!match) return [line, null];
+  const at = match[0].length - match[1].length;
+  return [line.slice(0, at) + " ".repeat(match[1].length) + line.slice(match[0].length), match[1]];
+}
 
 /** parse_recurrence: "weekly mon,wed" and friends. */
 export function parseRecurrence(text) {
@@ -108,9 +109,9 @@ export function parseRecurrence(text) {
  * @returns {object} the same keys the Python returns, omitted the same way
  */
 export function extractMetadata(taskStr, taskName = null) {
-  const [sequentialLag, line] = splitStarLag(taskStr);
+  const [line, starLag] = splitStarLag(String(taskStr ?? ""));
   const meta = {};
-  if (sequentialLag) meta.sequential_lag = sequentialLag;
+  if (starLag) meta.sequential_lag = starLag;
 
   // --- resources and quality roles ---
   const tokens = line.split(TOKEN_SPLIT);
@@ -309,6 +310,7 @@ export function extractMetadata(taskStr, taskName = null) {
   }
 
   // --- duration ---
+  // (a sequential lag, `* +2d`, was already blanked by splitStarLag above)
   const duration = DURATION.exec(line);
   if (duration) {
     meta.duration_days = durationToDays(parseInt(duration[1], 10), duration[2]);

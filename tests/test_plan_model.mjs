@@ -455,3 +455,20 @@ test('reorder keeps a non-blank trailing comment attached to its task', () => {
     assert.equal(model.moveAfter(a, b), true);
     assert.equal(model.serialize(), 'Task B\nTask A\n// keep me\nTask C\n');
 });
+
+test('a sequential lag is not part of the task name, and rides on the implicit edge', () => {
+    // node loads no TaskLineTokenizer, so this is the fallback naming path --
+    // which used to leave the `+` behind (`+ Build`)
+    const model = PlanModel.parse('Phase\n  Design 3d\n  * +2d Build 3d\n  *+2d Cure 2d\n  * -1d Inspect 1d\n  Review 1d [depends Build]\n');
+    assert.deepEqual(model.tasks.map(task => task.name), ['Phase', 'Design', 'Build', 'Cure', 'Inspect', 'Review']);
+
+    const edgeOf = name => model.findByName(name).dependencies.find(edge => edge.shorthand);
+    assert.equal(edgeOf('Build').target, model.findByName('Design'));
+    assert.equal(edgeOf('Build').lag, '+2d');
+    assert.equal(edgeOf('Cure').lag, '+2d');
+    assert.equal(edgeOf('Inspect').lag, '-1d');
+
+    // a dependency on the lagged task by name resolves to it
+    const review = model.findByName('Review').dependencies[0];
+    assert.equal(review.target, model.findByName('Build'));
+});
