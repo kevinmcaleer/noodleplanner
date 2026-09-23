@@ -52,6 +52,23 @@ const DURATION = /(?<!~)(?<![~/])\b(\d+)([dwmy])\b/;
 const LEGACY_DURATION = /:p(\d+)d/;
 const DESCRIPTION = /\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|"|\{|\[|D\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)/;
 const PERCENT_TOKEN = /\s*\b\d{1,3}%/g;
+const STAR_LAG = /^\*\s*([+\-]\d+[dwmy])\b/;
+
+/**
+ * split_star_lag: blank a sequential task's lag/lead, `* +2d Build 3d`.
+ *
+ * Returns `[line, lag]`: the line with the `+2d` replaced by spaces -- so
+ * every other offset in it stays put -- and the lag itself, or null. The
+ * lag is task-tokenizer.js's `star-lag` token; blanked, it can be mistaken
+ * for neither the duration nor part of the name, and the scheduler applies
+ * it to the sequential start instead (`* +2d X` means `X [depends Prev +2d]`).
+ */
+export function splitStarLag(line) {
+  const match = STAR_LAG.exec(line);
+  if (!match) return [line, null];
+  const at = match[0].length - match[1].length;
+  return [line.slice(0, at) + " ".repeat(match[1].length) + line.slice(match[0].length), match[1]];
+}
 
 /** parse_recurrence: "weekly mon,wed" and friends. */
 export function parseRecurrence(text) {
@@ -89,8 +106,9 @@ export function parseRecurrence(text) {
  * @returns {object} the same keys the Python returns, omitted the same way
  */
 export function extractMetadata(taskStr, taskName = null) {
-  const line = String(taskStr ?? "");
+  const [line, starLag] = splitStarLag(String(taskStr ?? ""));
   const meta = {};
+  if (starLag) meta.sequential_lag = starLag;
 
   // --- resources and quality roles ---
   const tokens = line.split(TOKEN_SPLIT);
