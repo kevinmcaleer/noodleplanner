@@ -382,20 +382,72 @@ class TestScheduleTasksWithDependencies:
         assert len(warnings) > 0
 
 
-class TestSequentialLagIsNotTheDuration:
-    """`* +2d Build 3d` is a sequential task with a 2-day lag and a 3-day
-    duration. The duration search used to find the lag first (#787), so the
-    Gantt's drag wrote a new duration the scheduler then ignored."""
+class TestSequentialLag:
+    """`* +2d Build 3d` starts two working days after the previous task
+    finishes: the lag is applied exactly as `[depends Previous +2d]` applies
+    one, and is never part of the task's name or its duration."""
 
-    def test_lag_prefix_does_not_become_the_duration(self):
+    @staticmethod
+    def schedule(body):
+        from noodle_core import convert_plan_format_to_standard, natural_language_to_yaml
+
+        text = "---\ntitle: Lag\n---\n\n" + body
+        data = natural_language_to_yaml(convert_plan_format_to_standard(text), "Project")
+        phases = data["Project"] if isinstance(data["Project"], list) else [data["Project"]]
+        return {t["name"]: t for t in schedule_tasks(phases)}
+
+    def test_lag_prefix_is_neither_duration_nor_name(self):
         meta = extract_metadata("* +2d Build 3d @a", "Build")
         assert meta["duration"].days == 3
         assert meta["sequential"] is True
+        assert meta["sequential_lag"] == "+2d"
+        assert "duration" not in extract_metadata("* +2d Build", "Build")
+        tasks = self.schedule("P\n  Spec 3d 2026-03-02\n  * +2d Build 3d\n  *-1d Lead 1d\n")
+        assert set(tasks) == {"P", "Spec", "Build", "Lead"}
 
-    def test_lag_prefix_without_a_duration_leaves_the_default(self):
-        meta = extract_metadata("* +2d Build", "Build")
-        assert "duration" not in meta
+    def test_lag_delays_the_start_by_working_days(self):
+        # Spec Mon 2 - Wed 4 March; two working days on (Thu, Fri): Mon 9
+        tasks = self.schedule("P\n  Spec 3d 2026-03-02\n  * +2d Build 3d\n")
+        assert tasks["Build"]["start"].date().isoformat() == "2026-03-09"
+        assert tasks["Build"]["lag_lead"] == {"Spec": "+2d"}
+        assert tasks["Build"]["depends"] == ["Spec"]
 
-    def test_a_plain_duration_is_unchanged(self):
-        assert extract_metadata("Build 3d", "Build")["duration"].days == 3
-        assert extract_metadata("* Build 2w", "Build")["duration"].days == 14
+    def test_lag_matches_the_same_lag_on_a_depends_link(self):
+        star = self.schedule("P\n  Spec 3d 2026-03-02\n  * +2d Build 3d\n")
+        link = self.schedule("P\n  Spec 3d 2026-03-02\n  Build 3d [depends Spec +2d]\n")
+        assert star["Build"]["start"] == link["Build"]["start"]
+        assert star["Build"]["finish"] == link["Build"]["finish"]
+
+    def test_a_lead_overlaps_the_previous_task(self):
+        # Spec's finish is Thu 5 (exclusive); a one-day lead starts Wed 4
+        tasks = self.schedule("P\n  Spec 3d 2026-03-02\n  * -1d Review 2d\n")
+        assert tasks["Review"]["start"].date().isoformat() == "2026-03-04"
+
+    def test_a_lagged_milestone_sits_where_a_lagged_depends_puts_it(self):
+        # A milestone sits on its predecessor's (exclusive) finish boundary, so
+        # two working days after Wed 4 is the end of Fri 6, i.e. Sat 7
+        star = self.schedule("P\n  Spec 3d 2026-03-02\n  * +2d Gate 0d\n")
+        link = self.schedule("P\n  Spec 3d 2026-03-02\n  Gate 0d [depends Spec +2d]\n")
+        assert star["Gate"]["start"] == link["Gate"]["start"]
+        assert star["Gate"]["start"].date().isoformat() == "2026-03-07"
+        assert star["Gate"]["finish"] == star["Gate"]["start"]
+
+    def test_no_lag_is_unchanged(self):
+        tasks = self.schedule("P\n  Spec 3d 2026-03-02\n  * Build 3d\n  *Test 2w\n")
+        assert tasks["Build"]["start"].date().isoformat() == "2026-03-05"
+        assert "lag_lead" not in tasks["Build"] or not tasks["Build"]["lag_lead"]
+        assert tasks["Test"]["duration"].days == 14
+
+    def test_a_lagged_gap_is_not_float(self):
+        # The chain Spec -> (+2d) -> Build ends the project, so both are critical
+        tasks = self.schedule("P\n  Spec 3d 2026-03-02\n  * +2d Build 3d\n  Side 1d 2026-03-02\n")
+        assert tasks["Spec"]["critical"] is True
+        assert tasks["Spec"]["total_float"] == 0
+        assert tasks["Build"]["critical"] is True
+        assert tasks["Side"]["critical"] is False
+
+    def test_the_converter_keeps_the_lag(self):
+        from noodle_core import convert_plan_format_to_standard
+
+        out = convert_plan_format_to_standard("P\n  * +2d Build @a 3days\n")
+        assert "*+2d Build @a 3d" in out

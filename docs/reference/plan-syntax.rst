@@ -48,6 +48,23 @@ Prefix a task with ``*`` to make it start immediately after the previous task:
 
 Task B starts the day after Task A finishes.
 
+Add a lag straight after the ``*`` to leave a gap, or a negative one for a lead
+that overlaps the two:
+
+.. code-block:: text
+
+   Phase
+     Pour concrete @crew 1d
+     * +2d Strip formwork @crew 1d
+     * -1d Snag list @alice 2d
+
+*Strip formwork* starts two working days after the concrete is poured, and the
+*Snag list* starts a day before the formwork is stripped. The lag counts working
+days and is applied exactly as a lag on a ``[depends ...]`` link: ``* +2d`` is
+the same as ``[depends Pour concrete +2d]``. It is not part of the task's name
+or duration, and the Gantt's predecessors column shows it. A lagged gap is not
+float: a chain joined by lags can still be the critical path.
+
 Duration Formats
 ~~~~~~~~~~~~~~~~~
 

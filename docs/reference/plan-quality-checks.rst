@@ -187,6 +187,19 @@ phase-dependency
 dependency is ignored. *Fix:* depend on the phase's last task (or a ``0d``
 milestone at its end), and move a phase's own dependency onto its first task.
 
+.. _ambiguous-dependency:
+
+ambiguous-dependency
+^^^^^^^^^^^^^^^^^^^^
+
+**Warning.** ``[depends X]`` names a task, but more than one task has that
+name. The scheduler takes the *first* task with the name in the plan --
+wherever the dependant is, even if a namesake sits right next to it -- and
+the finding says which one that is. When the first is a phase, the
+dependency is ignored altogether and ``phase-dependency`` is reported too.
+*Fix:* rename one of the tasks so the dependency says which it means. There
+is no **Apply fix**: only you know which task was meant.
+
 .. _circular-dependency:
 
 circular-dependency
