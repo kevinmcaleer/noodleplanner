@@ -14,3 +14,4 @@ Build [depends $discovery]
   Verify 2d @adam:R #review
   Approve 1d @kev:A
   Recurring 1d [repeats weekly]
+  Prototype 3d @dev[50%]

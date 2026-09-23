@@ -81,6 +81,7 @@ def test_the_corpus_covers_the_grammar():
         "!!!", "{Research}", "~8h/16h", # priority, bucket, effort
         "#urgent", "@adam:R", "@kev:A", # labels, quality roles
         "100%", "2026-07-01",           # progress, explicit dates
+        "@dev[50%]",                    # allocation, not progress
     ]:
         assert construct in plans, f"the corpus does not exercise {construct!r}"
 

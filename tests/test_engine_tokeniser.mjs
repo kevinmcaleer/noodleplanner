@@ -94,6 +94,9 @@ const EDGE_LINES = [
   "Task 50%",
   "Task 150%",
   "Task 0%",
+  "Task @dev[30%] 0%",
+  "Task @dev[30%]",
+  "Task 5d @dev[30%] 40%",
   'Task "a comment"',
   "Task 'a comment'",
   'Task !"a bang comment"',
@@ -187,6 +190,12 @@ test("effort drives percent when both halves are given", () => {
   // a total on its own means none of it is done yet, so 0% — not "unset"
   assert.equal(extractMetadata("Task ~8h").percent, 0);
   assert.equal(extractMetadata("Task ~8h").effort_total, 8);
+});
+
+test("a resource allocation is not percent complete", () => {
+  assert.equal(extractMetadata("Design @dev[30%] 5d 0%").percent, 0);
+  assert.equal(extractMetadata("Design @dev[30%] 5d").percent, undefined);
+  assert.equal(extractMetadata("Design @dev[30%] 5d").resources, "dev[30%]");
 });
 
 test("Python's banker's rounding is reproduced", () => {

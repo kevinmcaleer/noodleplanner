@@ -44,6 +44,9 @@ const DQ_COMMENT = /"([^"]+)"/;
 const SQ_COMMENT = /'([^']+)'/;
 const EFFORT = /~(\d+(?:\.\d+)?)(h|d)(?:\/(\d+(?:\.\d+)?)(h|d))?/;
 const PERCENT = /(\d{1,3})%/;
+// `@dev[30%]` gives a resource a share of their day (the Resource Sheet reads
+// it); that N% is an allocation, not the task's percent complete.
+const ALLOCATION = /@[^\s[]+\[\d+%\]/g;
 const LEGACY_PERCENT = /\bp(\d{1,3})\b/;
 const LEVELLED = /\[levelled\s+@?(\S+)\s+(\d{4}-\d{2}-\d{2})\s*\]/i;
 const DEADLINE = /\bD(\d{4}-\d{2}-\d{2})\b/;
@@ -237,7 +240,7 @@ export function extractMetadata(taskStr, taskName = null) {
   }
 
   // --- percent complete ---
-  const percent = PERCENT.exec(line);
+  const percent = PERCENT.exec(line.replace(ALLOCATION, ""));
   if (percent) {
     meta.percent = Math.max(0, Math.min(100, parseInt(percent[1], 10)));
   } else {
