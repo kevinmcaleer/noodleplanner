@@ -369,6 +369,15 @@ const tasks = [
     const launchIdx2 = withManyResult.indexOf('Launch');
     assert(launchIdx2 !== -1 && launchIdx2 < budgetIdx, 'the new task line lands before the earliest back-matter marker');
 
+    // A bare `---` separator ahead of ---highlights--- (written by
+    // updatePlanHighlightsText()) belongs to the back matter: the new task
+    // must land above it, or the parser sees a phantom task named "---"
+    // with the new note stranded beneath it.
+    const withHighlights = 'Phase 1\n  Discovery\n\n---\n\n---highlights---\n## 2026-01-01 @kev\nAll good\n\n---end-highlights---\n';
+    const withHighlightsResult = wbInsertNewSummaryTaskLine(withHighlights, 'Launch');
+    assert(withHighlightsResult.startsWith('Phase 1\n  Discovery\n\nLaunch\n\n---\n\n---highlights---\n'),
+        'the new task line lands above the bare --- separator before ---highlights---');
+
     // A blank/whitespace-only name is a no-op (the caller -- the picker's
     // form -- is responsible for its own "enter a name" validation; this
     // function just refuses to write anything either way).

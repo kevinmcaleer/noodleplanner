@@ -155,6 +155,15 @@ assert(appended.includes('| Discovery | 120 | 80 |'), 'append leaves the whitebo
 assertEqual(wbAppendTopLevelTask(PLAN, '   '), PLAN, 'appending a blank name is a no-op');
 assertEqual(wbParseOutline(appended).entries.length, 8, 'appended task is parseable as a task');
 
+// A bare `---` separator before the back matter (the one written ahead of
+// ---highlights---) is not part of the outline: a new task goes above it.
+const WITH_SEPARATOR = 'Discovery\n  Kick-off\n\n---\n\n---highlights---\n## 2026-01-01 @kev\nAll good';
+assertEqual(wbAppendTopLevelTask(WITH_SEPARATOR, 'Fresh idea'),
+    'Discovery\n  Kick-off\nFresh idea\n\n---\n\n---highlights---\n## 2026-01-01 @kev\nAll good',
+    'new task lands above the bare --- separator, not beneath it');
+assertEqual(wbAppendTopLevelTask('Alpha\n\n---\n', 'Beta'), 'Alpha\nBeta\n\n---\n',
+    'a trailing hand-typed --- divider also stays below appended tasks');
+
 // Appending to a plan with no front matter and no back matter.
 assertEqual(wbAppendTopLevelTask('Alpha\n  Beta', 'Gamma'), 'Alpha\n  Beta\nGamma',
     'append works on a bare outline');
