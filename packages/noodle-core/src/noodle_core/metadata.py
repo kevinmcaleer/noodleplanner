@@ -42,6 +42,10 @@ _LEVELLED = re.compile(r'\[levelled\s+@?(\S+)\s+(\d{4}-\d{2}-\d{2})\s*\]', re.IG
 _DEADLINE = re.compile(r'\bD(\d{4}-\d{2}-\d{2})\b')
 _DATE = re.compile(r'(\d{4}-\d{2}-\d{2})')
 _DURATION = re.compile(r'(?<!~)(?<![~/])\b(\d+)([dwmy])\b')
+# A sequential line's own lag, `* +2d Build 3d`: the `+2d` is the gap after the
+# previous task, never the task's duration, so it is blanked before the
+# duration search.
+_STAR_LAG = re.compile(r'^\*\s*[+-]\d+[dwmy]\b')
 _LEGACY_DURATION = re.compile(r':p(\d+)d')
 _DESCRIPTION = re.compile(r"\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|\"|{|\[|D\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)")
 _PERCENT_TOKEN = re.compile(r'\s*\b\d{1,3}%')
@@ -433,7 +437,9 @@ def extract_metadata(task_str, task_name=None):
 
     # Support new simple format: 10d, 2w, 3m, 1y
     # Use negative lookbehind to avoid matching effort tokens (prefixed with ~)
-    duration_match = _DURATION.search(task_str)
+    duration_match = _DURATION.search(
+        _STAR_LAG.sub(lambda m: ' ' * len(m.group(0)), str(task_str))
+    )
     if duration_match:
         value = int(duration_match.group(1))
         unit = duration_match.group(2)

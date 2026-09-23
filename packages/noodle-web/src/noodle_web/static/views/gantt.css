@@ -26,12 +26,66 @@
     flex-shrink: 0;
 }
 
-/* #1287: the title is now a direct child of the column flex `.gantt-content`,
+/* #1287: the title row is a direct child of the column flex `.gantt-content`,
    where `.gantt-toolbar` used to sit. That wrapper carried `flex-shrink: 0`,
-   so the title inherits it here rather than losing it -- otherwise the chart
-   below could squeeze the heading when vertical space runs short. */
-.gantt-content > .gantt-title {
+   so the row keeps it -- otherwise the chart below could squeeze the heading
+   when vertical space runs short. #787 put the zoom control beside the title,
+   so the margins that used to sit on the heading now sit on the row. */
+.gantt-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--np-space-8) var(--np-space-16);
     flex-shrink: 0;
+    margin: var(--np-space-12) var(--np-space-16) var(--np-space-8);
+}
+
+.gantt-titlebar > .gantt-title {
+    margin: 0;
+}
+
+/* #787: continuous zoom -- a slider with the named scales as detents */
+.gantt-zoom {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-4);
+    color: var(--np-muted);
+    font-size: var(--np-text-85);
+}
+
+.gantt-zoom-slider {
+    width: 180px;
+    accent-color: var(--np-accent);
+    cursor: pointer;
+}
+
+.gantt-zoom-step {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-control);
+    background: var(--np-surface);
+    color: var(--np-body);
+    font-size: var(--np-text-110);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.gantt-zoom-step:hover {
+    background: var(--np-bg-hover);
+}
+
+.gantt-zoom-slider:focus-visible,
+.gantt-zoom-step:focus-visible {
+    outline: var(--np-focus-ring);
+    outline-offset: var(--np-focus-ring-offset);
+}
+
+.gantt-zoom-readout {
+    min-width: 72px;
+    font-variant-numeric: tabular-nums;
 }
 
 /* #1267: `.gantt-scale-selector` and its <select> styling are gone -- the
@@ -285,6 +339,45 @@
     flex-shrink: 0;
 }
 
+/* #787: two header bands, coarse over fine, chosen from the zoom by
+   gantt-scale.js. Cells are absolutely positioned from the same day
+   arithmetic as the bars, so a header line and a bar edge can never
+   disagree by the rounding of a flex layout. */
+.gantt-header-band {
+    position: relative;
+    height: 24px;
+    flex: 0 0 auto;
+}
+
+.gantt-header-band--coarse {
+    border-bottom: 1px solid var(--np-border);
+}
+
+.gantt-header-cell {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid var(--np-border);
+    box-sizing: border-box;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 0.7em;
+    font-weight: 600;
+    color: var(--np-accent);
+}
+
+.gantt-header-band--coarse .gantt-header-cell {
+    color: var(--np-body);
+}
+
+.gantt-header-cell.gantt-today {
+    background-color: var(--np-success-tint);
+    color: var(--np-success-ink);
+}
+
 .gantt-month.gantt-today {
     background-color: var(--np-success-tint);
     color: var(--np-success-ink);
@@ -349,7 +442,9 @@
     top: 6px;
     border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s;
+    /* Not left/width (#787): the zoom slider and the drag preview move bars
+       on every frame, and an eased position would lag behind the pointer. */
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
     overflow: visible;
     touch-action: pan-y;
 }
@@ -363,6 +458,41 @@
 .gantt-bar.dragging {
     opacity: 0.7;
     z-index: 20;
+}
+
+/* #787: while a bar is dragged, every other bar the edit moves (dependants,
+   successors, summary roll-ups) is shown where the schedule will put it */
+.gantt-bar.gantt-bar-preview {
+    outline: 2px dashed var(--np-accent);
+    outline-offset: 1px;
+    opacity: 0.85;
+}
+
+.gantt-info-table td.gantt-cell-preview {
+    color: var(--np-accent-ink);
+    background: var(--np-accent-tint);
+}
+
+body.gantt-dragging,
+body.gantt-dragging * {
+    cursor: grabbing !important;
+    user-select: none;
+}
+
+/* The live readout above a dragged bar: new dates, duration, knock-on */
+.gantt-drag-label {
+    position: absolute;
+    top: -2px;
+    transform: translateY(-100%);
+    z-index: 30;
+    padding: var(--np-space-2) var(--np-space-8);
+    border-radius: var(--np-radius-sm);
+    background: var(--np-ink);
+    color: var(--np-paper);
+    font-size: var(--np-text-75);
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: var(--np-elevation-2);
 }
 
 .gantt-bar-handle {
@@ -385,6 +515,21 @@
     background: linear-gradient(to left, rgba(0, 0, 0, 0.3), transparent);
     border-top-right-radius: 4px;
     border-bottom-right-radius: 4px;
+}
+
+/* #787: a bar too narrow for two handles (a short task at a coarse zoom)
+   is move-only, with an invisible hit area wider than the bar itself */
+.gantt-bar-narrow > .gantt-bar-handle {
+    display: none;
+}
+
+.gantt-bar-narrow::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -8px;
+    right: -8px;
 }
 
 .gantt-bar-handle:hover {

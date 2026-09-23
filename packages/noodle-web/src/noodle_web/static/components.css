@@ -2724,31 +2724,226 @@ tr:hover .task-context-btn,
     margin: 0 auto;
 }
 
-.analysis-health-score {
-    background: var(--np-surface);
-    border-radius: 8px;
-    padding: var(--np-space-32);
-    text-align: center;
-    box-shadow: 0 2px 8px var(--np-shadow);
-    margin-bottom: var(--np-space-32);
-}
-
-.analysis-health-score h3 {
-    margin: 0 0 var(--np-space-16) 0;
-    color: var(--np-body);
-    font-size: 1.1em;
-}
-
-.health-score-value {
-    font-size: 3em;
-    font-weight: 700;
-    margin: var(--np-space-12) 0;
-}
-
-.health-score-status {
-    font-size: 1.3em;
+.analysis-insights-title {
+    max-width: 900px;
+    margin: var(--np-space-32) auto var(--np-space-16);
+    font-size: 1.4em;
     font-weight: 600;
-    margin-top: var(--np-space-12);
+    color: var(--np-ink);
+}
+
+/* ========================================
+   Plan review (#782) -- findings from /api/analyse
+   ======================================== */
+
+.plan-review {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: var(--np-space-20);
+    background: var(--np-surface);
+    border-radius: var(--np-radius-card);
+    box-shadow: var(--np-elevation-1);
+}
+
+.plan-review-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--np-space-16);
+}
+
+.plan-review-title {
+    margin: 0;
+    font-size: 1.4em;
+    font-weight: 600;
+    color: var(--np-ink);
+}
+
+.plan-review-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-16);
+}
+
+.plan-review-score {
+    display: flex;
+    align-items: baseline;
+    gap: var(--np-space-8);
+    padding: var(--np-space-4) var(--np-space-12);
+    border-radius: var(--np-radius-pill);
+    background: var(--np-sunken);
+    color: var(--np-ink);
+}
+
+.plan-review-score-value {
+    font-size: 1.6em;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.plan-review-score-grade {
+    font-weight: 600;
+}
+
+.plan-review-score--healthy { background: var(--np-success-tint); color: var(--np-success-ink); }
+.plan-review-score--fair { background: var(--np-info-tint); color: var(--np-info-ink); }
+.plan-review-score--needs-attention { background: var(--np-warning-tint); color: var(--np-warning-ink); }
+.plan-review-score--at-risk { background: var(--np-danger-tint); color: var(--np-danger-ink); }
+
+.plan-review-counts {
+    margin: 0;
+    color: var(--np-body);
+}
+
+.plan-review-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--np-space-12);
+    margin-top: var(--np-space-16);
+}
+
+.plan-review-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--np-space-8);
+}
+
+.plan-review-chip {
+    padding: var(--np-space-4) var(--np-space-12);
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-pill);
+    background: var(--np-surface);
+    color: var(--np-body);
+    cursor: pointer;
+}
+
+.plan-review-chip[aria-pressed="true"] {
+    background: var(--np-accent);
+    border-color: var(--np-accent);
+    color: var(--np-on-accent);
+}
+
+.plan-review-search {
+    min-width: 200px;
+    padding: var(--np-space-4) var(--np-space-8);
+    border: 1px solid var(--np-input-border);
+    border-radius: var(--np-radius-control);
+    background: var(--np-input-bg);
+    color: var(--np-ink);
+}
+
+.plan-review-chip:focus-visible,
+.plan-review-search:focus-visible,
+.plan-review-line:focus-visible,
+.plan-review-apply:focus-visible {
+    outline: var(--np-focus-ring);
+    outline-offset: var(--np-focus-ring-offset);
+}
+
+.plan-review-status {
+    min-height: 1.2em;
+    margin: var(--np-space-8) 0 0;
+    color: var(--np-muted);
+    font-size: 0.9em;
+}
+
+.plan-review-group-title {
+    margin: var(--np-space-16) 0 var(--np-space-8);
+    font-size: 1.05em;
+    color: var(--np-ink);
+}
+
+.plan-review-items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.plan-review-item {
+    padding: var(--np-space-12) var(--np-space-16);
+    margin-bottom: var(--np-space-8);
+    border: 1px solid var(--np-hairline);
+    border-left: 4px solid var(--np-border-strong);
+    border-radius: var(--np-radius-md);
+    background: var(--np-paper);
+}
+
+.plan-review-item--error { border-left-color: var(--np-danger); }
+.plan-review-item--warning { border-left-color: var(--np-warning); }
+.plan-review-item--suggestion { border-left-color: var(--np-info); }
+
+.plan-review-item-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--np-space-8);
+}
+
+.plan-review-badge {
+    padding: 0 var(--np-space-8);
+    border-radius: var(--np-radius-pill);
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.plan-review-badge--error { background: var(--np-danger-tint); color: var(--np-danger-ink); }
+.plan-review-badge--warning { background: var(--np-warning-tint); color: var(--np-warning-ink); }
+.plan-review-badge--suggestion { background: var(--np-info-tint); color: var(--np-info-ink); }
+
+.plan-review-item-title {
+    color: var(--np-ink);
+}
+
+.plan-review-line {
+    margin-left: auto;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--np-link);
+    font-size: 0.9em;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.plan-review-message {
+    margin: var(--np-space-8) 0 var(--np-space-4);
+    color: var(--np-ink);
+}
+
+.plan-review-fix {
+    margin: 0;
+    color: var(--np-body);
+    font-size: 0.95em;
+}
+
+.plan-review-fix-label {
+    font-weight: 600;
+}
+
+.plan-review-docs {
+    color: var(--np-link);
+}
+
+.plan-review-apply {
+    margin-top: var(--np-space-8);
+    padding: var(--np-space-4) var(--np-space-12);
+    border: none;
+    border-radius: var(--np-radius-control);
+    background: var(--np-accent);
+    color: var(--np-on-accent);
+    cursor: pointer;
+}
+
+.plan-review-apply:hover {
+    background: var(--np-accent-hover);
+}
+
+.plan-review-empty {
+    margin: var(--np-space-16) 0 0;
+    color: var(--np-success-ink);
 }
 
 .analysis-insight {

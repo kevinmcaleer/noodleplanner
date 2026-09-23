@@ -111,7 +111,9 @@ export const TABS = [
     {
         id: 'report', label: 'Report',
         groups: [
-            { name: 'Reports', launcher: true, lg: [['project-report', 'Project Report'], ['highlights', 'Highlights']], cols: [[['chart', 'Analysis'], ['milestones', 'Milestones']], [['money', 'Budget'], ['target', 'Benefits']]] },
+            // #776: By Assignment and Slippage share a column -- the two reports
+            // a status meeting asks for.
+            { name: 'Reports', launcher: true, lg: [['project-report', 'Project Report'], ['highlights', 'Highlights']], cols: [[['chart', 'Analysis'], ['milestones', 'Milestones']], [['money', 'Budget'], ['target', 'Benefits']], [['people', 'By Assignment'], ['flag', 'Slippage']]] },
             { name: 'Share', lg: [['download', 'Export']], cols: [[['print', 'Print'], ['doc', 'PDF']], [['grid', 'Excel'], ['board', 'PowerPoint']]] },
             { name: 'Data', lg: [['upload', 'Import']], cols: [[['save', 'Save'], ['refresh', 'Sync']]] },
         ],

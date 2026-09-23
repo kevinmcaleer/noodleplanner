@@ -380,3 +380,22 @@ class TestScheduleTasksWithDependencies:
         tasks = schedule_tasks(phases)
         warnings = [t.get('loop_warning') for t in tasks if t.get('loop_warning')]
         assert len(warnings) > 0
+
+
+class TestSequentialLagIsNotTheDuration:
+    """`* +2d Build 3d` is a sequential task with a 2-day lag and a 3-day
+    duration. The duration search used to find the lag first (#787), so the
+    Gantt's drag wrote a new duration the scheduler then ignored."""
+
+    def test_lag_prefix_does_not_become_the_duration(self):
+        meta = extract_metadata("* +2d Build 3d @a", "Build")
+        assert meta["duration"].days == 3
+        assert meta["sequential"] is True
+
+    def test_lag_prefix_without_a_duration_leaves_the_default(self):
+        meta = extract_metadata("* +2d Build", "Build")
+        assert "duration" not in meta
+
+    def test_a_plain_duration_is_unchanged(self):
+        assert extract_metadata("Build 3d", "Build")["duration"].days == 3
+        assert extract_metadata("* Build 2w", "Build")["duration"].days == 14

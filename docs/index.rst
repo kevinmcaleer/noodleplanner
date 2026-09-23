@@ -33,6 +33,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    how-to/use-the-whiteboard
    how-to/use-the-stakeholders-view
    how-to/use-the-evm-view
+   how-to/use-the-assignment-and-slippage-reports
    how-to/use-the-task-inspector
    how-to/use-baselines
    how-to/use-conditional-formatting
@@ -52,6 +53,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    reference/plan-format
    reference/keyboard-shortcuts
    reference/views
+   reference/plan-quality-checks
    reference/export-formats
    reference/front-matter
 

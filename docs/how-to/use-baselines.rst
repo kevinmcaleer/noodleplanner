@@ -7,17 +7,21 @@ Set a Baseline
 ---------------
 
 1. Open the **Gantt** view
-2. Click the **Set Baseline** button in the Gantt toolbar
+2. Click **Set Baseline** in the **Baseline** group of the **Gantt Tools** ribbon tab
 3. The current schedule is saved as the baseline
+
+To see everything that has moved since, open the **Slippage** report
+(**Report** ▸ Reports ▸ **Slippage**). See
+:doc:`use-the-assignment-and-slippage-reports`.
 
 The baseline captures the start date, finish date, and duration of every task at that point in time.
 
 Show the Baseline
 ------------------
 
-1. In the Gantt toolbar, check the **Show Baseline** checkbox
+1. Click **Show Baseline** in the **Baseline** group of the **Gantt Tools** ribbon tab
 2. Baseline bars appear behind the current task bars as semi-transparent overlays
-3. Uncheck the box to hide them again
+3. Click it again to hide them
 
 Read Baseline Bars
 -------------------
