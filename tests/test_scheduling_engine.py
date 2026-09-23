@@ -544,7 +544,7 @@ class TestSummaryTaskExcludedFromDependencies:
         task_a = next(t for t in tasks if t['name'] == 'Task A')
         task_b = next(t for t in tasks if t['name'] == 'Task B')
         # Task B should depend on Task A (not Phase 1)
-        assert task_b['start'] == task_a['finish']
+        assert task_b['start'] == get_next_working_day(task_a['finish'])
 
     def test_sequential_task_skips_summary_across_phases(self):
         """A sequential task in a new phase should skip the phase summary and depend on the last task of the previous phase."""
@@ -602,7 +602,7 @@ class TestSummaryTaskExcludedFromDependencies:
         task_a = next(t for t in tasks if t['name'] == 'Task A')
         task_b = next(t for t in tasks if t['name'] == 'Task B')
         # Task B explicitly depends on Task A
-        assert task_b['start'] == task_a['finish']
+        assert task_b['start'] == get_next_working_day(task_a['finish'])
 
     def test_sequential_skips_multiple_summaries(self):
         """A sequential task should skip multiple consecutive summary tasks."""
@@ -632,7 +632,7 @@ class TestSummaryTaskExcludedFromDependencies:
         task_a = next(t for t in tasks if t['name'] == 'Task A')
         task_b = next(t for t in tasks if t['name'] == 'Task B')
         # Task B should skip both Phase 1 and SubPhase summaries, depend on Task A
-        assert task_b['start'] == task_a['finish']
+        assert task_b['start'] == get_next_working_day(task_a['finish'])
 
 
 class TestMilestoneAlignment:
