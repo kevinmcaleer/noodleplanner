@@ -29,7 +29,9 @@ let ganttTasks = [];
 let ganttScale = 'days';
 let ganttMinDate = null;
 let ganttMaxDate = null;
-let ganttPixelsPerDay = 14;
+// The zoom (#787): the one number the chart is drawn from. Starts on the
+// Days detent, which is what the zoom control shows before any render.
+let ganttPixelsPerDay = 28;
 let collapsedSummaryTasks = new Set();
 
 // Task form state

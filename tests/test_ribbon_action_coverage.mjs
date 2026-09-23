@@ -116,7 +116,7 @@ const DELIBERATE_STUBS = new Set([
   "Heat Map", "Heat", "Probability", "Impact", "RAG",
   "Slack", "Filter", "Sort", "Group",
   // No dedicated function exists (checked: grepped the codebase, found none).
-  "Delete", "Milestone", "Fit", "Today", "Go to Task", "Unlink",
+  "Delete", "Milestone", "Go to Task", "Unlink",
   "Durations",
   "Interest", "Owner", "Grid",
   "Categorise", "Tag", "Link to Risk", "Review", "Publish",

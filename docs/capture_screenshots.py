@@ -31,6 +31,7 @@ try:
     from selenium.webdriver.chrome.service import Service as ChromeService
     from selenium.webdriver.common.by import By
     from selenium.webdriver.common.keys import Keys
+    from selenium.webdriver.common.action_chains import ActionChains
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.common.exceptions import (
@@ -399,6 +400,39 @@ def capture_how_to(driver, base_url):
     # gv-01: Gantt chart
     switch_to_view(driver, "gantt")
     capture_full(driver, section / "gv-01-gantt-full.png")
+
+    # gv-02: zoomed out between the Months and Quarters detents (#787), so
+    # the header shows quarters over months and the readout says "~Months"
+    driver.execute_script("setGanttZoom(4);")
+    time.sleep(0.8)
+    capture_full(driver, section / "gv-02-gantt-zoom.png")
+
+    # gv-03: mid-drag. Dependency lines on, the Wireframes bar's right end
+    # held and dragged three days on, so its dependants show in their
+    # preview positions; Escape then cancels, leaving the plan untouched.
+    driver.execute_script(
+        "setGanttZoom(28);"
+        "const deps = document.getElementById('ganttShowDependencies');"
+        "if (!deps.checked) { deps.checked = true; deps.dispatchEvent(new Event('change')); }"
+        "const i = ganttTasks.findIndex(t => t.name === 'Wireframes');"
+        "const bar = ganttMainBar(i);"
+        "bar.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'instant'});"
+        "document.querySelector('.gantt-chart-side').scrollLeft ="
+        "  Math.max(0, parseFloat(bar.style.left) - 200);"
+    )
+    time.sleep(0.5)
+    handle = driver.execute_script(
+        "return ganttMainBar(ganttTasks.findIndex(t => t.name === 'Wireframes'))"
+        ".querySelector('.gantt-bar-handle.right');"
+    )
+    if handle is not None:
+        ActionChains(driver).click_and_hold(handle).move_by_offset(30, 0) \
+            .move_by_offset(30, 0).move_by_offset(30, 0).pause(0.4).perform()
+        capture_full(driver, section / "gv-03-gantt-drag.png")
+        ActionChains(driver).send_keys(Keys.ESCAPE).release().perform()
+        time.sleep(0.3)
+    else:
+        print("  [SKIP]    gv-03 -- Wireframes bar not found")
 
     # np-01: Notepad list view
     switch_to_view(driver, "notepad")

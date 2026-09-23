@@ -49,6 +49,10 @@ const LEVELLED = /\[levelled\s+@?(\S+)\s+(\d{4}-\d{2}-\d{2})\s*\]/i;
 const DEADLINE = /\bD(\d{4}-\d{2}-\d{2})\b/;
 const DATE = /(\d{4}-\d{2}-\d{2})/;
 const DURATION = /(?<!~)(?<![~/])\b(\d+)([dwmy])\b/;
+// A sequential line's own lag, `* +2d Build 3d`: the `+2d` is the gap after the
+// previous task, never the task's duration, so it is blanked before the
+// duration search (metadata.py's _STAR_LAG).
+const STAR_LAG = /^\*\s*[+-]\d+[dwmy]\b/;
 const LEGACY_DURATION = /:p(\d+)d/;
 const DESCRIPTION = /\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|"|\{|\[|D\d{4}-\d{2}-\d{2}|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)/;
 const PERCENT_TOKEN = /\s*\b\d{1,3}%/g;
@@ -289,7 +293,7 @@ export function extractMetadata(taskStr, taskName = null) {
   }
 
   // --- duration ---
-  const duration = DURATION.exec(line);
+  const duration = DURATION.exec(line.replace(STAR_LAG, (m) => " ".repeat(m.length)));
   if (duration) {
     meta.duration_days = durationToDays(parseInt(duration[1], 10), duration[2]);
   } else {

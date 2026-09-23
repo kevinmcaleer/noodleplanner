@@ -756,7 +756,20 @@ Press Enter to render..."></textarea>
                                         </div>
                                     </div>
                                 </div>
-                                <h2 class="gantt-title"><span class="ribbon-banner ribbon-banner--green">Gantt Chart</span></h2>
+                                <div class="gantt-titlebar">
+                                    <h2 class="gantt-title"><span class="ribbon-banner ribbon-banner--green">Gantt Chart</span></h2>
+                                    <!-- #787: continuous zoom. One pixels-per-day value drives the
+                                         chart; Days/Weeks/Months/Quarters/Years are detents on this
+                                         slider (and the ribbon's Scale buttons jump to them). Ctrl +
+                                         wheel over the chart zooms about the pointer. -->
+                                    <div class="gantt-zoom" role="group" aria-label="Gantt zoom">
+                                        <button type="button" class="gantt-zoom-step" data-gantt-zoom-step="-1" title="Zoom out" aria-label="Zoom out">&minus;</button>
+                                        <input type="range" id="ganttZoomSlider" class="gantt-zoom-slider" min="0" max="1000" step="1" list="ganttZoomTicks" aria-label="Gantt zoom, from years to days">
+                                        <datalist id="ganttZoomTicks"></datalist>
+                                        <button type="button" class="gantt-zoom-step" data-gantt-zoom-step="1" title="Zoom in" aria-label="Zoom in">+</button>
+                                        <span id="ganttZoomReadout" class="gantt-zoom-readout" aria-hidden="true">Days</span>
+                                    </div>
+                                </div>
                                 <div class="gantt-wrapper">
                                     <div class="gantt-table-side">
                                         <table class="gantt-info-table">
@@ -804,12 +817,11 @@ Press Enter to render..."></textarea>
                                      hidden and in the DOM but need not stay anywhere in particular. -->
                                 <div class="gantt-hidden-state" hidden>
                                     <!-- #1267: the visible scale drop-down moved to the Gantt Tools
-                                         ribbon's "Scale" group (five mutually exclusive buttons). This
-                                         <select> is deliberately KEPT, hidden, as the source of truth:
-                                         views-gantt.js's one-time `change` listener (guarded on
-                                         dataset.initialized) is still the only wiring that sets the
-                                         `ganttScale` global and re-renders, and each ribbon button sets
-                                         this element's value and dispatches `change` on it. -->
+                                         ribbon's "Scale" group (five mutually exclusive buttons). Each
+                                         button sets this hidden <select>'s value and dispatches `change`;
+                                         views-gantt.js's one-time listener jumps the zoom to that detent
+                                         (#787). The zoom itself is ganttPixelsPerDay, driven by
+                                         #ganttZoomSlider above. -->
                                     <select id="ganttScale" hidden aria-hidden="true" tabindex="-1">
                                         <option value="days" selected>Days</option>
                                         <option value="weeks">Weeks</option>
@@ -4193,6 +4205,7 @@ Build
     <script src="/static/editor-sync.js?v={{ v }}"></script>
     <script src="/static/editor-undo.js?v={{ v }}"></script>
     <script src="/static/task-row-actions.js?v={{ v }}"></script>
+    <script src="/static/gantt-scale.js?v={{ v }}"></script>
     <script src="/static/views-gantt.js?v={{ v }}"></script>
     <!-- #1271: two-way hover highlight between a Gantt row and its markdown line.
          Loaded after views-gantt.js and editor.js, both of whose DOM it binds to. -->
