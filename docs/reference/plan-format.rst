@@ -215,7 +215,9 @@ characters except the ones that start a token; a comma inside a name breaks
      - Meaning
    * - ``*`` prefix
      - Follows the previous non-phase task (finish-to-start). ``*+2d Name``
-       or ``*-1w Name`` adds lag or lead to that link.
+       (or ``* +2d Name``) and ``*-1w Name`` add lag or lead to that link,
+       in working days, exactly as ``Name [depends Previous +2d]`` would.
+       The lag is not part of the name or the duration.
    * - ``Nd`` ``Nw`` ``Nm`` ``Ny``
      - Duration in working days, weeks (7), months (30) or years (365).
        ``Ndays`` and ``Nweeks`` are accepted and read as the short form.

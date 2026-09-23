@@ -181,8 +181,15 @@ def convert_plan_format_to_standard(text: str) -> str:
             # Extract leading whitespace and * if present
             leading_ws = line[:len(line) - len(stripped)]
             is_sequential = stripped.startswith('*')
+            seq_lag = ''
             if is_sequential:
                 stripped = stripped[1:].lstrip()
+                # Keep a sequential lag (`* +2d Build 3d`) with its star;
+                # left in, its `2d` would be taken for the name's end.
+                lag_match = re.match(r'([+\-]\d+[dwmy])\b\s*', stripped)
+                if lag_match:
+                    seq_lag = lag_match.group(1) + ' '
+                    stripped = stripped[lag_match.end():]
 
             # Find where the metadata starts (@, #, number, date)
             metadata_start = len(stripped)
@@ -213,7 +220,7 @@ def convert_plan_format_to_standard(text: str) -> str:
             # Task names are for display and should keep spaces
 
             # Reconstruct line
-            seq_prefix = '*' if is_sequential else ''
+            seq_prefix = '*' + seq_lag if is_sequential else ''
             line = f"{leading_ws}{seq_prefix}{task_name} {metadata}" if metadata else f"{leading_ws}{seq_prefix}{task_name}"
 
         output_lines.append(line)

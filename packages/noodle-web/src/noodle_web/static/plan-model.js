@@ -37,7 +37,9 @@
     }
 
     function fallbackMetadata(line) {
-        const protectedLine = line
+        // the sequential lag goes first: its `2d` would otherwise be taken
+        // for a duration and leave the `+` behind in the name
+        const protectedLine = line.replace(/^(\s*\*)\s*[+-]\d+[dwmy]\b/i, '$1')
             .replace(/\[depends\s*:?\s*[^\]]*\]/gi, '')
             .replace(/\[repeats\s+[^\]]*\]/gi, '')
             .replace(/\{[^}]*\}/g, '')
@@ -181,7 +183,8 @@
                     ? block[1].split(',').map(parseDependencySpec)
                     : [];
                 if (task.sequential && this.tasks[index - 1]) {
-                    specs.unshift({ rawName: this.tasks[index - 1].name, type: 'FS', lag: '', shorthand: true });
+                    const starLag = /^\*\s*([+-]\d+[dwmy])\b/i.exec(task.content);
+                    specs.unshift({ rawName: this.tasks[index - 1].name, type: 'FS', lag: starLag ? starLag[1] : '', shorthand: true });
                 }
                 for (const spec of specs) {
                     const key = spec.rawName.toLowerCase();

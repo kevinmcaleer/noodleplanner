@@ -26,7 +26,7 @@ import {
   parseDurationToDays,
   todayWorkingDay,
 } from "./date-math.js";
-import { extractMetadata } from "./tokeniser.js";
+import { extractMetadata, splitStarLag } from "./tokeniser.js";
 import { STANDARD_CALENDAR } from "./calendar.js";
 
 export const MAX_NESTING_DEPTH = 20;
@@ -67,8 +67,11 @@ function hasDetails(stripped) {
  * so a task with an inline comment lost its clean name, and any whiteboard
  * row keyed on it (or anything else keyed on the task name) silently
  * orphaned, the moment it gained a child. */
-function taskNameOf(stripped) {
-  if (!hasDetails(stripped)) return stripped.replace(/^\*+/, "");
+function taskNameOf(line) {
+  if (!hasDetails(line)) return line.replace(/^\*+/, "");
+  // A sequential lag (`* +2d Build 3d`) is blanked first, so neither the
+  // `+` nor the `2d` is mistaken for the name or its end.
+  const [stripped] = splitStarLag(line);
 
   let metadataStart = stripped.length;
   for (const ch of ["@", "#", "!", "$", "[", '"']) {
@@ -300,7 +303,19 @@ export function scheduleTasks(allTasks, options = {}) {
           if (!t.depends || !t.depends.length) t.depends = [];
           if (!t.depends.includes(prevName)) t.depends.push(prevName);
         }
-        const seqStart = isMilestone ? prev.finish : getNextWorkingDay(prev.finish, taskHolidays);
+        // A lag or lead on the star (`* +2d`, `* -1d`) shifts the
+        // predecessor's finish by that many working days first -- exactly
+        // as `[depends Prev +2d]` would, and it is recorded the same way so
+        // exports and the Gantt see the offset.
+        let ref = prev.finish;
+        if (t.sequential_lag) {
+          ref = addWorkingDays(ref, parseDurationToDays(t.sequential_lag), taskHolidays);
+          if (prevName) {
+            if (!t.lag_lead) t.lag_lead = {};
+            if (t.lag_lead[prevName] === undefined) t.lag_lead[prevName] = t.sequential_lag;
+          }
+        }
+        const seqStart = isMilestone ? ref : getNextWorkingDay(ref, taskHolidays);
         const explicit = t.start;
         t.start = explicit && explicit > seqStart ? explicit : seqStart;
         if (isMilestone) t.finish = t.start;

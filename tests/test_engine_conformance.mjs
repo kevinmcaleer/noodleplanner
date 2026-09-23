@@ -163,3 +163,27 @@ test("the engine honours a calendar when it is given one", () => {
   );
   assert.equal(finish(without, "Over shutdown"), "2026-08-19", "the no-calendar answer schedules straight through the shutdown");
 });
+
+test("a sequential lag shifts the start, and is not in the name or duration", () => {
+  // `* +2d X` means `X [depends Prev +2d]`: both must schedule identically
+  const lagged = scheduleTasksFromText(
+    "P\n  Design 3d\n  * +2d Build 3d\n  *+2d Cure 2d\n  * -1d Inspect 1d\n  Review 1d [depends Build]\n",
+    { today: FROZEN_TODAY },
+  );
+  const spelled = scheduleTasksFromText(
+    "P\n  Design 3d\n  Build 3d [depends Design +2d]\n  Cure 2d [depends Build +2d]\n  Inspect 1d [depends Cure -1d]\n  Review 1d [depends Build]\n",
+    { today: FROZEN_TODAY },
+  );
+  assert.deepEqual(lagged.map((t) => t.name), ["P", "Design", "Build", "Cure", "Inspect", "Review"]);
+  for (const name of ["Build", "Cure", "Inspect", "Review"]) {
+    const a = lagged.find((t) => t.name === name);
+    const b = spelled.find((t) => t.name === name);
+    assert.deepEqual([a.start, a.finish, a.duration_days, a.lag_lead], [b.start, b.finish, b.duration_days, b.lag_lead], name);
+  }
+  const byName = Object.fromEntries(lagged.map((t) => [t.name, t]));
+  assert.equal(byName.Build.duration_days, 3);
+  assert.equal(byName.Build.start, "2026-06-08", "Design finishes 06-04; +2 working days");
+  assert.deepEqual(byName.Review.depends, ["Build"]);
+  assert.equal(byName.Review.start, byName.Build.finish, "the by-name dependency resolves to the lagged task");
+  assert.ok(byName.Inspect.start < byName.Cure.finish, "a negative lag is a lead");
+});

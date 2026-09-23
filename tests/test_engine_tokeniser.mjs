@@ -135,6 +135,9 @@ const EDGE_LINES = [
   "Task 3d @alice 50% 2026-07-01 D2026-09-10 #tag $prod {B} !! \"note\"",
   "*+2d Task 3d",
   "*-1d Task 3d",
+  "* +2d Task 3d",
+  "* -1d Task 3d",
+  "*+1w Task 0d",
   "Task with a very long name that goes on 3d",
   "Kévin's task 2d @kévin",
 ];
@@ -217,4 +220,16 @@ test("recurrence parses as the Python does", () => {
 test("the sequential marker and its lag are read", () => {
   assert.equal(extractMetadata("*Task 3d").sequential, true);
   assert.equal(extractMetadata("Task 3d").sequential, undefined);
+});
+
+test("a sequential lag is neither the duration nor part of the name", () => {
+  for (const [line, lag] of [["* +2d Build 3d", "+2d"], ["*+2d Build 3d", "+2d"], ["* -1d Build 3d", "-1d"]]) {
+    const meta = extractMetadata(line);
+    assert.equal(meta.sequential, true, line);
+    assert.equal(meta.sequential_lag, lag, line);
+    assert.equal(meta.description, "Build", line);
+    assert.equal(meta.duration_days, 3, line);
+  }
+  assert.equal(extractMetadata("*Build 3d").sequential_lag, undefined);
+  assert.equal(extractMetadata("Build [depends A +2d] 3d").sequential_lag, undefined);
 });
