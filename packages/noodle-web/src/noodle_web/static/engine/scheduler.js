@@ -612,23 +612,21 @@ function flagCircularDependencies(tasks) {
   });
 }
 
-/** calculate_critical_path: float and the critical flag, on leaf tasks. */
 /**
- * Working days of lag (negative: lead) on a finish-to-start pred -> succ
- * link: `[depends X +2d]` or a sequential `* +2d`, both recorded in the
- * successor's lag_lead (scheduling_engine.py's _finish_start_lag).
+ * _late_finish_allowed_by: the latest a predecessor may finish without
+ * delaying the link's successor -- the forward pass run backwards. The
+ * successor's late start (FS, SS) or finish (FF, SF) is shifted back by the
+ * lag, and a start-anchored link (SS, SF) becomes a finish by adding the
+ * predecessor's own duration.
  */
-function finishStartLag(pred, succ) {
-  const predName = String(pred.name || "").toLowerCase();
-  for (const [key, type] of Object.entries(succ.dependency_types || {})) {
-    if (key.toLowerCase() === predName && String(type).toUpperCase() !== "FS") return 0;
-  }
-  for (const [key, value] of Object.entries(succ.lag_lead || {})) {
-    if (key.toLowerCase() === predName) return parseDurationToDays(value);
-  }
-  return 0;
+function lateFinishAllowedBy({ succ, type, lag }, duration, holidays) {
+  let ref = type === "FS" || type === "SS" ? succ.late_start : succ.late_finish;
+  if (lag) ref = addWorkingDays(ref, -lag, holidays);
+  if ((type === "SS" || type === "SF") && duration) return addWorkingDays(ref, duration, holidays);
+  return ref;
 }
 
+/** calculate_critical_path: float and the critical flag, on leaf tasks. */
 function calculateCriticalPath(tasks, holidays) {
   const leaves = tasks.filter((t) => !t.summary && t.start !== undefined && t.finish !== undefined);
   if (!leaves.length) return;
@@ -643,13 +641,18 @@ function calculateCriticalPath(tasks, holidays) {
   const projectEnd = Math.max(...leaves.map((t) => t.finish));
 
   // keyed by task: a dependency on a duplicated name belongs to its first
-  // definition only
+  // definition only. Each link keeps its type and lag/lead, looked up by the
+  // name as written -- exactly as scheduleTasks looked them up going forward.
   const successors = new Map();
   for (const t of leaves) successors.set(t, []);
   for (const t of leaves) {
+    const depTypes = t.dependency_types || {};
+    const lags = t.lag_lead || {};
     for (const dep of t.depends || []) {
       const pred = byName.get(dep.toLowerCase());
-      if (pred && successors.has(pred)) successors.get(pred).push(t);
+      if (!pred || !successors.has(pred)) continue;
+      const lag = lags[dep] !== undefined ? parseDurationToDays(lags[dep]) : 0;
+      successors.get(pred).push({ succ: t, type: depTypes[dep] || "FS", lag });
     }
   }
 
@@ -659,16 +662,12 @@ function calculateCriticalPath(tasks, holidays) {
   }
   for (let i = leaves.length - 1; i >= 0; i--) {
     const t = leaves[i];
-    const succ = successors.get(t);
-    // a successor's lag pushes this task's latest finish earlier by the same
-    // gap (a lead, later): `[depends X +2d]` or `* +2d`
-    const known = succ.map((successor) => {
-      const lag = finishStartLag(t, successor);
-      return lag ? addWorkingDays(successor.late_start, -lag, holidays) : successor.late_start;
-    });
-    t.late_finish = known.length ? Math.min(...known) : projectEnd;
-
     const duration = durationDaysOf(t);
+    t.late_finish = projectEnd;
+    for (const link of successors.get(t)) {
+      t.late_finish = Math.min(t.late_finish, lateFinishAllowedBy(link, duration, holidays));
+    }
+
     if (duration === 0) {
       t.late_start = t.late_finish;
     } else {
