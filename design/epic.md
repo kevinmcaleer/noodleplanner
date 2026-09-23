@@ -55,7 +55,6 @@ Press `?` to open the keyboard shortcuts modal, which lists all available shortc
 
 **Editor Shortcuts:**
 - `Tab` / `Shift+Tab`: Indent/outdent tasks
-- `Ctrl+Enter` / `Cmd+Enter`: Render the plan
 
 **Navigation Shortcuts:**
 - `1`-`9`: Switch between tabs (Editor, Dashboard, Plan views, etc.)

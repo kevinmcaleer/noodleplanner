@@ -6248,14 +6248,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Alt-based shortcuts
         if (e.altKey && !e.ctrlKey && !e.metaKey) {
+            const letter = shortcutLetter(e);
             // Alt+Shift combinations
             if (e.shiftKey) {
-                switch (e.key) {
-                    case 'R':  // Alt+Shift+R - New Resource
+                switch (letter) {
+                    case 'r':  // Alt+Shift+R - New Resource
                         e.preventDefault();
                         openResourceForm();
                         return;
-                    case 'P':  // Alt+Shift+P - Export Portfolio to PowerPoint
+                    case 'p':  // Alt+Shift+P - Export Portfolio to PowerPoint
                         e.preventDefault();
                         if (typeof exportPortfolioReport === 'function') {
                             exportPortfolioReport();
@@ -6266,7 +6267,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Alt (no Shift) combinations
             if (!e.shiftKey) {
-                switch (e.key) {
+                switch (letter) {
                     case 'd':  // Alt+D - Go to Project Dashboard
                         e.preventDefault();
                         switchToView('project-report');
@@ -16933,6 +16934,21 @@ function closeShortcutsModal() {
 // ============================================================================
 // KEYBOARD SHORTCUTS
 // ============================================================================
+
+/**
+ * The lower-case letter an Alt/Option shortcut was pressed with.
+ *
+ * `e.key` alone is not enough: on macOS, Option turns the letter into another
+ * character (Option+D is '∂', Option+Shift+R is '‰') or a dead key (Option+E),
+ * so a switch on `e.key` never matched there. Use `e.key` when it is still a
+ * plain letter -- which keeps non-QWERTY layouts on the letter printed on the
+ * key -- and otherwise fall back to the physical key in `e.code` ('KeyD').
+ */
+function shortcutLetter(e) {
+    if (e.key && /^[a-z]$/i.test(e.key)) return e.key.toLowerCase();
+    if (e.code && /^Key[A-Z]$/.test(e.code)) return e.code.slice(3).toLowerCase();
+    return '';
+}
 
 /**
  * Check if the user is currently typing in a text input, textarea, or

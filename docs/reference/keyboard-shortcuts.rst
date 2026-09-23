@@ -9,6 +9,14 @@ Press ``?`` at any time in NoodlePlanner to open the keyboard shortcuts help mod
 
    The keyboard shortcuts modal, opened by pressing ``?``.
 
+On macOS, use **Option** wherever this page says ``Alt``, and **Cmd** wherever
+it says ``Ctrl``.
+
+.. note::
+
+   There is no shortcut to render the plan: it renders automatically about a
+   second after you stop typing.
+
 Editor Shortcuts
 -----------------
 
@@ -22,14 +30,14 @@ Editor Shortcuts
      - Save plan as a Markdown file
    * - ``Ctrl+Z`` / ``Cmd+Z``
      - Undo last change
-   * - ``Ctrl+Shift+Z`` / ``Cmd+Shift+Z``
+   * - ``Ctrl+Shift+Z`` / ``Cmd+Shift+Z`` or ``Ctrl+Y`` / ``Cmd+Y``
      - Redo last undone change
-   * - ``Ctrl+Enter`` / ``Cmd+Enter``
-     - Render the plan
-   * - ``Tab``
-     - Indent selected task(s) by one level
-   * - ``Shift+Tab``
-     - Outdent selected task(s) by one level
+   * - ``Ctrl+]`` / ``Cmd+]``
+     - Indent the selected line(s) by one level
+   * - ``Ctrl+[`` / ``Cmd+[``
+     - Outdent the selected line(s) by one level
+   * - ``Ctrl+/`` / ``Cmd+/``
+     - Comment or uncomment the selected line(s)
 
 Navigation Shortcuts
 ---------------------
@@ -40,10 +48,42 @@ Navigation Shortcuts
 
    * - Shortcut
      - Action
-   * - ``1``–``9``
-     - Switch between the numbered tabs/views
+   * - ``g`` then ``d`` / ``t`` / ``g`` / ``c`` / ``b`` / ``l``
+     - Go to Dashboard / Tasks / Gantt / Calendar / Board / Timeline
+   * - ``Alt+D``
+     - Go to the Project Dashboard
+   * - ``Alt+P``
+     - Go to the Portfolio
+   * - ``Alt+B``
+     - Go to the Benefits Map
    * - ``Esc``
      - Close the open detail pane or modal
+
+Create and Export Shortcuts
+----------------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Shortcut
+     - Action
+   * - ``Alt+N``
+     - New project
+   * - ``Alt+T``
+     - New task
+   * - ``Alt+R``
+     - New risk
+   * - ``Alt+I``
+     - New issue
+   * - ``Alt+Shift+R``
+     - New resource
+   * - ``Alt+E``
+     - Export the project to Excel
+   * - ``Alt+Shift+P``
+     - Export the portfolio report to PowerPoint
+   * - ``Ctrl+Shift+A`` / ``Cmd+Shift+A``
+     - Toggle the AI chat panel
 
 Global Shortcut
 ----------------

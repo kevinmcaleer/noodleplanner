@@ -75,7 +75,7 @@ What this plan defines:
 Step 3: Render Your Plan
 -------------------------
 
-Press **Ctrl+Enter** (Windows/Linux) or **Cmd+Enter** (Mac) to render the plan, or click the **Render** button.
+There is nothing to press: the plan renders automatically about a second after you stop typing.
 
 NoodlePlanner will parse your text and calculate all start and finish dates automatically based on dependencies and working days.
 
