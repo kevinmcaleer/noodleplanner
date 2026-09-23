@@ -1151,15 +1151,6 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .analysis-health-score {
-    box-shadow: 0 2px 8px var(--np-shadow);
-    color: var(--np-text);
-}
-
-[data-theme="dark"] .analysis-health-score h3 {
-    color: var(--np-text-secondary);
-}
-
 [data-theme="dark"] .analysis-insight {
     box-shadow: 0 2px 4px var(--np-shadow);
     color: var(--np-text);

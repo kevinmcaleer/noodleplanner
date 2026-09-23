@@ -451,6 +451,7 @@ def extract_metadata(task_str, task_name=None):
 
     # Support new simple format: 10d, 2w, 3m, 1y
     # Use negative lookbehind to avoid matching effort tokens (prefixed with ~)
+    # (a sequential lag, `* +2d`, was already blanked by split_star_lag above)
     duration_match = _DURATION.search(task_str)
     if duration_match:
         value = int(duration_match.group(1))

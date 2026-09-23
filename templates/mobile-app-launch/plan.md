@@ -20,17 +20,17 @@ Planning & Design
 
 Development
   Development environment setup @dev 2days [depends Design approval milestone] 0% "Project setup, tools, and CI/CD"
-  Core app development @dev 20days [depends Development environment setup] 0% "Main application features"
-  * Authentication system @dev 3days 0%
-  * Core functionality @dev 10days 0%
-  * User interface implementation @dev 5days 0%
-  * Data persistence @dev 2days 0%
-  API integration and backend services @dev 5days [depends Core app development] 0% "Connect to backend services"
+  Core app development "Main application features"
+    Authentication system @dev 3days [depends Development environment setup] 0%
+    * Core functionality @dev 10days 0%
+    * User interface implementation @dev 5days 0%
+    * Data persistence @dev 2days 0%
+  API integration and backend services @dev 5days [depends Data persistence] 0% "Connect to backend services"
   Push notifications implementation @dev 2days [depends API integration and backend services] 0% "Notification system setup"
   Development complete milestone @dev 0days [depends Push notifications implementation] 0% "App development finished"
 
 Testing & Quality Assurance
-  Unit and integration testing @dev 4days [depends Core app development] 0% "Automated testing coverage"
+  Unit and integration testing @dev 4days [depends Development complete milestone] 0% "Automated testing coverage"
   Device compatibility testing @qa 5days [depends Development complete milestone] 0% "Test across different devices and OS versions"
   User interface testing @qa 3days [depends Device compatibility testing] 0% "UI/UX validation and usability testing"
   Performance and security testing @qa 3days [depends User interface testing] 0% "App performance optimization and security review"
@@ -42,7 +42,7 @@ App Store Preparation
   App store assets creation @designer 3days [depends Testing complete milestone] 0% "Screenshots, icons, and store graphics"
   App store listing copy @marketing 2days [depends App store assets creation] 0% "Description, keywords, and metadata"
   iOS App Store submission @dev 1day [depends App store listing copy] 0% "Submit to Apple App Store"
-  Google Play Store submission @dev 1day [depends App store listing copy] 0% "Submit to Google Play Store"
+  Google Play Store submission @dev 1day [depends iOS App Store submission] 0% "Submit to Google Play Store"
   Store review process @pm 7days [depends iOS App Store submission, Google Play Store submission] 0% "Wait for store approval"
   Store approval milestone @pm 0days [depends Store review process] 0% "App approved in stores"
 
@@ -53,11 +53,3 @@ Launch & Marketing
   Launch day monitoring @dev 1day [depends App launch] 0% "Monitor app performance and user feedback"
   Post-launch marketing activities @marketing 5days [depends App launch] 0% "Ongoing marketing and user acquisition"
   Launch complete milestone @pm 0days [depends Post-launch marketing activities] 0% "Successful app launch completed"
-
-## Highlights
-
-*This section will be populated as the project progresses*
-
-## RAID Log
-
-*Risks, Actions, Issues, and Decisions will be tracked here*

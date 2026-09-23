@@ -307,6 +307,7 @@ export function extractMetadata(taskStr, taskName = null) {
   }
 
   // --- duration ---
+  // (a sequential lag, `* +2d`, was already blanked by splitStarLag above)
   const duration = DURATION.exec(line);
   if (duration) {
     meta.duration_days = durationToDays(parseInt(duration[1], 10), duration[2]);

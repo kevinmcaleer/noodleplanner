@@ -10,6 +10,12 @@ Given the following project plan, analyse it for:
 
 Provide specific, actionable suggestions. Reference task names where possible. Be concise and professional.
 
+NoodlePlanner's automated plan review has already checked the plan for mechanical problems (listed below). Build on it: confirm or explain its findings where they matter, and spend your own analysis on what a checker cannot judge -- scope, realism, missing work.
+
+## Automated Plan Review
+
+{{plan_review}}
+
 ## Current Plan
 
 {{plan_markdown}}
