@@ -993,9 +993,10 @@ const tourSteps = [
 
 let currentTourStep = 0;
 
-function startTour() {
-    // Check if tour has been completed
-    if (getCookie('tourCompleted') === 'true') {
+function startTour({ force = false } = {}) {
+    // Check if tour has been completed (the ribbon's View > Help > Tour
+    // button passes force to replay it anyway)
+    if (!force && getCookie('tourCompleted') === 'true') {
         return;
     }
 
