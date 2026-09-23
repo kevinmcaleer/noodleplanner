@@ -626,6 +626,19 @@ def capture_reference(driver, base_url):
         section / "vw-01-ribbon-views-group.png",
     )
 
+    # vw-02: the ribbon's View tab -- Layout, Window and Help, including the
+    # Help group's Tour button that replays the interface tour. The whole
+    # shell rather than just the body, so the selected tab is in the shot.
+    driver.execute_script(
+        "document.querySelector('.ribbon-tab-btn[data-tab=\"view\"]').click();"
+    )
+    time.sleep(0.5)
+    capture_element(driver, "#ribbonShell", section / "vw-02-ribbon-view-tab.png")
+    driver.execute_script(
+        "document.querySelector('.ribbon-tab-btn[data-tab=\"home\"]').click();"
+    )
+    time.sleep(0.3)
+
     # pq-01: the Analysis view's Plan review (#782), after the review has
     # come back from /api/analyse.
     switch_to_view(driver, "analysis")
