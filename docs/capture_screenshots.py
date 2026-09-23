@@ -597,17 +597,11 @@ def capture_reference(driver, base_url):
 
     # ks-01: Keyboard shortcuts modal
     # Open via JS since the ? key needs a non-input context
-    driver.execute_script(
-        "if (typeof openShortcutsModal === 'function') openShortcutsModal();"
-        "else if (typeof showKeyboardShortcuts === 'function') showKeyboardShortcuts();"
-    )
+    driver.execute_script("openShortcutsModal();")
     time.sleep(1)
     capture_full(driver, section / "ks-01-keyboard-shortcuts.png")
     # Close it
-    driver.execute_script(
-        "if (typeof closeShortcutsModal === 'function') closeShortcutsModal();"
-        "else if (typeof closeKeyboardShortcuts === 'function') closeKeyboardShortcuts();"
-    )
+    driver.execute_script("closeShortcutsModal();")
     time.sleep(0.5)
 
     # vw-01: the ribbon's Views group.

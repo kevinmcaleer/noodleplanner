@@ -6183,13 +6183,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // First check if keyboard shortcuts modal is open - close it
-            const kbOverlay = document.getElementById('keyboardShortcutsOverlay');
-            if (kbOverlay && kbOverlay.classList.contains('active')) {
-                closeKeyboardShortcuts();
-                return;
-            }
-
             // Check if any autocomplete dropdown is open - close it instead
             const depDropdown = document.getElementById('dependencyAutocomplete');
             if (depDropdown && depDropdown.style.display === 'block') {
@@ -6250,13 +6243,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', function(e) {
         // Skip shortcuts when typing in text inputs, textareas, or contenteditable elements
         if (isTypingInInput(e.target)) {
-            return;
-        }
-
-        // ? key (without modifiers) - show keyboard shortcuts help
-        if (e.key === '?' && !e.ctrlKey && !e.altKey && !e.metaKey) {
-            e.preventDefault();
-            showKeyboardShortcuts();
             return;
         }
 
@@ -16965,26 +16951,6 @@ function isTypingInInput(element) {
         return true;
     }
     return false;
-}
-
-/**
- * Show the keyboard shortcuts help modal.
- */
-function showKeyboardShortcuts() {
-    const overlay = document.getElementById('keyboardShortcutsOverlay');
-    if (overlay) {
-        overlay.classList.add('active');
-    }
-}
-
-/**
- * Close the keyboard shortcuts help modal.
- */
-function closeKeyboardShortcuts() {
-    const overlay = document.getElementById('keyboardShortcutsOverlay');
-    if (overlay) {
-        overlay.classList.remove('active');
-    }
 }
 
 /* ========================================
