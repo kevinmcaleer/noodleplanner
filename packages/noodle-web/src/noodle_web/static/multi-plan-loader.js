@@ -98,6 +98,12 @@ async function loadProjectIntoEditor(projectId) {
         planText = mergeDuplicateSections(planText);
     }
 
+    // Move a `---` separator that new notes were once inserted beneath
+    // (showing up as a task named "---") back below the outline
+    if (typeof repairStrandedSeparator === 'function') {
+        planText = repairStrandedSeparator(planText);
+    }
+
     const planEditor = document.getElementById('planEditor');
     if (planEditor) {
         planEditor.value = planText;

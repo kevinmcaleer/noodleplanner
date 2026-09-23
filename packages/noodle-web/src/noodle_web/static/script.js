@@ -79,6 +79,67 @@ function incrementPlanVersion(editor) {
 }
 
 /**
+ * Move a stranded bare `---` separator back below the task outline.
+ *
+ * updatePlanHighlightsText() writes a bare `---` between the outline and
+ * ---highlights---. Before #1303, a whiteboard note created in a plan with
+ * highlights was inserted *under* that separator, and every parser only
+ * ignores a `---` that ends the outline, so the plan grew a phantom task
+ * named "---" with the new note beneath it. This takes every bare `---`
+ * out of the outline and puts one back after its last task, ahead of the
+ * back matter. Text with no stranded separator is returned unchanged.
+ */
+function repairStrandedSeparator(text) {
+    if (!text) return text;
+    const lines = text.split('\n');
+    const isBare = (line) => line.trim() === '---';
+
+    // The outline starts after the front matter, when there is any. An
+    // unclosed front-matter fence is left alone rather than guessed at.
+    let start = 0;
+    let first = 0;
+    while (first < lines.length && !lines[first].trim()) first++;
+    if (first < lines.length && isBare(lines[first])) {
+        start = -1;
+        for (let i = first + 1; i < lines.length; i++) {
+            if (isBare(lines[i])) { start = i + 1; break; }
+        }
+        if (start === -1) return text;
+    }
+
+    // ...and ends at the first back-matter marker, matched the same way
+    // engine/local-parse.js's planBody() matches it.
+    let end = lines.length;
+    for (let i = start; i < lines.length; i++) {
+        if (/^---[a-z][a-z -]*---$/.test(lines[i].trim())) { end = i; break; }
+    }
+
+    let lastContent = -1;
+    for (let i = end - 1; i >= start; i--) {
+        if (lines[i].trim() && !isBare(lines[i])) { lastContent = i; break; }
+    }
+    let stranded = false;
+    for (let i = start; i < lastContent; i++) {
+        if (isBare(lines[i])) { stranded = true; break; }
+    }
+    if (!stranded) return text;
+
+    const outline = [];
+    for (let i = start; i <= lastContent; i++) {
+        if (isBare(lines[i])) {
+            // Drop the separator, and the blank line it would leave doubled.
+            const prevBlank = outline.length && !outline[outline.length - 1].trim();
+            if (prevBlank && !lines[i + 1].trim()) i++;
+            continue;
+        }
+        outline.push(lines[i]);
+    }
+
+    const rebuilt = lines.slice(0, start).concat(outline, ['', '---', '']);
+    return rebuilt.concat(lines.slice(end)).join('\n');
+}
+
+/**
  * Merge duplicate special sections in plan text.
  * If a section marker (e.g. ---highlights---) appears more than once,
  * the contents are merged into a single section and duplicates removed.
