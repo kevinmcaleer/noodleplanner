@@ -557,12 +557,15 @@ class TestWhiteboardSmartTags:
     """Browser-level coverage for #878's opt-in dates and quick assignment."""
 
     def test_detected_date_offers_all_four_choices_and_attaches_start(self, browser, app_server):
+        # The detected date is offered on the checklist row of the task it was
+        # detected in. The note header used to carry a twin that attached the
+        # date to the summary instead; #1250's open question 3 removed it.
         open_app(browser, app_server)
         load_sample_plan(browser)
         editor = browser.find_element(By.ID, "planEditor")
         text = get_plan_text(browser).replace(
-            'Empty Phase "Chase the vendor for a quote."',
-            'Empty Phase "Go live 15th March"',
+            "    Interviews @sam 2d\n",
+            '    Interviews @sam 2d "Go live 15th March"\n',
         )
         browser.execute_script(
             "arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles:true}));",
@@ -573,10 +576,12 @@ class TestWhiteboardSmartTags:
         switch_to_whiteboard(browser)
         browser.execute_script("whiteboardZoomFit();")
 
-        tag = WebDriverWait(browser, 5).until(EC.element_to_be_clickable((
-            By.CSS_SELECTOR, '.wb-note[data-wb-task="Empty Phase"] .wb-note-date-btn'
-        )))
-        assert "15th March" in tag.text
+        row_date = (
+            '.wb-note[data-wb-task="Discovery"] '
+            '.wb-note-row[data-wb-row-task="Interviews"] .wb-note-row-date'
+        )
+        tag = WebDriverWait(browser, 5).until(EC.element_to_be_clickable((By.CSS_SELECTOR, row_date)))
+        assert "15th March" in tag.get_attribute("aria-label")
         tag.click()
         menu = WebDriverWait(browser, 3).until(
             EC.visibility_of_element_located((By.CSS_SELECTOR, ".wb-date-menu"))
@@ -585,8 +590,9 @@ class TestWhiteboardSmartTags:
         assert labels == ["Start", "Finish", "Milestone", "Deadline"]
         menu.find_element(By.CSS_SELECTOR, '[data-date-kind="start"]').click()
 
-        WebDriverWait(browser, 8).until(lambda d: "2026-03-15" in line_for_task(get_plan_text(d), "Empty Phase"))
-        assert '"Go live 15th March"' in line_for_task(get_plan_text(browser), "Empty Phase")
+        WebDriverWait(browser, 8).until(lambda d: "2026-03-15" in line_for_task(get_plan_text(d), "Interviews"))
+        assert '"Go live 15th March"' in line_for_task(get_plan_text(browser), "Interviews")
+        assert "2026-03-15" not in line_for_task(get_plan_text(browser), "Discovery")
 
     # The note header's quick-assign test lived here. The control went with
     # #1250's open question 3 -- resources belong on the tasks inside a
