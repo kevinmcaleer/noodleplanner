@@ -73,7 +73,8 @@ function setupGanttEditableCell(cell, edit) {
 function buildTaskNameToIdMap(tasks) {
     const map = {};
     tasks.forEach(t => {
-        if (t.name) {
+        // first definition of a duplicated name wins, as it does when scheduling
+        if (t.name && !Object.prototype.hasOwnProperty.call(map, t.name.toLowerCase())) {
             map[t.name.toLowerCase()] = t.id;
         }
     });
@@ -1229,7 +1230,10 @@ function ganttVisibleRowCentres() {
 
 function ganttNameToIndex() {
     const map = {};
-    ganttTasks.forEach((t, i) => { if (t.name) map[t.name.toLowerCase()] = i; });
+    ganttTasks.forEach((t, i) => {
+        // first definition of a duplicated name wins, as it does when scheduling
+        if (t.name && !Object.prototype.hasOwnProperty.call(map, t.name.toLowerCase())) map[t.name.toLowerCase()] = i;
+    });
     return map;
 }
 

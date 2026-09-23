@@ -170,7 +170,8 @@
             const byName = new Map();
             const byProduct = new Map();
             for (const task of this.tasks) {
-                if (task.name) byName.set(task.name.toLowerCase(), task);
+                // first definition of a duplicated name wins, as it does when scheduling
+                if (task.name && !byName.has(task.name.toLowerCase())) byName.set(task.name.toLowerCase(), task);
                 if (task.deliverable) byProduct.set(task.deliverable.toLowerCase(), task);
             }
             for (let index = 0; index < this.tasks.length; index++) {
