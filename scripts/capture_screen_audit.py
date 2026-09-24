@@ -28,13 +28,25 @@ Usage::
 
 Requires Playwright (already a dev dependency; ``tests/ui`` uses it).
 
-**Run it somewhere that can reach the CDN.** ``index.html`` pulls Bootstrap,
-Bootstrap Icons and three webfonts from ``cdn.jsdelivr.net`` and
-``fonts.googleapis.com``. Where those are blocked the app still renders, but in
-fallback fonts and without Bootstrap's styling or any icon -- fine for an
-A/B comparison, where both captures are equally affected, and misleading as a
-board someone makes design decisions from. The run does not detect this; check
-that the captures have icons before importing them anywhere.
+**The captures need the CDN.** ``index.html`` pulls Bootstrap, Bootstrap Icons
+and three webfonts from ``cdn.jsdelivr.net`` and ``fonts.googleapis.com``.
+Where those are blocked the app still renders, but in fallback fonts and
+without Bootstrap's styling or any icon -- fine for an A/B comparison, and
+misleading as a board someone makes design decisions from. So a run in which
+any CDN request fails exits non-zero and names the URLs.
+
+Where ``cdn.jsdelivr.net`` is blocked but the npm registry is not (the Claude
+Code web sandbox is one such network), point ``--npm-mirror`` at a directory of
+unpacked packages. jsDelivr's ``/npm/<pkg>@<ver>/<path>`` URLs are a straight
+view of the published npm tarball, so ``npm pack`` gives the same bytes. In
+that mode the Google Fonts requests are fetched by Playwright's Node driver,
+which trusts ``NODE_EXTRA_CA_CERTS`` where Chromium may not::
+
+    mkdir -p /tmp/cdn && cd /tmp/cdn
+    for p in bootstrap@5.3.0 bootstrap-icons@1.11.3 dagre@0.8.5 html2canvas@1.4.1; do
+      mkdir -p $p && tar xzf "$(npm pack $p --silent)" -C $p --strip-components=1
+    done
+    python scripts/capture_screen_audit.py --npm-mirror /tmp/cdn
 """
 
 from __future__ import annotations
@@ -165,6 +177,54 @@ def _start_server() -> tuple[str, object, threading.Thread]:
     raise SystemExit("app server did not start")
 
 
+CDN_HOSTS = ("cdn.jsdelivr.net", "fonts.googleapis.com", "fonts.gstatic.com")
+JSDELIVR_NPM = "https://cdn.jsdelivr.net/npm/"
+
+
+def watch_cdn(context, npm_mirror: Path | None = None) -> list[str]:
+    """Record every failed CDN request on *context*, optionally serving jsDelivr's
+    ``/npm/`` paths from *npm_mirror* (``<dir>/<pkg>@<ver>/<path>``).
+
+    Returns the list the failures are appended to. A capture with a missing
+    stylesheet or icon font still looks like a screen, so the caller has to
+    check it rather than trust the PNGs.
+    """
+    failed: list[str] = []
+
+    def _record(response):
+        if response.url.startswith(tuple(f"https://{h}/" for h in CDN_HOSTS)) and response.status >= 400:
+            failed.append(f"{response.status} {response.url}")
+
+    def _record_failure(request):
+        if request.url.startswith(tuple(f"https://{h}/" for h in CDN_HOSTS)):
+            failed.append(f"{request.failure} {request.url}")
+
+    context.on("response", _record)
+    context.on("requestfailed", _record_failure)
+
+    if npm_mirror is not None:
+        root = npm_mirror.resolve()
+
+        def _serve(route):
+            rel = route.request.url[len(JSDELIVR_NPM):].split("?", 1)[0].split("#", 1)[0]
+            path = (root / rel).resolve()
+            if root in path.parents and path.is_file():
+                route.fulfill(path=str(path))
+            else:
+                route.fulfill(status=404, body=f"not in mirror: {rel}")
+
+        context.route(JSDELIVR_NPM + "**", _serve)
+        # A network that blocks jsDelivr often also re-signs TLS with its own
+        # CA, which Chromium's store does not have. Playwright's driver is Node
+        # and honours NODE_EXTRA_CA_CERTS, so it fetches the fonts instead --
+        # still verified, just against the trust store the network provides.
+        context.route(
+            lambda url: url.startswith(("https://fonts.googleapis.com/", "https://fonts.gstatic.com/")),
+            lambda route: route.fulfill(response=route.fetch()),
+        )
+    return failed
+
+
 def _views() -> list[tuple[str, str]]:
     """(group, view-id) for every project and portfolio view, in nav order."""
     data = json.loads(STRUCTURE.read_text())
@@ -232,7 +292,10 @@ def _switch(page, group: str, view_id: str) -> bool:
     return True
 
 
-def capture(base_url: str, theme: str, only: set[str] | None, out_dir: Path, width: int) -> list[dict]:
+def capture(
+    base_url: str, theme: str, only: set[str] | None, out_dir: Path, width: int,
+    npm_mirror: Path | None = None, cdn_failures: list[str] | None = None,
+) -> list[dict]:
     from playwright.sync_api import sync_playwright
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -245,6 +308,7 @@ def capture(base_url: str, theme: str, only: set[str] | None, out_dir: Path, wid
             args=["--no-sandbox", "--disable-dev-shm-usage"],
         )
         context = browser.new_context(viewport=viewport, device_scale_factor=1)
+        failed = watch_cdn(context, npm_mirror)
         context.add_init_script("document.cookie = 'tourCompleted=true; path=/; max-age=31536000';")
         page = context.new_page()
         page.goto(base_url, wait_until="domcontentloaded")
@@ -344,6 +408,8 @@ def capture(base_url: str, theme: str, only: set[str] | None, out_dir: Path, wid
 
         context.close()
         browser.close()
+    if cdn_failures is not None:
+        cdn_failures.extend(dict.fromkeys(failed))
     return captured
 
 
@@ -418,6 +484,11 @@ def main() -> int:
         "--width", type=int, default=VIEWPORT["width"],
         help="viewport width; use 480 to check a change at mobile width",
     )
+    parser.add_argument(
+        "--npm-mirror", type=Path, default=os.environ.get("NOODLE_NPM_MIRROR") or None,
+        help="serve cdn.jsdelivr.net/npm/ from this directory of unpacked npm "
+             "packages, for networks that block jsDelivr (see the module docstring)",
+    )
     args = parser.parse_args()
 
     only = set(args.only.split(",")) if args.only else None
@@ -431,7 +502,11 @@ def main() -> int:
 
     try:
         print(f"Capturing {args.theme} theme at {args.width}px into {args.out}/")
-        captured = capture(base_url, args.theme, only, args.out, args.width)
+        cdn_failures: list[str] = []
+        captured = capture(
+            base_url, args.theme, only, args.out, args.width,
+            npm_mirror=args.npm_mirror, cdn_failures=cdn_failures,
+        )
     finally:
         if server is not None:
             server.should_exit = True
@@ -452,11 +527,16 @@ def main() -> int:
         print("switch did not take rather than that the views look alike:")
         for c in dupes:
             print(f"  {c['view']} == {c['duplicateOf']}")
-    print("\nImport into Penpot: File > Import > the board SVG. Keep the PNGs")
-    print("next to it -- the board references them by relative filename.")
-    # A run that could not reach a view, or captured the same screen twice, has
-    # not produced the audit it claims to.
-    return 0 if shot and not dupes and not missing else 1
+    if cdn_failures:
+        print(f"\n{len(cdn_failures)} CDN request(s) failed, so these captures are missing")
+        print("Bootstrap, icons or webfonts -- do not import them. Try --npm-mirror:")
+        for line in cdn_failures[:10]:
+            print(f"  {line}")
+    print("\nNext: npm run design:board, then import board.standalone.svg into Penpot")
+    print("(File > Import). It inlines every screen; the plain board.svg does not.")
+    # A run that could not reach a view, captured the same screen twice, or
+    # rendered without its stylesheets has not produced the audit it claims to.
+    return 0 if shot and not dupes and not missing and not cdn_failures else 1
 
 
 if __name__ == "__main__":
