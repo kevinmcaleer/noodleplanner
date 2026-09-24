@@ -1,4 +1,4 @@
-"""The collaboration join page (/join/<session_id>), on Playwright.
+"""The collaboration join page (/join), on Playwright.
 
 The joiner page's inline script once wired `addTaskBtn`, `newTaskName`,
 `addRaidBtn` and `newRaidTitle` after those elements had left the template
@@ -28,7 +28,7 @@ HOST_SCRIPT = """
 async () => {
     const crypto = await import('/static/collab-crypto.js');
     const info = await (await fetch('/api/collab/start', { method: 'POST' })).json();
-    const connectKey = await crypto.deriveConnectKey(info.handshake_secret, info.session_id);
+    const connectKey = await crypto.deriveConnectKey(info.join_code, info.session_id);
     const keyPair = await crypto.generateEphemeralKeyPair();
     const sessionKeys = new Map();
     window.hostReceived = [];
