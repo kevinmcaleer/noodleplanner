@@ -359,7 +359,146 @@ function collabLog(line) {
     log.scrollTop = log.scrollHeight;
 }
 
+/** #1339: true from the moment the host asks for a session until its
+ * socket closes -- including the gap while /api/collab/start and the key
+ * setup are still in flight, before `collabSocket` exists. The ribbon's
+ * planning-session button reads this to decide between restoring the live
+ * session's dialog and starting a new session, so a second click during
+ * that gap must not start a second session either. */
+let collabSessionStarting = false;
+
+function isCollabSessionLive() {
+    if (collabSessionStarting) return true;
+    return !!collabSocket && (collabSocket.readyState === WebSocket.CONNECTING
+        || collabSocket.readyState === WebSocket.OPEN);
+}
+
+function refreshCollabRibbon() {
+    if (typeof refreshRibbon === 'function') refreshRibbon();
+}
+
+function collabPrefersReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+/** A `--np-anim-duration*` token in milliseconds, so the fly-to-bubble
+ * animation runs at the design system's own pace. */
+function collabAnimDuration(token, fallbackMs) {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+    const value = parseFloat(raw);
+    if (!Number.isFinite(value)) return fallbackMs;
+    return raw.endsWith('ms') ? value : value * 1000;
+}
+
+/** The status-bar chat bubble, if it's on screen -- the dialog's minimised
+ * home. It is only shown while a session is live (setCollabChatActive()). */
+function collabChatBubble() {
+    const bubble = document.getElementById('collabChatBtn');
+    if (!bubble || bubble.getClientRects().length === 0) return null;
+    return bubble;
+}
+
+/** Keyframes that shrink `dialog` onto `bubble`. Under reduced motion it
+ * only fades -- the bubble's pulse still says where it went. */
+function collabMinimiseKeyframes(dialog, bubble) {
+    if (collabPrefersReducedMotion()) return [{ opacity: 1 }, { opacity: 0 }];
+    const from = dialog.getBoundingClientRect();
+    const to = bubble.getBoundingClientRect();
+    const dx = (to.left + to.width / 2) - (from.left + from.width / 2);
+    const dy = (to.top + to.height / 2) - (from.top + from.height / 2);
+    const scale = Math.max(0.02, to.width / Math.max(1, from.width));
+    return [
+        { transform: 'none', opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0 },
+    ];
+}
+
+let collabDialogAnimation = null;
+
+function cancelCollabDialogAnimation() {
+    if (collabDialogAnimation) {
+        const running = collabDialogAnimation;
+        collabDialogAnimation = null;
+        running.forEach((animation) => animation.cancel());
+    }
+}
+
+/** Run the dialog + backdrop animation, then `done`. Browsers without the
+ * Web Animations API (or with nothing to animate) go straight to `done`. */
+function runCollabDialogAnimation(overlay, dialog, keyframes, reverse, done) {
+    cancelCollabDialogAnimation();
+    if (!dialog || typeof dialog.animate !== 'function') { done(); return; }
+    const timing = {
+        duration: collabAnimDuration('--np-anim-duration-slow', 400),
+        easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        direction: reverse ? 'reverse' : 'normal',
+        fill: 'both',
+    };
+    const animations = [
+        dialog.animate(keyframes, timing),
+        overlay.animate([{ opacity: 1 }, { opacity: 0 }], timing),
+    ];
+    collabDialogAnimation = animations;
+    animations[0].finished.then(() => {
+        if (collabDialogAnimation !== animations) return;
+        collabDialogAnimation = null;
+        done();
+        animations.forEach((animation) => animation.cancel());
+    }, () => { /* cancelled by a newer minimise/restore */ });
+}
+
+function pulseCollabChatBubble(bubble) {
+    bubble.classList.remove('collab-bubble-pulse');
+    // Force a reflow so a repeat minimise restarts the pulse.
+    void bubble.offsetWidth;
+    bubble.classList.add('collab-bubble-pulse');
+    bubble.addEventListener('animationend', () => bubble.classList.remove('collab-bubble-pulse'), { once: true });
+}
+
+/** #1339: tuck the dialog into the chat bubble so the host can work on the
+ * plan. Only hides it -- the socket, joiners, chat and code are untouched,
+ * and the ribbon's planning-session button restores it. */
+function minimiseCollabSessionModal() {
+    const overlay = document.getElementById('collabSessionOverlay');
+    if (!overlay || !overlay.classList.contains('active')) return;
+    const dialog = overlay.querySelector('.task-form-modal');
+    const bubble = collabChatBubble();
+    const finish = () => {
+        overlay.classList.remove('active');
+        if (bubble) {
+            pulseCollabChatBubble(bubble);
+            bubble.focus();
+        }
+    };
+    if (!bubble) { finish(); return; }
+    runCollabDialogAnimation(overlay, dialog, collabMinimiseKeyframes(dialog, bubble), false, finish);
+}
+
+/** #1339: bring the live session's dialog back out of the chat bubble --
+ * same code, link, participants and End session as before it was
+ * minimised. */
+function showCollabSessionModal() {
+    const overlay = document.getElementById('collabSessionOverlay');
+    if (!overlay) return;
+    const alreadyOpen = overlay.classList.contains('active') && !collabDialogAnimation;
+    overlay.classList.add('active');
+    const dialog = overlay.querySelector('.task-form-modal');
+    const focusDialog = () => {
+        const code = document.getElementById('collabSessionCode');
+        const target = code && code.getClientRects().length ? code : document.getElementById('collabSessionMinimise');
+        if (target) target.focus();
+    };
+    const bubble = collabChatBubble();
+    if (alreadyOpen || !bubble) { cancelCollabDialogAnimation(); focusDialog(); return; }
+    runCollabDialogAnimation(overlay, dialog, collabMinimiseKeyframes(dialog, bubble), true, focusDialog);
+}
+
 function closeCollabSessionModal() {
+    // #1339: while the session runs, closing is minimising -- the dialog is
+    // the only place the code and End session live, so it has to be
+    // somewhere the host can get it back from.
+    if (isCollabSessionLive()) { minimiseCollabSessionModal(); return; }
+    cancelCollabDialogAnimation();
     const overlay = document.getElementById('collabSessionOverlay');
     if (overlay) overlay.classList.remove('active');
 }
@@ -1112,10 +1251,13 @@ async function startCollabSession() {
     const details = document.getElementById('collabSessionDetails');
     if (!overlay || !status || !details) return;
 
-    if (collabSocket && collabSocket.readyState === WebSocket.OPEN) {
-        collabSocket.close();
-        collabSocket = null;
+    // #1339: a live session's button restores its dialog. Starting afresh
+    // here used to close the socket and drop every joiner.
+    if (isCollabSessionLive()) {
+        showCollabSessionModal();
+        return;
     }
+    collabSessionStarting = true;
     collabSessionKeys.clear();
     collabJoinerNames.clear();
     collabPlanRev = 0;
@@ -1135,6 +1277,8 @@ async function startCollabSession() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         info = await response.json();
     } catch (error) {
+        collabSessionStarting = false;
+        refreshCollabRibbon();
         status.textContent = 'Could not start a session. Please try again.';
         if (typeof showToast === 'function') showToast('Could not start planning session', 'error');
         return;
@@ -1151,19 +1295,26 @@ async function startCollabSession() {
     details.style.display = 'block';
     setCollabChatActive(true);
 
-    const { deriveConnectKey, generateEphemeralKeyPair, buildPubkeyAnnouncement } = await loadCollabCrypto();
+    try {
+        const { deriveConnectKey, generateEphemeralKeyPair } = await loadCollabCrypto();
 
-    collabSessionId = info.session_id;
-    // The join code is the one secret the joiner has, so it is what
-    // authenticates the ECDH handshake -- see collab-crypto.js's module
-    // docstring for what that does and does not protect against.
-    collabConnectKey = await deriveConnectKey(info.join_code, info.session_id);
-    collabKeyPair = await generateEphemeralKeyPair();
+        collabSessionId = info.session_id;
+        // The join code is the one secret the joiner has, so it is what
+        // authenticates the ECDH handshake -- see collab-crypto.js's module
+        // docstring for what that does and does not protect against.
+        collabConnectKey = await deriveConnectKey(info.join_code, info.session_id);
+        collabKeyPair = await generateEphemeralKeyPair();
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    collabSocket = new WebSocket(
-        `${protocol}//${window.location.host}/ws/session/${info.session_id}?token=${encodeURIComponent(info.host_token)}`
-    );
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        collabSocket = new WebSocket(
+            `${protocol}//${window.location.host}/ws/session/${info.session_id}?token=${encodeURIComponent(info.host_token)}`
+        );
+    } finally {
+        // From here the socket itself says whether the session is live.
+        collabSessionStarting = false;
+    }
+    refreshCollabRibbon();
+    const { buildPubkeyAnnouncement } = await loadCollabCrypto();
 
     collabSocket.addEventListener('open', async () => {
         // First message on the wire, always: publish our ephemeral ECDH
@@ -1205,5 +1356,12 @@ async function startCollabSession() {
             writeCollabAutosaveNow();
         }
         renderCollabPresence([]);
+        refreshCollabRibbon();
+        // #1339: a minimised dialog can't show why the session ended, and
+        // the chat bubble it was tucked into has just gone.
+        const overlay = document.getElementById('collabSessionOverlay');
+        if (overlay && !overlay.classList.contains('active') && typeof showToast === 'function') {
+            showToast(status.textContent, 'info');
+        }
     });
 }

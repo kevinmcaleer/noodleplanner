@@ -22,6 +22,19 @@ Starting a Session
 The session is live from that moment. You stay in your normal editor; the
 plan on screen is the one everybody is editing.
 
+Working While the Session Runs
+--------------------------------
+
+The session panel covers the plan, so tuck it away while you work: select
+the **minimise** button (–) in its header, or its close button. The panel
+shrinks into the chat icon in the status bar, and the session carries on
+as before — nobody is disconnected.
+
+To read the code out again for someone joining late, or to end the session,
+choose **Planning session** from the ribbon again. While a session is live
+that button reopens the same panel, code unchanged, rather than starting a
+new session; its tooltip reads **Show planning session** to say so.
+
 Joining a Session
 -------------------
 

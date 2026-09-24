@@ -159,6 +159,29 @@
     position: relative;
 }
 
+/* #1339: the planning-session dialog has just been minimised into this
+   bubble -- a short pop and ring so the eye follows it there. */
+.status-bar-chat-btn.collab-bubble-pulse {
+    animation: collab-bubble-pulse var(--np-anim-duration-slow) var(--np-anim-easing) 2;
+}
+
+@keyframes collab-bubble-pulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 var(--np-accent); }
+    40% { transform: scale(1.25); }
+    100% { transform: scale(1); box-shadow: 0 0 0 var(--np-space-8) transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .status-bar-chat-btn.collab-bubble-pulse {
+        animation-name: collab-bubble-ring;
+    }
+
+    @keyframes collab-bubble-ring {
+        0% { box-shadow: 0 0 0 0 var(--np-accent); }
+        100% { box-shadow: 0 0 0 var(--np-space-8) transparent; }
+    }
+}
+
 .status-bar-chat-unread {
     position: absolute;
     top: 1px;
@@ -209,6 +232,13 @@
     padding: var(--np-space-12);
     border-bottom: 1px solid var(--np-border, #d8dce1);
     background: var(--np-bg-alt, #f5f6f8);
+}
+
+/* #1339: minimise + close in the planning-session dialog's header. */
+.collab-session-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-4);
 }
 
 .collab-chat-header-actions {

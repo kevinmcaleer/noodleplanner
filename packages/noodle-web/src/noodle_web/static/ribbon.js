@@ -91,6 +91,9 @@ function getLiveState() {
         view,
         canUndo: (typeof EditorUndoManager !== 'undefined') ? EditorUndoManager.canUndo() : false,
         canRedo: (typeof EditorUndoManager !== 'undefined') ? EditorUndoManager.canRedo() : false,
+        // #1339: while a planning session runs, its quick action restores
+        // the minimised session dialog instead of starting a new session.
+        collabSessionLive: (typeof isCollabSessionLive === 'function') ? isCollabSessionLive() : false,
         kanbanViewMode: (typeof kanbanBoard !== 'undefined' && kanbanBoard) ? kanbanBoard.viewMode : null,
         ganttShowCriticalPath: !!document.getElementById('ganttShowCriticalPath')?.checked,
         ganttShowBaseline: !!document.getElementById('ganttShowBaseline')?.checked,
@@ -672,7 +675,9 @@ function renderTitleBar(ia, live) {
 
     const quickActions = ia.QUICK_ACTIONS.map((q) => {
         const disabled = q.label === 'Undo' && !live.canUndo;
-        return `<button type="button" class="ribbon-quick-btn" data-quick="${q.label}" title="${q.label}" aria-label="${q.label}" ${disabled ? 'disabled' : ''}>
+        // data-quick stays the action's id; only what the user reads changes.
+        const title = (q.label === 'Start planning session' && live.collabSessionLive) ? 'Show planning session' : q.label;
+        return `<button type="button" class="ribbon-quick-btn" data-quick="${q.label}" title="${title}" aria-label="${title}" ${disabled ? 'disabled' : ''}>
             ${icon(q.icon, 16)}
         </button>`;
     }).join('');
