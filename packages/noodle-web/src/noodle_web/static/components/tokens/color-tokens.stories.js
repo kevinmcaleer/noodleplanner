@@ -16,7 +16,11 @@ import colorDark from '@design-tokens/color-dark.json';
  */
 
 function buildPage() {
-  const names = Object.keys(colorLight).sort((a, b) => a.localeCompare(b));
+  // The colour sets also carry themed non-colours (the elevation shadows,
+  // --np-focus-ring), which a swatch cannot show.
+  const names = Object.keys(colorLight)
+    .filter((name) => colorLight[name].$type === 'color')
+    .sort((a, b) => a.localeCompare(b));
 
   const container = document.createElement('div');
   container.style.fontFamily = "var(--np-font-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif)";

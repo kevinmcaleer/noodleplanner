@@ -89,26 +89,6 @@
     "$value": "#FBEFCE",
     "$description": "--np-accent-tint"
   },
-  "anim-duration": {
-    "$type": "color",
-    "$value": "0.2s",
-    "$description": "--np-anim-duration"
-  },
-  "anim-duration-fast": {
-    "$type": "color",
-    "$value": "0.15s",
-    "$description": "--np-anim-duration-fast"
-  },
-  "anim-duration-slow": {
-    "$type": "color",
-    "$value": "0.4s",
-    "$description": "--np-anim-duration-slow"
-  },
-  "anim-easing": {
-    "$type": "color",
-    "$value": "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-    "$description": "--np-anim-easing"
-  },
   "avatar-bg": {
     "$type": "color",
     "$value": "#23201C",
@@ -174,11 +154,6 @@
     "$value": "#DED9D0",
     "$description": "--np-border-strong"
   },
-  "checkbox-target": {
-    "$type": "color",
-    "$value": "24px",
-    "$description": "--np-checkbox-target"
-  },
   "code-bg": {
     "$type": "color",
     "$value": "#EFE9DE",
@@ -188,11 +163,6 @@
     "$type": "color",
     "$value": "#c21d1d",
     "$description": "--np-danger"
-  },
-  "danger-gradient": {
-    "$type": "color",
-    "$value": "linear-gradient(135deg, #c21d1d 0%, #a01717 100%)",
-    "$description": "--np-danger-gradient"
   },
   "danger-hover": {
     "$type": "color",
@@ -244,10 +214,40 @@
     "$value": "#D4CCBF",
     "$description": "--np-editor-tip-text"
   },
+  "elevation-1": {
+    "$type": "shadow",
+    "$value": "0 1px 2px rgba(35,32,28,.10)",
+    "$description": "--np-elevation-1"
+  },
+  "elevation-2": {
+    "$type": "shadow",
+    "$value": "0 2px 4px rgba(35,32,28,.10)",
+    "$description": "--np-elevation-2"
+  },
+  "elevation-3": {
+    "$type": "shadow",
+    "$value": "0 4px 12px rgba(35,32,28,.16)",
+    "$description": "--np-elevation-3"
+  },
+  "elevation-4": {
+    "$type": "shadow",
+    "$value": "0 20px 60px rgba(35,32,28,.16)",
+    "$description": "--np-elevation-4"
+  },
   "faint": {
     "$type": "color",
     "$value": "#736C60",
     "$description": "--np-faint"
+  },
+  "floating-shadow": {
+    "$type": "shadow",
+    "$value": "0 1px 2px rgba(35,32,28,.04), 0 18px 40px -24px rgba(35,32,28,.22)",
+    "$description": "--np-floating-shadow"
+  },
+  "focus-ring": {
+    "$type": "shadow",
+    "$value": "0 0 0 2px #FAF8F4, 0 0 0 calc(2px + 2px) #8A6205",
+    "$description": "--np-focus-ring"
   },
   "focus-ring-color": {
     "$type": "color",
@@ -278,11 +278,6 @@
     "$type": "color",
     "$value": "#108bb9",
     "$description": "--np-info"
-  },
-  "info-gradient": {
-    "$type": "color",
-    "$value": "linear-gradient(135deg, #108bb9 0%, #0d7096 100%)",
-    "$description": "--np-info-gradient"
   },
   "info-hover": {
     "$type": "color",
@@ -509,6 +504,16 @@
     "$value": "#E5DCCD",
     "$description": "--np-selected"
   },
+  "shadow": {
+    "$type": "color",
+    "$value": "rgba(0, 0, 0, 0.1)",
+    "$description": "--np-shadow"
+  },
+  "shadow-strong": {
+    "$type": "color",
+    "$value": "rgba(0, 0, 0, 0.15)",
+    "$description": "--np-shadow-strong"
+  },
   "shadow-tint": {
     "$type": "color",
     "$value": "rgba(35,32,28,.10)",
@@ -548,11 +553,6 @@
     "$type": "color",
     "$value": "#6B7A5E",
     "$description": "--np-success"
-  },
-  "success-gradient": {
-    "$type": "color",
-    "$value": "linear-gradient(135deg, #1c9e41 0%, #16812f 100%)",
-    "$description": "--np-success-gradient"
   },
   "success-hover": {
     "$type": "color",

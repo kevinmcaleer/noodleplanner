@@ -163,6 +163,13 @@ Since #1191 the export also carries the spacing, type, elevation and focus
 scales, and composite values are resolved on the way out, so `--np-elevation-2`
 arrives as a real shadow rather than the string `0 2px 4px var(--np-shadow-tint)`.
 
+Each token's `$type` is read off its value, not guessed from its name: the
+animation timings arrive as `duration` and `cubicBezier` in `core.json`, and a
+token whose dark value differs — the elevation shadows, `--np-shadow` — sits
+in the two colour sets so each theme gets its own. The three status gradients
+(`--np-danger-gradient` and friends) are deliberately left out, because a
+Penpot colour token cannot hold a gradient.
+
 ### Screens (#1196)
 
 ```sh
@@ -262,7 +269,7 @@ app and needs its own testing pass (`docs/capture_screenshots.py` after, per
 the root `CLAUDE.md`).
 
 **Colour tokens:** `static/components/tokens/color-tokens.stories.js` (the
-"Design Tokens/Colours" story) renders every token straight out of
+"Design Tokens/Colours" story) renders every colour-typed token straight out of
 `docs/design/tokens/color-light.json` / `color-dark.json` — the exact JSON
 Penpot imports — as light/dark swatch pairs, so the palette handed to Penpot
 is visible in Storybook too, without hand-copying values into a second place.
@@ -273,7 +280,7 @@ The token files fuel a further build step this doesn't attempt yet: run
 [Style Dictionary](https://styledictionary.com/) v4+ (which reads DTCG
 `$type`/`$value` natively) to emit CSS custom properties or a JS token module
 for a theme decorator. Not needed for the preview — it loads the app's own CSS,
-so the tokens are simply there. Treat `core.json`'s `shadow` as a
+so the tokens are simply there. Treat a `shadow`-typed token as a
 string-typed token — it stores the raw multi-layer `box-shadow` rather than a
 decomposed object.
 

@@ -89,26 +89,6 @@
     "$value": "#453A20",
     "$description": "--np-accent-tint"
   },
-  "anim-duration": {
-    "$type": "color",
-    "$value": "0.2s",
-    "$description": "--np-anim-duration"
-  },
-  "anim-duration-fast": {
-    "$type": "color",
-    "$value": "0.15s",
-    "$description": "--np-anim-duration-fast"
-  },
-  "anim-duration-slow": {
-    "$type": "color",
-    "$value": "0.4s",
-    "$description": "--np-anim-duration-slow"
-  },
-  "anim-easing": {
-    "$type": "color",
-    "$value": "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-    "$description": "--np-anim-easing"
-  },
   "avatar-bg": {
     "$type": "color",
     "$value": "#FAF8F4",
@@ -174,11 +154,6 @@
     "$value": "#6A6050",
     "$description": "--np-border-strong"
   },
-  "checkbox-target": {
-    "$type": "color",
-    "$value": "24px",
-    "$description": "--np-checkbox-target"
-  },
   "code-bg": {
     "$type": "color",
     "$value": "#39342C",
@@ -188,11 +163,6 @@
     "$type": "color",
     "$value": "#e05252",
     "$description": "--np-danger"
-  },
-  "danger-gradient": {
-    "$type": "color",
-    "$value": "linear-gradient(135deg, #e05252 0%, #c94040 100%)",
-    "$description": "--np-danger-gradient"
   },
   "danger-hover": {
     "$type": "color",
@@ -244,10 +214,40 @@
     "$value": "#D4CCBF",
     "$description": "--np-editor-tip-text"
   },
+  "elevation-1": {
+    "$type": "shadow",
+    "$value": "0 1px 2px rgba(0,0,0,.35)",
+    "$description": "--np-elevation-1"
+  },
+  "elevation-2": {
+    "$type": "shadow",
+    "$value": "0 2px 4px rgba(0,0,0,.35)",
+    "$description": "--np-elevation-2"
+  },
+  "elevation-3": {
+    "$type": "shadow",
+    "$value": "0 4px 12px rgba(0,0,0,.55)",
+    "$description": "--np-elevation-3"
+  },
+  "elevation-4": {
+    "$type": "shadow",
+    "$value": "0 20px 60px rgba(0,0,0,.55)",
+    "$description": "--np-elevation-4"
+  },
   "faint": {
     "$type": "color",
     "$value": "#B8AD9B",
     "$description": "--np-faint"
+  },
+  "floating-shadow": {
+    "$type": "shadow",
+    "$value": "0 1px 2px #0003, 0 18px 40px -24px #0009",
+    "$description": "--np-floating-shadow"
+  },
+  "focus-ring": {
+    "$type": "shadow",
+    "$value": "0 0 0 2px #201E1A, 0 0 0 calc(2px + 2px) #EDB52A",
+    "$description": "--np-focus-ring"
   },
   "focus-ring-color": {
     "$type": "color",
@@ -278,11 +278,6 @@
     "$type": "color",
     "$value": "#3fb6e0",
     "$description": "--np-info"
-  },
-  "info-gradient": {
-    "$type": "color",
-    "$value": "linear-gradient(135deg, #3fb6e0 0%, #2a93b8 100%)",
-    "$description": "--np-info-gradient"
   },
   "info-hover": {
     "$type": "color",
@@ -509,6 +504,16 @@
     "$value": "#484033",
     "$description": "--np-selected"
   },
+  "shadow": {
+    "$type": "color",
+    "$value": "rgba(0, 0, 0, 0.3)",
+    "$description": "--np-shadow"
+  },
+  "shadow-strong": {
+    "$type": "color",
+    "$value": "rgba(0, 0, 0, 0.5)",
+    "$description": "--np-shadow-strong"
+  },
   "shadow-tint": {
     "$type": "color",
     "$value": "rgba(0,0,0,.35)",
@@ -548,11 +553,6 @@
     "$type": "color",
     "$value": "#A9BC98",
     "$description": "--np-success"
-  },
-  "success-gradient": {
-    "$type": "color",
-    "$value": "linear-gradient(135deg, #4ecb72 0%, #3aad5c 100%)",
-    "$description": "--np-success-gradient"
   },
   "success-hover": {
     "$type": "color",

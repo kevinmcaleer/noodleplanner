@@ -116,3 +116,79 @@ def test_exported_values_match_the_stylesheet():
         + "\n  ".join(wrong)
         + "\n\nRun `npm run audit:tokens` and commit the result."
     )
+
+
+# What a DTCG `color` token may hold: a hex, a CSS colour function, or a
+# keyword. Anything else typed `color` -- a duration, a gradient, a length --
+# is what made Penpot's import fail and had to be dropped by hand.
+_COLOUR_VALUE = re.compile(
+    r"^(#[0-9a-fA-F]{3,8}"
+    r"|(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(.*\)"
+    r"|transparent|currentcolor)$",
+    re.IGNORECASE,
+)
+
+_VALUE_SHAPE = {
+    "duration": re.compile(r"^(\d*\.)?\d+m?s$"),
+    "cubicBezier": re.compile(r"^cubic-bezier\(.*\)$"),
+    "dimension": re.compile(r"^-?(\d*\.)?\d+(px|rem|em|%|vh|vw|ch|ex)?$"),
+}
+
+
+def _token_files() -> dict[str, dict]:
+    files = {}
+    for name in ("core", "color-light", "color-dark"):
+        path = TOKENS_DIR / f"{name}.json"
+        if not path.exists():
+            pytest.skip("token export not generated")
+        files[name] = json.loads(path.read_text())
+    return files
+
+
+def _leaves(node, prefix=""):
+    for key, value in node.items():
+        if not isinstance(value, dict):
+            continue
+        if "$value" in value:
+            yield f"{prefix}{key}", value
+        else:
+            yield from _leaves(value, f"{prefix}{key}.")
+
+
+def test_every_colour_typed_token_has_a_colour_value():
+    wrong = [
+        f"{set_name}/{name}: {token['$value']}"
+        for set_name, tokens in _token_files().items()
+        for name, token in _leaves(tokens)
+        if token.get("$type") == "color"
+        and not _COLOUR_VALUE.match(str(token["$value"]).strip())
+    ]
+    assert not wrong, (
+        "these tokens are typed `color` but their value is not a colour, so "
+        "Penpot's import rejects them:\n  "
+        + "\n  ".join(wrong)
+        + "\n\nFix categorize() in scripts/token-audit.mjs and re-run "
+        "`npm run audit:tokens`."
+    )
+
+
+def test_typed_values_have_the_shape_their_type_claims():
+    wrong = []
+    for set_name, tokens in _token_files().items():
+        for name, token in _leaves(tokens):
+            shape = _VALUE_SHAPE.get(token.get("$type"))
+            if shape and not shape.match(str(token["$value"]).strip()):
+                wrong.append(f"{set_name}/{name} ({token['$type']}): {token['$value']}")
+    assert not wrong, "tokens whose value does not match their $type:\n  " + "\n  ".join(wrong)
+
+
+def test_no_gradient_reaches_the_export():
+    # Penpot colour tokens cannot hold a gradient, and a CSS gradient is not a
+    # DTCG `gradient` (a list of stops), so the exporter leaves them out.
+    leaked = [
+        f"{set_name}/{name}"
+        for set_name, tokens in _token_files().items()
+        for name, token in _leaves(tokens)
+        if "gradient(" in str(token["$value"])
+    ]
+    assert not leaked, "gradients in the token export:\n  " + "\n  ".join(leaked)
