@@ -1928,16 +1928,29 @@ function updateWhiteboardView(result, planText) {
     wbRenderNotes();
 }
 
-/** Get-or-create the single <g> that holds all note foreignObjects. */
+/** Get-or-create the single <g> that holds all note foreignObjects. It is
+ * *not* inside the panned/zoomed wbGroup but after it, untransformed: see
+ * wbPlaceBoardObject() in whiteboard.js for why. */
 function wbNotesLayer() {
     if (typeof wbGroup === 'undefined' || !wbGroup) return null;
-    let layer = wbGroup.querySelector('.wb-notes-layer');
+    const svg = wbGroup.ownerSVGElement || wbGroup.parentNode;
+    let layer = svg.querySelector('.wb-notes-layer');
     if (!layer) {
         layer = document.createElementNS(SVG_NS, 'g');
         layer.setAttribute('class', 'wb-notes-layer');
-        wbGroup.appendChild(layer);
+        svg.insertBefore(layer, wbGroup.nextSibling);
     }
     return layer;
+}
+
+/** wbSetBoardRect() (whiteboard.js), or -- where only this file is loaded,
+ * as in its unit tests -- just the board rect it would record. */
+function wbSetNoteBoardRect(fo, rect) {
+    if (typeof wbSetBoardRect === 'function') { wbSetBoardRect(fo, rect); return; }
+    if (rect.x != null) { fo.setAttribute('x', String(rect.x)); fo.dataset.wbX = String(rect.x); }
+    if (rect.y != null) { fo.setAttribute('y', String(rect.y)); fo.dataset.wbY = String(rect.y); }
+    if (rect.width != null) { fo.setAttribute('width', String(rect.width)); fo.dataset.wbWidth = String(rect.width); }
+    if (rect.height != null) { fo.setAttribute('height', String(rect.height)); fo.dataset.wbHeight = String(rect.height); }
 }
 
 /**
@@ -2148,10 +2161,7 @@ function wbUpdateNoteNode(entry, vm) {
     // out from under the user's cursor.
     const draggingThis = typeof wbActiveDrag !== 'undefined' && wbActiveDrag && wbActiveDrag.entry === entry;
     if (!draggingThis) {
-        fo.setAttribute('x', String(row.x || 0));
-        fo.setAttribute('y', String(row.y || 0));
-        fo.setAttribute('width', String(w));
-        fo.setAttribute('height', String(h));
+        wbSetNoteBoardRect(fo, { x: row.x || 0, y: row.y || 0, width: w, height: h });
         // whiteboardZoomFit() (whiteboard.js) reads these dataset values to
         // frame the real note bounding box -- see that function's comment.
         fo.dataset.wbX = String(row.x || 0);
@@ -2477,15 +2487,8 @@ function wbUpdateTextObjectNode(entry, item) {
     const x = Math.round(item.x || 0);
     const y = Math.round(item.y || 0);
 
-    fo.setAttribute('x', String(x));
-    fo.setAttribute('y', String(y));
-    fo.setAttribute('width', String(width));
-    fo.setAttribute('height', String(height));
     fo.dataset.wbTextId = item.id;
-    fo.dataset.wbX = String(x);
-    fo.dataset.wbY = String(y);
-    fo.dataset.wbWidth = String(width);
-    fo.dataset.wbHeight = String(height);
+    wbSetNoteBoardRect(fo, { x, y, width, height });
 
     // Never stomp on live-typed content: while this object is mid-edit,
     // its DOM is the source of truth (nothing has committed to plan text
@@ -2607,19 +2610,12 @@ function wbUpdateNoteDragFromClient(clientX, clientY) {
     const { dx, dy } = wbDragBoardDelta(drag.startClientX, drag.startClientY, clientX, clientY, wbCurrentZoom());
     const fo = drag.entry.fo;
     if (drag.type === 'move') {
-        const x = Math.round(drag.startX + dx);
-        const y = Math.round(drag.startY + dy);
-        fo.setAttribute('x', String(x));
-        fo.setAttribute('y', String(y));
-        fo.dataset.wbX = String(x);
-        fo.dataset.wbY = String(y);
+        wbSetNoteBoardRect(fo, { x: Math.round(drag.startX + dx), y: Math.round(drag.startY + dy) });
     } else if (drag.type === 'resize') {
-        const width = wbClampNoteWidth(drag.startWidth + dx);
-        const height = wbClampNoteHeight(drag.startHeight + dy);
-        fo.setAttribute('width', String(width));
-        fo.setAttribute('height', String(height));
-        fo.dataset.wbWidth = String(width);
-        fo.dataset.wbHeight = String(height);
+        wbSetNoteBoardRect(fo, {
+            width: wbClampNoteWidth(drag.startWidth + dx),
+            height: wbClampNoteHeight(drag.startHeight + dy),
+        });
     }
 
     // Keep the noodles attached to this note glued to it as it moves.
@@ -3040,11 +3036,7 @@ function wbUpdateTextDragFromClient(clientX, clientY) {
     const { dx, dy } = wbDragBoardDelta(drag.startClientX, drag.startClientY, clientX, clientY, wbCurrentZoom());
     const x = Math.round(drag.startX + dx);
     const y = Math.round(drag.startY + dy);
-    const fo = drag.entry.fo;
-    fo.setAttribute('x', String(x));
-    fo.setAttribute('y', String(y));
-    fo.dataset.wbX = String(x);
-    fo.dataset.wbY = String(y);
+    wbSetNoteBoardRect(drag.entry.fo, { x, y });
 }
 
 /**

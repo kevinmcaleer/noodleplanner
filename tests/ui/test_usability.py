@@ -315,9 +315,9 @@ class TestPlanRendering:
         the page, produces the same 28. The mindmap draws into a container that
         has no layout yet, so its measurements come out NaN.
 
-        `unstable` for the same reason as the parking lot reload tests: the
-        test is right, the app is not, and a gate that is red for a defect
-        nobody has fixed teaches people to ignore it. See tests/ui/README.md.
+        `unstable` because the test is right and the app is not, and a gate
+        that is red for a defect nobody has fixed teaches people to ignore it.
+        See tests/ui/README.md.
         """
         _enter_plan_and_render(page, app_server)
         errors = actionable_console_errors(page)

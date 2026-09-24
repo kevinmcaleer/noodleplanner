@@ -178,7 +178,7 @@ def reset_rate_limit_store() -> None:
 #
 # A join attempt is a WebSocket handshake, not an HTTP request, so
 # RateLimitMiddleware above (which only runs on the HTTP request/response
-# cycle) never sees it -- collab_session_ws() in app.py calls
+# cycle) never sees it -- collab_join_ws() in app.py calls
 # `is_join_rate_limited()` explicitly instead. Kept as a separate
 # store/threshold from the general limiter above because a join attempt is
 # a more sensitive action than ordinary request volume (each one is

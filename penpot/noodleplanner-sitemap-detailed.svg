@@ -88,6 +88,6 @@
   <path class="line" marker-end="url(#arrow)" d="M 2395 312 L 1090 1002"/>
 
   <rect class="ext" x="1320" y="430" width="280" height="52"/><text class="label" x="1416" y="462">/templates</text>
-  <rect class="ext" x="1320" y="496" width="280" height="52"/><text class="label" x="1374" y="528">/join/{session_id}</text>
+  <rect class="ext" x="1320" y="496" width="280" height="52"/><text class="label" x="1460" y="528" text-anchor="middle">/join</text>
   <rect class="ext" x="1320" y="562" width="280" height="52"/><text class="label" x="1451" y="594">/docs</text>
 </svg>

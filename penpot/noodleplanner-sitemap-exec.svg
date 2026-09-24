@@ -52,6 +52,6 @@
   <path class="line" marker-end="url(#arrow)" d="M 1020 308 L 1080 308"/>
 
   <rect class="ext" x="980" y="430" width="300" height="56"/><text class="label" x="1058" y="463">/templates</text>
-  <rect class="ext" x="980" y="510" width="300" height="56"/><text class="label" x="1018" y="543">/join/{session_id}</text>
+  <rect class="ext" x="980" y="510" width="300" height="56"/><text class="label" x="1130" y="543" text-anchor="middle">/join</text>
   <rect class="ext" x="980" y="590" width="300" height="56"/><text class="label" x="1090" y="623">/docs</text>
 </svg>

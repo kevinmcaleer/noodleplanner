@@ -2009,10 +2009,10 @@ async def ai_agent_detail(agent_id: str):
 #
 # See collab_session.py's module docstring for the full wire protocol. In
 # short: POST /api/collab/start creates a session; the host's browser then
-# opens /ws/session/{session_id}?token=... and joiners open the same
-# endpoint with no token, sending a {"type": "join", ...} handshake as their
-# first message. Everything after that is an opaque relay -- no plan
-# content is parsed, stored, or logged here.
+# opens /ws/session/{session_id}?token=... and joiners, who only know the
+# six-digit code, open /ws/join and send a {"type": "join", ...} handshake
+# as their first message. Everything after that is an opaque relay -- no
+# plan content is parsed, stored, or logged here.
 #
 # #964 (end-to-end encryption): every payload relayed here is, by
 # construction, AES-GCM ciphertext produced client-side by
@@ -2022,22 +2022,15 @@ async def ai_agent_detail(agent_id: str):
 # discriminator (never plan content) to cache the host's ephemeral ECDH
 # public-key announcement, so a joiner who connects after the host already
 # broadcast it still receives it on admission. See collab_session.py's
-# docstring and collab-crypto.js's module docstring for the full design.
-#
-# Post-security-review update: `join_code` (the six-digit code) is
-# ADMISSION-ONLY -- it has no cryptographic role. The ECDH handshake in
-# collab-crypto.js is authenticated by a separate `handshake_secret`, which
-# this route hands back below but which never travels through any other
-# server request (see collab_session.py's docstring for why: this relay
-# legitimately learns `join_code`, so it can never be what proves the
-# handshake wasn't MITM'd by the relay itself).
+# docstring and collab-crypto.js's module docstring for the full design,
+# including why the join code now also authenticates that handshake.
 # ==============================================================================
 
 
 @app.post("/api/collab/start")
 async def start_collab_session():
     """Start a new collab session and return its id, host token, join code,
-    and handshake secret.
+    and the join page's path.
 
     Deliberately takes no request body -- there is nothing project- or
     plan-related for the relay to know about, by design (see #766's
@@ -2048,21 +2041,21 @@ async def start_collab_session():
         "session_id": info.session_id,
         "host_token": info.host_token,
         "join_code": info.join_code,
-        "handshake_secret": info.handshake_secret,
         "holding_url": info.holding_url,
     }
 
 
-@app.get("/join/{session_id}", response_class=HTMLResponse)
-async def collab_join_page(request: Request, session_id: str):
-    """Serve the minimal joiner page: enter the code and a display name."""
-    return templates.TemplateResponse(request, "collab_join.html", {
-        "v": STATIC_VERSION,
-        "session_id": session_id,
-    })
+@app.get("/join", response_class=HTMLResponse)
+async def collab_join_page(request: Request):
+    """Serve the minimal joiner page: enter the code and a display name.
+
+    The same page for every session -- the code the joiner types is what
+    picks the session (see `collab_join_ws`).
+    """
+    return templates.TemplateResponse(request, "collab_join.html", {"v": STATIC_VERSION})
 
 
-async def _admit_joiner(websocket: WebSocket, session_id: str) -> tuple[Optional[SessionState], str]:
+async def _admit_joiner(websocket: WebSocket) -> tuple[Optional[SessionState], str]:
     """Read the joiner's handshake message and admit or reject them.
 
     On rejection the socket is closed here and (None, "") is returned.
@@ -2091,7 +2084,7 @@ async def _admit_joiner(websocket: WebSocket, session_id: str) -> tuple[Optional
         return None, ""
 
     display_name = display_name.strip()[:100]
-    state = collab_sessions.join_session(session_id, code, display_name, websocket)
+    state = collab_sessions.join_by_code(code, display_name, websocket)
     if state is None:
         # #1057: distinct from the malformed-handshake case above -- the
         # request was well-formed but the code didn't match a live session
@@ -2105,7 +2098,13 @@ async def _admit_joiner(websocket: WebSocket, session_id: str) -> tuple[Optional
         await websocket.close(code=4401, reason="Incorrect or expired code.")
         return None, ""
 
-    await websocket.send_text(json.dumps({"type": "joined", "display_name": display_name}))
+    # The joiner only knew the code; its crypto needs the session id (KDF
+    # salt and AEAD associated data), so hand it over with the admission.
+    await websocket.send_text(json.dumps({
+        "type": "joined",
+        "display_name": display_name,
+        "session_id": state.session_id,
+    }))
     # #964: if the host already broadcast its ECDH public-key handshake
     # announcement before this joiner connected, that broadcast is long
     # gone -- hand the joiner the cached copy now so it can still complete
@@ -2378,21 +2377,25 @@ async def _relay_as_joiner(state: SessionState, websocket: WebSocket, session_id
 
 @app.websocket("/ws/session/{session_id}")
 async def collab_session_ws(websocket: WebSocket, session_id: str):
-    """Host and joiner relay endpoint. See this module's header comment
-    and collab_session.py for the full handshake protocol."""
+    """Host relay endpoint. See this module's header comment and
+    collab_session.py for the full handshake protocol."""
     await websocket.accept()
     token = websocket.query_params.get("token")
-
-    if token:
-        state = collab_sessions.attach_host(session_id, token, websocket)
-        if state is None:
-            await websocket.close(code=4401)
-            return
-        await _relay_as_host(state, websocket, session_id)
+    state = collab_sessions.attach_host(session_id, token, websocket) if token else None
+    if state is None:
+        await websocket.close(code=4401)
         return
+    await _relay_as_host(state, websocket, session_id)
+
+
+@app.websocket("/ws/join")
+async def collab_join_ws(websocket: WebSocket):
+    """Joiner relay endpoint. The joiner knows only the six-digit code,
+    which its first message carries; that picks the session."""
+    await websocket.accept()
 
     # #965: rate limit join attempts per source IP. Each WebSocket
-    # connection reaching this branch is one attempt -- checked before
+    # connection reaching this point is one attempt -- checked before
     # `_admit_joiner` reads the handshake message, since a flood of
     # connection attempts is itself the thing being rate limited, whether
     # or not each one gets as far as sending a (possibly wrong) code.
@@ -2402,7 +2405,7 @@ async def collab_session_ws(websocket: WebSocket, session_id: str):
         await websocket.close(code=4429, reason=f"Too many join attempts. Retry in {retry_after}s.")
         return
 
-    state, _display_name = await _admit_joiner(websocket, session_id)
+    state, _display_name = await _admit_joiner(websocket)
     if state is None:
         return
     # #971: this one presented the correct code, so it was a colleague
@@ -2410,7 +2413,7 @@ async def collab_session_ws(websocket: WebSocket, session_id: str):
     # back, or a team behind one office IP cannot get past its tenth member
     # -- see forgive_join_attempt's docstring.
     forgive_join_attempt(ip)
-    await _relay_as_joiner(state, websocket, session_id)
+    await _relay_as_joiner(state, websocket, state.session_id)
 
 
 if __name__ == "__main__":

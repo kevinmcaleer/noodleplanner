@@ -237,6 +237,13 @@
                             }
                         });
                     });
+                    // Commit now rather than when this task ends. An
+                    // auto-commit only happens once control returns to the
+                    // event loop, and a page being reloaded or closed may not
+                    // get there: the pagehide flush below then leaves an
+                    // uncommitted transaction that the browser aborts with
+                    // the document, and the last edit is lost.
+                    if (typeof tx.commit === 'function') tx.commit();
                 } catch (e) {
                     try { tx.abort(); } catch (e2) { /* already aborted */ }
                     fail(e);
