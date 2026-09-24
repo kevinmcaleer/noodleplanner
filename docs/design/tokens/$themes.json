@@ -1,20 +1,24 @@
 [
   {
-    "id": "light",
     "name": "Light",
+    "group": "Mode",
+    "description": "",
+    "isSource": false,
+    "id": "0c52377d-6eb5-802f-8008-aed5c5e021f1",
     "selectedTokenSets": {
-      "core": "enabled",
       "color-light": "enabled",
-      "color-dark": "disabled"
+      "core": "enabled"
     }
   },
   {
-    "id": "dark",
     "name": "Dark",
+    "group": "Mode",
+    "description": "",
+    "isSource": false,
+    "id": "0c52377d-6eb5-802f-8008-aed5d1874e21",
     "selectedTokenSets": {
-      "core": "enabled",
-      "color-light": "disabled",
-      "color-dark": "enabled"
+      "color-dark": "enabled",
+      "core": "enabled"
     }
   }
 ]

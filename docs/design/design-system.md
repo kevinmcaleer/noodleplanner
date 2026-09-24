@@ -78,6 +78,10 @@ Storybook, it is not official. Authority is decided, not discovered — where
 several variants of a component exist, pick the one closest to the target
 direction and declare it canonical. **Status: set up** in #1197; see §7.
 
+*Superseded for tokens by epic #1317:* Penpot is now the source of the design
+tokens, and `visual-system.css`'s token block is generated from its export
+(#1318; [`contributing.md`](contributing.md) rule 1).
+
 **Penpot is downstream, not the driver.** The bottleneck is standardising
 components that already exist in code, which is Storybook's job — Penpot is
 design-stage tooling for mocking up look and layout *before* code exists.

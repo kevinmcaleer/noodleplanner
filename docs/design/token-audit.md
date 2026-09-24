@@ -21,7 +21,7 @@ for token candidates — plus purpose-built passes for spacing, components and
 non-CSS style. Re-run everything with:
 
 ```sh
-npm run audit:tokens     # docs/design/tokens/*.json + token-audit-data.json
+npm run audit:tokens     # docs/design/token-audit-data.json
 npm run check:contrast   # WCAG check against the token values
 ```
 
@@ -295,13 +295,15 @@ check now has nothing to check and skips rather than failing open.
 
 ## Exported design tokens
 
-`docs/design/tokens/` holds the canonical tokens from `visual-system.css`,
-exported as [W3C Design Tokens](https://tr.designtokens.org/format/)-typed JSON
-in the multi-set convention [Tokens Studio](https://tokens.studio/) uses and
-Penpot reads natively:
+`docs/design/tokens/` holds the canonical tokens as Penpot exports them:
+[W3C Design Tokens](https://tr.designtokens.org/format/)-typed JSON in the
+multi-set convention [Tokens Studio](https://tokens.studio/) uses. It used to be
+exported from `visual-system.css` by this audit; since #1318 it is exported from
+Penpot and generates the CSS instead (`npm run design:tokens`).
 
 - `core.json` — typography, spacing, radius, elevation and focus (theme-independent)
-- `color-light.json` / `color-dark.json` — the two colour sets
+- `color-light.json` / `color-dark.json` — the two theme sets: every colour, and
+  the one shadow (`floating-shadow`) whose value changes with the theme
 - `$themes.json` — maps a Light and a Dark theme onto those sets
 - `$metadata.json` — fixes the order the sets resolve in
 

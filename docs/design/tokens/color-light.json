@@ -1,657 +1,549 @@
 {
-  "bg-primary": {
-    "$type": "color",
-    "$value": "#FFFDF9",
-    "$description": "--bg-primary"
-  },
-  "bg-secondary": {
-    "$type": "color",
-    "$value": "#F3EEE5",
-    "$description": "--bg-secondary"
-  },
-  "border-color": {
-    "$type": "color",
-    "$value": "#E3DDD3",
-    "$description": "--border-color"
-  },
-  "evm-axis-label": {
-    "$type": "color",
-    "$value": "#736C60",
-    "$description": "--evm-axis-label"
-  },
-  "evm-card-bg": {
-    "$type": "color",
-    "$value": "#FFFDF9",
-    "$description": "--evm-card-bg"
-  },
-  "evm-card-border": {
-    "$type": "color",
-    "$value": "#E3DDD3",
-    "$description": "--evm-card-border"
-  },
-  "evm-chart-bg": {
-    "$type": "color",
-    "$value": "#FFFDF9",
-    "$description": "--evm-chart-bg"
-  },
-  "evm-table-border": {
-    "$type": "color",
-    "$value": "#E3DDD3",
-    "$description": "--evm-table-border"
-  },
-  "evm-table-header-bg": {
-    "$type": "color",
-    "$value": "#F3EEE5",
-    "$description": "--evm-table-header-bg"
-  },
-  "evm-text-muted": {
-    "$type": "color",
-    "$value": "#635E55",
-    "$description": "--evm-text-muted"
-  },
-  "evm-text-primary": {
-    "$type": "color",
-    "$value": "#23201C",
-    "$description": "--evm-text-primary"
-  },
-  "evm-text-secondary": {
-    "$type": "color",
-    "$value": "#5C5850",
-    "$description": "--evm-text-secondary"
-  },
-  "accent": {
-    "$type": "color",
-    "$value": "#EDB52A",
-    "$description": "--np-accent"
-  },
-  "accent-gradient": {
-    "$type": "color",
-    "$value": "#EDB52A",
-    "$description": "--np-accent-gradient"
-  },
-  "accent-hover": {
-    "$type": "color",
-    "$value": "#D9A31C",
-    "$description": "--np-accent-hover"
-  },
-  "accent-ink": {
-    "$type": "color",
-    "$value": "#8A6205",
-    "$description": "--np-accent-ink"
-  },
-  "accent-soft": {
-    "$type": "color",
-    "$value": "#d0eaf5",
-    "$description": "--np-accent-soft"
-  },
-  "accent-tint": {
-    "$type": "color",
-    "$value": "#FBEFCE",
-    "$description": "--np-accent-tint"
-  },
-  "anim-duration": {
-    "$type": "color",
-    "$value": "0.2s",
-    "$description": "--np-anim-duration"
-  },
-  "anim-duration-fast": {
-    "$type": "color",
-    "$value": "0.15s",
-    "$description": "--np-anim-duration-fast"
-  },
-  "anim-duration-slow": {
-    "$type": "color",
-    "$value": "0.4s",
-    "$description": "--np-anim-duration-slow"
-  },
-  "anim-easing": {
-    "$type": "color",
-    "$value": "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-    "$description": "--np-anim-easing"
-  },
-  "avatar-bg": {
-    "$type": "color",
-    "$value": "#23201C",
-    "$description": "--np-avatar-bg"
-  },
-  "avatar-ink": {
-    "$type": "color",
-    "$value": "#FAF8F4",
-    "$description": "--np-avatar-ink"
-  },
-  "badge-bg": {
-    "$type": "color",
-    "$value": "#EFE9DE",
-    "$description": "--np-badge-bg"
-  },
-  "bg": {
-    "$type": "color",
-    "$value": "#FAF8F4",
-    "$description": "--np-bg"
-  },
-  "bg-alt": {
-    "$type": "color",
-    "$value": "#F3EEE5",
-    "$description": "--np-bg-alt"
-  },
-  "bg-hover": {
-    "$type": "color",
-    "$value": "#EFE9DE",
-    "$description": "--np-bg-hover"
-  },
-  "blue": {
-    "$type": "color",
-    "$value": "#108bb9",
-    "$description": "--np-blue"
-  },
-  "blue-subtle": {
-    "$type": "color",
-    "$value": "#d0eaf5",
-    "$description": "--np-blue-subtle"
-  },
-  "body": {
-    "$type": "color",
-    "$value": "#5C5850",
-    "$description": "--np-body"
-  },
-  "border": {
-    "$type": "color",
-    "$value": "#E3DDD3",
-    "$description": "--np-border"
-  },
-  "border-control": {
-    "$type": "color",
-    "$value": "#8C857A",
-    "$description": "--np-border-control"
-  },
-  "border-light": {
-    "$type": "color",
-    "$value": "#EFE9DE",
-    "$description": "--np-border-light"
-  },
-  "border-strong": {
-    "$type": "color",
-    "$value": "#DED9D0",
-    "$description": "--np-border-strong"
-  },
-  "checkbox-target": {
-    "$type": "color",
-    "$value": "24px",
-    "$description": "--np-checkbox-target"
-  },
-  "code-bg": {
-    "$type": "color",
-    "$value": "#EFE9DE",
-    "$description": "--np-code-bg"
-  },
-  "danger": {
-    "$type": "color",
-    "$value": "#c21d1d",
-    "$description": "--np-danger"
-  },
-  "danger-gradient": {
-    "$type": "color",
-    "$value": "linear-gradient(135deg, #c21d1d 0%, #a01717 100%)",
-    "$description": "--np-danger-gradient"
-  },
-  "danger-hover": {
-    "$type": "color",
-    "$value": "#a01717",
-    "$description": "--np-danger-hover"
-  },
-  "danger-ink": {
-    "$type": "color",
-    "$value": "#8C3A2C",
-    "$description": "--np-danger-ink"
-  },
-  "danger-tint": {
-    "$type": "color",
-    "$value": "#F6E3E0",
-    "$description": "--np-danger-tint"
-  },
-  "dark-blue": {
-    "$type": "color",
-    "$value": "#02384d",
-    "$description": "--np-dark-blue"
-  },
-  "dark-blue-subtle": {
-    "$type": "color",
-    "$value": "#cfe0e7",
-    "$description": "--np-dark-blue-subtle"
-  },
-  "editor-bg": {
-    "$type": "color",
-    "$value": "#201E1A",
-    "$description": "--np-editor-bg"
-  },
-  "editor-ink": {
-    "$type": "color",
-    "$value": "#d4d4d4",
-    "$description": "--np-editor-ink"
-  },
-  "editor-link-highlight": {
-    "$type": "color",
-    "$value": "#55471A",
-    "$description": "--np-editor-link-highlight"
-  },
-  "editor-tip-bg": {
-    "$type": "color",
-    "$value": "#312D26",
-    "$description": "--np-editor-tip-bg"
-  },
-  "editor-tip-text": {
-    "$type": "color",
-    "$value": "#D4CCBF",
-    "$description": "--np-editor-tip-text"
-  },
-  "faint": {
-    "$type": "color",
-    "$value": "#736C60",
-    "$description": "--np-faint"
-  },
-  "focus-ring-color": {
-    "$type": "color",
-    "$value": "#8A6205",
-    "$description": "--np-focus-ring-color"
-  },
-  "green": {
-    "$type": "color",
-    "$value": "#1c9e41",
-    "$description": "--np-green"
-  },
-  "green-subtle": {
-    "$type": "color",
-    "$value": "#d1f0da",
-    "$description": "--np-green-subtle"
-  },
-  "hairline": {
-    "$type": "color",
-    "$value": "#EFE9DE",
-    "$description": "--np-hairline"
-  },
-  "hairline-warm": {
-    "$type": "color",
-    "$value": "#E7E2D9",
-    "$description": "--np-hairline-warm"
-  },
-  "info": {
-    "$type": "color",
-    "$value": "#108bb9",
-    "$description": "--np-info"
-  },
-  "info-gradient": {
-    "$type": "color",
-    "$value": "linear-gradient(135deg, #108bb9 0%, #0d7096 100%)",
-    "$description": "--np-info-gradient"
-  },
-  "info-hover": {
-    "$type": "color",
-    "$value": "#0d7096",
-    "$description": "--np-info-hover"
-  },
-  "info-ink": {
-    "$type": "color",
-    "$value": "#0A5A78",
-    "$description": "--np-info-ink"
-  },
-  "info-tint": {
-    "$type": "color",
-    "$value": "#DCEBF2",
-    "$description": "--np-info-tint"
-  },
-  "ink": {
-    "$type": "color",
-    "$value": "#23201C",
-    "$description": "--np-ink"
-  },
-  "ink-hover": {
-    "$type": "color",
-    "$value": "#3A352E",
-    "$description": "--np-ink-hover"
-  },
-  "input-bg": {
-    "$type": "color",
-    "$value": "#FAF8F4",
-    "$description": "--np-input-bg"
-  },
-  "input-border": {
-    "$type": "color",
-    "$value": "#DED9D0",
-    "$description": "--np-input-border"
-  },
-  "light-grey": {
-    "$type": "color",
-    "$value": "#dbdbdb",
-    "$description": "--np-light-grey"
-  },
-  "light-grey-subtle": {
-    "$type": "color",
-    "$value": "#f2f2f2",
-    "$description": "--np-light-grey-subtle"
-  },
-  "link": {
-    "$type": "color",
-    "$value": "#8A6205",
-    "$description": "--np-link"
-  },
-  "link-highlight": {
-    "$type": "color",
-    "$value": "#fff4d1",
-    "$description": "--np-link-highlight"
-  },
-  "link-highlight-ink": {
-    "$type": "color",
-    "$value": "#3A2D05",
-    "$description": "--np-link-highlight-ink"
-  },
-  "link-hover": {
-    "$type": "color",
-    "$value": "#23201C",
-    "$description": "--np-link-hover"
-  },
-  "modal-bg": {
-    "$type": "color",
-    "$value": "#FFFDF9",
-    "$description": "--np-modal-bg"
-  },
-  "muted": {
-    "$type": "color",
-    "$value": "#635E55",
-    "$description": "--np-muted"
-  },
-  "note-blue-1": {
-    "$type": "color",
-    "$value": "#C7E5FF",
-    "$description": "--np-note-blue-1"
-  },
-  "note-blue-2": {
-    "$type": "color",
-    "$value": "#A9D6F5",
-    "$description": "--np-note-blue-2"
-  },
-  "note-green-1": {
-    "$type": "color",
-    "$value": "#CFF4D2",
-    "$description": "--np-note-green-1"
-  },
-  "note-green-2": {
-    "$type": "color",
-    "$value": "#B8E6B8",
-    "$description": "--np-note-green-2"
-  },
-  "note-ink": {
-    "$type": "color",
-    "$value": "#161616",
-    "$description": "--np-note-ink"
-  },
-  "note-ink-faint": {
-    "$type": "color",
-    "$value": "#1616168c",
-    "$description": "--np-note-ink-faint"
-  },
-  "note-ink-muted": {
-    "$type": "color",
-    "$value": "#161616b3",
-    "$description": "--np-note-ink-muted"
-  },
-  "note-pink-1": {
-    "$type": "color",
-    "$value": "#FFD6E0",
-    "$description": "--np-note-pink-1"
-  },
-  "note-pink-2": {
-    "$type": "color",
-    "$value": "#F7A8B8",
-    "$description": "--np-note-pink-2"
-  },
-  "note-red-1": {
-    "$type": "color",
-    "$value": "#FFCBC1",
-    "$description": "--np-note-red-1"
-  },
-  "note-red-2": {
-    "$type": "color",
-    "$value": "#FFAFA3",
-    "$description": "--np-note-red-2"
-  },
-  "note-yellow-1": {
-    "$type": "color",
-    "$value": "#FFF3B0",
-    "$description": "--np-note-yellow-1"
-  },
-  "note-yellow-2": {
-    "$type": "color",
-    "$value": "#FCE38A",
-    "$description": "--np-note-yellow-2"
-  },
-  "on-accent": {
-    "$type": "color",
-    "$value": "#23201C",
-    "$description": "--np-on-accent"
-  },
-  "on-info": {
-    "$type": "color",
-    "$value": "#161616",
-    "$description": "--np-on-info"
-  },
-  "on-success": {
-    "$type": "color",
-    "$value": "#ffffff",
-    "$description": "--np-on-success"
-  },
-  "orange": {
-    "$type": "color",
-    "$value": "#ff7b01",
-    "$description": "--np-orange"
-  },
-  "orange-ink": {
-    "$type": "color",
-    "$value": "#161616",
-    "$description": "--np-orange-ink"
-  },
-  "orange-subtle": {
-    "$type": "color",
-    "$value": "#ffe4c8",
-    "$description": "--np-orange-subtle"
-  },
-  "overlay": {
-    "$type": "color",
-    "$value": "rgba(0, 0, 0, 0.6)",
-    "$description": "--np-overlay"
-  },
   "paper": {
-    "$type": "color",
     "$value": "#FAF8F4",
-    "$description": "--np-paper"
-  },
-  "purple": {
-    "$type": "color",
-    "$value": "#9b59b6",
-    "$description": "--np-purple"
-  },
-  "red": {
-    "$type": "color",
-    "$value": "#c21d1d",
-    "$description": "--np-red"
-  },
-  "red-subtle": {
-    "$type": "color",
-    "$value": "#f5d0d0",
-    "$description": "--np-red-subtle"
-  },
-  "sage": {
-    "$type": "color",
-    "$value": "#6B7A5E",
-    "$description": "--np-sage"
-  },
-  "sage-ink": {
-    "$type": "color",
-    "$value": "#4E5C43",
-    "$description": "--np-sage-ink"
-  },
-  "sage-tint": {
-    "$type": "color",
-    "$value": "#E7EDE2",
-    "$description": "--np-sage-tint"
-  },
-  "scrollbar-thumb": {
-    "$type": "color",
-    "$value": "#DED9D0",
-    "$description": "--np-scrollbar-thumb"
-  },
-  "scrollbar-track": {
-    "$type": "color",
-    "$value": "#FAF8F4",
-    "$description": "--np-scrollbar-track"
-  },
-  "selected": {
-    "$type": "color",
-    "$value": "#E5DCCD",
-    "$description": "--np-selected"
-  },
-  "shadow-tint": {
-    "$type": "color",
-    "$value": "rgba(35,32,28,.10)",
-    "$description": "--np-shadow-tint"
-  },
-  "shadow-tint-strong": {
-    "$type": "color",
-    "$value": "rgba(35,32,28,.16)",
-    "$description": "--np-shadow-tint-strong"
-  },
-  "splitter-bg": {
-    "$type": "color",
-    "$value": "#E3DDD3",
-    "$description": "--np-splitter-bg"
-  },
-  "splitter-dot": {
-    "$type": "color",
-    "$value": "#736C60",
-    "$description": "--np-splitter-dot"
-  },
-  "splitter-hover": {
-    "$type": "color",
-    "$value": "#E5DCCD",
-    "$description": "--np-splitter-hover"
-  },
-  "subnav-bg": {
-    "$type": "color",
-    "$value": "#F3EEE5",
-    "$description": "--np-subnav-bg"
-  },
-  "subnav-hover": {
-    "$type": "color",
-    "$value": "#EFE9DE",
-    "$description": "--np-subnav-hover"
-  },
-  "success": {
-    "$type": "color",
-    "$value": "#6B7A5E",
-    "$description": "--np-success"
-  },
-  "success-gradient": {
-    "$type": "color",
-    "$value": "linear-gradient(135deg, #1c9e41 0%, #16812f 100%)",
-    "$description": "--np-success-gradient"
-  },
-  "success-hover": {
-    "$type": "color",
-    "$value": "#5B6950",
-    "$description": "--np-success-hover"
-  },
-  "success-ink": {
-    "$type": "color",
-    "$value": "#4E5C43",
-    "$description": "--np-success-ink"
-  },
-  "success-tint": {
-    "$type": "color",
-    "$value": "#E7EDE2",
-    "$description": "--np-success-tint"
-  },
-  "summary-row": {
-    "$type": "color",
-    "$value": "#F3EEE5",
-    "$description": "--np-summary-row"
-  },
-  "summary-row-hover": {
-    "$type": "color",
-    "$value": "#E5DCCD",
-    "$description": "--np-summary-row-hover"
-  },
-  "sunken": {
-    "$type": "color",
-    "$value": "#EFE9DE",
-    "$description": "--np-sunken"
+    "$type": "color"
   },
   "surface": {
-    "$type": "color",
     "$value": "#FFFDF9",
-    "$description": "--np-surface"
+    "$type": "color"
   },
   "surface-alt": {
-    "$type": "color",
     "$value": "#F3EEE5",
-    "$description": "--np-surface-alt"
+    "$type": "color"
   },
-  "table-hover": {
-    "$type": "color",
+  "sunken": {
     "$value": "#EFE9DE",
-    "$description": "--np-table-hover"
+    "$type": "color"
   },
-  "table-stripe": {
-    "$type": "color",
-    "$value": "#FAF8F4",
-    "$description": "--np-table-stripe"
+  "selected": {
+    "$value": "#E5DCCD",
+    "$type": "color"
   },
-  "text": {
-    "$type": "color",
-    "$value": "#23201C",
-    "$description": "--np-text"
+  "border": {
+    "$value": "#E3DDD3",
+    "$type": "color"
   },
-  "text-muted": {
-    "$type": "color",
-    "$value": "#736C60",
-    "$description": "--text-muted"
+  "border-strong": {
+    "$value": "#DED9D0",
+    "$type": "color"
   },
-  "text-secondary": {
-    "$type": "color",
-    "$value": "#5C5850",
-    "$description": "--text-secondary"
+  "hairline": {
+    "$value": "#EFE9DE",
+    "$type": "color"
   },
-  "warning": {
-    "$type": "color",
+  "hairline-warm": {
+    "$value": "#E7E2D9",
+    "$type": "color"
+  },
+  "accent": {
     "$value": "#EDB52A",
-    "$description": "--np-warning"
+    "$type": "color"
   },
-  "warning-hover": {
-    "$type": "color",
+  "accent-hover": {
     "$value": "#D9A31C",
-    "$description": "--np-warning-hover"
+    "$type": "color"
   },
-  "warning-ink": {
-    "$type": "color",
-    "$value": "#8A6205",
-    "$description": "--np-warning-ink"
-  },
-  "warning-tint": {
-    "$type": "color",
+  "accent-tint": {
     "$value": "#FBEFCE",
-    "$description": "--np-warning-tint"
+    "$type": "color"
+  },
+  "accent-ink": {
+    "$value": "#8A6205",
+    "$type": "color"
+  },
+  "sage": {
+    "$value": "#6B7A5E",
+    "$type": "color"
+  },
+  "sage-tint": {
+    "$value": "#E7EDE2",
+    "$type": "color"
+  },
+  "sage-ink": {
+    "$value": "#4E5C43",
+    "$type": "color"
+  },
+  "danger-tint": {
+    "$value": "#F6E3E0",
+    "$type": "color"
+  },
+  "danger-ink": {
+    "$value": "#8C3A2C",
+    "$type": "color"
+  },
+  "ink": {
+    "$value": "#23201C",
+    "$type": "color"
+  },
+  "ink-hover": {
+    "$value": "#3A352E",
+    "$type": "color"
+  },
+  "body": {
+    "$value": "#5C5850",
+    "$type": "color"
+  },
+  "muted": {
+    "$value": "#635E55",
+    "$type": "color"
+  },
+  "faint": {
+    "$value": "#736C60",
+    "$type": "color"
+  },
+  "on-accent": {
+    "$value": "#23201C",
+    "$type": "color"
+  },
+  "on-success": {
+    "$value": "#ffffff",
+    "$type": "color",
+    "$description": "The tick on a checked checkbox (#1245). It has to flip with the theme:\n--np-success is --np-sage, which is #6B7A5E in light and #A9BC98 in\ndark, so white measures 4.59:1 on the first and 2.03:1 on the second --\nunder the 3:1 SC 1.4.11 floor for a non-text indicator. The pilot\ncomponents' hardcoded white tick had that fault and nothing could see\nit, because check-contrast.mjs only scores the pairings it is told\nabout. It scores this one now."
+  },
+  "on-info": {
+    "$value": "#161616",
+    "$type": "color",
+    "$description": "Initials on a resource avatar (#1246/#1199). Single-valued, like the\nhue tokens: --np-info is #108bb9 light and #3fb6e0 dark, and a dark ink\nclears 4.5:1 on both (4.71 and 7.75) where white clears neither (3.88\nand 2.36). Every avatar in the app painted white over\n`var(--np-info-gradient)` -- a gradient, which check-contrast.mjs cannot\nparse, so the one thing about an avatar that could be wrong was the one\nthing nothing measured."
+  },
+  "shadow-tint": {
+    "$value": "rgba(35,32,28,.10)",
+    "$type": "color",
+    "$description": "--- Elevation (#1191). 105 distinct box-shadows today, most of them\none-off rgba() tuples a few hundredths apart. Four steps cover the\nreal cases: a hairline lift, a resting card, a floating menu, and a\nmodal over a dimmed page. The tint is a separate token so the ramp\ndarkens as a set in dark mode."
+  },
+  "shadow-tint-strong": {
+    "$value": "rgba(35,32,28,.16)",
+    "$type": "color"
+  },
+  "floating-shadow": {
+    "$value": [
+      {
+        "offsetX": "0",
+        "offsetY": "1",
+        "blur": "2",
+        "spread": "0",
+        "color": "rgba(35,32,28,.04)",
+        "inset": false
+      },
+      {
+        "offsetX": "0",
+        "offsetY": "18",
+        "blur": "40",
+        "spread": "-24",
+        "color": "rgba(35,32,28,.22)",
+        "inset": false
+      }
+    ],
+    "$type": "shadow"
+  },
+  "border-control": {
+    "$value": "#8C857A",
+    "$type": "color",
+    "$description": "--- Control boundary (#1191). WCAG 2.2 SC 1.4.11 wants 3:1 for the\nvisual boundary of a UI component. --np-border-strong is 1.33:1 against\nthe page, so an input outlined in it is invisible to a low-vision user.\nIt stays as-is for decorative separators, which the SC does not cover,\nand this darker token is for anything with a boundary the user has to\nfind: inputs, selects, textareas, secondary buttons. 3.44:1 on paper."
+  },
+  "link": {
+    "$value": "{accent-ink}",
+    "$type": "color",
+    "$description": "--np-link and --np-link-hover were referenced by components.css but\ndefined nowhere, so links rendered the hardcoded #1976d2 fallback -- a\ncool blue in a warm palette. Aliased onto the accent family instead\n(#1192). .link-button also carries text-decoration: underline, so\ncolour is not the only thing marking a link (WCAG 1.4.1)."
+  },
+  "link-hover": {
+    "$value": "{ink}",
+    "$type": "color"
+  },
+  "red": {
+    "$value": "#c21d1d",
+    "$type": "color",
+    "$description": "--- Identity palette (#1194, moved here from base.css).\n\nThe named hues predate the warm system and are not part of it: they are\nthe app's brand colours, used for RAG encodings, whiteboard note\ncategories and chart series, where the hue *is* the meaning. They live\nhere because every --np-* token does, not because they are surfaces.\n\nMoving them changed nothing about where they resolve: a custom property\nis resolved from the cascaded value on the element, not from where in the\nfile it was declared, so the var() references in base.css and the view\nstylesheets -- all of which load earlier -- still pick them up."
+  },
+  "orange": {
+    "$value": "#ff7b01",
+    "$type": "color"
   },
   "yellow": {
-    "$type": "color",
     "$value": "#ffd641",
-    "$description": "--np-yellow"
+    "$type": "color"
+  },
+  "green": {
+    "$value": "#1c9e41",
+    "$type": "color"
+  },
+  "blue": {
+    "$value": "#108bb9",
+    "$type": "color"
+  },
+  "purple": {
+    "$value": "#9b59b6",
+    "$type": "color"
+  },
+  "light-grey": {
+    "$value": "#dbdbdb",
+    "$type": "color"
+  },
+  "dark-blue": {
+    "$value": "#02384d",
+    "$type": "color"
+  },
+  "red-subtle": {
+    "$value": "#f5d0d0",
+    "$type": "color"
+  },
+  "orange-subtle": {
+    "$value": "#ffe4c8",
+    "$type": "color"
   },
   "yellow-subtle": {
-    "$type": "color",
     "$value": "#fff4d1",
-    "$description": "--np-yellow-subtle"
+    "$type": "color"
   },
-  "text-primary": {
+  "green-subtle": {
+    "$value": "#d1f0da",
+    "$type": "color"
+  },
+  "blue-subtle": {
+    "$value": "#d0eaf5",
+    "$type": "color"
+  },
+  "light-grey-subtle": {
+    "$value": "#f2f2f2",
+    "$type": "color"
+  },
+  "dark-blue-subtle": {
+    "$value": "#cfe0e7",
+    "$type": "color"
+  },
+  "link-highlight": {
+    "$value": "#fff4d1",
     "$type": "color",
-    "$value": "#23201C",
-    "$description": "--text-primary"
+    "$description": "#1271: the two-way hover link between a Gantt row and the markdown\nline it came from. A state of its own, not a reuse of `:hover`\n(--np-paper) or of `tr.selected` (--np-info-tint), because it has to\nread as \"this is the same task over there\" from across two panes.\n\n--np-yellow-subtle is the light value, but it cannot be used on its\nown: it is declared only here and has no dark counterpart, so a row\npainted with it in dark mode puts --np-ink (#FAF8F4) on #fff4d1 at\n~1.03:1. The pair below is themed, and the ink is pinned rather than\ninherited so the row's contrast does not depend on which theme's\n--np-ink lands on it. Both pairings are scored by\nscripts/check-contrast.mjs."
+  },
+  "link-highlight-ink": {
+    "$value": "#3A2D05",
+    "$type": "color"
+  },
+  "orange-ink": {
+    "$value": "#161616",
+    "$type": "color",
+    "$description": "Ink for text sitting *on* a hue token. Single-valued like the hue it\npairs with -- the whole point of these is that the hue does not change\nwith the theme, so its ink cannot either. Added for the whiteboard\nnote's deliverable badge (#1248), whose rule had been carrying a raw\n`#111` under a comment claiming `#161616`; scripts/check-contrast.mjs\nnow scores this pairing so the claim is measured rather than asserted."
+  },
+  "accent-soft": {
+    "$value": "{blue-subtle}",
+    "$type": "color",
+    "$description": "--- Status ramp, overlay and shadow tints (#1194, moved here from\ndark-mode.css, which is where the #1024 identity declared them).\n\n## The palette decision, taken (#1194)\n\nThis block used to say the reconciliation was \"deliberately left open\".\nIt is now taken, and the app had half-taken it already: the RAG badge\nrules at the foot of this file map rag-red to --np-danger-*, rag-amber\nto --np-accent-* and rag-green to --np-sage-*. That is a complete\nstatus ramp in the warm identity, written once for one component. The\ndecision is to name it and let everything else use it.\n\nSo: danger keeps its existing pair, success *is* sage, warning *is* the\nmarigold accent, and info takes the identity blue with a tint and ink\nderived to sit in the same contrast band as the other three (light\n4.8-6.3:1, dark 7.0-7.8:1 for ink-on-tint). The dark info tint is\n#1C3A47, which is what --np-accent-soft already resolves to in dark --\nthe app had chosen it, it just had no name.\n\nEvery pairing here is gated by scripts/check-contrast.mjs.\n\nOne caveat worth carrying: --np-info on white is 3.88:1, which clears\nAA for large text but *not* for body text. A filled info badge needs\nlarge or bold type, or --np-info-ink on --np-info-tint instead."
+  },
+  "danger": {
+    "$value": "{red}",
+    "$type": "color"
+  },
+  "danger-hover": {
+    "$value": "#a01717",
+    "$type": "color"
+  },
+  "success": {
+    "$value": "{sage}",
+    "$type": "color"
+  },
+  "success-hover": {
+    "$value": "#5B6950",
+    "$type": "color"
+  },
+  "success-tint": {
+    "$value": "{sage-tint}",
+    "$type": "color"
+  },
+  "success-ink": {
+    "$value": "{sage-ink}",
+    "$type": "color"
+  },
+  "warning": {
+    "$value": "{accent}",
+    "$type": "color"
+  },
+  "warning-hover": {
+    "$value": "{accent-hover}",
+    "$type": "color"
+  },
+  "warning-tint": {
+    "$value": "{accent-tint}",
+    "$type": "color"
+  },
+  "warning-ink": {
+    "$value": "{accent-ink}",
+    "$type": "color"
+  },
+  "info": {
+    "$value": "{blue}",
+    "$type": "color"
+  },
+  "info-hover": {
+    "$value": "#0d7096",
+    "$type": "color"
+  },
+  "info-tint": {
+    "$value": "#DCEBF2",
+    "$type": "color"
+  },
+  "info-ink": {
+    "$value": "#0A5A78",
+    "$type": "color"
+  },
+  "avatar-bg": {
+    "$value": "{ink}",
+    "$type": "color",
+    "$description": "Resource avatars have their own pair rather than borrowing --np-info's.\nA chip is a filled circle carrying two letters at ~9px; that is the\nhardest text in the app to read, so it takes the strongest pairing the\napp has rather than a status hue that also has to sit next to other\nstatus hues. Near-black and white is 18.4:1 for the initials and 17.5:1\nfor the circle against the page -- both scored in\nscripts/check-contrast.mjs.\n\nIdentity colour is not this chip's job. It never was: the avatars were\nall one blue whoever they stood for, so the hue carried no information\nand only had to be legible."
+  },
+  "avatar-ink": {
+    "$value": "{paper}",
+    "$type": "color"
+  },
+  "shadow": {
+    "$value": "rgba(0, 0, 0, 0.1)",
+    "$type": "color"
+  },
+  "shadow-strong": {
+    "$value": "rgba(0, 0, 0, 0.15)",
+    "$type": "color"
+  },
+  "overlay": {
+    "$value": "rgba(0, 0, 0, 0.6)",
+    "$type": "color"
+  },
+  "note-yellow-1": {
+    "$value": "#FFF3B0",
+    "$type": "color",
+    "$description": "The whiteboard note palette (#1017, tokenised for #1250).\nTwo soft shades each of yellow, pink, green, blue and red. It is the\nlist wbPalette() offers in the note's colour menu and the list\nwbDerivedPaletteColour() assigns from, and the values here are the\ncanonical ones -- whiteboard-notes.js's WB_NOTE_PASTEL_COLOURS is\nchecked against them by tests/test_note_ink.mjs.\n\nThey live here so scripts/check-contrast.mjs can score them, which it\ncould not while they were a JS array. Nothing had ever measured the\nnote's own de-emphasised text against its own fill, and three of those\npairings were below AA -- see --np-note-ink-muted below."
+  },
+  "note-yellow-2": {
+    "$value": "#FCE38A",
+    "$type": "color"
+  },
+  "note-pink-1": {
+    "$value": "#FFD6E0",
+    "$type": "color"
+  },
+  "note-pink-2": {
+    "$value": "#F7A8B8",
+    "$type": "color"
+  },
+  "note-green-1": {
+    "$value": "#CFF4D2",
+    "$type": "color"
+  },
+  "note-green-2": {
+    "$value": "#B8E6B8",
+    "$type": "color"
+  },
+  "note-blue-1": {
+    "$value": "#C7E5FF",
+    "$type": "color"
+  },
+  "note-blue-2": {
+    "$value": "#A9D6F5",
+    "$type": "color"
+  },
+  "note-red-1": {
+    "$value": "#FFCBC1",
+    "$type": "color"
+  },
+  "note-red-2": {
+    "$value": "#FFAFA3",
+    "$type": "color"
+  },
+  "note-ink": {
+    "$value": "#161616",
+    "$type": "color",
+    "$description": "A note's ink, and its two de-emphasis levels.\nEvery swatch above is light, so wbContrastTextColour() measures\n--np-note-ink as the better of near-black/near-white on all ten; the\nalpha values are the ones views/whiteboard.css mixes for\n--wb-note-ink-muted and --wb-note-ink-faint, restated as literals so\nthe checker can composite them. b3 is 70% and 8c is 55%; the ink\nladder's comment in views/whiteboard.css explains why those two, and\ntests/test_note_ink.mjs fails if the two files drift apart.\n\nNot theme-flipped, and deliberately so: a note's ink is chosen against\nthe note's own fill, which is plan data and the same in both themes."
+  },
+  "note-ink-muted": {
+    "$value": "#161616b3",
+    "$type": "color"
+  },
+  "note-ink-faint": {
+    "$value": "#1616168c",
+    "$type": "color"
+  },
+  "focus-ring-color": {
+    "$value": "#8A6205",
+    "$type": "color",
+    "$description": "--- Focus ring (#1191). The app has 67 `outline: none` declarations and\nfive competing focus colours; buttons carry 242 :hover rules against 45\n:focus ones.\n\nThe ring is two-layer on purpose. A single marigold ring is invisible\non a marigold button (1:1) and a single dark ring is invisible on a\ndark page, so no one colour clears 3:1 everywhere. Painting an inner\nhalo in the page colour first means the ring always meets --np-paper,\nwhatever it is actually sitting on top of."
+  },
+  "bg": {
+    "$value": "{paper}",
+    "$type": "color",
+    "$description": "Bridge existing semantic consumers, including chart/table surface tokens."
+  },
+  "bg-alt": {
+    "$value": "{surface-alt}",
+    "$type": "color"
+  },
+  "bg-hover": {
+    "$value": "{sunken}",
+    "$type": "color"
+  },
+  "border-light": {
+    "$value": "{hairline}",
+    "$type": "color"
+  },
+  "text": {
+    "$value": "{ink}",
+    "$type": "color"
+  },
+  "text-secondary": {
+    "$value": "{body}",
+    "$type": "color"
+  },
+  "text-muted": {
+    "$value": "{muted}",
+    "$type": "color"
+  },
+  "accent-gradient": {
+    "$value": "{accent}",
+    "$type": "color"
+  },
+  "input-bg": {
+    "$value": "{paper}",
+    "$type": "color"
+  },
+  "input-border": {
+    "$value": "{border-strong}",
+    "$type": "color"
+  },
+  "modal-bg": {
+    "$value": "{surface}",
+    "$type": "color"
+  },
+  "subnav-bg": {
+    "$value": "{surface-alt}",
+    "$type": "color"
+  },
+  "subnav-hover": {
+    "$value": "{sunken}",
+    "$type": "color"
+  },
+  "table-stripe": {
+    "$value": "{paper}",
+    "$type": "color"
+  },
+  "table-hover": {
+    "$value": "{sunken}",
+    "$type": "color"
+  },
+  "summary-row": {
+    "$value": "{surface-alt}",
+    "$type": "color"
+  },
+  "summary-row-hover": {
+    "$value": "{selected}",
+    "$type": "color"
+  },
+  "code-bg": {
+    "$value": "{sunken}",
+    "$type": "color"
+  },
+  "badge-bg": {
+    "$value": "{sunken}",
+    "$type": "color"
+  },
+  "splitter-bg": {
+    "$value": "{border}",
+    "$type": "color"
+  },
+  "splitter-hover": {
+    "$value": "{selected}",
+    "$type": "color"
+  },
+  "splitter-dot": {
+    "$value": "{faint}",
+    "$type": "color"
+  },
+  "scrollbar-thumb": {
+    "$value": "{border-strong}",
+    "$type": "color"
+  },
+  "scrollbar-track": {
+    "$value": "{paper}",
+    "$type": "color"
+  },
+  "legacy": {
+    "bg-primary": {
+      "$value": "{surface}",
+      "$type": "color"
+    },
+    "bg-secondary": {
+      "$value": "{surface-alt}",
+      "$type": "color"
+    },
+    "text-primary": {
+      "$value": "{ink}",
+      "$type": "color"
+    },
+    "text-secondary": {
+      "$value": "{body}",
+      "$type": "color"
+    },
+    "text-muted": {
+      "$value": "{faint}",
+      "$type": "color"
+    },
+    "border-color": {
+      "$value": "{border}",
+      "$type": "color"
+    },
+    "evm-card-bg": {
+      "$value": "{surface}",
+      "$type": "color"
+    },
+    "evm-card-border": {
+      "$value": "{border}",
+      "$type": "color"
+    },
+    "evm-chart-bg": {
+      "$value": "{surface}",
+      "$type": "color"
+    },
+    "evm-text-primary": {
+      "$value": "{ink}",
+      "$type": "color"
+    },
+    "evm-text-secondary": {
+      "$value": "{body}",
+      "$type": "color"
+    },
+    "evm-text-muted": {
+      "$value": "{muted}",
+      "$type": "color"
+    },
+    "evm-table-header-bg": {
+      "$value": "{surface-alt}",
+      "$type": "color"
+    },
+    "evm-table-border": {
+      "$value": "{border}",
+      "$type": "color"
+    },
+    "evm-axis-label": {
+      "$value": "{faint}",
+      "$type": "color"
+    }
+  },
+  "editor-bg": {
+    "$value": "#201E1A",
+    "$type": "color"
+  },
+  "editor-ink": {
+    "$value": "#d4d4d4",
+    "$type": "color",
+    "$description": "The editor's text colour, previously a raw #d4d4d4 in views/gantt.css.\nIt is a token now so the band drawn behind it for #1271 has something\nto be scored against."
+  },
+  "editor-link-highlight": {
+    "$value": "#55471A",
+    "$type": "color",
+    "$description": "The #1271 band behind a linked markdown line. It cannot be\n--np-link-highlight: that is light in the light theme, and the editor\nis dark in *both* themes, so the light value would put #d4d4d4 text on\nnear-white. This is the dark-surface sibling of the same idea."
+  },
+  "editor-tip-bg": {
+    "$value": "#312D26",
+    "$type": "color"
+  },
+  "editor-tip-text": {
+    "$value": "#D4CCBF",
+    "$type": "color"
   }
 }

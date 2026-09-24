@@ -1,12 +1,15 @@
-import colorLight from '@design-tokens/color-light.json';
-import colorDark from '@design-tokens/color-dark.json';
+import colorLightSet from '@design-tokens/color-light.json';
+import colorDarkSet from '@design-tokens/color-dark.json';
 
 /**
  * Renders the exact colour tokens from docs/design/tokens/color-light.json
- * and color-dark.json — the W3C Design Tokens JSON that Penpot imports
- * natively (Design -> Tokens -> Import), generated from
- * visual-system.css by scripts/token-audit.mjs (see
- * docs/design/consolidation-and-handoff.md's "Penpot" section).
+ * and color-dark.json -- Penpot's token export, which is the source that
+ * scripts/design-tokens.mjs generates visual-system.css from (#1318).
+ *
+ * A token can be a reference (`{accent-ink}`) and can sit in a group
+ * (`legacy.bg-primary`), so the sets are flattened and resolved here the way
+ * Penpot resolves them. Only colour tokens are shown: the theme sets also carry
+ * the themed shadows.
  *
  * This is a read-only reference, not a themed component: it renders the
  * light and dark value of every token side by side from the JSON data
@@ -14,6 +17,33 @@ import colorDark from '@design-tokens/color-dark.json';
  * stays true to what Penpot actually has even if a story's own page isn't
  * running under the `data-theme` toggle.
  */
+
+function flatten(node, prefix = '', out = {}) {
+  for (const [key, value] of Object.entries(node)) {
+    if (key.startsWith('$') || value === null || typeof value !== 'object') continue;
+    const path = prefix ? `${prefix}.${key}` : key;
+    if ('$value' in value) out[path] = value;
+    else flatten(value, path, out);
+  }
+  return out;
+}
+
+function resolved(set) {
+  const flat = flatten(set);
+  const resolve = (value, seen = new Set()) =>
+    String(value).replace(/\{([^{}]+)\}/g, (whole, ref) => {
+      if (seen.has(ref) || !flat[ref]) return whole;
+      return resolve(flat[ref].$value, new Set([...seen, ref]));
+    });
+  const out = {};
+  for (const [path, token] of Object.entries(flat)) {
+    if (token.$type === 'color') out[path] = { $value: resolve(token.$value), $ref: token.$value };
+  }
+  return out;
+}
+
+const colorLight = resolved(colorLightSet);
+const colorDark = resolved(colorDarkSet);
 
 function buildPage() {
   const names = Object.keys(colorLight).sort((a, b) => a.localeCompare(b));
@@ -29,8 +59,8 @@ function buildPage() {
   intro.style.fontSize = '13px';
   intro.innerHTML =
     'Source: <code>docs/design/tokens/color-light.json</code> / <code>color-dark.json</code> — ' +
-    'the same files Penpot imports (Design &rarr; Tokens &rarr; Import). Generated from ' +
-    '<code>visual-system.css</code> by <code>scripts/token-audit.mjs</code>; edit the CSS, not this page.';
+    'Penpot&rsquo;s token export, and the source <code>visual-system.css</code> is generated from ' +
+    '(<code>npm run design:tokens</code>). Change a token in Penpot, not here or in the CSS.';
   container.appendChild(intro);
 
   const filter = document.createElement('input');
@@ -69,7 +99,7 @@ function buildPage() {
       const half = document.createElement('div');
       half.style.flex = '1';
       half.style.background = tokens[name]?.$value || 'transparent';
-      half.title = `${label}: ${tokens[name]?.$value}`;
+      half.title = `${label}: ${tokens[name]?.$ref}`;
       swatches.appendChild(half);
     }
     card.appendChild(swatches);

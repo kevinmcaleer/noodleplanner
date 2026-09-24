@@ -110,11 +110,11 @@ For the tokens, **Design → Tokens → Import** and the five files in
 `$themes.json`, `$metadata.json`). They are W3C Design Tokens-typed JSON in the
 Tokens Studio multi-set format Penpot reads natively.
 
-Those files are generated from `visual-system.css` by `npm run audit:tokens`,
-and `tests/test_design_token_export.py` fails if they drift from it. That test
-exists because they had drifted: the export carried no `warning` token at all,
-so an import before it would have handed a designer a palette missing the
-semantic ramp the epic had just settled.
+Since #1318 those files are the source, not an export of the CSS: they are
+exported *from* Penpot, and `npm run design:tokens` generates the token block of
+`visual-system.css` from them. `tests/test_design_tokens.py` fails if the two
+disagree. It replaced a test that checked the old direction, which existed
+because the export had drifted: it carried no `warning` token at all.
 
 ## Recording the board
 
@@ -127,7 +127,9 @@ dialogs, the screens in each theme, and a reference page comparing the
 `/components` gallery with Storybook. Its token sets (`core`, `color-light`,
 `color-dark`) and the `Mode ▸ Light / Dark` themes match
 `docs/design/tokens/`. The exceptions are the three `*-gradient` values and the
-four `anim-*` timings, which Penpot has no token type for.
+four `anim-*` timings, which Penpot has no token type for; they are code-owned
+and hand-written in `visual-system.css` (`CODE_OWNED` in
+`scripts/design-tokens.mjs`).
 
 The screens pages hold 74 screenshots per theme, placed before the capture grew
 to 84 and gained its drift badges. To bring them up to date, run the two

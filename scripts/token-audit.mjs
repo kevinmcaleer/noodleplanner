@@ -4,16 +4,19 @@
 //
 // Scans packages/noodle-web/src/noodle_web/static for:
 //   - the canonical --np-* design tokens declared in visual-system.css
-//     (light + dark values), exported as DTCG-style token files for
-//     Penpot's Tokens plugin and for Style Dictionary (Storybook)
+//     (light + dark values), to recognise raw values that duplicate one
 //   - raw/one-off values elsewhere in the CSS that duplicate or compete
 //     with those tokens, plus general CSS-health metrics
 //
+// It used to export the tokens to docs/design/tokens/*.json as well. That
+// direction is reversed (#1318): the JSON is Penpot's export and the source,
+// and scripts/design-tokens.mjs generates the CSS from it.
+//
 // Usage: node scripts/token-audit.mjs
-// Writes docs/design/tokens/*.json and prints a JSON summary used to
-// regenerate docs/design/token-audit.md's data tables by hand.
+// Writes docs/design/token-audit-data.json and prints the same JSON summary,
+// used to regenerate docs/design/token-audit.md's data tables by hand.
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { analyze } from '@projectwallace/css-analyzer'
 import { analysis_to_tokens } from '@projectwallace/css-design-tokens'
@@ -21,7 +24,7 @@ import { analysis_to_tokens } from '@projectwallace/css-design-tokens'
 const ROOT = new URL('..', import.meta.url).pathname
 const STATIC_DIR = join(ROOT, 'packages/noodle-web/src/noodle_web/static')
 const VISUAL_SYSTEM = join(STATIC_DIR, 'visual-system.css')
-const OUT_DIR = join(ROOT, 'docs/design/tokens')
+const OUT_DIR = join(ROOT, 'docs/design')
 
 function walkFiles(dir, ext) {
 	const out = []
@@ -184,26 +187,6 @@ function extractCanonicalTokens() {
 	}
 
 	return { light: resolvedLight, dark: resolvedDark, rawLight: light, rawDark: dark }
-}
-
-// Category drives both which token set a name lands in (colours are themed,
-// everything else is not) and its DTCG $type. Order matters: --np-focus-ring-color
-// is a colour, --np-focus-ring-width is a dimension, and --np-focus-ring itself is
-// a composite shadow, so the specific tests come before the general ones.
-function categorize(name) {
-	if (name.endsWith('-color') || name.includes('-tint')) return 'color'
-	if (name.includes('font-')) return 'fontFamily'
-	if (/^--np-text-\d+$/.test(name)) return 'fontSize'
-	if (name.includes('leading')) return 'lineHeight'
-	if (name.includes('weight')) return 'fontWeight'
-	if (name.includes('radius')) return 'dimension'
-	if (name.includes('space')) return 'dimension'
-	if (name.includes('width') || name.includes('offset')) return 'dimension'
-	// --np-focus-ring is a composite box-shadow, not a colour; its -color and
-	// -width halves are already caught above.
-	if (name.includes('focus-ring')) return 'shadow'
-	if (name.includes('shadow') || name.includes('elevation')) return 'shadow'
-	return 'color'
 }
 
 function isHexColor(value) {
@@ -617,63 +600,6 @@ const summary = {
 	outOfBandStyles,
 }
 
-mkdirSync(OUT_DIR, { recursive: true })
-
-// --- 3. Emit DTCG-style token files (Tokens Studio multi-set convention,
-// which both Penpot's Tokens plugin and Style Dictionary understand).
-const core = {}
-const colorLight = {}
-const colorDark = {}
-
-const DTCG_TYPE = {
-	fontFamily: 'fontFamily',
-	fontSize: 'fontSize',
-	lineHeight: 'number',
-	fontWeight: 'fontWeight',
-	dimension: 'dimension',
-	shadow: 'shadow',
-}
-
-for (const name of canonicalNames) {
-	const shortName = name.replace(/^--np-/, '').replace(/^--/, '')
-	const category = categorize(name)
-	// A multi-line declaration keeps its newlines and indentation through the
-	// parser; a design tool wants one line.
-	const flatten = (v) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : v)
-	const lightValue = flatten(canonical.light[name])
-	const darkValue = flatten(canonical.dark[name])
-
-	if (category === 'color') {
-		colorLight[shortName] = { $type: 'color', $value: lightValue, $description: name }
-		colorDark[shortName] = { $type: 'color', $value: darkValue, $description: name }
-	} else {
-		core[shortName] = { $type: DTCG_TYPE[category], $value: lightValue, $description: name }
-	}
-}
-
-writeFileSync(join(OUT_DIR, 'core.json'), JSON.stringify(core, null, 2) + '\n')
-writeFileSync(join(OUT_DIR, 'color-light.json'), JSON.stringify(colorLight, null, 2) + '\n')
-writeFileSync(join(OUT_DIR, 'color-dark.json'), JSON.stringify(colorDark, null, 2) + '\n')
-writeFileSync(
-	join(OUT_DIR, '$themes.json'),
-	JSON.stringify(
-		[
-			{ id: 'light', name: 'Light', selectedTokenSets: { core: 'enabled', 'color-light': 'enabled', 'color-dark': 'disabled' } },
-			{ id: 'dark', name: 'Dark', selectedTokenSets: { core: 'enabled', 'color-light': 'disabled', 'color-dark': 'enabled' } },
-		],
-		null,
-		2,
-	) + '\n',
-)
-
-// Set order is the other half of the multi-file convention: a set later in the
-// list overrides an earlier one, so without this the importer is free to resolve
-// a name defined in both `core` and a `color-*` set either way round.
-writeFileSync(
-	join(OUT_DIR, '$metadata.json'),
-	JSON.stringify({ tokenSetOrder: ['core', 'color-light', 'color-dark'] }, null, 2) + '\n',
-)
-
-writeFileSync(join(OUT_DIR, '..', 'token-audit-data.json'), JSON.stringify(summary, null, 2) + '\n')
+writeFileSync(join(OUT_DIR, 'token-audit-data.json'), JSON.stringify(summary, null, 2) + '\n')
 
 console.log(JSON.stringify(summary, null, 2))
