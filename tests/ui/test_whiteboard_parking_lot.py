@@ -342,6 +342,26 @@ class TestParkingLotPanel:
         assert "---parking lot---" not in plan_text(board)
         assert parking_lot_item_texts(board) == []
 
+    def test_parked_item_text_gets_the_full_row_width(self, board):
+        """The row's text used to share one line with the drag handle, the
+        date and both buttons, which in a 300px panel left it a sliver a few
+        characters wide -- every word broke mid-letter. It now has a line to
+        itself, with the date and buttons on the line below."""
+        send_to_parking_lot(board, "Loose Idea")
+        wait_for_parked(board)
+
+        open_parking_lot_panel(board)
+        row = board.locator(f"{DIALOG} .wb-parking-lot-item").first
+        text = row.locator(".wb-parking-lot-item-text")
+        restore = row.locator(".wb-parking-lot-item-restore")
+        row_box, text_box, restore_box = (
+            row.bounding_box(), text.bounding_box(), restore.bounding_box()
+        )
+        assert text_box["width"] > row_box["width"] * 0.75, (row_box, text_box)
+        assert restore_box["y"] >= text_box["y"] + text_box["height"] - 1, (
+            text_box, restore_box,
+        )
+
     def test_escape_closes_the_panel(self, board):
         open_parking_lot_panel(board)
         board.keyboard.press("Escape")
