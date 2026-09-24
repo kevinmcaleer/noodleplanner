@@ -118,12 +118,18 @@ semantic ramp the epic had just settled.
 
 ## Recording the board
 
-Once the project exists, put its URL here:
-
 <!-- PENPOT-BOARD-URL -->
-**Penpot board:** _not yet created — needs a Penpot account._
+**Penpot board:** [NoodlePlanner design file on penpot.kevsrobots.com](https://penpot.kevsrobots.com/#/workspace?team-id=56fe304d-5af3-8157-8008-9f27d5d9e55b&file-id=f19af5a3-31e2-810f-8008-aed06226922e)
 <!-- /PENPOT-BOARD-URL -->
 
-This is the one part of #1196 that cannot be generated. Everything it imports
-is in the repo or one command away; creating the project itself needs an
-account.
+The file has eight pages: a read-me, the tokens, the component library, forms,
+dialogs, the screens in each theme, and a reference page comparing the
+`/components` gallery with Storybook. Its token sets (`core`, `color-light`,
+`color-dark`) and the `Mode ▸ Light / Dark` themes match
+`docs/design/tokens/`. The exceptions are the three `*-gradient` values and the
+four `anim-*` timings, which Penpot has no token type for.
+
+The screens pages hold 74 screenshots per theme, placed before the capture grew
+to 84 and gained its drift badges. To bring them up to date, run the two
+commands at the top of this page and import `board.standalone.svg` and
+`board.dark.standalone.svg` into the file as new pages.
