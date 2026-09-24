@@ -1569,6 +1569,68 @@ function wbFindFreeSpacePosition(existingRects, viewportRect, width, height, gap
     return { x: Math.round(startX), y: Math.round(bottom + gap) };
 }
 
+/** Whether rect `inner` lies wholly inside rect `outer`. */
+function wbRectInside(inner, outer) {
+    return inner.x >= outer.x && inner.y >= outer.y &&
+        inner.x + inner.width <= outer.x + outer.width &&
+        inner.y + inner.height <= outer.y + outer.height;
+}
+
+/**
+ * The free `width` x `height` spot *nearest* to `preferred` (the top-left
+ * the caller would ideally use), for a single new note.
+ *
+ * wbFindFreeSpacePosition() shelf-packs from the viewport's top-left, which
+ * suits a batch but not one note: with a note already in the middle of a
+ * small viewport it finds no free cell on screen and falls through to the
+ * rows *below* the viewport -- the note is created, shows up in the
+ * markdown and the outline, and is nowhere to be seen. This instead walks
+ * outward from `preferred` in note-sized steps and takes the closest free
+ * candidate that is wholly inside `viewportRect`; only when nothing on
+ * screen is free does it settle for the closest free candidate off it
+ * (which the caller then pans to -- see wbRevealNewNote()).
+ *
+ * Pure, so it is unit-tested alongside wbFindFreeSpacePosition().
+ */
+function wbFindNearestFreePosition(existingRects, preferred, viewportRect, width, height, gap = 24) {
+    const rects = existingRects || [];
+    const vp = viewportRect || null;
+    const origin = { x: Math.round(preferred.x), y: Math.round(preferred.y) };
+    const colStep = width + gap;
+    const rowStep = height + gap;
+    const free = (c) => !rects.some(r => wbRectsOverlap(c, r, gap));
+
+    let offscreen = null;
+    const maxRing = 40;
+    for (let ring = 0; ring <= maxRing; ring++) {
+        const candidates = [];
+        for (let i = -ring; i <= ring; i++) {
+            for (let j = -ring; j <= ring; j++) {
+                if (Math.max(Math.abs(i), Math.abs(j)) !== ring) continue;
+                candidates.push({ x: origin.x + i * colStep, y: origin.y + j * rowStep, width, height });
+            }
+        }
+        // Within a ring, nearest first; ties go right, then down, so a
+        // note beside the selected one lands to its right before its left.
+        candidates.sort((a, b) =>
+            Math.hypot(a.x - origin.x, a.y - origin.y) - Math.hypot(b.x - origin.x, b.y - origin.y) ||
+            (b.x - a.x) || (b.y - a.y));
+        for (const c of candidates) {
+            if (!free(c)) continue;
+            if (!vp || wbRectInside(c, vp)) return { x: c.x, y: c.y };
+            if (!offscreen) offscreen = { x: c.x, y: c.y };
+        }
+        // Once past the viewport in every direction, nothing further out
+        // can be on screen -- take the nearest off-screen spot found.
+        if (offscreen && vp &&
+            ring * colStep > vp.width + Math.abs(origin.x - vp.x) &&
+            ring * rowStep > vp.height + Math.abs(origin.y - vp.y)) {
+            return offscreen;
+        }
+    }
+    return offscreen || wbFindFreeSpacePosition(rects, vp, width, height, gap);
+}
+
 /**
  * Whiteboard rows to *append* for adding `taskNames` (in that order):
  * each gets a fresh, non-overlapping position from wbFindFreeSpacePosition(),
@@ -4339,21 +4401,20 @@ function wbSpawnCoachingNote(sourceTaskName, relation, suggestedName) {
     const height = WB_NOTE_DEFAULT_HEIGHT;
     let x = source ? (source.x || 0) + (relation === 'successor' ? width + 60 : -width - 60) : 80;
     let y = source ? (source.y || 0) : 80;
-    const wanted = { x, y, width, height };
-    if (items.some(item => wbRectsOverlap(wanted, {
+    const rects = items.map(item => ({
         x: item.x || 0, y: item.y || 0,
         width: item.width || WB_NOTE_DEFAULT_WIDTH,
         height: item.height || WB_NOTE_DEFAULT_HEIGHT,
-    }, 8)) && typeof wbFindFreeSpacePosition === 'function' && typeof wbCurrentViewportBoardRect === 'function') {
-        const free = wbFindFreeSpacePosition(items.map(item => ({
-            x: item.x || 0, y: item.y || 0,
-            width: item.width || WB_NOTE_DEFAULT_WIDTH,
-            height: item.height || WB_NOTE_DEFAULT_HEIGHT,
-        })), wbCurrentViewportBoardRect(), width, height);
+    }));
+    const wanted = { x, y, width, height };
+    if (rects.some(rect => wbRectsOverlap(wanted, rect, 8)) && typeof wbCurrentViewportBoardRect === 'function') {
+        const free = wbFindNearestFreePosition(rects, wanted, wbCurrentViewportBoardRect(), width, height);
         if (free) { x = free.x; y = free.y; }
     }
     items.push({ task: name, x: Math.round(x), y: Math.round(y), colour: '', width, height, collapsed: false });
-    wbCommitMarkdown(updatePlanWhiteboardText(nextText, items));
+    if (wbCommitMarkdown(updatePlanWhiteboardText(nextText, items))) {
+        wbWhenNoteRendered(name, () => wbRevealNewNote(name));
+    }
     return name;
 }
 
@@ -5356,9 +5417,11 @@ function wbTaskIsOnBoard(taskName) {
 
 /**
  * Add `taskNames` to the board: one free-space rect per name (via
- * wbBuildAddNoteRows(), scanning the *current* viewport -- see
- * whiteboard.js's wbCurrentViewportBoardRect()), appended to the current
- * rows, written and committed in a single call. This is the one and only
+ * wbNewNoteRows() -- a single note goes beside the selected one or nearest
+ * the middle of the screen, a batch is shelf-packed from the *current*
+ * viewport, see whiteboard.js's wbCurrentViewportBoardRect()), appended to
+ * the current rows, written and committed in a single call, and the board
+ * pans to the first new note if it could not fit on screen. This is the one and only
  * place new whiteboard rows get written, whether the caller is the
  * picker's multi-select "Add" button or the empty state's "Add all
  * summary tasks" shortcut -- see this section's header comment.
@@ -5383,14 +5446,30 @@ function wbCommitAddNotes(taskNames, options = {}) {
     const planText = editor.value;
     const section = extractWhiteboardFromPlanText(planText);
     const items = parseWhiteboardMarkdown(section);
-    const viewport = wbAddNotesViewport(options.at);
-    const newRows = wbBuildAddNoteRows(items, viewport, names, {
+    const newRows = wbNewNoteRows(items, names, options.at);
+
+    const nextText = updatePlanWhiteboardText(planText, items.concat(newRows));
+    if (!wbCommitMarkdown(nextText)) return false;
+    wbWhenNoteRendered(names[0], () => wbRevealNewNote(names[0]));
+    return true;
+}
+
+/**
+ * The rows for adding `names` to a board that already has `items`. A single
+ * note is placed the way a new post-it is (wbNewNotePosition(): beside the
+ * selected note, else nearest the middle of the screen); a batch, or one
+ * laid out from a pin's `at` point, is shelf-packed as a tidy grid by
+ * wbBuildAddNoteRows().
+ */
+function wbNewNoteRows(items, names, at) {
+    if (names.length === 1 && !at) {
+        const { x, y } = wbNewNotePosition(items, null);
+        return [{ task: names[0], x, y, colour: '', width: null, height: null, collapsed: false }];
+    }
+    return wbBuildAddNoteRows(items, wbAddNotesViewport(at), names, {
         width: WB_NOTE_DEFAULT_WIDTH,
         height: WB_NOTE_DEFAULT_HEIGHT,
     });
-
-    const nextText = updatePlanWhiteboardText(planText, items.concat(newRows));
-    return wbCommitMarkdown(nextText);
 }
 
 /** "Add all summary tasks": every not-yet-added summary task, in one
@@ -5505,14 +5584,12 @@ function wbCreateAndAddSummaryTask(taskName) {
 
     const section = extractWhiteboardFromPlanText(withNewTask);
     const items = parseWhiteboardMarkdown(section);
-    const viewport = (typeof wbCurrentViewportBoardRect === 'function') ? wbCurrentViewportBoardRect() : null;
-    const newRows = wbBuildAddNoteRows(items, viewport, [name], {
-        width: WB_NOTE_DEFAULT_WIDTH,
-        height: WB_NOTE_DEFAULT_HEIGHT,
-    });
+    const newRows = wbNewNoteRows(items, [name]);
 
     const nextText = updatePlanWhiteboardText(withNewTask, items.concat(newRows));
-    return wbCommitMarkdown(nextText);
+    if (!wbCommitMarkdown(nextText)) return false;
+    wbWhenNoteRendered(name, () => wbRevealNewNote(name));
+    return true;
 }
 
 // ── Empty state ──────────────────────────────────────────────────────────
@@ -6072,15 +6149,87 @@ function wbSubmitAddNotePicker() {
 // cost the user two Ctrl+Z presses to undo one action.
 
 /**
- * Create a brand-new post-it centred on the board point (x, y): a new
- * top-level task in the outline plus a whiteboard row positioning it,
- * committed together. The new note's title goes straight into edit mode
- * so naming it is part of the same gesture.
+ * Where one new note of `width` x `height` goes, as a top-left board point.
  *
- * Placement: centred on the point asked for, unless that would overlap an
- * existing note, in which case it falls back to the same free-space scan
- * the Add-note picker uses (wbFindFreeSpacePosition()) so notes never
- * stack invisibly on top of each other.
+ * - Given a board `point` (a double-click, or the canvas menu's "here"):
+ *   centred on it, unless that would overlap an existing note, in which
+ *   case the nearest free spot to it.
+ * - Otherwise, with a note selected: beside the selected note (to its
+ *   right, or the nearest free spot to there).
+ * - Otherwise: the nearest free spot to the middle of the visible canvas.
+ *
+ * Every case prefers a spot wholly on screen (wbFindNearestFreePosition()),
+ * so a new note is never parked below the viewport while a free spot is
+ * showing; the caller still reveals it afterwards (wbRevealNewNote()) for
+ * the case where the screen genuinely has no room left.
+ */
+function wbNewNotePosition(items, point, width = WB_NOTE_DEFAULT_WIDTH, height = WB_NOTE_DEFAULT_HEIGHT) {
+    const gap = 24;
+    const rects = (items || []).map(item => ({
+        x: item.x || 0,
+        y: item.y || 0,
+        width: item.width || WB_NOTE_DEFAULT_WIDTH,
+        height: item.height || WB_NOTE_DEFAULT_HEIGHT,
+    }));
+    const viewport = (typeof wbCurrentViewportBoardRect === 'function') ? wbCurrentViewportBoardRect() : null;
+
+    if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) {
+        const wanted = { x: Math.round(point.x - width / 2), y: Math.round(point.y - height / 2), width, height };
+        if (!rects.some(rect => wbRectsOverlap(wanted, rect, 8))) return { x: wanted.x, y: wanted.y };
+        return wbFindNearestFreePosition(rects, wanted, viewport, width, height, gap);
+    }
+
+    const selectedName = (typeof wbGetSelectedNoteTask === 'function') ? wbGetSelectedNoteTask() : null;
+    const key = selectedName ? String(selectedName).toLowerCase() : null;
+    const selected = key && (items || []).find(item =>
+        item && item.task && item.kind !== 'group' && String(item.task).toLowerCase() === key);
+    if (selected) {
+        const preferred = {
+            x: (selected.x || 0) + (selected.width || WB_NOTE_DEFAULT_WIDTH) + gap,
+            y: selected.y || 0,
+        };
+        return wbFindNearestFreePosition(rects, preferred, viewport, width, height, gap);
+    }
+
+    const vp = viewport || { x: 0, y: 0, width: 1200, height: 800 };
+    const centre = { x: vp.x + vp.width / 2 - width / 2, y: vp.y + vp.height / 2 - height / 2 };
+    return wbFindNearestFreePosition(rects, centre, viewport, width, height, gap);
+}
+
+/**
+ * Run `callback(entry)` once `taskName`'s note has rendered. A commit's
+ * renderText() is async, so the note's DOM does not exist yet when the
+ * commit returns. Poll briefly for it rather than guessing a delay -- a
+ * slow render must still land, and a render that never happens must not
+ * leave a dangling timer. Budget is generous (3s) because renderText()
+ * awaits a full re-render (baseline/forecast/escalation views included),
+ * which can be slow under load.
+ */
+function wbWhenNoteRendered(taskName, callback) {
+    let attempts = 0;
+    const check = () => {
+        const entry = wbNoteNodes.get(taskName);
+        if (entry) { callback(entry); return; }
+        if (++attempts < 60) setTimeout(check, 50);
+    };
+    setTimeout(check, 50);
+}
+
+/** Pan the board so a just-added note is on screen (see
+ * whiteboardRevealNote() in whiteboard.js); a no-op if it already is. */
+function wbRevealNewNote(taskName) {
+    if (typeof whiteboardRevealNote === 'function') whiteboardRevealNote(taskName);
+}
+
+/**
+ * Create a brand-new post-it: a new top-level task in the outline plus a
+ * whiteboard row positioning it, committed together. The new note's title
+ * goes straight into edit mode so naming it is part of the same gesture.
+ *
+ * Given a board point (x, y) the note is centred there; called with no
+ * point it goes beside the selected note, or in the middle of the screen --
+ * see wbNewNotePosition(). Either way it never lands on top of another
+ * note, and the board pans to it if it had to go off screen.
  */
 function wbCreateNoteAt(boardX, boardY) {
     const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
@@ -6103,41 +6252,17 @@ function wbCreateNoteAt(boardX, boardY) {
 
     const withTask = wbAppendTopLevelTask(planText, name);
     const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(withTask));
-
-    let x = Math.round(boardX - width / 2);
-    let y = Math.round(boardY - height / 2);
-    const existingRects = items.map(item => ({
-        x: item.x || 0,
-        y: item.y || 0,
-        width: item.width || WB_NOTE_DEFAULT_WIDTH,
-        height: item.height || WB_NOTE_DEFAULT_HEIGHT,
-    }));
-    const wanted = { x, y, width, height };
-    const clashes = existingRects.some(rect => wbRectsOverlap(wanted, rect, 8));
-    if (clashes && typeof wbFindFreeSpacePosition === 'function' &&
-        typeof wbCurrentViewportBoardRect === 'function') {
-        const free = wbFindFreeSpacePosition(existingRects, wbCurrentViewportBoardRect(), width, height);
-        if (free) { x = Math.round(free.x); y = Math.round(free.y); }
-    }
+    const point = (Number.isFinite(boardX) && Number.isFinite(boardY)) ? { x: boardX, y: boardY } : null;
+    const { x, y } = wbNewNotePosition(items, point, width, height);
 
     items.push({ task: name, x, y, colour: '', width, height, collapsed: false });
 
     if (!wbCommitMarkdown(updatePlanWhiteboardText(withTask, items))) return null;
 
-    // The commit's renderText() is async, so the note's DOM does not exist
-    // yet. Poll briefly for it rather than guessing a delay -- a slow
-    // render must still land in "type the name straight away", and a
-    // render that never happens must not leave a dangling timer. Budget is
-    // generous (3s) because renderText() awaits a full re-render
-    // (baseline/forecast/escalation views included), which can be slow
-    // under load.
-    let attempts = 0;
-    const focusWhenReady = () => {
-        const entry = wbNoteNodes.get(name);
-        if (entry) { wbBeginTitleEdit(entry); return; }
-        if (++attempts < 60) setTimeout(focusWhenReady, 50);
-    };
-    setTimeout(focusWhenReady, 50);
+    wbWhenNoteRendered(name, entry => {
+        wbRevealNewNote(name);
+        wbBeginTitleEdit(entry);
+    });
 
     return name;
 }
@@ -6149,16 +6274,15 @@ function wbCreateNoteAtClientPoint(clientX, clientY) {
     return wbCreateNoteAt(point.x, point.y);
 }
 
-/** wbCreateNoteAt() for the middle of whatever is currently on screen --
- * the toolbar's "New post-it" and "Text note" buttons (#1107 -- the latter
- * is a second entry point onto this exact same free-form note, grouped
- * with the other bare-canvas-object buttons; see index.html's comment by
- * #whiteboardTextNoteBtn), the ribbon's Whiteboard tab "Note" button
- * (#1107, ribbon.js's 'whiteboard:Note'), and the `n` keyboard shortcut. */
+/** wbCreateNoteAt() with no point: beside the selected note, or in the
+ * middle of whatever is currently on screen -- the toolbar's "New post-it"
+ * and "Text note" buttons (#1107 -- the latter is a second entry point onto
+ * this exact same free-form note, grouped with the other bare-canvas-object
+ * buttons; see index.html's comment by #whiteboardTextNoteBtn), the
+ * ribbon's Whiteboard tab "Note" button (#1107, ribbon.js's
+ * 'whiteboard:Note'), and the `n` keyboard shortcut. */
 function wbCreateNoteInViewportCentre() {
-    if (typeof wbCurrentViewportBoardRect !== 'function') return null;
-    const rect = wbCurrentViewportBoardRect();
-    return wbCreateNoteAt(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return wbCreateNoteAt();
 }
 
 /**
@@ -6243,12 +6367,26 @@ function wbRenameNoteTask(oldName, newName) {
     if (!editor || !oldName || !newName || oldName === newName) return false;
     if (typeof wbRenameTaskInPlanText !== 'function') return false;
 
+    // What was typed goes into the outline line verbatim, so inline tokens
+    // work from the board just as in the editor: `Design 3d @kev` becomes a
+    // 3-day task assigned to kev. But the task is then *called* `Design` --
+    // that is what the scheduler parses out of the line -- and every
+    // reference keyed by name (the note's whiteboard row, dependencies, the
+    // clash check, the note DOM) has to use that. Keying them on the raw
+    // text left the row naming a task that does not exist, and the note
+    // vanished from the canvas while the outline and the markdown still
+    // showed it.
+    const taskName = (typeof wbTaskNameFromLine === 'function')
+        ? wbTaskNameFromLine(newName)
+        : String(newName).trim();
+    if (!taskName) return false; // nothing but tokens: no name to give it
+
     const clash = (wbLastTasks || []).some(t =>
         t && t.name && t.name !== oldName &&
-        String(t.name).toLowerCase() === String(newName).toLowerCase());
+        String(t.name).toLowerCase() === taskName.toLowerCase());
     if (clash) {
         if (typeof wbFlashNoodleMessage === 'function') {
-            wbFlashNoodleMessage(`Another task is already called "${newName}".`);
+            wbFlashNoodleMessage(`Another task is already called "${taskName}".`);
         }
         return false;
     }
@@ -6256,13 +6394,15 @@ function wbRenameNoteTask(oldName, newName) {
     let next = wbRenameTaskInPlanText(editor.value, oldName, newName);
     if (next === editor.value) return false;
 
-    if (typeof updateDependencyReferences === 'function') {
-        const lines = next.split('\n');
-        updateDependencyReferences(lines, oldName, newName);
-        next = lines.join('\n');
-    }
-    if (typeof renamePlanWhiteboardTask === 'function') {
-        next = renamePlanWhiteboardTask(next, oldName, newName);
+    if (taskName !== oldName) {
+        if (typeof updateDependencyReferences === 'function') {
+            const lines = next.split('\n');
+            updateDependencyReferences(lines, oldName, taskName);
+            next = lines.join('\n');
+        }
+        if (typeof renamePlanWhiteboardTask === 'function') {
+            next = renamePlanWhiteboardTask(next, oldName, taskName);
+        }
     }
 
     // The note's DOM is keyed by task name; re-key it now so the in-flight
@@ -6273,12 +6413,12 @@ function wbRenameNoteTask(oldName, newName) {
 
     if (entry) {
         wbNoteNodes.delete(oldName);
-        wbNoteNodes.set(newName, entry);
-        entry.fo.dataset.wbTask = newName;
+        wbNoteNodes.set(taskName, entry);
+        entry.fo.dataset.wbTask = taskName;
         // The selected note (if any) is tracked by name too -- keep it
         // pointing at the same note through the rename (issue #1109's
         // toolbar Colour button reads this to know which note to act on).
-        if (wbSelectedNoteTask === oldName) wbSelectedNoteTask = newName;
+        if (wbSelectedNoteTask === oldName) wbSelectedNoteTask = taskName;
     }
 
     return wbCommitMarkdown(next);

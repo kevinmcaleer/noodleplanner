@@ -67,6 +67,7 @@ const {
     wbFilterPickerEntries,
     wbRectsOverlap,
     wbFindFreeSpacePosition,
+    wbFindNearestFreePosition,
     wbBuildAddNoteRows,
     wbLayoutRows,
     wbInsertNewSummaryTaskLine,
@@ -218,6 +219,43 @@ const tasks = [
     const overflow = wbFindFreeSpacePosition([blocking], tinyViewport, width, height, gap);
     assert(!wbRectsOverlap({ x: overflow.x, y: overflow.y, width, height }, blocking, gap),
         'when the viewport is full, the scan still returns a non-overlapping position outside it');
+}
+
+// ── wbFindNearestFreePosition: one new note, on screen if at all possible ─
+{
+    const width = 260, height = 220, gap = 24;
+    const inside = (p, vp) => p.x >= vp.x && p.y >= vp.y &&
+        p.x + width <= vp.x + vp.width && p.y + height <= vp.y + vp.height;
+
+    // The reported bug: a small viewport whose middle already holds a
+    // note. The shelf-pack found no free cell on screen and put the second
+    // note below the viewport, so it never appeared.
+    const viewport = { x: -250, y: -232, width: 500, height: 464 };
+    const existing = { x: -130, y: -110, width, height };
+    const centre = { x: -130, y: -110 };
+    const shelf = wbFindFreeSpacePosition([existing], viewport, width, height, gap);
+    assert(!inside(shelf, viewport), 'precondition: the shelf-pack puts this note off screen');
+    const near = wbFindNearestFreePosition([existing], centre, viewport, width, height, gap);
+    assert(!wbRectsOverlap({ ...near, width, height }, existing, gap), 'the nearest free spot does not overlap the existing note');
+
+    const roomy = { x: -600, y: -400, width: 1200, height: 800 };
+    const onScreen = wbFindNearestFreePosition([existing], centre, roomy, width, height, gap);
+    assert(inside(onScreen, roomy), 'with room on screen, the new note is placed on screen');
+    assert(Math.hypot(onScreen.x - centre.x, onScreen.y - centre.y) <= Math.hypot(width + gap, height + gap),
+        'and right next to where it was wanted, not in a far corner');
+
+    const free = wbFindNearestFreePosition([], centre, roomy, width, height, gap);
+    assert(free.x === centre.x && free.y === centre.y, 'a free preferred spot is used as-is');
+
+    // Beside a selected note: the spot to its right is taken first.
+    const selected = { x: 0, y: 0, width, height };
+    const right = wbFindNearestFreePosition([selected], { x: width + gap, y: 0 }, roomy, width, height, gap);
+    assert(right.x === width + gap && right.y === 0, 'a free spot beside the selected note is used');
+
+    // No room anywhere on screen: still a non-overlapping answer.
+    const full = wbFindNearestFreePosition([existing], centre, { x: -140, y: -120, width: 280, height: 240 }, width, height, gap);
+    assert(!wbRectsOverlap({ ...full, width, height }, existing, gap),
+        'when the screen is full, the nearest off-screen spot still does not overlap');
 }
 
 // ── wbBuildAddNoteRows: batch placement + "fresh position on re-add" ────

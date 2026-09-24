@@ -444,6 +444,17 @@ function wbUngroupGroup(groupName) {
     return wbCommitMarkdown(wbRemoveGroupRow(next, groupName));
 }
 
+/**
+ * The task name the scheduler will parse out of a typed name: `Build 3d`
+ * is a task called `Build`. A board row naming the raw text would match no
+ * task, and its note or boundary would silently disappear.
+ */
+function wbParsedTaskName(typed) {
+    return (typeof wbTaskNameFromLine === 'function')
+        ? wbTaskNameFromLine(typed)
+        : String(typed || '').trim();
+}
+
 function wbRenameGroup(groupName) {
     const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
     if (!editor || !groupName) return false;
@@ -453,12 +464,15 @@ function wbRenameGroup(groupName) {
         ? wbSanitiseChildTaskName(typed) : String(typed).trim();
     if (!name || name === groupName) return false;
 
+    const taskName = wbParsedTaskName(name);
+    if (!taskName) return false;
+
     const renamed = wbRenameTaskInPlanText(editor.value, groupName, name);
     if (renamed === editor.value) return false;
     // The boundary row keys off the task name, so it has to follow the
     // rename in the same commit or the group loses its boundary.
     const rows = wbReadBoardRows(renamed).map(row =>
-        (row && row.kind === 'group' && row.task === groupName) ? { ...row, task: name } : row);
+        (row && row.kind === 'group' && row.task === groupName) ? { ...row, task: taskName } : row);
     return wbCommitMarkdown(updatePlanWhiteboardText(renamed, rows));
 }
 
@@ -494,11 +508,12 @@ function wbMergeNotes(targetName, sourceNames) {
     if (typed != null) {
         const name = (typeof wbSanitiseChildTaskName === 'function')
             ? wbSanitiseChildTaskName(typed) : String(typed).trim();
-        if (name && name !== targetName) {
+        const taskName = wbParsedTaskName(name);
+        if (name && taskName && name !== targetName) {
             const renamed = wbRenameTaskInPlanText(plan, targetName, name);
             if (renamed !== plan) {
                 rows = wbReadBoardRows(renamed).map(row =>
-                    (row && row.task === targetName) ? { ...row, task: name } : row);
+                    (row && row.task === targetName) ? { ...row, task: taskName } : row);
                 plan = updatePlanWhiteboardText(renamed, rows);
             }
         }
