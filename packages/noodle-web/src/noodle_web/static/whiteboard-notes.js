@@ -3705,10 +3705,16 @@ function wbFindRowByTask(body, taskName) {
  * pixels back into the layout pixels the rails are positioned in.
  */
 function wbShowRowRails(entry, row) {
-    const { card, body, rails, railHint, railDep } = entry.refs;
+    const { body, rails, railHint, railDep } = entry.refs;
 
-    const cardRect = card.getBoundingClientRect();
-    const scale = card.offsetHeight ? (cardRect.height / card.offsetHeight) : 1;
+    // Measured from the rails' own box, not the card's: the rails are
+    // positioned inside it, and it does not always share the card's scale.
+    // Under a zoomed board Chromium lays the absolutely positioned rails layer
+    // out at screen size while the card is scaled (329 layout px against the
+    // card's 300 at 1.095), so dividing by the card's scale left the rail off
+    // its row by (zoom - 1) x its offset -- 8.6px on a mid-note row.
+    const railsRect = rails.getBoundingClientRect();
+    const scale = rails.offsetHeight ? (railsRect.height / rails.offsetHeight) : 1;
     if (!scale) return;
     const rowRect = row.getBoundingClientRect();
     const bodyRect = body.getBoundingClientRect();
@@ -3726,7 +3732,7 @@ function wbShowRowRails(entry, row) {
     // The row's midpoint. `.wb-note-rail` pulls itself up by half its own
     // height from here -- see the transform on that rule for why the halving
     // is not done here.
-    const top = (midpoint - cardRect.top) / scale;
+    const top = (midpoint - railsRect.top) / scale;
     railHint.style.top = `${top}px`;
     railDep.style.top = `${top}px`;
 

@@ -379,10 +379,13 @@ class TestDegradation:
         )
         # Unquoted attribute value: `Build` is a valid CSS identifier, and it
         # keeps this free of nested-quote escaping.
+        # `offsetWidth`, for the reason settled() gives: the rect is scaled by
+        # the board's zoom, so it only matched `w` when the fitted zoom
+        # happened to land near 1.
         page.wait_for_function(
             "w => { const n = document.querySelector("
             "         '.wb-note[data-wb-task=Build] .wb-note-card');"
-            "       return n && Math.abs(n.getBoundingClientRect().width - w) < 2; }",
+            "       return n && Math.abs(n.offsetWidth - w) < 2; }",
             arg=width,
         )
 
