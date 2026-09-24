@@ -190,8 +190,11 @@ def get_note(driver, task_name):
         const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
         for (const n of notes) {
             if (n.dataset.wbTask === arguments[0]) return {
-                x: parseFloat(n.getAttribute('x')), y: parseFloat(n.getAttribute('y')),
-                width: parseFloat(n.getAttribute('width')), height: parseFloat(n.getAttribute('height')),
+                // Board geometry. The x/y/width/height attributes are where
+                // the note is drawn on screen under the current pan/zoom
+                // (wbPlaceBoardObject() in whiteboard.js).
+                x: parseFloat(n.dataset.wbX), y: parseFloat(n.dataset.wbY),
+                width: parseFloat(n.dataset.wbWidth), height: parseFloat(n.dataset.wbHeight),
             };
         }
         return null;

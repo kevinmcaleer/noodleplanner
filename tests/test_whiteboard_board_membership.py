@@ -190,6 +190,20 @@ def dismiss_tour(driver):
 
 
 def open_app(driver, base_url):
+    # The browser is shared by the whole module, and the app remembers the
+    # board's pan/zoom in localStorage (`whiteboard_viewport_<project>`). A
+    # test that zooms or fits the board therefore hands its view to every
+    # later test, which can leave a note's `...` button drawn outside the
+    # canvas and unclickable -- TestRemoveFromBoard failed only when run
+    # after the classes above it. Forget the view before loading, while the
+    # page is still on the app's origin: after the load is too late, since
+    # the app has already read it.
+    if driver.current_url.startswith(base_url):
+        driver.execute_script(
+            "Object.keys(localStorage)"
+            ".filter(k => k.startsWith('whiteboard_viewport'))"
+            ".forEach(k => localStorage.removeItem(k));"
+        )
     driver.get(base_url)
     dismiss_tour(driver)
     time.sleep(0.3)
@@ -280,8 +294,8 @@ def get_note_rect(driver, task_name):
         const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
         for (const n of notes) {
             if (n.dataset.wbTask === arguments[0]) return {
-                x: parseFloat(n.getAttribute('x')), y: parseFloat(n.getAttribute('y')),
-                width: parseFloat(n.getAttribute('width')), height: parseFloat(n.getAttribute('height')),
+                x: parseFloat(n.dataset.wbX), y: parseFloat(n.dataset.wbY),
+                width: parseFloat(n.dataset.wbWidth), height: parseFloat(n.dataset.wbHeight),
             };
         }
         return null;

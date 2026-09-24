@@ -220,8 +220,10 @@ def get_text_objects(driver):
         document.querySelectorAll('#whiteboardContainer .wb-text-object').forEach((fo) => {
             const content = fo.querySelector('.wb-text-object-content');
             out[fo.dataset.wbTextId] = {
-                x: parseFloat(fo.getAttribute('x')),
-                y: parseFloat(fo.getAttribute('y')),
+                // Board position, not the screen position the x/y
+                // attributes hold under the current pan/zoom.
+                x: parseFloat(fo.dataset.wbX),
+                y: parseFloat(fo.dataset.wbY),
                 text: content ? content.textContent : null,
                 editing: content ? content.isContentEditable : null,
                 selected: content ? content.classList.contains('selected') : null,
