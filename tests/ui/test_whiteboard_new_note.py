@@ -146,3 +146,52 @@ Phase 1
     note(page, "Phase 1").wait_for(state="attached")
     page.wait_for_function("() => wbPanX !== 0")
     assert _on_screen(page, "Phase 1")
+
+
+def _offset_from_centre(page, task):
+    """How far `task`'s note's centre is from the visible canvas's centre, in
+    screen pixels, once any pan animation has settled."""
+    page.wait_for_timeout(300)
+    return page.evaluate(
+        """task => {
+            const el = document.querySelector(
+                `#whiteboardContainer .wb-note[data-wb-task="${task}"]`);
+            const canvas = wbSvg.getBoundingClientRect();
+            const v = wbVisibleCanvasRect();
+            const r = el.getBoundingClientRect();
+            return Math.hypot(
+                r.left + r.width / 2 - (canvas.left + v.x + v.width / 2),
+                r.top + r.height / 2 - (canvas.top + v.y + v.height / 2));
+        }""",
+        task,
+    )
+
+
+def test_a_post_it_made_while_the_board_is_hidden_is_centred(page, app_server):
+    """The ribbon's Whiteboard > Note works with another view showing. The
+    hidden canvas measures 0x0, which used to put the note on the canvas's
+    top-left corner -- behind the Plan Structure panel."""
+    page.set_viewport_size({"width": 2000, "height": 1130})
+    _open_board(page, app_server)
+    # Let the first open finish framing the empty board before zooming.
+    page.wait_for_selector("#whiteboardContainer svg.wb-svg", state="attached")
+    page.wait_for_timeout(300)
+    page.evaluate("() => { wbZoom = 1.27; wbApplyTransform(false); }")
+    page.evaluate("() => switchToView('gantt')")
+    page.wait_for_function("() => !wbVisibleCanvasRect().width")
+
+    page.evaluate("() => wbCreateNoteInViewportCentre()")
+    page.wait_for_function("() => wbLastTasks.some(t => t.name === 'New idea')")
+    page.evaluate("() => switchToView('whiteboard')")
+    note(page, "New idea").wait_for()
+    page.wait_for_function("() => wbVisibleCanvasRect().width > 0")
+
+    assert _offset_from_centre(page, "New idea") < 4
+    assert page.evaluate("() => wbZoom") == pytest.approx(1.27), "revealing never zooms"
+
+
+def test_a_new_post_it_is_centred_on_an_empty_board(page, app_server):
+    page.set_viewport_size({"width": 2000, "height": 1130})
+    _open_board(page, app_server)
+    _new_post_it(page)
+    assert _offset_from_centre(page, "New idea") < 4

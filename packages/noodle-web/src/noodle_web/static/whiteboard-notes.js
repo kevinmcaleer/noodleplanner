@@ -4413,7 +4413,7 @@ function wbSpawnCoachingNote(sourceTaskName, relation, suggestedName) {
     }
     items.push({ task: name, x: Math.round(x), y: Math.round(y), colour: '', width, height, collapsed: false });
     if (wbCommitMarkdown(updatePlanWhiteboardText(nextText, items))) {
-        wbWhenNoteRendered(name, () => wbRevealNewNote(name));
+        wbRevealNewNote(name);
     }
     return name;
 }
@@ -5450,7 +5450,7 @@ function wbCommitAddNotes(taskNames, options = {}) {
 
     const nextText = updatePlanWhiteboardText(planText, items.concat(newRows));
     if (!wbCommitMarkdown(nextText)) return false;
-    wbWhenNoteRendered(names[0], () => wbRevealNewNote(names[0]));
+    wbRevealNewNote(names[0]);
     return true;
 }
 
@@ -5588,7 +5588,7 @@ function wbCreateAndAddSummaryTask(taskName) {
 
     const nextText = updatePlanWhiteboardText(withNewTask, items.concat(newRows));
     if (!wbCommitMarkdown(nextText)) return false;
-    wbWhenNoteRendered(name, () => wbRevealNewNote(name));
+    wbRevealNewNote(name);
     return true;
 }
 
@@ -6215,10 +6215,20 @@ function wbWhenNoteRendered(taskName, callback) {
     setTimeout(check, 50);
 }
 
-/** Pan the board so a just-added note is on screen (see
- * whiteboardRevealNote() in whiteboard.js); a no-op if it already is. */
-function wbRevealNewNote(taskName) {
-    if (typeof whiteboardRevealNote === 'function') whiteboardRevealNote(taskName);
+/**
+ * Pan the board so a just-added note is in the middle of the screen if it
+ * is not already on it (see whiteboardRevealNote() in whiteboard.js).
+ * Queued first, then done once the note has rendered: if the whiteboard
+ * view is hidden or not built yet (a note made from the ribbon with another
+ * view showing), the note cannot be measured or render until it is shown,
+ * and initWhiteboard() does it then instead.
+ */
+function wbRevealNewNote(taskName, onRendered) {
+    if (typeof whiteboardQueueReveal === 'function') whiteboardQueueReveal(taskName);
+    wbWhenNoteRendered(taskName, entry => {
+        if (typeof whiteboardRevealNote === 'function') whiteboardRevealNote(taskName);
+        if (onRendered) onRendered(entry);
+    });
 }
 
 /**
@@ -6259,10 +6269,7 @@ function wbCreateNoteAt(boardX, boardY) {
 
     if (!wbCommitMarkdown(updatePlanWhiteboardText(withTask, items))) return null;
 
-    wbWhenNoteRendered(name, entry => {
-        wbRevealNewNote(name);
-        wbBeginTitleEdit(entry);
-    });
+    wbRevealNewNote(name, entry => wbBeginTitleEdit(entry));
 
     return name;
 }
