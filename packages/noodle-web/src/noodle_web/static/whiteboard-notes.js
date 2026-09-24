@@ -4823,19 +4823,121 @@ function wbNoteMenuSafeBounds(edgeGap) {
  *     colour-only version) than a naive "flip if it doesn't fit below,
  *     else give up" rule can safely handle on a short viewport.
  */
-function wbOpenNoteMenu(taskName, btn) {
+function wbOpenNoteMenu(taskName, btn, at) {
+    wbShowBoardMenu(wbBuildNoteMenu(taskName), { taskName, btn }, at);
+}
+
+/**
+ * The same `...` menu, opened by a right-click on the note (see
+ * wbHandleContextMenu() in whiteboard.js) at the pointer rather than under
+ * the button. The button still owns it -- it is what Escape hands focus
+ * back to, and its aria-expanded is what says the menu is open -- so the
+ * two ways in are one menu, not two that could drift apart.
+ */
+function wbOpenNoteMenuAt(taskName, clientX, clientY) {
+    const entry = wbNoteNodes.get(taskName);
+    const btn = entry && entry.refs && entry.refs.menuBtn;
+    if (!btn) return;
+    wbOpenNoteMenu(taskName, btn, { x: clientX, y: clientY });
+}
+
+/**
+ * The menu a right-click on bare canvas opens. Everything on it is already
+ * a toolbar button or a key; the two "here" items are the reason it exists,
+ * because they put the new object where you clicked rather than in the
+ * middle of the screen -- the same placement a canvas double-click gives a
+ * post-it (wbHandleCanvasDoubleClick()). It shares the note menu's DOM id,
+ * styling and wbNoteMenuState, so opening one closes the other and the
+ * outside-click and keyboard handling are the note menu's own.
+ */
+function wbBuildCanvasMenu(clientX, clientY) {
+    const menu = document.createElement('div');
+    menu.id = 'wbNoteMenu';
+    menu.className = 'wb-note-menu wb-canvas-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Board options');
+
+    const list = document.createElement('ul');
+    list.className = 'wb-note-menu-list';
+    list.setAttribute('role', 'none');
+    menu.appendChild(list);
+
+    const addItem = (label, title, action) => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'wb-note-menu-action';
+        btn.setAttribute('role', 'menuitem');
+        btn.textContent = label;
+        btn.title = title;
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            wbCloseNoteMenu();
+            action();
+        });
+        li.appendChild(btn);
+        list.appendChild(li);
+    };
+    const addDivider = () => {
+        const li = document.createElement('li');
+        li.className = 'wb-note-menu-divider';
+        li.setAttribute('role', 'separator');
+        list.appendChild(li);
+    };
+
+    // Converted to board space now, not when an item is picked: the board
+    // can still pan or zoom while the menu is open, and the object belongs
+    // where the click was on the board, not under wherever that screen
+    // point has drifted to.
+    const at = wbClientToBoard(clientX, clientY);
+    addItem('New post-it here', 'A new note -- and a new task -- where you clicked (or double-click the canvas)',
+        () => wbCreateNoteAt(at.x, at.y));
+    addItem('Add title here', 'Free-floating text where you clicked -- no task, no card',
+        () => wbCreateTextObjectAt(at.x, at.y));
+    addItem('Add existing task…', 'Put a task that is already in the plan onto the board',
+        () => wbOpenAddNotePicker());
+    addDivider();
+    addItem('Fit to content', 'Zoom to show every note (F)', () => whiteboardZoomFit());
+    addItem('Zoom to 100%', 'Reset the zoom (0)', () => whiteboardZoomReset());
+    addDivider();
+    addItem('Plan structure', 'Show or hide the plan structure panel', () => wbToggleOutlinePanel());
+    addItem('Parking lot', 'Show or hide the parked ideas', () => wbToggleParkingLotPanel());
+
+    return menu;
+}
+
+/** Open the canvas menu at a client point -- see wbBuildCanvasMenu(). */
+function wbOpenCanvasMenu(clientX, clientY) {
+    const container = document.getElementById('whiteboardContainer');
+    wbShowBoardMenu(wbBuildCanvasMenu(clientX, clientY),
+        { taskName: null, btn: null, returnFocus: container }, { x: clientX, y: clientY });
+}
+
+/**
+ * Put a built board menu (the note menu, or the canvas menu below) on
+ * screen and wire it up. `state.btn` is the button that owns the menu --
+ * it gets aria-expanded, and Escape hands focus back to it. The canvas menu
+ * has no such button, so it passes `returnFocus` instead. `at` -- a client
+ * point -- anchors the menu there instead of under `state.btn`.
+ */
+function wbShowBoardMenu(menu, state, at) {
     wbCloseNoteMenu();
     // One popup at a time. None of the three open paths used to close all the
     // others, so a smart menu and the note menu could sit open together (#1247).
     if (typeof wbCloseSmartMenu === 'function') wbCloseSmartMenu();
     if (typeof wbCloseCoachingMenu === 'function') wbCloseCoachingMenu();
 
-    const menu = wbBuildNoteMenu(taskName);
+    const btn = state.btn;
     document.body.appendChild(menu);
 
     const edgeGap = 8;
     const bounds = wbNoteMenuSafeBounds(edgeGap);
-    const btnRect = btn.getBoundingClientRect();
+    // A point stands in for the button as a zero-size rect, pre-shifted by
+    // the 4px gap below so the menu's corner lands on the pointer itself,
+    // whichever side it opens on.
+    const btnRect = at
+        ? { left: at.x, right: at.x, top: at.y + 4, bottom: at.y - 4 }
+        : btn.getBoundingClientRect();
     const menuRect = menu.getBoundingClientRect();
 
     let left = Math.min(btnRect.left, window.innerWidth - menuRect.width - edgeGap);
@@ -4857,8 +4959,8 @@ function wbOpenNoteMenu(taskName, btn) {
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
 
-    btn.setAttribute('aria-expanded', 'true');
-    wbNoteMenuState = { taskName, btn };
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    wbNoteMenuState = state;
 
     document.addEventListener('mousedown', wbNoteMenuOutsideClick, true);
     document.addEventListener('keydown', wbNoteMenuKeydown, true);
@@ -4911,6 +5013,14 @@ function wbCloseNoteMenu() {
     wbNoteMenuState = null;
 }
 
+/** Where focus goes when the menu closes from the keyboard: the button
+ * that owns it, or -- for the canvas menu, which no button owns -- the
+ * canvas itself. */
+function wbNoteMenuReturnFocus() {
+    if (!wbNoteMenuState) return null;
+    return wbNoteMenuState.btn || wbNoteMenuState.returnFocus || null;
+}
+
 /** Outside click closes the menu -- mirrors status-bar.js's
  * handleStatusPopupOutsideClick() (mousedown, capture phase, so it beats
  * any click-driven UI already listening on click/bubble). */
@@ -4933,7 +5043,7 @@ function wbNoteMenuKeydown(e) {
 
     if (e.key === 'Escape') {
         e.preventDefault();
-        const btn = wbNoteMenuState && wbNoteMenuState.btn;
+        const btn = wbNoteMenuReturnFocus();
         wbCloseNoteMenu();
         if (btn) btn.focus();
         return;
@@ -4942,7 +5052,7 @@ function wbNoteMenuKeydown(e) {
     if (e.key === 'Tab') {
         // Every item is a real <button> and nothing used to intercept Tab, so
         // focus could walk out of an open menu and leave it open behind (#1247).
-        const btn = wbNoteMenuState && wbNoteMenuState.btn;
+        const btn = wbNoteMenuReturnFocus();
         wbCloseNoteMenu();
         if (btn) btn.focus();
         return;

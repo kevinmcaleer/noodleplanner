@@ -22,6 +22,7 @@ Add a Post-it
 Any of these creates a new task in your plan and puts a note for it on the board:
 
 - **Double-click** an empty part of the canvas — the note lands where you clicked.
+- **Right-click** an empty part of the canvas and choose **New post-it here** — it lands where you clicked too.
 - Press ``n``.
 - Click **New post-it** in the toolbar.
 
@@ -268,6 +269,10 @@ Keyboard and Pointer Reference
      - New post-it (and a new task)
    * - Double-click a note's header
      - Rename the task in place
+   * - Right-click a note
+     - The note's ``...`` menu, at the pointer
+   * - Right-click empty canvas
+     - New post-it or title here, add an existing task, fit, zoom, and the side panels
    * - Drag the noodle handle onto another note
      - Make that note a subtask
    * - Click a noodle, then ``Delete``
