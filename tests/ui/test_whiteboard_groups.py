@@ -382,6 +382,58 @@ class TestGrouping:
         assert page.locator(".wb-note").count() == 3
 
 
+class TestTheRibbonGroupButton:
+    """Issue #1341: the Whiteboard ribbon's Arrange -> Group button was a
+    "not available yet" stub although the grouping above already existed.
+    It now runs the same grouping as the selection toolbar's "Group these".
+    Driven through the ribbon's own button rather than the function, since
+    the missing wiring was the bug."""
+
+    def ribbon_group(self, page):
+        # The Whiteboard tab is contextual: it appears once the board is
+        # open but is not the selected tab until the user picks it.
+        page.click('.ribbon-tab-btn.contextual[data-tab="__ctx"]')
+        btn = page.locator(
+            'button[data-scope-id="whiteboard"][data-label="Group"]'
+        ).first
+        btn.wait_for(state="visible")
+        return btn
+
+    def test_it_groups_the_selected_notes(self, page, app_server):
+        board(page, app_server)
+        select(page, ["Alpha", "Beta"])
+        page.once("dialog", lambda d: d.accept("Discovery"))
+        self.ribbon_group(page).click()
+        page.wait_for_selector(
+            '.wb-group[data-wb-group="Discovery"] .wb-group-box'
+        )
+        lines = outline(page)
+        start = lines.index("Discovery")
+        assert lines[start:start + 6] == [
+            "Discovery",
+            "  Alpha",
+            "    Alpha one",
+            "    Alpha two",
+            "  Beta",
+            "    Beta one",
+        ]
+        assert page.locator(".wb-note").count() == 3
+
+    def test_with_one_note_selected_it_explains_rather_than_staying_silent(
+        self, page, app_server
+    ):
+        board(page, app_server)
+        select(page, ["Alpha"])
+        before = plan_text(page)
+        self.ribbon_group(page).click()
+        page.wait_for_function(
+            "() => document.body.innerText.includes('Select two or more notes to group')"
+        )
+        assert "isn't available yet" not in page.locator("body").inner_text()
+        assert plan_text(page) == before
+        assert page.locator(".wb-group-box").count() == 0
+
+
 class TestTheBoundaryTravelsWithItsNotes:
     """#874 left this as an open question and leaned yes. It is yes: a
     boundary you can slide off its own contents lies about what it contains
