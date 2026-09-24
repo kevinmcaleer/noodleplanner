@@ -437,6 +437,25 @@ function wbGroupSelection() {
 }
 
 /**
+ * The ribbon's Arrange → Group button (#1341). The same gesture as the
+ * selection toolbar's "Group these", but the ribbon button is always on
+ * screen, so with fewer than two notes selected it says how to make a
+ * selection rather than silently doing nothing -- the silence was the
+ * reported bug.
+ */
+function wbGroupSelectionFromRibbon() {
+    const selected = (typeof wbGetSelectedNoteTasks === 'function')
+        ? wbGetSelectedNoteTasks() : [];
+    if (selected.length < 2) {
+        if (typeof showToast === 'function') {
+            showToast('Select two or more notes to group: shift-click them, or shift-drag round them', 'info');
+        }
+        return false;
+    }
+    return wbGroupSelection();
+}
+
+/**
  * Dissolve a group: the members go back to the top level and both the
  * summary task and its boundary row go.
  */

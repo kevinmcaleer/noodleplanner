@@ -116,7 +116,9 @@ const DELIBERATE_STUBS = new Set([
   // them instead of leaving them as stale stubs.)
   "Add Programme", "Weighting", "Rebaseline", "Snapshot",
   "Heat Map", "Heat", "Probability", "Impact", "RAG",
-  "Slack", "Filter", "Sort", "Group",
+  // ("Group" used to be here too -- #1341 wired the whiteboard's Group to
+  // the #874 grouping the selection toolbar already had.)
+  "Slack", "Filter", "Sort",
   // No dedicated function exists (checked: grepped the codebase, found none).
   "Delete", "Milestone", "Go to Task", "Unlink",
   "Durations",

@@ -288,6 +288,9 @@ const LABEL_HELP = {
     'Show Dependencies': 'Toggle dependency syntax highlighting in the markdown editor (opens it if hidden)',
     'Highlight Preset': 'Choose a markdown editor syntax-highlighting preset (opens the editor if hidden)',
     Editor: 'Show or hide the markdown editor panel',
+    // #1341: the whiteboard's Group. Only on the Whiteboard tab, so the
+    // bare label cannot collide with another tab's button.
+    Group: 'Draw a named boundary round the selected notes (select two or more first)',
     // #1266: moved off the Gantt toolbar, where these were the button
     // titles; Baseline itself still opens the dialog (#1112).
     'Set Baseline': 'Save the current schedule as the baseline',
@@ -457,6 +460,10 @@ function scopedAction(scopeId, label) {
         'whiteboard:Hierarchy': onWhiteboard('wbLayoutHierarchyView'),
         'whiteboard:Flow': onWhiteboard('wbLayoutFlowView'),
         'whiteboard:Spacing': () => openFormatMenu(WHITEBOARD_SPACINGS, 'Spacing'),
+        // #1341: was a "not available yet" stub although #874 had already
+        // built grouping -- the selection toolbar's "Group these" calls the
+        // same wbGroupSelection() underneath.
+        'whiteboard:Group': onWhiteboard('wbGroupSelectionFromRibbon'),
         // #1267: the Gantt scale's five ribbon buttons (group `Scale` in
         // ribbon-ia.js). Scoped rather than added flat to LABEL_ACTIONS so
         // generic words like "Days"/"Years" can never resolve for buttons on
