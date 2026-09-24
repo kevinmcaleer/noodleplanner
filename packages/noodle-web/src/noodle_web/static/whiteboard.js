@@ -582,6 +582,60 @@ function wbHandleCanvasDoubleClick(e) {
     wbCreateNoteAtClientPoint(e.clientX, e.clientY);
 }
 
+/**
+ * Right-click: a note opens its own `...` menu at the pointer, bare canvas
+ * opens the canvas menu (both in whiteboard-notes.js). Anything else -- a
+ * group boundary, a text object, a noodle, the side panels -- keeps the
+ * browser's menu, and so does any field being typed in, where cut, copy and
+ * paste are what a right-click is for.
+ *
+ * The keyboard's context-menu key (or Shift+F10) arrives here too, with no
+ * pointer position: on the canvas it opens the selected note's menu under
+ * its button, or the canvas menu mid-screen when nothing is selected.
+ */
+function wbHandleContextMenu(e) {
+    const target = e.target;
+    if (!target || target.isContentEditable ||
+        /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) {
+        return;
+    }
+    if (typeof wbOpenNoteMenu !== 'function') return;
+    const fromKeyboard = e.clientX === 0 && e.clientY === 0;
+    const container = document.getElementById('whiteboardContainer');
+
+    const note = target.closest && target.closest('foreignObject.wb-note');
+    if (note && note.dataset.wbTask) {
+        e.preventDefault();
+        if (fromKeyboard) {
+            const entry = wbNoteNodes.get(note.dataset.wbTask);
+            if (entry && entry.refs && entry.refs.menuBtn) wbOpenNoteMenu(note.dataset.wbTask, entry.refs.menuBtn);
+        } else {
+            wbOpenNoteMenuAt(note.dataset.wbTask, e.clientX, e.clientY);
+        }
+        return;
+    }
+
+    if (fromKeyboard && target === container) {
+        e.preventDefault();
+        const selected = wbGetSelectedNoteTask();
+        const entry = selected && wbNoteNodes.get(selected);
+        if (entry && entry.refs && entry.refs.menuBtn) {
+            wbOpenNoteMenu(selected, entry.refs.menuBtn);
+        } else {
+            const centre = wbCanvasCenter();
+            const rect = wbSvg.getBoundingClientRect();
+            wbOpenCanvasMenu(rect.left + centre.x, rect.top + centre.y);
+        }
+        return;
+    }
+
+    if (target === wbSvg || target === wbGroup ||
+        (target.closest && target.closest('.wb-grid'))) {
+        e.preventDefault();
+        wbOpenCanvasMenu(e.clientX, e.clientY);
+    }
+}
+
 // ── Keyboard ─────────────────────────────────────────────────────────────
 
 function wbHandleKeydown(e) {
@@ -745,6 +799,7 @@ function initWhiteboard() {
     container.setAttribute('tabindex', '0');
     if (!container.dataset.wbKeydownBound) {
         container.addEventListener('keydown', wbHandleKeydown);
+        container.addEventListener('contextmenu', wbHandleContextMenu);
         container.dataset.wbKeydownBound = 'true';
     }
 
