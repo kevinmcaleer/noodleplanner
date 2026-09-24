@@ -8,17 +8,15 @@
  * create, host/joiner handshake, opaque message relay, zero storage) and
  * the encryption layer work correctly, not about a polished session UI --
  * that's still #967 (the real editing protocol) for anything beyond
- * presence. This starts a session, shows the code + holding link the PM
+ * presence. This starts a session, shows the code + join link the PM
  * shares with their team, establishes the encrypted channel with the first
  * joiner, keeps a live WebSocket open so encrypted messages can be relayed
  * and eyeballed (as ciphertext) via devtools during manual verification,
  * and now renders who has joined/is active and lets the host remove one.
  *
  * See static/collab-crypto.js's module docstring for the full crypto
- * design (KDF, key exchange, AEAD, wire format, and -- important -- the
- * two-secret design: `join_code` is admission-only, `handshake_secret` is
- * what actually authenticates the ECDH exchange, and the two must never be
- * conflated).
+ * design (KDF, key exchange, AEAD, wire format, and why the six-digit
+ * join code is what authenticates the ECDH exchange).
  *
  * #969 extends #967's op model from the task outline to the RAID/risk log
  * -- see collab-backmatter-ops.js's module docstring for the row-op
@@ -984,10 +982,9 @@ async function handleCollabMessage(raw) {
         }
         const peerKey = await parsePubkeyAnnouncement('joiner_pubkey', collabConnectKey, frame);
         if (!peerKey) {
-            // MAC didn't verify -- the joiner used the wrong handshake
-            // secret (or this is a forged announcement, e.g. from the
-            // relay itself -- see collab-crypto.js's module docstring).
-            // Never derive a session key with an unauthenticated peer.
+            // MAC didn't verify -- the announcement wasn't made with this
+            // session's join code (a forged or corrupted frame). Never
+            // derive a session key with an unauthenticated peer.
             collabLog('A joiner failed to authenticate -- ignoring.');
             return;
         }
@@ -1146,25 +1143,21 @@ async function startCollabSession() {
     const codeInput = document.getElementById('collabSessionCode');
     const urlInput = document.getElementById('collabSessionUrl');
     if (codeInput) codeInput.value = info.join_code;
-    // info.holding_url already carries the `#k=<handshake_secret>` URL
-    // fragment (see collab_session.py) -- sharing this exact link is how
-    // the joiner's browser gets the handshake secret without it ever
-    // passing through the server.
+    // Just `<origin>/join` -- the same for every session, so the PM can say
+    // it out loud alongside the code.
     if (urlInput) urlInput.value = `${window.location.origin}${info.holding_url}`;
 
-    status.textContent = 'Session live. Share the code and link below with your team.';
+    status.textContent = 'Session live. Tell your team to open the link below and enter the code.';
     details.style.display = 'block';
     setCollabChatActive(true);
 
     const { deriveConnectKey, generateEphemeralKeyPair, buildPubkeyAnnouncement } = await loadCollabCrypto();
 
     collabSessionId = info.session_id;
-    // #964 security review: `join_code` (six digits, admission-only -- the
-    // relay legitimately sees it) must NEVER be used here. The ECDH
-    // handshake is authenticated with `handshake_secret` instead, which
-    // only ever travels via the URL fragment / this JSON response, never
-    // through the relay -- see collab-crypto.js's module docstring.
-    collabConnectKey = await deriveConnectKey(info.handshake_secret, info.session_id);
+    // The join code is the one secret the joiner has, so it is what
+    // authenticates the ECDH handshake -- see collab-crypto.js's module
+    // docstring for what that does and does not protect against.
+    collabConnectKey = await deriveConnectKey(info.join_code, info.session_id);
     collabKeyPair = await generateEphemeralKeyPair();
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

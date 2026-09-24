@@ -244,7 +244,7 @@ class TestJoinRateLimiting:
 
     This is the same sliding-window algorithm as `_is_rate_limited()`
     above, applied via a separate store/threshold to join attempts
-    specifically (see collab_session_ws() in app.py, which calls
+    specifically (see collab_join_ws() in app.py, which calls
     `is_join_rate_limited()` directly since a WebSocket handshake never
     passes through RateLimitMiddleware). End-to-end coverage over the real
     WebSocket endpoint lives in tests/test_collab_session.py.

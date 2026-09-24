@@ -16,25 +16,30 @@ Wire protocol (documented here so later sub-issues have a stable contract to
 build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
 
 - ``POST /api/collab/start`` calls ``SessionManager.create_session()`` and
-  returns ``{session_id, host_token, join_code, handshake_secret,
-  holding_url}`` to the host's browser. ``host_token`` and
-  ``handshake_secret`` are both secrets -- neither must ever be shown to
-  joiners directly (``handshake_secret`` does reach joiners, but only via
-  the URL fragment described below, never through the server).
+  returns ``{session_id, host_token, join_code, holding_url}`` to the host's
+  browser. ``host_token`` is a secret and must never be shown to joiners.
+  ``holding_url`` is just ``/join``: the PM tells their team "go to
+  <site>/join, code 123456", the way Kahoot or GoToMeeting do.
 - The host's browser opens a WebSocket to
   ``/ws/session/{session_id}?token={host_token}``. The endpoint calls
   ``attach_host()``; a missing or wrong token closes the socket immediately
   and nothing is relayed.
-- A joiner's browser opens a WebSocket to the *same* endpoint,
-  ``/ws/session/{session_id}``, with no token, and its first message must be
-  a JSON handshake: ``{"type": "join", "code": "123456", "display_name":
-  "Alice"}``. The endpoint calls ``join_session()``; a correct, unexpired
-  code for that session admits the joiner, anything else closes the socket.
-  **``join_code`` is a server-side admission gate only** -- it has zero
-  cryptographic role (see the ``handshake_secret`` note below and
-  collab-crypto.js's module docstring; a security review of #964 found the
-  relay could otherwise trivially MITM the encrypted channel precisely
-  because the relay legitimately learns this code to do admission).
+- A joiner's browser opens a WebSocket to ``/ws/join`` -- it does not know
+  the session id -- and its first message must be a JSON handshake:
+  ``{"type": "join", "code": "123456", "display_name": "Alice"}``. The
+  endpoint calls ``join_by_code()``; a correct, unexpired code admits the
+  joiner, anything else closes the socket. The ``{"type": "joined"}`` reply
+  carries the ``session_id``, which the joiner's crypto code uses as its
+  KDF salt and AEAD associated data.
+- The join code is the *only* thing a joiner needs, so it is also what
+  authenticates the ECDH handshake in collab-crypto.js. That is a
+  deliberate trade-off (see collab-crypto.js's module docstring): the relay
+  necessarily learns the code to admit joiners, so a malicious or
+  compromised relay could actively MITM the key exchange. It still stores
+  nothing, and a passive observer of the relay sees only ciphertext. An
+  earlier design closed that gap with a second 256-bit secret carried in the
+  join link's URL fragment, at the cost of a long ``/join/<id>#k=<secret>``
+  link; it was dropped in favour of the short ``/join`` + code flow.
 - After a connection is admitted (host or joiner), every further message is
   relayed opaquely -- host messages go to all joiners, joiner messages go to
   the host. Payloads are never parsed or interpreted at this layer: that is
@@ -98,27 +103,12 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
   it immediately on admission. See app.py's ``_maybe_cache_host_pubkey`` /
   ``_admit_joiner`` for why the WebSocket-first-message approach was chosen
   over piggybacking the key onto the HTTP start/join responses.
-- ``handshake_secret`` (added after a security review of the first #964
-  cut): a second, separate, high-entropy secret -- ``join_code`` cannot
-  authenticate the ECDH handshake in collab-crypto.js because the relay
-  legitimately learns ``join_code`` (it has to, to admit joiners), so a
-  malicious/compromised relay could otherwise recompute the same MAC and
-  transparently MITM the "encrypted" channel. ``handshake_secret`` is
-  generated once in ``create_session()`` and is **never sent to the server
-  on any subsequent request** -- it is embedded only in the URL *fragment*
-  of ``holding_url`` (``/join/{session_id}#k=<secret>``), which browsers
-  never include in HTTP requests. The host's browser gets it directly from
-  the ``/api/collab/start`` JSON response; the joiner's browser reads it
-  client-side from ``window.location.hash`` after navigating to that exact
-  link. This module generates it and hands it off once -- it is not stored
-  on ``SessionState`` and the server never checks or reconstructs it, by
-  design: there is nothing for the relay to learn here.
 - #965 (lifecycle, rate limiting, teardown): ``IDLE_TIMEOUT_SECONDS`` is now
   read from ``COLLAB_IDLE_TIMEOUT_SECONDS`` (falling back to the original
   45-minute default), matching security.py's existing os.getenv-with-default
   convention for its own tunables. Join attempts are rate limited per
   source IP by ``security.is_join_rate_limited()``, checked in app.py's
-  ``collab_session_ws()`` before a joiner's handshake is even read (a
+  ``collab_join_ws()`` before a joiner's handshake is even read (a
   WebSocket handshake never passes through ``RateLimitMiddleware``, which
   only runs on the HTTP request/response cycle, so this had to be a
   separate, explicit check). The host can now also end a session
@@ -157,10 +147,10 @@ IDLE_TIMEOUT_SECONDS = int(os.getenv("COLLAB_IDLE_TIMEOUT_SECONDS", str(45 * 60)
 SWEEP_INTERVAL_SECONDS = 60
 
 # secrets.token_urlsafe(32) -> 256 bits of entropy in the session id.
-# Deliberately `secrets`, not `uuid4()` or `random`: this id is a
-# security-relevant credential (whoever has it can attempt to join the
-# session's WebSocket), and `secrets` is CSPRNG-backed by design where
-# `uuid4()`'s randomness guarantee is incidental to its spec.
+# Deliberately `secrets`, not `uuid4()` or `random`: the session id is the
+# host's WebSocket address and the joiners' KDF salt, and `secrets` is
+# CSPRNG-backed by design where `uuid4()`'s randomness guarantee is
+# incidental to its spec.
 _SESSION_ID_BYTES = 32
 _HOST_TOKEN_BYTES = 32
 # #965: close codes/reasons used when a session's sockets are torn down,
@@ -179,14 +169,6 @@ CLOSE_REASON_IDLE_TIMEOUT = "Session expired after being idle too long."
 # #966: the host removed this specific joiner from their presence panel.
 CLOSE_KICKED = 4413
 CLOSE_REASON_KICKED = "Removed by host."
-
-# #964: the secret that authenticates the ECDH handshake in
-# collab-crypto.js -- deliberately NOT the six-digit join_code (see this
-# module's docstring for why: the relay legitimately learns join_code, so
-# it can't be what proves the handshake wasn't MITM'd by the relay itself).
-# 256 bits, matching this file's existing convention for the other two
-# security-relevant tokens above -- well over the "128+ bits" floor.
-_HANDSHAKE_SECRET_BYTES = 32
 
 # #966: how recently a joiner must have sent *any* message -- including the
 # lightweight presence_ping heartbeat -- for the host's presence panel to
@@ -281,19 +263,11 @@ class SessionState:
 
 @dataclass
 class SessionInfo:
-    """What create_session() hands back to the host's browser.
-
-    ``handshake_secret`` is also embedded in ``holding_url``'s URL fragment
-    (never sent to the server again by either browser) and is returned here
-    too purely so the host's own crypto code can use it directly, without
-    round-tripping it through URL-fragment parsing on the same page that
-    just received it. See this module's docstring for the full rationale.
-    """
+    """What create_session() hands back to the host's browser."""
 
     session_id: str
     host_token: str
     join_code: str
-    handshake_secret: str
     holding_url: str
 
 
@@ -316,11 +290,6 @@ class SessionManager:
         session_id = secrets.token_urlsafe(_SESSION_ID_BYTES)
         host_token = secrets.token_urlsafe(_HOST_TOKEN_BYTES)
         join_code = self._generate_unique_code()
-        # #964: generated once, handed off in the response below, and never
-        # stored on SessionState or anywhere else -- the server has no
-        # further use for it (it never verifies it; only the two browsers'
-        # crypto code does), so there is nothing to retain.
-        handshake_secret = secrets.token_urlsafe(_HANDSHAKE_SECRET_BYTES)
 
         state = SessionState(
             session_id=session_id,
@@ -336,11 +305,9 @@ class SessionManager:
             session_id=session_id,
             host_token=host_token,
             join_code=join_code,
-            handshake_secret=handshake_secret,
-            # The fragment (after '#') is never sent to any server in any
-            # HTTP request -- that's what makes it safe to embed here. See
-            # this module's docstring for the full "why a fragment" story.
-            holding_url=f"/join/{session_id}#k={handshake_secret}",
+            # The same short page for every session: the code is what picks
+            # the session (see join_by_code()).
+            holding_url="/join",
         )
 
     def _generate_unique_code(self) -> str:
@@ -373,24 +340,21 @@ class SessionManager:
         state.touch()
         return state
 
-    def join_session(self, session_id: str, code: str, display_name: str, websocket: WebSocket) -> SessionState | None:
-        """Admit `websocket` as a joiner of `session_id` if `code` matches.
+    def join_by_code(self, code: str, display_name: str, websocket: WebSocket) -> SessionState | None:
+        """Admit `websocket` as a joiner of whichever live session `code`
+        belongs to, or return None if no live session has that code.
 
-        The session id is already known to the joiner's browser (it comes
-        from the holding URL / the WebSocket path it connected to); the code
-        is the actual proof the joiner was invited to *this* session, so
-        both are checked -- neither one alone is treated as sufficient.
-
-        `code` is purely a server-side admission gate: it plays no role in
-        #964's encryption (see this module's docstring and
-        collab-crypto.js's) -- the server legitimately sees it right here,
-        which is exactly why it must never double as a cryptographic
-        secret.
+        The code is the only thing a joiner types, so it both picks the
+        session and proves the joiner was invited to it. Guessing is
+        bounded by app.py's per-IP join rate limit (#965).
         """
+        if not isinstance(code, str) or not code:
+            return None
+        session_id = self._codes.get(code)
+        if session_id is None:
+            return None
         state = self.get_session(session_id)
         if state is None:
-            return None
-        if not code or not secrets.compare_digest(code, state.join_code):
             return None
         joiner = Joiner(websocket=websocket, display_name=display_name)
         state.joiners[joiner.joiner_id] = joiner
@@ -487,7 +451,7 @@ async def run_idle_sweep_forever(manager: SessionManager = collab_sessions) -> N
     """Background task: periodically sweep idle sessions.
 
     Started from app.py's lifespan handler. The lazy check in
-    `get_session()`/`attach_host()`/`join_session()` already expires a
+    `get_session()`/`attach_host()`/`join_by_code()` already expires a
     session the moment anyone next touches it; this only catches sessions
     nobody ever touches again (e.g. every joiner also walked away).
     """

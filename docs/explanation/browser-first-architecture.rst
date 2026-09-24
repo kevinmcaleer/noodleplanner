@@ -72,7 +72,7 @@ whether the work behind them could move to the browser:
 
 The app has grown routes since this was scoped — a search endpoint, MS
 Project XML import, programme dependencies, and the live-collaboration
-relay (``/ws/session/{id}``, ``/api/collab/start``, ``/join/{id}``) that
+relay (``/ws/session/{id}``, ``/ws/join``, ``/api/collab/start``, ``/join``) that
 issue #766 anticipated. None of those were part of the 29 this programme
 inventoried, and the collaboration relay is inherently a server for the same
 reason ``/api/ai/chat`` is: coordinating more than one browser, or holding a
@@ -210,7 +210,7 @@ What is actually server-side today, and why, route by route:
      - Routes
    * - **Genuinely needs a server**
      - ``POST /api/ai/chat``, ``POST /api/ai/test`` — hold provider API keys.
-       ``POST /api/collab/start``, ``GET /join/{session_id}``,
+       ``POST /api/collab/start``, ``GET /join``, ``WS /ws/join``,
        ``WS /ws/session/{session_id}`` — coordinating several browsers in a
        live session (issue #766) is irreducibly a server's job; added after
        this programme was scoped, same reasoning applies.

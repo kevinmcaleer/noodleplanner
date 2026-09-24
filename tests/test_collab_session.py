@@ -93,26 +93,10 @@ class TestSessionCreation:
         assert info["join_code"]
         assert len(info["join_code"]) == 6
         assert info["join_code"].isdigit()
-        # #964 (post-security-review): holding_url carries the
-        # handshake_secret as a URL *fragment* -- never sent to any server
-        # in any request, which is precisely what makes it safe to embed
-        # here. See collab_session.py's module docstring.
-        assert info["handshake_secret"]
-        assert info["holding_url"] == f"/join/{info['session_id']}#k={info['handshake_secret']}"
-
-    def test_handshake_secret_is_high_entropy_and_not_the_join_code(self, client):
-        """#964 security-review regression guard: the two secrets must
-        never be conflated again -- this asserts they're structurally
-        distinct (a 6-digit code vs. a long random token), not just
-        different by chance."""
-        info = _start_session(client)
-        assert info["handshake_secret"] != info["join_code"]
-        assert len(info["handshake_secret"]) >= 32
-        assert not info["handshake_secret"].isdigit()
-
-    def test_handshake_secrets_are_unique_across_sessions(self, client):
-        secrets_seen = {_start_session(client)["handshake_secret"] for _ in range(10)}
-        assert len(secrets_seen) == 10
+        # The join page is the same short path for every session: the
+        # joiner types the code and that picks the session.
+        assert info["holding_url"] == "/join"
+        assert "handshake_secret" not in info
 
     def test_session_ids_are_unguessable(self, client):
         """Not a proof of unguessability, but a floor: long, random, and
@@ -133,7 +117,8 @@ class TestSessionCreation:
         response = client.get(info["holding_url"])
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
-        assert info["session_id"] in response.text
+        # The page is generic -- it must not leak any session's id.
+        assert info["session_id"] not in response.text
         # #876: the joiner gets the real structured session-chat UI rather
         # than the old developer-facing arbitrary relay input.
         assert "Session chat" in response.text
@@ -183,18 +168,50 @@ class TestJoinerFlow:
     def test_joiner_joins_with_correct_code(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}"):
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
                 ack = json.loads(joiner_ws.receive_text())
-                assert ack == {"type": "joined", "display_name": "Alice"}
+                # The joiner only typed the code, so the ack is where its
+                # crypto learns the session id (KDF salt, AEAD data).
+                assert ack == {"type": "joined", "display_name": "Alice", "session_id": info["session_id"]}
+
+    def test_code_alone_picks_the_right_session(self, client):
+        """With several sessions live, a joiner who knows only one code
+        lands in that code's session and no other."""
+        first = _start_session(client)
+        second = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{first['session_id']}?token={first['host_token']}"), \
+             client.websocket_connect(f"/ws/session/{second['session_id']}?token={second['host_token']}") as second_host:
+            with client.websocket_connect("/ws/join") as joiner_ws:
+                joiner_ws.send_text(json.dumps({
+                    "type": "join", "code": second["join_code"], "display_name": "Bob",
+                }))
+                ack = json.loads(joiner_ws.receive_text())
+                assert ack["session_id"] == second["session_id"]
+                presence = json.loads(second_host.receive_text())
+                assert presence["type"] == "presence"
+                assert [j["display_name"] for j in presence["joiners"]] == ["Bob"]
+
+    def test_host_endpoint_no_longer_admits_joiners(self, client):
+        """Joiners come in through /ws/join only; the session-id endpoint
+        is the host's, and without a token it closes straight away."""
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}"):
+            with pytest.raises(WebSocketDisconnect) as exc_info:
+                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                    ws.send_text(json.dumps({
+                        "type": "join", "code": info["join_code"], "display_name": "Alice",
+                    }))
+                    ws.receive_text()
+            assert exc_info.value.code == 4401
 
     def test_join_with_wrong_code_fails(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}"):
             with pytest.raises(WebSocketDisconnect) as exc_info:
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                with client.websocket_connect("/ws/join") as joiner_ws:
                     joiner_ws.send_text(json.dumps({
                         "type": "join", "code": "000000", "display_name": "Eve",
                     }))
@@ -209,7 +226,7 @@ class TestJoinerFlow:
         info = _start_session(client)
         monkeypatch.setattr(collab_session, "IDLE_TIMEOUT_SECONDS", -1)
         with pytest.raises(WebSocketDisconnect):
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -218,14 +235,14 @@ class TestJoinerFlow:
     def test_join_with_missing_display_name_fails(self, client):
         info = _start_session(client)
         with pytest.raises(WebSocketDisconnect):
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({"type": "join", "code": info["join_code"]}))
                 joiner_ws.receive_text()
 
     def test_join_with_malformed_first_message_fails(self, client):
         info = _start_session(client)
         with pytest.raises(WebSocketDisconnect) as exc_info:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text("not json")
                 joiner_ws.receive_text()
         assert exc_info.value.code == 4400
@@ -236,7 +253,7 @@ class TestRelay:
     def test_message_from_host_reaches_joiner(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -248,7 +265,7 @@ class TestRelay:
     def test_message_from_joiner_reaches_host(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -264,8 +281,8 @@ class TestRelay:
     def test_message_is_relayed_to_multiple_joiners(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as j1, \
-                 client.websocket_connect(f"/ws/session/{info['session_id']}") as j2:
+            with client.websocket_connect("/ws/join") as j1, \
+                 client.websocket_connect("/ws/join") as j2:
                 for j, name in ((j1, "Alice"), (j2, "Bob")):
                     j.send_text(json.dumps({"type": "join", "code": info["join_code"], "display_name": name}))
                     j.receive_text()  # ack
@@ -279,7 +296,7 @@ class TestRelay:
         through unchanged, same as any other payload."""
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -294,7 +311,7 @@ class TestLifecycle:
     def test_host_disconnect_tears_down_session(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -362,7 +379,7 @@ class TestLifecycle:
         reason, not a silent/unexplained close."""
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -387,8 +404,8 @@ class TestLifecycle:
         _is_end_session_message()'s docstring in app.py."""
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as j1, \
-                 client.websocket_connect(f"/ws/session/{info['session_id']}") as j2:
+            with client.websocket_connect("/ws/join") as j1, \
+                 client.websocket_connect("/ws/join") as j2:
                 for j, name in ((j1, "Alice"), (j2, "Bob")):
                     j.send_text(json.dumps({"type": "join", "code": info["join_code"], "display_name": name}))
                     j.receive_text()  # ack
@@ -415,7 +432,7 @@ class TestLifecycle:
         relayed content."""
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -436,7 +453,7 @@ class TestJoinerRejoin:
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}"):
             state = collab_sessions.get_session(info["session_id"])
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -464,7 +481,7 @@ class TestJoinerRejoin:
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
             host_ws.send_text(json.dumps({"type": "host_pubkey", "k": "fake-pubkey-bytes"}))
 
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -476,12 +493,12 @@ class TestJoinerRejoin:
             # the session (only the host can, per #965).
             assert collab_sessions.get_session(info["session_id"]) is not None
 
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as rejoin_ws:
+            with client.websocket_connect("/ws/join") as rejoin_ws:
                 rejoin_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
                 ack = json.loads(rejoin_ws.receive_text())
-                assert ack == {"type": "joined", "display_name": "Alice"}
+                assert ack == {"type": "joined", "display_name": "Alice", "session_id": info["session_id"]}
 
                 cached = json.loads(rejoin_ws.receive_text())
                 assert cached == {"type": "host_pubkey", "k": "fake-pubkey-bytes"}
@@ -503,7 +520,7 @@ class TestJoinAttemptRateLimiting:
         info = _start_session(client)
         with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 3):
             for _ in range(3):
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                with client.websocket_connect("/ws/join") as ws:
                     ws.send_text(json.dumps({
                         "type": "join", "code": "000000", "display_name": "Eve",
                     }))
@@ -513,7 +530,7 @@ class TestJoinAttemptRateLimiting:
                         ws.receive_text()
 
             with pytest.raises(WebSocketDisconnect) as exc_info:
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                with client.websocket_connect("/ws/join") as ws:
                     ws.receive_text()
             assert exc_info.value.code == 4429
 
@@ -524,7 +541,7 @@ class TestJoinAttemptRateLimiting:
             # successful joins to be forgiven (see
             # security.forgive_join_attempt), so a correct code no longer
             # counts and cannot be used to exhaust the limit here.
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+            with client.websocket_connect("/ws/join") as ws:
                 ws.send_text(json.dumps({
                     "type": "join", "code": "000000", "display_name": "Eve",
                 }))
@@ -532,7 +549,7 @@ class TestJoinAttemptRateLimiting:
                     ws.receive_text()
 
             with pytest.raises(WebSocketDisconnect) as exc_info:
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                with client.websocket_connect("/ws/join") as ws:
                     ws.receive_text()
             assert exc_info.value.code == 4429
 
@@ -542,12 +559,12 @@ class TestJoinAttemptRateLimiting:
 
             security._join_rate_limit_store["testclient"] = [time.time() - 61]
 
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+            with client.websocket_connect("/ws/join") as ws:
                 ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Bob",
                 }))
                 ack = json.loads(ws.receive_text())
-                assert ack == {"type": "joined", "display_name": "Bob"}
+                assert ack == {"type": "joined", "display_name": "Bob", "session_id": info["session_id"]}
 
     def test_successful_joins_do_not_exhaust_the_budget(self, client):
         """#971: #766 requires at least 10 concurrent joiners, but a team in
@@ -557,7 +574,7 @@ class TestJoinAttemptRateLimiting:
         info = _start_session(client)
         with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 2):
             for index in range(6):
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                with client.websocket_connect("/ws/join") as ws:
                     ws.send_text(json.dumps({
                         "type": "join", "code": info["join_code"], "display_name": f"Joiner {index}",
                     }))
@@ -570,7 +587,7 @@ class TestJoinAttemptRateLimiting:
         info = _start_session(client)
         with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 2):
             for _ in range(2):
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                with client.websocket_connect("/ws/join") as ws:
                     ws.send_text(json.dumps({
                         "type": "join", "code": "000000", "display_name": "Eve",
                     }))
@@ -578,7 +595,7 @@ class TestJoinAttemptRateLimiting:
                         ws.receive_text()
 
             with pytest.raises(WebSocketDisconnect) as exc_info:
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                with client.websocket_connect("/ws/join") as ws:
                     ws.receive_text()
             assert exc_info.value.code == 4429
 
@@ -588,7 +605,7 @@ class TestJoinAttemptRateLimiting:
         the host out of their own session."""
         info = _start_session(client)
         with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 1):
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+            with client.websocket_connect("/ws/join") as ws:
                 ws.send_text(json.dumps({
                     "type": "join", "code": "000000", "display_name": "Eve",
                 }))
@@ -610,7 +627,7 @@ class TestPresence:
     def test_host_receives_presence_update_when_joiner_connects(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -627,8 +644,8 @@ class TestPresence:
     def test_host_receives_presence_update_for_each_joiner(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as j1, \
-                 client.websocket_connect(f"/ws/session/{info['session_id']}") as j2:
+            with client.websocket_connect("/ws/join") as j1, \
+                 client.websocket_connect("/ws/join") as j2:
                 j1.send_text(json.dumps({"type": "join", "code": info["join_code"], "display_name": "Alice"}))
                 j1.receive_text()  # ack
                 first = json.loads(host_ws.receive_text())
@@ -642,7 +659,7 @@ class TestPresence:
     def test_host_receives_presence_update_when_joiner_disconnects(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -661,7 +678,7 @@ class TestPresence:
         real wait."""
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -683,7 +700,7 @@ class TestPresence:
     def test_presence_ping_is_not_relayed_to_host_as_content(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -700,7 +717,7 @@ class TestPresence:
     def test_host_can_kick_a_joiner(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+            with client.websocket_connect("/ws/join") as joiner_ws:
                 joiner_ws.send_text(json.dumps({
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
@@ -725,8 +742,8 @@ class TestPresence:
     def test_kicking_one_joiner_does_not_affect_others(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as j1, \
-                 client.websocket_connect(f"/ws/session/{info['session_id']}") as j2:
+            with client.websocket_connect("/ws/join") as j1, \
+                 client.websocket_connect("/ws/join") as j2:
                 j1.send_text(json.dumps({"type": "join", "code": info["join_code"], "display_name": "Alice"}))
                 j1.receive_text()  # ack
                 host_ws.receive_text()  # presence: Alice joined
@@ -773,7 +790,7 @@ class TestNoContentLeaks:
             info = _start_session(client)
 
             with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                with client.websocket_connect("/ws/join") as joiner_ws:
                     joiner_ws.send_text(json.dumps({
                         "type": "join", "code": info["join_code"], "display_name": display_name,
                     }))
@@ -807,7 +824,7 @@ class TestNoContentLeaks:
 
         with caplog.at_level(logging.DEBUG):
             with pytest.raises(WebSocketDisconnect):
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                with client.websocket_connect("/ws/join") as joiner_ws:
                     joiner_ws.send_text(json.dumps({
                         "type": "join", "code": "999999", "display_name": secret_display_name,
                     }))
@@ -826,7 +843,7 @@ class TestNoContentLeaks:
         with caplog.at_level(logging.DEBUG):
             info = _start_session(client)
             with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                with client.websocket_connect("/ws/join") as joiner_ws:
                     joiner_ws.send_text(json.dumps({
                         "type": "join", "code": info["join_code"], "display_name": secret_display_name,
                     }))
@@ -906,7 +923,7 @@ class TestMultiJoinerRouting:
     def _join(client, info, host_ws, display_name):
         """Connect a joiner, drain its ack and the host's presence snapshot,
         and return `(socket, joiner_id)` -- the id the host addresses it by."""
-        joiner_ws = client.websocket_connect(f"/ws/session/{info['session_id']}").__enter__()
+        joiner_ws = client.websocket_connect("/ws/join").__enter__()
         joiner_ws.send_text(json.dumps({
             "type": "join", "code": info["join_code"], "display_name": display_name,
         }))
@@ -1017,7 +1034,7 @@ class TestMultiJoinerRouting:
         with caplog.at_level(logging.DEBUG):
             info = _start_session(client)
             with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                with client.websocket_connect("/ws/join") as joiner_ws:
                     joiner_ws.send_text(json.dumps({
                         "type": "join", "code": info["join_code"], "display_name": "Alice",
                     }))
@@ -1052,7 +1069,7 @@ class TestJoinerPrivilegeBoundary:
 
     @staticmethod
     def _join(client, info, host_ws, display_name):
-        joiner_ws = client.websocket_connect(f"/ws/session/{info['session_id']}").__enter__()
+        joiner_ws = client.websocket_connect("/ws/join").__enter__()
         joiner_ws.send_text(json.dumps({
             "type": "join", "code": info["join_code"], "display_name": display_name,
         }))

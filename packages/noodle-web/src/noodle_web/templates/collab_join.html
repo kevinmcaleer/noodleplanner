@@ -296,16 +296,11 @@
             return cryptoModulePromise;
         }
 
-        function parseHandshakeSecretFromHash() {
-            const hash = window.location.hash || '';
-            const params = new URLSearchParams(hash.replace(/^#/, ''));
-            return params.get('k');
-        }
-
         const NOTE_WIDTH = 260;
         const NOTE_HEIGHT = 220;
-        const handshakeSecret = parseHandshakeSecretFromHash();
-        const sessionId = {{ session_id | tojson }};
+        // Learned from the server's `joined` reply: the joiner only types
+        // the code, and the code is what picks the session.
+        let sessionId = null;
         const form = document.getElementById('joinForm');
         const status = document.getElementById('status');
         const joinBtn = document.getElementById('joinBtn');
@@ -322,7 +317,10 @@
         const addNoteBtn = document.getElementById('joinWhiteboardAddBtn');
 
         let socket = null;
-        let connectKey = null;
+        // A promise, not a key: PBKDF2 takes a moment, and the host's pubkey
+        // announcement arrives straight after `joined`, so the handler for
+        // it has to be able to wait for the derivation to finish.
+        let connectKeyPromise = null;
         let keyPair = null;
         let sessionKey = null;
         let presencePingTimer = null;
@@ -676,22 +674,18 @@
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
-            if (!handshakeSecret) {
-                status.textContent = 'This join link is missing a required security token -- ask the host to resend it.';
-                return;
-            }
-
             joinBtn.disabled = true;
             status.textContent = 'Connecting...';
 
             const code = document.getElementById('joinCode').value.trim();
             const displayName = document.getElementById('displayName').value.trim();
             const { deriveConnectKey, generateEphemeralKeyPair } = await loadCollabCrypto();
-            connectKey = await deriveConnectKey(handshakeSecret, sessionId);
             keyPair = await generateEphemeralKeyPair();
+            sessionId = null;
+            connectKeyPromise = null;
 
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            socket = new WebSocket(`${protocol}//${window.location.host}/ws/session/${sessionId}`);
+            socket = new WebSocket(`${protocol}//${window.location.host}/ws/join`);
 
             socket.addEventListener('open', () => {
                 socket.send(JSON.stringify({ type: 'join', code, display_name: displayName }));
@@ -702,6 +696,8 @@
                 try { parsed = JSON.parse(event.data); } catch (error) { parsed = null; }
 
                 if (parsed && parsed.type === 'joined') {
+                    sessionId = parsed.session_id;
+                    connectKeyPromise = deriveConnectKey(code, sessionId);
                     status.textContent = `Joined as ${parsed.display_name}.`;
                     relay.style.display = 'block';
                     setJoinedUi(true);
@@ -722,9 +718,11 @@
                 const frameType = classifyFrameType(event.data);
 
                 if (frameType === 'host_pubkey') {
+                    if (!connectKeyPromise) return;
+                    const connectKey = await connectKeyPromise;
                     const peerKey = await parsePubkeyAnnouncement('host_pubkey', connectKey, event.data);
                     if (!peerKey) {
-                        status.textContent = 'Could not establish a secure channel -- ask the host to resend the join link.';
+                        status.textContent = 'Could not establish a secure channel with the host. Enter the code again to retry.';
                         socket.close();
                         joinBtn.disabled = false;
                         return;
@@ -803,7 +801,7 @@
                 socket = null;
                 sessionKey = null;
                 keyPair = null;
-                connectKey = null;
+                connectKeyPromise = null;
                 relayLog.innerHTML = '';
                 joinerChatEntries.length = 0;
                 joinerChatIds.clear();
