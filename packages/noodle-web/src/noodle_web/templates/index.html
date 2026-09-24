@@ -1310,24 +1310,24 @@ Press Enter to render..."></textarea>
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11a0 0 0 010 0H4z"/><path d="M15 4v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="12" y1="10" x2="12" y2="16"/></svg>
                                             <span>New post-it</span>
                                         </button>
+                                        <!-- A text note is a note that is not a task: it never reaches
+                                             the schedule. Stored as a commented-out task line plus a
+                                             whiteboard row (whiteboard-structure.js's "Thoughts"), and
+                                             promoted from its own ... menu by uncommenting that line. -->
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardTextNoteBtn" onclick="wbCreateThoughtInViewportCentre()" title="New text note -- capture a thought without adding a task; promote it to a task later from its ... menu" aria-label="New text note, not added to the plan as a task">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>
+                                            <span>Text note</span>
+                                        </button>
                                         <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardNewTextBtn" onclick="wbCreateTextObjectInViewportCentre()" title="Add a title -- free-floating text, no task, no card, just text on the canvas" aria-label="Add a free-floating title text object on the whiteboard">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg>
                                             <span>Add title</span>
-                                        </button>
-                                        <!-- #1107: reuses wbCreateNoteInViewportCentre() as-is -- issue #1015's
-                                             free-form note (a post-it with no checklist yet) is the "text note"
-                                             this button is for; "New post-it" above creates the exact same
-                                             thing, this is just a second, more discoverable entry point grouped
-                                             with the other bare-canvas-object buttons (Add title / free text)
-                                             rather than only under the task-creation heading. -->
-                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardTextNoteBtn" onclick="wbCreateNoteInViewportCentre()" title="New text note -- a post-it with no checklist yet, just a title and a comment" aria-label="New text note on the whiteboard">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>
-                                            <span>Text note</span>
                                         </button>
                                         <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardAddNoteBtn" onclick="wbOpenAddNotePicker()" title="Add an existing task to the board" aria-label="Add an existing task to the whiteboard">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                                             <span>Add existing</span>
                                         </button>
+                                    </div>
+                                    <div class="wb-toolbar-group" role="group" aria-label="Side panels">
                                         <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardOutlineBtn" onclick="wbToggleOutlinePanel()" title="Show or hide the plan structure" aria-label="Show or hide the plan structure panel" aria-pressed="true">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M8 12h12M12 18h8"/></svg>
                                             <span>Structure</span>
@@ -1337,23 +1337,10 @@ Press Enter to render..."></textarea>
                                             <span>Parking lot</span>
                                         </button>
                                     </div>
-                                    <div class="wb-toolbar-group">
-                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardTidyLayoutBtn" onclick="wbLayoutTidyNotes()" title="Tidy up notes into a uniform grid" aria-label="Tidy up notes">
-                                            <span>Tidy</span>
-                                        </button>
-                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardHierarchyLayoutBtn" onclick="wbLayoutHierarchyView()" title="Arrange notes by plan hierarchy" aria-label="Hierarchy view">
-                                            <span>Hierarchy</span>
-                                        </button>
-                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardCompactLayoutBtn" onclick="wbLayoutCompact()" title="Use compact spacing between notes" aria-label="Compact spacing">
-                                            <span>Compact</span>
-                                        </button>
-                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardComfyLayoutBtn" onclick="wbLayoutComfy()" title="Use roomy spacing between notes" aria-label="Comfy spacing">
-                                            <span>Comfy</span>
-                                        </button>
-                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardFlowLayoutBtn" onclick="wbLayoutFlowView()" title="Arrange notes left-to-right by dependencies" aria-label="Flow view">
-                                            <span>Flow</span>
-                                        </button>
-                                    </div>
+                                    <!-- The layout buttons (Tidy, Hierarchy, Flow, and the Compact/Comfy
+                                         spacing) live in the ribbon's Whiteboard tab, Arrange group --
+                                         ribbon-ia.js / ribbon.js. This toolbar keeps to the board itself:
+                                         zoom, putting things on it, and its two side panels. -->
                                     <div class="wb-toolbar-hint">
                                         Double-click empty space (or press <kbd>n</kbd>) for a new post-it, or press <kbd>t</kbd> for free-floating text &middot; double-click a note's header to rename &middot; drag the noodle handle onto another note to make it a subtask &middot; hover a checklist row and drag its own handle onto another task's row to make it depend on that task &middot; click a noodle to select, then <kbd>Delete</kbd> to unlink &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; <kbd>f</kbd> fits
                                     </div>

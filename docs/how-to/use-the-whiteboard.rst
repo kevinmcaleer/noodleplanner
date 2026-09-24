@@ -43,9 +43,36 @@ The moment you give the note its *first* subtask — typing one into the ``Add t
 
 The ``Add task…`` row is the usual way. Every note has one, free-form notes included: click it, type the task, press ``Enter``. On a free-form note that first task *is* the switch to a checklist — the note becomes a summary task because it now has something underneath it, not because you asked it to become one.
 
-**Promote to task** on a free-form note's ``...`` menu does the same thing from the text you have already written: it turns the note's own **Comment** into a real subtask underneath it. If the note has no comment yet, it asks you to name the new subtask instead. Either way it is one action, and undoing it removes the subtask and returns the note to free-form.
+**Make comment a subtask** on a free-form note's ``...`` menu does the same thing from the text you have already written: it turns the note's own **Comment** into a real subtask underneath it. If the note has no comment yet, it asks you to name the new subtask instead. Either way it is one action, and undoing it removes the subtask and returns the note to free-form.
 
-The **Text note** button in the toolbar (next to **Add title**) creates the same free-form note as **New post-it** — it's simply a second way to reach it from alongside the board's other bare-canvas tools.
+Capture a Thought Without a Task
+----------------------------------
+
+Not everything on a whiteboard is work yet. A **text note** is a note that is *not* a task: somewhere to park a question, a worry or a half-formed idea without it turning up in the Gantt chart, the Tasks table or the schedule.
+
+1. Click **Text note** in the whiteboard toolbar (or **Text Note** on the ribbon's **Whiteboard** tab).
+2. Type its title and press ``Enter``. Until you name it, it is called ``New thought``.
+3. Double-click its body to write the thought itself; ``Enter`` saves it.
+
+A text note has a dashed edge, so you can tell it from the solid post-its that are real tasks. It has no checklist, no facilitator prompts and no noodle handle — those are all about tasks. You can still move it, resize it, recolour it and rename it like any other note.
+
+When a thought turns into work, choose **Promote to task** on its ``...`` menu. The same note, in the same place, becomes an ordinary post-it backed by a real task, with the thought's text as the task's comment. **Delete note** on the same menu removes it.
+
+.. note::
+
+   In your plan file a text note is a *commented-out* task line — ``// Ask legal about the licence "they were slow last time"`` — plus a whiteboard row pointing at it. Lines starting with ``//`` are ignored by the scheduler, which is exactly why a text note never reaches the schedule, and promoting it simply removes the ``//``. You can do the same by hand in the editor.
+
+Arrange the Board
+-------------------
+
+The layouts live on the ribbon's **Whiteboard** tab, in the **Arrange** group:
+
+- **Tidy** lines every note up in a grid of standard-size cards.
+- **Hierarchy** puts each top-level summary task in a column with its notes beneath it.
+- **Flow** lays the notes out left to right, following their dependencies.
+- **Spacing** re-runs the grid with **Compact** or **Comfy** gaps between the notes.
+
+Each one is a single step you can undo. The whiteboard's own toolbar keeps to the board itself: zoom, the buttons that put something on the board, and the **Structure** and **Parking lot** panels.
 
 Use Facilitator Prompts
 -------------------------

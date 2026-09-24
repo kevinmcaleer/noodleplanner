@@ -147,7 +147,7 @@ export class NpNote extends HTMLElement {
         return [
             'task', 'title', 'colour', 'color', 'parent', 'comment', 'rows',
             'width', 'height',
-            'freeform', 'title-only', 'selected', 'flash', 'park-armed',
+            'freeform', 'thought', 'title-only', 'selected', 'flash', 'park-armed',
             'parking', 'link-target', 'link-target-invalid', 'editing',
         ];
     }
@@ -258,11 +258,15 @@ export class NpNote extends HTMLElement {
         if (colour) r.card.style.setProperty('--wb-note-accent', colour); else r.card.style.removeProperty('--wb-note-accent');
         if (text) r.card.style.setProperty('--wb-note-text', text); else r.card.style.removeProperty('--wb-note-text');
 
-        const freeform = this.hasAttribute('freeform');
+        // A thought (a text note that is not a task) is free-form too: no
+        // children, no footer.
+        const thought = this.hasAttribute('thought');
+        const freeform = thought || this.hasAttribute('freeform');
         const titleOnly = this.hasAttribute('title-only');
 
         r.card.classList.toggle('wb-note-title-only', titleOnly);
         r.card.classList.toggle('wb-note-freeform', freeform);
+        r.card.classList.toggle('wb-note-thought', thought);
         r.card.classList.toggle('wb-note-selected', this.hasAttribute('selected'));
         r.card.classList.toggle('wb-note-flash', this.hasAttribute('flash'));
         r.card.classList.toggle('wb-link-target', this.hasAttribute('link-target'));
@@ -273,7 +277,9 @@ export class NpNote extends HTMLElement {
         this.classList.toggle('wb-note-parking', this.hasAttribute('parking'));
 
         r.title.textContent = task;
-        r.title.title = `${task} (double-click to rename)`;
+        r.title.title = thought
+            ? `${task} — a text note, not a task. Double-click to rename`
+            : `${task} (double-click to rename)`;
         r.title.classList.toggle('editing', this.hasAttribute('editing'));
 
         // Header buttons, under their real conditions.
@@ -289,14 +295,31 @@ export class NpNote extends HTMLElement {
         r.parentCaption.textContent = parent ? `under ${parent}` : '';
         r.parentCaption.style.display = parent ? '' : 'none';
 
-        this._renderBody(freeform);
+        this._renderBody(freeform, thought);
         this._renderFooter(freeform);
     }
 
-    _renderBody(freeform) {
+    _renderBody(freeform, thought) {
         const r = this._refs;
         const children = [];
         this._hideRails();
+
+        if (thought) {
+            // wbBuildThoughtBody(): the text, or a quiet invitation to write
+            // some -- a thought has no task form to hold it -- and no add row,
+            // since a checklist would make it a summary task by stealth.
+            const comment = this.getAttribute('comment') || '';
+            const text = el('div', comment
+                ? 'wb-note-freetext wb-note-thought-text'
+                : 'wb-note-freetext wb-note-thought-text wb-note-thought-empty', {
+                tabindex: '0',
+                role: 'button',
+                'aria-label': `${comment ? 'Edit' : 'Write'} the text of ${this.task}`,
+            });
+            text.textContent = comment || 'Double-click to write…';
+            r.body.replaceChildren(text);
+            return;
+        }
 
         if (freeform) {
             // A free-form note with no comment renders no prose at all,
@@ -494,18 +517,28 @@ export class NpNote extends HTMLElement {
         // says only what is in the menu and under what condition.
         const parent = this.getAttribute('parent');
         const freeform = this.hasAttribute('freeform');
+        const thought = this.hasAttribute('thought');
         const colour = this.getAttribute('colour') || this.getAttribute('color') || '';
 
         const structure = [{ id: 'rename', label: 'Rename' }];
-        if (parent) structure.push({ id: 'unlink', label: `Unlink from "${parent}"` });
-        if (freeform) {
+        if (parent && !thought) structure.push({ id: 'unlink', label: `Unlink from "${parent}"` });
+        if (thought) {
+            // wbAppendThoughtMenuSection(): a thought has no task to open,
+            // park or leave behind, so its menu ends here.
             structure.push({
-                id: 'promote', label: 'Promote to task', className: 'wb-note-menu-promote',
+                id: 'promote-thought', label: 'Promote to task',
+                className: 'wb-note-menu-action wb-note-menu-promote-thought',
+            });
+        } else if (freeform) {
+            structure.push({
+                id: 'promote', label: 'Make comment a subtask', className: 'wb-note-menu-promote',
             });
         }
-        structure.push({
-            id: 'open-task', label: 'Open task details', className: 'wb-note-menu-open-task',
-        });
+        if (!thought) {
+            structure.push({
+                id: 'open-task', label: 'Open task details', className: 'wb-note-menu-open-task',
+            });
+        }
 
         const menu = document.createElement('np-menu');
         menu.id = 'npNoteMenu';
@@ -519,15 +552,19 @@ export class NpNote extends HTMLElement {
                 checkColour: (swatch) => contrastTextColour(swatch) || '',
             },
             { items: structure },
-            // Neutral on purpose: parking relocates the text, it does not
-            // destroy it.
-            { items: [{ id: 'park', label: 'Send to parking lot' }] },
-            {
-                items: [
-                    { id: 'remove', label: 'Remove from board', destructive: true },
-                    { id: 'delete', label: 'Delete task', destructive: true, confirms: true },
-                ],
-            },
+            ...(thought ? [
+                { items: [{ id: 'delete', label: 'Delete note', destructive: true }] },
+            ] : [
+                // Neutral on purpose: parking relocates the text, it does not
+                // destroy it.
+                { items: [{ id: 'park', label: 'Send to parking lot' }] },
+                {
+                    items: [
+                        { id: 'remove', label: 'Remove from board', destructive: true },
+                        { id: 'delete', label: 'Delete task', destructive: true, confirms: true },
+                    ],
+                },
+            ]),
         ];
         menu.addEventListener('dismiss', () => this._closeMenu(btn));
         menu.addEventListener('select', () => this._closeMenu(btn));

@@ -13,7 +13,11 @@
  *   - "promoting" a free-form note (issue #1020) appends one brand-new
  *     child task under it (wbAppendChildTask()),
  *   - scissors between two checklist rows (issue #874) lift everything
- *     below the cut into a new top-level note (wbSplitChecklistAt()).
+ *     below the cut into a new top-level note (wbSplitChecklistAt()),
+ *   - a thought -- a note that is not a task -- is a commented-out task
+ *     line, and promoting it uncomments that line
+ *     (wbAppendThought()/wbPromoteThoughtInPlanText(); see "Thoughts"
+ *     below).
  *
  * Storage decision: a noodle has *no storage of its own*. A noodle from A
  * to B means exactly "B is indented under A in the plan outline", so the
@@ -101,6 +105,12 @@ function wbTaskNameFromLine(line) {
     if (!trimmed) return '';
     if (trimmed === '---') return '';
     if (trimmed.startsWith('#')) return '';
+    // A comment line is not a task: the scheduler skips it the same way
+    // (engine/scheduler.js). Without this it parsed as a task called
+    // "// Foo", which every outline splice below then counted as a real
+    // line of the tree. A whiteboard thought lives on exactly such a line
+    // -- see wbThoughtFromLine().
+    if (trimmed.startsWith('//')) return '';
     if (trimmed.includes('===')) return '';
     if (trimmed.startsWith('|')) return '';
 
@@ -703,6 +713,151 @@ function wbDeleteTaskFromPlanText(planText, taskName) {
     const end = wbSubtreeEndIndex(parsed, pos);
     const lines = parsed.lines.slice();
     lines.splice(start, end - start + 1);
+    return lines.join('\n');
+}
+
+// ── Thoughts: task-less notes ───────────────────────────────────────────
+//
+// A thought is a post-it that is not a task: somewhere to capture an idea
+// without it landing in the schedule, the Gantt or the critical path. It is
+// stored as a *commented-out* task line in the outline --
+//
+//     // Ask legal about the licence "they were slow last time"
+//
+// -- plus an ordinary ---whiteboard--- row naming it, exactly as a post-it
+// row names its task. The plan format already defines `//` as "ignored by
+// the scheduler, preserved in the file", so a thought costs no new syntax,
+// no new section and no new row kind, and it reads correctly in a plain
+// text editor. Promoting it to a task is literally uncommenting the line
+// (wbPromoteThoughtInPlanText()); the row does not change, so on the next
+// render the same card is backed by a real task and becomes a post-it.
+//
+// Only a comment line some whiteboard row names is a thought on the board.
+// Every other `// ...` in the outline stays what it always was: a comment.
+
+/** Fallback name for a brand-new thought, before the user types one. */
+const WB_NEW_THOUGHT_BASE_NAME = 'New thought';
+
+/**
+ * `{ name, comment }` for a commented-out task line, or null if the line is
+ * not a comment or carries no name. The text after `//` is read with the
+ * task-line grammar (wbTaskNameFromLine()), so a thought's name is what the
+ * task would be called once promoted, and its `"quoted"` text is its body.
+ */
+function wbThoughtFromLine(line) {
+    if (typeof line !== 'string') return null;
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('//')) return null;
+    const content = trimmed.slice(2).trim();
+    const name = wbTaskNameFromLine(content);
+    if (!name) return null;
+    let comment = '';
+    if (typeof TaskLineTokenizer !== 'undefined' && TaskLineTokenizer &&
+        typeof TaskLineTokenizer.metadata === 'function') {
+        comment = TaskLineTokenizer.metadata(content).values.comment || '';
+    } else {
+        const m = content.match(/"([^"]*)"/);
+        comment = m ? m[1] : '';
+    }
+    return { name, comment: String(comment).trim() };
+}
+
+/**
+ * Every commented-out task line in the outline region, as
+ * `{ index, indent, name, comment }` in document order. Whether any of them
+ * is on the board is the caller's question (a row has to name it).
+ */
+function wbParseThoughts(planText) {
+    const lines = String(planText == null ? '' : planText).split('\n');
+    const { start, end } = wbOutlineRegion(lines);
+    const thoughts = [];
+    for (let i = start; i < end; i++) {
+        const thought = wbThoughtFromLine(lines[i]);
+        if (thought) thoughts.push({ index: i, indent: wbLineIndent(lines[i]), ...thought });
+    }
+    return thoughts;
+}
+
+/** The index into wbParseThoughts()'s list of the thought called `name`
+ * (case-insensitive, like every name match on the board), or -1. */
+function wbFindThought(thoughts, name) {
+    if (!name) return -1;
+    const key = String(name).toLowerCase();
+    return (thoughts || []).findIndex(t => String(t.name).toLowerCase() === key);
+}
+
+/** A thought line for `name`, with its body as the quoted comment. Quotes
+ * and newlines in the body are neutralised the same way
+ * wbSanitiseChildTaskName() treats free text, since `"` ends the comment
+ * and a newline would end the line. */
+function wbThoughtLine(name, comment) {
+    const body = String(comment || '').replace(/[\r\n]+/g, ' ').replace(/"/g, "'")
+        .replace(/\s+/g, ' ').trim();
+    return `// ${String(name).trim()}${body ? ` "${body}"` : ''}`;
+}
+
+/**
+ * Append a new thought called `name` at the end of the outline, at the top
+ * level -- the same place wbAppendTopLevelTask() puts a new post-it's task,
+ * so promoting it later yields a top-level summary-task candidate.
+ */
+function wbAppendThought(planText, name) {
+    const clean = String(name || '').trim();
+    if (!clean) return String(planText == null ? '' : planText);
+    return wbAppendTopLevelTask(planText, wbThoughtLine(clean, ''));
+}
+
+/** Rewrite the thought called `name` with `fn(thought)`'s `{ name, comment }`,
+ * keeping its indent. Plan text comes back unchanged if there is no such
+ * thought or `fn` returns nothing. */
+function wbRewriteThought(planText, name, fn) {
+    const text = String(planText == null ? '' : planText);
+    const thoughts = wbParseThoughts(text);
+    const pos = wbFindThought(thoughts, name);
+    if (pos === -1) return text;
+    const thought = thoughts[pos];
+    const next = fn(thought);
+    if (!next || !String(next.name || '').trim()) return text;
+    const lines = text.split('\n');
+    lines[thought.index] = ' '.repeat(thought.indent) + wbThoughtLine(next.name, next.comment);
+    return lines.join('\n');
+}
+
+/** Rename a thought, keeping its body. */
+function wbRenameThoughtInPlanText(planText, oldName, newName) {
+    return wbRewriteThought(planText, oldName, t => ({ name: newName, comment: t.comment }));
+}
+
+/** Replace a thought's body text. */
+function wbSetThoughtCommentInPlanText(planText, name, comment) {
+    return wbRewriteThought(planText, name, t => ({ name: t.name, comment }));
+}
+
+/**
+ * Promote a thought to a task: uncomment its line. Nothing else changes --
+ * not its indent, not whatever else the user typed on it -- because the
+ * whole point of storing a thought as a commented-out task line is that
+ * the line already *is* the task.
+ */
+function wbPromoteThoughtInPlanText(planText, name) {
+    const text = String(planText == null ? '' : planText);
+    const thoughts = wbParseThoughts(text);
+    const pos = wbFindThought(thoughts, name);
+    if (pos === -1) return text;
+    const lines = text.split('\n');
+    const line = lines[thoughts[pos].index];
+    lines[thoughts[pos].index] = line.replace(/^(\s*)\/\/\s?/, '$1');
+    return lines.join('\n');
+}
+
+/** Remove a thought's line from the outline. */
+function wbDeleteThoughtFromPlanText(planText, name) {
+    const text = String(planText == null ? '' : planText);
+    const thoughts = wbParseThoughts(text);
+    const pos = wbFindThought(thoughts, name);
+    if (pos === -1) return text;
+    const lines = text.split('\n');
+    lines.splice(thoughts[pos].index, 1);
     return lines.join('\n');
 }
 

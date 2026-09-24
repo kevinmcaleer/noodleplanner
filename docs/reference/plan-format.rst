@@ -365,11 +365,18 @@ Whiteboard rows
 - ``Width`` / ``Height`` are optional integers; empty means the default
   note size.
 - ``Collapsed`` is ``yes`` or ``no``.
-- A row whose ``Task`` matches no task in the outline (for example
-  because the task was renamed by hand, which looks identical to a
-  delete-plus-add) is kept in the file, not rendered, and reported as a
-  warning -- the same "never remove a line you do not understand" rule
-  this page states elsewhere.
+- A row whose ``Task`` matches no task but does match a *commented-out*
+  task line in the outline (``// Name "text"``) is a **text note**: a
+  note that is not a task. The name after ``//`` is read with the ordinary
+  task-line grammar and the quoted text is the note's body. Because the
+  scheduler ignores ``//`` lines, a text note never reaches the schedule;
+  promoting it to a task removes the ``//``, and the same row then names
+  the new task. A real task wins if a task and a comment share a name.
+- A row whose ``Task`` matches no task and no commented-out task line in
+  the outline (for example because the task was renamed by hand, which
+  looks identical to a delete-plus-add) is kept in the file, not
+  rendered, and reported as a warning -- the same "never remove a line
+  you do not understand" rule this page states elsewhere.
 - ``Task`` is matched case-insensitively against task names, the
   same as dependency name resolution above. If two whiteboard rows name
   the same task, the later one wins; avoid duplicate names.

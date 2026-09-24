@@ -188,6 +188,21 @@ function switchView(view) {
     return () => switchToView(view);
 }
 
+/** Call the whiteboard function `name` from the Whiteboard contextual tab,
+ * which the Mind Map opens too: bring the board up first, so a layout or a
+ * new note is never applied to a board the user cannot see. No-op if the
+ * whiteboard's scripts have not loaded. */
+function onWhiteboard(name) {
+    return () => {
+        if (typeof window[name] !== 'function') return;
+        if (typeof NavigationController !== 'undefined' &&
+            NavigationController.getCurrentView() !== 'whiteboard') {
+            switchToView('whiteboard');
+        }
+        window[name]();
+    };
+}
+
 /** Format-choice popovers for the caret Export/Import buttons -- these are
  * explicitly marked as split/gallery buttons in the design, not single
  * actions, so they open a small menu rather than picking one format. */
@@ -220,6 +235,14 @@ const GANTT_SCALES = ['days', 'weeks', 'months', 'quarters', 'years'].map((scale
         el.dispatchEvent(new Event('change'));
     },
 }));
+/** The Whiteboard tab's Arrange > Spacing menu: re-lay the board out on the
+ * grid with tight or roomy gaps (whiteboard-notes.js's wbLayoutCompact()/
+ * wbLayoutComfy()). */
+const WHITEBOARD_SPACINGS = [
+    { label: 'Compact', run: onWhiteboard('wbLayoutCompact') },
+    { label: 'Comfy', run: onWhiteboard('wbLayoutComfy') },
+];
+
 const KANBAN_GROUP_MODES = ['phase', 'resource', 'progress', 'label', 'bucket'].map((mode) => ({
     label: mode.charAt(0).toUpperCase() + mode.slice(1),
     run: () => switchKanbanView(mode),
@@ -412,14 +435,25 @@ function scopedAction(scopeId, label) {
         // ribbonActionAnchor for the button to anchor the popover to,
         // same convention openFormatMenu() below uses.
         'whiteboard:Colour': () => { if (typeof wbOpenColourPanelForSelectedNote === 'function') wbOpenColourPanelForSelectedNote(ribbonActionAnchor); },
-        // #1107: previously unwired -- issue #1015's "free-form note" (a
-        // post-it with no checklist yet, whiteboard-notes.js's
-        // wbIsFreeformNote()) already IS the "Note" this button's own
-        // ribbon-ia.js label describes; there is no second, task-less
-        // "note" concept to build. Reuses the exact same creation path the
-        // whiteboard toolbar's own "New post-it"/"Text note" buttons and
-        // the `n` keyboard shortcut already call.
+        // #1107: previously unwired -- a new post-it (a new task), the same
+        // creation path the whiteboard toolbar's "New post-it" button and
+        // the `n` keyboard shortcut call. The task-less note is "Text Note"
+        // below.
         'whiteboard:Note': () => { if (typeof wbCreateNoteInViewportCentre === 'function') wbCreateNoteInViewportCentre(); },
+        // The note that is not a task: a commented-out outline line with a
+        // whiteboard row, promoted from its own `...` menu by uncommenting
+        // it (whiteboard-structure.js's "Thoughts"). The toolbar's "Text
+        // note" button calls the same function.
+        'whiteboard:Text Note': onWhiteboard('wbCreateThoughtInViewportCentre'),
+        // Was the "Text" stub: free-floating text (#1018) had a function all
+        // along, the toolbar's "Add title".
+        'whiteboard:Title': onWhiteboard('wbCreateTextObjectInViewportCentre'),
+        // The Arrange group's layouts, which used to be five buttons on the
+        // whiteboard's own toolbar.
+        'whiteboard:Tidy': onWhiteboard('wbLayoutTidyNotes'),
+        'whiteboard:Hierarchy': onWhiteboard('wbLayoutHierarchyView'),
+        'whiteboard:Flow': onWhiteboard('wbLayoutFlowView'),
+        'whiteboard:Spacing': () => openFormatMenu(WHITEBOARD_SPACINGS, 'Spacing'),
         // #1267: the Gantt scale's five ribbon buttons (group `Scale` in
         // ribbon-ia.js). Scoped rather than added flat to LABEL_ACTIONS so
         // generic words like "Days"/"Years" can never resolve for buttons on
@@ -564,7 +598,7 @@ function resolveAction(scopeId, label) {
  * refreshRibbon() replaces .ribbon-tabstrip's innerHTML wholesale, which
  * would destroy that popover the instant it opened, so these must skip
  * the post-action refresh rather than re-render over their own menu. */
-const OPENS_OWN_POPOVER = new Set(['Export', 'Export…', 'Import', 'Import from Excel / MS Project', 'Group by', 'Highlight Preset']);
+const OPENS_OWN_POPOVER = new Set(['Export', 'Export…', 'Import', 'Import from Excel / MS Project', 'Group by', 'Highlight Preset', 'Spacing']);
 
 function runAction(scopeId, label, anchorEl = null) {
     ribbonActionAnchor = anchorEl;

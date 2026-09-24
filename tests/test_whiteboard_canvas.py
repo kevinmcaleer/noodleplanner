@@ -359,26 +359,20 @@ class TestKeyboard:
         #
         # Tab stops sit in between, in DOM order after the zoom controls
         # and before the canvas wrapper: the "create something from
-        # nothing" actions grouped together first -- "New post-it", then
-        # "Add title" (issue #1018's free-floating text object, the "no
-        # task, no card" sibling of New post-it; renamed from "New text" by
-        # #1107), then "Text note" (#1107 -- a second entry point onto the
-        # exact same free-form note "New post-it" creates, per
-        # wbCreateNoteInViewportCentre()'s own comment) -- then "Add
-        # existing" (a different kind of action: add an *existing* task to
-        # the board, not create a new one), then the "Structure" toggle for
-        # the floating outline panel, then the Parking lot button, then
-        # the five layout tools (Tidy/Hierarchy/Compact/Comfy/Flow) -- the
-        # Link mode toggle that used to follow them was removed by #1106
-        # (dependency-drawing moved to a per-row handle on checklist rows,
-        # so there is no longer a whole-board mode to switch). Asserted by
-        # id rather than just tabbed past blindly, so this still fails
-        # loudly if the toolbar's tab order is disturbed.
+        # nothing" actions grouped together first -- "New post-it" (a new
+        # task), "Text note" (a note that is not a task), "Add title"
+        # (issue #1018's free-floating text object) -- then "Add existing"
+        # (add an *existing* task to the board), then the two side-panel
+        # toggles, "Structure" and "Parking lot". The five layout tools
+        # that used to follow them live in the ribbon's Whiteboard tab now
+        # (Arrange group). Asserted by id rather than just tabbed past
+        # blindly, so this still fails loudly if the toolbar's tab order is
+        # disturbed.
         reset_btn = browser.find_element(
             By.CSS_SELECTOR, '#whiteboard-view button[title="Reset to 100%"]'
         )
         reset_btn.click()
-        for expected in ("whiteboardNewNoteBtn", "whiteboardNewTextBtn", "whiteboardTextNoteBtn", "whiteboardAddNoteBtn", "whiteboardOutlineBtn", "whiteboardParkingLotBtn", "whiteboardTidyLayoutBtn", "whiteboardHierarchyLayoutBtn", "whiteboardCompactLayoutBtn", "whiteboardComfyLayoutBtn", "whiteboardFlowLayoutBtn"):
+        for expected in ("whiteboardNewNoteBtn", "whiteboardTextNoteBtn", "whiteboardNewTextBtn", "whiteboardAddNoteBtn", "whiteboardOutlineBtn", "whiteboardParkingLotBtn"):
             ActionChains(browser).send_keys(Keys.TAB).perform()
             time.sleep(0.1)
             active = browser.execute_script("return document.activeElement.id;")
