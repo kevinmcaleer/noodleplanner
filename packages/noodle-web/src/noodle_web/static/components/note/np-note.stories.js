@@ -56,6 +56,7 @@ export default {
         width: { control: { type: 'number' } },
         height: { control: { type: 'number' } },
         freeform: { control: 'boolean' },
+        thought: { control: 'boolean' },
         'title-only': { control: 'boolean' },
         selected: { control: 'boolean' },
         flash: { control: 'boolean' },
@@ -137,6 +138,26 @@ export const FreeformWithComment = {
  * carries a button for that. */
 export const FreeformEmpty = {
     args: { task: 'Loose Idea', colour: '#CFF4D2', freeform: true, rows: [], resources: '' },
+};
+
+/** A text note: a note that is not a task (a commented-out line in the plan,
+ * promoted from its menu). Dashed edge, no coach, no noodle handle, no unpin,
+ * no footer and no add row -- its body is the text it holds. */
+export const TextNote = {
+    args: {
+        task: 'Ask legal about the licence',
+        colour: '#FCE38A',
+        thought: true,
+        comment: 'They were slow last time -- start early.',
+        rows: [],
+        resources: '',
+    },
+};
+
+/** An empty text note invites typing, unlike an empty free-form note: a text
+ * note has no task form behind it to hold its text. */
+export const TextNoteEmpty = {
+    args: { task: 'New thought', colour: '#CFF4D2', thought: true, rows: [], resources: '' },
 };
 
 export const EmptyNoSubtasks = {

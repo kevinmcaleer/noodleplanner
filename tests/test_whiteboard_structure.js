@@ -63,6 +63,13 @@ const {
     wbOutlineTaskNames,
     wbBuildOutlineTree,
     wbFlattenOutline,
+    wbThoughtFromLine,
+    wbParseThoughts,
+    wbAppendThought,
+    wbRenameThoughtInPlanText,
+    wbSetThoughtCommentInPlanText,
+    wbPromoteThoughtInPlanText,
+    wbDeleteThoughtFromPlanText,
 } = sandbox;
 
 // ── Fixtures ────────────────────────────────────────────────────────────
@@ -562,6 +569,64 @@ assertEqual(wbMergeTasksInPlanText(BOARD, 'Alpha one', ['Alpha']), BOARD,
 assert(grouped !== merged, 'group and merge do not produce the same outline');
 assert(grouped.includes('\n  Alpha\n'), 'group leaves each member a task of its own');
 assert(!merged.split('\n').includes('Beta'), 'merge leaves one task holding everything');
+
+// ── Thoughts: text notes that are not tasks ─────────────────────────────
+
+{
+    console.log('\n--- thoughts ---');
+
+    assertEqual(wbTaskNameFromLine('// Foo 3d'), '',
+        'a comment line is not a task (the scheduler skips it too)');
+    assertEqual(wbParseOutline('Alpha\n// Beta\n  Gamma').entries.map(e => e.name).join(','), 'Alpha,Gamma',
+        'the outline parse skips comment lines rather than naming a task "// Beta"');
+
+    const thought = wbThoughtFromLine('  // Ask legal 3d "they were slow"');
+    assertEqual(thought && thought.name, 'Ask legal', 'a thought is named by the task grammar');
+    assertEqual(thought && thought.comment, 'they were slow', 'its quoted text is its body');
+    assertEqual(wbThoughtFromLine('Alpha'), null, 'a task line is not a thought');
+    assertEqual(wbThoughtFromLine('//   '), null, 'an empty comment is not a thought');
+
+    const THOUGHT_PLAN = [
+        '---', 'title: T', '---', '',
+        'Alpha',
+        '  Alpha one',
+        '',
+        '---whiteboard---',
+        '| Task | X | Y |',
+        '|---|---|---|',
+        '| Alpha | 0 | 0 |',
+    ].join('\n');
+
+    const withThought = wbAppendThought(THOUGHT_PLAN, 'Idea');
+    assert(withThought.includes('  Alpha one\n// Idea\n'),
+        'a new thought is a commented-out line at the end of the outline, before the back matter');
+    assertEqual(wbParseThoughts(withThought).map(t => t.name).join(','), 'Idea',
+        'it parses back as a thought');
+    assertEqual(wbParseThoughts(THOUGHT_PLAN + '\n// not in the outline').length, 0,
+        'a comment in the back matter is not a thought');
+    assertEqual(wbOutlineTaskNames(withThought).join(','), 'Alpha,Alpha one',
+        'and it is not a task');
+
+    const described = wbSetThoughtCommentInPlanText(withThought, 'idea', 'Say "hi"\nsoon');
+    assert(described.includes('\n// Idea "Say \'hi\' soon"\n'),
+        'the body is written as the quoted comment, quotes and newlines neutralised');
+    const renamedThought = wbRenameThoughtInPlanText(described, 'Idea', 'Big idea');
+    assert(renamedThought.includes('\n// Big idea "Say \'hi\' soon"\n'), 'rename keeps the body');
+    assertEqual(wbRenameThoughtInPlanText(described, 'Nope', 'X'), described,
+        'renaming a missing thought changes nothing');
+
+    const promoted = wbPromoteThoughtInPlanText(renamedThought, 'Big idea');
+    assert(promoted.includes('\nBig idea "Say \'hi\' soon"\n'), 'promote uncomments the line');
+    assertEqual(wbOutlineTaskNames(promoted).join(','), 'Alpha,Alpha one,Big idea',
+        'and the line is now a task');
+    assertEqual(wbPromoteThoughtInPlanText('Alpha\n  // Sub', 'Sub'), 'Alpha\n  Sub',
+        'promote keeps the indent -- an indented thought becomes a subtask');
+    assertEqual(wbPromoteThoughtInPlanText(renamedThought, 'Alpha'), renamedThought,
+        'promoting a task (not a thought) changes nothing');
+
+    assertEqual(wbDeleteThoughtFromPlanText(withThought, 'Idea'), THOUGHT_PLAN,
+        'deleting a thought removes exactly its line');
+}
 
 console.log(failures === 0 ? '\nAll structure tests passed.' : `\n${failures} test(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

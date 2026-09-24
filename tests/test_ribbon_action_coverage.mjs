@@ -107,7 +107,9 @@ const DELIBERATE_STUBS = new Set([
   // "Note" used to be here too -- #1107 wired it to
   // wbCreateNoteInViewportCentre(), the same free-form-note creation
   // #1015 already built and the whiteboard toolbar's own buttons call.
-  "Align", "Distribute", "Lock", "Text", "To PBS", "To Tasks",
+  // "Text" was here too, until it became "Title" and was wired to the
+  // toolbar's own free-floating-text function.
+  "Align", "Distribute", "Lock", "To PBS", "To Tasks",
   // Features that don't exist in the app yet. ("Add Project" and "Capacity"
   // used to be here too -- #938 audit found both actually have real
   // functions (showCreateProjectDialog, the Team Allocation view) and wired

@@ -96,6 +96,7 @@ const BUILDERS = [
     'wbBuildChildRow',
     'wbAppendChildResourceControls',
     'wbBuildAddChildRow',
+    'wbBuildThoughtBody',
 ];
 
 /**

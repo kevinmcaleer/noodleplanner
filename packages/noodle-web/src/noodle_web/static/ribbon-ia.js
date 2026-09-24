@@ -307,8 +307,15 @@ export const CONTEXTUAL_TABS = [
         id: 'whiteboard', label: 'Whiteboard', icon: 'grid', accent: '#1c9e41', accentToken: '--np-green', tint: '#eaf6ee', onAccent: '#ffffff',
         trigger: 'Whiteboard or Mind Map open',
         groups: [
-            { name: 'Draw', launcher: true, lg: [['doc', 'Note']], cols: [[['doc', 'Text']], [['pin', 'Colour'], ['delete', 'Delete']]] },
-            { name: 'Arrange', cols: [[['grid', 'Align'], ['sort', 'Distribute']], [['link', 'Group'], ['pin', 'Lock']]] },
+            // Draw: "Note" is a post-it (a new task); "Text Note" is a note
+            // that is not a task (a commented-out line, promoted later);
+            // "Title" is free-floating text with no card at all.
+            { name: 'Draw', launcher: true, lg: [['doc', 'Note']], cols: [[['doc', 'Text Note'], ['doc', 'Title']], [['pin', 'Colour'], ['delete', 'Delete']]] },
+            // Arrange: the board's layouts, moved here from the whiteboard's
+            // own toolbar. Compact/Comfy re-run the grid with a different gap
+            // rather than arranging anything differently, so they share one
+            // "Spacing" menu instead of taking two buttons.
+            { name: 'Arrange', cols: [[['grid', 'Tidy'], ['task-list', 'Hierarchy']], [['timeline', 'Flow'], ['sort', 'Spacing', 'caret']], [['grid', 'Align'], ['sort', 'Distribute']], [['link', 'Group'], ['pin', 'Lock']]] },
             { name: 'Convert', cols: [[['task-list', 'To Tasks'], ['board', 'To PBS']]] },
         ],
     },

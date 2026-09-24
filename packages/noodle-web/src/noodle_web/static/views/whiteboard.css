@@ -1580,6 +1580,41 @@
     overflow-wrap: break-word;
 }
 
+/* Thought: a text note that is not a task (whiteboard-structure.js's
+   "Thoughts"). Same card as a post-it -- same fill, same drag and resize --
+   drawn with a dashed edge so it reads as provisional next to the solid
+   post-its that are real tasks. Everything on the card that acts on a task
+   is hidden: the planning coach, the noodle handle, the unpin (a thought's
+   `...` menu has Delete instead), the footer and the row rails. */
+.wb-note-thought {
+    border-style: dashed;
+    border-color: var(--wb-note-text);
+}
+
+.wb-note-thought .wb-note-footer,
+.wb-note-thought .wb-note-coach-btn,
+.wb-note-thought .wb-note-link-handle,
+.wb-note-thought .wb-note-pin-btn {
+    display: none;
+}
+
+.wb-note-thought-text {
+    cursor: text;
+    min-height: 2lh;
+}
+
+.wb-note-thought-empty {
+    font-style: italic;
+    color: var(--wb-note-ink-muted);
+}
+
+.wb-note-thought-text:focus-visible,
+.wb-note-thought-text.editing {
+    outline: 2px solid var(--np-blue);
+    outline-offset: -2px;
+    border-radius: 4px;
+}
+
 /* ========================================
    Free-floating text objects (issue #1018)
 

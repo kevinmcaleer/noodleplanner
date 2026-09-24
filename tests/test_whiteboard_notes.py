@@ -1026,7 +1026,7 @@ class TestPromoteToTask:
 
         menu = open_menu("Discovery")
         assert menu.find_elements(By.CSS_SELECTOR, ".wb-note-menu-promote") == [], \
-            "a checklist note (already has children) must not offer 'Promote to task'"
+            "a checklist note (already has children) must not offer 'Make comment a subtask'"
         browser.execute_script("document.body.click();")
         time.sleep(0.2)
 
@@ -1034,7 +1034,9 @@ class TestPromoteToTask:
         promote_btn = WebDriverWait(browser, 3).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, "#wbNoteMenu .wb-note-menu-promote"))
         )
-        assert promote_btn.text.strip() == "Promote to task"
+        # Worded for what it does since text notes arrived: this note is
+        # already a task, and "Promote to task" is the text note's action.
+        assert promote_btn.text.strip() == "Make comment a subtask"
         promote_btn.click()
         wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
 

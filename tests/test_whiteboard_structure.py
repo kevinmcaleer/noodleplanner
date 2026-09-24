@@ -425,25 +425,66 @@ def test_new_post_it_creates_a_task_and_a_row(app_server, browser):
     assert outline_only(before).splitlines() == outline_only(after).splitlines()[:-1]
 
 
-def test_text_note_toolbar_button_creates_a_free_form_note(app_server, browser):
-    """Issue #1107: the whiteboard toolbar's "Text note" button (next to
-    the renamed "Add title" button) is a second entry point onto the exact
-    same free-form note creation "New post-it" already uses -- both call
-    wbCreateNoteInViewportCentre() -- rather than a new, third kind of
-    canvas object."""
+def test_text_note_is_a_commented_out_line_not_a_task(app_server, browser):
+    """The toolbar's "Text note" button makes a note that is not a task: a
+    commented-out line at the end of the outline (so the scheduler never
+    sees it) plus an ordinary whiteboard row naming it. It renders as a
+    card, flagged as a thought, and adds nothing to the task list."""
     open_app(browser, app_server)
     load_plan(browser, SAMPLE_PLAN)
     switch_to_whiteboard(browser)
 
     before = get_plan_text(browser)
+    tasks_before = browser.execute_script("return wbLastTasks.length;")
     browser.find_element(By.ID, "whiteboardTextNoteBtn").click()
+    # The new card opens in title-edit; leave it without typing so it keeps
+    # its placeholder name.
+    browser.execute_script("document.activeElement && document.activeElement.blur();")
     wait_for_stable_plan_text(browser, timeout=6.0, quiet=1.0)
     after = get_plan_text(browser)
 
-    assert outline_only(after).splitlines()[-1] == "New idea"
-    assert "New idea" in whiteboard_rows(after)
-    assert "New idea" in rendered_note_task_names(browser)
+    assert outline_only(after).splitlines()[-1] == "// New thought"
+    assert "New thought" in whiteboard_rows(after)
+    assert "New thought" in rendered_note_task_names(browser)
     assert outline_only(before).splitlines() == outline_only(after).splitlines()[:-1]
+    assert browser.execute_script("return wbIsThoughtNote('New thought');")
+    assert browser.execute_script("return wbLastTasks.length;") == tasks_before
+
+
+def test_promoting_a_text_note_uncomments_it_into_a_task(app_server, browser):
+    """"Promote to task" on a text note uncomments its line: the same card,
+    in place, is now a post-it backed by a real task -- and it is one undo
+    step."""
+    open_app(browser, app_server)
+    load_plan(browser, SAMPLE_PLAN)
+    switch_to_whiteboard(browser)
+
+    browser.execute_script("wbCreateThoughtAt(900, 500);")
+    browser.execute_script("document.activeElement && document.activeElement.blur();")
+    wait_for_stable_plan_text(browser, timeout=6.0, quiet=1.0)
+    browser.execute_script("wbSetThoughtText('New thought', 'Ask legal about \"the\" licence');")
+    wait_for_stable_plan_text(browser, timeout=6.0, quiet=1.0)
+    thought_text = get_plan_text(browser)
+    assert outline_only(thought_text).splitlines()[-1] == "// New thought \"Ask legal about 'the' licence\""
+
+    browser.execute_script("wbOpenNoteMenu('New thought', document.querySelector('.wb-note-menu-btn'));")
+    promote = WebDriverWait(browser, 3).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "#wbNoteMenu .wb-note-menu-promote-thought"))
+    )
+    assert promote.text.strip() == "Promote to task"
+    promote.click()
+    wait_for_stable_plan_text(browser, timeout=6.0, quiet=1.0)
+    promoted = get_plan_text(browser)
+
+    assert outline_only(promoted).splitlines()[-1] == "New thought \"Ask legal about 'the' licence\""
+    assert "New thought" in whiteboard_rows(promoted)
+    assert not browser.execute_script("return wbIsThoughtNote('New thought');")
+    assert browser.execute_script(
+        "return wbLastTasks.some(t => t.name === 'New thought');"
+    )
+
+    undo(browser)
+    assert get_plan_text(browser) == thought_text
 
 
 def test_new_post_it_lands_where_it_was_dropped(app_server, browser):

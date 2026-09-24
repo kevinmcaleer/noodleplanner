@@ -393,6 +393,14 @@ function wbLinkNotes(parentName, childName) {
     const editor = document.getElementById('planEditor');
     if (!editor || !parentName || !childName) return false;
 
+    // A text note (a thought) is not in the outline, so there is no
+    // hierarchy to put it in until it is promoted.
+    if (typeof wbIsThoughtNote === 'function' &&
+        (wbIsThoughtNote(parentName) || wbIsThoughtNote(childName))) {
+        wbFlashNoodleMessage('A text note is not a task yet. Promote it from its … menu to link it.');
+        return false;
+    }
+
     const check = wbCanLinkNotes(wbLastTasks, parentName, childName);
     if (!check.ok) {
         wbFlashNoodleMessage(check.reason);
@@ -479,7 +487,8 @@ function wbUpdateLinkDrag(clientX, clientY) {
     wbActiveLink.hoverName = (name && name !== wbActiveLink.parentName) ? name : null;
 
     if (noteEl && wbActiveLink.hoverName) {
-        const ok = wbCanLinkNotes(wbLastTasks, wbActiveLink.parentName, wbActiveLink.hoverName).ok;
+        const ok = wbCanLinkNotes(wbLastTasks, wbActiveLink.parentName, wbActiveLink.hoverName).ok &&
+            !(typeof wbIsThoughtNote === 'function' && wbIsThoughtNote(wbActiveLink.hoverName));
         noteEl.classList.toggle('wb-link-target', ok);
         noteEl.classList.toggle('wb-link-target-invalid', !ok);
     }

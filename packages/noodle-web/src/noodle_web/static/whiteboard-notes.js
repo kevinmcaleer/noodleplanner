@@ -177,9 +177,10 @@
  * blank otherwise; no footer). No new ---whiteboard--- column and no new
  * "kind" of stored object: a free-form note is simply what a checklist
  * note with zero children already was, rendered honestly instead of as an
- * empty checklist. See this file's own note on the architectural choice in
- * the #1015 PR description for why a second, task-less note type (a
- * `Text` column, closer to #1018's free-floating text) was rejected.
+ * empty checklist. The #1015 PR rejected a second, task-less note type
+ * stored as a new `Text` column; the task-less note the board does have now
+ * -- a *thought*, see "Thoughts" below and in whiteboard-structure.js --
+ * needs no new column either, because it is a commented-out task line.
  *
  * Creation defaults to free-form, per #885's "nothing is mandatory; nothing
  * prompts for detail": both ways to make a brand-new note --
@@ -354,6 +355,10 @@ const WB_TEXT_DEFAULT_HEIGHT = 120;
 // down (which would lose in-note scroll position and cause flicker).
 let wbLastTasks = [];
 let wbLastPlanText = '';
+// The outline's commented-out task lines, parsed once per plan update --
+// the candidates a ---whiteboard--- row can name as a thought (see
+// wbBuildThoughtViewModel()).
+let wbLastThoughts = [];
 let wbNoteNodes = new Map(); // summary task name -> { fo, refs: {...} }
 
 // Issue #1018: same idea as wbNoteNodes, keyed by a text object's own
@@ -1265,8 +1270,53 @@ function wbSanitiseChildTaskName(text) {
     return name;
 }
 
-/** wbBuildNoteViewModel() for every row, skipping orphans. */
-function wbNoteViewModels(rows, tasks, themeColours = {}, boardNames = null) {
+/**
+ * The view model for a thought (a note that is not a task -- see
+ * whiteboard-structure.js's "Thoughts" section): the same shape
+ * wbBuildNoteViewModel() returns, so wbUpdateNoteNode() and everything keyed
+ * on `vm.task.name` treat it like any other note, but with `thought: true`,
+ * no children, no parent and nothing to count. `task` is a stand-in carrying
+ * only what the card draws: the name and the body text.
+ *
+ * Null when no thought in `thoughts` (wbParseThoughts()) has the row's name.
+ * The caller only asks once no real task matched, so a task always wins a
+ * name both could claim.
+ */
+function wbBuildThoughtViewModel(row, thoughts, themeColours = {}) {
+    if (!row || !row.task || !thoughts || !thoughts.length) return null;
+    const key = String(row.task).toLowerCase();
+    const thought = thoughts.find(t => t && String(t.name).toLowerCase() === key);
+    if (!thought) return null;
+    const task = { name: thought.name, comment: thought.comment || '', parent: null, thought: true };
+
+    let colour;
+    if (wbColourOverrides.has(task.name) && wbColourOverrides.get(task.name)) {
+        colour = wbColourOverrides.get(task.name).toUpperCase();
+    } else {
+        // No task list to take a palette position from: tier 3 falls back to
+        // the palette's first entry, a stable colour for every thought.
+        colour = wbResolveNoteColour(row, task, [], themeColours).colour;
+    }
+
+    return {
+        row,
+        task,
+        thought: true,
+        children: [],
+        linkedChildren: [],
+        linkedParent: null,
+        parentName: null,
+        progress: { completed: 0, total: 0 },
+        colour,
+        colourSource: row.colour ? 'row' : 'derived',
+    };
+}
+
+/** wbBuildNoteViewModel() for every row, skipping orphans. A row naming a
+ * thought rather than a task (see wbBuildThoughtViewModel()) is a thought
+ * card; `thoughts` defaults to none, so callers that predate thoughts --
+ * and the pure unit tests -- still see only tasks. */
+function wbNoteViewModels(rows, tasks, themeColours = {}, boardNames = null, thoughts = null) {
     // A group row (issue #874) names a task like a post-it row does, but it
     // asks for a boundary rather than a card -- so it is not a note, and it
     // is not "on the board" for the purpose of deciding which of a note's
@@ -1280,7 +1330,8 @@ function wbNoteViewModels(rows, tasks, themeColours = {}, boardNames = null) {
     // "how many of your children are done" question of the same task list.
     const childProgress = wbChildProgressIndex(tasks);
     return postIts
-        .map(row => wbBuildNoteViewModel(row, tasks, themeColours, names, childProgress))
+        .map(row => wbBuildNoteViewModel(row, tasks, themeColours, names, childProgress) ||
+            wbBuildThoughtViewModel(row, thoughts, themeColours))
         .filter(Boolean);
 }
 
@@ -1873,6 +1924,7 @@ const XHTML_NS = 'http://www.w3.org/1999/xhtml';
 function updateWhiteboardView(result, planText) {
     wbLastTasks = (result && result.tasks) || [];
     wbLastPlanText = planText || '';
+    wbLastThoughts = (typeof wbParseThoughts === 'function') ? wbParseThoughts(wbLastPlanText) : [];
     wbRenderNotes();
 }
 
@@ -1906,7 +1958,7 @@ function wbRenderNotes() {
     // wbThemeColoursFromPlanText()'s doc comment.
     const themeColours = wbThemeColoursFromPlanText(wbLastPlanText);
     wbReconcileColourOverrides(rows, themeColours);
-    const viewModels = wbNoteViewModels(rows, wbLastTasks, themeColours);
+    const viewModels = wbNoteViewModels(rows, wbLastTasks, themeColours, null, wbLastThoughts);
     const seen = new Set();
 
     viewModels.forEach(vm => {
@@ -2108,6 +2160,14 @@ function wbUpdateNoteNode(entry, vm) {
         fo.dataset.wbHeight = String(h);
     }
     fo.dataset.wbTask = vm.task.name;
+    // A thought (a note that is not a task) shares every gesture a post-it
+    // has that only touches its ---whiteboard--- row -- drag, resize,
+    // colour, rename -- and none of the ones that need a task. The class
+    // hides the task-only header controls (views/whiteboard.css); the
+    // dataset flag is what wbIsThoughtNote() asks.
+    const thought = !!vm.thought;
+    fo.dataset.wbThought = thought ? 'true' : '';
+    refs.card.classList.toggle('wb-note-thought', thought);
 
     entry.collapsed = !!row.collapsed;
     const zoom = (typeof wbZoom === 'number') ? wbZoom : 1;
@@ -2139,7 +2199,9 @@ function wbUpdateNoteNode(entry, vm) {
             refs.title.setAttribute('title', 'Name this note');
         } else {
             wbSetText(refs.title, vm.task.name);
-            refs.title.setAttribute('title', vm.task.name + ' — double-click to rename');
+            refs.title.setAttribute('title', thought
+                ? vm.task.name + ' — a text note, not a task. Double-click to rename'
+                : vm.task.name + ' — double-click to rename');
         }
     }
     // Name the pin's target (#1291). The skeleton carries a generic label
@@ -2195,6 +2257,18 @@ function wbUpdateNoteNode(entry, vm) {
     // quietly drift from this one.
     const freeform = wbIsFreeformNote(vm);
     refs.card.classList.toggle('wb-note-freeform', freeform);
+
+    if (thought) {
+        // A thought's body is the text it was made to hold, edited in place:
+        // there is no task form behind it to type a comment into. No
+        // "Add task..." row either -- a checklist is a task's structure, and
+        // giving a thought one would make it a summary task by stealth. The
+        // way to a task is the `...` menu's "Promote to task".
+        refs.body.appendChild(wbBuildThoughtBody(vm.task.name, vm.task.comment));
+        refs.body.scrollTop = savedScrollTop;
+        wbSetText(refs.progress, '');
+        return;
+    }
 
     if (freeform) {
         // A free-form note's body is its own `comment` field -- the same
@@ -2562,7 +2636,7 @@ function wbUpdateNoteDragFromClient(clientX, clientY) {
     // repositioning it -- the panel gets a highlight, the note itself gets a
     // "this is about to leave the board" cue, mirroring wb-link-target's own
     // live drop-target feedback.
-    if (drag.type === 'move') {
+    if (drag.type === 'move' && fo.dataset.wbThought !== 'true') {
         wbUpdateParkingLotDropHint(fo, wbPointOverParkingLotPanel(clientX, clientY));
     }
 }
@@ -2619,8 +2693,11 @@ function wbFinishDrag(clientX, clientY) {
     wbUpdateParkingLotDropHint(drag.entry.fo, false);
 
     const taskName = drag.entry.fo.dataset.wbTask;
+    // Parking and drag-to-stack both rewrite a task's outline subtree, which
+    // a thought does not have: for one, a drop is just a move.
+    const thought = wbIsThoughtNote(taskName);
 
-    if (drag.type === 'move' && drag.moved &&
+    if (drag.type === 'move' && drag.moved && !thought &&
         typeof clientX === 'number' && typeof clientY === 'number' &&
         wbPointOverParkingLotPanel(clientX, clientY)) {
         wbParkDraggedNote(drag.entry, taskName);
@@ -2633,11 +2710,11 @@ function wbFinishDrag(clientX, clientY) {
     // landing beside it, and the two outcomes are "nothing happened" and
     // "that note is gone". A declined confirm falls through to the move, so
     // the note stays where the user dropped it.
-    if (drag.type === 'move' && drag.moved &&
+    if (drag.type === 'move' && drag.moved && !thought &&
         typeof clientX === 'number' && typeof clientY === 'number' &&
         typeof wbNoteAt === 'function' && typeof wbMergeDroppedNote === 'function') {
         const onto = wbNoteAt(clientX, clientY, taskName);
-        if (onto && wbMergeDroppedNote(taskName, onto)) return;
+        if (onto && !wbIsThoughtNote(onto) && wbMergeDroppedNote(taskName, onto)) return;
     }
 
     const rect = wbNoteCurrentRect(drag.entry);
@@ -4536,6 +4613,12 @@ function wbBuildNoteMenu(taskName) {
 
     wbAppendColourMenuSection(list, taskName);
     wbAppendStructureMenuSection(list, taskName);
+    // A thought has no task to open, park, unlink or take off the board and
+    // leave behind -- see wbAppendThoughtMenuSection().
+    if (wbIsThoughtNote(taskName)) {
+        wbAppendThoughtMenuSection(list, taskName);
+        return menu;
+    }
     wbAppendPromoteMenuSection(list, taskName);
     wbAppendOpenTaskMenuSection(list, taskName);
     wbAppendParkMenuSection(list, taskName);
@@ -4605,6 +4688,53 @@ function wbAppendStructureMenuSection(list, taskName) {
 }
 
 /**
+ * The two actions only a thought has: "Promote to task", which uncomments
+ * its outline line so the same card becomes a post-it (wbPromoteThought()),
+ * and "Delete note", which removes the line and the row together
+ * (wbDeleteThought()). No confirmation on the delete: a thought carries no
+ * schedule, no subtasks and nothing else points at it, and the delete is a
+ * single undo step like every other board edit.
+ */
+function wbAppendThoughtMenuSection(list, taskName) {
+    const promoteLi = document.createElement('li');
+    const promoteBtn = document.createElement('button');
+    promoteBtn.type = 'button';
+    promoteBtn.className = 'wb-note-menu-action wb-note-menu-promote-thought';
+    promoteBtn.setAttribute('role', 'menuitem');
+    promoteBtn.textContent = 'Promote to task';
+    promoteBtn.title = 'Make this text note a real task in the plan, keeping its text as the task comment';
+    promoteBtn.setAttribute('aria-label', `Promote ${taskName} to a task in the plan`);
+    promoteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbCloseNoteMenu();
+        wbPromoteThought(taskName);
+    });
+    promoteLi.appendChild(promoteBtn);
+    list.appendChild(promoteLi);
+
+    const dividerLi = document.createElement('li');
+    dividerLi.className = 'wb-note-menu-divider';
+    dividerLi.setAttribute('role', 'separator');
+    list.appendChild(dividerLi);
+
+    const deleteLi = document.createElement('li');
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'wb-note-menu-remove wb-note-menu-delete';
+    deleteBtn.setAttribute('role', 'menuitem');
+    deleteBtn.textContent = 'Delete note';
+    deleteBtn.title = 'Deletes this text note; it is not a task, so nothing in the plan changes';
+    deleteBtn.setAttribute('aria-label', `Delete the text note ${taskName}`);
+    deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbCloseNoteMenu();
+        wbDeleteThought(taskName);
+    });
+    deleteLi.appendChild(deleteBtn);
+    list.appendChild(deleteLi);
+}
+
+/**
  * Append issue #1020's entire contribution to the note menu: a single
  * "Promote to task" action, shown only for a free-form note (checked via
  * wbHasChildren() directly rather than building a full view model just for
@@ -4620,9 +4750,12 @@ function wbAppendPromoteMenuSection(list, taskName) {
     btn.type = 'button';
     btn.className = 'wb-note-menu-promote';
     btn.setAttribute('role', 'menuitem');
-    btn.textContent = 'Promote to task';
-    btn.title = "Turn this note's comment into a real child task";
-    btn.setAttribute('aria-label', `Promote ${taskName} to a task`);
+    // Worded for what it does. This note is already a task; what it lacks
+    // is a subtask. "Promote to task" now names the thought's action (see
+    // wbAppendThoughtMenuSection()), which really does make a task.
+    btn.textContent = 'Make comment a subtask';
+    btn.title = "Turn this note's comment into its first subtask";
+    btn.setAttribute('aria-label', `Turn the comment on ${taskName} into its first subtask`);
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         wbCloseNoteMenu();
@@ -6252,9 +6385,10 @@ function wbCreateNoteAt(boardX, boardY) {
     }
 
     const planText = editor.value;
-    const existingNames = (typeof wbOutlineTaskNames === 'function')
+    const existingNames = ((typeof wbOutlineTaskNames === 'function')
         ? wbOutlineTaskNames(planText)
-        : (wbLastTasks || []).map(t => t && t.name).filter(Boolean);
+        : (wbLastTasks || []).map(t => t && t.name).filter(Boolean))
+        .concat((typeof wbParseThoughts === 'function') ? wbParseThoughts(planText).map(t => t.name) : []);
     const name = wbUniqueTaskName(existingNames, WB_NEW_NOTE_BASE_NAME);
 
     const width = WB_NOTE_DEFAULT_WIDTH;
@@ -6274,6 +6408,187 @@ function wbCreateNoteAt(boardX, boardY) {
     return name;
 }
 
+// ── Thoughts: text notes that are not tasks ─────────────────────────────
+//
+// See whiteboard-structure.js's "Thoughts" section for the storage: a
+// commented-out task line in the outline plus an ordinary whiteboard row.
+// The card is the post-it's own card (wbCreateNoteNode()), so dragging,
+// resizing, colouring and renaming come for free; what differs is decided
+// by `vm.thought` in wbUpdateNoteNode() and wbBuildNoteMenu().
+
+/** Fallback text shown in an empty thought's body -- the one place a card
+ * invites typing, since a thought has no task form to hold its text. */
+const WB_THOUGHT_BODY_PLACEHOLDER = 'Double-click to write…';
+
+/** Whether the note on the board called `taskName` is a thought. Asked of
+ * the rendered card, which wbUpdateNoteNode() flags from the view model, so
+ * it agrees with what the user is looking at. */
+function wbIsThoughtNote(taskName) {
+    if (!taskName) return false;
+    const entry = wbNoteNodes.get(taskName);
+    return !!(entry && entry.fo && entry.fo.dataset.wbThought === 'true');
+}
+
+/** The body of a thought card: its text, or a quiet invitation to write
+ * some. Double-click (or Enter when focused) edits it in place. */
+function wbBuildThoughtBody(taskName, comment) {
+    const text = document.createElementNS(XHTML_NS, 'div');
+    const body = String(comment || '').trim();
+    text.setAttribute('class', 'wb-note-freetext wb-note-thought-text' + (body ? '' : ' wb-note-thought-empty'));
+    text.setAttribute('tabindex', '0');
+    text.setAttribute('role', 'button');
+    text.setAttribute('aria-label', body ? `Edit the text of ${taskName}` : `Write the text of ${taskName}`);
+    text.textContent = body || WB_THOUGHT_BODY_PLACEHOLDER;
+    text.dataset.wbThoughtBody = body;
+    const begin = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        wbBeginThoughtBodyEdit(taskName, text);
+    };
+    text.addEventListener('dblclick', begin);
+    text.addEventListener('keydown', (e) => {
+        if (text.isContentEditable) return;
+        if (e.key === 'Enter') begin(e);
+    });
+    return text;
+}
+
+/** Edit a thought's body in place. Enter or blur commits -- the body is one
+ * line of plan text, so there is no newline to type -- and Escape reverts. */
+function wbBeginThoughtBodyEdit(taskName, el) {
+    if (!el || el.isContentEditable) return;
+    const original = el.dataset.wbThoughtBody || '';
+    el.contentEditable = 'true';
+    el.spellcheck = true;
+    el.classList.add('editing');
+    el.classList.remove('wb-note-thought-empty');
+    el.textContent = original;
+    el.focus();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    let settled = false;
+    const finish = (commit) => {
+        if (settled) return;
+        settled = true;
+        el.contentEditable = 'false';
+        el.classList.remove('editing');
+        el.removeEventListener('keydown', onKeydown);
+        el.removeEventListener('blur', onBlur);
+        const typed = el.textContent.replace(/\s+/g, ' ').trim();
+        if (commit && typed !== original && wbSetThoughtText(taskName, typed)) return;
+        el.textContent = original || WB_THOUGHT_BODY_PLACEHOLDER;
+        el.classList.toggle('wb-note-thought-empty', !original);
+    };
+    const onKeydown = (e) => {
+        e.stopPropagation(); // canvas shortcuts must not fire while typing
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    };
+    const onBlur = () => finish(true);
+    el.addEventListener('keydown', onKeydown);
+    el.addEventListener('blur', onBlur);
+}
+
+/** Write a thought's body text into its outline line, in one commit. */
+function wbSetThoughtText(taskName, text) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || typeof wbSetThoughtCommentInPlanText !== 'function') return false;
+    const next = wbSetThoughtCommentInPlanText(editor.value, taskName, text);
+    if (next === editor.value) return false;
+    return wbCommitMarkdown(next);
+}
+
+/**
+ * Drop a new thought on the board: a commented-out task line at the end of
+ * the outline plus a row for it, in one commit -- wbCreateNoteAt()'s shape,
+ * with wbAppendThought() in place of wbAppendTopLevelTask(). The name is
+ * unique across tasks *and* thoughts, so promoting it later can never
+ * collide with a task that already exists.
+ */
+function wbCreateThoughtAt(boardX, boardY) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor) return null;
+    if (typeof wbAppendThought !== 'function' ||
+        typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return null;
+    }
+
+    const planText = editor.value;
+    const existingNames = wbOutlineTaskNames(planText)
+        .concat(wbParseThoughts(planText).map(t => t.name));
+    const name = wbUniqueTaskName(existingNames, WB_NEW_THOUGHT_BASE_NAME);
+
+    const width = WB_NOTE_DEFAULT_WIDTH;
+    const height = WB_NOTE_MIN_HEIGHT;
+
+    const withThought = wbAppendThought(planText, name);
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(withThought));
+    const point = (Number.isFinite(boardX) && Number.isFinite(boardY)) ? { x: boardX, y: boardY } : null;
+    const { x, y } = wbNewNotePosition(items, point, width, height);
+
+    items.push({ task: name, x, y, colour: '', width, height, collapsed: false });
+
+    if (!wbCommitMarkdown(updatePlanWhiteboardText(withThought, items))) return null;
+
+    wbRevealNewNote(name, entry => wbBeginTitleEdit(entry));
+
+    return name;
+}
+
+/** wbCreateThoughtAt() beside the selected note, or in the middle of the
+ * screen -- the toolbar's "Text note" button and the ribbon's "Text Note". */
+function wbCreateThoughtInViewportCentre() {
+    return wbCreateThoughtAt();
+}
+
+/**
+ * Promote a thought to a task: uncomment its outline line. Its whiteboard
+ * row already names it, so the next render finds a real task by that name
+ * and the same card becomes an ordinary (free-form) post-it in place --
+ * same position, size and colour, one undo step.
+ *
+ * Refused, with a message, when a task already has the name: uncommenting
+ * would give the plan two tasks the board, dependencies and colours could
+ * not tell apart (the same rule wbRenameNoteTask() enforces).
+ */
+function wbPromoteThought(taskName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !taskName || typeof wbPromoteThoughtInPlanText !== 'function') return false;
+    const key = String(taskName).toLowerCase();
+    if ((wbLastTasks || []).some(t => t && String(t.name).toLowerCase() === key)) {
+        if (typeof wbFlashNoodleMessage === 'function') {
+            wbFlashNoodleMessage(`A task is already called "${taskName}" — rename this note first.`);
+        }
+        return false;
+    }
+    const next = wbPromoteThoughtInPlanText(editor.value, taskName);
+    if (next === editor.value) return false;
+    return wbCommitMarkdown(next);
+}
+
+/** Delete a thought: its outline line and its whiteboard row, one commit.
+ * There is no "remove from board" for a thought -- without its row the
+ * line is just a comment nobody can see from the board. */
+function wbDeleteThought(taskName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !taskName || typeof wbDeleteThoughtFromPlanText !== 'function') return false;
+    let next = wbDeleteThoughtFromPlanText(editor.value, taskName);
+    if (next === editor.value) return false;
+    const key = String(taskName).toLowerCase();
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(next))
+        .filter(item => !(item && item.task && item.kind !== 'text' && String(item.task).toLowerCase() === key));
+    next = updatePlanWhiteboardText(next, items);
+    if (wbGetSelectedNoteTask() === taskName) wbClearNoteSelection();
+    return wbCommitMarkdown(next);
+}
+
 /** wbCreateNoteAt() for a client-space point (a canvas double-click). */
 function wbCreateNoteAtClientPoint(clientX, clientY) {
     if (typeof wbClientToBoard !== 'function') return null;
@@ -6283,11 +6598,10 @@ function wbCreateNoteAtClientPoint(clientX, clientY) {
 
 /** wbCreateNoteAt() with no point: beside the selected note, or in the
  * middle of whatever is currently on screen -- the toolbar's "New post-it"
- * and "Text note" buttons (#1107 -- the latter is a second entry point onto
- * this exact same free-form note, grouped with the other bare-canvas-object
- * buttons; see index.html's comment by #whiteboardTextNoteBtn), the
- * ribbon's Whiteboard tab "Note" button (#1107, ribbon.js's
- * 'whiteboard:Note'), and the `n` keyboard shortcut. */
+ * button, the ribbon's Whiteboard tab "Note" button (#1107, ribbon.js's
+ * 'whiteboard:Note'), and the `n` keyboard shortcut. The toolbar's "Text
+ * note" button used to call this too; it now makes a thought instead (see
+ * wbCreateThoughtInViewportCentre()). */
 function wbCreateNoteInViewportCentre() {
     return wbCreateNoteAt();
 }
@@ -6388,21 +6702,30 @@ function wbRenameNoteTask(oldName, newName) {
         : String(newName).trim();
     if (!taskName) return false; // nothing but tokens: no name to give it
 
-    const clash = (wbLastTasks || []).some(t =>
+    // Thoughts share the namespace: a row names one or the other, and a
+    // task and a thought with the same name would leave the thought's card
+    // silently showing the task instead.
+    const clash = (wbLastTasks || []).concat(wbLastThoughts || []).some(t =>
         t && t.name && t.name !== oldName &&
         String(t.name).toLowerCase() === taskName.toLowerCase());
     if (clash) {
         if (typeof wbFlashNoodleMessage === 'function') {
-            wbFlashNoodleMessage(`Another task is already called "${taskName}".`);
+            wbFlashNoodleMessage(`Another note is already called "${taskName}".`);
         }
         return false;
     }
 
-    let next = wbRenameTaskInPlanText(editor.value, oldName, newName);
+    // A thought's name lives on its commented-out line, which the task
+    // rename below cannot see. Nothing depends on a thought, so the line and
+    // the row are all there is to rename.
+    const isThought = wbIsThoughtNote(oldName);
+    let next = isThought
+        ? wbRenameThoughtInPlanText(editor.value, oldName, taskName)
+        : wbRenameTaskInPlanText(editor.value, oldName, newName);
     if (next === editor.value) return false;
 
     if (taskName !== oldName) {
-        if (typeof updateDependencyReferences === 'function') {
+        if (!isThought && typeof updateDependencyReferences === 'function') {
             const lines = next.split('\n');
             updateDependencyReferences(lines, oldName, taskName);
             next = lines.join('\n');
