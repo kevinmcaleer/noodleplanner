@@ -3,5 +3,12 @@
     "core",
     "color-light",
     "color-dark"
+  ],
+  "activeThemes": [
+    "Mode/Light"
+  ],
+  "activeSets": [
+    "core",
+    "color-light"
   ]
 }

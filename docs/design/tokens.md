@@ -1,17 +1,21 @@
 # Design tokens
 
-The single source of truth is
-[`packages/noodle-web/src/noodle_web/static/visual-system.css`](../../packages/noodle-web/src/noodle_web/static/visual-system.css).
-Every token below is declared there, in a `:root` block for light and a
+The source of truth is the Penpot design file (#1318). Its token export,
+[`docs/design/tokens/`](tokens/), generates the token block of
+[`packages/noodle-web/src/noodle_web/static/visual-system.css`](../../packages/noodle-web/src/noodle_web/static/visual-system.css),
+where every token below is declared: a `:root` block for light and a
 `[data-theme="dark"]` block for dark. Nothing else in the app should declare a
-`--np-*` name.
-
-Everything downstream is generated from that file, never hand-maintained:
+`--np-*` name, and nobody edits the generated block by hand. Change a token in
+Penpot; [`contributing.md`](contributing.md) rule 1 has the steps.
 
 ```sh
-node scripts/token-audit.mjs     # docs/design/tokens/*.json  (Penpot, Style Dictionary)
-node scripts/check-contrast.mjs  # WCAG check, exits non-zero on a failure
+npm run design:tokens             # docs/design/tokens/*.json -> visual-system.css
+npm run design:tokens -- --check  # fails if the two disagree
+node scripts/check-contrast.mjs   # WCAG check, exits non-zero on a failure
 ```
+
+The gradients and the motion tokens are code-owned: Penpot has no type for
+them, so they are hand-written below the generated block.
 
 ## Why they live in `visual-system.css` and not a new file
 

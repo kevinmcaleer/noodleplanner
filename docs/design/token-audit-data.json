@@ -4,7 +4,6 @@
     "packages/noodle-web/src/noodle_web/static/layout.css",
     "packages/noodle-web/src/noodle_web/static/components.css",
     "packages/noodle-web/src/noodle_web/static/views/gantt.css",
-    "packages/noodle-web/src/noodle_web/static/views/reports.css",
     "packages/noodle-web/src/noodle_web/static/views/kanban.css",
     "packages/noodle-web/src/noodle_web/static/views/notepad.css",
     "packages/noodle-web/src/noodle_web/static/views/estimating.css",
@@ -30,14 +29,14 @@
   ],
   "filesNotLoaded": [],
   "stylesheet": {
-    "sourceLinesOfCode": 17898,
-    "complexity": 51690
+    "sourceLinesOfCode": 17448,
+    "complexity": 50506
   },
   "rules": {
-    "total": 3982
+    "total": 3886
   },
   "selectors": {
-    "totalUnique": 3908,
+    "totalUnique": 3800,
     "maxSpecificity": [
       1,
       4,
@@ -48,6 +47,7 @@
     "totalDeclarations": 385,
     "totalUniqueNames": 243,
     "unused": [
+      "--np-elevation-2",
       "--np-elevation-4",
       "--np-info-hover",
       "--np-ink-hover",
@@ -66,11 +66,13 @@
       "--np-note-red-2",
       "--np-note-yellow-1",
       "--np-note-yellow-2",
+      "--np-radius-card",
       "--np-radius-circle",
       "--np-radius-xs",
       "--np-space-0",
       "--np-space-64",
       "--np-success-hover",
+      "--np-text-110",
       "--np-text-150",
       "--np-text-180",
       "--np-text-200",
@@ -90,7 +92,7 @@
         "id": "white-edecb6ba",
         "hex": "#FFFFFF",
         "authoredAs": "white",
-        "usage": 117,
+        "usage": 118,
         "props": [
           "stroke",
           "color",
@@ -147,6 +149,19 @@
         "matchedToken": "--np-info"
       },
       {
+        "id": "blue-d1b6fafc",
+        "hex": "#0D7096",
+        "authoredAs": "#0d7096",
+        "usage": 7,
+        "props": [
+          "background",
+          "color",
+          "--np-info-hover",
+          "--np-info-gradient"
+        ],
+        "matchedToken": "--np-info-hover"
+      },
+      {
         "id": "white-2599f23c",
         "hex": "#FFFFFF",
         "authoredAs": "rgba(255, 255, 255, 0.1)",
@@ -167,19 +182,6 @@
           "background"
         ],
         "matchedToken": "--np-on-success"
-      },
-      {
-        "id": "blue-d1b6fafc",
-        "hex": "#0D7096",
-        "authoredAs": "#0d7096",
-        "usage": 6,
-        "props": [
-          "background",
-          "color",
-          "--np-info-hover",
-          "--np-info-gradient"
-        ],
-        "matchedToken": "--np-info-hover"
       },
       {
         "id": "white-2599f23e",
@@ -485,7 +487,7 @@
         "id": "black-edec3e7a",
         "hex": "#000000",
         "authoredAs": "transparent",
-        "usage": 144,
+        "usage": 143,
         "props": [
           "stroke",
           "background",
@@ -831,7 +833,7 @@
     {
       "id": "fontSize-2ba33e3",
       "authoredAs": "0.9em",
-      "usage": 88
+      "usage": 84
     },
     {
       "id": "fontSize-170fe9",
@@ -846,7 +848,7 @@
     {
       "id": "fontSize-2ba3022",
       "authoredAs": "0.8em",
-      "usage": 45
+      "usage": 42
     },
     {
       "id": "fontSize-17176b",
@@ -854,14 +856,14 @@
       "usage": 34
     },
     {
-      "id": "fontSize-548b93c2",
-      "authoredAs": "0.95em",
-      "usage": 33
-    },
-    {
       "id": "fontSize-170c28",
       "authoredAs": "11px",
       "usage": 33
+    },
+    {
+      "id": "fontSize-548b93c2",
+      "authoredAs": "0.95em",
+      "usage": 32
     },
     {
       "id": "fontSize-170867",
@@ -876,7 +878,7 @@
     {
       "id": "fontSize-2c8389f",
       "authoredAs": "1.4em",
-      "usage": 17
+      "usage": 15
     },
     {
       "id": "fontSize-2c847a3",
@@ -886,21 +888,21 @@
     {
       "id": "fontSize-2ba2c61",
       "authoredAs": "0.7em",
-      "usage": 12
+      "usage": 11
     },
     {
       "id": "fontSize-2c8311d",
       "authoredAs": "1.2em",
-      "usage": 10
-    },
-    {
-      "id": "fontSize-548aab04",
-      "authoredAs": "0.75em",
-      "usage": 8
+      "usage": 9
     },
     {
       "id": "fontSize-2c834de",
       "authoredAs": "1.3em",
+      "usage": 9
+    },
+    {
+      "id": "fontSize-548aab04",
+      "authoredAs": "0.75em",
       "usage": 8
     },
     {
@@ -914,14 +916,14 @@
       "usage": 8
     },
     {
-      "id": "fontSize-eab971f6",
-      "authoredAs": "var(--np-text-85)",
-      "usage": 7
-    },
-    {
       "id": "fontSize-548c78bf",
       "authoredAs": "0.9rem",
       "usage": 7
+    },
+    {
+      "id": "fontSize-eab971f6",
+      "authoredAs": "var(--np-text-85)",
+      "usage": 6
     },
     {
       "id": "fontSize-c499",
@@ -932,16 +934,6 @@
       "id": "fontSize-5665b42f",
       "authoredAs": "11.5px",
       "usage": 6
-    },
-    {
-      "id": "fontSize-c85a",
-      "authoredAs": "2em",
-      "usage": 5
-    },
-    {
-      "id": "fontSize-2c84021",
-      "authoredAs": "1.6em",
-      "usage": 5
     },
     {
       "id": "fontSize-563dae66",
@@ -959,6 +951,11 @@
       "usage": 5
     },
     {
+      "id": "fontSize-c85a",
+      "authoredAs": "2em",
+      "usage": 4
+    },
+    {
       "id": "fontSize-563cc969",
       "authoredAs": "1.15em",
       "usage": 4
@@ -974,8 +971,8 @@
       "usage": 4
     },
     {
-      "id": "fontSize-563c550a",
-      "authoredAs": "1.05em",
+      "id": "fontSize-2c84021",
+      "authoredAs": "1.6em",
       "usage": 4
     },
     {
@@ -994,6 +991,11 @@
       "usage": 3
     },
     {
+      "id": "fontSize-cc1b",
+      "authoredAs": "3em",
+      "usage": 3
+    },
+    {
       "id": "fontSize-17fec9",
       "authoredAs": "1rem",
       "usage": 3
@@ -1004,13 +1006,13 @@
       "usage": 3
     },
     {
-      "id": "fontSize-eab96e35",
-      "authoredAs": "var(--np-text-75)",
+      "id": "fontSize-548a36a5",
+      "authoredAs": "0.65em",
       "usage": 3
     },
     {
-      "id": "fontSize-548a36a5",
-      "authoredAs": "0.65em",
+      "id": "fontSize-563c550a",
+      "authoredAs": "1.05em",
       "usage": 3
     },
     {
@@ -1029,8 +1031,8 @@
       "usage": 2
     },
     {
-      "id": "fontSize-cc1b",
-      "authoredAs": "3em",
+      "id": "fontSize-eab96e35",
+      "authoredAs": "var(--np-text-75)",
       "usage": 2
     },
     {
@@ -1084,11 +1086,6 @@
       "usage": 1
     },
     {
-      "id": "fontSize-6c71902f",
-      "authoredAs": "var(--np-text-110)",
-      "usage": 1
-    },
-    {
       "id": "fontSize-178bca",
       "authoredAs": "24px",
       "usage": 1
@@ -1131,16 +1128,36 @@
   ],
   "fontFamilies": [
     {
+      "id": "fontFamily-4e5d84ed",
+      "authoredAs": "'Courier New', Courier, monospace",
+      "usage": 9
+    },
+    {
+      "id": "fontFamily-aaa60c03",
+      "authoredAs": "monospace",
+      "usage": 7
+    },
+    {
       "id": "fontFamily-740c90fb",
       "authoredAs": "inherit",
       "usage": 2
+    },
+    {
+      "id": "fontFamily-318cd40a",
+      "authoredAs": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+      "usage": 2
+    },
+    {
+      "id": "fontFamily-7bd1e4af",
+      "authoredAs": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+      "usage": 1
     }
   ],
   "lineHeights": [
     {
       "id": "lineHeight-31",
       "authoredAs": "1",
-      "usage": 39
+      "usage": 38
     },
     {
       "id": "lineHeight-bdb8",
@@ -1227,17 +1244,17 @@
     {
       "id": "radius-d13c",
       "authoredAs": "4px",
-      "usage": 171
+      "usage": 170
     },
     {
       "id": "radius-d8be",
       "authoredAs": "6px",
-      "usage": 91
+      "usage": 90
     },
     {
       "id": "radius-e040",
       "authoredAs": "8px",
-      "usage": 72
+      "usage": 73
     },
     {
       "id": "radius-170fe9",
@@ -1262,32 +1279,17 @@
     {
       "id": "radius-31de101",
       "authoredAs": "var(--np-radius-md)",
-      "usage": 7
-    },
-    {
-      "id": "radius-e8aec3d",
-      "authoredAs": "var(--np-radius-control)",
-      "usage": 7
+      "usage": 6
     },
     {
       "id": "radius-31df89e",
       "authoredAs": "var(--np-radius-sm)",
-      "usage": 7
+      "usage": 6
     },
     {
       "id": "radius-c9ba",
       "authoredAs": "2px",
       "usage": 5
-    },
-    {
-      "id": "radius-b35739df",
-      "authoredAs": "var(--np-radius-pill)",
-      "usage": 5
-    },
-    {
-      "id": "radius-b29c7ae8",
-      "authoredAs": "var(--np-radius-card)",
-      "usage": 4
     },
     {
       "id": "radius-177cc6",
@@ -1325,6 +1327,11 @@
       "usage": 2
     },
     {
+      "id": "radius-e8aec3d",
+      "authoredAs": "var(--np-radius-control)",
+      "usage": 2
+    },
+    {
       "id": "radius-e401",
       "authoredAs": "9px",
       "usage": 2
@@ -1357,6 +1364,11 @@
     {
       "id": "radius-ebf19c0e",
       "authoredAs": "50% 50% 50% 0",
+      "usage": 1
+    },
+    {
+      "id": "radius-b35739df",
+      "authoredAs": "var(--np-radius-pill)",
       "usage": 1
     },
     {
@@ -1409,7 +1421,7 @@
     {
       "id": "boxShadow-5b04875",
       "authoredAs": "0 2px 8px var(--np-shadow)",
-      "usage": 13
+      "usage": 15
     },
     {
       "id": "boxShadow-dc7bf240",
@@ -1454,11 +1466,6 @@
     {
       "id": "boxShadow-ae8d5090",
       "authoredAs": "var(--np-elevation-3)",
-      "usage": 2
-    },
-    {
-      "id": "boxShadow-ae8d5052",
-      "authoredAs": "var(--np-elevation-1)",
       "usage": 2
     },
     {
@@ -1552,8 +1559,8 @@
       "usage": 1
     },
     {
-      "id": "boxShadow-ae8d5071",
-      "authoredAs": "var(--np-elevation-2)",
+      "id": "boxShadow-ae8d5052",
+      "authoredAs": "var(--np-elevation-1)",
       "usage": 1
     },
     {
@@ -1753,15 +1760,15 @@
     }
   ],
   "spacing": {
-    "declarations": 1642,
-    "indirectedDeclarations": 1381,
+    "declarations": 1582,
+    "indirectedDeclarations": 1339,
     "totalUniqueValues": 38,
     "offGridUniqueValues": 15,
-    "offGridUses": 34,
+    "offGridUses": 33,
     "top": [
       {
         "value": "0",
-        "uses": 192,
+        "uses": 175,
         "onGrid": true,
         "props": [
           "gap",
@@ -1773,7 +1780,7 @@
           "padding",
           "padding-bottom"
         ],
-        "fileCount": 23
+        "fileCount": 22
       },
       {
         "value": "1px",
@@ -1930,16 +1937,6 @@
         "fileCount": 1
       },
       {
-        "value": "-6px",
-        "uses": 2,
-        "onGrid": false,
-        "props": [
-          "margin-left",
-          "margin-right"
-        ],
-        "fileCount": 2
-      },
-      {
         "value": "-8px",
         "uses": 2,
         "onGrid": true,
@@ -2032,6 +2029,15 @@
         "fileCount": 1
       },
       {
+        "value": "-6px",
+        "uses": 1,
+        "onGrid": false,
+        "props": [
+          "margin-left"
+        ],
+        "fileCount": 1
+      },
+      {
         "value": "6px",
         "uses": 1,
         "onGrid": false,
@@ -2076,11 +2082,6 @@
         "fileCount": 2
       },
       {
-        "value": "-6px",
-        "uses": 2,
-        "fileCount": 2
-      },
-      {
         "value": "-1px",
         "uses": 2,
         "fileCount": 2
@@ -2102,6 +2103,11 @@
       },
       {
         "value": "330px",
+        "uses": 1,
+        "fileCount": 1
+      },
+      {
+        "value": "-6px",
         "uses": 1,
         "fileCount": 1
       },
@@ -2140,9 +2146,9 @@
   "components": [
     {
       "family": "table",
-      "rules": 849,
-      "uniqueSelectors": 720,
-      "spreadAcrossFiles": 19,
+      "rules": 839,
+      "uniqueSelectors": 711,
+      "spreadAcrossFiles": 18,
       "files": [
         "packages/noodle-web/src/noodle_web/static/components.css",
         "packages/noodle-web/src/noodle_web/static/dark-mode.css",
@@ -2160,7 +2166,6 @@
         "packages/noodle-web/src/noodle_web/static/views/portfolio.css",
         "packages/noodle-web/src/noodle_web/static/views/products.css",
         "packages/noodle-web/src/noodle_web/static/views/programme.css",
-        "packages/noodle-web/src/noodle_web/static/views/reports.css",
         "packages/noodle-web/src/noodle_web/static/views/whiteboard.css",
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
@@ -2170,11 +2175,11 @@
         "active": 0,
         "disabled": 1
       },
-      "distinctClassNames": 222,
+      "distinctClassNames": 218,
       "topClassNames": [
         {
           "name": "gantt-info-table",
-          "rules": 32
+          "rules": 31
         },
         {
           "name": "timesheet-table",
@@ -2236,9 +2241,9 @@
     },
     {
       "family": "button",
-      "rules": 454,
-      "uniqueSelectors": 386,
-      "spreadAcrossFiles": 22,
+      "rules": 446,
+      "uniqueSelectors": 379,
+      "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -2258,26 +2263,25 @@
         "packages/noodle-web/src/noodle_web/static/views/plan-wizard.css",
         "packages/noodle-web/src/noodle_web/static/views/portfolio.css",
         "packages/noodle-web/src/noodle_web/static/views/products.css",
-        "packages/noodle-web/src/noodle_web/static/views/reports.css",
         "packages/noodle-web/src/noodle_web/static/views/search.css",
         "packages/noodle-web/src/noodle_web/static/views/whiteboard.css",
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 142,
-        "focus": 34,
+        "hover": 140,
+        "focus": 28,
         "active": 5,
-        "disabled": 23
+        "disabled": 21
       },
-      "distinctClassNames": 127,
+      "distinctClassNames": 126,
       "topClassNames": [
         {
           "name": "btn-primary",
-          "rules": 20
+          "rules": 22
         },
         {
           "name": "btn-secondary",
-          "rules": 14
+          "rules": 16
         },
         {
           "name": "ribbon-tab-btn",
@@ -2316,10 +2320,6 @@
           "rules": 7
         },
         {
-          "name": "wb-note-pin-btn",
-          "rules": 7
-        },
-        {
           "name": "settings-tab-btn",
           "rules": 6
         },
@@ -2330,13 +2330,17 @@
         {
           "name": "wb-note-coach-btn",
           "rules": 6
+        },
+        {
+          "name": "portfolio-subnav-btn",
+          "rules": 6
         }
       ]
     },
     {
       "family": "nav",
-      "rules": 370,
-      "uniqueSelectors": 333,
+      "rules": 372,
+      "uniqueSelectors": 334,
       "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/animations.css",
@@ -2363,7 +2367,7 @@
         "active": 2,
         "disabled": 12
       },
-      "distinctClassNames": 125,
+      "distinctClassNames": 126,
       "topClassNames": [
         {
           "name": "ribbon-tab-btn",
@@ -2429,9 +2433,9 @@
     },
     {
       "family": "badge",
-      "rules": 247,
-      "uniqueSelectors": 231,
-      "spreadAcrossFiles": 22,
+      "rules": 237,
+      "uniqueSelectors": 221,
+      "spreadAcrossFiles": 21,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
         "packages/noodle-web/src/noodle_web/static/components.css",
@@ -2450,7 +2454,6 @@
         "packages/noodle-web/src/noodle_web/static/views/portfolio.css",
         "packages/noodle-web/src/noodle_web/static/views/products.css",
         "packages/noodle-web/src/noodle_web/static/views/programme.css",
-        "packages/noodle-web/src/noodle_web/static/views/reports.css",
         "packages/noodle-web/src/noodle_web/static/views/search.css",
         "packages/noodle-web/src/noodle_web/static/views/timeline.css",
         "packages/noodle-web/src/noodle_web/static/views/whiteboard.css",
@@ -2458,11 +2461,11 @@
       ],
       "stateRules": {
         "hover": 12,
-        "focus": 4,
+        "focus": 3,
         "active": 0,
         "disabled": 0
       },
-      "distinctClassNames": 123,
+      "distinctClassNames": 115,
       "topClassNames": [
         {
           "name": "search-view-result-badge",
@@ -2528,8 +2531,8 @@
     },
     {
       "family": "modal",
-      "rules": 212,
-      "uniqueSelectors": 188,
+      "rules": 211,
+      "uniqueSelectors": 187,
       "spreadAcrossFiles": 14,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2619,8 +2622,8 @@
     },
     {
       "family": "card",
-      "rules": 207,
-      "uniqueSelectors": 180,
+      "rules": 205,
+      "uniqueSelectors": 178,
       "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2642,8 +2645,8 @@
         "packages/noodle-web/src/noodle_web/static/visual-system.css"
       ],
       "stateRules": {
-        "hover": 21,
-        "focus": 8,
+        "hover": 20,
+        "focus": 7,
         "active": 2,
         "disabled": 1
       },
@@ -2651,7 +2654,7 @@
       "topClassNames": [
         {
           "name": "wb-note-card",
-          "rules": 17
+          "rules": 15
         },
         {
           "name": "kanban-card",
@@ -2713,8 +2716,8 @@
     },
     {
       "family": "input",
-      "rules": 191,
-      "uniqueSelectors": 166,
+      "rules": 192,
+      "uniqueSelectors": 167,
       "spreadAcrossFiles": 17,
       "files": [
         "packages/noodle-web/src/noodle_web/static/ai-chat.css",
@@ -2741,7 +2744,7 @@
         "active": 0,
         "disabled": 0
       },
-      "distinctClassNames": 66,
+      "distinctClassNames": 67,
       "topClassNames": [
         {
           "name": "form-group",
@@ -2832,11 +2835,11 @@
     "templateInlineStyleTotal": 266,
     "templateInlineStyleWithColour": 3,
     "scriptFilesWithColourLiterals": 41,
-    "scriptColourLineTotal": 357,
+    "scriptColourLineTotal": 362,
     "topScripts": [
       {
         "file": "packages/noodle-web/src/noodle_web/static/script.js",
-        "lines": 40
+        "lines": 44
       },
       {
         "file": "packages/noodle-web/src/noodle_web/static/views-products.js",
@@ -2915,10 +2918,5 @@
         "lines": 5
       }
     ]
-  },
-  "tokensNotExported": [
-    "--np-danger-gradient",
-    "--np-info-gradient",
-    "--np-success-gradient"
-  ]
+  }
 }

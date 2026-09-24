@@ -99,12 +99,12 @@ def _usable(selector: str) -> str | None:
     return sel
 
 
-def _attribute(base_url: str, findings: list[dict]) -> dict[str, dict[str, int]]:
+def _attribute(base_url: str, findings: list[dict], npm_mirror: Path | None = None) -> dict[str, dict[str, int]]:
     """{view: {rule: count}} -- a finding counts for a view when its selector
     matches a visible element there."""
     from playwright.sync_api import sync_playwright
     sys.path.insert(0, str(ROOT / "scripts"))
-    from capture_screen_audit import SAMPLE_PLAN, _load_plan, _switch, _views
+    from capture_screen_audit import SAMPLE_PLAN, _load_plan, _switch, _views, watch_cdn
 
     candidates: dict[str, list[int]] = {}
     for idx, f in enumerate(findings):
@@ -121,6 +121,9 @@ def _attribute(base_url: str, findings: list[dict]) -> dict[str, dict[str, int]]
             args=["--no-sandbox", "--disable-dev-shm-usage"],
         )
         ctx = browser.new_context(viewport={"width": 1600, "height": 1000})
+        # Bootstrap decides what is visible (.d-none, .collapse), so without it
+        # the join counts findings on elements a user never sees.
+        failed = watch_cdn(ctx, npm_mirror)
         ctx.add_init_script("document.cookie = 'tourCompleted=true; path=/; max-age=31536000';")
         page = ctx.new_page()
         page.goto(base_url, wait_until="domcontentloaded")
@@ -145,6 +148,9 @@ def _attribute(base_url: str, findings: list[dict]) -> dict[str, dict[str, int]]
             hits[view] = sorted({i for sel in matched for i in candidates[sel]})
         ctx.close()
         browser.close()
+    if failed:
+        raise SystemExit(f"{len(set(failed))} CDN request(s) failed (e.g. {failed[0]}); the "
+                         "visibility join would be wrong. Pass --npm-mirror.")
 
     # A raw per-screen count is dominated by the chrome every screen shows --
     # the ribbon, the status bar -- so every view lands between 48 and 82 and
@@ -332,10 +338,13 @@ def main() -> int:
     ap.add_argument("--standalone", action="store_true",
                     help="also write a board with the PNGs embedded, for tools that "
                          "import a single file (Penpot does)")
+    ap.add_argument("--npm-mirror", type=Path, default=os.environ.get("NOODLE_NPM_MIRROR") or None,
+                    help="serve cdn.jsdelivr.net/npm/ from unpacked npm packages; "
+                         "see capture_screen_audit.py")
     args = ap.parse_args()
 
     findings = _findings_with_selectors()
-    per_view = _attribute(args.base_url, findings)
+    per_view = _attribute(args.base_url, findings, args.npm_mirror)
     written = []
     for board in sorted(args.out_dir.glob("board*.svg")):
         if board.name.endswith(".annotated.svg"):

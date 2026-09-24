@@ -843,12 +843,15 @@ the genuinely semantic residue — the editor's syntax theme, the RAG ramp, char
 series colours — where the colour carries the meaning and a token would destroy
 it.
 
-The only item in this epic that still needs a person is the **Penpot project**:
-creating it needs an account this work does not have. Everything it imports is
-generated, and now gated — `tests/test_design_token_export.py` fails if
-`docs/design/tokens/*.json` drifts from `visual-system.css`. It had drifted:
-the export carried no `warning` token at all, so importing today would have
-handed a designer a palette missing the very ramp the decision above settled.
+The **Penpot project** now exists, and its URL is recorded in
+[`screen-audit-board.md`](screen-audit-board.md#recording-the-board). Everything
+it imports was generated, and gated — a test failed if
+`docs/design/tokens/*.json` drifted from `visual-system.css`. (Since #1318 the
+direction is reversed: the JSON is Penpot's export and generates the CSS, and
+`tests/test_design_tokens.py` gates that.) It had drifted:
+the export carried no `warning` token at all, so an import before that
+test would have handed a designer a palette missing the very ramp the decision
+above settled.
 
 Band 2 alone does not get these near the token counts, and it is not supposed
 to — it removes the duplicates so that band 4's judgement calls are made

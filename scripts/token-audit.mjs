@@ -4,16 +4,19 @@
 //
 // Scans packages/noodle-web/src/noodle_web/static for:
 //   - the canonical --np-* design tokens declared in visual-system.css
-//     (light + dark values), exported as DTCG-style token files for
-//     Penpot's Tokens plugin and for Style Dictionary (Storybook)
+//     (light + dark values), to recognise raw values that duplicate one
 //   - raw/one-off values elsewhere in the CSS that duplicate or compete
 //     with those tokens, plus general CSS-health metrics
 //
+// It used to export the tokens to docs/design/tokens/*.json as well. That
+// direction is reversed (#1318): the JSON is Penpot's export and the source,
+// and scripts/design-tokens.mjs generates the CSS from it.
+//
 // Usage: node scripts/token-audit.mjs
-// Writes docs/design/tokens/*.json and prints a JSON summary used to
-// regenerate docs/design/token-audit.md's data tables by hand.
+// Writes docs/design/token-audit-data.json and prints the same JSON summary,
+// used to regenerate docs/design/token-audit.md's data tables by hand.
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { analyze } from '@projectwallace/css-analyzer'
 import { analysis_to_tokens } from '@projectwallace/css-design-tokens'
@@ -21,7 +24,7 @@ import { analysis_to_tokens } from '@projectwallace/css-design-tokens'
 const ROOT = new URL('..', import.meta.url).pathname
 const STATIC_DIR = join(ROOT, 'packages/noodle-web/src/noodle_web/static')
 const VISUAL_SYSTEM = join(STATIC_DIR, 'visual-system.css')
-const OUT_DIR = join(ROOT, 'docs/design/tokens')
+const OUT_DIR = join(ROOT, 'docs/design')
 
 function walkFiles(dir, ext) {
 	const out = []
@@ -184,39 +187,6 @@ function extractCanonicalTokens() {
 	}
 
 	return { light: resolvedLight, dark: resolvedDark, rawLight: light, rawDark: dark }
-}
-
-// A token's DTCG $type is read off its *value* first, because the name alone
-// guessed wrong: anything it could not place fell through to `color`, so
-// --np-anim-duration (0.2s), --np-anim-easing (cubic-bezier) and
-// --np-checkbox-target (24px) were exported as colours, and --np-shadow
-// (a plain rgba) as a shadow. Penpot rejects a colour token that holds a
-// duration, so each of those had to be dropped by hand on import.
-// The name only refines what the value cannot say: 1.4 is a line height or a
-// font weight, 1em a font size or a dimension.
-const COLOR_FN_RE = /^(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/i
-const LENGTH_VALUE_RE = /^-?(\d*\.)?\d+(px|rem|em|%|vh|vw|ch|ex)?$/
-
-function isColorValue(value) {
-	const v = value.trim()
-	return isHexColor(v) || COLOR_FN_RE.test(v) || /^(transparent|currentcolor)$/i.test(v)
-}
-
-function categorize(name, value) {
-	const v = value.trim()
-	if (/gradient\(/.test(v)) return 'gradient'
-	if (/^cubic-bezier\(/.test(v)) return 'cubicBezier'
-	if (/^(\d*\.)?\d+m?s$/.test(v)) return 'duration'
-	if (isColorValue(v)) return 'color'
-	if (name.includes('font-')) return 'fontFamily'
-	if (/^--np-text-\d+$/.test(name)) return 'fontSize'
-	if (name.includes('leading')) return 'lineHeight'
-	if (name.includes('weight')) return 'fontWeight'
-	if (LENGTH_VALUE_RE.test(v)) return 'dimension'
-	// A box-shadow list: lengths followed by a colour, e.g. --np-elevation-1
-	// or the two-ring --np-focus-ring.
-	if (/(#[0-9a-f]{3,8}|(rgba?|hsla?)\()/i.test(v) && /\d(px|rem|em)?\s/.test(v)) return 'shadow'
-	return null
 }
 
 function isHexColor(value) {
@@ -630,98 +600,6 @@ const summary = {
 	outOfBandStyles,
 }
 
-mkdirSync(OUT_DIR, { recursive: true })
-
-// --- 3. Emit DTCG-style token files (Tokens Studio multi-set convention,
-// which both Penpot's Tokens plugin and Style Dictionary understand).
-const core = {}
-const colorLight = {}
-const colorDark = {}
-
-const DTCG_TYPE = {
-	color: 'color',
-	fontFamily: 'fontFamily',
-	fontSize: 'fontSize',
-	lineHeight: 'number',
-	fontWeight: 'fontWeight',
-	dimension: 'dimension',
-	shadow: 'shadow',
-	duration: 'duration',
-	cubicBezier: 'cubicBezier',
-}
-
-// Gradients stay out of the export. DTCG's `gradient` type is a list of
-// stops with no angle, so the CSS value does not map onto it, and Penpot's
-// colour tokens cannot hold a gradient at all -- exported as `color`, they
-// were what made the import fail.
-const NOT_EXPORTED = new Set(['gradient'])
-
-// A multi-line declaration keeps its newlines and indentation through the
-// parser; a design tool wants one line.
-const flatten = (v) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : v)
-
-const untyped = []
-const notExported = []
-for (const name of canonicalNames) {
-	const shortName = name.replace(/^--np-/, '').replace(/^--/, '')
-	const lightValue = flatten(canonical.light[name])
-	const darkValue = flatten(canonical.dark[name])
-	const category = categorize(name, lightValue)
-	const darkCategory = categorize(name, darkValue)
-
-	if (category === null || category !== darkCategory) {
-		untyped.push(`${name}: light ${lightValue} (${category}), dark ${darkValue} (${darkCategory})`)
-		continue
-	}
-	if (NOT_EXPORTED.has(category)) {
-		notExported.push(name)
-		continue
-	}
-
-	const $type = DTCG_TYPE[category]
-	// Colours are always themed, so every one appears in both colour sets.
-	// Anything else lives in `core` unless the dark theme overrides it: a
-	// themed shadow (--np-elevation-*, --np-shadow) exported to `core` with
-	// only its light value would give the dark theme light-theme shadows.
-	if (category === 'color' || lightValue !== darkValue) {
-		colorLight[shortName] = { $type, $value: lightValue, $description: name }
-		colorDark[shortName] = { $type, $value: darkValue, $description: name }
-	} else {
-		core[shortName] = { $type, $value: lightValue, $description: name }
-	}
-}
-
-// Fail rather than guess: the old fall-through to `color` is how a duration
-// ended up in the colour sets.
-if (untyped.length > 0) {
-	console.error(`token-audit: cannot infer a DTCG $type for:\n  ${untyped.join('\n  ')}\nTeach categorize() about the value.`)
-	process.exit(1)
-}
-summary.tokensNotExported = notExported
-
-writeFileSync(join(OUT_DIR, 'core.json'), JSON.stringify(core, null, 2) + '\n')
-writeFileSync(join(OUT_DIR, 'color-light.json'), JSON.stringify(colorLight, null, 2) + '\n')
-writeFileSync(join(OUT_DIR, 'color-dark.json'), JSON.stringify(colorDark, null, 2) + '\n')
-writeFileSync(
-	join(OUT_DIR, '$themes.json'),
-	JSON.stringify(
-		[
-			{ id: 'light', name: 'Light', selectedTokenSets: { core: 'enabled', 'color-light': 'enabled', 'color-dark': 'disabled' } },
-			{ id: 'dark', name: 'Dark', selectedTokenSets: { core: 'enabled', 'color-light': 'disabled', 'color-dark': 'enabled' } },
-		],
-		null,
-		2,
-	) + '\n',
-)
-
-// Set order is the other half of the multi-file convention: a set later in the
-// list overrides an earlier one, so without this the importer is free to resolve
-// a name defined in both `core` and a `color-*` set either way round.
-writeFileSync(
-	join(OUT_DIR, '$metadata.json'),
-	JSON.stringify({ tokenSetOrder: ['core', 'color-light', 'color-dark'] }, null, 2) + '\n',
-)
-
-writeFileSync(join(OUT_DIR, '..', 'token-audit-data.json'), JSON.stringify(summary, null, 2) + '\n')
+writeFileSync(join(OUT_DIR, 'token-audit-data.json'), JSON.stringify(summary, null, 2) + '\n')
 
 console.log(JSON.stringify(summary, null, 2))

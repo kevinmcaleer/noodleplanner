@@ -16,6 +16,14 @@ Both need a NoodlePlanner running (default `http://localhost:8007`; pass
 gitignored — 170-odd PNGs and two 8 MB SVGs are not something to keep in
 version control when one command regenerates them.
 
+Both also need the CDN, because the app loads Bootstrap, Bootstrap Icons and
+its webfonts from `cdn.jsdelivr.net` and Google Fonts. Screens captured without
+them come out in fallback fonts and look plausible, so both scripts now exit
+non-zero and list the URLs whenever a CDN request fails. On a network that
+blocks jsDelivr but not the npm registry, `--npm-mirror <dir>` (or
+`NOODLE_NPM_MIRROR`) serves those files from unpacked `npm pack` tarballs; the
+docstring of `scripts/capture_screen_audit.py` has the four-line setup.
+
 ## What gets captured
 
 **84 screens**, in each theme:
@@ -102,20 +110,28 @@ For the tokens, **Design → Tokens → Import** and the five files in
 `$themes.json`, `$metadata.json`). They are W3C Design Tokens-typed JSON in the
 Tokens Studio multi-set format Penpot reads natively.
 
-Those files are generated from `visual-system.css` by `npm run audit:tokens`,
-and `tests/test_design_token_export.py` fails if they drift from it. That test
-exists because they had drifted: the export carried no `warning` token at all,
-so an import before it would have handed a designer a palette missing the
-semantic ramp the epic had just settled.
+Since #1318 those files are the source, not an export of the CSS: they are
+exported *from* Penpot, and `npm run design:tokens` generates the token block of
+`visual-system.css` from them. `tests/test_design_tokens.py` fails if the two
+disagree. It replaced a test that checked the old direction, which existed
+because the export had drifted: it carried no `warning` token at all.
 
 ## Recording the board
 
-Once the project exists, put its URL here:
-
 <!-- PENPOT-BOARD-URL -->
-**Penpot board:** _not yet created — needs a Penpot account._
+**Penpot board:** [NoodlePlanner design file on penpot.kevsrobots.com](https://penpot.kevsrobots.com/#/workspace?team-id=56fe304d-5af3-8157-8008-9f27d5d9e55b&file-id=f19af5a3-31e2-810f-8008-aed06226922e)
 <!-- /PENPOT-BOARD-URL -->
 
-This is the one part of #1196 that cannot be generated. Everything it imports
-is in the repo or one command away; creating the project itself needs an
-account.
+The file has eight pages: a read-me, the tokens, the component library, forms,
+dialogs, the screens in each theme, and a reference page comparing the
+`/components` gallery with Storybook. Its token sets (`core`, `color-light`,
+`color-dark`) and the `Mode ▸ Light / Dark` themes match
+`docs/design/tokens/`. The exceptions are the three `*-gradient` values and the
+four `anim-*` timings, which Penpot has no token type for; they are code-owned
+and hand-written in `visual-system.css` (`CODE_OWNED` in
+`scripts/design-tokens.mjs`).
+
+The screens pages hold 74 screenshots per theme, placed before the capture grew
+to 84 and gained its drift badges. To bring them up to date, run the two
+commands at the top of this page and import `board.standalone.svg` and
+`board.dark.standalone.svg` into the file as new pages.
