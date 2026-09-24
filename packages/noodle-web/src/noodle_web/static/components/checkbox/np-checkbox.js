@@ -145,6 +145,18 @@ TEMPLATE.innerHTML = `
       clip-path: polygon(15% 44%, 85% 44%, 85% 56%, 15% 56%);
     }
 
+    /* Partly done: a leaf task between 0% and 100% (the \`progress\`
+       attribute). The box fills like a pie to its percent -- the same
+       conic-gradient fill Kanban's cards use for progress -- so a task at 40%
+       reads as started without a second kind of control. Still a checkbox:
+       a click ticks it, i.e. marks it done. */
+    input.partial:not(:checked):not(:indeterminate) {
+      background: conic-gradient(
+        var(--np-success) 0 var(--np-checkbox-progress, 0%),
+        var(--np-surface) var(--np-checkbox-progress, 0%) 100%);
+      border-color: var(--np-success);
+    }
+
     input:disabled {
       opacity: 0.45;
       cursor: default;
@@ -167,7 +179,7 @@ TEMPLATE.innerHTML = `
 
 export class NpCheckbox extends HTMLElement {
     static get observedAttributes() {
-        return ['checked', 'indeterminate', 'disabled', 'label', 'row', 'dense'];
+        return ['checked', 'indeterminate', 'disabled', 'label', 'row', 'dense', 'progress'];
     }
 
     constructor() {
@@ -182,8 +194,15 @@ export class NpCheckbox extends HTMLElement {
         // 14-16px, so most of that target is host padding. A click there has to
         // reach the input or the target is decorative -- which is also what
         // lets callers and tests keep clicking the element they always clicked.
+        //
+        // Only a click that *started* on the host: composedPath()[0]. Not
+        // `event.target === this` -- a click on the input inside is retargeted
+        // to the host by the time it reaches this listener, so that test was
+        // true for every click, and a click on the box itself toggled it and
+        // then clicked it again, straight back. That is why a whiteboard
+        // note's checklist could not be ticked: every tick wrote 0%.
         this.addEventListener('click', (event) => {
-            if (event.target === this || event.composedPath()[0] === this) {
+            if (event.composedPath()[0] === this) {
                 if (this.hasAttribute('disabled')) return;
                 this._input.click();
             }
@@ -227,6 +246,14 @@ export class NpCheckbox extends HTMLElement {
         // summary reports its children's state.
         const summary = this.getAttribute('row') === 'summary';
         input.indeterminate = summary && this.hasAttribute('indeterminate');
+
+        // A leaf's own percent, when it is neither 0 nor 100. A summary
+        // reports its children through `indeterminate` instead.
+        const progress = parseFloat(this.getAttribute('progress'));
+        const partial = !summary && progress > 0 && progress < 100;
+        input.classList.toggle('partial', partial);
+        if (partial) input.style.setProperty('--np-checkbox-progress', `${progress}%`);
+        else input.style.removeProperty('--np-checkbox-progress');
 
         const label = this.getAttribute('label');
         if (label) input.setAttribute('aria-label', label);

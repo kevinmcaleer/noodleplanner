@@ -54,9 +54,11 @@ Not everything on a whiteboard is work yet. A **text note** is a note that is *n
 2. Type its title and press ``Enter``. Until you name it, it is called ``New thought``.
 3. Double-click its body to write the thought itself; ``Enter`` saves it.
 
-A text note has a dashed edge, so you can tell it from the solid post-its that are real tasks. It has no checklist, no facilitator prompts and no noodle handle — those are all about tasks. You can still move it, resize it, recolour it and rename it like any other note.
+A text note is always a very light grey with a dashed edge, so you can tell it from the coloured, solid post-its that are real tasks — it has no colour of its own to pick. It has no checklist, no facilitator prompts and no noodle handle — those are all about tasks. You can still move it, resize it and rename it like any other note.
 
 When a thought turns into work, choose **Promote to task** on its **More** menu. The same note, in the same place, becomes an ordinary post-it backed by a real task, with the thought's text as the task's comment. **Delete note** on the same menu removes it.
+
+It works the other way too: **Turn into text note** on a task's **More** menu takes that task out of the schedule and keeps the note, in the same place, as a text note with the task's comment as its text. Everything else on the task's line is kept, so promoting it again gives you back exactly the task you had. It is only offered for a task with no subtasks (they would have nowhere to go), and it is refused, with a message, for a task other tasks depend on — remove those dependencies first.
 
 .. note::
 
@@ -244,7 +246,11 @@ A note with nothing inside it becomes an item on the target's list rather than d
 Tick Off a Todo
 -----------------
 
-Once a note has at least one subtask, it lists them as a checklist with a progress footer (``2 / 5``) — this is what a `Free-form Notes`_ note turns into the moment it earns its first subtask. Click a checkbox to mark one complete or incomplete. This is the same completion state shown everywhere else in NoodlePlanner (the Kanban board, Tasks table, and so on) — ticking it here updates the task itself, not just the note.
+Once a note has at least one subtask, it lists them as a checklist with a progress footer (``2 / 5``) — this is what a `Free-form Notes`_ note turns into the moment it earns its first subtask. Click a checkbox to mark one complete (100%) or, clicking again, not started (0%). This is the same completion state shown everywhere else in NoodlePlanner (the Kanban board, Tasks table, and so on) — ticking it here updates the task itself, not just the note.
+
+A task that is part-way done (say ``Prototype 40%``) shows its progress as a pie filling the box, the same fill the Kanban board's progress indicator uses; hover it to see the percentage. Ticking it still means "done" and sets it to 100%.
+
+If a note is too short to show all its tasks, the footer says how many are out of sight — ``+3 more ▾``. Click it to scroll to them (and, once you have seen everything below, back to the top), or resize the note. With the note selected, scrolling over its list scrolls the list rather than the board.
 
 A subtask that has a post-it of its own is **not** listed in the checklist; it is the noodle leaving that note instead. That way one relationship is only ever shown once — the noodle is on screen next to both notes, which is a better account of where the subtask went than a line of text on one of them. A note whose subtasks have *all* left says so in place of its checklist, since otherwise nothing on the card would mention them.
 

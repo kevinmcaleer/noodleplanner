@@ -850,6 +850,28 @@ function wbPromoteThoughtInPlanText(planText, name) {
     return lines.join('\n');
 }
 
+/**
+ * The reverse of wbPromoteThoughtInPlanText(): turn a task back into a
+ * thought by commenting its line out. Everything else on the line stays --
+ * duration, resources, its quoted comment (which becomes the thought's
+ * text) -- so promoting it again restores exactly the task it was.
+ *
+ * Refused (text returned unchanged) for a task with subtasks: commenting
+ * out a parent line would silently hand its children to whatever task sits
+ * above it. The caller says why.
+ */
+function wbDemoteTaskToThoughtInPlanText(planText, name) {
+    const text = String(planText == null ? '' : planText);
+    const parsed = wbParseOutline(text);
+    const pos = wbFindOutlineIndex(parsed.entries, name);
+    if (pos === -1) return text;
+    if (wbSubtreeEndIndex(parsed, pos) > parsed.entries[pos].index) return text;
+    const lines = parsed.lines.slice();
+    const at = parsed.entries[pos].index;
+    lines[at] = lines[at].replace(/^(\s*)/, '$1// ');
+    return lines.join('\n');
+}
+
 /** Remove a thought's line from the outline. */
 function wbDeleteThoughtFromPlanText(planText, name) {
     const text = String(planText == null ? '' : planText);

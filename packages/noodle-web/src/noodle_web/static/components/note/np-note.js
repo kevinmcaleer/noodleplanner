@@ -89,6 +89,13 @@ export const WB_NOTE_DEFAULT_HEIGHT = 220;
 export const WB_NOTE_MIN_WIDTH = 160;
 export const WB_NOTE_MIN_HEIGHT = 120;
 
+/** A thought's fill: the --np-light-grey-subtle token, read from the page
+ * (contrastTextColour() needs a concrete colour to measure against). */
+function thoughtFill() {
+    return getComputedStyle(document.documentElement)
+        .getPropertyValue('--np-light-grey-subtle').trim();
+}
+
 /** The shipped pastel palette (whiteboard-notes.js's WB_NOTE_PASTEL_COLOURS).
  * The pilot's story offered six colours, not one of which is in this list. */
 export const WB_NOTE_PASTEL_COLOURS = [
@@ -248,8 +255,12 @@ export class NpNote extends HTMLElement {
         this.style.position = 'relative';
 
         // Colour fills the whole card raw (#1103) and the one text colour is
-        // derived from it by real measured contrast.
-        const colour = this.getAttribute('colour') || this.getAttribute('color') || '';
+        // derived from it by real measured contrast. A thought ignores any
+        // colour: it is always the very light grey the board gives it
+        // (wbThoughtFill() in whiteboard-notes.js).
+        const colour = this.hasAttribute('thought')
+            ? thoughtFill()
+            : (this.getAttribute('colour') || this.getAttribute('color') || '');
         const text = contrastTextColour(colour);
         if (colour) r.card.style.setProperty('--wb-note-accent', colour); else r.card.style.removeProperty('--wb-note-accent');
         if (text) r.card.style.setProperty('--wb-note-text', text); else r.card.style.removeProperty('--wb-note-text');
