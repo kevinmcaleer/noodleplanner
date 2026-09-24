@@ -17892,7 +17892,7 @@ function renderEvmChart(svgId, legendId) {
     const yMax = Math.ceil(maxVal * 1.1); // 10% headroom
 
     // X scale: map date index to x position
-    const xScale = (i) => padding.left + (i / (ts.dates.length - 1)) * chartW;
+    const xScale = evmChartXScale(ts.dates.length, padding.left, chartW);
     // Y scale: map value to y position (inverted)
     const yScale = (v) => padding.top + chartH - (v / yMax) * chartH;
 
@@ -18023,6 +18023,18 @@ function renderEvmChart(svgId, legendId) {
             '<span class="evm-legend-item"><span class="evm-legend-swatch evm-legend-swatch-dashed" style="background:' + colLineEV + ';"></span> Forecast</span>' +
             '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLineToday + '; border-style:dashed;"></span> Today</span>';
     }
+}
+
+/**
+ * Map an index into the EVM time series to an x position across a plot area
+ * `chartW` wide starting at `left`. The series is sampled monthly, so a plan
+ * that starts and finishes inside one calendar month yields a single sample;
+ * spreading it by `i / (count - 1)` would be 0 / 0 and put NaN into every x
+ * coordinate the chart draws. A lone sample sits at the centre instead.
+ */
+function evmChartXScale(count, left, chartW) {
+    if (count <= 1) return () => left + chartW / 2;
+    return (i) => left + (i / (count - 1)) * chartW;
 }
 
 /**

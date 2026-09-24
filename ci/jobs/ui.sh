@@ -19,9 +19,8 @@ ci_setup_playwright
 # browser context, so they parallelise across cores cleanly.
 #
 # `not unstable` deselects tests that are known to be catching an app defect
-# nobody has fixed yet -- today exactly one, test_usability.py's
-# test_render_does_not_show_error (NaN geometry from the mindmap). This job
-# gates, and a gate that goes red one run in three teaches people to ignore it.
+# nobody has fixed yet -- today none. This job gates, and a gate that goes
+# red one run in three teaches people to ignore it.
 # The tests stay in the tree and stay runnable (`-m unstable` runs just them);
 # they are deselected here, not deleted, and tests/ui/README.md says why for
 # each one. Anything added to this marker needs a defect written down with it.

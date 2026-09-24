@@ -184,8 +184,11 @@ The `unstable` marker, which `ci/jobs/ui.sh` deselects with
 `-m "not unstable"`, stays for tests that are right about an app defect nobody
 has fixed — a gate that is red for one teaches people to ignore it. They stay
 in the tree and runnable (`-m unstable` runs exactly those), and nothing joins
-the marker without a defect written down beside it. Today that is only
-`test_usability.py`'s `test_render_does_not_show_error`. Before reaching for
+the marker without a defect written down beside it. Today no test carries
+it: the last one, `test_usability.py`'s `test_render_does_not_show_error`, was
+catching NaN coordinates in the EVM chart for any plan inside one calendar
+month, which is why it failed on some days and not others. That is fixed and
+the test gates again. Before reaching for
 it, rule out the test's own setup: this one looked like an app hang for a long
 time and was a lost write.
 

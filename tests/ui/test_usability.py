@@ -32,8 +32,6 @@ Usage:
     uv run pytest tests/ui/test_usability.py -q
 """
 
-import pytest
-
 from .helpers import (
     actionable_console_errors,
     click_scope,
@@ -297,27 +295,23 @@ class TestPlanRendering:
         body_text = page.locator("body").inner_text()
         assert len(body_text) > 100, "Page appears to have very little content after render"
 
-    @pytest.mark.unstable
     def test_render_does_not_show_error(self, page, app_server):
         """Rendering a valid plan should not produce JavaScript errors.
 
         This is the test whose Selenium original only passed as part of its
         file. Reading the console per page rather than per driver makes it
-        honest -- and the honest answer is that it fails, reporting 28 SVG
-        geometry errors from mindmap.js:574:
+        honest. It used to fail whenever the plan (which starts today and runs
+        about a week) fell inside one calendar month, with 24 SVG geometry
+        errors from the EVM chart:
 
-            <rect> attribute y: Expected length, "NaN".
-            <rect> attribute height: Expected length, "undefined".
             <polyline> attribute points: Expected number, "NaN,290".
+            <circle> attribute cx: Expected length, "NaN".
 
-        Not caused by this suite blocking the CDN: serving dagre and
-        html2canvas locally, with `typeof dagre !== 'undefined'` confirmed in
-        the page, produces the same 28. The mindmap draws into a container that
-        has no layout yet, so its measurements come out NaN.
-
-        `unstable` because the test is right and the app is not, and a gate
-        that is red for a defect nobody has fixed teaches people to ignore it.
-        See tests/ui/README.md.
+        The EVM series is sampled monthly, so such a plan has one sample and
+        renderEvmChart() spread it by i / (count - 1) = 0 / 0.
+        evmChartXScale() now centres a lone sample;
+        tests/test_evm_chart_single_sample.mjs pins that down without
+        depending on today's date.
         """
         _enter_plan_and_render(page, app_server)
         errors = actionable_console_errors(page)
