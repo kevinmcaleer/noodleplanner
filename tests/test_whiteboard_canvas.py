@@ -215,7 +215,10 @@ class TestWhiteboardNavigationAndGrid:
 
 
 class TestPanning:
-    def test_drag_pans_board(self, browser, app_server):
+    def test_middle_button_drag_pans_board(self, browser, app_server):
+        """A plain drag on empty canvas lassoes (tests/ui/test_whiteboard_groups.py),
+        so a mouse pans with the middle button -- or a two-finger swipe, or
+        Space+drag."""
         open_app(browser, app_server)
         switch_to_whiteboard(browser)
         browser.execute_script("whiteboardZoomReset();")
@@ -228,7 +231,7 @@ class TestPanning:
             const rect = svg.getBoundingClientRect();
             const startX = rect.left + rect.width / 2;
             const startY = rect.top + rect.height / 2;
-            svg.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true, clientX:startX, clientY:startY, button:0}));
+            svg.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true, clientX:startX, clientY:startY, button:1}));
             window.dispatchEvent(new MouseEvent('mousemove', {bubbles:true, cancelable:true, clientX:startX+120, clientY:startY+40}));
             window.dispatchEvent(new MouseEvent('mouseup', {bubbles:true, cancelable:true, clientX:startX+120, clientY:startY+40}));
             """

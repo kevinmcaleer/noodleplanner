@@ -4,14 +4,10 @@
  * Two gestures a facilitator already has at a physical wall, and the
  * multi-select both of them need:
  *
- *   Group  — with the Group tool on, drag a lasso round several notes and
- *            let go (or shift-select them and press "Group these"). A
+ *   Group  — drag a lasso round several notes on empty canvas (or
+ *            shift-click them), then "Group these" or Ctrl/Cmd+G. A
  *            boundary titled "Untitled group" is drawn around them, its
- *            title already in edit. Underneath it is a
- *            summary task, which is never what the user is told: the board
- *            is a lens that picks friendlier language for a structure the
- *            plan already has. Groups nest, because a group is a task and a
- *            task can go in another group.
+ *            title already in edit.
  *   Merge   — drag one note onto another, or select several and Combine.
  *            The sources' items end up on the target's list and the emptied
  *            sources go. One task holds everything afterwards.
@@ -55,14 +51,11 @@
 
 // ── The lasso ───────────────────────────────────────────────────────────
 //
-// Two lassos share this code, told apart by their `mode`:
-//
-//   select — shift-drag, in either canvas tool. Selects what it touches,
-//            and the selection toolbar then offers Group and Combine.
-//   group  — a plain drag with the Group tool on (see wbSetCanvasTool() in
-//            whiteboard.js). Letting go groups what it touched straight
-//            away and puts the new group's title into edit -- the Obsidian
-//            canvas gesture, with no toolbar step in between.
+// A plain drag on empty canvas, as on Obsidian's canvas: every note it
+// touches is selected, and the selection toolbar then offers Group and
+// Combine. Panning moved to the two-finger swipe (and Space+drag or a
+// middle-button drag -- see wbHandleMouseDown() in whiteboard.js). A
+// shift-drag (`mode: 'add'`) adds to the selection instead of replacing it.
 
 /** In-flight lasso, or null. Board coordinates, not client ones. */
 let wbLasso = null;
@@ -104,11 +97,10 @@ function wbBeginLasso(clientX, clientY, mode) {
     const layer = wbLassoLayer();
     if (!layer) return false;
     wbCancelLasso();
-    const kind = mode === 'group' ? 'group' : 'select';
+    const kind = mode === 'add' ? 'add' : 'select';
     const start = wbClientToBoard(clientX, clientY);
     const rect = document.createElementNS(SVG_NS, 'rect');
-    rect.setAttribute('class', kind === 'group' ? 'wb-lasso wb-lasso-group' : 'wb-lasso');
-    rect.setAttribute('rx', kind === 'group' ? '12' : '0');
+    rect.setAttribute('class', 'wb-lasso');
     layer.appendChild(rect);
     wbLasso = { startX: start.x, startY: start.y, rect, moved: false, mode: kind };
     wbUpdateLasso(clientX, clientY);
@@ -159,8 +151,8 @@ function wbNotesTouching(box) {
 }
 
 /**
- * Finish the lasso: a select lasso selects every note it touched, a group
- * lasso groups them.
+ * Finish the lasso and select every note it touched -- on top of what was
+ * already selected, for a shift-drag.
  */
 function wbEndLasso() {
     if (!wbLasso) return;
@@ -170,18 +162,18 @@ function wbEndLasso() {
     wbLasso = null;
     if (!moved) return;
 
-    const hit = wbNotesTouching(box);
-    if (mode === 'group') {
-        wbGroupLassoedNotes(hit);
-        return;
+    let hit = wbNotesTouching(box);
+    if (mode === 'add' && typeof wbGetSelectedNoteTasks === 'function') {
+        const already = wbGetSelectedNoteTasks();
+        hit = already.concat(hit.filter(n => !already.includes(n)));
     }
     if (typeof wbSetSelectedNotes === 'function') wbSetSelectedNotes(hit);
 }
 
 /**
- * Lift a set of lassoed notes to the groups they fill.
+ * Lift a set of selected notes to the groups they fill.
  *
- * A lasso round a whole group and a note beside it means "put that group
+ * Selecting a whole group and a note beside it means "put that group
  * and this note together", not "tear the group's notes out of it". So a
  * note climbs to its group whenever every note of that group was touched,
  * and on up while the next group out is filled too. The result is what the
@@ -213,26 +205,6 @@ function wbLiftToFilledGroups(names, tasks, rows) {
         if (!seen.has(key)) { seen.add(key); out.push(current); }
     }
     return out;
-}
-
-/**
- * The Group tool's release: group whatever the lasso touched, under a
- * placeholder title that is put straight into edit.
- */
-function wbGroupLassoedNotes(noteNames) {
-    const tasks = (typeof wbLastTasks !== 'undefined') ? wbLastTasks : [];
-    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
-    const rows = editor ? wbReadBoardRows(editor.value) : [];
-    const members = wbLiftToFilledGroups(noteNames || [], tasks, rows);
-    if (members.length < 2) {
-        if (typeof showToast === 'function') {
-            showToast(noteNames && noteNames.length
-                ? 'Draw round two or more notes (or a group and a note) to group them'
-                : 'Draw round some notes to group them', 'info');
-        }
-        return false;
-    }
-    return wbCreateGroup(members);
 }
 
 function wbCancelLasso() {
@@ -522,12 +494,27 @@ function wbCreateGroup(memberNames, options) {
     return unique;
 }
 
-/** Turn the current selection into a group (the selection toolbar's button). */
+/**
+ * Turn the current selection into a group (the selection toolbar's button,
+ * the ribbon's, and Ctrl/Cmd+G). A selection that covers every note of an
+ * existing group puts that group in whole, nested, rather than pulling its
+ * notes out of it -- see wbLiftToFilledGroups().
+ */
 function wbGroupSelection() {
     const selected = (typeof wbGetSelectedNoteTasks === 'function')
         ? wbGetSelectedNoteTasks() : [];
     if (selected.length < 2) return false;
-    return wbCreateGroup(selected) !== false;
+    const tasks = (typeof wbLastTasks !== 'undefined') ? wbLastTasks : [];
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    const rows = editor ? wbReadBoardRows(editor.value) : [];
+    const members = wbLiftToFilledGroups(selected, tasks, rows);
+    if (members.length < 2) {
+        if (typeof showToast === 'function') {
+            showToast('Those notes are already a group: select another note too to put the group inside a new one', 'info');
+        }
+        return false;
+    }
+    return wbCreateGroup(members) !== false;
 }
 
 /**
@@ -542,7 +529,7 @@ function wbGroupSelectionFromRibbon() {
         ? wbGetSelectedNoteTasks() : [];
     if (selected.length < 2) {
         if (typeof showToast === 'function') {
-            showToast('Select two or more notes to group: shift-click them, shift-drag round them, or pick the Group tool (g) and drag round them', 'info');
+            showToast('Select two or more notes to group: drag round them on empty canvas, or shift-click them', 'info');
         }
         return false;
     }
@@ -789,18 +776,6 @@ function wbGroupMouseDown(e, groupName) {
     // second -- wbGroupMouseUp() only commits a drag that actually moved.
     e.preventDefault();
     e.stopPropagation();
-
-    // With the Group tool on, a drag that starts inside a boundary draws a
-    // lasso there, which is how a group is made inside another group. The
-    // title stays the handle that moves the whole group, in either tool.
-    const onTitle = e.target && e.target.classList
-        && e.target.classList.contains('wb-group-title');
-    if (!onTitle && typeof wbCanvasTool !== 'undefined' && wbCanvasTool === 'group'
-        && !(typeof wbSpacePan !== 'undefined' && wbSpacePan)) {
-        if (typeof wbClearNoteSelection === 'function') wbClearNoteSelection();
-        wbBeginLasso(e.clientX, e.clientY, e.shiftKey ? 'select' : 'group');
-        return;
-    }
 
     const tasks = (typeof wbLastTasks !== 'undefined') ? wbLastTasks : [];
     const members = wbGroupNoteDescendants(groupName, tasks);

@@ -146,12 +146,10 @@ These shortcuts are available when the Whiteboard view's canvas has focus.
      - Pan the board
    * - ``Ctrl+Scroll`` / ``Cmd+Scroll`` / pinch
      - Zoom in or out, anchored on the pointer
-   * - ``v``
-     - Move tool: dragging empty canvas pans
-   * - ``g``
-     - Group tool: dragging round notes groups them
+   * - ``Ctrl+G`` / ``Cmd+G``
+     - Group the selected notes
    * - Hold ``Space`` and drag
-     - Pan, whichever tool is on
+     - Pan the board (a plain drag lasso-selects)
 
 File Operations
 ----------------

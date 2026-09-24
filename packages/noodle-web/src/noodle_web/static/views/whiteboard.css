@@ -79,7 +79,7 @@
     position: relative;
     background: var(--np-surface-alt);
     outline: none;
-    cursor: grab;
+    cursor: default;
 }
 
 .wb-canvas-wrapper:focus-visible {
@@ -92,7 +92,7 @@
     width: 100%;
     height: 100%;
     touch-action: none;
-    cursor: grab;
+    cursor: default;
 }
 
 .wb-svg.wb-dragging {
@@ -3030,18 +3030,13 @@ body.wb-linking * {
     font-weight: 600;
 }
 
-/* The active canvas tool (Move / Group) wears the same pressed look. */
-#whiteboardOutlineBtn.active,
-#whiteboardMoveToolBtn.active,
-#whiteboardGroupToolBtn.active {
+#whiteboardOutlineBtn.active {
     background: var(--np-blue);
     border-color: var(--np-blue);
     color: #ffffff;
 }
 
-#whiteboardOutlineBtn.active:hover:not(:disabled),
-#whiteboardMoveToolBtn.active:hover:not(:disabled),
-#whiteboardGroupToolBtn.active:hover:not(:disabled) {
+#whiteboardOutlineBtn.active:hover:not(:disabled) {
     color: #ffffff;
 }
 
@@ -3121,24 +3116,9 @@ body.wb-linking * {
     pointer-events: none;
 }
 
-/* The Group tool's lasso previews the boundary it is about to become:
-   the boundary's own accent and rounded corners, still dashed because it
-   is not one yet. */
-.wb-lasso-group {
-    fill: color-mix(in srgb, var(--np-accent) 8%, transparent);
-    stroke: var(--np-accent);
-    stroke-width: 1.5;
-}
-
-/* The canvas tool (see wbSetCanvasTool() in whiteboard.js). The Group tool
-   draws, so it takes the crosshair; inside a boundary too, since a drag
-   there draws a group within the group. Holding Space pans in either
-   tool, and says so. */
-.wb-tool-group .wb-svg,
-.wb-tool-group .wb-group-box {
-    cursor: crosshair;
-}
-
+/* A drag on empty canvas lassoes (see wbHandleMouseDown() in
+   whiteboard.js), so the canvas takes the plain pointer rather than the
+   grab hand; holding Space pans, and says so. */
 .wb-space-pan .wb-svg,
 .wb-space-pan .wb-group-box {
     cursor: grab;

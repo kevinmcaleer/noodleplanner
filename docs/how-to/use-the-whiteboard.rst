@@ -194,30 +194,22 @@ Select Several Notes
 Two of the board's gestures act on more than one note at a time, so there are two ways to pick several:
 
 - **Shift-click** a note's header to add it to the selection, or shift-click a selected note to take it back out. Shift-clicking never picks the note up — building a selection and moving something are different jobs.
-- **Shift-drag on empty canvas** to lasso. Every note the box *touches* is selected, not only the ones it completely surrounds; a marquee you have to draw bigger than the thing you are pointing at is a marquee that makes you drag across the whole board.
+- **Drag on empty canvas** to lasso, as on Obsidian's canvas. Every note the box *touches* is selected, not only the ones it completely surrounds; a marquee you have to draw bigger than the thing you are pointing at is a marquee that makes you drag across the whole board. Shift-drag adds to what is already selected.
 
-With the Move tool on (the default), plain dragging on empty canvas pans, which is why this lasso takes the shift key. The Group tool, below, turns a plain drag into a lasso that groups.
+To move round the board, swipe with two fingers on a trackpad (or scroll a mouse wheel), drag with the middle mouse button, or hold ``Space`` and drag. On a touchscreen, drag with one finger.
 
 Once two or more notes are selected, a small toolbar appears at the bottom of the board offering the two things a selection is for: **Group these** and **Combine**. Press ``Escape`` or click empty canvas to clear the selection.
 
 Group Notes Inside a Boundary
 -------------------------------
 
-The quickest way works like Obsidian's canvas:
+Select some notes (drag round them, or shift-click them), then press ``Ctrl``/``Cmd`` + ``G`` — or choose **Group these** from the selection toolbar, or **Group** on the ribbon's **Whiteboard** tab. A boundary is drawn round them, titled **Untitled group** with the title ready to type over. Type a name and press ``Enter`` (``Escape`` keeps the placeholder).
 
-1. Pick the **Group** tool in the whiteboard toolbar (or press ``g``).
-2. Drag round the notes you want together. Every note the lasso *touches* goes in.
-3. Let go. A boundary is drawn round them, titled **Untitled group** with the title ready to type over. Type a name and press ``Enter`` (``Escape`` keeps the placeholder).
-
-Switch back with **Move** (or ``v``). In either tool, a two-finger swipe on a trackpad, a middle-button drag, or holding ``Space`` while dragging pans the board, so you never have to leave the Group tool just to look around.
-
-You can also select notes first (see above) and choose **Group these** from the selection toolbar, or **Group** on the ribbon's **Whiteboard** tab; the new group's title opens for typing the same way.
-
-Lasso round a whole group and another note and the group goes in *as a group* — you get a group inside a group rather than the notes being pulled out of the one they were in. With the Group tool on, a drag that starts inside an existing boundary draws a lasso there too, which is how you make a group within a group; drag a boundary by its title to move it.
+Select every note of a group plus another note and the group goes in *as a group* — you get a group inside a group rather than the notes being pulled out of the one they were in.
 
 A group keeps every note separate — it is a container, not a merge. Underneath, the group is an ordinary summary task in your plan with those notes' tasks indented under it, so the grouping shows up in the Gantt chart, the outline and everywhere else without you having to build it twice.
 
-- **Move a group** — drag its boundary (with the Group tool on, drag its title). Everything inside travels with it, and the whole move is one undo step.
+- **Move a group** — drag its boundary. Everything inside travels with it, and the whole move is one undo step.
 - **Rename** — double-click the boundary's title and type over it.
 - **Ungroup** — hover the boundary and click **Ungroup** at its top-right. The notes go back to the top level of the plan and keep their own subtasks; only the group itself goes.
 - **Nest** — a group is a task, so a group can go inside another group, as deep as you like.
@@ -314,12 +306,12 @@ Keyboard and Pointer Reference
      - Make that note a subtask
    * - Click a noodle, then ``Delete``
      - Unlink; the task returns to the top level
-   * - Drag empty space (Move tool), scroll, two-finger swipe, middle-button drag, or ``Space`` + drag
+   * - Two-finger swipe, scroll, middle-button drag, or ``Space`` + drag
      - Pan the board
-   * - ``v`` / ``g``
-     - Switch to the Move tool / the Group tool
-   * - Drag round notes (Group tool)
-     - Group every note the lasso touches, then type the group's title
+   * - Drag empty canvas
+     - Lasso-select every note the box touches (shift-drag adds to the selection)
+   * - ``Ctrl``/``Cmd`` + ``G``
+     - Group the selected notes, then type the group's title
    * - ``Ctrl``/``Cmd`` + scroll, or pinch
      - Zoom
    * - Arrow keys
@@ -330,8 +322,6 @@ Keyboard and Pointer Reference
      - Fit the board to its contents
    * - Shift-click a note's header
      - Add it to (or remove it from) the selection
-   * - Shift-drag empty canvas
-     - Lasso every note the box touches
    * - Drag a group's boundary
      - Move the group and everything in it
    * - Drag a note onto another note
