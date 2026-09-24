@@ -840,68 +840,6 @@
             });
         });
 
-        // #967: add a task. Sent with no parent, so it lands at the end of
-        // the plan -- picking a parent is a structural choice the host's own
-        // outline is better at, and #970's whiteboard interface is where
-        // joiner-side structure editing belongs.
-        function submitNewTask() {
-            const input = document.getElementById('newTaskName');
-            const name = input.value.trim();
-            if (!name) return;
-            sendPlanOp({ op: 'add_task', parent_id: null, name });
-            input.value = '';
-        }
-        document.getElementById('addTaskBtn').addEventListener('click', submitNewTask);
-        document.getElementById('newTaskName').addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') { event.preventDefault(); submitNewTask(); }
-        });
-
-        // #969: add a RAID row. Lands with the type/status defaults
-        // applyBackmatterOp gives a fresh row (risk, open) -- refining
-        // those is what the per-row dropdowns rendered above are for.
-        function submitNewRaidRow() {
-            const input = document.getElementById('newRaidTitle');
-            const title = input.value.trim();
-            if (!title) return;
-            sendBackmatterOp({ op: 'add_row', fields: { title } });
-            input.value = '';
-        }
-        document.getElementById('addRaidBtn').addEventListener('click', submitNewRaidRow);
-        document.getElementById('newRaidTitle').addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') { event.preventDefault(); submitNewRaidRow(); }
-        });
-
-        // #1036: the same "add a row" wiring for benefits and comms, driven
-        // by SECTION_UI so a fourth section needs no new handler.
-        for (const [section, config] of Object.entries(SECTION_UI)) {
-            const capital = section.charAt(0).toUpperCase() + section.slice(1);
-            const input = document.getElementById(`new${capital}Title`);
-            const button = document.getElementById(`add${capital}Btn`);
-            if (!input || !button) continue;
-
-            const submit = () => {
-                const value = input.value.trim();
-                if (!value) return;
-                if (config.entries) {
-                    // A weekly update is dated by the host's clock rather
-                    // than a field the joiner types: the heading grammar
-                    // requires a strict ISO date, and asking a person to
-                    // hand-type one is a rejected op waiting to happen.
-                    const today = new Date().toISOString().slice(0, 10);
-                    sendSectionOp(section, {
-                        op: 'add_row', fields: { date: today, author: value, content: '' },
-                    });
-                } else {
-                    sendSectionOp(section, { op: 'add_row', fields: { [config.titleField]: value } });
-                }
-                input.value = '';
-            };
-            button.addEventListener('click', submit);
-            input.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') { event.preventDefault(); submit(); }
-            });
-        }
-
         async function submitJoinerChat() {
             const input = document.getElementById('relayInput');
             if (!socket || socket.readyState !== WebSocket.OPEN || !input.value) return;
