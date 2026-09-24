@@ -4,8 +4,10 @@
  * Two gestures a facilitator already has at a physical wall, and the
  * multi-select both of them need:
  *
- *   Group  — lasso (or shift-click) several notes, then "Group these?".
- *            A titled boundary is drawn around them. Underneath it is a
+ *   Group  — with the Group tool on, drag a lasso round several notes and
+ *            let go (or shift-select them and press "Group these"). A
+ *            boundary titled "Untitled group" is drawn around them, its
+ *            title already in edit. Underneath it is a
  *            summary task, which is never what the user is told: the board
  *            is a lens that picks friendlier language for a structure the
  *            plan already has. Groups nest, because a group is a task and a
@@ -51,12 +53,16 @@
  * contains for as long as the gesture lasts.
  */
 
-// ── Selection: the lasso ────────────────────────────────────────────────
+// ── The lasso ───────────────────────────────────────────────────────────
 //
-// Bare-canvas drag already pans, and panning is the gesture people use
-// constantly, so the lasso takes shift-drag rather than taking that away.
-// Shift is already "add to what is selected" on a note header, so the
-// modifier means one thing in both places.
+// Two lassos share this code, told apart by their `mode`:
+//
+//   select — shift-drag, in either canvas tool. Selects what it touches,
+//            and the selection toolbar then offers Group and Combine.
+//   group  — a plain drag with the Group tool on (see wbSetCanvasTool() in
+//            whiteboard.js). Letting go groups what it touched straight
+//            away and puts the new group's title into edit -- the Obsidian
+//            canvas gesture, with no toolbar step in between.
 
 /** In-flight lasso, or null. Board coordinates, not client ones. */
 let wbLasso = null;
@@ -94,14 +100,17 @@ function wbClientToBoard(clientX, clientY) {
  * Start a lasso at a client point. Returns false when there is no canvas to
  * draw on, which is the caller's signal to fall through to panning.
  */
-function wbBeginLasso(clientX, clientY) {
+function wbBeginLasso(clientX, clientY, mode) {
     const layer = wbLassoLayer();
     if (!layer) return false;
+    wbCancelLasso();
+    const kind = mode === 'group' ? 'group' : 'select';
     const start = wbClientToBoard(clientX, clientY);
     const rect = document.createElementNS(SVG_NS, 'rect');
-    rect.setAttribute('class', 'wb-lasso');
+    rect.setAttribute('class', kind === 'group' ? 'wb-lasso wb-lasso-group' : 'wb-lasso');
+    rect.setAttribute('rx', kind === 'group' ? '12' : '0');
     layer.appendChild(rect);
-    wbLasso = { startX: start.x, startY: start.y, rect, moved: false };
+    wbLasso = { startX: start.x, startY: start.y, rect, moved: false, mode: kind };
     wbUpdateLasso(clientX, clientY);
     return true;
 }
@@ -129,32 +138,101 @@ function wbUpdateLasso(clientX, clientY) {
 }
 
 /**
- * Finish the lasso and select every note it touched.
+ * The notes a board box touches.
  *
  * Touched, not enclosed: a marquee that only takes notes it fully contains
  * makes the user drag a box bigger than the thing they are pointing at,
  * which on a board of 280px cards means most of the canvas.
  */
+function wbNotesTouching(box) {
+    const hit = [];
+    if (!box || typeof wbNoteNodes === 'undefined') return hit;
+    for (const [name, entry] of wbNoteNodes) {
+        const rect = wbNoteCurrentRect(entry);
+        const overlaps = rect.x < box.x + box.width
+            && rect.x + rect.width > box.x
+            && rect.y < box.y + box.height
+            && rect.y + rect.height > box.y;
+        if (overlaps) hit.push(name);
+    }
+    return hit;
+}
+
+/**
+ * Finish the lasso: a select lasso selects every note it touched, a group
+ * lasso groups them.
+ */
 function wbEndLasso() {
     if (!wbLasso) return;
     const box = wbLassoBox();
-    const moved = wbLasso.moved;
+    const { moved, mode } = wbLasso;
     wbLasso.rect.remove();
     wbLasso = null;
     if (!moved) return;
 
-    const hit = [];
-    if (typeof wbNoteNodes !== 'undefined') {
-        for (const [name, entry] of wbNoteNodes) {
-            const rect = wbNoteCurrentRect(entry);
-            const overlaps = rect.x < box.x + box.width
-                && rect.x + rect.width > box.x
-                && rect.y < box.y + box.height
-                && rect.y + rect.height > box.y;
-            if (overlaps) hit.push(name);
-        }
+    const hit = wbNotesTouching(box);
+    if (mode === 'group') {
+        wbGroupLassoedNotes(hit);
+        return;
     }
     if (typeof wbSetSelectedNotes === 'function') wbSetSelectedNotes(hit);
+}
+
+/**
+ * Lift a set of lassoed notes to the groups they fill.
+ *
+ * A lasso round a whole group and a note beside it means "put that group
+ * and this note together", not "tear the group's notes out of it". So a
+ * note climbs to its group whenever every note of that group was touched,
+ * and on up while the next group out is filled too. The result is what the
+ * new group should contain: notes, and whole groups, each named once.
+ */
+function wbLiftToFilledGroups(names, tasks, rows) {
+    const groups = wbGroupRows(rows);
+    const groupKeys = new Map();
+    for (const name of groups.keys()) groupKeys.set(String(name).toLowerCase(), name);
+    const hit = new Set(names.map(n => String(n).toLowerCase()));
+    const parentOf = new Map();
+    for (const t of (tasks || [])) {
+        if (t && t.name) parentOf.set(String(t.name).toLowerCase(), t.parent || '');
+    }
+
+    const out = [];
+    const seen = new Set();
+    for (const name of names) {
+        let current = name;
+        for (let depth = 0; depth < 32; depth++) {
+            const parentKey = String(parentOf.get(String(current).toLowerCase()) || '').toLowerCase();
+            const group = parentKey && groupKeys.get(parentKey);
+            if (!group) break;
+            const inside = wbGroupNoteDescendants(group, tasks);
+            if (!inside.length || !inside.every(n => hit.has(String(n).toLowerCase()))) break;
+            current = group;
+        }
+        const key = String(current).toLowerCase();
+        if (!seen.has(key)) { seen.add(key); out.push(current); }
+    }
+    return out;
+}
+
+/**
+ * The Group tool's release: group whatever the lasso touched, under a
+ * placeholder title that is put straight into edit.
+ */
+function wbGroupLassoedNotes(noteNames) {
+    const tasks = (typeof wbLastTasks !== 'undefined') ? wbLastTasks : [];
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    const rows = editor ? wbReadBoardRows(editor.value) : [];
+    const members = wbLiftToFilledGroups(noteNames || [], tasks, rows);
+    if (members.length < 2) {
+        if (typeof showToast === 'function') {
+            showToast(noteNames && noteNames.length
+                ? 'Draw round two or more notes (or a group and a note) to group them'
+                : 'Draw round some notes to group them', 'info');
+        }
+        return false;
+    }
+    return wbCreateGroup(members);
 }
 
 function wbCancelLasso() {
@@ -235,7 +313,9 @@ function wbGroupRows(rows) {
 /** How much board a boundary leaves around the notes inside it. */
 const WB_GROUP_PAD = 18;
 /** Room above them for the boundary's own title. */
-const WB_GROUP_TITLE_H = 24;
+const WB_GROUP_TITLE_H = 30;
+/** The title's font size in board pixels; the CSS matches it. */
+const WB_GROUP_TITLE_FONT = 15;
 
 /**
  * The box a group occupies: its members' bounds, padded, with room for the
@@ -378,10 +458,10 @@ function wbRenderGroups(rows, tasks) {
         node.rect.setAttribute('width', String(box.width));
         node.rect.setAttribute('height', String(box.height));
         node.label.setAttribute('x', String(box.x + 12));
-        node.label.setAttribute('y', String(box.y + 17));
+        node.label.setAttribute('y', String(box.y + 21));
         node.label.textContent = name;
         node.undo.setAttribute('x', String(box.x + box.width - 12));
-        node.undo.setAttribute('y', String(box.y + 17));
+        node.undo.setAttribute('y', String(box.y + 20));
         node.undo.setAttribute('aria-label', `Ungroup ${name}`);
     }
 
@@ -393,38 +473,43 @@ function wbRenderGroups(rows, tasks) {
     }
 }
 
-/**
- * Turn the current selection into a group.
- *
- * The name is asked for rather than generated. #874 wants a "gentle naming
- * prompt", and the name is the whole point of a boundary: an unnamed box
- * round four notes says only that somebody drew a box.
- */
-function wbGroupSelection() {
-    const selected = (typeof wbGetSelectedNoteTasks === 'function')
-        ? wbGetSelectedNoteTasks() : [];
-    if (selected.length < 2) return false;
+/** The title a new group starts with, as Obsidian's canvas does. */
+const WB_GROUP_DEFAULT_TITLE = 'Untitled group';
 
+/**
+ * Group `memberNames` (notes, or groups) under a new boundary, and put its
+ * title straight into edit.
+ *
+ * The group is created with a placeholder title rather than after a prompt:
+ * the boundary appears the moment the gesture ends, and naming it is typing
+ * into its own title where it sits on the board -- #874's "gentle naming
+ * prompt", without a dialog in the way. The name still matters (an unnamed
+ * box round four notes says only that somebody drew a box), so the
+ * placeholder is selected, ready to be typed over.
+ *
+ * Returns the new group's name, or false.
+ */
+function wbCreateGroup(memberNames, options) {
+    const members = (memberNames || []).filter(Boolean);
+    if (members.length < 2) return false;
     const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
     if (!editor) return false;
 
-    const suggested = (typeof wbUniqueTaskName === 'function' && typeof wbOutlineTaskNames === 'function')
-        ? wbUniqueTaskName(wbOutlineTaskNames(editor.value), 'New group')
-        : 'New group';
-    const typed = (typeof prompt === 'function')
-        ? prompt(`Name this group of ${selected.length} notes:`, suggested)
-        : suggested;
-    if (typed == null) return false; // cancelled
-    const name = (typeof wbSanitiseChildTaskName === 'function')
-        ? wbSanitiseChildTaskName(typed) : String(typed).trim();
-    if (!name) return false;
-
+    const title = (options && options.title) || WB_GROUP_DEFAULT_TITLE;
+    const clean = (typeof wbSanitiseChildTaskName === 'function')
+        ? wbSanitiseChildTaskName(title) : String(title).trim();
     const unique = (typeof wbUniqueTaskName === 'function' && typeof wbOutlineTaskNames === 'function')
-        ? wbUniqueTaskName(wbOutlineTaskNames(editor.value), name)
-        : name;
+        ? wbUniqueTaskName(wbOutlineTaskNames(editor.value), clean)
+        : clean;
+    if (!unique) return false;
 
-    const next = wbGroupTasksInPlanText(editor.value, selected, unique);
-    if (next === editor.value) return false;
+    const next = wbGroupTasksInPlanText(editor.value, members, unique);
+    if (next === editor.value) {
+        if (typeof showToast === 'function') {
+            showToast('Those notes cannot be grouped together: one of them already contains another', 'info');
+        }
+        return false;
+    }
 
     // The boundary row goes in the same commit as the outline move, so the
     // group never exists as a summary task with no boundary -- which would
@@ -433,7 +518,16 @@ function wbGroupSelection() {
     const withRow = wbUpsertGroupRow(next, unique);
     if (!wbCommitMarkdown(withRow)) return false;
     if (typeof wbSetSelectedNotes === 'function') wbSetSelectedNotes([]);
-    return true;
+    if (!options || options.editTitle !== false) wbEditGroupTitleWhenDrawn(unique);
+    return unique;
+}
+
+/** Turn the current selection into a group (the selection toolbar's button). */
+function wbGroupSelection() {
+    const selected = (typeof wbGetSelectedNoteTasks === 'function')
+        ? wbGetSelectedNoteTasks() : [];
+    if (selected.length < 2) return false;
+    return wbCreateGroup(selected) !== false;
 }
 
 /**
@@ -448,7 +542,7 @@ function wbGroupSelectionFromRibbon() {
         ? wbGetSelectedNoteTasks() : [];
     if (selected.length < 2) {
         if (typeof showToast === 'function') {
-            showToast('Select two or more notes to group: shift-click them, or shift-drag round them', 'info');
+            showToast('Select two or more notes to group: shift-click them, shift-drag round them, or pick the Group tool (g) and drag round them', 'info');
         }
         return false;
     }
@@ -478,11 +572,14 @@ function wbParsedTaskName(typed) {
         : String(typed || '').trim();
 }
 
-function wbRenameGroup(groupName) {
+/**
+ * Rename a group to `typed`. The boundary row keys off the task name, so it
+ * follows the rename in the same commit or the group loses its boundary.
+ * Returns the new name, or false when nothing changed.
+ */
+function wbRenameGroupTo(groupName, typed) {
     const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
-    if (!editor || !groupName) return false;
-    const typed = (typeof prompt === 'function') ? prompt('Rename this group:', groupName) : null;
-    if (typed == null) return false;
+    if (!editor || !groupName || typed == null) return false;
     const name = (typeof wbSanitiseChildTaskName === 'function')
         ? wbSanitiseChildTaskName(typed) : String(typed).trim();
     if (!name || name === groupName) return false;
@@ -492,11 +589,89 @@ function wbRenameGroup(groupName) {
 
     const renamed = wbRenameTaskInPlanText(editor.value, groupName, name);
     if (renamed === editor.value) return false;
-    // The boundary row keys off the task name, so it has to follow the
-    // rename in the same commit or the group loses its boundary.
     const rows = wbReadBoardRows(renamed).map(row =>
         (row && row.kind === 'group' && row.task === groupName) ? { ...row, task: taskName } : row);
-    return wbCommitMarkdown(updatePlanWhiteboardText(renamed, rows));
+    return wbCommitMarkdown(updatePlanWhiteboardText(renamed, rows)) ? taskName : false;
+}
+
+/** Double-clicking a group's title edits it in place. */
+function wbRenameGroup(groupName) {
+    return wbEditGroupTitle(groupName);
+}
+
+// ── Editing a title in place ────────────────────────────────────────────
+//
+// The title is SVG text on the panned layer, which cannot take a caret, so
+// editing lays an HTML input over it at the same screen position and font
+// size. Enter or clicking away keeps what was typed; Escape keeps the old
+// title.
+
+let wbGroupTitleEditor = null;
+
+function wbEditGroupTitle(groupName) {
+    if (typeof document === 'undefined') return false;
+    const node = wbGroupNodes.get(groupName);
+    const host = document.getElementById('whiteboardContainer');
+    if (!node || !host) return false;
+    wbCloseGroupTitleEditor(true);
+
+    const hostRect = host.getBoundingClientRect();
+    const boxRect = node.rect.getBoundingClientRect();
+    const labelRect = node.label.getBoundingClientRect();
+    const zoom = (typeof wbZoom === 'number' && wbZoom > 0) ? wbZoom : 1;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'wb-group-title-input';
+    input.value = groupName;
+    input.setAttribute('aria-label', 'Group title');
+    input.style.left = `${Math.round(boxRect.left - hostRect.left + 6 * zoom)}px`;
+    input.style.top = `${Math.round(labelRect.top - hostRect.top - 4)}px`;
+    input.style.width = `${Math.max(140, Math.round(boxRect.width - 90 * zoom))}px`;
+    input.style.fontSize = `${Math.max(10, Math.round(WB_GROUP_TITLE_FONT * zoom))}px`;
+
+    node.g.classList.add('wb-group-editing');
+    const editor = { groupName, input, node, done: false };
+    wbGroupTitleEditor = editor;
+
+    input.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); wbCloseGroupTitleEditor(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); wbCloseGroupTitleEditor(false); }
+    });
+    // A press inside the field is caret placement, never a pan or a lasso.
+    input.addEventListener('mousedown', (e) => e.stopPropagation());
+    input.addEventListener('blur', () => wbCloseGroupTitleEditor(true));
+
+    host.appendChild(input);
+    input.focus();
+    input.select();
+    return true;
+}
+
+function wbCloseGroupTitleEditor(keep) {
+    const editor = wbGroupTitleEditor;
+    if (!editor || editor.done) return;
+    editor.done = true;
+    wbGroupTitleEditor = null;
+    const typed = editor.input.value;
+    editor.input.remove();
+    editor.node.g.classList.remove('wb-group-editing');
+    const host = (typeof document !== 'undefined') ? document.getElementById('whiteboardContainer') : null;
+    if (host && typeof host.focus === 'function') host.focus({ preventScroll: true });
+    if (keep) wbRenameGroupTo(editor.groupName, typed);
+}
+
+/**
+ * Open the title editor once `groupName`'s boundary is on the board. The
+ * board redraws from the plan a tick after a commit, so the boundary a
+ * group was just created with does not exist yet when the commit returns.
+ */
+function wbEditGroupTitleWhenDrawn(groupName, triesLeft) {
+    const left = (triesLeft == null) ? 40 : triesLeft;
+    if (wbGroupNodes.has(groupName)) { wbEditGroupTitle(groupName); return; }
+    if (left <= 0 || typeof setTimeout !== 'function') return;
+    setTimeout(() => wbEditGroupTitleWhenDrawn(groupName, left - 1), 25);
 }
 
 // ── Merge ───────────────────────────────────────────────────────────────
@@ -614,6 +789,18 @@ function wbGroupMouseDown(e, groupName) {
     // second -- wbGroupMouseUp() only commits a drag that actually moved.
     e.preventDefault();
     e.stopPropagation();
+
+    // With the Group tool on, a drag that starts inside a boundary draws a
+    // lasso there, which is how a group is made inside another group. The
+    // title stays the handle that moves the whole group, in either tool.
+    const onTitle = e.target && e.target.classList
+        && e.target.classList.contains('wb-group-title');
+    if (!onTitle && typeof wbCanvasTool !== 'undefined' && wbCanvasTool === 'group'
+        && !(typeof wbSpacePan !== 'undefined' && wbSpacePan)) {
+        if (typeof wbClearNoteSelection === 'function') wbClearNoteSelection();
+        wbBeginLasso(e.clientX, e.clientY, e.shiftKey ? 'select' : 'group');
+        return;
+    }
 
     const tasks = (typeof wbLastTasks !== 'undefined') ? wbLastTasks : [];
     const members = wbGroupNoteDescendants(groupName, tasks);

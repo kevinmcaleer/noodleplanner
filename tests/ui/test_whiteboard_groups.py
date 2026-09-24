@@ -3,8 +3,9 @@
 Two gestures from the issue's "join/group" half, and the multi-select they
 both need:
 
-*   **Group** — lasso or shift-click several notes, then "Group these". A
-    titled boundary is drawn around them and a summary task appears
+*   **Group** — drag round several notes with the Group tool, or
+    shift-select them and press "Group these". A boundary titled "Untitled
+    group", its title already in edit, is drawn around them and a summary task appears
     underneath, which the user is never told about: the board is a lens that
     picks friendlier language for a structure the plan already has.
 *   **Merge** — drag one note onto another, or select several and Combine.
@@ -109,16 +110,38 @@ def outline(page):
     return [line for line in body.split("\n") if line.strip()]
 
 
-def group_selection(page, name):
-    """Group the current selection and wait for the boundary to be on screen.
+def name_new_group(page, name):
+    """Type `name` into a just-created group's title and press Enter.
+
+    A new group starts as "Untitled group" with its title in edit, the way
+    Obsidian's canvas does it, so naming is typing over the selected
+    placeholder rather than answering a dialog.
 
     Waited on the board rather than on the plan text: the commit rewrites the
     editor and the board re-renders from it a tick later, so a wait that stops
     at the text hands back a page whose boundary does not exist yet -- and
     every caller here goes straight on to measure one."""
-    page.once("dialog", lambda d: d.accept(name))
-    page.click(".wb-selection-group")
+    field = page.locator(".wb-group-title-input")
+    field.wait_for(state="visible")
+    field.fill(name)
+    field.press("Enter")
     page.wait_for_selector(f'.wb-group[data-wb-group="{name}"] .wb-group-box')
+
+
+def group_selection(page, name):
+    """Group the current selection and name the group."""
+    page.click(".wb-selection-group")
+    name_new_group(page, name)
+
+
+def group_tool_lasso(page, x1, y1, x2, y2):
+    """Drag from (x1, y1) to (x2, y2) with the Group tool on."""
+    page.click("#whiteboardGroupToolBtn")
+    page.mouse.move(x1, y1)
+    page.mouse.down()
+    for i in range(1, 9):
+        page.mouse.move(x1 + (x2 - x1) * i / 8, y1 + (y2 - y1) * i / 8)
+    page.mouse.up()
 
 
 class TestMultiSelect:
@@ -317,7 +340,6 @@ class TestGrouping:
         page.evaluate(
             "() => wbGroupTasksInPlanText"
         )  # present, so the helper below is the real one
-        page.once("dialog", lambda d: d.accept("Phase 1"))
         page.evaluate(
             """() => {
                 const editor = document.getElementById('planEditor');
@@ -382,6 +404,138 @@ class TestGrouping:
         assert page.locator(".wb-note").count() == 3
 
 
+class TestTheGroupTool:
+    """The canvas tool toggle: Move pans with a drag, Group lassoes with one
+    and groups what the lasso touched on release, under a title that is put
+    straight into edit -- the Obsidian canvas gesture."""
+
+    def test_the_toggle_says_which_tool_is_on(self, page, app_server):
+        board(page, app_server)
+        move = page.locator("#whiteboardMoveToolBtn")
+        group = page.locator("#whiteboardGroupToolBtn")
+        assert move.get_attribute("aria-pressed") == "true"
+        assert group.get_attribute("aria-pressed") == "false"
+
+        group.click()
+        assert move.get_attribute("aria-pressed") == "false"
+        assert group.get_attribute("aria-pressed") == "true"
+
+        # The keyboard switches too: v for Move, g for Group.
+        page.focus("#whiteboardContainer")
+        page.keyboard.press("v")
+        assert move.get_attribute("aria-pressed") == "true"
+        page.keyboard.press("g")
+        assert group.get_attribute("aria-pressed") == "true"
+
+    def test_a_drag_groups_what_it_touches_under_an_editable_title(
+        self, page, app_server
+    ):
+        board(page, app_server)
+        a = note(page, "Alpha").bounding_box()
+        b = note(page, "Beta").bounding_box()
+        group_tool_lasso(
+            page, a["x"] - 12, a["y"] - 12, b["x"] + b["width"] / 2, b["y"] + 20
+        )
+
+        field = page.locator(".wb-group-title-input")
+        field.wait_for(state="visible")
+        assert field.input_value() == "Untitled group"
+        assert page.locator(".wb-group-box").count() == 1
+        assert page.locator(".wb-lasso").count() == 0
+
+        name_new_group(page, "Discovery")
+        lines = outline(page)
+        start = lines.index("Discovery")
+        assert lines[start + 1] == "  Alpha"
+        assert "  Beta" in lines[start:]
+        assert page.locator(".wb-group-title").text_content() == "Discovery"
+        assert page.locator(".wb-group-title-input").count() == 0
+
+    def test_escape_keeps_the_placeholder_title(self, page, app_server):
+        board(page, app_server)
+        a = note(page, "Alpha").bounding_box()
+        b = note(page, "Beta").bounding_box()
+        group_tool_lasso(
+            page, a["x"] - 12, a["y"] - 12, b["x"] + b["width"] / 2, b["y"] + 20
+        )
+        field = page.locator(".wb-group-title-input")
+        field.wait_for(state="visible")
+        field.press("Escape")
+        assert page.locator(".wb-group-title-input").count() == 0
+        assert page.locator(".wb-group-title").text_content() == "Untitled group"
+
+    def test_a_drag_round_one_note_makes_no_group(self, page, app_server):
+        board(page, app_server)
+        a = note(page, "Alpha").bounding_box()
+        group_tool_lasso(page, a["x"] - 12, a["y"] - 12, a["x"] + 40, a["y"] + 40)
+        page.wait_for_timeout(150)
+        assert page.locator(".wb-group-box").count() == 0
+        assert "Untitled group" not in plan_text(page)
+
+    def test_a_drag_in_the_group_tool_does_not_pan(self, page, app_server):
+        board(page, app_server)
+        before = page.evaluate("() => [wbPanX, wbPanY]")
+        a = note(page, "Alpha").bounding_box()
+        group_tool_lasso(page, a["x"] - 40, a["y"] - 40, a["x"] - 5, a["y"] - 20)
+        assert page.evaluate("() => [wbPanX, wbPanY]") == before
+
+    def test_a_group_and_a_note_lassoed_together_nest(self, page, app_server):
+        """Lassoing every note of a group and one more groups the group,
+        rather than pulling its notes out of it."""
+        board(page, app_server)
+        select(page, ["Alpha", "Beta"])
+        group_selection(page, "Discovery")
+
+        a = note(page, "Alpha").bounding_box()
+        g = note(page, "Gamma").bounding_box()
+        group_tool_lasso(
+            page, a["x"] - 30, a["y"] - 60, g["x"] + 20, g["y"] + 20
+        )
+        name_new_group(page, "Phase 1")
+        assert outline(page) == [
+            "Phase 1",
+            "  Discovery",
+            "    Alpha",
+            "      Alpha one",
+            "      Alpha two",
+            "    Beta",
+            "      Beta one",
+            "  Gamma",
+            "    Gamma one",
+        ]
+
+    def test_double_clicking_a_title_edits_it_in_place(self, page, app_server):
+        board(page, app_server)
+        select(page, ["Alpha", "Beta"])
+        group_selection(page, "Discovery")
+        page.locator(".wb-group-title").dblclick()
+        field = page.locator(".wb-group-title-input")
+        field.wait_for(state="visible")
+        assert field.input_value() == "Discovery"
+        field.fill("Research")
+        field.press("Enter")
+        page.wait_for_selector('.wb-group[data-wb-group="Research"]')
+        assert "Discovery" not in plan_text(page)
+
+
+class TestPanning:
+    """A two-finger trackpad swipe arrives as a plain wheel event and pans
+    the board, as on Obsidian's canvas, in either tool."""
+
+    def test_a_two_finger_swipe_pans(self, page, app_server):
+        board(page, app_server)
+        page.click("#whiteboardGroupToolBtn")
+        before = page.evaluate("() => [wbPanX, wbPanY, wbZoom]")
+        box = page.locator("#whiteboardContainer").bounding_box()
+        page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] - 30)
+        page.mouse.wheel(40, 60)
+        page.wait_for_timeout(100)
+        after = page.evaluate("() => [wbPanX, wbPanY, wbZoom]")
+        assert after[0] == before[0] - 40
+        assert after[1] == before[1] - 60
+        assert after[2] == before[2], "a swipe pans; only a pinch zooms"
+
+
 class TestTheRibbonGroupButton:
     """Issue #1341: the Whiteboard ribbon's Arrange -> Group button was a
     "not available yet" stub although the grouping above already existed.
@@ -402,11 +556,8 @@ class TestTheRibbonGroupButton:
     def test_it_groups_the_selected_notes(self, page, app_server):
         board(page, app_server)
         select(page, ["Alpha", "Beta"])
-        page.once("dialog", lambda d: d.accept("Discovery"))
         self.ribbon_group(page).click()
-        page.wait_for_selector(
-            '.wb-group[data-wb-group="Discovery"] .wb-group-box'
-        )
+        name_new_group(page, "Discovery")
         lines = outline(page)
         start = lines.index("Discovery")
         assert lines[start:start + 6] == [
