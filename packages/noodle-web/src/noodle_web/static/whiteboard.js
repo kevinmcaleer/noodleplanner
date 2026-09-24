@@ -167,7 +167,7 @@ function wbLoadViewport() {
 function wbApplyTransform(animate) {
     if (!wbGroup) return;
     // The first placement has nothing on screen to animate from.
-    if (!wbGroup.hasAttribute('transform')) animate = false;
+    if (!wbGroup.getAttribute('transform')) animate = false;
     const transformStr = `translate(${wbPanX}, ${wbPanY}) scale(${wbZoom})`;
     const groups = [wbGroup, wbOverlayGroup].filter(Boolean);
     const target = { zoom: wbZoom, panX: wbPanX, panY: wbPanY };
