@@ -575,12 +575,19 @@ def capture_how_to(driver, base_url):
     time.sleep(0.6)
     capture_full(driver, section / "wb-01-whiteboard-notes.png")
 
-    # wb-02: Note colour menu (issue #849, palette replaced by #1017) —
-    # open the first note's `...` menu so the fixed pastel swatch grid
-    # is visible.
-    menu_btn = driver.find_elements(By.CSS_SELECTOR, ".wb-note-menu-btn")
-    if menu_btn:
-        menu_btn[0].click()
+    # wb-02: Note colour swatches (issue #849, palette replaced by #1017) —
+    # select the first note and press Colour on the object toolbar above
+    # it, so both the toolbar and the fixed pastel swatch grid are visible.
+    colour_btn = driver.execute_script(
+        """
+        const first = document.querySelector('#whiteboardContainer .wb-note');
+        if (!first || typeof wbSetSelectedNote !== 'function') return null;
+        wbSetSelectedNote(first.dataset.wbTask);
+        return typeof wbObjectToolbarButton === 'function' ? wbObjectToolbarButton('colour') : null;
+        """
+    )
+    if colour_btn:
+        colour_btn.click()
         time.sleep(0.4)
         capture_full(driver, section / "wb-02-note-colour-menu.png")
         driver.execute_script(

@@ -677,18 +677,16 @@ class TestTitleOnlyTier:
                 return {
                     coach: visible('.wb-note-coach-btn'),
                     link: visible('.wb-note-link-handle'),
-                    menu: visible('.wb-note-menu-btn'),
                     body: visible('.wb-note-body'),
                 };
             }"""
         )
         assert shown["coach"] is False, "the coach button survives the title-only tier"
         assert shown["body"] is False, "the body should already be hidden at this tier"
-        # The two that are worth hitting at 40%: noodling two distant notes
-        # together is what you zoom out to do, and the menu is the way to
-        # everything the other four buttons did.
+        # The one worth hitting at 40%: noodling two distant notes together is
+        # what you zoom out to do. (The menu is on the object toolbar now,
+        # which floats outside the card at a fixed size.)
         assert shown["link"] is True, "the link handle must survive the title-only tier"
-        assert shown["menu"] is True, "the ⋮ menu must survive the title-only tier"
 
 
 class TestHeaderGrabPoint:
@@ -742,29 +740,14 @@ class TestHeaderGrabPoint:
             "the parking lot silently does not park"
         )
 
+    # 160px used to be an xfail: its midpoint landed on the coach button
+    # while the header still carried a `...` menu button as well. The menu
+    # moved to the object toolbar (whiteboard-object-toolbar.js), and the
+    # cluster that is left clears the midpoint at every tier.
     @pytest.mark.parametrize(
         "width",
         [
-            pytest.param(
-                160,
-                marks=pytest.mark.xfail(
-                    reason=(
-                        "The last tier that still collides, and the only one "
-                        "left after the header shed its quick-assign, date and "
-                        "promote buttons: at 160px the midpoint is 80 and the "
-                        "three remaining controls occupy [72, 150], so it lands "
-                        "on the coach button. It is a dead spot, not a wrong "
-                        "gesture -- the press is swallowed and the note does "
-                        "not move. Clearing it needs the cluster under ~70px, "
-                        "which three 22px buttons and two 6px gaps (78px) "
-                        "cannot reach by tightening: something has to leave the "
-                        "header, or shrink at this tier the way .wb-note-title-"
-                        "only already drops two of them. That is a maintainer's "
-                        "design call, so this records the state."
-                    ),
-                    strict=True,
-                ),
-            ),
+            160,
             260,
         ],
     )
@@ -795,7 +778,7 @@ class TestHeaderGrabPoint:
                 const cx = r.left + r.width / 2;
                 const cy = r.top + r.height / 2;
                 const controls = [
-                    '.wb-note-link-handle', '.wb-note-menu-btn',
+                    '.wb-note-link-handle',
                     '.wb-note-coach-btn', '.wb-note-smart-btn',
                 ];
                 for (const sel of controls) {

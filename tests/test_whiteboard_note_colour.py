@@ -209,11 +209,11 @@ def wait_for_stable_plan_text(driver, timeout=10.0, quiet=1.5, interval=0.25):
 def menu_btn_for(driver, task_name):
     return driver.execute_script(
         """
-        const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
-        for (const n of notes) {
-            if (n.dataset.wbTask === arguments[0]) return n.querySelector('.wb-note-menu-btn');
-        }
-        return null;
+        // The note menu hangs off the object toolbar's More button, which
+        // appears above a note once it is selected.
+        if (!wbNoteNodes.has(arguments[0])) return null;
+        wbSetSelectedNote(arguments[0]);
+        return wbObjectToolbarButton('more');
         """,
         task_name,
     )
@@ -382,7 +382,7 @@ class TestNoteMenuOpenClose:
             lambda d: d.find_elements(By.ID, "wbNoteMenu")
         )
         active = browser.execute_script("return document.activeElement.className;")
-        assert "wb-note-menu-btn" in active, "focus must return to the `...` button on Escape"
+        assert "wb-object-toolbar-more" in active, "focus must return to the More button on Escape"
 
     def test_outside_click_closes_menu(self, browser, app_server):
         open_app(browser, app_server)
@@ -862,12 +862,12 @@ class TestSelectedNoteColourButton:
             EC.presence_of_element_located((By.ID, "wbNoteMenu"))
         )
         swatches = menu.find_elements(By.CSS_SELECTOR, ".wb-note-menu-swatch")
-        assert swatches, "must be the same colour-swatch panel a note's own `...` menu opens"
+        assert swatches, "must be the same colour-swatch panel a note's own menu opens"
 
         # And it must be *Build*'s panel, not some other note's -- picking a
         # swatch here (straight from this already-open menu -- reopening it
         # via pick_swatch()'s own open_menu() would instead *toggle it
-        # closed*, since menuBtn's click handler treats a second click on
+        # closed*, since the More button's click handler treats a second click on
         # the same already-open task as "close") should recolour Build.
         target = next(s for s in swatches if s.get_attribute("title").upper() == "#FFAFA3")
         target.click()

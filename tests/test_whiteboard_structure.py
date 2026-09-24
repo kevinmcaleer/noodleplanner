@@ -467,7 +467,7 @@ def test_promoting_a_text_note_uncomments_it_into_a_task(app_server, browser):
     thought_text = get_plan_text(browser)
     assert outline_only(thought_text).splitlines()[-1] == "// New thought \"Ask legal about 'the' licence\""
 
-    browser.execute_script("wbOpenNoteMenu('New thought', document.querySelector('.wb-note-menu-btn'));")
+    browser.execute_script("wbSetSelectedNote('New thought'); wbOpenNoteMenu('New thought', wbObjectToolbarButton('more'));")
     promote = WebDriverWait(browser, 3).until(
         EC.element_to_be_clickable((By.CSS_SELECTOR, "#wbNoteMenu .wb-note-menu-promote-thought"))
     )

@@ -1011,11 +1011,11 @@ class TestPromoteToTask:
         def menu_btn_for(task_name):
             return browser.execute_script(
                 """
-                const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
-                for (const n of notes) {
-                    if (n.dataset.wbTask === arguments[0]) return n.querySelector('.wb-note-menu-btn');
-                }
-                return null;
+                // The note menu hangs off the object toolbar's More button, which
+                // appears above a note once it is selected.
+                if (!wbNoteNodes.has(arguments[0])) return null;
+                wbSetSelectedNote(arguments[0]);
+                return wbObjectToolbarButton('more');
                 """,
                 task_name,
             )

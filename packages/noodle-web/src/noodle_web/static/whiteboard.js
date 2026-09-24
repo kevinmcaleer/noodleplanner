@@ -596,6 +596,29 @@ function whiteboardFocusNote(taskName) {
 }
 
 /**
+ * Zoom and pan so a board rect fills the visible canvas, with a margin --
+ * the object toolbar's "Zoom to". Unlike whiteboardFocusNote() it zooms out
+ * as well as in, so a group bigger than the screen is framed whole.
+ */
+function wbZoomToBoardRect(rect) {
+    if (!wbSvg || !rect) return false;
+    const visible = wbVisibleCanvasRect();
+    if (!visible.width || !visible.height) return false;
+    const padding = 60;
+    wbZoom = wbClampZoom(Math.min(
+        visible.width / Math.max(1, rect.width + padding * 2),
+        visible.height / Math.max(1, rect.height + padding * 2)
+    ));
+    wbPanX = visible.x + visible.width / 2 - (rect.x + rect.width / 2) * wbZoom;
+    wbPanY = visible.y + visible.height / 2 - (rect.y + rect.height / 2) * wbZoom;
+    wbApplyTransform(true);
+    wbUpdateZoomLabel();
+    wbUpdateZoomButtons();
+    wbScheduleSaveViewport();
+    return true;
+}
+
+/**
  * Bring a new note on screen: if the note for `taskName` is not wholly
  * inside the visible canvas (the canvas minus the outline panel), pan --
  * never zoom -- so it sits in the middle of it. No-op (returns false) when
@@ -761,6 +784,7 @@ function wbHandleMouseDown(e) {
         if (typeof wbClearNoodleSelection === 'function') wbClearNoodleSelection();
         if (typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
         if (!e.shiftKey && typeof wbClearNoteSelection === 'function') wbClearNoteSelection();
+        if (typeof wbClearGroupSelection === 'function') wbClearGroupSelection();
         if (typeof wbClearTextSelection === 'function') wbClearTextSelection();
         if (typeof wbBeginLasso === 'function'
             && wbBeginLasso(e.clientX, e.clientY, e.shiftKey ? 'add' : 'select')) {
@@ -906,8 +930,7 @@ function wbHandleContextMenu(e) {
     if (note && note.dataset.wbTask) {
         e.preventDefault();
         if (fromKeyboard) {
-            const entry = wbNoteNodes.get(note.dataset.wbTask);
-            if (entry && entry.refs && entry.refs.menuBtn) wbOpenNoteMenu(note.dataset.wbTask, entry.refs.menuBtn);
+            wbOpenNoteMenuFromKeyboard(note.dataset.wbTask);
         } else {
             wbOpenNoteMenuAt(note.dataset.wbTask, e.clientX, e.clientY);
         }
@@ -917,9 +940,8 @@ function wbHandleContextMenu(e) {
     if (fromKeyboard && target === container) {
         e.preventDefault();
         const selected = wbGetSelectedNoteTask();
-        const entry = selected && wbNoteNodes.get(selected);
-        if (entry && entry.refs && entry.refs.menuBtn) {
-            wbOpenNoteMenu(selected, entry.refs.menuBtn);
+        if (selected && wbNoteNodes.has(selected)) {
+            wbOpenNoteMenuFromKeyboard(selected);
         } else {
             const centre = wbCanvasCenter();
             const rect = wbSvg.getBoundingClientRect();
@@ -965,6 +987,7 @@ function wbHandleKeydown(e) {
         if (typeof wbCutSelectedDependencyNoodle === 'function' && wbCutSelectedDependencyNoodle()) { e.preventDefault(); return; }
     }
     if (e.key === 'Escape') {
+        if (typeof wbClearGroupSelection === 'function') wbClearGroupSelection();
         if (typeof wbClearNoodleSelection === 'function') wbClearNoodleSelection();
         if (typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
         if (typeof wbClearTextSelection === 'function') wbClearTextSelection();

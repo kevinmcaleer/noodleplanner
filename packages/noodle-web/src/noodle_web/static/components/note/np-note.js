@@ -75,7 +75,6 @@
 // means a story only has to load np-note.
 import '../checkbox/np-checkbox.js';
 import '../resource-stack/np-resource-stack.js';
-import '../menu/np-menu.js';
 // The note's markup, shared with the board's own builders (#1249) -- see that
 // file's header for why it is a separate module rather than living here.
 import {
@@ -202,13 +201,10 @@ export class NpNote extends HTMLElement {
         // wbCreateNoteNode() also builds from (#1249). This used to be ~50
         // lines of element creation duplicating that function element for
         // element -- the "Storybook is a parallel drawing" problem the epic
-        // exists to close. What is left here is what only a component does:
-        // owning the menu button's click, since the board wires its own.
-        const { card, rails, refs } = buildNoteCard();
-        refs.menuBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._toggleMenu(refs.menuBtn);
-        });
+        // exists to close. The note has no `...` button of its own any more:
+        // its actions live in the board's floating object toolbar
+        // (whiteboard-object-toolbar.js), which is not part of the note.
+        const { card, rails } = buildNoteCard();
         // Beside the card, not inside it -- the card and its body both clip
         // horizontally, so a rail drawn within either never leaves the note.
         // The host is the positioning context; `_render()` keeps it relative.
@@ -495,111 +491,4 @@ export class NpNote extends HTMLElement {
         // arbitrary string.
         r.progress.textContent = freeform || !total ? '' : `${done} / ${total}`;
     }
-
-    // ── The ⋮ menu ──────────────────────────────────────────────────────
-    //
-    // The pilot rendered a menu button and bound nothing at all to it, so the
-    // one control every note carries did nothing in Storybook. This builds the
-    // real thing: the same six sections wbBuildNoteMenu() composes, in the same
-    // order, with the same classes -- a swatch grid plus "Default colour",
-    // Rename, a conditional Unlink, a conditional Promote, Open task details,
-    // Send to parking lot, Remove from board, Delete task, and three dividers.
-    //
-    // Appended to document.body rather than into the card, because
-    // `.wb-note-menu` is `position: fixed` and the card is `overflow: hidden`.
-
-    _toggleMenu(btn) {
-        const open = document.getElementById('npNoteMenu');
-        if (open) { this._closeMenu(btn); return; }
-
-        // The same six sections wbBuildNoteMenu() composes, as data (#1247).
-        // <np-menu> emits the dividers, the roles and the keyboard model; this
-        // says only what is in the menu and under what condition.
-        const parent = this.getAttribute('parent');
-        const freeform = this.hasAttribute('freeform');
-        const thought = this.hasAttribute('thought');
-        const colour = this.getAttribute('colour') || this.getAttribute('color') || '';
-
-        const structure = [{ id: 'rename', label: 'Rename' }];
-        if (parent && !thought) structure.push({ id: 'unlink', label: `Unlink from "${parent}"` });
-        if (thought) {
-            // wbAppendThoughtMenuSection(): a thought has no task to open,
-            // park or leave behind, so its menu ends here.
-            structure.push({
-                id: 'promote-thought', label: 'Promote to task',
-                className: 'wb-note-menu-action wb-note-menu-promote-thought',
-            });
-        } else if (freeform) {
-            structure.push({
-                id: 'promote', label: 'Make comment a subtask', className: 'wb-note-menu-promote',
-            });
-        }
-        if (!thought) {
-            structure.push({
-                id: 'open-task', label: 'Open task details', className: 'wb-note-menu-open-task',
-            });
-        }
-
-        const menu = document.createElement('np-menu');
-        menu.id = 'npNoteMenu';
-        menu.setAttribute('aria-label', `Options for ${this.task}`);
-        menu.sections = [
-            { items: [{ id: 'default-colour', label: 'Default colour', className: 'wb-note-menu-default' }] },
-            {
-                label: 'Colour',
-                swatches: WB_NOTE_PASTEL_COLOURS,
-                selected: colour,
-                checkColour: (swatch) => contrastTextColour(swatch) || '',
-            },
-            { items: structure },
-            ...(thought ? [
-                { items: [{ id: 'delete', label: 'Delete note', destructive: true }] },
-            ] : [
-                // Neutral on purpose: parking relocates the text, it does not
-                // destroy it.
-                { items: [{ id: 'park', label: 'Send to parking lot' }] },
-                {
-                    items: [
-                        { id: 'remove', label: 'Remove from board', destructive: true },
-                        { id: 'delete', label: 'Delete task', destructive: true, confirms: true },
-                    ],
-                },
-            ]),
-        ];
-        menu.addEventListener('dismiss', () => this._closeMenu(btn));
-        menu.addEventListener('select', () => this._closeMenu(btn));
-
-        document.body.appendChild(menu);
-        const rect = btn.getBoundingClientRect();
-        menu.style.left = `${Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, rect.left))}px`;
-        menu.style.top = `${rect.bottom + 4}px`;
-        btn.setAttribute('aria-expanded', 'true');
-
-        const first = menu.items[0];
-        if (first) first.focus();
-
-        this._menuOutside = (e) => {
-            if (menu.contains(e.target) || btn.contains(e.target)) return;
-            this._closeMenu(btn);
-        };
-        setTimeout(() => document.addEventListener('mousedown', this._menuOutside, true), 0);
-    }
-
-    _closeMenu(btn) {
-        const menu = document.getElementById('npNoteMenu');
-        if (menu) menu.remove();
-        if (this._menuOutside) {
-            document.removeEventListener('mousedown', this._menuOutside, true);
-            this._menuOutside = null;
-        }
-        if (btn) {
-            btn.setAttribute('aria-expanded', 'false');
-            btn.focus();
-        }
-    }
-}
-
-
-if (!customElements.get('np-note')) {
-    customElements.define('np-note', NpNote);
 }

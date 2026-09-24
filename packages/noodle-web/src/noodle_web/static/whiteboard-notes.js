@@ -416,7 +416,11 @@ function wbApplySelection(names) {
 
     wbSelectedNoteTasks = next;
     wbSelectedNoteTask = last;
+    // A note and a group are never selected at once: the object toolbar
+    // floats over one thing.
+    if (next.size && typeof wbClearGroupSelection === 'function') wbClearGroupSelection();
     if (typeof wbUpdateSelectionToolbar === 'function') wbUpdateSelectionToolbar();
+    if (typeof wbUpdateObjectToolbar === 'function') wbUpdateObjectToolbar();
 }
 
 /** Select (or, with a falsy name, deselect) one note, updating the
@@ -2046,15 +2050,11 @@ function wbCreateNoteNode() {
     // across the re-renders that reuse this same node for the same task.
     const { card, rails, refs } = globalThis.NoodleNoteMarkup.buildNoteCard();
     const {
-        header, title, menuBtn, linkHandle, coachBtn, pinBtn,
+        header, title, linkHandle, coachBtn, pinBtn,
         parentCaption, body, footer, progress, resizeHandle,
         railHint, railDep,
     } = refs;
 
-    // Colour swatches are the menu button's contents for issue #849; two
-    // later issues (#847 "Remove from board", #850 "Open task") add more
-    // items to the same menu -- see wbBuildNoteMenu()'s doc comment for
-    // the structure they extend.
     // The pin (issue #1291): unpin this note from the board. Deliberately the
     // same wbRemoveNoteFromBoard() call the `...` menu's "Remove from board"
     // item and the outline panel's own unpin control make -- one action, three
@@ -2072,17 +2072,6 @@ function wbCreateNoteNode() {
     // wbNoteHeaderMouseDown()), but a press that starts here must not bubble
     // into a selection change either.
     pinBtn.addEventListener('mousedown', (e) => e.stopPropagation());
-
-    menuBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const taskName = fo.dataset.wbTask;
-        if (!taskName) return;
-        if (wbNoteMenuState && wbNoteMenuState.taskName === taskName) {
-            wbCloseNoteMenu();
-        } else {
-            wbOpenNoteMenu(taskName, menuBtn);
-        }
-    });
 
     // The noodle handle: drag from here to another note to make that note
     // a child of this one. Lives in the header rather than floating over
@@ -2118,7 +2107,7 @@ function wbCreateNoteNode() {
     const entry = {
         fo,
         refs: {
-            card, header, title, menuBtn, linkHandle, coachBtn, pinBtn, parentCaption,
+            card, header, title, linkHandle, coachBtn, pinBtn, parentCaption,
             body, footer, progress, resizeHandle, rails, railHint, railDep,
         },
     };
@@ -5020,17 +5009,37 @@ function wbOpenNoteMenu(taskName, btn, at) {
 }
 
 /**
- * The same `...` menu, opened by a right-click on the note (see
- * wbHandleContextMenu() in whiteboard.js) at the pointer rather than under
- * the button. The button still owns it -- it is what Escape hands focus
- * back to, and its aria-expanded is what says the menu is open -- so the
- * two ways in are one menu, not two that could drift apart.
+ * The same menu, opened by a right-click on the note (see
+ * wbHandleContextMenu() in whiteboard.js) at the pointer. The note is
+ * selected first, so its object toolbar is up and the toolbar's More button
+ * owns the menu -- it is what Escape hands focus back to, and its
+ * aria-expanded is what says the menu is open -- so the ways in are one
+ * menu, not several that could drift apart.
  */
 function wbOpenNoteMenuAt(taskName, clientX, clientY) {
+    if (!wbNoteNodes.has(taskName)) return;
+    wbOpenNoteMenu(taskName, wbNoteMenuOwner(taskName), { x: clientX, y: clientY });
+}
+
+/**
+ * Select `taskName` and hand back the button its menu hangs off: the
+ * object toolbar's More button. Null only in a build without the toolbar,
+ * where the menu falls back to handing focus back to the canvas.
+ */
+function wbNoteMenuOwner(taskName) {
+    wbSetSelectedNote(taskName);
+    return (typeof wbObjectToolbarButton === 'function') ? wbObjectToolbarButton('more') : null;
+}
+
+/** Open the note menu from the keyboard (the context-menu key), under the
+ * selected note's More button, or under the note itself without one. */
+function wbOpenNoteMenuFromKeyboard(taskName) {
     const entry = wbNoteNodes.get(taskName);
-    const btn = entry && entry.refs && entry.refs.menuBtn;
-    if (!btn) return;
-    wbOpenNoteMenu(taskName, btn, { x: clientX, y: clientY });
+    if (!entry) return;
+    const btn = wbNoteMenuOwner(taskName);
+    if (btn) { wbOpenNoteMenu(taskName, btn); return; }
+    const rect = entry.refs.card.getBoundingClientRect();
+    wbOpenNoteMenu(taskName, null, { x: rect.left, y: rect.top });
 }
 
 /**
@@ -5187,10 +5196,8 @@ function wbOpenColourPanelForSelectedNote(anchorEl) {
         }
         return;
     }
-    const entry = wbNoteNodes.get(taskName);
-    const btn = (anchorEl && anchorEl.nodeType === 1) ? anchorEl : (entry && entry.refs && entry.refs.menuBtn);
-    if (!btn) return;
-    wbOpenNoteMenu(taskName, btn);
+    if (anchorEl && anchorEl.nodeType === 1) { wbOpenNoteMenu(taskName, anchorEl); return; }
+    wbOpenNoteMenuFromKeyboard(taskName);
 }
 
 /** Close the `...` menu, if one is open, and tear down its listeners. */

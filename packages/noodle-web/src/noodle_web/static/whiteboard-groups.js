@@ -425,6 +425,14 @@ function wbRenderGroups(rows, tasks) {
         }
 
         node.g.dataset.wbGroup = name;
+        // A group's own colour (the object toolbar's Colour), tinting its
+        // fill and edge; blank keeps the accent the stylesheet gives it.
+        const colour = (groups.get(name) || {}).colour || '';
+        if (colour) node.g.style.setProperty('--wb-group-colour', colour);
+        else node.g.style.removeProperty('--wb-group-colour');
+        node.g.classList.toggle('wb-group-coloured', !!colour);
+        node.g.classList.toggle('wb-group-selected',
+            typeof wbSelectedGroupName !== 'undefined' && wbSelectedGroupName === name);
         node.rect.setAttribute('x', String(box.x));
         node.rect.setAttribute('y', String(box.y));
         node.rect.setAttribute('width', String(box.width));
@@ -443,6 +451,9 @@ function wbRenderGroups(rows, tasks) {
             wbGroupNodes.delete(name);
         }
     }
+    // The selected group may only now exist (just renamed) or no longer
+    // exist (ungrouped): let the object toolbar catch up either way.
+    if (typeof wbUpdateObjectToolbar === 'function') wbUpdateObjectToolbar();
 }
 
 /** The title a new group starts with, as Obsidian's canvas does. */
@@ -578,7 +589,22 @@ function wbRenameGroupTo(groupName, typed) {
     if (renamed === editor.value) return false;
     const rows = wbReadBoardRows(renamed).map(row =>
         (row && row.kind === 'group' && row.task === groupName) ? { ...row, task: taskName } : row);
-    return wbCommitMarkdown(updatePlanWhiteboardText(renamed, rows)) ? taskName : false;
+    if (!wbCommitMarkdown(updatePlanWhiteboardText(renamed, rows))) return false;
+    // A selected group stays selected under its new name.
+    if (typeof wbSelectedGroupName !== 'undefined' && wbSelectedGroupName === groupName
+        && typeof wbSelectGroup === 'function') {
+        wbSelectGroup(taskName);
+    }
+    return taskName;
+}
+
+/** Set (or, with '', clear) a group's colour, in its board row. */
+function wbSetGroupColour(groupName, colour) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !groupName) return false;
+    const rows = wbReadBoardRows(editor.value).map(row =>
+        (row && row.kind === 'group' && row.task === groupName) ? { ...row, colour: colour || '' } : row);
+    return wbCommitMarkdown(updatePlanWhiteboardText(editor.value, rows));
 }
 
 /** Double-clicking a group's title edits it in place. */
@@ -817,7 +843,12 @@ function wbGroupMouseUp() {
     if (!drag) return;
     wbActiveGroupDrag = null;
     if (typeof wbSetDragCursor === 'function') wbSetDragCursor('');
-    if (!drag.moved) return;
+    // A press that did not move is a click, and a click selects the group
+    // (its object toolbar appears above it -- whiteboard-object-toolbar.js).
+    if (!drag.moved) {
+        if (typeof wbSelectGroup === 'function') wbSelectGroup(drag.groupName);
+        return;
+    }
 
     const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
     if (!editor) return;
