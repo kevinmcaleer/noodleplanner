@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # The design-system gates (#1195, epic #1187).
 #
-# Two checks, both fast and neither needing a browser:
+# Three checks, all fast and none needing a browser:
 #
 #   scripts/lint-design-system.mjs   hardcoded colours, off-scale spacing,
 #                                    unpaired `outline: none`, and --np-* tokens
 #                                    declared outside visual-system.css
 #   scripts/check-contrast.mjs       every token pairing the app renders, against
 #                                    WCAG 2.2 AA
+#   scripts/design-tokens.mjs        the Penpot-owned tokens in visual-system.css
+#     --check                        match docs/design/tokens/, Penpot's export,
+#                                    and nobody has hand-edited one (#1318)
 #
 # ## Why this can gate a push on day one
 #
@@ -36,5 +39,6 @@ rc=0
 
 ci_step "design-system lint" node scripts/lint-design-system.mjs || rc=1
 ci_step "token contrast (WCAG AA)" node scripts/check-contrast.mjs || rc=1
+ci_step "Penpot tokens generated" node scripts/design-tokens.mjs --check || rc=1
 
 exit "$rc"

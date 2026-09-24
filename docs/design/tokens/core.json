@@ -1,272 +1,277 @@
 {
-  "checkbox-radius": {
-    "$type": "dimension",
-    "$value": "4px",
-    "$description": "--np-checkbox-radius"
-  },
-  "elevation-1": {
-    "$type": "shadow",
-    "$value": "0 1px 2px rgba(35,32,28,.10)",
-    "$description": "--np-elevation-1"
-  },
-  "elevation-2": {
-    "$type": "shadow",
-    "$value": "0 2px 4px rgba(35,32,28,.10)",
-    "$description": "--np-elevation-2"
-  },
-  "elevation-3": {
-    "$type": "shadow",
-    "$value": "0 4px 12px rgba(35,32,28,.16)",
-    "$description": "--np-elevation-3"
-  },
-  "elevation-4": {
-    "$type": "shadow",
-    "$value": "0 20px 60px rgba(35,32,28,.16)",
-    "$description": "--np-elevation-4"
-  },
-  "floating-shadow": {
-    "$type": "shadow",
-    "$value": "0 1px 2px rgba(35,32,28,.04), 0 18px 40px -24px rgba(35,32,28,.22)",
-    "$description": "--np-floating-shadow"
-  },
-  "focus-ring": {
-    "$type": "shadow",
-    "$value": "0 0 0 2px #FAF8F4, 0 0 0 calc(2px + 2px) #8A6205",
-    "$description": "--np-focus-ring"
-  },
-  "focus-ring-offset": {
-    "$type": "dimension",
-    "$value": "2px",
-    "$description": "--np-focus-ring-offset"
-  },
-  "focus-ring-width": {
-    "$type": "dimension",
-    "$value": "2px",
-    "$description": "--np-focus-ring-width"
-  },
-  "font-data": {
-    "$type": "fontFamily",
-    "$value": "'IBM Plex Mono', 'DejaVu Sans Mono', monospace",
-    "$description": "--np-font-data"
-  },
   "font-heading": {
-    "$type": "fontFamily",
-    "$value": "'Newsreader', Georgia, serif",
-    "$description": "--np-font-heading"
+    "$value": [
+      "Newsreader",
+      "serif"
+    ],
+    "$type": "fontFamilies"
   },
   "font-ui": {
-    "$type": "fontFamily",
-    "$value": "'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    "$description": "--np-font-ui"
+    "$value": [
+      "Instrument Sans",
+      "sans-serif"
+    ],
+    "$type": "fontFamilies"
   },
-  "leading-normal": {
-    "$type": "number",
-    "$value": "1.6",
-    "$description": "--np-leading-normal"
-  },
-  "leading-snug": {
-    "$type": "number",
-    "$value": "1.4",
-    "$description": "--np-leading-snug"
-  },
-  "leading-tight": {
-    "$type": "number",
-    "$value": "1.2",
-    "$description": "--np-leading-tight"
-  },
-  "radius-card": {
-    "$type": "dimension",
-    "$value": "12px",
-    "$description": "--np-radius-card"
-  },
-  "radius-circle": {
-    "$type": "dimension",
-    "$value": "50%",
-    "$description": "--np-radius-circle"
-  },
-  "radius-control": {
-    "$type": "dimension",
-    "$value": "8px",
-    "$description": "--np-radius-control"
-  },
-  "radius-lg": {
-    "$type": "dimension",
-    "$value": "8px",
-    "$description": "--np-radius-lg"
-  },
-  "radius-md": {
-    "$type": "dimension",
-    "$value": "6px",
-    "$description": "--np-radius-md"
-  },
-  "radius-panel": {
-    "$type": "dimension",
-    "$value": "12px",
-    "$description": "--np-radius-panel"
-  },
-  "radius-pill": {
-    "$type": "dimension",
-    "$value": "999px",
-    "$description": "--np-radius-pill"
-  },
-  "radius-sm": {
-    "$type": "dimension",
-    "$value": "4px",
-    "$description": "--np-radius-sm"
-  },
-  "radius-xl": {
-    "$type": "dimension",
-    "$value": "12px",
-    "$description": "--np-radius-xl"
+  "font-data": {
+    "$value": [
+      "IBM Plex Mono",
+      "monospace"
+    ],
+    "$type": "fontFamilies"
   },
   "radius-xs": {
-    "$type": "dimension",
     "$value": "2px",
-    "$description": "--np-radius-xs"
+    "$type": "borderRadius",
+    "$description": "--- Radius scale (#1191). The three semantic radii above named values\n-- 9px, 11px, 14px -- that the app never adopted: between them they are\nreferenced three times, while the raw literals 4px (202 uses), 6px\n(138), 8px (125) and 12px (63) carry the real UI. The scale below is\nthe authored reality, and the semantic names are now aliases onto it.\nThat way round costs three 1-2px changes; the other way round would\nhave changed ~500 declarations."
   },
-  "shadow": {
-    "$type": "shadow",
-    "$value": "rgba(0, 0, 0, 0.1)",
-    "$description": "--np-shadow"
+  "radius-sm": {
+    "$value": "4px",
+    "$type": "borderRadius"
   },
-  "shadow-strong": {
-    "$type": "shadow",
-    "$value": "rgba(0, 0, 0, 0.15)",
-    "$description": "--np-shadow-strong"
+  "radius-md": {
+    "$value": "6px",
+    "$type": "borderRadius"
+  },
+  "radius-lg": {
+    "$value": "8px",
+    "$type": "borderRadius"
+  },
+  "radius-xl": {
+    "$value": "12px",
+    "$type": "borderRadius"
+  },
+  "radius-pill": {
+    "$value": "999px",
+    "$type": "borderRadius"
+  },
+  "radius-circle": {
+    "$value": "9999px",
+    "$type": "borderRadius"
+  },
+  "radius-control": {
+    "$value": "{radius-lg}",
+    "$type": "borderRadius"
+  },
+  "radius-card": {
+    "$value": "{radius-xl}",
+    "$type": "borderRadius"
+  },
+  "radius-panel": {
+    "$value": "{radius-xl}",
+    "$type": "borderRadius"
   },
   "space-0": {
-    "$type": "dimension",
     "$value": "0",
-    "$description": "--np-space-0"
-  },
-  "space-12": {
-    "$type": "dimension",
-    "$value": "12px",
-    "$description": "--np-space-12"
-  },
-  "space-16": {
-    "$type": "dimension",
-    "$value": "16px",
-    "$description": "--np-space-16"
+    "$type": "spacing",
+    "$description": "--- Spacing scale (#1191). There was no spacing token at all before\nthis: 2,522 box-model declarations, exactly one of them indirected.\nNamed by value rather than by t-shirt size or index, deliberately --\nwhen migrating 26k lines of existing CSS, `--np-space-8` is checkable\nagainst `padding: 8px` at a glance, where `--np-space-2` is not. The\ncost of that choice is that the names hard-code the 4px base; if the\nbase ever changes, these get renamed rather than re-valued.\n\nThe app's authored spacing is two interleaved half-scales -- 4/8/12/16\nand 5/10/15/25/30 -- so 10px (449 uses) and 6px (286) have no token\nhere on purpose. Each one is a per-surface judgement in #1194 about\nwhether it becomes 8 or 12, not a find-and-replace."
   },
   "space-2": {
-    "$type": "dimension",
     "$value": "2px",
-    "$description": "--np-space-2"
-  },
-  "space-20": {
-    "$type": "dimension",
-    "$value": "20px",
-    "$description": "--np-space-20"
-  },
-  "space-24": {
-    "$type": "dimension",
-    "$value": "24px",
-    "$description": "--np-space-24"
-  },
-  "space-32": {
-    "$type": "dimension",
-    "$value": "32px",
-    "$description": "--np-space-32"
+    "$type": "spacing"
   },
   "space-4": {
-    "$type": "dimension",
     "$value": "4px",
-    "$description": "--np-space-4"
-  },
-  "space-40": {
-    "$type": "dimension",
-    "$value": "40px",
-    "$description": "--np-space-40"
-  },
-  "space-48": {
-    "$type": "dimension",
-    "$value": "48px",
-    "$description": "--np-space-48"
-  },
-  "space-64": {
-    "$type": "dimension",
-    "$value": "64px",
-    "$description": "--np-space-64"
+    "$type": "spacing"
   },
   "space-8": {
-    "$type": "dimension",
     "$value": "8px",
-    "$description": "--np-space-8"
+    "$type": "spacing"
   },
-  "text-100": {
-    "$type": "fontSize",
-    "$value": "1em",
-    "$description": "--np-text-100"
+  "space-12": {
+    "$value": "12px",
+    "$type": "spacing"
   },
-  "text-110": {
-    "$type": "fontSize",
-    "$value": "1.1em",
-    "$description": "--np-text-110"
+  "space-16": {
+    "$value": "16px",
+    "$type": "spacing"
   },
-  "text-125": {
-    "$type": "fontSize",
-    "$value": "1.25em",
-    "$description": "--np-text-125"
+  "space-20": {
+    "$value": "20px",
+    "$type": "spacing"
   },
-  "text-150": {
-    "$type": "fontSize",
-    "$value": "1.5em",
-    "$description": "--np-text-150"
+  "space-24": {
+    "$value": "24px",
+    "$type": "spacing"
   },
-  "text-180": {
-    "$type": "fontSize",
-    "$value": "1.8em",
-    "$description": "--np-text-180"
+  "space-32": {
+    "$value": "32px",
+    "$type": "spacing"
   },
-  "text-200": {
-    "$type": "fontSize",
-    "$value": "2em",
-    "$description": "--np-text-200"
+  "space-40": {
+    "$value": "40px",
+    "$type": "spacing"
+  },
+  "space-48": {
+    "$value": "48px",
+    "$type": "spacing"
+  },
+  "space-64": {
+    "$value": "64px",
+    "$type": "spacing"
   },
   "text-75": {
-    "$type": "fontSize",
-    "$value": "0.75em",
-    "$description": "--np-text-75"
+    "$value": "12",
+    "$type": "fontSizes",
+    "$description": "--- Type scale (#1191). 67 raw font-size values today, dominated by em\nmultipliers. Named by hundredths of an em on the same principle as the\nspacing scale: --np-text-85 is 0.85em. Relative units are kept\ndeliberately -- the app nests font-size-relative UI several levels deep\nand switching to rem here would resize things that currently track\ntheir container."
   },
   "text-80": {
-    "$type": "fontSize",
-    "$value": "0.8em",
-    "$description": "--np-text-80"
+    "$value": "12.8",
+    "$type": "fontSizes"
   },
   "text-85": {
-    "$type": "fontSize",
-    "$value": "0.85em",
-    "$description": "--np-text-85"
+    "$value": "13.6",
+    "$type": "fontSizes"
   },
   "text-90": {
-    "$type": "fontSize",
-    "$value": "0.9em",
-    "$description": "--np-text-90"
+    "$value": "14.4",
+    "$type": "fontSizes"
   },
   "text-95": {
-    "$type": "fontSize",
-    "$value": "0.95em",
-    "$description": "--np-text-95"
+    "$value": "15.2",
+    "$type": "fontSizes"
   },
-  "weight-bold": {
-    "$type": "fontWeight",
-    "$value": "700",
-    "$description": "--np-weight-bold"
+  "text-100": {
+    "$value": "16",
+    "$type": "fontSizes"
   },
-  "weight-medium": {
-    "$type": "fontWeight",
-    "$value": "500",
-    "$description": "--np-weight-medium"
+  "text-110": {
+    "$value": "17.6",
+    "$type": "fontSizes"
+  },
+  "text-125": {
+    "$value": "20",
+    "$type": "fontSizes"
+  },
+  "text-150": {
+    "$value": "24",
+    "$type": "fontSizes"
+  },
+  "text-180": {
+    "$value": "28.8",
+    "$type": "fontSizes"
+  },
+  "text-200": {
+    "$value": "32",
+    "$type": "fontSizes"
+  },
+  "leading-tight": {
+    "$value": "1.2",
+    "$type": "number"
+  },
+  "leading-snug": {
+    "$value": "1.4",
+    "$type": "number"
+  },
+  "leading-normal": {
+    "$value": "1.6",
+    "$type": "number"
   },
   "weight-regular": {
-    "$type": "fontWeight",
     "$value": "400",
-    "$description": "--np-weight-regular"
+    "$type": "fontWeights"
+  },
+  "weight-medium": {
+    "$value": "500",
+    "$type": "fontWeights"
   },
   "weight-semibold": {
-    "$type": "fontWeight",
     "$value": "600",
-    "$description": "--np-weight-semibold"
+    "$type": "fontWeights"
+  },
+  "weight-bold": {
+    "$value": "700",
+    "$type": "fontWeights"
+  },
+  "elevation-1": {
+    "$value": [
+      {
+        "offsetX": "0",
+        "offsetY": "1",
+        "blur": "2",
+        "spread": "0",
+        "color": "{shadow-tint}",
+        "inset": false
+      }
+    ],
+    "$type": "shadow"
+  },
+  "elevation-2": {
+    "$value": [
+      {
+        "offsetX": "0",
+        "offsetY": "2",
+        "blur": "4",
+        "spread": "0",
+        "color": "{shadow-tint}",
+        "inset": false
+      }
+    ],
+    "$type": "shadow"
+  },
+  "elevation-3": {
+    "$value": [
+      {
+        "offsetX": "0",
+        "offsetY": "4",
+        "blur": "12",
+        "spread": "0",
+        "color": "{shadow-tint-strong}",
+        "inset": false
+      }
+    ],
+    "$type": "shadow"
+  },
+  "elevation-4": {
+    "$value": [
+      {
+        "offsetX": "0",
+        "offsetY": "20",
+        "blur": "60",
+        "spread": "0",
+        "color": "{shadow-tint-strong}",
+        "inset": false
+      }
+    ],
+    "$type": "shadow"
+  },
+  "checkbox-radius": {
+    "$value": "4px",
+    "$type": "borderRadius",
+    "$description": "Checkbox shape (#1245). Square, because a circle reads as a radio --\n\"one of these\" rather than \"this one, on or off\" -- and because it puts\nthe control in the same shape vocabulary as the whiteboard note row's\nglyph indicators (#1248). It is a token, not a literal in the component,\nbecause it is a design call rather than a fact: flipping the app back to\nthe round control kanban's `.round-checkbox` ships is this one line.\ndocs/design/design-system.md section 6 records the reasoning."
+  },
+  "checkbox-target": {
+    "$value": "24px",
+    "$type": "sizing",
+    "$description": "The checkbox's hit target, as distinct from the box it draws (#1250).\nWCAG 2.2 SC 2.5.8 wants 24x24 for a pointer target, and <np-checkbox>\nalready used exactly that as a hard-coded fallback. It is here because\nit is a column width as much as a hit area: the whiteboard note's\nadd-task row reserves the same width for its \"+\" so that glyph, every\ncheckbox above it and every task name line up. A literal in two files\ncannot express \"these are the same measurement\"."
+  },
+  "focus-ring-width": {
+    "$value": "2px",
+    "$type": "dimension"
+  },
+  "focus-ring-offset": {
+    "$value": "2px",
+    "$type": "dimension"
+  },
+  "focus-ring": {
+    "$value": [
+      {
+        "offsetX": "0",
+        "offsetY": "0",
+        "blur": "0",
+        "spread": "{focus-ring-offset}",
+        "color": "{paper}",
+        "inset": false
+      },
+      {
+        "offsetX": "0",
+        "offsetY": "0",
+        "blur": "0",
+        "spread": "{focus-ring-offset} + {focus-ring-width}",
+        "color": "{focus-ring-color}",
+        "inset": false
+      }
+    ],
+    "$type": "shadow"
   }
 }

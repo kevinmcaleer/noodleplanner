@@ -11,7 +11,7 @@ result reaches Penpot and Storybook.
 Everything here is generated. Nothing is hand-maintained:
 
 ```sh
-npm run audit:tokens   # docs/design/tokens/*.json, token-audit-data.json
+npm run audit:tokens   # docs/design/token-audit-data.json
 npm run design         # consolidation + UI structure map + the explorer page
 ```
 
@@ -149,6 +149,11 @@ them.
 
 ### Tokens
 
+**Penpot is now the source of the tokens (#1318)**: export them from Penpot
+over `docs/design/tokens/` and run `npm run design:tokens` to regenerate the CSS.
+See [`contributing.md`](contributing.md) rule 1. The rest of this section is how
+they first got into Penpot.
+
 Design → Tokens → Import, pointing at the five files in `docs/design/tokens/`
 (`core.json`, `color-light.json`, `color-dark.json`, `$themes.json`,
 `$metadata.json`). They are W3C Design Tokens-typed JSON in the multi-set
@@ -160,8 +165,9 @@ moved fast across releases — if the importer wants a single merged file
 instead, check Penpot's own docs for the installed version.
 
 Since #1191 the export also carries the spacing, type, elevation and focus
-scales, and composite values are resolved on the way out, so `--np-elevation-2`
-arrives as a real shadow rather than the string `0 2px 4px var(--np-shadow-tint)`.
+scales. Since #1318 references are kept rather than resolved, so
+`--np-elevation-2` is a shadow whose colour is `{shadow-tint}`, and it still
+darkens with the theme after a round trip through Penpot.
 
 ### Screens (#1196)
 
@@ -197,9 +203,9 @@ Two things the first run got wrong, both now guarded:
   not both render, and the script says so and exits non-zero rather than
   claiming a complete audit.
 
-The flow that works: consolidate in CSS → `npm run audit:tokens` → re-import
-into Penpot. Penpot stays downstream of the stylesheet, so the two cannot
-silently disagree.
+The flow since #1318: change a token in Penpot → export over
+`docs/design/tokens/` → `npm run design:tokens`. The stylesheet is downstream of
+Penpot, and `npm run design:tokens -- --check` fails CI if the two disagree.
 
 ## Storybook
 
@@ -263,8 +269,8 @@ the root `CLAUDE.md`).
 
 **Colour tokens:** `static/components/tokens/color-tokens.stories.js` (the
 "Design Tokens/Colours" story) renders every token straight out of
-`docs/design/tokens/color-light.json` / `color-dark.json` — the exact JSON
-Penpot imports — as light/dark swatch pairs, so the palette handed to Penpot
+`docs/design/tokens/color-light.json` / `color-dark.json` — Penpot's export,
+with references resolved — as light/dark swatch pairs, so the palette handed to Penpot
 is visible in Storybook too, without hand-copying values into a second place.
 `.storybook/main.mjs` aliases `@design-tokens` to `docs/design/tokens/` for it.
 
@@ -273,9 +279,8 @@ The token files fuel a further build step this doesn't attempt yet: run
 [Style Dictionary](https://styledictionary.com/) v4+ (which reads DTCG
 `$type`/`$value` natively) to emit CSS custom properties or a JS token module
 for a theme decorator. Not needed for the preview — it loads the app's own CSS,
-so the tokens are simply there. Treat `core.json`'s `shadow` as a
-string-typed token — it stores the raw multi-layer `box-shadow` rather than a
-decomposed object.
+so the tokens are simply there. Shadows are Penpot's layer objects, with
+unitless px lengths.
 
 ## Suggested order of work
 

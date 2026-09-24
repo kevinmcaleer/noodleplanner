@@ -5,18 +5,53 @@ For the *why* behind these rules — the migration's principles, vocabulary,
 and current status against its plan — see
 [`design-system.md`](design-system.md).
 
-Run both gates before you push — they take seconds and need no browser:
+Run the gates before you push — they take seconds and need no browser:
 
 ```sh
-npm run lint:design      # hardcoded colours, off-scale spacing, focus, token placement
-npm run check:contrast   # WCAG AA across every token pairing the app renders
+npm run lint:design             # hardcoded colours, off-scale spacing, focus, token placement
+npm run check:contrast          # WCAG AA across every token pairing the app renders
+npm run design:tokens -- --check  # the CSS tokens match Penpot's export
 ```
 
 Or `ci/run.sh design`, which is what CI runs.
 
 ## The rules
 
-### 1. Tokens live in `visual-system.css`, nowhere else
+### 1. Tokens are changed in Penpot, not in `visual-system.css`
+
+Penpot is the source of truth for the design tokens (#1318). The
+[Penpot design file](screen-audit-board.md#recording-the-board) holds them as
+the `core`, `color-light` and `color-dark` sets, `docs/design/tokens/*.json` is
+its export, and the token block at the top of `visual-system.css`, between the
+`BEGIN PENPOT TOKENS` and `END PENPOT TOKENS` comments, is generated from that
+export. To change, add or remove a token:
+
+1. Change it in Penpot. A token's description is the comment the generator
+   writes above it, so put the reasoning there.
+2. Export the token sets (Tokens → Export, multiple files) over
+   `docs/design/tokens/`.
+3. Run `npm run design:tokens`, then the contrast check, and commit the JSON
+   and the CSS together.
+
+Never edit the generated block, and never redeclare one of its tokens elsewhere
+in the file to override it. `npm run design:tokens -- --check` fails on both,
+and it runs in the `design` CI job and in `tests/test_design_tokens.py`.
+
+The generator translates rather than copies, because Penpot does not store a
+token the way the CSS does: font sizes are px in Penpot and em in the CSS, font
+families are a family and a fallback rather than the full stack, a reference
+such as `{accent-ink}` becomes `var(--np-accent-ink)`. The header of
+`scripts/design-tokens.mjs` lists the rules, and its `FONT_STACKS` and
+`CSS_VALUES` tables are the only CSS-side facts about a Penpot token kept in
+the repository.
+
+**Code-owned tokens** are the exception: the three `*-gradient` tokens and the
+four `--np-anim-*` motion tokens. Penpot has no token type for a gradient, a
+duration or an easing, so they are hand-written in `visual-system.css` below the
+generated block and are changed there. `CODE_OWNED` in
+`scripts/design-tokens.mjs` is the list of them.
+
+### 2. Tokens live in `visual-system.css`, nowhere else
 
 Any `--np-*` declared on `:root` or `[data-theme="dark"]` in another
 stylesheet is a violation.
@@ -30,7 +65,7 @@ and `dark-mode.css` — the file whose name says "this is where dark mode lives"
 A custom property scoped to a component's own selector is fine and normal.
 It is only the global scope that is reserved.
 
-### 2. Colour comes from a token
+### 3. Colour comes from a token
 
 `color`, `background`, `border-color`, `box-shadow` and friends should
 reference a token. [`tokens.md`](tokens.md) is the reference.
@@ -47,7 +82,7 @@ reason rather than for convenience:
 - **RAG and traffic-light hues.** Red/amber/green *is* the meaning of the
   element, and which reds count as red is a product decision.
 
-One token family bends rule 1 and says so in place: the whiteboard note
+One token family bends rule 2 and says so in place: the whiteboard note
 palette, `--np-note-*`. The ten swatches are declared here *and* as
 `WB_NOTE_PASTEL_COLOURS` in `whiteboard-notes.js`, because a note's colour is
 written into the plan's `Theme:` front matter as a literal by code that cannot
@@ -59,7 +94,7 @@ If your case genuinely belongs outside the system, add an entry to `ALLOW`
 with the reason. Adding one is a reviewable act; a lint suppression comment
 would not be.
 
-### 3. Spacing comes from the scale
+### 4. Spacing comes from the scale
 
 Use `--np-space-0` through `--np-space-64`. `margin`, `padding` and `gap` in
 pixels **off the 4px grid** are violations.
@@ -77,7 +112,7 @@ The app used to carry two interleaved half-scales, 4/8/12/16 and 5/10/15/25/30,
 from different authors. #1194 collapsed the second onto the first (nearest
 multiple of 4, ties up), so there is now one. Don't reintroduce the other.
 
-### 4. Removing a focus outline means replacing it
+### 5. Removing a focus outline means replacing it
 
 `outline: none` in a `:focus` rule needs something visible in the same rule.
 Usually:
@@ -97,7 +132,7 @@ only when a component needs something different.
 `:focus:not(:focus-visible)`, which is the correct way to suppress a ring for a
 pointer click while keeping it for the keyboard.
 
-### 5. Type comes from a token
+### 6. Type comes from a token
 
 There are three families: `--np-font-ui` for interface text,
 `--np-font-heading` for titles, and `--np-font-data` for anything monospaced
@@ -232,7 +267,9 @@ up sitting on.
 | | |
 |---|---|
 | Design-system charter (why, vocabulary, status) | [`design-system.md`](design-system.md) |
-| Tokens | `packages/noodle-web/src/noodle_web/static/visual-system.css` |
+| Tokens (source) | The Penpot design file, exported to `docs/design/tokens/` |
+| Tokens (generated CSS) | `packages/noodle-web/src/noodle_web/static/visual-system.css` |
+| Token generator | `scripts/design-tokens.mjs` (`npm run design:tokens`) |
 | Token reference | [`tokens.md`](tokens.md) |
 | What the audit found | [`token-audit.md`](token-audit.md) |
 | Every screen, its components, and the build-order tally | [`noodleplanner-ui-inventory.md`](noodleplanner-ui-inventory.md) |
