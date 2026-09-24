@@ -28,6 +28,7 @@ and run `npm run design:tokens`. Never edit the generated block itself.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -190,3 +191,60 @@ def test_every_code_owned_token_is_hand_written_outside_the_block():
 )
 def test_penpot_values_translate_back_to_the_css(token, css):
     assert _node(f"m.toCss({json.dumps(token)})") == css
+
+
+# What a `color` token may hold: a hex, a CSS colour function, a keyword, or a
+# reference to another colour token. The old CSS-to-JSON exporter typed
+# durations, easings, gradients and a 24px target as `color`, and Penpot's
+# import rejected them; this keeps a hand edit to the JSON from doing the same.
+_COLOUR_LITERAL = re.compile(
+    r"^(#[0-9a-fA-F]{3,8}"
+    r"|(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(.*\)"
+    r"|transparent|currentcolor)$",
+    re.IGNORECASE,
+)
+_REFERENCE = re.compile(r"^\{([^{}]+)\}$")
+
+
+def _typed_tokens() -> dict[str, dict]:
+    """Every token in every set, keyed by dotted path, `$type` inherited from its group."""
+    out: dict[str, dict] = {}
+
+    def walk(node: dict, prefix: str, inherited: str | None, set_name: str):
+        group_type = node.get("$type", inherited)
+        for key, value in node.items():
+            if key.startswith("$") or not isinstance(value, dict):
+                continue
+            if "$value" in value:
+                out[f"{set_name}/{prefix}{key}"] = {**value, "$type": value.get("$type", group_type)}
+            else:
+                walk(value, f"{prefix}{key}.", group_type, set_name)
+
+    for path in sorted(TOKENS.glob("*.json")):
+        if not path.name.startswith("$"):
+            walk(json.loads(path.read_text()), "", None, path.stem)
+    return out
+
+
+def test_every_colour_typed_token_has_a_colour_value():
+    tokens = _typed_tokens()
+    types_by_path: dict[str, set[str]] = {}
+    for key, token in tokens.items():
+        types_by_path.setdefault(key.split("/", 1)[1], set()).add(token["$type"])
+
+    wrong = []
+    for key, token in sorted(tokens.items()):
+        if token["$type"] != "color":
+            continue
+        value = str(token["$value"]).strip()
+        ref = _REFERENCE.match(value)
+        if ref:
+            if types_by_path.get(ref.group(1)) != {"color"}:
+                wrong.append(f"{key}: {value} does not reference a colour token")
+        elif not _COLOUR_LITERAL.match(value):
+            wrong.append(f"{key}: {value}")
+
+    assert not wrong, (
+        "these tokens are typed `color` but do not hold a colour, so Penpot's "
+        "import rejects them:\n  " + "\n  ".join(wrong)
+    )
