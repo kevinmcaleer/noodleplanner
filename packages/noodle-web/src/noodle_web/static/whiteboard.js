@@ -703,7 +703,29 @@ function wbWheelPixels(delta, mode) {
     return d;
 }
 
+/**
+ * The list inside a selected note that this wheel event should scroll
+ * instead of the board, or null. Only a *selected* note's list, and only
+ * while it can still move that way: a two-finger swipe that crosses a note
+ * on its way across the board keeps panning, and one aimed at a note you
+ * have picked scrolls its tasks (see the footer's "+N more").
+ */
+function wbWheelScrollsNoteBody(e, dy) {
+    if (!dy || e.ctrlKey || e.metaKey) return null;
+    const body = e.target && e.target.closest && e.target.closest('.wb-note-body');
+    if (!body || body.scrollHeight <= body.clientHeight + 1) return null;
+    const note = body.closest('foreignObject.wb-note');
+    const task = note && note.dataset.wbTask;
+    const selected = (typeof wbGetSelectedNoteTasks === 'function') ? wbGetSelectedNoteTasks() : [];
+    if (!task || selected.length !== 1 || selected[0] !== task) return null;
+    const atTop = body.scrollTop <= 0;
+    const atBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 1;
+    if ((dy < 0 && atTop) || (dy > 0 && atBottom)) return null;
+    return body;
+}
+
 function wbHandleWheel(e) {
+    if (wbWheelScrollsNoteBody(e, wbWheelPixels(e.deltaY, e.deltaMode))) return; // the browser scrolls it
     e.preventDefault();
     if (!wbSvg) return;
     const rect = wbSvg.getBoundingClientRect();

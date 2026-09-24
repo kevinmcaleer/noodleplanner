@@ -89,12 +89,21 @@ function wbObjectToolbarBtn(action, label, onClick) {
 /** What should the toolbar float over right now? */
 function wbObjectToolbarWants() {
     const notes = (typeof wbGetSelectedNoteTasks === 'function') ? wbGetSelectedNoteTasks() : [];
-    if (notes.length === 1) return { kind: 'note', name: notes[0] };
+    // `thought` is part of what is shown: a note that becomes a text note
+    // (or is promoted) while selected loses (or gains) its Colour button.
+    if (notes.length === 1) {
+        const thought = (typeof wbIsThoughtNote === 'function') && wbIsThoughtNote(notes[0]);
+        return { kind: 'note', name: notes[0], thought };
+    }
     if (!notes.length && wbSelectedGroupName
         && typeof wbGroupNodes !== 'undefined' && wbGroupNodes.has(wbSelectedGroupName)) {
         return { kind: 'group', name: wbSelectedGroupName };
     }
     return null;
+}
+
+function wbSameToolbarTarget(a, b) {
+    return !!a && !!b && a.kind === b.kind && a.name === b.name && !!a.thought === !!b.thought;
 }
 
 /**
@@ -117,8 +126,7 @@ function wbUpdateObjectToolbar() {
         return;
     }
 
-    const same = wbObjectToolbarTarget
-        && wbObjectToolbarTarget.kind === want.kind && wbObjectToolbarTarget.name === want.name;
+    const same = wbSameToolbarTarget(wbObjectToolbarTarget, want);
     if (!same) {
         wbObjectToolbarTarget = want;
         bar.replaceChildren(...(want.kind === 'note'
@@ -137,7 +145,7 @@ function wbUpdateObjectToolbar() {
             // The selected thing can leave the board (removed, merged,
             // ungrouped) without a selection change saying so.
             const now = wbObjectToolbarWants();
-            if (!now || now.kind !== wbObjectToolbarTarget.kind || now.name !== wbObjectToolbarTarget.name) {
+            if (!wbSameToolbarTarget(now, wbObjectToolbarTarget)) {
                 wbObjectToolbarFrame = 0;
                 wbUpdateObjectToolbar();
                 return;
@@ -152,7 +160,8 @@ function wbUpdateObjectToolbar() {
 function wbNoteToolbarButtons(taskName) {
     const thought = (typeof wbIsThoughtNote === 'function') && wbIsThoughtNote(taskName);
     return [
-        wbObjectToolbarBtn('colour', 'Colour', (btn) => wbOpenNoteColourMenu(taskName, btn)),
+        // A text note is always light grey (wbThoughtFill()): nothing to pick.
+        thought ? null : wbObjectToolbarBtn('colour', 'Colour', (btn) => wbOpenNoteColourMenu(taskName, btn)),
         wbObjectToolbarBtn('zoom', 'Zoom to this note', () => {
             const entry = wbNoteNodes.get(taskName);
             if (entry && typeof wbZoomToBoardRect === 'function') wbZoomToBoardRect(wbBoardRect(entry.fo));
@@ -173,7 +182,7 @@ function wbNoteToolbarButtons(taskName) {
             if (wbNoteMenuState && wbNoteMenuState.btn === btn) { wbCloseNoteMenu(); return; }
             wbOpenNoteMenu(taskName, btn);
         }),
-    ].map(btn => {
+    ].filter(Boolean).map(btn => {
         if (btn.dataset.wbAction === 'colour' || btn.dataset.wbAction === 'more') {
             btn.setAttribute('aria-haspopup', 'true');
             btn.setAttribute('aria-expanded', 'false');

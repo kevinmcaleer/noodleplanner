@@ -1155,6 +1155,8 @@ function wbBuildNoteViewModel(row, tasks, themeColours = {}, boardNames = null, 
             hasChildren,
             childCount: progress.total,
             complete: wbIsChildComplete(child),
+            // The leaf's own percent, for the part-done pie in its checkbox.
+            percent: child.percent,
             // A summary child reports its own children's completion so its
             // row can render the mixed checkbox (#1245) -- the same
             // { completed, total } shape as this note's own footer progress,
@@ -2051,7 +2053,7 @@ function wbCreateNoteNode() {
     const { card, rails, refs } = globalThis.NoodleNoteMarkup.buildNoteCard();
     const {
         header, title, linkHandle, coachBtn, pinBtn,
-        parentCaption, body, footer, progress, resizeHandle,
+        parentCaption, body, footer, progress, moreBtn, resizeHandle,
         railHint, railDep,
     } = refs;
 
@@ -2108,11 +2110,24 @@ function wbCreateNoteNode() {
         fo,
         refs: {
             card, header, title, linkHandle, coachBtn, pinBtn, parentCaption,
-            body, footer, progress, resizeHandle, rails, railHint, railDep,
+            body, footer, progress, moreBtn, resizeHandle, rails, railHint, railDep,
         },
     };
 
     wbWireRowRails(entry);
+
+    // The footer's "+N more": recount whenever the body scrolls or changes
+    // size (a resize, a zoom tier, a row added), and scroll on to the rows
+    // it counts when pressed.
+    body.addEventListener('scroll', () => wbScheduleNoteOverflow(entry), { passive: true });
+    if (typeof ResizeObserver === 'function') {
+        new ResizeObserver(() => wbScheduleNoteOverflow(entry)).observe(body);
+    }
+    moreBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+    moreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbRevealMoreNoteRows(entry);
+    });
 
     // Drag (header) and resize (corner handle) wiring -- issue #848. Both
     // read the note's *current* rect off entry.fo's own dataset at
@@ -2185,8 +2200,16 @@ function wbUpdateNoteNode(entry, vm) {
     // that one CSS custom property, so everything on the note stays
     // legible on every swatch in both themes without the header and body
     // ever disagreeing on colour.
-    refs.card.style.setProperty('--wb-note-accent', vm.colour);
-    refs.card.style.setProperty('--wb-note-text', wbContrastTextColour(vm.colour) || '');
+    //
+    // A thought has no colour of its own: it is always the design system's
+    // very light grey, so a text note reads as a different kind of thing
+    // from every post-it on the board rather than as one more pastel. Any
+    // Colour its row still carries (from before it was a thought) is left
+    // alone and comes back if it is promoted.
+    const fill = thought ? wbThoughtFill() : vm.colour;
+    if (fill) refs.card.style.setProperty('--wb-note-accent', fill);
+    else refs.card.style.removeProperty('--wb-note-accent');
+    refs.card.style.setProperty('--wb-note-text', (fill && wbContrastTextColour(fill)) || '');
 
     // Don't clobber a title the user is in the middle of retyping.
     // A freshly scissors-split note keeps a unique placeholder in the
@@ -2266,6 +2289,7 @@ function wbUpdateNoteNode(entry, vm) {
         refs.body.appendChild(wbBuildThoughtBody(vm.task.name, vm.task.comment));
         refs.body.scrollTop = savedScrollTop;
         wbSetText(refs.progress, '');
+        wbScheduleNoteOverflow(entry);
         return;
     }
 
@@ -2336,6 +2360,87 @@ function wbUpdateNoteNode(entry, vm) {
     // there is nothing here to gate; `vm.progress` is always `0 / 0` in
     // that case anyway (wbIsFreeformNote() is defined in terms of it).
     wbSetText(refs.progress, `${vm.progress.completed} / ${vm.progress.total}`);
+    wbScheduleNoteOverflow(entry);
+}
+
+// ── "+N more": rows scrolled out of sight ───────────────────────────────
+//
+// A note's body scrolls, but its scrollbar only shows on hover and the board
+// takes the wheel for panning, so a note shorter than its list looked like it
+// held every task it had. The footer says how many rows are out of sight, and
+// pressing it scrolls to them.
+
+/** Notes whose overflow needs recounting on the next frame. */
+const wbNoteOverflowQueue = new Set();
+
+function wbScheduleNoteOverflow(entry) {
+    if (!entry || !entry.refs || !entry.refs.moreBtn) return;
+    const first = !wbNoteOverflowQueue.size;
+    wbNoteOverflowQueue.add(entry);
+    if (!first) return;
+    const run = () => {
+        const batch = [...wbNoteOverflowQueue];
+        wbNoteOverflowQueue.clear();
+        batch.forEach(wbUpdateNoteOverflow);
+    };
+    // Batched to one frame: a render updates every note at once, and
+    // measuring each straight after its own rebuild would force a layout per
+    // note.
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+    else run();
+}
+
+/**
+ * How many checklist rows of this note are out of sight, above and below.
+ * A row counts as hidden when less than half of it shows: a row cut off at
+ * its last few pixels has been seen, and one showing a sliver has not.
+ */
+function wbNoteHiddenRows(entry) {
+    const body = entry.refs.body;
+    const out = { above: 0, below: 0 };
+    if (!body || !body.isConnected || body.clientHeight <= 0) return out;
+    if (body.scrollHeight <= body.clientHeight + 1) return out;
+    const view = body.getBoundingClientRect();
+    for (const row of body.querySelectorAll('.wb-note-row')) {
+        const r = row.getBoundingClientRect();
+        const middle = r.top + r.height / 2;
+        if (middle > view.bottom) out.below += 1;
+        else if (middle < view.top) out.above += 1;
+    }
+    return out;
+}
+
+function wbUpdateNoteOverflow(entry) {
+    const btn = entry && entry.refs && entry.refs.moreBtn;
+    if (!btn || !btn.isConnected) return;
+    const { above, below } = wbNoteHiddenRows(entry);
+    const hidden = above + below;
+    if (!hidden) {
+        btn.hidden = true;
+        return;
+    }
+    // Pointing the way there is still more: down while anything is below,
+    // otherwise back up.
+    const down = below > 0;
+    const text = `+${hidden} more ${down ? '\u25BE' : '\u25B4'}`;
+    if (btn.textContent !== text) btn.textContent = text;
+    const label = `${hidden} more task${hidden === 1 ? '' : 's'} ${down ? 'below' : 'above'} -- scroll to ${hidden === 1 ? 'it' : 'them'}`;
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+    btn.hidden = false;
+}
+
+/** Scroll the body on to the rows the footer counted: the next ones down,
+ * or back to the top once everything below has been seen. */
+function wbRevealMoreNoteRows(entry) {
+    const body = entry.refs.body;
+    if (!body) return;
+    const { below } = wbNoteHiddenRows(entry);
+    const top = below
+        ? Math.min(body.scrollHeight - body.clientHeight, body.scrollTop + body.clientHeight * 0.8)
+        : 0;
+    if (typeof body.scrollTo === 'function') body.scrollTo({ top, behavior: 'smooth' });
+    else body.scrollTop = top;
 }
 
 // ── Free-floating text objects (issue #1018) ────────────────────────────
@@ -3451,6 +3556,7 @@ function wbBuildChildRow(childVm, options) {
     const { row, refs } = markup.buildChecklistRow({
         name: child.name,
         complete: childVm.complete,
+        percent: childVm.percent,
         // Decided in wbBuildNoteViewModel() from this child's own
         // { completed, total } -- see wbIsPartlyComplete(). Only a summary can
         // be mixed, and buildChecklistRow() re-checks that against
@@ -4598,7 +4704,9 @@ function wbBuildNoteMenu(taskName) {
     list.setAttribute('role', 'none');
     menu.appendChild(list);
 
-    wbAppendColourMenuSection(list, taskName);
+    // A thought is always light grey (see wbThoughtFill()), so it has no
+    // colour to choose.
+    if (!wbIsThoughtNote(taskName)) wbAppendColourMenuSection(list, taskName);
     wbAppendStructureMenuSection(list, taskName);
     // A thought has no task to open, park, unlink or take off the board and
     // leave behind -- see wbAppendThoughtMenuSection().
@@ -4607,6 +4715,7 @@ function wbBuildNoteMenu(taskName) {
         return menu;
     }
     wbAppendPromoteMenuSection(list, taskName);
+    wbAppendDemoteMenuSection(list, taskName);
     wbAppendOpenTaskMenuSection(list, taskName);
     wbAppendParkMenuSection(list, taskName);
     wbAppendRemoveMenuSection(list, taskName);
@@ -4747,6 +4856,31 @@ function wbAppendPromoteMenuSection(list, taskName) {
         e.stopPropagation();
         wbCloseNoteMenu();
         wbPromoteFreeformNote(taskName);
+    });
+    li.appendChild(btn);
+    list.appendChild(li);
+}
+
+/**
+ * "Turn into text note": the way back from "Promote to task" -- see
+ * wbDemoteToThought(). Offered only where it can work, a task with no
+ * subtasks, following this menu's rule that an inert item teaches the wrong
+ * thing; a task other tasks depend on still gets it, and is told why not.
+ */
+function wbAppendDemoteMenuSection(list, taskName) {
+    if (wbHasChildren(wbLastTasks, taskName)) return;
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'wb-note-menu-action wb-note-menu-demote';
+    btn.setAttribute('role', 'menuitem');
+    btn.textContent = 'Turn into text note';
+    btn.title = 'Take this task out of the schedule and keep it as a text note, with its comment as the text. Promote it again at any time.';
+    btn.setAttribute('aria-label', `Turn ${taskName} into a text note, taking it out of the schedule`);
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbCloseNoteMenu();
+        wbDemoteToThought(taskName);
     });
     li.appendChild(btn);
     list.appendChild(li);
@@ -5193,6 +5327,12 @@ function wbOpenColourPanelForSelectedNote(anchorEl) {
     if (!taskName) {
         if (typeof wbFlashNoodleMessage === 'function') {
             wbFlashNoodleMessage('Select a note first, then click Colour to change it');
+        }
+        return;
+    }
+    if (wbIsThoughtNote(taskName)) {
+        if (typeof wbFlashNoodleMessage === 'function') {
+            wbFlashNoodleMessage('Text notes are always light grey -- promote it to a task to give it a colour');
         }
         return;
     }
@@ -6425,6 +6565,21 @@ function wbCreateNoteAt(boardX, boardY) {
  * invites typing, since a thought has no task form to hold its text. */
 const WB_THOUGHT_BODY_PLACEHOLDER = 'Double-click to write…';
 
+/**
+ * A text note's fill: the --np-light-grey-subtle design token, read from the
+ * page, never a literal. It is read rather than written as var() because
+ * wbContrastTextColour() has to measure the ink against a concrete colour.
+ * Empty when the token cannot be read, which leaves the card's own default.
+ */
+function wbThoughtFill() {
+    try {
+        return getComputedStyle(document.documentElement)
+            .getPropertyValue('--np-light-grey-subtle').trim();
+    } catch (e) {
+        return '';
+    }
+}
+
 /** Whether the note on the board called `taskName` is a thought. Asked of
  * the rendered card, which wbUpdateNoteNode() flags from the view model, so
  * it agrees with what the user is looking at. */
@@ -6574,6 +6729,48 @@ function wbPromoteThought(taskName) {
         return false;
     }
     const next = wbPromoteThoughtInPlanText(editor.value, taskName);
+    if (next === editor.value) return false;
+    return wbCommitMarkdown(next);
+}
+
+/**
+ * Names of the tasks that depend on `taskName`: every task whose `depends`
+ * list (the engine's parsed `[depends ...]` names) includes it. A thought is
+ * not a task, so turning one of these into a thought would leave those
+ * dependencies pointing at nothing.
+ */
+function wbTaskDependents(taskName) {
+    const key = String(taskName || '').toLowerCase();
+    return (wbLastTasks || [])
+        .filter(t => t && Array.isArray(t.depends)
+            && t.depends.some(d => String(d).toLowerCase() === key))
+        .map(t => t.name);
+}
+
+/**
+ * Turn a task's note back into a text note (a thought): the reverse of
+ * wbPromoteThought(). Its outline line is commented out, so the task leaves
+ * the schedule, and its whiteboard row is untouched, so the same card, in
+ * the same place, re-renders as a text note holding the task's comment.
+ * One commit, one undo.
+ *
+ * Refused, with a message, for a task with subtasks (they would be orphaned)
+ * and for one other tasks depend on (the dependencies would dangle).
+ */
+function wbDemoteToThought(taskName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !taskName || typeof wbDemoteTaskToThoughtInPlanText !== 'function') return false;
+    const say = (msg) => { if (typeof wbFlashNoodleMessage === 'function') wbFlashNoodleMessage(msg); };
+    if (wbHasChildren(wbLastTasks, taskName)) {
+        say(`"${taskName}" has subtasks — move or remove them before turning it into a text note.`);
+        return false;
+    }
+    const dependents = wbTaskDependents(taskName);
+    if (dependents.length) {
+        say(`"${dependents[0]}"${dependents.length > 1 ? ` and ${dependents.length - 1} more` : ''} depend on "${taskName}" — remove those dependencies first.`);
+        return false;
+    }
+    const next = wbDemoteTaskToThoughtInPlanText(editor.value, taskName);
     if (next === editor.value) return false;
     return wbCommitMarkdown(next);
 }

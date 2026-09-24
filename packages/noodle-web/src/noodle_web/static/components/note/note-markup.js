@@ -241,7 +241,12 @@ export function buildNoteCard() {
     // inside the note, where the rows show them.
     const footer = el('div', 'wb-note-footer');
     const progress = el('span', 'wb-note-progress');
-    footer.appendChild(progress);
+    // "+3 more": rows the body has scrolled out of sight. The body scrolls
+    // with its scrollbar hidden until hover, so without this a short note
+    // looked like it held every task it had. Hidden until the board measures
+    // an overflow (wbUpdateNoteOverflow() in whiteboard-notes.js).
+    const moreBtn = el('button', 'wb-note-more', { type: 'button', hidden: '' });
+    footer.append(progress, moreBtn);
 
     const resizeHandle = el('div', 'wb-note-resize-handle', { 'aria-hidden': 'true' });
 
@@ -296,7 +301,7 @@ export function buildNoteCard() {
         rails,
         refs: {
             card, header, pinBtn, title, coachBtn,
-            linkHandle, parentCaption, body, footer, progress,
+            linkHandle, parentCaption, body, footer, progress, moreBtn,
             resizeHandle, rails, railHint, railDep,
         },
     };
@@ -323,7 +328,7 @@ export function buildNoteCard() {
  *
  * `model` is already resolved by the caller:
  *
- *   { name, complete, indeterminate, hasChildren, childCount, deliverable,
+ *   { name, complete, percent, indeterminate, hasChildren, childCount, deliverable,
  *     date: { text, label } | null,
  *     coach: { glyph, label, suspected } | null,
  *     depHandle: boolean,
@@ -357,12 +362,20 @@ export function buildChecklistRow(model) {
     //
     // `row` reports whether this is a summary, which is the only kind that may
     // render the mixed state.
+    // A leaf part-way done shows its percent as a pie in the box (see
+    // np-checkbox's `progress`), and says so: ticking it still means "done".
+    const pct = parseFloat(model.percent);
+    const partial = !model.hasChildren && !model.complete && pct > 0 && pct < 100;
+    const pctText = partial ? `${Math.round(pct)}% complete` : '';
     const checkbox = el('np-checkbox', 'wb-note-checkbox', {
         dense: '',
         row: model.hasChildren ? 'summary' : 'leaf',
-        title: model.complete ? 'Mark as incomplete' : 'Mark as complete',
-        label: `Mark "${name}" as ${model.complete ? 'incomplete' : 'complete'}`,
+        title: model.complete ? 'Mark as incomplete'
+            : partial ? `${pctText} -- click to mark as complete` : 'Mark as complete',
+        label: `Mark "${name}" as ${model.complete ? 'incomplete' : 'complete'}`
+            + (partial ? ` (${pctText})` : ''),
     });
+    if (partial) checkbox.setAttribute('progress', String(pct));
     if (model.complete) checkbox.setAttribute('checked', '');
     if (model.indeterminate && model.hasChildren) checkbox.setAttribute('indeterminate', '');
     row.appendChild(checkbox);

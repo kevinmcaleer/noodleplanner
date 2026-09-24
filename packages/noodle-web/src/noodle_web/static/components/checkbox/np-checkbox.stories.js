@@ -42,8 +42,9 @@ export default {
         dense: { control: 'boolean' },
         row: { control: { type: 'select' }, options: ['leaf', 'summary'] },
         label: { control: 'text' },
+        progress: { control: { type: 'range', min: 0, max: 100, step: 5 } },
     },
-    args: { checked: false, indeterminate: false, disabled: false, dense: false, row: 'leaf', label: 'Mark as complete' },
+    args: { checked: false, indeterminate: false, disabled: false, dense: false, row: 'leaf', label: 'Mark as complete', progress: 0 },
 };
 
 export const Unchecked = {};
@@ -51,6 +52,11 @@ export const Checked = { args: { checked: true } };
 
 /** Only a summary row may be mixed -- a leaf is one task, done or not. */
 export const Indeterminate = { args: { row: 'summary', indeterminate: true } };
+
+/** A leaf task part-way done: the box fills like a pie to its percent, the
+ * same conic-gradient fill Kanban's progress uses. Still a checkbox -- a
+ * click ticks it, which means done. */
+export const PartlyDone = { args: { progress: 40 } };
 
 export const Disabled = { args: { disabled: true } };
 export const DisabledChecked = { args: { disabled: true, checked: true } };
@@ -64,6 +70,9 @@ export const AllStates = {
         ['unchecked', mount({ label: 'unchecked' })],
         ['checked', mount({ checked: true, label: 'checked' })],
         ['mixed', mount({ row: 'summary', indeterminate: true, label: 'mixed' })],
+        ['25% done', mount({ progress: 25, label: '25%' })],
+        ['75% done', mount({ progress: 75, label: '75%' })],
+        ['dense + 40% done', mount({ dense: true, progress: 40, label: 'x' })],
         ['disabled', mount({ disabled: true, label: 'disabled' })],
         ['disabled + checked', mount({ disabled: true, checked: true, label: 'x' })],
         ['disabled + mixed', mount({ disabled: true, row: 'summary', indeterminate: true, label: 'x' })],

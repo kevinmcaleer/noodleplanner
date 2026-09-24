@@ -69,6 +69,7 @@ const {
     wbRenameThoughtInPlanText,
     wbSetThoughtCommentInPlanText,
     wbPromoteThoughtInPlanText,
+    wbDemoteTaskToThoughtInPlanText,
     wbDeleteThoughtFromPlanText,
 } = sandbox;
 
@@ -626,6 +627,19 @@ assert(!merged.split('\n').includes('Beta'), 'merge leaves one task holding ever
 
     assertEqual(wbDeleteThoughtFromPlanText(withThought, 'Idea'), THOUGHT_PLAN,
         'deleting a thought removes exactly its line');
+
+    // Back the other way: a task becomes a thought by commenting its line.
+    const demoted = wbDemoteTaskToThoughtInPlanText(promoted, 'Big idea');
+    assertEqual(demoted, renamedThought, 'demote is the exact reverse of promote');
+    assertEqual(wbDemoteTaskToThoughtInPlanText('Alpha\n  Sub 3d @Ann "why"', 'Sub'),
+        'Alpha\n  // Sub 3d @Ann "why"',
+        'demote keeps the indent and everything else on the line');
+    assertEqual(wbParseThoughts('Alpha\n  // Sub 3d "why"').map(t => `${t.name}|${t.comment}`).join(),
+        'Sub|why', 'and the demoted line reads back as a thought with the comment as its text');
+    assertEqual(wbDemoteTaskToThoughtInPlanText('Alpha\n  Sub', 'Alpha'), 'Alpha\n  Sub',
+        'a task with subtasks is refused -- they would be orphaned');
+    assertEqual(wbDemoteTaskToThoughtInPlanText('Alpha', 'Nope'), 'Alpha',
+        'demoting a missing task changes nothing');
 }
 
 console.log(failures === 0 ? '\nAll structure tests passed.' : `\n${failures} test(s) failed.`);

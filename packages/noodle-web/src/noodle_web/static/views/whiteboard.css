@@ -1334,6 +1334,40 @@
     flex-shrink: 0;
 }
 
+/* "+3 more ▾": checklist rows scrolled out of the body's sight
+   (wbUpdateNoteOverflow() in whiteboard-notes.js). Quiet, in the note's own
+   muted ink like the count beside it, because it is a fact about the list
+   first and a control second; pressing it scrolls to the rows. */
+.wb-note-more {
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 0 var(--np-space-4);
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--wb-note-ink-muted);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.wb-note-more[hidden] {
+    display: none;
+}
+
+.wb-note-more:hover,
+.wb-note-more:focus-visible {
+    color: var(--wb-note-text);
+    background: var(--wb-note-hover-strong);
+}
+
+.wb-note-more:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: 1px;
+}
+
 .wb-note-progress {
     font-size: 11px;
     font-weight: 600;
@@ -1543,11 +1577,13 @@
 }
 
 /* Thought: a text note that is not a task (whiteboard-structure.js's
-   "Thoughts"). Same card as a post-it -- same fill, same drag and resize --
+   "Thoughts"). Same card as a post-it -- same drag and resize --
    drawn with a dashed edge so it reads as provisional next to the solid
-   post-its that are real tasks. Everything on the card that acts on a task
+   post-its that are real tasks, and always filled a very light grey
+   (wbThoughtFill() in whiteboard-notes.js), never a pastel, so it is plainly
+   a different kind of thing. Everything on the card that acts on a task
    is hidden: the planning coach, the noodle handle, the unpin (a thought's
-   `...` menu has Delete instead), the footer and the row rails. */
+   More menu has Delete instead), the footer and the row rails. */
 .wb-note-thought {
     border-style: dashed;
     border-color: var(--wb-note-text);
