@@ -99,7 +99,7 @@ async def _start_session(base: str) -> dict:
 
 async def _join(base: str, info: dict, name: str):
     """Connect one joiner and complete the #963 admission handshake."""
-    socket_ = await websockets.connect(f"ws://{base}/ws/session/{info['session_id']}")
+    socket_ = await websockets.connect(f"ws://{base}/ws/join")
     await socket_.send(json.dumps({
         "type": "join", "code": info["join_code"], "display_name": name,
     }))

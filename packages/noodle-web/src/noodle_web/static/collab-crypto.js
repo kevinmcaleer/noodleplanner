@@ -11,25 +11,28 @@
  * sees the ciphertext envelopes this module produces (plus the two
  * public-key handshake announcements, which are not secret -- see below).
  *
- * TWO SEPARATE SECRETS, ON PURPOSE (post-security-review design -- read
- * this before touching anything below): the six-digit `join_code` the PM
- * reads out loud and `handshake_secret` (a 256-bit secret from
- * collab_session.py, delivered only via the `#k=...` URL fragment of the
- * holding link -- see collab_session.py's module docstring) are NOT the
- * same thing and must never be conflated again. `join_code` is checked by
- * the *relay itself* to admit a joiner's WebSocket (unchanged from #963) --
- * which means the relay legitimately learns it, so it can never be what
- * authenticates this module's ECDH handshake: an earlier version of this
- * file used `join_code` for that, and a security review found the relay
- * could therefore recompute the same connect key itself and transparently
- * MITM the "encrypted" channel (establish separate session keys with the
- * host and the joiner, decrypting and re-forwarding everything). URL
- * fragments are never sent to a server in any HTTP request (browser
- * behaviour, not something either party has to enforce), which is what
- * makes `handshake_secret` different: the relay never sees it on any
- * request, so it cannot forge a valid handshake announcement. `join_code`
- * now plays no cryptographic role at all -- see `deriveConnectKey` below.
+ * ONE SHARED SECRET: THE JOIN CODE. The six-digit `join_code` the PM
+ * reads out is the only thing a joiner types (they go to `/join` and enter
+ * it), so it is also what authenticates the ECDH handshake below. What that
+ * buys, and what it deliberately does not:
  *
+ *   - The relay stores nothing, and anyone who can only *observe* the relay
+ *     (logs, a passive tap, a curious operator reading traffic) sees public
+ *     keys and AES-GCM ciphertext -- ECDH keeps the content key off the
+ *     wire entirely.
+ *   - A party who can inject frames but does not know the code cannot get a
+ *     handshake announcement accepted.
+ *   - It does NOT stop the relay itself from actively MITM'ing the
+ *     exchange: the relay has to see the code to admit joiners, so a
+ *     malicious or compromised relay could compute the same connect key,
+ *     run a separate ECDH exchange with each side and re-encrypt between
+ *     them. An earlier design closed that gap with a second 256-bit secret
+ *     carried only in the join link's URL fragment, which cost a long
+ *     `/join/<session id>#k=<secret>` link. It was dropped on purpose for
+ *     the Kahoot-style "go to /join, enter the code" flow, since the relay
+ *     is our own server and the requirement is that it never holds plan
+ *     data, not that it is untrusted.
+
  * Uses ONLY the browser's native Web Crypto API (`crypto.subtle`) -- no
  * hand-rolled cryptographic primitives, no dependency. Node's built-in
  * `node:crypto` webcrypto implementation exposes the same `crypto.subtle`
@@ -40,33 +43,28 @@
  * DESIGN, PARAMETERS AND WIRE FORMAT (read this before touching the file)
  * ---------------------------------------------------------------------
  *
- * 1. Why neither secret is ever the encryption key directly
+ * 1. Why the join code is never the encryption key directly
  *    `join_code` (~1,000,000 possibilities) would be trivially brute-
  *    forceable offline against captured ciphertext if used directly as a
- *    key -- and, as explained above, it's also relay-visible, so it's
- *    excluded from the crypto entirely. `handshake_secret` (256 bits,
- *    fragment-only) is high-entropy and relay-invisible, but it still
- *    isn't used to encrypt content directly: it is stretched through
- *    PBKDF2 into a "connect key" used only to *authenticate* the ECDH
- *    exchange (see step 3). The actual content-encryption key comes out of
- *    that ECDH exchange (step 3's `deriveSessionKey`), not out of PBKDF2.
+ *    key. Instead it is stretched through PBKDF2 into a "connect key" used
+ *    only to *authenticate* the ECDH exchange (see step 3). The actual
+ *    content-encryption key comes out of that ECDH exchange (step 3's
+ *    `deriveSessionKey`), not out of PBKDF2, so recovering the code from a
+ *    captured handshake does not decrypt anything.
  *
  * 2. KDF: PBKDF2-HMAC-SHA256, 600,000 iterations
- *    `deriveConnectKey(handshakeSecret, sessionId)` runs PBKDF2-HMAC-SHA256
- *    over the UTF-8 `handshakeSecret` with iterations = KDF_ITERATIONS =
+ *    `deriveConnectKey(joinCode, sessionId)` runs PBKDF2-HMAC-SHA256
+ *    over the UTF-8 `joinCode` with iterations = KDF_ITERATIONS =
  *    600,000 -- OWASP's current (2023+) Password Storage Cheat Sheet
  *    minimum recommendation for PBKDF2-HMAC-SHA256, chosen as a concrete,
- *    citable anchor rather than a guessed number. (`handshakeSecret` is
- *    already 256 bits of CSPRNG entropy on its own -- unlike a real
- *    low-entropy password, it doesn't strictly *need* PBKDF2's brute-force
- *    resistance -- but running it through the same KDF costs nothing and
- *    keeps this function's shape uniform regardless of what's fed into it.)
+ *    citable anchor rather than a guessed number.
  *    Salt = the UTF-8 bytes of the session id. Session ids are generated
  *    server-side with `secrets.token_urlsafe(32)` (256 bits of CSPRNG
  *    entropy, see collab_session.py) and are already unique and
  *    unguessable per session, so reusing the session id as the PBKDF2 salt
- *    needs no extra salt generation, storage, or transmission -- both
- *    sides already know it before the handshake begins. The 256-bit output
+ *    needs no extra salt generation, storage, or transmission -- the host
+ *    gets it from `/api/collab/start` and the joiner from the relay's
+ *    `joined` reply, both before the handshake begins. The 256-bit output
  *    is imported as a non-extractable HMAC-SHA256 key -- this "connect
  *    key" authenticates the handshake (step 3); it is never used to
  *    encrypt plan content directly.
@@ -83,23 +81,12 @@
  *    "a separate value authenticates the handshake" piece from the design
  *    brief. Public EC keys are not secret, so the announcement is
  *    authenticated (MAC'd), not encrypted -- confidentiality against a
- *    purely passive relay/network eavesdropper is already guaranteed by
- *    ECDH itself (nobody's private key ever leaves this module, let alone
- *    crosses the relay). What the MAC actually buys is protection against
- *    an *active* attacker trying to substitute their own ephemeral public
- *    key into the exchange (a MITM) -- critically, including the relay
- *    itself, which is exactly the attacker a MITM-resistant design here
- *    has to cover, since the relay is the one party that sees every frame
- *    of every session: without `handshake_secret` (which never crosses the
- *    relay -- see the top of this file) an attacker cannot produce a MAC
- *    the other side's `parsePubkeyAnnouncement` will accept, so the
- *    handshake is rejected and no session key is ever derived with the
- *    impostor. This is exactly what tests/test_collab_crypto.mjs's
- *    wrong-secret test demonstrates, and what
- *    tests/test_collab_encryption.py's
- *    `test_relay_who_knows_join_code_and_session_id_cannot_forge_handshake`
- *    proves specifically for a party who has everything the relay has
- *    (`join_code` + `session_id`) but not `handshake_secret`.
+ *    passive relay/network eavesdropper is already guaranteed by ECDH
+ *    itself (nobody's private key ever leaves this module, let alone
+ *    crosses the relay). What the MAC buys is that a party without the
+ *    join code cannot substitute their own ephemeral public key into the
+ *    exchange; see the top of this file for why the relay, which does know
+ *    the code, is out of that guarantee's scope.
  *
  *    Once both public keys are verified, `deriveSessionKey(privateKey,
  *    peerPublicKeyRawBase64, sessionId)` computes the raw ECDH shared
@@ -186,21 +173,14 @@ function fromBase64(base64) {
 }
 
 /**
- * Stretch `handshakeSecret` into a 256-bit "connect key" (a
- * non-extractable HMAC-SHA256 CryptoKey) via PBKDF2-HMAC-SHA256. See the
- * module docstring (point 2) for the iteration count and salt rationale.
- * This key authenticates the ECDH handshake; it is never the content key.
- *
- * `handshakeSecret` MUST be the fragment-only secret from
- * collab_session.py's `SessionInfo.handshake_secret` (delivered via the
- * `#k=...` URL fragment) -- NEVER `join_code` (the six-digit code). See
- * the top of this file's module docstring for why: `join_code` is
- * legitimately visible to the relay (it has to be, for admission), so
- * using it here would let the relay forge this exact handshake.
+ * Stretch `joinCode` into a 256-bit "connect key" (a non-extractable
+ * HMAC-SHA256 CryptoKey) via PBKDF2-HMAC-SHA256. See the module docstring
+ * (point 2) for the iteration count and salt rationale. This key
+ * authenticates the ECDH handshake; it is never the content key.
  */
-export async function deriveConnectKey(handshakeSecret, sessionId) {
+export async function deriveConnectKey(joinCode, sessionId) {
     const secretKeyMaterial = await crypto.subtle.importKey(
-        'raw', textEncoder.encode(handshakeSecret), 'PBKDF2', false, ['deriveBits']
+        'raw', textEncoder.encode(joinCode), 'PBKDF2', false, ['deriveBits']
     );
     const bits = await crypto.subtle.deriveBits(
         {
@@ -354,10 +334,8 @@ export function buildToJoinerEnvelope(joinerId, frame) {
  * Parse and verify a peer's pubkey announcement. Returns the verified
  * base64 raw public key on success, or `null` if the message is
  * malformed, the wrong `type`, or -- critically -- the MAC doesn't verify
- * (which is exactly what happens if the sender used the wrong
- * `handshake_secret` -- including an attacker, such as the relay itself,
- * who only has `join_code` and forges a message using that instead: their
- * connect key differs, so their MAC won't match ours).
+ * (which is exactly what happens if the sender used a different join code:
+ * their connect key differs, so their MAC won't match ours).
  */
 export async function parsePubkeyAnnouncement(expectedType, connectKey, jsonText) {
     let parsed;
