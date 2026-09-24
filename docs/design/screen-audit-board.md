@@ -16,6 +16,14 @@ Both need a NoodlePlanner running (default `http://localhost:8007`; pass
 gitignored — 170-odd PNGs and two 8 MB SVGs are not something to keep in
 version control when one command regenerates them.
 
+Both also need the CDN, because the app loads Bootstrap, Bootstrap Icons and
+its webfonts from `cdn.jsdelivr.net` and Google Fonts. Screens captured without
+them come out in fallback fonts and look plausible, so both scripts now exit
+non-zero and list the URLs whenever a CDN request fails. On a network that
+blocks jsDelivr but not the npm registry, `--npm-mirror <dir>` (or
+`NOODLE_NPM_MIRROR`) serves those files from unpacked `npm pack` tarballs; the
+docstring of `scripts/capture_screen_audit.py` has the four-line setup.
+
 ## What gets captured
 
 **84 screens**, in each theme:
