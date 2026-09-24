@@ -498,8 +498,8 @@ def test_new_post_it_lands_where_it_was_dropped(app_server, browser):
     rect = browser.execute_script(
         "const n = Array.from(document.querySelectorAll('.wb-note'))"
         "  .find(n => n.dataset.wbTask === 'New idea');"
-        "return {x: parseFloat(n.getAttribute('x')), y: parseFloat(n.getAttribute('y')),"
-        "        w: parseFloat(n.getAttribute('width')), h: parseFloat(n.getAttribute('height'))};"
+        "return {x: parseFloat(n.dataset.wbX), y: parseFloat(n.dataset.wbY),"
+        "        w: parseFloat(n.dataset.wbWidth), h: parseFloat(n.dataset.wbHeight)};"
     )
     # Centred on the drop point, not placed at some default corner.
     assert abs((rect["x"] + rect["w"] / 2) - 1200) <= 1

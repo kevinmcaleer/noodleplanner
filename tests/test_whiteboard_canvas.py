@@ -387,10 +387,26 @@ class TestKeyboard:
         switch_to_whiteboard(browser)
         self._focus_canvas_via_tab(browser)
 
-        outline = browser.execute_script(
-            "return window.getComputedStyle(document.getElementById('whiteboardContainer')).outlineStyle;"
+        # The design system draws focus as a box-shadow ring
+        # (visual-system.css's `--np-focus-ring`), not an outline, and its
+        # `[tabindex]:focus-visible` rule sets `outline: none` to do it -- so
+        # either counts, as tests/ui/test_component_gallery.py already
+        # allows. Compared against the blurred canvas, so a shadow the canvas
+        # always carries cannot pass for a focus ring.
+        read = (
+            "const cs = window.getComputedStyle(document.getElementById('whiteboardContainer'));"
+            "return {outline: cs.outlineStyle, shadow: cs.boxShadow};"
         )
-        assert outline != "none", "canvas must show a visible focus outline when keyboard-focused"
+        focused = browser.execute_script(read)
+        browser.execute_script("document.getElementById('whiteboardContainer').blur();")
+        resting = browser.execute_script(read)
+
+        outline_shown = focused["outline"] != "none" and focused["outline"] != resting["outline"]
+        ring_shown = focused["shadow"] != "none" and focused["shadow"] != resting["shadow"]
+        assert outline_shown or ring_shown, (
+            "canvas must show a visible focus indicator when keyboard-focused: "
+            f"focused={focused} resting={resting}"
+        )
 
     def test_arrow_keys_pan(self, browser, app_server):
         open_app(browser, app_server)
