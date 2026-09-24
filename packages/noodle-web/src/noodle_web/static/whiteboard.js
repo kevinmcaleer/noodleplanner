@@ -436,6 +436,70 @@ function whiteboardFocusNote(taskName) {
     return true;
 }
 
+/**
+ * Pan -- never zoom -- just far enough that the note for `taskName` sits
+ * wholly inside the visible canvas, with a little breathing room. A note
+ * too big to fit is centred instead. No-op (returns false) when it is
+ * already on screen.
+ *
+ * This is what a *new* note calls (whiteboard-notes.js's wbRevealNewNote()):
+ * placement tries hard to find room on screen, but a full screen has none,
+ * and a note created off screen shows up in the markdown and the outline
+ * while the canvas looks unchanged. Unlike whiteboardFocusNote() it moves
+ * the board as little as possible, so the notes around it stay in view.
+ */
+function whiteboardRevealNote(taskName) {
+    if (!wbSvg || typeof wbNoteNodes === 'undefined' || !wbNoteNodes) return false;
+    const entry = wbNoteNodes.get(taskName);
+    if (!entry || !entry.fo) return false;
+
+    const fo = entry.fo;
+    const x = parseFloat(fo.getAttribute('x') || '0');
+    const y = parseFloat(fo.getAttribute('y') || '0');
+    const w = parseFloat(fo.getAttribute('width') || '0');
+    const h = parseFloat(fo.getAttribute('height') || '0');
+
+    const visible = wbVisibleCanvasRect();
+    if (!visible.width || !visible.height) return false; // canvas hidden: nothing to aim at
+    const pad = 24;
+    const delta = (start, size, min, max) => {
+        const end = start + size;
+        if (size > max - min) return (min + max) / 2 - (start + end) / 2;
+        if (start < min) return min - start;
+        if (end > max) return max - end;
+        return 0;
+    };
+    const dx = delta(wbPanX + x * wbZoom, w * wbZoom, visible.x + pad, visible.x + visible.width - pad);
+    const dy = delta(wbPanY + y * wbZoom, h * wbZoom, visible.y + pad, visible.y + visible.height - pad);
+    if (!dx && !dy) return false;
+
+    wbPanX += dx;
+    wbPanY += dy;
+    wbApplyTransform(true);
+    wbScheduleSaveViewport();
+    return true;
+}
+
+/**
+ * Whether any note overlaps the visible canvas at the current pan/zoom.
+ * True for an empty board -- there is nothing to be missing.
+ */
+function wbAnyNoteOnScreen() {
+    const notes = wbGroup ? wbGroup.querySelectorAll('.wb-note') : [];
+    if (!notes.length) return true;
+    const visible = wbVisibleCanvasRect();
+    const view = wbViewportToBoardRect(
+        wbPanX, wbPanY, wbZoom, visible.width, visible.height, visible.x, visible.y);
+    return Array.from(notes).some((el) => {
+        const x = parseFloat(el.dataset.wbX || '0');
+        const y = parseFloat(el.dataset.wbY || '0');
+        const w = parseFloat(el.dataset.wbWidth || '0');
+        const h = parseFloat(el.dataset.wbHeight || '0');
+        return x < view.x + view.width && x + w > view.x &&
+            y < view.y + view.height && y + h > view.y;
+    });
+}
+
 // ── Wheel / mouse / touch handlers ──────────────────────────────────────
 
 function wbHandleWheel(e) {
@@ -824,4 +888,12 @@ function initWhiteboard() {
         wbUpdateZoomLabel();
         wbUpdateZoomButtons();
     }
+
+    // A saved or carried-over viewport can point at an empty stretch of
+    // board -- notes moved, the canvas resized while hidden, a plan
+    // replaced -- and the board then looks blank although it has notes.
+    // Frame them instead. Skipped while the canvas has no size yet, since
+    // "nothing on screen" means nothing then.
+    const visible = wbVisibleCanvasRect();
+    if (visible.width && visible.height && !wbAnyNoteOnScreen()) whiteboardZoomFit();
 }
