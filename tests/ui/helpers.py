@@ -146,6 +146,14 @@ def note(page, task):
     return page.locator(f'#whiteboardContainer .wb-note[data-wb-task="{task}"]')
 
 
+def open_note_menu(page, task):
+    """Open `task`'s note menu the way a user does: select the note, then
+    press More on the object toolbar that floats above it. (The menu used to
+    hang off a `...` button in every note's header.)"""
+    page.evaluate("t => wbSetSelectedNote(t)", task)
+    page.locator(".wb-object-toolbar .wb-object-toolbar-more").dispatch_event("click")
+
+
 def note_task_names(page):
     return page.evaluate(
         "() => [...document.querySelectorAll('#whiteboardContainer .wb-note')]"

@@ -37,13 +37,13 @@ Free-form Notes
 
 A brand-new post-it starts as a **free-form note**: just a title, with no checklist, dates or subtasks forced onto it. That is the whole point — the fastest way to get a thought onto the board is to type it and stop.
 
-If you also want a line or two of detail, open **Open task details** on the note's ``...`` menu and fill in **Comment**. It shows up in the note's body.
+If you also want a line or two of detail, open **Open task details** on the note's **More** menu and fill in **Comment**. It shows up in the note's body.
 
 The moment you give the note its *first* subtask — typing one into the ``Add task…`` row at the bottom of the note, indenting a task under it in the outline, adding one from the task form, or noodling an existing note underneath it — the note switches to a checklist automatically (see `Tick Off a Todo`_ below). There is no separate "add a checklist" step, no button to press first, and no way to switch back short of removing every subtask again.
 
 The ``Add task…`` row is the usual way. Every note has one, free-form notes included: click it, type the task, press ``Enter``. On a free-form note that first task *is* the switch to a checklist — the note becomes a summary task because it now has something underneath it, not because you asked it to become one.
 
-**Make comment a subtask** on a free-form note's ``...`` menu does the same thing from the text you have already written: it turns the note's own **Comment** into a real subtask underneath it. If the note has no comment yet, it asks you to name the new subtask instead. Either way it is one action, and undoing it removes the subtask and returns the note to free-form.
+**Make comment a subtask** on a free-form note's **More** menu does the same thing from the text you have already written: it turns the note's own **Comment** into a real subtask underneath it. If the note has no comment yet, it asks you to name the new subtask instead. Either way it is one action, and undoing it removes the subtask and returns the note to free-form.
 
 Capture a Thought Without a Task
 ----------------------------------
@@ -56,7 +56,7 @@ Not everything on a whiteboard is work yet. A **text note** is a note that is *n
 
 A text note has a dashed edge, so you can tell it from the solid post-its that are real tasks. It has no checklist, no facilitator prompts and no noodle handle — those are all about tasks. You can still move it, resize it, recolour it and rename it like any other note.
 
-When a thought turns into work, choose **Promote to task** on its ``...`` menu. The same note, in the same place, becomes an ordinary post-it backed by a real task, with the thought's text as the task's comment. **Delete note** on the same menu removes it.
+When a thought turns into work, choose **Promote to task** on its **More** menu. The same note, in the same place, becomes an ordinary post-it backed by a real task, with the thought's text as the task's comment. **Delete note** on the same menu removes it.
 
 .. note::
 
@@ -103,14 +103,14 @@ that row.
 Rename a Note
 ---------------
 
-Double-click a note's **header** (or double-tap it on a touchscreen) and type. ``Enter`` saves, ``Escape`` abandons the change. There is also a **Rename** item on the note's ``...`` menu.
+Double-click a note's **header** (or double-tap it on a touchscreen) and type. ``Enter`` saves, ``Escape`` abandons the change. There is also a **Rename** item on the note's **More** menu.
 
 Renaming from here renames the task itself, and updates anything that pointed at the old name — dependencies included — in one step.
 
 Link Notes with Noodles
 -------------------------
 
-Each note's header has a small noodle handle next to the ``...`` button. **Drag it onto another note** to make that note a subtask.
+Each note's header has a small noodle handle at its right-hand end. **Drag it onto another note** to make that note a subtask.
 
 While you drag, a dashed line follows your pointer and the note you are hovering is outlined: green if the link is allowed, red if it isn't. Drop it, and the target note drops in under the first one.
 
@@ -127,11 +127,11 @@ Unlink Notes
 
 **Click a noodle** to select it. It turns orange and a ``✕`` appears at its midpoint. Then either click the ``✕`` or press ``Delete``.
 
-You can also use **Unlink from "…"** on the note's ``...`` menu, which is easier to hit on a crowded board.
+You can also use **Unlink from "…"** on the note's **More** menu, which is easier to hit on a crowded board.
 
 .. note::
 
-   Unlinking never deletes anything. The task moves back to the top level of your plan, keeping its own subtasks. To actually remove a task, use **Delete task** on the ``...`` menu — that one asks for confirmation, because unlike everything else on the board it destroys plan content.
+   Unlinking never deletes anything. The task moves back to the top level of your plan, keeping its own subtasks. To actually remove a task, use **Delete task** on the **More** menu — that one asks for confirmation, because unlike everything else on the board it destroys plan content.
 
 Draw Dependency Links
 -----------------------
@@ -188,36 +188,41 @@ Move and Resize a Note
 
 Both moving and resizing save once you release, as a single undo step — nothing is written while you are still dragging.
 
+The Note and Group Toolbar
+----------------------------
+
+Click a note (or a group's boundary) and a small toolbar appears above it, as on Obsidian's canvas:
+
+- **Colour** — pick the note's or group's colour.
+- **Zoom to** — frame it in the middle of the screen.
+- **Edit title** — rename it in place.
+- **Remove** — take a note off the board (its task stays in your plan), or remove a group (its notes stay where they are).
+- **More** (notes only) — everything else: Rename, Unlink, Open task details, Send to parking lot, Remove from board and Delete task. Right-clicking a note opens the same menu at the pointer.
+
+The toolbar follows the note as you pan, zoom or drag it, and goes away when you click empty canvas or press ``Escape``. With two or more notes selected you get the **Group these** / **Combine** toolbar instead.
+
 Select Several Notes
 ----------------------
 
 Two of the board's gestures act on more than one note at a time, so there are two ways to pick several:
 
 - **Shift-click** a note's header to add it to the selection, or shift-click a selected note to take it back out. Shift-clicking never picks the note up — building a selection and moving something are different jobs.
-- **Shift-drag on empty canvas** to lasso. Every note the box *touches* is selected, not only the ones it completely surrounds; a marquee you have to draw bigger than the thing you are pointing at is a marquee that makes you drag across the whole board.
+- **Drag on empty canvas** to lasso, as on Obsidian's canvas. Every note the box *touches* is selected, not only the ones it completely surrounds; a marquee you have to draw bigger than the thing you are pointing at is a marquee that makes you drag across the whole board. Shift-drag adds to what is already selected.
 
-With the Move tool on (the default), plain dragging on empty canvas pans, which is why this lasso takes the shift key. The Group tool, below, turns a plain drag into a lasso that groups.
+To move round the board, swipe with two fingers on a trackpad (or scroll a mouse wheel), drag with the middle mouse button, or hold ``Space`` and drag. On a touchscreen, drag with one finger.
 
 Once two or more notes are selected, a small toolbar appears at the bottom of the board offering the two things a selection is for: **Group these** and **Combine**. Press ``Escape`` or click empty canvas to clear the selection.
 
 Group Notes Inside a Boundary
 -------------------------------
 
-The quickest way works like Obsidian's canvas:
+Select some notes (drag round them, or shift-click them), then press ``Ctrl``/``Cmd`` + ``G`` — or choose **Group these** from the selection toolbar, or **Group** on the ribbon's **Whiteboard** tab. A boundary is drawn round them, titled **Untitled group** with the title ready to type over. Type a name and press ``Enter`` (``Escape`` keeps the placeholder).
 
-1. Pick the **Group** tool in the whiteboard toolbar (or press ``g``).
-2. Drag round the notes you want together. Every note the lasso *touches* goes in.
-3. Let go. A boundary is drawn round them, titled **Untitled group** with the title ready to type over. Type a name and press ``Enter`` (``Escape`` keeps the placeholder).
-
-Switch back with **Move** (or ``v``). In either tool, a two-finger swipe on a trackpad, a middle-button drag, or holding ``Space`` while dragging pans the board, so you never have to leave the Group tool just to look around.
-
-You can also select notes first (see above) and choose **Group these** from the selection toolbar, or **Group** on the ribbon's **Whiteboard** tab; the new group's title opens for typing the same way.
-
-Lasso round a whole group and another note and the group goes in *as a group* — you get a group inside a group rather than the notes being pulled out of the one they were in. With the Group tool on, a drag that starts inside an existing boundary draws a lasso there too, which is how you make a group within a group; drag a boundary by its title to move it.
+Select every note of a group plus another note and the group goes in *as a group* — you get a group inside a group rather than the notes being pulled out of the one they were in.
 
 A group keeps every note separate — it is a container, not a merge. Underneath, the group is an ordinary summary task in your plan with those notes' tasks indented under it, so the grouping shows up in the Gantt chart, the outline and everywhere else without you having to build it twice.
 
-- **Move a group** — drag its boundary (with the Group tool on, drag its title). Everything inside travels with it, and the whole move is one undo step.
+- **Move a group** — drag its boundary. Everything inside travels with it, and the whole move is one undo step.
 - **Rename** — double-click the boundary's title and type over it.
 - **Ungroup** — hover the boundary and click **Ungroup** at its top-right. The notes go back to the top level of the plan and keep their own subtasks; only the group itself goes.
 - **Nest** — a group is a task, so a group can go inside another group, as deep as you like.
@@ -256,25 +261,25 @@ A child task that itself has children shows a count badge (for example ``2 ▾``
 
 The pin at the popover's top right puts *that* task on the board as a note of its own, next to where the popover was, so you can promote a subtask you have just drilled into without hunting for it in the plan structure panel afterwards. It appears greyed out for a task that is already on the board.
 
-This popover is deliberately lightweight — just name, assignee and completion. For anything else (dates, dependencies, comments, and so on), click **Open task details** at the top of the popover, or on the note's own ``...`` menu, to open the full task form for that task.
+This popover is deliberately lightweight — just name, assignee and completion. For anything else (dates, dependencies, comments, and so on), click **Open task details** at the top of the popover, or on the note's own **More** menu, to open the full task form for that task.
 
 Colour a Note
 ---------------
 
-Click the ``...`` menu in a note's top-right corner. The menu opens a swatch grid of soft pastel colours — two shades each of yellow, pink, green, blue and red — plus a **Default colour** option at the top to clear any colour you have set. This is purely a personal, manual choice: it carries no meaning of its own and has nothing to do with the Kanban board's rule-based conditional formatting.
+Select the note and click **Colour** on the toolbar above it. That opens a swatch grid of soft pastel colours — two shades each of yellow, pink, green, blue and red — plus a **Default colour** option at the top to clear any colour you have set. This is purely a personal, manual choice: it carries no meaning of its own and has nothing to do with the Kanban board's rule-based conditional formatting.
 
 .. figure:: /_static/img/how-to/wb-02-note-colour-menu.png
-   :alt: A note's "..." menu open, showing the Default colour option and a grid of pastel colour swatches
+   :alt: The note colour swatches open, showing the Default colour option and a grid of pastel colour swatches
    :width: 100%
 
-   The note colour menu, opened from a note's ``...`` button.
+   The note colour swatches.
 
 A colour you pick here is the same colour the Kanban board's column header and the mind map's branch use for that task — set it on any one of the three views and it shows up on the other two. Pick **Default colour** to go back to the automatic pastel colour NoodlePlanner assigns every task, based on its place in the outline.
 
 Unpin a Note from the Board
 -------------------------------
 
-Hover a note and a pin slides in to the left of its title; click it to unpin the note. The same thing is on the note's ``...`` menu as **Remove from board**, and on the plan structure panel as that row's struck-through pin — three ways to the one action.
+Hover a note and a pin slides in to the left of its title; click it to unpin the note. The same thing is the **Remove from board** button on the note's toolbar and an item on its **More** menu, and on the plan structure panel as that row's struck-through pin — three ways to the one action.
 
 .. note::
 
@@ -287,7 +292,7 @@ Adding the same task back later gives it a fresh position on the board — it do
 Send an Idea to the Parking Lot
 ----------------------------------
 
-Not every post-it is ready to become a task yet. For a "good idea, not now" — something worth keeping but not worth cluttering the board or the plan with — open the note's ``...`` menu and choose **Send to parking lot**, or drag the note's header straight onto the open parking lot panel (see below) and drop it there.
+Not every post-it is ready to become a task yet. For a "good idea, not now" — something worth keeping but not worth cluttering the board or the plan with — open the note's **More** menu and choose **Send to parking lot**, or drag the note's header straight onto the open parking lot panel (see below) and drop it there.
 
 Unlike **Remove from board**, this genuinely takes the idea out of the working plan: the task (and any subtasks it has) is deleted from the outline, and the whiteboard row goes with it, but the note's own text and appearance — its title, its comment if it had one, its colour, and (for a checklist note) every item and its completion state — is kept as a new entry in the parking lot rather than thrown away. There is no confirmation prompt and it is one ordinary undo step, the same as every other board action.
 
@@ -307,19 +312,19 @@ Keyboard and Pointer Reference
    * - Double-click a note's header
      - Rename the task in place
    * - Right-click a note
-     - The note's ``...`` menu, at the pointer
+     - The note's **More** menu, at the pointer
    * - Right-click empty canvas
      - New post-it or title here, add an existing task, fit, zoom, and the side panels
    * - Drag the noodle handle onto another note
      - Make that note a subtask
    * - Click a noodle, then ``Delete``
      - Unlink; the task returns to the top level
-   * - Drag empty space (Move tool), scroll, two-finger swipe, middle-button drag, or ``Space`` + drag
+   * - Two-finger swipe, scroll, middle-button drag, or ``Space`` + drag
      - Pan the board
-   * - ``v`` / ``g``
-     - Switch to the Move tool / the Group tool
-   * - Drag round notes (Group tool)
-     - Group every note the lasso touches, then type the group's title
+   * - Drag empty canvas
+     - Lasso-select every note the box touches (shift-drag adds to the selection)
+   * - ``Ctrl``/``Cmd`` + ``G``
+     - Group the selected notes, then type the group's title
    * - ``Ctrl``/``Cmd`` + scroll, or pinch
      - Zoom
    * - Arrow keys
@@ -330,8 +335,6 @@ Keyboard and Pointer Reference
      - Fit the board to its contents
    * - Shift-click a note's header
      - Add it to (or remove it from) the selection
-   * - Shift-drag empty canvas
-     - Lasso every note the box touches
    * - Drag a group's boundary
      - Move the group and everything in it
    * - Drag a note onto another note

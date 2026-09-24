@@ -17,7 +17,7 @@ Usage:
     uv run pytest tests/ui/test_whiteboard_note_menu.py -q
 """
 
-from .helpers import load_plan, note, open_app, switch_to_whiteboard
+from .helpers import load_plan, note, open_app, open_note_menu, switch_to_whiteboard
 
 PLAN = """---
 title: Note Menu Test Plan
@@ -40,7 +40,7 @@ def _open(page, app_server):
     open_app(page, app_server)
     load_plan(page, PLAN)
     switch_to_whiteboard(page)
-    note(page, "Build").locator(".wb-note-menu-btn").dispatch_event("click")
+    open_note_menu(page, "Build")
     page.wait_for_selector(MENU, state="visible")
     return page.locator(MENU)
 
@@ -132,7 +132,7 @@ class TestKeyboard:
         page.keyboard.press("Escape")
         page.wait_for_selector(MENU, state="detached")
         assert page.evaluate(
-            "() => document.activeElement.classList.contains('wb-note-menu-btn')")
+            "() => document.activeElement.classList.contains('wb-object-toolbar-more')")
 
 
 class TestOnePopupAtATime:
@@ -146,6 +146,6 @@ class TestOnePopupAtATime:
         # with #1250's open question 3. Same smart menu, same subject.
         note(page, "Build").locator(".wb-note-row-resource").first.dispatch_event("click")
         page.wait_for_selector(".wb-resource-menu", state="visible")
-        note(page, "Build").locator(".wb-note-menu-btn").dispatch_event("click")
+        open_note_menu(page, "Build")
         page.wait_for_selector(MENU, state="visible")
         page.wait_for_selector(".wb-resource-menu", state="detached")

@@ -79,7 +79,7 @@
     position: relative;
     background: var(--np-surface-alt);
     outline: none;
-    cursor: grab;
+    cursor: default;
 }
 
 .wb-canvas-wrapper:focus-visible {
@@ -92,7 +92,7 @@
     width: 100%;
     height: 100%;
     touch-action: none;
-    cursor: grab;
+    cursor: default;
 }
 
 .wb-svg.wb-dragging {
@@ -407,7 +407,7 @@
     opacity: 1;
     /* The note's own measured ink, like every other control on the card --
        never a fixed black tint, which is built for one surface and wrong on
-       the other nine pastels. See .wb-note-menu-btn:hover. */
+       the other nine pastels. */
     background: var(--wb-note-hover-strong);
 }
 
@@ -422,44 +422,6 @@
     .wb-note-pin-btn {
         transition: none;
     }
-}
-
-.wb-note-menu-btn {
-    flex-shrink: 0;
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: 4px;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    font-size: 14px;
-    line-height: 1;
-    opacity: 0.7;
-}
-
-.wb-note-menu-btn:hover,
-.wb-note-menu-btn:focus-visible {
-    opacity: 1;
-    /* The note's own ink, not a fixed black tint (#1249). `rgba(0, 0, 0, 0.1)`
-       is built for a light surface, which is why dark-mode.css carried a
-       `rgba(255, 255, 255, 0.15)` override for this rule -- and that override
-       was wrong, because a note is a light pastel in *both* themes, so dark
-       mode lightened a hover that sits on light paper. Deriving it from
-       --wb-note-text is correct in either theme and on every swatch, and the
-       override is gone. */
-    background: var(--wb-note-hover-strong);
-}
-
-/* A real focus indicator (#1247). This button only changed opacity and
-   background on focus, with no outline at all -- while the swatches *inside*
-   the menu it opens have had one all along. */
-.wb-note-menu-btn:focus-visible {
-    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
-    outline-offset: 1px;
 }
 
 /* Row indicators: one visual language (issue #1248) -----------------------
@@ -3030,18 +2992,13 @@ body.wb-linking * {
     font-weight: 600;
 }
 
-/* The active canvas tool (Move / Group) wears the same pressed look. */
-#whiteboardOutlineBtn.active,
-#whiteboardMoveToolBtn.active,
-#whiteboardGroupToolBtn.active {
+#whiteboardOutlineBtn.active {
     background: var(--np-blue);
     border-color: var(--np-blue);
     color: #ffffff;
 }
 
-#whiteboardOutlineBtn.active:hover:not(:disabled),
-#whiteboardMoveToolBtn.active:hover:not(:disabled),
-#whiteboardGroupToolBtn.active:hover:not(:disabled) {
+#whiteboardOutlineBtn.active:hover:not(:disabled) {
     color: #ffffff;
 }
 
@@ -3093,6 +3050,70 @@ body.wb-linking * {
     stroke: color-mix(in srgb, var(--np-accent) 55%, transparent);
 }
 
+/* A group given its own colour from the object toolbar: the same tint and
+   edge weights as the accent default, in that colour. */
+.wb-group-coloured .wb-group-box {
+    fill: color-mix(in srgb, var(--wb-group-colour) 22%, transparent);
+    stroke: var(--wb-group-colour);
+}
+
+.wb-group-coloured:hover .wb-group-box {
+    fill: color-mix(in srgb, var(--wb-group-colour) 30%, transparent);
+}
+
+/* The selected group -- the one its object toolbar is floating over. */
+.wb-group-selected .wb-group-box,
+.wb-group-selected:hover .wb-group-box {
+    stroke: var(--np-blue);
+    stroke-width: 2.5;
+}
+
+/* The object toolbar (whiteboard-object-toolbar.js): quick actions floating
+   above the one selected note or group, as on Obsidian's canvas. HTML over
+   the canvas rather than SVG in it, so it is the same size at every zoom. */
+.wb-object-toolbar {
+    position: absolute;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-2);
+    padding: var(--np-space-4);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border-strong);
+    border-radius: var(--np-radius-control);
+    box-shadow: var(--np-elevation-3);
+}
+
+.wb-object-toolbar[hidden],
+.wb-object-toolbar.wb-object-toolbar-offscreen {
+    display: none;
+}
+
+.wb-object-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: var(--np-radius-control);
+    background: transparent;
+    color: var(--np-text-secondary);
+    cursor: pointer;
+}
+
+.wb-object-toolbar-btn:hover,
+.wb-object-toolbar-btn[aria-expanded="true"] {
+    background: var(--np-bg-hover);
+    color: var(--np-text);
+}
+
+.wb-object-toolbar-btn:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: 1px;
+}
+
 .wb-group-title {
     font-family: var(--np-font-ui);
     /* Matches WB_GROUP_TITLE_FONT in whiteboard-groups.js, which sizes the
@@ -3121,24 +3142,9 @@ body.wb-linking * {
     pointer-events: none;
 }
 
-/* The Group tool's lasso previews the boundary it is about to become:
-   the boundary's own accent and rounded corners, still dashed because it
-   is not one yet. */
-.wb-lasso-group {
-    fill: color-mix(in srgb, var(--np-accent) 8%, transparent);
-    stroke: var(--np-accent);
-    stroke-width: 1.5;
-}
-
-/* The canvas tool (see wbSetCanvasTool() in whiteboard.js). The Group tool
-   draws, so it takes the crosshair; inside a boundary too, since a drag
-   there draws a group within the group. Holding Space pans in either
-   tool, and says so. */
-.wb-tool-group .wb-svg,
-.wb-tool-group .wb-group-box {
-    cursor: crosshair;
-}
-
+/* A drag on empty canvas lassoes (see wbHandleMouseDown() in
+   whiteboard.js), so the canvas takes the plain pointer rather than the
+   grab hand; holding Space pans, and says so. */
 .wb-space-pan .wb-svg,
 .wb-space-pan .wb-group-box {
     cursor: grab;

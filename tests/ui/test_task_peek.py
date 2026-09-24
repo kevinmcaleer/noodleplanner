@@ -43,7 +43,7 @@ Usage:
 
 import pytest
 
-from .helpers import open_app
+from .helpers import open_app, open_note_menu
 
 # Build
 #   Ship Widget $Widget @sam 3d 100%      <- leaf, complete
@@ -479,7 +479,7 @@ class TestOpenTaskDetails:
         )
 
     def test_open_task_details_from_the_note_menu_selects_the_right_task(self, board):
-        note(board, "Discovery").locator(".wb-note-menu-btn").dispatch_event("click")
+        open_note_menu(board, "Discovery")
         board.wait_for_selector("#wbNoteMenu", state="visible")
         board.locator("#wbNoteMenu .wb-note-menu-open-task").dispatch_event("click")
         board.wait_for_selector("#wbNoteMenu", state="detached")

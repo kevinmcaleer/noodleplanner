@@ -116,7 +116,7 @@ export const KitchenSink = {
 
 /** The zoomed-out tier: body, footer *and* parent caption all hidden by the
  * app's own CSS, and the coach button with them -- what is left is the noodle
- * handle and the menu, the two worth hitting at 40%. */
+ * handle, the one control worth hitting at 40%. */
 export const TitleOnly = {
     args: { task: 'Zoomed-out note', parent: 'Phase 1', 'title-only': true },
 };

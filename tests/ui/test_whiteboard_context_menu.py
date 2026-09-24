@@ -8,7 +8,7 @@ Usage:
     uv run pytest tests/ui/test_whiteboard_context_menu.py -q
 """
 
-from .helpers import load_plan, note, open_app, switch_to_whiteboard
+from .helpers import load_plan, note, open_app, open_note_menu, switch_to_whiteboard
 
 PLAN = """---
 title: Context Menu Test Plan
@@ -86,17 +86,18 @@ class TestNoteMenu:
         assert abs(box["x"] - x) <= 2, "the menu opens at the pointer, not the button"
 
     def test_the_menu_belongs_to_the_notes_button(self, page, app_server):
-        """Same menu as the `...` button: it says so, and Escape goes back there."""
+        """Same menu as the object toolbar's More button: it says so, and
+        Escape goes back there."""
         _board(page, app_server)
         _right_click_note_header(page)
         page.wait_for_selector(MENU, state="visible")
-        btn = note(page, "Build").locator(".wb-note-menu-btn")
+        btn = page.locator(".wb-object-toolbar .wb-object-toolbar-more")
         assert btn.get_attribute("aria-expanded") == "true"
         page.keyboard.press("Escape")
         page.wait_for_selector(MENU, state="detached")
         assert btn.get_attribute("aria-expanded") == "false"
         assert page.evaluate(
-            "() => document.activeElement.classList.contains('wb-note-menu-btn')")
+            "() => document.activeElement.classList.contains('wb-object-toolbar-more')")
 
     def test_a_title_being_edited_keeps_the_browsers_menu(self, page, app_server):
         _board(page, app_server)

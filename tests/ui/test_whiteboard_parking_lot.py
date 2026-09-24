@@ -36,6 +36,7 @@ from .helpers import (
     note,
     note_task_names,
     open_app,
+    open_note_menu,
     plan_text,
     switch_to_whiteboard,
 )
@@ -77,10 +78,9 @@ DIALOG = "#wbParkingLotPanel"
 
 
 def send_to_parking_lot(page, task_name):
-    """Drive the note's own `...` menu, as a user would."""
-    menu_btn = note(page, task_name).locator(".wb-note-menu-btn")
-    assert menu_btn.count() == 1, f"no note (or menu button) found for {task_name}"
-    menu_btn.dispatch_event("click")
+    """Drive the note's menu, as a user would."""
+    assert note(page, task_name).count() == 1, f"no note found for {task_name}"
+    open_note_menu(page, task_name)
     page.wait_for_selector("#wbNoteMenu", state="visible")
     page.locator("#wbNoteMenu .wb-note-menu-action").filter(
         has_text="Send to parking lot"

@@ -596,6 +596,29 @@ function whiteboardFocusNote(taskName) {
 }
 
 /**
+ * Zoom and pan so a board rect fills the visible canvas, with a margin --
+ * the object toolbar's "Zoom to". Unlike whiteboardFocusNote() it zooms out
+ * as well as in, so a group bigger than the screen is framed whole.
+ */
+function wbZoomToBoardRect(rect) {
+    if (!wbSvg || !rect) return false;
+    const visible = wbVisibleCanvasRect();
+    if (!visible.width || !visible.height) return false;
+    const padding = 60;
+    wbZoom = wbClampZoom(Math.min(
+        visible.width / Math.max(1, rect.width + padding * 2),
+        visible.height / Math.max(1, rect.height + padding * 2)
+    ));
+    wbPanX = visible.x + visible.width / 2 - (rect.x + rect.width / 2) * wbZoom;
+    wbPanY = visible.y + visible.height / 2 - (rect.y + rect.height / 2) * wbZoom;
+    wbApplyTransform(true);
+    wbUpdateZoomLabel();
+    wbUpdateZoomButtons();
+    wbScheduleSaveViewport();
+    return true;
+}
+
+/**
  * Bring a new note on screen: if the note for `taskName` is not wholly
  * inside the visible canvas (the canvas minus the outline panel), pan --
  * never zoom -- so it sits in the middle of it. No-op (returns false) when
@@ -714,46 +737,16 @@ function wbHandleWheel(e) {
     }
 }
 
-// ── Canvas tool: Move or Group ──────────────────────────────────────────
+// ── Canvas gestures ─────────────────────────────────────────────────────
 //
-// A drag on bare canvas means one of two things, and which one is a mode
-// the user picks from the toolbar (or with `v` / `g`), the way a drawing
-// app's tool palette works:
-//
-//   move   — the drag pans the board. The default, because panning is
-//            the gesture people use constantly.
-//   group  — the drag draws a lasso, and letting go draws a titled group
-//            boundary round every note it touched.
-//
-// Panning never needs the mode switched back: a two-finger swipe, a
-// middle-button drag, or holding Space while dragging all pan in either
-// tool. Shift-drag lasso-*selects* in either tool, as it always has.
+// As on Obsidian's canvas, a drag on bare canvas draws a selection lasso:
+// every note it touches is selected, and the selection toolbar (or
+// Ctrl/Cmd+G) groups them. Moving round the board is a two-finger swipe
+// on a trackpad (wbHandleWheel()), a middle-button drag, or a drag with
+// Space held.
 
-/** 'move' or 'group'. */
-let wbCanvasTool = 'move';
-/** Space is held down: a drag pans whatever the tool. */
+/** Space is held down: a plain drag pans instead of lassoing. */
 let wbSpacePan = false;
-
-function wbSetCanvasTool(tool) {
-    const next = tool === 'group' ? 'group' : 'move';
-    if (typeof wbCancelLasso === 'function') wbCancelLasso();
-    wbCanvasTool = next;
-    if (typeof document === 'undefined') return next;
-    const container = document.getElementById('whiteboardContainer');
-    if (container) container.classList.toggle('wb-tool-group', next === 'group');
-    for (const [id, value] of [['whiteboardMoveToolBtn', 'move'], ['whiteboardGroupToolBtn', 'group']]) {
-        const btn = document.getElementById(id);
-        if (!btn) continue;
-        const on = value === next;
-        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-        btn.classList.toggle('active', on);
-    }
-    return next;
-}
-
-function wbToggleCanvasTool() {
-    return wbSetCanvasTool(wbCanvasTool === 'group' ? 'move' : 'group');
-}
 
 function wbBeginPan(clientX, clientY) {
     wbIsDragging = true;
@@ -765,7 +758,7 @@ function wbBeginPan(clientX, clientY) {
 }
 
 function wbHandleMouseDown(e) {
-    // Middle-button drag pans from anywhere on the board, in either tool.
+    // Middle-button drag pans from anywhere on the board.
     if (e.button === 1) {
         wbBeginPan(e.clientX, e.clientY);
         e.preventDefault();
@@ -773,24 +766,28 @@ function wbHandleMouseDown(e) {
     }
     if (e.button !== 0) return;
     if (e.target === wbSvg || e.target === wbGroup || (e.target.closest && e.target.closest('.wb-grid'))) {
-        // Shift-drag lassos-to-select instead of panning (issue #874), in
-        // either tool; shift already means "add to the selection" on a
-        // note's header, so the modifier says one thing in both places.
-        if (e.shiftKey && typeof wbBeginLasso === 'function' && wbBeginLasso(e.clientX, e.clientY, 'select')) {
+        // preventDefault() below stops the press focusing the board, and
+        // the board's keys (Ctrl/Cmd+G on what the lasso selects, Delete,
+        // Space) listen on it -- so focus it here.
+        const container = document.getElementById('whiteboardContainer');
+        if (container && document.activeElement !== container) container.focus({ preventScroll: true });
+        // Space held means "pan just this once".
+        if (wbSpacePan) {
+            wbBeginPan(e.clientX, e.clientY);
             e.preventDefault();
             return;
         }
         // A press on bare canvas dismisses any selected noodle, the same
         // way clicking away from a note closes its `...` menu -- and
-        // (issue #1109) deselects any selected note too.
+        // (issue #1109) deselects any selected note too. Shift keeps the
+        // note selection, so a shift-drag adds to it.
         if (typeof wbClearNoodleSelection === 'function') wbClearNoodleSelection();
         if (typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
-        if (typeof wbClearNoteSelection === 'function') wbClearNoteSelection();
+        if (!e.shiftKey && typeof wbClearNoteSelection === 'function') wbClearNoteSelection();
+        if (typeof wbClearGroupSelection === 'function') wbClearGroupSelection();
         if (typeof wbClearTextSelection === 'function') wbClearTextSelection();
-        // The Group tool: the drag is a lasso that becomes a group on
-        // release. Space held means "pan just this once".
-        if (wbCanvasTool === 'group' && !wbSpacePan
-            && typeof wbBeginLasso === 'function' && wbBeginLasso(e.clientX, e.clientY, 'group')) {
+        if (typeof wbBeginLasso === 'function'
+            && wbBeginLasso(e.clientX, e.clientY, e.shiftKey ? 'add' : 'select')) {
             e.preventDefault();
             return;
         }
@@ -828,20 +825,14 @@ function wbHandleTouchStart(e) {
         return;
     }
     if (e.touches.length === 1) {
-        // The Group tool lassoes with one finger, as it does with the mouse;
-        // two fingers still pan and pinch.
-        if (wbCanvasTool === 'group' && typeof wbBeginLasso === 'function'
-            && wbBeginLasso(e.touches[0].clientX, e.touches[0].clientY, 'group')) {
-            return;
-        }
+        // One finger pans on a touchscreen, where there is no trackpad
+        // swipe to fall back on; two fingers pan and pinch.
         wbIsDragging = true;
         wbDragStartX = e.touches[0].clientX;
         wbDragStartY = e.touches[0].clientY;
         wbDragStartPanX = wbPanX;
         wbDragStartPanY = wbPanY;
     } else if (e.touches.length === 2) {
-        // A second finger turns a lasso that had just started into a pan.
-        if (typeof wbCancelLasso === 'function') wbCancelLasso();
         wbIsDragging = false;
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -857,10 +848,6 @@ function wbHandleTouchStart(e) {
 
 function wbHandleTouchMove(e) {
     e.preventDefault();
-    if (e.touches.length === 1 && typeof wbLasso !== 'undefined' && wbLasso) {
-        wbUpdateLasso(e.touches[0].clientX, e.touches[0].clientY);
-        return;
-    }
     if (e.touches.length === 1 && wbIsDragging) {
         wbPanX = wbDragStartPanX + (e.touches[0].clientX - wbDragStartX);
         wbPanY = wbDragStartPanY + (e.touches[0].clientY - wbDragStartY);
@@ -894,10 +881,6 @@ function wbHandleTouchMove(e) {
 }
 
 function wbHandleTouchEnd(e) {
-    if (typeof wbLasso !== 'undefined' && wbLasso && (!e.touches || e.touches.length === 0)) {
-        wbEndLasso();
-        return;
-    }
     if (e.touches && e.touches.length === 0) {
         wbIsDragging = false;
         wbTouchStartDist = 0;
@@ -947,8 +930,7 @@ function wbHandleContextMenu(e) {
     if (note && note.dataset.wbTask) {
         e.preventDefault();
         if (fromKeyboard) {
-            const entry = wbNoteNodes.get(note.dataset.wbTask);
-            if (entry && entry.refs && entry.refs.menuBtn) wbOpenNoteMenu(note.dataset.wbTask, entry.refs.menuBtn);
+            wbOpenNoteMenuFromKeyboard(note.dataset.wbTask);
         } else {
             wbOpenNoteMenuAt(note.dataset.wbTask, e.clientX, e.clientY);
         }
@@ -958,9 +940,8 @@ function wbHandleContextMenu(e) {
     if (fromKeyboard && target === container) {
         e.preventDefault();
         const selected = wbGetSelectedNoteTask();
-        const entry = selected && wbNoteNodes.get(selected);
-        if (entry && entry.refs && entry.refs.menuBtn) {
-            wbOpenNoteMenu(selected, entry.refs.menuBtn);
+        if (selected && wbNoteNodes.has(selected)) {
+            wbOpenNoteMenuFromKeyboard(selected);
         } else {
             const centre = wbCanvasCenter();
             const rect = wbSvg.getBoundingClientRect();
@@ -1006,6 +987,7 @@ function wbHandleKeydown(e) {
         if (typeof wbCutSelectedDependencyNoodle === 'function' && wbCutSelectedDependencyNoodle()) { e.preventDefault(); return; }
     }
     if (e.key === 'Escape') {
+        if (typeof wbClearGroupSelection === 'function') wbClearGroupSelection();
         if (typeof wbClearNoodleSelection === 'function') wbClearNoodleSelection();
         if (typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
         if (typeof wbClearTextSelection === 'function') wbClearTextSelection();
@@ -1015,19 +997,13 @@ function wbHandleKeydown(e) {
         wbCreateNoteInViewportCentre();
         return;
     }
-    // The canvas tool: `v` for Move, `g` for Group (the letters drawing
-    // apps use for their pointer and group tools).
-    if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    // Ctrl/Cmd+G groups the selected notes, Obsidian's shortcut for it.
+    if ((e.key === 'g' || e.key === 'G') && (e.ctrlKey || e.metaKey) && !e.altKey) {
         e.preventDefault();
-        wbSetCanvasTool('move');
+        if (typeof wbGroupSelectionFromRibbon === 'function') wbGroupSelectionFromRibbon();
         return;
     }
-    if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        wbSetCanvasTool('group');
-        return;
-    }
-    // Hold Space to pan with a plain drag, whichever tool is active.
+    // Hold Space to pan with a plain drag instead of lassoing.
     if (e.key === ' ' && !/^(BUTTON|A)$/.test(target && target.tagName || '')) {
         e.preventDefault();
         if (!wbSpacePan) {

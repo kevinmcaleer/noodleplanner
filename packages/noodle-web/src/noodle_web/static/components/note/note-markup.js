@@ -194,13 +194,9 @@ export function buildNoteCard() {
     // user to name, in advance, a structural change that the next thing they
     // typed would have made anyway.
 
-    const menuBtn = el('button', 'wb-note-menu-btn', {
-        type: 'button',
-        'aria-haspopup': 'true',
-        'aria-expanded': 'false',
-        'aria-label': 'Note options',
-    });
-    menuBtn.textContent = '⋮'; // vertical ellipsis
+    // No `...` menu button. Its actions moved to the object toolbar that
+    // floats above a selected note (whiteboard-object-toolbar.js), the way
+    // Obsidian's canvas does it; a right-click still opens the full menu.
 
     // One sentence, both places. The board's tooltip said "Drag to another
     // note to make it a subtask" and its accessible name said "Draw a noodle
@@ -218,7 +214,7 @@ export function buildNoteCard() {
     //
     // The header is a right-aligned button cluster with a `flex: 1` title
     // taking the slack, so the cluster spans past the header's own midpoint
-    // whenever it is wider than half the header -- with the three buttons left
+    // whenever it is wider than half the header -- with the buttons left
     // here, measured, that is the 160px tier only (78px of cluster against a
     // ~70px budget); 260px clears it. Whatever sits at that midpoint receives
     // the press a user means as "grab the middle and move it".
@@ -233,7 +229,7 @@ export function buildNoteCard() {
     // W - 10], and the midpoint W/2 can only fall there when W <= 2 * (10 + w),
     // which is 64px for the 22px handle and 80px for the 30px coarse-pointer
     // one -- both below WB_NOTE_MIN_WIDTH.
-    header.append(pinBtn, title, coachBtn, menuBtn, linkHandle);
+    header.append(pinBtn, title, coachBtn, linkHandle);
 
     const parentCaption = el('div', 'wb-note-parent');
     const body = el('div', 'wb-note-body');
@@ -300,7 +296,7 @@ export function buildNoteCard() {
         rails,
         refs: {
             card, header, pinBtn, title, coachBtn,
-            menuBtn, linkHandle, parentCaption, body, footer, progress,
+            linkHandle, parentCaption, body, footer, progress,
             resizeHandle, rails, railHint, railDep,
         },
     };
