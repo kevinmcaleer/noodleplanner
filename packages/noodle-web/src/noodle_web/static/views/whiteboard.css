@@ -2154,10 +2154,17 @@ body.wb-note-drag-active * {
     min-height: 80px;
 }
 
+/* Two lines per row: the text gets the whole first line, and the date and
+   buttons sit under it. Squeezed onto one line beside them, a 300px panel
+   left the text a column a few characters wide that broke every word. */
 .wb-parking-lot-item {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    grid-template-areas:
+        "handle text text    text"
+        ".      date restore remove";
     align-items: center;
-    gap: var(--np-space-8);
+    gap: var(--np-space-4) var(--np-space-8);
     padding: var(--np-space-8);
     border-radius: 6px;
     border-top: 2px solid transparent;
@@ -2186,7 +2193,7 @@ body.wb-note-drag-active * {
 }
 
 .wb-parking-lot-item-handle {
-    flex-shrink: 0;
+    grid-area: handle;
     color: var(--np-text-muted, #888888);
     font-size: 13px;
     line-height: 1;
@@ -2194,7 +2201,7 @@ body.wb-note-drag-active * {
 }
 
 .wb-parking-lot-item-text {
-    flex: 1;
+    grid-area: text;
     min-width: 0;
     font-size: 13px;
     color: var(--np-text);
@@ -2202,14 +2209,13 @@ body.wb-note-drag-active * {
 }
 
 .wb-parking-lot-item-date {
-    flex-shrink: 0;
+    grid-area: date;
     font-size: 11px;
     color: var(--np-text-secondary);
 }
 
 .wb-parking-lot-item-restore,
 .wb-parking-lot-item-remove {
-    flex-shrink: 0;
     padding: var(--np-space-4) var(--np-space-12);
     border: 1px solid var(--np-border);
     border-radius: 6px;
@@ -2219,10 +2225,12 @@ body.wb-note-drag-active * {
 }
 
 .wb-parking-lot-item-restore {
+    grid-area: restore;
     color: var(--np-accent);
 }
 
 .wb-parking-lot-item-remove {
+    grid-area: remove;
     color: var(--np-red);
 }
 
