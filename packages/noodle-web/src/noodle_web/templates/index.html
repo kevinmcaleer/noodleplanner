@@ -1305,6 +1305,20 @@ Press Enter to render..."></textarea>
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><circle cx="12" cy="12" r="1.5"/></svg>
                                         </button>
                                     </div>
+                                    <!-- The canvas tool: what a drag on empty board does. Move pans;
+                                         Group draws a lasso and groups what it touches on release.
+                                         A two-finger swipe, a middle-button drag or Space+drag pans in
+                                         either. See wbSetCanvasTool() in whiteboard.js. -->
+                                    <div class="wb-toolbar-group" role="group" aria-label="Canvas tool">
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add active" id="whiteboardMoveToolBtn" onclick="wbSetCanvasTool('move')" title="Move tool (v) -- drag empty space to pan the board" aria-label="Move tool: drag to pan the board" aria-pressed="true">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 00-4 0v5"/><path d="M14 10V4a2 2 0 00-4 0v6"/><path d="M10 10.5V6a2 2 0 00-4 0v8"/><path d="M18 8a2 2 0 014 0v6a8 8 0 01-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 012.83-2.82L7 15"/></svg>
+                                            <span>Move</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardGroupToolBtn" onclick="wbSetCanvasTool('group')" title="Group tool (g) -- drag round notes to put them in a titled group" aria-label="Group tool: drag round notes to group them" aria-pressed="false">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3" stroke-dasharray="3 3"/><rect x="7" y="8" width="4" height="4" rx="1"/><rect x="13" y="12" width="4" height="4" rx="1"/></svg>
+                                            <span>Group</span>
+                                        </button>
+                                    </div>
                                     <div class="wb-toolbar-group">
                                         <button class="wb-toolbar-btn wb-toolbar-btn-add wb-toolbar-btn-new" id="whiteboardNewNoteBtn" onclick="wbCreateNoteInViewportCentre()" title="New post-it (creates a new task)" aria-label="New post-it, creating a new task in the plan">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11a0 0 0 010 0H4z"/><path d="M15 4v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="12" y1="10" x2="12" y2="16"/></svg>
@@ -1342,7 +1356,7 @@ Press Enter to render..."></textarea>
                                          ribbon-ia.js / ribbon.js. This toolbar keeps to the board itself:
                                          zoom, putting things on it, and its two side panels. -->
                                     <div class="wb-toolbar-hint">
-                                        Double-click empty space (or press <kbd>n</kbd>) for a new post-it, or press <kbd>t</kbd> for free-floating text &middot; double-click a note's header to rename &middot; drag the noodle handle onto another note to make it a subtask &middot; hover a checklist row and drag its own handle onto another task's row to make it depend on that task &middot; click a noodle to select, then <kbd>Delete</kbd> to unlink &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; <kbd>f</kbd> fits
+                                        Double-click empty space (or press <kbd>n</kbd>) for a new post-it, or press <kbd>t</kbd> for free-floating text &middot; double-click a note's header to rename &middot; drag the noodle handle onto another note to make it a subtask &middot; hover a checklist row and drag its own handle onto another task's row to make it depend on that task &middot; click a noodle to select, then <kbd>Delete</kbd> to unlink &middot; <kbd>g</kbd> Group tool: drag round notes to group them, <kbd>v</kbd> back to Move &middot; two-finger swipe (or <kbd>Space</kbd>+drag) pans &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; <kbd>f</kbd> fits
                                     </div>
                                 </div>
                                 <div class="wb-canvas-wrapper" id="whiteboardContainer" tabindex="0" role="application" aria-label="Whiteboard canvas. Pan, zoom, and double-click empty space to add a post-it.">

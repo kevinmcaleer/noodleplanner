@@ -667,34 +667,116 @@ function wbAnyNoteOnScreen() {
 
 // ── Wheel / mouse / touch handlers ──────────────────────────────────────
 
+/**
+ * A wheel event's delta in pixels. A mouse wheel in Firefox reports lines
+ * (deltaMode 1) and a page-flip wheel reports pages (deltaMode 2); a
+ * trackpad always reports pixels. Normalising here is what makes a
+ * two-finger swipe and a mouse wheel move the board by comparable amounts.
+ */
+function wbWheelPixels(delta, mode) {
+    const d = delta || 0;
+    if (mode === 1) return d * 16;
+    if (mode === 2) return d * ((wbSvg && wbSvg.clientHeight) || 800);
+    return d;
+}
+
 function wbHandleWheel(e) {
     e.preventDefault();
     if (!wbSvg) return;
     const rect = wbSvg.getBoundingClientRect();
     const anchorX = e.clientX - rect.left;
     const anchorY = e.clientY - rect.top;
+    const dx = wbWheelPixels(e.deltaX, e.deltaMode);
+    const dy = wbWheelPixels(e.deltaY, e.deltaMode);
 
     if (e.ctrlKey || e.metaKey) {
         // Ctrl/Cmd+wheel, and trackpad pinch (reported by browsers as a
         // wheel event with ctrlKey set) — zoom anchored on the pointer.
-        const factor = e.deltaY < 0 ? WB_ZOOM_WHEEL_STEP : 1 / WB_ZOOM_WHEEL_STEP;
-        wbZoomAt(anchorX, anchorY, factor, false);
+        //
+        // A pinch arrives as a stream of small deltas (a few px each), so
+        // it zooms in proportion to the delta; a fixed step per event made
+        // a gentle pinch lurch. A notched mouse wheel (~100px per tick)
+        // keeps the fixed WB_ZOOM_WHEEL_STEP it always had.
+        const factor = Math.abs(dy) < 50
+            ? Math.exp(-dy * 0.01)
+            : (dy < 0 ? WB_ZOOM_WHEEL_STEP : 1 / WB_ZOOM_WHEEL_STEP);
+        if (factor !== 1) wbZoomAt(anchorX, anchorY, factor, false);
     } else {
-        wbPanX -= e.deltaX || 0;
-        wbPanY -= e.deltaY || 0;
+        // Two-finger swipe on a trackpad (and a plain mouse wheel): pan,
+        // the way Obsidian's canvas does. Shift+wheel on a mouse scrolls
+        // sideways, which browsers mostly report as deltaX already; the
+        // swap covers the ones that still report it as deltaY.
+        const horizontal = e.shiftKey && !dx;
+        wbPanX -= horizontal ? dy : dx;
+        wbPanY -= horizontal ? 0 : dy;
         wbApplyTransform(false);
         wbScheduleSaveViewport();
     }
 }
 
+// ── Canvas tool: Move or Group ──────────────────────────────────────────
+//
+// A drag on bare canvas means one of two things, and which one is a mode
+// the user picks from the toolbar (or with `v` / `g`), the way a drawing
+// app's tool palette works:
+//
+//   move   — the drag pans the board. The default, because panning is
+//            the gesture people use constantly.
+//   group  — the drag draws a lasso, and letting go draws a titled group
+//            boundary round every note it touched.
+//
+// Panning never needs the mode switched back: a two-finger swipe, a
+// middle-button drag, or holding Space while dragging all pan in either
+// tool. Shift-drag lasso-*selects* in either tool, as it always has.
+
+/** 'move' or 'group'. */
+let wbCanvasTool = 'move';
+/** Space is held down: a drag pans whatever the tool. */
+let wbSpacePan = false;
+
+function wbSetCanvasTool(tool) {
+    const next = tool === 'group' ? 'group' : 'move';
+    if (typeof wbCancelLasso === 'function') wbCancelLasso();
+    wbCanvasTool = next;
+    if (typeof document === 'undefined') return next;
+    const container = document.getElementById('whiteboardContainer');
+    if (container) container.classList.toggle('wb-tool-group', next === 'group');
+    for (const [id, value] of [['whiteboardMoveToolBtn', 'move'], ['whiteboardGroupToolBtn', 'group']]) {
+        const btn = document.getElementById(id);
+        if (!btn) continue;
+        const on = value === next;
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.classList.toggle('active', on);
+    }
+    return next;
+}
+
+function wbToggleCanvasTool() {
+    return wbSetCanvasTool(wbCanvasTool === 'group' ? 'move' : 'group');
+}
+
+function wbBeginPan(clientX, clientY) {
+    wbIsDragging = true;
+    wbDragStartX = clientX;
+    wbDragStartY = clientY;
+    wbDragStartPanX = wbPanX;
+    wbDragStartPanY = wbPanY;
+    if (wbSvg) wbSvg.classList.add('wb-dragging');
+}
+
 function wbHandleMouseDown(e) {
+    // Middle-button drag pans from anywhere on the board, in either tool.
+    if (e.button === 1) {
+        wbBeginPan(e.clientX, e.clientY);
+        e.preventDefault();
+        return;
+    }
     if (e.button !== 0) return;
     if (e.target === wbSvg || e.target === wbGroup || (e.target.closest && e.target.closest('.wb-grid'))) {
-        // Shift-drag lassos instead of panning (issue #874). Panning keeps
-        // the unmodified drag because it is the gesture people use
-        // constantly, and shift already means "add to the selection" on a
+        // Shift-drag lassos-to-select instead of panning (issue #874), in
+        // either tool; shift already means "add to the selection" on a
         // note's header, so the modifier says one thing in both places.
-        if (e.shiftKey && typeof wbBeginLasso === 'function' && wbBeginLasso(e.clientX, e.clientY)) {
+        if (e.shiftKey && typeof wbBeginLasso === 'function' && wbBeginLasso(e.clientX, e.clientY, 'select')) {
             e.preventDefault();
             return;
         }
@@ -705,12 +787,14 @@ function wbHandleMouseDown(e) {
         if (typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
         if (typeof wbClearNoteSelection === 'function') wbClearNoteSelection();
         if (typeof wbClearTextSelection === 'function') wbClearTextSelection();
-        wbIsDragging = true;
-        wbDragStartX = e.clientX;
-        wbDragStartY = e.clientY;
-        wbDragStartPanX = wbPanX;
-        wbDragStartPanY = wbPanY;
-        if (wbSvg) wbSvg.classList.add('wb-dragging');
+        // The Group tool: the drag is a lasso that becomes a group on
+        // release. Space held means "pan just this once".
+        if (wbCanvasTool === 'group' && !wbSpacePan
+            && typeof wbBeginLasso === 'function' && wbBeginLasso(e.clientX, e.clientY, 'group')) {
+            e.preventDefault();
+            return;
+        }
+        wbBeginPan(e.clientX, e.clientY);
         e.preventDefault();
     }
 }
@@ -744,12 +828,20 @@ function wbHandleTouchStart(e) {
         return;
     }
     if (e.touches.length === 1) {
+        // The Group tool lassoes with one finger, as it does with the mouse;
+        // two fingers still pan and pinch.
+        if (wbCanvasTool === 'group' && typeof wbBeginLasso === 'function'
+            && wbBeginLasso(e.touches[0].clientX, e.touches[0].clientY, 'group')) {
+            return;
+        }
         wbIsDragging = true;
         wbDragStartX = e.touches[0].clientX;
         wbDragStartY = e.touches[0].clientY;
         wbDragStartPanX = wbPanX;
         wbDragStartPanY = wbPanY;
     } else if (e.touches.length === 2) {
+        // A second finger turns a lasso that had just started into a pan.
+        if (typeof wbCancelLasso === 'function') wbCancelLasso();
         wbIsDragging = false;
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -765,6 +857,10 @@ function wbHandleTouchStart(e) {
 
 function wbHandleTouchMove(e) {
     e.preventDefault();
+    if (e.touches.length === 1 && typeof wbLasso !== 'undefined' && wbLasso) {
+        wbUpdateLasso(e.touches[0].clientX, e.touches[0].clientY);
+        return;
+    }
     if (e.touches.length === 1 && wbIsDragging) {
         wbPanX = wbDragStartPanX + (e.touches[0].clientX - wbDragStartX);
         wbPanY = wbDragStartPanY + (e.touches[0].clientY - wbDragStartY);
@@ -774,6 +870,17 @@ function wbHandleTouchMove(e) {
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (wbTouchStartDist > 0) {
+            // Two fingers pan as well as pinch: the midpoint's travel since
+            // the last move drags the board with it, so a two-finger swipe
+            // on a touchscreen moves the canvas the way it does on a
+            // trackpad.
+            const rect = wbSvg ? wbSvg.getBoundingClientRect() : { left: 0, top: 0 };
+            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+            wbPanX += midX - wbTouchMidX;
+            wbPanY += midY - wbTouchMidY;
+            wbTouchMidX = midX;
+            wbTouchMidY = midY;
             const newZoom = wbClampZoom(wbTouchStartZoom * (dist / wbTouchStartDist));
             const next = wbAnchoredZoomPan(wbPanX, wbPanY, wbZoom, newZoom, wbTouchMidX, wbTouchMidY);
             wbZoom = newZoom;
@@ -787,6 +894,10 @@ function wbHandleTouchMove(e) {
 }
 
 function wbHandleTouchEnd(e) {
+    if (typeof wbLasso !== 'undefined' && wbLasso && (!e.touches || e.touches.length === 0)) {
+        wbEndLasso();
+        return;
+    }
     if (e.touches && e.touches.length === 0) {
         wbIsDragging = false;
         wbTouchStartDist = 0;
@@ -867,6 +978,17 @@ function wbHandleContextMenu(e) {
 
 // ── Keyboard ─────────────────────────────────────────────────────────────
 
+function wbEndSpacePan() {
+    if (!wbSpacePan) return;
+    wbSpacePan = false;
+    const container = (typeof document !== 'undefined') ? document.getElementById('whiteboardContainer') : null;
+    if (container) container.classList.remove('wb-space-pan');
+}
+
+function wbHandleKeyup(e) {
+    if (e.key === ' ') wbEndSpacePan();
+}
+
 function wbHandleKeydown(e) {
     // Never steal keys from a field the user is typing in -- the outline
     // panel's search box and a note's inline title editor both live inside
@@ -891,6 +1013,28 @@ function wbHandleKeydown(e) {
     if ((e.key === 'n' || e.key === 'N') && typeof wbCreateNoteInViewportCentre === 'function') {
         e.preventDefault();
         wbCreateNoteInViewportCentre();
+        return;
+    }
+    // The canvas tool: `v` for Move, `g` for Group (the letters drawing
+    // apps use for their pointer and group tools).
+    if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        wbSetCanvasTool('move');
+        return;
+    }
+    if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        wbSetCanvasTool('group');
+        return;
+    }
+    // Hold Space to pan with a plain drag, whichever tool is active.
+    if (e.key === ' ' && !/^(BUTTON|A)$/.test(target && target.tagName || '')) {
+        e.preventDefault();
+        if (!wbSpacePan) {
+            wbSpacePan = true;
+            const container = document.getElementById('whiteboardContainer');
+            if (container) container.classList.add('wb-space-pan');
+        }
         return;
     }
     // Issue #1018: a free-floating text object -- the "no task, no card"
@@ -1039,6 +1183,9 @@ function initWhiteboard() {
     container.setAttribute('tabindex', '0');
     if (!container.dataset.wbKeydownBound) {
         container.addEventListener('keydown', wbHandleKeydown);
+        container.addEventListener('keyup', wbHandleKeyup);
+        // Focus leaving the board mid-hold would otherwise strand Space "down".
+        container.addEventListener('blur', wbEndSpacePan);
         container.addEventListener('contextmenu', wbHandleContextMenu);
         container.dataset.wbKeydownBound = 'true';
     }

@@ -142,10 +142,16 @@ These shortcuts are available when the Whiteboard view's canvas has focus.
      - Reset zoom to 100%
    * - ``f``
      - Fit to content
-   * - ``Scroll``
+   * - ``Scroll`` / two-finger swipe
      - Pan the board
    * - ``Ctrl+Scroll`` / ``Cmd+Scroll`` / pinch
      - Zoom in or out, anchored on the pointer
+   * - ``v``
+     - Move tool: dragging empty canvas pans
+   * - ``g``
+     - Group tool: dragging round notes groups them
+   * - Hold ``Space`` and drag
+     - Pan, whichever tool is on
 
 File Operations
 ----------------

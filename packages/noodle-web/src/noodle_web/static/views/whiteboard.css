@@ -3030,13 +3030,18 @@ body.wb-linking * {
     font-weight: 600;
 }
 
-#whiteboardOutlineBtn.active {
+/* The active canvas tool (Move / Group) wears the same pressed look. */
+#whiteboardOutlineBtn.active,
+#whiteboardMoveToolBtn.active,
+#whiteboardGroupToolBtn.active {
     background: var(--np-blue);
     border-color: var(--np-blue);
     color: #ffffff;
 }
 
-#whiteboardOutlineBtn.active:hover:not(:disabled) {
+#whiteboardOutlineBtn.active:hover:not(:disabled),
+#whiteboardMoveToolBtn.active:hover:not(:disabled),
+#whiteboardGroupToolBtn.active:hover:not(:disabled) {
     color: #ffffff;
 }
 
@@ -3090,7 +3095,9 @@ body.wb-linking * {
 
 .wb-group-title {
     font-family: var(--np-font-ui);
-    font-size: 12px;
+    /* Matches WB_GROUP_TITLE_FONT in whiteboard-groups.js, which sizes the
+       in-place title editor to sit exactly over it. */
+    font-size: 15px;
     font-weight: 600;
     fill: var(--np-text-secondary);
     cursor: grab;
@@ -3112,6 +3119,57 @@ body.wb-linking * {
     stroke-width: 1;
     stroke-dasharray: 4 3;
     pointer-events: none;
+}
+
+/* The Group tool's lasso previews the boundary it is about to become:
+   the boundary's own accent and rounded corners, still dashed because it
+   is not one yet. */
+.wb-lasso-group {
+    fill: color-mix(in srgb, var(--np-accent) 8%, transparent);
+    stroke: var(--np-accent);
+    stroke-width: 1.5;
+}
+
+/* The canvas tool (see wbSetCanvasTool() in whiteboard.js). The Group tool
+   draws, so it takes the crosshair; inside a boundary too, since a drag
+   there draws a group within the group. Holding Space pans in either
+   tool, and says so. */
+.wb-tool-group .wb-svg,
+.wb-tool-group .wb-group-box {
+    cursor: crosshair;
+}
+
+.wb-space-pan .wb-svg,
+.wb-space-pan .wb-group-box {
+    cursor: grab;
+}
+
+.wb-space-pan .wb-svg.wb-dragging {
+    cursor: grabbing;
+}
+
+/* A group's title while it is being typed: an input laid over the SVG
+   label, which is hidden underneath so the two never show at once. */
+.wb-group-editing .wb-group-title {
+    visibility: hidden;
+}
+
+.wb-group-title-input {
+    position: absolute;
+    z-index: 31;
+    padding: var(--np-space-2) var(--np-space-4);
+    font-family: var(--np-font-ui);
+    font-weight: 600;
+    color: var(--np-text);
+    background: var(--np-surface);
+    border: 1px solid var(--np-accent);
+    border-radius: var(--np-radius-control);
+    outline: none;
+}
+
+.wb-group-title-input:focus-visible {
+    outline: 2px solid var(--np-blue);
+    outline-offset: 1px;
 }
 
 /* The mini-toolbar #874 asks for. Pinned to the board rather than following
