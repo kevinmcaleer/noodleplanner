@@ -195,3 +195,95 @@ def test_a_new_post_it_is_centred_on_an_empty_board(page, app_server):
     _open_board(page, app_server)
     _new_post_it(page)
     assert _offset_from_centre(page, "New idea") < 4
+
+
+class TestNotesFollowThePanAndZoom:
+    """Notes are HTML in <foreignObject>s, and WebKit (Safari) paints that HTML
+    -- the card is `position: relative` -- without the SVG transforms around
+    it. Inside the panned and zoomed <g>, notes stayed frozen at their
+    unpanned, unzoomed spot while the canvas moved: a note near the board
+    origin sat behind the Plan Structure panel. So notes are placed in screen
+    space themselves, and nothing above them is transformed.
+
+    Chromium does not have the WebKit bug, so these pin down the mechanism
+    rather than the painting."""
+
+    PLAN = """---
+title: Pan And Zoom
+---
+
+Phase 1
+  Build 2d
+Phase 2
+  Test 2d
+
+---whiteboard---
+| Task    | X   | Y   | Colour | Width | Height | Collapsed |
+|---------|-----|-----|--------|-------|--------|-----------|
+| Phase 1 | 40  | 60  |        | 260   | 220    | no        |
+| Phase 2 | 400 | 120 |        | 300   | 240    | no        |
+"""
+
+    def _board(self, page, app_server):
+        page.set_viewport_size({"width": 1600, "height": 1000})
+        _open_board(page, app_server, self.PLAN, expected_notes=2)
+        page.wait_for_selector("#whiteboardContainer svg.wb-svg", state="attached")
+        page.wait_for_timeout(300)
+
+    def _misplaced(self, page):
+        """Notes whose on-screen box is not their board rect under the
+        current pan/zoom, as [task, expected, actual]."""
+        return page.evaluate(
+            """() => {
+                const svg = wbSvg.getBoundingClientRect();
+                const out = [];
+                document.querySelectorAll('#whiteboardContainer .wb-note').forEach(fo => {
+                    const b = wbBoardRect(fo);
+                    const want = [svg.left + wbPanX + b.x * wbZoom, svg.top + wbPanY + b.y * wbZoom,
+                                  b.width * wbZoom, b.height * wbZoom];
+                    const r = fo.querySelector('.wb-note-card').getBoundingClientRect();
+                    const got = [r.left, r.top, r.width, r.height];
+                    if (want.some((v, i) => Math.abs(v - got[i]) > 1.5))
+                        out.push([fo.dataset.wbTask, want.map(Math.round), got.map(Math.round)]);
+                });
+                return out;
+            }"""
+        )
+
+    def test_no_transform_sits_above_a_note(self, page, app_server):
+        self._board(page, app_server)
+        transformed = page.evaluate(
+            """() => {
+                const out = [];
+                for (let el = document.querySelector('#whiteboardContainer .wb-note');
+                     el && el.tagName.toLowerCase() !== 'svg'; el = el.parentNode) {
+                    if (el.getAttribute('transform')) out.push(el.getAttribute('class'));
+                }
+                return out;
+            }"""
+        )
+        assert transformed == []
+
+    def test_a_pan_moves_every_note_with_the_board(self, page, app_server):
+        self._board(page, app_server)
+        page.evaluate("() => { wbPanX -= 137; wbPanY += 59; wbApplyTransform(false); }")
+        assert self._misplaced(page) == []
+
+    def test_a_zoom_scales_every_note_with_the_board(self, page, app_server):
+        self._board(page, app_server)
+        page.evaluate("() => { wbZoom = 0.63; wbApplyTransform(false); }")
+        assert self._misplaced(page) == []
+
+    def test_an_animated_zoom_lands_every_note_with_the_board(self, page, app_server):
+        self._board(page, app_server)
+        page.evaluate("() => whiteboardZoomOut()")
+        page.wait_for_timeout(500)
+        assert self._misplaced(page) == []
+
+    def test_a_dragged_note_moves_on_screen(self, page, app_server):
+        self._board(page, app_server)
+        page.evaluate("() => { wbZoom = 0.8; wbApplyTransform(false); }")
+        page.evaluate(
+            "() => wbSetBoardRect(wbNoteNodes.get('Phase 1').fo, { x: 123, y: 45 })"
+        )
+        assert self._misplaced(page) == []

@@ -33,6 +33,10 @@ const WB_ANIM_MS = 200;
 // ── State ────────────────────────────────────────────────────────────────
 let wbSvg = null;
 let wbGroup = null;
+// The layer drawn *above* the notes (the lasso), carrying the same pan/zoom
+// transform as wbGroup -- see wbPlaceBoardObject() for why the notes
+// themselves sit between the two, untransformed.
+let wbOverlayGroup = null;
 let wbZoom = 1;
 let wbPanX = 0;
 let wbPanY = 0;
@@ -162,21 +166,158 @@ function wbLoadViewport() {
 
 function wbApplyTransform(animate) {
     if (!wbGroup) return;
+    // The first placement has nothing on screen to animate from.
+    if (!wbGroup.hasAttribute('transform')) animate = false;
     const transformStr = `translate(${wbPanX}, ${wbPanY}) scale(${wbZoom})`;
+    const groups = [wbGroup, wbOverlayGroup].filter(Boolean);
+    const target = { zoom: wbZoom, panX: wbPanX, panY: wbPanY };
     if (animate) {
-        wbGroup.style.transition = `transform ${WB_ANIM_MS}ms ease`;
-        wbGroup.setAttribute('transform', transformStr);
+        groups.forEach((g) => {
+            g.style.transition = `transform ${WB_ANIM_MS}ms ease`;
+            g.setAttribute('transform', transformStr);
+        });
         setTimeout(() => {
-            wbGroup.style.transition = '';
+            groups.forEach((g) => { g.style.transition = ''; });
         }, WB_ANIM_MS);
+        wbTweenBoardObjects(target);
     } else {
-        wbGroup.style.transition = '';
-        wbGroup.setAttribute('transform', transformStr);
+        groups.forEach((g) => {
+            g.style.transition = '';
+            g.setAttribute('transform', transformStr);
+        });
+        wbTweenBoardObjects(null);
+        wbPlaceBoardObjects(target);
     }
     // Notes (issue #846) degrade to a title-only card below a zoom
     // threshold, independent of any plan-text change -- refresh that
     // per-note class on every pan/zoom tick.
     if (typeof wbUpdateNoteZoomTiers === 'function') wbUpdateNoteZoomTiers();
+}
+
+// ── Notes and text objects: placed in screen space ─────────────────────
+//
+// Notes and text objects are HTML inside SVG <foreignObject>s. WebKit
+// (Safari) paints any HTML in a <foreignObject> that gets a layer of its
+// own -- position: relative/absolute, which the note card and its grip,
+// rails and scissors all use -- *without* the transforms of the SVG
+// around it. Inside the panned and zoomed wbGroup that left every note
+// frozen at its unpanned, unzoomed spot (behind the outline panel, for a
+// note near the board origin) while the canvas and the noodles moved.
+// A nested <svg viewBox> is ignored the same way; only the
+// <foreignObject>'s own x/y are honoured.
+//
+// So they live in an *untransformed* layer between wbGroup and
+// wbOverlayGroup, and each one is placed in screen space from its board
+// geometry: x/y/width/height are the board rect run through the current
+// pan/zoom, and the content inside is laid out at board size and scaled
+// with CSS `zoom`. Board geometry is kept in data-wb-x/-y/-width/-height,
+// the single source of truth -- read it with wbBoardRect() and write it
+// with wbSetBoardRect(), never through the x/y/width/height attributes.
+
+/** The pan/zoom the board objects are currently drawn at -- which lags
+ * wbZoom/wbPanX/wbPanY while an animated transform is under way. */
+let wbShownView = { zoom: 1, panX: 0, panY: 0 };
+let wbTweenFrame = null;
+
+/** A <foreignObject>'s board-space rect, from its data-wb-* attributes. */
+function wbBoardRect(fo) {
+    const d = (fo && fo.dataset) || {};
+    return {
+        x: parseFloat(d.wbX || '0') || 0,
+        y: parseFloat(d.wbY || '0') || 0,
+        width: parseFloat(d.wbWidth || '0') || 0,
+        height: parseFloat(d.wbHeight || '0') || 0,
+    };
+}
+
+/** Set some of a <foreignObject>'s board rect (`{x, y, width, height}`,
+ * any subset) and redraw it where that now puts it on screen. */
+function wbSetBoardRect(fo, rect) {
+    if (!fo) return;
+    if (rect.x != null) fo.dataset.wbX = String(rect.x);
+    if (rect.y != null) fo.dataset.wbY = String(rect.y);
+    if (rect.width != null) fo.dataset.wbWidth = String(rect.width);
+    if (rect.height != null) fo.dataset.wbHeight = String(rect.height);
+    wbPlaceBoardObject(fo);
+}
+
+/** Draw one <foreignObject> at its board rect under `view` (default: the
+ * pan/zoom currently shown). */
+function wbPlaceBoardObject(fo, view) {
+    const v = view || wbShownView;
+    const r = wbBoardRect(fo);
+    const sx = v.panX + r.x * v.zoom;
+    const sy = v.panY + r.y * v.zoom;
+    fo.setAttribute('x', String(sx));
+    fo.setAttribute('y', String(sy));
+    fo.setAttribute('width', String(r.width * v.zoom));
+    fo.setAttribute('height', String(r.height * v.zoom));
+    const content = fo.firstElementChild;
+    if (content && content.style) {
+        // A note's card fills its rect; a text object's wrap sizes to its
+        // own text inside an oversized box, so it only takes the zoom.
+        if (fo.classList.contains('wb-note')) {
+            content.style.width = r.width + 'px';
+            content.style.height = r.height + 'px';
+        }
+        content.style.zoom = String(v.zoom);
+        // WebKit only re-places a <foreignObject>'s layered content when
+        // that content's own style changes -- moving the x/y attributes
+        // alone left a panned note painted where it was. Any style write
+        // does it; this one also records where the note was put.
+        content.style.setProperty('--wb-placed-at', `${sx} ${sy}`);
+    }
+}
+
+/** Redraw every note and text object at `view` (default: the target). */
+function wbPlaceBoardObjects(view) {
+    const v = view || { zoom: wbZoom, panX: wbPanX, panY: wbPanY };
+    wbShownView = { zoom: v.zoom, panX: v.panX, panY: v.panY };
+    const layer = wbSvg ? wbSvg.querySelector('.wb-notes-layer') : null;
+    if (!layer) return;
+    layer.querySelectorAll('foreignObject').forEach((fo) => wbPlaceBoardObject(fo, wbShownView));
+}
+
+/** CSS `ease` -- cubic-bezier(0.25, 0.1, 0.25, 1) -- at progress `t`, so a
+ * tweened note keeps pace with the wbGroup it sits over, which the
+ * browser animates with a `transition: transform ... ease`. */
+function wbEase(t) {
+    const x1 = 0.25, y1 = 0.1, x2 = 0.25, y2 = 1;
+    const bez = (p1, p2, s) => 3 * p1 * s * (1 - s) * (1 - s) + 3 * p2 * s * s * (1 - s) + s * s * s;
+    let lo = 0, hi = 1, s = t;
+    for (let i = 0; i < 20; i++) {
+        s = (lo + hi) / 2;
+        if (bez(x1, x2, s) < t) lo = s; else hi = s;
+    }
+    return bez(y1, y2, s);
+}
+
+/** Animate the board objects from what is shown to `target` over
+ * WB_ANIM_MS; `null` just cancels a tween in flight. Falls back to an
+ * immediate redraw where there is no requestAnimationFrame. */
+function wbTweenBoardObjects(target) {
+    const raf = (typeof requestAnimationFrame === 'function') ? requestAnimationFrame : null;
+    if (wbTweenFrame && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(wbTweenFrame);
+    wbTweenFrame = null;
+    if (!target) return;
+    if (!raf) { wbPlaceBoardObjects(target); return; }
+
+    const from = { ...wbShownView };
+    const start = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    const frame = (now) => {
+        const t = Math.min(1, (now - start) / WB_ANIM_MS);
+        const k = wbEase(t);
+        // Interpolated in screen space the way a CSS transform is: pan and
+        // zoom move linearly in their own terms, so a board point tracks
+        // the group underneath it exactly.
+        wbPlaceBoardObjects({
+            zoom: from.zoom + (target.zoom - from.zoom) * k,
+            panX: from.panX + (target.panX - from.panX) * k,
+            panY: from.panY + (target.panY - from.panY) * k,
+        });
+        wbTweenFrame = t < 1 ? raf(frame) : null;
+    };
+    wbTweenFrame = raf(frame);
 }
 
 function wbUpdateZoomLabel() {
@@ -363,7 +504,7 @@ function whiteboardZoomReset() {
  */
 function whiteboardZoomFit(options) {
     const maxZoom = (options && options.maxZoom) || WB_MAX_ZOOM;
-    const notes = wbGroup ? wbGroup.querySelectorAll('.wb-note') : [];
+    const notes = wbSvg ? wbSvg.querySelectorAll('.wb-notes-layer .wb-note') : [];
     if (!notes || notes.length === 0) {
         whiteboardZoomReset();
         return;
@@ -420,11 +561,7 @@ function whiteboardFocusNote(taskName) {
     const entry = wbNoteNodes.get(taskName);
     if (!entry || !entry.fo) return false;
 
-    const fo = entry.fo;
-    const x = parseFloat(fo.getAttribute('x') || '0');
-    const y = parseFloat(fo.getAttribute('y') || '0');
-    const w = parseFloat(fo.getAttribute('width') || '0');
-    const h = parseFloat(fo.getAttribute('height') || '0');
+    const { x, y, width: w, height: h } = wbBoardRect(entry.fo);
 
     // Centre it in the *visible* canvas -- panning a note to the middle of
     // the full canvas would park it behind the very panel that was just
@@ -485,11 +622,7 @@ function whiteboardRevealNote(taskName, options) {
     const entry = wbNoteNodes.get(taskName);
     if (!entry || !entry.fo) return false;
 
-    const fo = entry.fo;
-    const x = parseFloat(fo.getAttribute('x') || '0');
-    const y = parseFloat(fo.getAttribute('y') || '0');
-    const w = parseFloat(fo.getAttribute('width') || '0');
-    const h = parseFloat(fo.getAttribute('height') || '0');
+    const { x, y, width: w, height: h } = wbBoardRect(entry.fo);
 
     const visible = wbVisibleCanvasRect();
     if (!visible.width || !visible.height) {
@@ -517,7 +650,7 @@ function whiteboardRevealNote(taskName, options) {
  * True for an empty board -- there is nothing to be missing.
  */
 function wbAnyNoteOnScreen() {
-    const notes = wbGroup ? wbGroup.querySelectorAll('.wb-note') : [];
+    const notes = wbSvg ? wbSvg.querySelectorAll('.wb-notes-layer .wb-note') : [];
     if (!notes.length) return true;
     const visible = wbVisibleCanvasRect();
     const view = wbViewportToBoardRect(
@@ -867,6 +1000,16 @@ function initWhiteboard() {
         grid.setAttribute('fill', 'url(#wb-dot-pattern)');
         wbGroup.appendChild(grid);
 
+        // Notes and text objects: untransformed, between the board and the
+        // overlay -- see wbPlaceBoardObject().
+        const notesLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        notesLayer.setAttribute('class', 'wb-notes-layer');
+        wbSvg.appendChild(notesLayer);
+
+        wbOverlayGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        wbOverlayGroup.classList.add('wb-overlay-layer');
+        wbSvg.appendChild(wbOverlayGroup);
+
         container.appendChild(wbSvg);
 
         wbSvg.addEventListener('wheel', wbHandleWheel, { passive: false });
@@ -882,6 +1025,7 @@ function initWhiteboard() {
     } else {
         wbSvg = container.querySelector('svg.wb-svg');
         wbGroup = wbSvg.querySelector('.wb-layer');
+        wbOverlayGroup = wbSvg.querySelector('.wb-overlay-layer');
     }
 
     // Render notes (issue #846) before any fit-to-content below runs, so

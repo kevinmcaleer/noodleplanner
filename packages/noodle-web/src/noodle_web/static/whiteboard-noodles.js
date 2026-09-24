@@ -221,10 +221,10 @@ function wbNoteRectFor(taskName) {
     if (!entry || !entry.fo) return null;
     const fo = entry.fo;
     return {
-        x: parseFloat(fo.getAttribute('x') || fo.dataset.wbX || '0'),
-        y: parseFloat(fo.getAttribute('y') || fo.dataset.wbY || '0'),
-        width: parseFloat(fo.getAttribute('width') || fo.dataset.wbWidth || '0'),
-        height: parseFloat(fo.getAttribute('height') || fo.dataset.wbHeight || '0'),
+        x: parseFloat(fo.dataset.wbX || fo.getAttribute('x') || '0'),
+        y: parseFloat(fo.dataset.wbY || fo.getAttribute('y') || '0'),
+        width: parseFloat(fo.dataset.wbWidth || fo.getAttribute('width') || '0'),
+        height: parseFloat(fo.dataset.wbHeight || fo.getAttribute('height') || '0'),
     };
 }
 

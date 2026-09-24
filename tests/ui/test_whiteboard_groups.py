@@ -290,8 +290,12 @@ class TestGrouping:
         select(page, ["Alpha", "Beta"])
         group_selection(page, "Discovery")
 
+        # Document order is paint order. The notes layer is not inside the
+        # panned <g> (see wbPlaceBoardObject() in whiteboard.js), so compare
+        # the two layers' positions in the whole SVG.
         order = page.evaluate(
-            """() => [...document.querySelector('#whiteboardContainer svg g').children]
+            """() => [...document.querySelectorAll(
+                    '#whiteboardContainer svg .wb-groups-layer, #whiteboardContainer svg .wb-notes-layer')]
                  .map(n => n.getAttribute('class'))"""
         )
         assert order.index("wb-groups-layer") < order.index("wb-notes-layer"), order

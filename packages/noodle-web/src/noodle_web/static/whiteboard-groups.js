@@ -63,11 +63,15 @@ let wbLasso = null;
 
 function wbLassoLayer() {
     if (typeof wbGroup === 'undefined' || !wbGroup) return null;
-    let layer = wbGroup.querySelector('.wb-lasso-layer');
+    // Above the notes, so the marquee is drawn over the cards it crosses:
+    // wbOverlayGroup carries wbGroup's pan/zoom on the far side of the
+    // untransformed notes layer (see wbPlaceBoardObject() in whiteboard.js).
+    const host = (typeof wbOverlayGroup !== 'undefined' && wbOverlayGroup) || wbGroup;
+    let layer = host.querySelector('.wb-lasso-layer');
     if (!layer) {
         layer = document.createElementNS(SVG_NS, 'g');
         layer.setAttribute('class', 'wb-lasso-layer');
-        wbGroup.appendChild(layer);
+        host.appendChild(layer);
     }
     return layer;
 }
@@ -619,13 +623,7 @@ function wbGroupMouseMove(e) {
     if (Math.abs(dx) > 2 || Math.abs(dy) > 2) wbActiveGroupDrag.moved = true;
 
     for (const origin of wbActiveGroupDrag.origins) {
-        const fo = origin.entry.fo;
-        const x = Math.round(origin.x + dx);
-        const y = Math.round(origin.y + dy);
-        fo.setAttribute('x', String(x));
-        fo.setAttribute('y', String(y));
-        fo.dataset.wbX = String(x);
-        fo.dataset.wbY = String(y);
+        wbSetBoardRect(origin.entry.fo, { x: Math.round(origin.x + dx), y: Math.round(origin.y + dy) });
     }
     // The boundary and the noodles are both measured from the notes, so
     // re-deriving here is what keeps them attached mid-drag.
