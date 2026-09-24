@@ -302,6 +302,36 @@ forms, 3 wizard steps, 2 standalone forms.
 | ✅ | 4.4 | Penpot screen audit board | [#1196](https://github.com/kevinmcaleer/noodleplanner/issues/1196) |
 | ✅ | 4.5 | Recover the 54 components stranded in the unlinked `style.css` | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
 | ✅ | 4.6 | Substitute the 21 hex literals that exactly equal a theme-invariant identity token | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 4.7 | Move the 19 hand-written font stacks onto the three `--np-font-*` tokens, and gate it with `raw-font-family` | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+| ✅ | 4.8 | Walk every view at desktop and phone width, in CI: `tests/ui/test_view_walkthrough.py` | [#1194](https://github.com/kevinmcaleer/noodleplanner/issues/1194) |
+
+4.7 and 4.8 came out of the same walk. #1194 asks for a user-flow
+walkthrough across all main screens at mobile and desktop width. Done as a
+measurement rather than by eye, it walks all 39 views at 1280px and 390px and
+checks that each is reachable, throws nothing, does not scroll the page
+sideways, and renders its text in an approved family. Three of the four held
+already. The fourth did not. About 3,300 rendered text elements were in
+Courier New, `ui-monospace` or the macOS system stack. Every one traced to one
+of 19 stylesheet rules naming a typeface directly, four inline styles in the
+template, two in `script.js`, and the mind map. The epic's title says *font*
+consistency, and until then nothing had checked it.
+
+All 19 now use the token for their role: monospace onto `--np-font-data`, and
+the system stacks onto `--np-font-ui`. One was dead and was deleted rather than
+re-spelled. `gantt.css`'s bare `textarea` rule never applied, because
+`visual-system.css` loads later and sets every textarea to the UI face. The
+plan editor gets its monospace from `.editor-textarea`, which shares one rule
+with the highlight overlay, so the two change together. They were checked with
+identical computed metrics and zero offset, so the caret cannot drift. The mind
+map is the one place that needed code rather than a substitution. It measures
+each label on a canvas, which cannot read a custom property. The canvas, the
+SVG label and the inline editor now all take the *resolved* `--np-font-ui`
+stack, and the map lays out again once webfonts finish loading.
+
+A before/after capture of all 84 screens changed exactly what was intended:
+the editor pane on every project view (1.68% of pixels, identical across all
+of them), the syntax guide's code blocks, and nothing on any portfolio view or
+modal.
 
 4.5 was not on the original list and turned out to be the largest visible
 defect in the epic: the #571 CSS split left 54 classes behind in a stylesheet

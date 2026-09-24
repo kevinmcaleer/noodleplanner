@@ -155,7 +155,7 @@
 }
 
 .evm-metrics-table td:nth-child(3) {
-    font-family: monospace;
+    font-family: var(--np-font-data);
     color: var(--evm-value-color);
 }
 

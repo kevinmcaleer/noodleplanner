@@ -134,3 +134,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - run: ./ci/run.sh -j1 --strict design
+
+  storybook:
+    name: storybook
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
+    # Builds Storybook, then renders every story from the build in both themes
+    # -- a build alone does not run the stories, so one that throws at render
+    # time would otherwise pass. See ci/jobs/storybook.sh.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: ./ci/run.sh -j1 --strict storybook

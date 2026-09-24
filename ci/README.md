@@ -60,6 +60,8 @@ named limit, which is the difference between a diagnosis and a mystery.
 | `conformance` | the Python and JavaScript scheduling engines agree (#793) | yes |
 | `roundtrip` | opening and saving an unedited plan does not alter it (#771) | yes |
 | `ui` | `pytest tests/ui -n auto` — the Playwright browser suite | yes |
+| `design` | the design-system lint ratchet and the WCAG token-contrast check | yes |
+| `storybook` | builds Storybook, then renders every story in both themes | yes |
 | `usability` | `pytest -m usability` — the remaining Selenium suites | no, reports only |
 
 `usability` is reporting-only for two reasons: it needs a real browser, so it

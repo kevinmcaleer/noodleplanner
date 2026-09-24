@@ -97,6 +97,29 @@ only when a component needs something different.
 `:focus:not(:focus-visible)`, which is the correct way to suppress a ring for a
 pointer click while keeping it for the keyboard.
 
+### 5. Type comes from a token
+
+There are three families: `--np-font-ui` for interface text,
+`--np-font-heading` for titles, and `--np-font-data` for anything monospaced
+(IDs, dates, code, the plan editor). `font-family` names one of them, or
+defers to the cascade with `inherit`. The `raw-font-family` rule flags
+anything else, in stylesheets. Icon fonts are exempt because they are glyph
+sets, not typefaces.
+
+This rule came late and was needed. A walk of all 39 views, at desktop and
+mobile width, counted about 3,300 rendered text elements in Courier New,
+`ui-monospace` or the macOS system stack instead of the approved faces. They came from 19 hand-written stacks:
+every author who wanted monospace had reached for the one they knew. All 19
+were moved onto the tokens and the rule has no baseline, so a new one fails CI.
+
+The linter only sees stylesheets. The same holds for a `style=""` in a
+template or a `.style.fontFamily` in JS: use `var(--np-font-data)`, which
+works in both. The one place a token cannot go is a canvas `ctx.font` string,
+because canvas does not resolve custom properties. `mindmap.js` measures node
+text on a canvas and sizes its inline editor to match. Its font stays a literal
+until the measurement reads the resolved token, and changing one without the
+other would mis-size the editor.
+
 ## The ratchet
 
 There are ~1,950 pre-existing violations, recorded per finding in
@@ -170,7 +193,39 @@ static named exports and cannot generate a story in a loop.
 ```sh
 npm run storybook          # dev server on :6006
 npm run build-storybook    # static build
+ci/run.sh storybook        # what CI runs: build, then render every story
 ```
+
+The **States** story puts each base control (buttons, `<np-button>`, text
+input, select, `<np-checkbox>`) in a row and each interactive state in a
+column: default, hover, keyboard focus and disabled. `:hover` and
+`:focus-visible` cannot be triggered from a script, so
+`storybook-addon-pseudo-states` forces them by rewriting the app's own
+stylesheets. The Hover column shows the real `:hover` rule, not a copy of it.
+Loading and error are separate stories, because the app has a loading
+indicator and a few error messages rather than a loading or error state *per
+control*. There is no invalid-field style anywhere in the app, so none is
+shown.
+
+CI's `storybook` job builds Storybook and then loads every story from the
+build in both themes (`scripts/check_storybook.py`). A build on its own
+bundles the stories without running them, so a story that throws at render
+time would pass. The job fails on that, on any uncaught exception, and on a
+row of the States story whose focused state looks the same as its resting one.
+That last check catches both the addon silently no longer forcing states and a
+control losing its focus ring.
+
+To add a story for a web component, put `<name>.stories.js` next to it under
+`static/components/`. `.storybook/main.mjs` picks it up from there.
+
+## Reviewing a change
+
+`.github/pull_request_template.md` carries a design-system section: tokens not
+literals, both gates green, legible in both themes, focus kept visible, and new
+components added to the gallery. It asks for what CI cannot check. The linter
+sees a hardcoded colour but not a token used in the wrong role, and the
+contrast check scores token pairings, not what a particular new element ends
+up sitting on.
 
 ## Where things are
 
@@ -186,6 +241,7 @@ npm run build-storybook    # static build
 | Gallery spec | `static/component-gallery.js` |
 | Linter | `scripts/lint-design-system.mjs` |
 | Contrast check | `scripts/check-contrast.mjs` |
-| CI job | `ci/jobs/design.sh` |
+| CI jobs | `ci/jobs/design.sh`, `ci/jobs/storybook.sh` |
+| PR review checklist | `.github/pull_request_template.md` |
 | Storybook | `.storybook/` |
 | Screen-audit capture | `scripts/capture_screen_audit.py` |

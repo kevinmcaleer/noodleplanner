@@ -114,6 +114,54 @@ ci_setup_node() {
   ci_step "npm ci" npm ci --no-audit --no-fund
 }
 
+# Make sure Playwright can launch its Chromium, for the jobs that drive it
+# (ui, storybook). Skips the job, or fails it on a CI runner, when it cannot.
+ci_setup_playwright() {
+  # Does Playwright already have the build it wants? Ask Playwright, rather than
+  # guessing at a path: executable_path is the exact binary it will launch.
+  # NOODLE_PW_CHROME, the override tests/ui/conftest.py and
+  # scripts/check_storybook.py honour, counts as having one.
+  if [ -n "${NOODLE_PW_CHROME:-}" ] && [ -x "${NOODLE_PW_CHROME}" ]; then
+    ci_log "Playwright will launch NOODLE_PW_CHROME=${NOODLE_PW_CHROME}"
+    return 0
+  fi
+  if uv run python - <<'PY' 2>/dev/null
+import os, sys
+from playwright.sync_api import sync_playwright
+try:
+    with sync_playwright() as p:
+        sys.exit(0 if os.path.exists(p.chromium.executable_path) else 1)
+except Exception:
+    sys.exit(1)
+PY
+  then
+    ci_log "Playwright already has its Chromium build"
+    return 0
+  fi
+
+  # Install only when it is actually missing. On a fresh CI runner that
+  # downloads ~150MB and is the right thing to do; where a browser is already
+  # provisioned (PLAYWRIGHT_BROWSERS_PATH, as some sandboxes and our own runner
+  # image set) the download is wasted, and behind restricted egress it simply
+  # fails.
+  if ci_step "install Chromium for Playwright" \
+       uv run playwright install --with-deps chromium; then
+    return 0
+  fi
+
+  # Which of the two this is matters. On a CI runner an install that cannot
+  # complete is a broken runner and must be loud, because `--strict` in the
+  # workflow treats a skip as a pass -- so skipping here would quietly turn a
+  # gate into nothing. On a developer machine behind a proxy it is an
+  # environment limit, and saying so beats a red run nobody can act on.
+  if [ -n "${CI:-}" ]; then
+    ci_die "Playwright could not install a browser on a CI runner -- this gate cannot run"
+  fi
+  ci_skip "Playwright has no usable browser and cannot download one \
+(restricted egress?); point PLAYWRIGHT_BROWSERS_PATH at a matching build, or \
+NOODLE_PW_CHROME at a Chromium, to run this locally"
+}
+
 # Resolve a browser for the jobs that drive one. Honours an explicit CHROME_BIN,
 # then the usual system names, then the Playwright download cache
 # (PLAYWRIGHT_BROWSERS_PATH) -- the same search order
