@@ -739,7 +739,6 @@ class TestParkingLotDetailAndRestore:
 
 
 class TestParkingLotRoundTrip:
-    @pytest.mark.unstable
     def test_parked_item_survives_a_page_reload(self, page, app_server):
         open_app(page, app_server)
         # A real project, so the commit reaches the browser's project store
@@ -749,9 +748,12 @@ class TestParkingLotRoundTrip:
 
         send_to_parking_lot(page, "Loose Idea")
         wait_for_parked(page, "Loose Idea")
-        # The project-store save is debounced. Waiting for the stored project
-        # to actually carry the marker is the signal the Selenium version
-        # approximated with `time.sleep(0.6)`.
+        # The commit has reached the project store's in-memory copy. Its
+        # write to IndexedDB is still debounced (250ms), and the reload below
+        # deliberately does not wait for it: a user who parks something and
+        # reloads straight away is relying on the store's pagehide flush to
+        # get it onto disk, and that is part of what this test checks. It
+        # replaces the Selenium version's `time.sleep(0.6)`.
         page.wait_for_function(
             """() => {
                 const p = getCurrentProject();
@@ -766,17 +768,16 @@ class TestParkingLotRoundTrip:
         # budget rather than the suite-wide 5s default, which is tuned for UI
         # transitions.
         #
-        # Marked `unstable` and deselected from the gating run, because it
-        # catches an app defect that is not fixed yet: under load the startup
-        # restore sometimes never completes at all. The timing says stuck
-        # rather than slow -- when this passes the test takes ~3 seconds, and
-        # when it fails it burns the whole budget, at 30s and at 120s alike.
-        # Roughly 1 run in 3 with four browsers on four cores.
+        # This wait used to time out under load, and the test was marked
+        # `unstable` for it. The startup restore was not stuck: it completed,
+        # with an empty plan, because the parked write had never reached
+        # IndexedDB -- the pagehide flush started a transaction the reload
+        # tore down before it committed. project-store.js's flush() now
+        # commits explicitly. See tests/ui/README.md.
         #
-        # It found a second, separate defect on the way, which *is* fixed: an
-        # empty editor could overwrite the stored project. See the guard in
-        # project-storage.js's saveCurrentProjectState() and the write-up in
-        # tests/ui/README.md.
+        # It also found a separate defect, fixed earlier: an empty editor
+        # could overwrite the stored project. See the guard in
+        # project-storage.js's saveCurrentProjectState().
         page.wait_for_function(
             "() => document.getElementById('planEditor').value"
             "        .includes('---parking lot---')",
@@ -792,15 +793,14 @@ class TestParkingLotRoundTrip:
         texts = parking_lot_item_texts(page)
         assert any("Loose Idea" in t for t in texts), texts
 
-    @pytest.mark.unstable
     def test_parked_detail_survives_a_page_reload_and_can_still_be_restored(self, page, app_server):
         """Issue #1110: the richer detail snapshot (colour, checklist)
         round-trips through a reload exactly like the flat text already did,
         and Restore still works afterwards.
 
-        `unstable` for the same reason as the test above it -- it reloads, and
-        the startup restore intermittently never completes under load. Nothing
-        to do with #1110; see tests/ui/README.md.
+        Like the test above it, this reloads while the parked write is still
+        in the project store's debounce, so it depends on the pagehide flush
+        committing. See tests/ui/README.md.
         """
         open_app(page, app_server)
         load_plan(page, SAMPLE_PLAN, with_project="Parking Lot Detail Round Trip")

@@ -133,9 +133,10 @@ the origin up for the whole suite.
 ## Three real bugs this suite found
 
 Porting `test_whiteboard_parking_lot.py` turned up two defects in the app, both
-in the same window: `loadProjectIntoEditor()` is async, so between a project
+around a reload: `loadProjectIntoEditor()` is async, so between a project
 being selected and its text reaching `#planEditor` there is a gap, and on a
-loaded machine that gap is wide.
+loaded machine that gap is wide; and the project store's writes are
+asynchronous too.
 
 **Fixed: an empty editor could destroy a stored plan.** Any save landing in
 that window stamps `last_saved` into an empty editor and writes the result over
@@ -150,18 +151,43 @@ with an editor that has none. The guard is deliberately narrow — *entirely*
 empty, over a project that is not — because a user who selects all and deletes
 is doing something real and must still be able to save it.
 
-**Not fixed: the startup restore sometimes never completes.** With the guard in
-place the plan survives, but the editor still occasionally never receives it.
-The timing says stuck rather than slow: when the test passes it takes ~3
-seconds, and when it fails it burns the whole budget, at 30s and at 120s alike.
-Roughly one run in three with four browsers on four cores.
+**Fixed: the last edit before a reload could be lost.** This was first
+written up here as "the startup restore sometimes never completes", and the
+reload tests were marked `unstable` for it. That diagnosis was wrong. The
+restore completed every time; what it restored was a plan with no text in it.
 
-That is why `test_parked_item_survives_a_page_reload` carries
-`@pytest.mark.unstable` and `ci/jobs/ui.sh` runs `-m "not unstable"`. The test
-is right and the app is wrong; gating on it would just teach people to ignore a
-red gate. It stays in the tree and stays runnable — `-m unstable` runs exactly
-the tests in this state — and nothing joins that marker without a defect
-written down here beside it.
+Dumping the store at the moment of the timeout showed the current project
+selected, its record present, and its `planText` empty — not the parked plan,
+and not even the plan `load_plan()` had typed in. Dumping it just before
+`page.reload()` showed why: `NoodleStore.dirtyCount()` was 1. The test waits
+for `getCurrentProject()` to carry the parking lot marker, but that reads the
+store's in-memory copy; the IndexedDB write behind it is debounced by 250ms,
+and the reload landed inside that window. Nothing flushed before it had carried
+any plan text.
+
+The store's `pagehide` listener is there for exactly this, and it did start a
+transaction. It never committed it. An IndexedDB transaction auto-commits only
+once control returns to the event loop with no requests pending, and a
+document being torn down may not get there — the browser then aborts the
+transaction with the page. The more loaded the machine, the likelier that is,
+which is why it showed up as "one run in three with four browsers on four
+cores" and passed on its own. `flush()` in `project-store.js` now calls
+`tx.commit()` once its puts are queued, so the commit is requested in the same
+task as the `pagehide` event. This is a real user-facing loss, not a test
+artefact: park a note (or make any edit) and reload or close the tab within a
+quarter of a second, and the edit was gone.
+
+Both reload tests are back in the gating run. They deliberately still reload
+without waiting for the debounce, because that is the case the fix is for.
+
+The `unstable` marker, which `ci/jobs/ui.sh` deselects with
+`-m "not unstable"`, stays for tests that are right about an app defect nobody
+has fixed — a gate that is red for one teaches people to ignore it. They stay
+in the tree and runnable (`-m unstable` runs exactly those), and nothing joins
+the marker without a defect written down beside it. Today that is only
+`test_usability.py`'s `test_render_does_not_show_error`. Before reaching for
+it, rule out the test's own setup: this one looked like an app hang for a long
+time and was a lost write.
 
 ## Investigated and not reproduced: the row-layout sweep failure (#1288)
 
