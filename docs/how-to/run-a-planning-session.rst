@@ -14,8 +14,10 @@ Starting a Session
 
 1. Open the project you want to work on.
 2. Choose **Planning session** from the ribbon.
-3. NoodlePlanner shows a **six-digit code** and a **holding link**.
-4. Send both to your team — email, chat, however you normally would.
+3. NoodlePlanner shows a **six-digit code** and the **join page**
+   (``https://<your NoodlePlanner>/join``).
+4. Tell your team — out loud on a call, in chat, however you normally
+   would: "go to …/join and enter 482913".
 
 The session is live from that moment. You stay in your normal editor; the
 plan on screen is the one everybody is editing.
@@ -23,17 +25,10 @@ plan on screen is the one everybody is editing.
 Joining a Session
 -------------------
 
-People who join open the holding link, enter the six-digit code and their
+People who join open the join page, enter the six-digit code and their
 name, and land on a deliberately simple page: the task outline, the RAID
 log, the benefits map, the comms plan and the weekly updates. No front
 matter, no syntax, no project cockpit.
-
-.. important::
-
-   The holding link must be shared **whole**. It carries a security token
-   after the ``#``, which is what lets the two browsers set up encryption
-   the relay cannot read. A link truncated at the ``#`` will not work, and
-   the joiner is told so rather than falling back to something weaker.
 
 What Everyone Can Edit
 ------------------------
@@ -128,16 +123,19 @@ that was never at risk.
 Security
 ----------
 
-* The six-digit code only gets someone **into** the session. It is never
-  used as an encryption key — a million combinations is far too few. The
-  encryption keys come from an exchange between the two browsers,
-  authenticated by the token in the holding link.
-* The relay only ever sees ciphertext. It cannot read your plan.
+* The six-digit code gets someone **into** the session. It is never used
+  as an encryption key — a million combinations is far too few. The
+  encryption keys come from an exchange between the two browsers, and the
+  code is what authenticates that exchange.
+* The relay stores nothing and only ever handles ciphertext. Because it
+  sees the code (it has to, to let people in), a deliberately modified
+  relay could in principle intercept the key exchange; the protection is
+  that nothing about the session, plan or chat is ever kept on the server.
 * Session chat and activity entries are ciphertext too, and are kept only
   in the participants' browser memory unless the host explicitly downloads
   a transcript or promotes a message to a task comment.
-* Session addresses are long and unguessable, and repeated **wrong** code
-  attempts from one place are rate limited. Correct ones are not, so a
+* Repeated **wrong** code attempts from one place are rate limited, and a
+  code dies with its session. Correct ones are not, so a
   whole team behind one office connection can join.
 * Only you can end the session or remove someone. A joiner cannot do
   either, even by crafting their own messages.
