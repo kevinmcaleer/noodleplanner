@@ -1272,9 +1272,12 @@ function wbEnsureNoodleKey() {
     return panel;
 }
 
+/** Called when the board starts up. The card is only built once it is
+ * wanted, so a board that never shows it never builds it. */
 function wbApplyNoodleKeyVisibility() {
-    const panel = wbEnsureNoodleKey();
-    if (panel) panel.hidden = !wbNoodleKeyWanted();
+    const wanted = wbNoodleKeyWanted();
+    const panel = wanted ? wbEnsureNoodleKey() : document.getElementById('whiteboardKey');
+    if (panel) panel.hidden = !wanted;
 }
 
 /** Show or hide the key, remembered across visits. */
