@@ -3560,3 +3560,77 @@ body.wb-linking * {
     fill: var(--np-text);
     text-decoration: underline;
 }
+
+/* ========================================
+   Checklist rows: rename in place, and drag (whiteboard-row-drag.js)
+   ======================================== */
+
+/* Mid-rename: the name drops its ellipsis and scrolls instead, like the note
+   title's own rename, with the same outline as the only edit affordance. */
+.wb-note-row-name.editing {
+    overflow-x: auto;
+    text-overflow: clip;
+    cursor: text;
+    user-select: text;
+    outline: 2px solid var(--np-blue);
+    outline-offset: 2px;
+    border-radius: var(--np-radius-sm);
+}
+
+/* The row being carried stays in place, faded, so the note does not reflow
+   under the pointer while it is deciding where to drop. */
+.wb-note-row.wb-note-row-dragging {
+    opacity: 0.35;
+}
+
+/* Where it will land: a bar on the edge of the row it will sit next to. */
+.wb-note-row.wb-row-drop-before {
+    box-shadow: inset 0 2px 0 var(--np-blue);
+}
+
+.wb-note-row.wb-row-drop-after {
+    box-shadow: inset 0 -2px 0 var(--np-blue);
+}
+
+/* A note with no rows showing takes the item as its last one. */
+.wb-note-card.wb-row-drop-note {
+    outline: 3px solid var(--np-blue);
+    outline-offset: 2px;
+}
+
+body.wb-row-drag-active,
+body.wb-row-drag-active * {
+    user-select: none;
+}
+
+/* The carried row, following the pointer. Over bare board it becomes a
+   little post-it, since that is what letting go there makes. */
+.wb-row-drag-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 10000;
+    pointer-events: none;
+    max-width: 240px;
+    padding: var(--np-space-4) var(--np-space-8);
+    border-left: 4px solid var(--wb-row-ghost-accent, var(--np-border));
+    border-radius: var(--np-radius-sm);
+    background: var(--np-surface);
+    color: var(--np-text);
+    box-shadow: var(--np-elevation-3);
+    font-family: var(--np-font-ui);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wb-row-drag-ghost.wb-row-drag-ghost-lift {
+    min-width: 120px;
+    min-height: 64px;
+    padding: var(--np-space-8) var(--np-space-12);
+    border-left-width: 0;
+    border-top: 6px solid var(--wb-row-ghost-accent, var(--np-accent));
+    border-radius: var(--np-radius-md);
+    font-weight: 600;
+}
