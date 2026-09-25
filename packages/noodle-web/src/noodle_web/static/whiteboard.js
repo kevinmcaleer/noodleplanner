@@ -438,6 +438,14 @@ function wbVisibleCanvasRect() {
         : { left: 0, top: 0, width: 0, height: 0 };
     const rect = { x: 0, y: 0, width: full.width, height: full.height };
 
+    // The toolbar floats over the top of the canvas, so the strip it covers
+    // is not somewhere to frame content either.
+    const inset = wbToolbarInset(full);
+    if (inset > 0 && inset < full.height * 0.5) {
+        rect.y = inset;
+        rect.height = full.height - inset;
+    }
+
     const panel = document.getElementById('whiteboardOutlinePanel');
     if (!panel || panel.classList.contains('hidden')) return wbRememberVisibleRect(rect);
 
@@ -461,6 +469,18 @@ function wbVisibleCanvasRect() {
         }
     }
     return wbRememberVisibleRect(rect);
+}
+
+/**
+ * How far down the canvas the floating toolbar reaches, in px from the
+ * canvas's top edge. `full` is the canvas's client rect.
+ */
+function wbToolbarInset(full) {
+    const toolbar = document.getElementById('whiteboardToolbar');
+    if (!toolbar) return 0;
+    const t = toolbar.getBoundingClientRect();
+    if (!t.width || !t.height) return 0;
+    return Math.max(0, t.bottom - full.top);
 }
 
 /** Keep the last non-empty visible rect (see wbCurrentViewportBoardRect()). */
@@ -1106,6 +1126,70 @@ function wbHandleKeydown(e) {
     }
 }
 
+// ── Floating toolbar and its tips ─────────────────────────────────────
+//
+// The toolbar floats over the top of the canvas rather than sitting above
+// it, so the board runs underneath. Things pinned to the canvas's top edge
+// (the outline panel and its rail, the parking lot) read
+// --wb-toolbar-inset to start below it; the toolbar wraps onto more rows
+// on a narrow window and shrinks when the tips are hidden, so it is
+// measured rather than assumed.
+
+const WB_HINT_DISMISSED_KEY = 'np-whiteboard-hint-dismissed';
+
+function wbSyncToolbarInset() {
+    const toolbar = document.getElementById('whiteboardToolbar');
+    const content = toolbar ? toolbar.parentElement : null;
+    if (!content) return;
+    content.style.setProperty('--wb-toolbar-inset', `${Math.ceil(toolbar.offsetHeight)}px`);
+}
+
+function wbInitFloatingToolbar() {
+    wbApplyToolbarHintVisibility();
+    wbSyncToolbarInset();
+    const toolbar = document.getElementById('whiteboardToolbar');
+    if (!toolbar || toolbar.dataset.wbInsetObserved || typeof ResizeObserver === 'undefined') return;
+    toolbar.dataset.wbInsetObserved = '1';
+    new ResizeObserver(wbSyncToolbarInset).observe(toolbar);
+}
+
+function wbToolbarHintDismissed() {
+    try {
+        return localStorage.getItem(WB_HINT_DISMISSED_KEY) === '1';
+    } catch (e) {
+        return false;
+    }
+}
+
+function wbApplyToolbarHintVisibility() {
+    const hint = document.getElementById('whiteboardToolbarHint');
+    if (hint) hint.hidden = wbToolbarHintDismissed();
+}
+
+/** Show or hide the tips beneath the toolbar, remembered across visits. */
+function wbSetToolbarHintVisible(visible) {
+    try {
+        if (visible) localStorage.removeItem(WB_HINT_DISMISSED_KEY);
+        else localStorage.setItem(WB_HINT_DISMISSED_KEY, '1');
+    } catch (e) { /* storage blocked: still hide/show for this page */ }
+    const hint = document.getElementById('whiteboardToolbarHint');
+    if (hint) hint.hidden = !visible;
+    wbSyncToolbarInset();
+}
+
+/** The tips' own close button. Hands focus to the canvas, as the button is gone. */
+function wbDismissToolbarHint() {
+    wbSetToolbarHintVisible(false);
+    const container = document.getElementById('whiteboardContainer');
+    if (container) container.focus();
+}
+
+/** The ribbon's Whiteboard > Tips button. */
+function wbToggleToolbarHint() {
+    const hint = document.getElementById('whiteboardToolbarHint');
+    wbSetToolbarHintVisible(hint ? hint.hidden : wbToolbarHintDismissed());
+}
+
 // ── Initialization ────────────────────────────────────────────────────
 
 /**
@@ -1185,6 +1269,8 @@ function initWhiteboard() {
         wbGroup = wbSvg.querySelector('.wb-layer');
         wbOverlayGroup = wbSvg.querySelector('.wb-overlay-layer');
     }
+
+    wbInitFloatingToolbar();
 
     // Render notes (issue #846) before any fit-to-content below runs, so
     // a first-ever open computes its bounding box against the real notes

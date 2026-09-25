@@ -366,7 +366,8 @@ class TestKeyboard:
         # task), "Text note" (a note that is not a task), "Add title"
         # (issue #1018's free-floating text object) -- then "Add existing"
         # (add an *existing* task to the board), then the two side-panel
-        # toggles, "Structure" and "Parking lot". The five layout tools
+        # toggles, "Structure" and "Parking lot", then the tips' own close
+        # button while the tips are showing. The five layout tools
         # that used to follow them live in the ribbon's Whiteboard tab now
         # (Arrange group). Asserted by id rather than just tabbed past
         # blindly, so this still fails loudly if the toolbar's tab order is
@@ -375,7 +376,10 @@ class TestKeyboard:
             By.CSS_SELECTOR, '#whiteboard-view button[title="Reset to 100%"]'
         )
         reset_btn.click()
-        for expected in ("whiteboardNewNoteBtn", "whiteboardTextNoteBtn", "whiteboardNewTextBtn", "whiteboardAddNoteBtn", "whiteboardOutlineBtn", "whiteboardParkingLotBtn"):
+        expected_stops = ["whiteboardNewNoteBtn", "whiteboardTextNoteBtn", "whiteboardNewTextBtn", "whiteboardAddNoteBtn", "whiteboardOutlineBtn", "whiteboardParkingLotBtn"]
+        if browser.find_element(By.ID, "whiteboardToolbarHint").is_displayed():
+            expected_stops.append("whiteboardHintDismissBtn")
+        for expected in expected_stops:
             ActionChains(browser).send_keys(Keys.TAB).perform()
             time.sleep(0.1)
             active = browser.execute_script("return document.activeElement.id;")
@@ -450,6 +454,73 @@ class TestKeyboard:
         ActionChains(browser).send_keys("f").perform()
         time.sleep(0.1)
         assert get_zoom_label(browser) == "100%"
+
+
+class TestFloatingToolbar:
+    def test_canvas_runs_edge_to_edge_under_the_toolbar(self, browser, app_server):
+        open_app(browser, app_server)
+        switch_to_whiteboard(browser)
+        geo = browser.execute_script(
+            """
+            const view = document.getElementById('whiteboard-view').getBoundingClientRect();
+            const canvas = document.getElementById('whiteboardContainer').getBoundingClientRect();
+            const toolbar = document.getElementById('whiteboardToolbar');
+            return {
+                view: [view.left, view.top, view.right, view.bottom],
+                canvas: [canvas.left, canvas.top, canvas.right, canvas.bottom],
+                toolbarTop: toolbar.getBoundingClientRect().top,
+                toolbarBg: getComputedStyle(toolbar).backgroundColor,
+            };
+            """
+        )
+        # No padding round the board: the canvas fills the view exactly...
+        for got, want in zip(geo["canvas"], geo["view"]):
+            assert abs(got - want) < 1, f"canvas {geo['canvas']} should fill view {geo['view']}"
+        # ...and the toolbar floats over its top edge, on a transparent bar.
+        assert abs(geo["toolbarTop"] - geo["canvas"][1]) < 1
+        assert geo["toolbarBg"] in ("rgba(0, 0, 0, 0)", "transparent")
+
+    def test_tips_dismiss_and_come_back_from_the_ribbon(self, browser, app_server):
+        open_app(browser, app_server)
+        browser.execute_script("localStorage.removeItem('np-whiteboard-hint-dismissed');")
+        open_app(browser, app_server)
+        switch_to_whiteboard(browser)
+
+        hint = browser.find_element(By.ID, "whiteboardToolbarHint")
+        assert hint.is_displayed()
+        inset_before = browser.execute_script(
+            "return parseFloat(document.getElementById('whiteboardToolbar').parentElement"
+            ".style.getPropertyValue('--wb-toolbar-inset'));"
+        )
+
+        browser.find_element(By.ID, "whiteboardHintDismissBtn").click()
+        time.sleep(0.2)
+        assert not hint.is_displayed()
+        inset_after = browser.execute_script(
+            "return parseFloat(document.getElementById('whiteboardToolbar').parentElement"
+            ".style.getPropertyValue('--wb-toolbar-inset'));"
+        )
+        assert inset_after < inset_before, "the toolbar should shrink once the tips are gone"
+
+        # Stays dismissed across a reload.
+        open_app(browser, app_server)
+        switch_to_whiteboard(browser)
+        assert not browser.find_element(By.ID, "whiteboardToolbarHint").is_displayed()
+
+        # The ribbon's Whiteboard tab (the contextual one) brings it back.
+        browser.find_element(By.CSS_SELECTOR, '.ribbon-tab-btn[data-tab="__ctx"]').click()
+        time.sleep(0.2)
+        tips = WebDriverWait(browser, 5).until(
+            EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, '.ribbon-body [data-scope-id="whiteboard"][data-label="Tips"]')
+            )
+        )
+        tips.click()
+        time.sleep(0.2)
+        assert browser.find_element(By.ID, "whiteboardToolbarHint").is_displayed()
+        assert browser.execute_script(
+            "return localStorage.getItem('np-whiteboard-hint-dismissed');"
+        ) is None
 
 
 class TestTouch:

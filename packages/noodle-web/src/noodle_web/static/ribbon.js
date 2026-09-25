@@ -461,6 +461,9 @@ function scopedAction(scopeId, label) {
         'whiteboard:Tidy': onWhiteboard('wbLayoutTidyNotes'),
         'whiteboard:Hierarchy': onWhiteboard('wbLayoutHierarchyView'),
         'whiteboard:Flow': onWhiteboard('wbLayoutFlowView'),
+        // Shows or hides the tips under the whiteboard's toolbar, which
+        // their own close button dismisses.
+        'whiteboard:Tips': onWhiteboard('wbToggleToolbarHint'),
         'whiteboard:Spacing': () => openFormatMenu(WHITEBOARD_SPACINGS, 'Spacing'),
         // #1341: was a "not available yet" stub although #874 had already
         // built grouping -- the selection toolbar's "Group these" calls the
