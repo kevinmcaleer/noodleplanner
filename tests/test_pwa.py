@@ -92,6 +92,14 @@ class TestServiceWorker:
             "the worker should not name API routes as something it handles"
         )
 
+    def test_unversioned_static_assets_go_to_the_network_first(self):
+        """A module imported at run time has no ?v= hash (ribbon.js's
+        import('/static/ribbon-ia.js')), so serving it cache-first would hand
+        out the previous deploy's copy while the old worker still controls
+        the page -- a new ribbon.js drawing old ribbon-ia.js buttons."""
+        source = (STATIC / "sw.js").read_text()
+        assert 'url.searchParams.has("v") ? cacheFirst(request) : networkFirst(request)' in source
+
 
 class TestPage:
     def test_page_links_the_manifest_and_registers_the_worker(self, client):

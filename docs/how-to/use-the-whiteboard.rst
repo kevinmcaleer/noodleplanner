@@ -69,7 +69,7 @@ Arrange the Board
 
 The layouts live on the ribbon's **Whiteboard** tab, in the **Arrange** group:
 
-- **Tidy** lines every note up in a grid of standard-size cards.
+- **Tidy** lines every note up in a grid of standard-size cards, then zooms to fit the whole grid. In a planning session everyone's board zooms to fit, whoever pressed it.
 - **Hierarchy** puts each top-level summary task in a column with its notes beneath it.
 - **Flow** lays the notes out left to right, following their dependencies.
 - **Spacing** re-runs the grid with **Compact** or **Comfy** gaps between the notes.

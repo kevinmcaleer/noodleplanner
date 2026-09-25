@@ -63,10 +63,12 @@ function planEditorEl() { return el('planEditor'); }
  * The joiner's view of the plan, kept in step with the host.
  *
  *  rev, synced      the host's latest revision and its plan text.
- *  pending          {base, text}: the joiner's own edit the host has not yet
- *                   confirmed -- `text` is what the joiner wants, made
- *                   against `base`.
- *  sentRev, sentText  the replacement currently with the host, if any.
+ *  pending          {base, text, fit}: the joiner's own edit the host has
+ *                   not yet confirmed -- `text` is what the joiner wants,
+ *                   made against `base`; `fit` when it is a whiteboard Tidy,
+ *                   which every board zooms to fit once it has drawn.
+ *  sentRev, sentText, sentFit  the replacement currently with the host, if
+ *                   any.
  *  waitForSnapshot  a stale bounce with no newer snapshot yet -- the host
  *                   has typing of its own about to broadcast; resending now
  *                   would bounce again.
@@ -77,8 +79,13 @@ const planSync = {
     pending: null,
     sentRev: null,
     sentText: null,
+    sentFit: false,
     waitForSnapshot: false,
 };
+
+// Set by collabShareWhiteboardFit() just before the Tidy it belongs to is
+// committed, and moved onto that edit by noteLocalPlanChange().
+let fitRequested = false;
 
 function resetPlanSync() {
     planSync.rev = 0;
@@ -86,7 +93,9 @@ function resetPlanSync() {
     planSync.pending = null;
     planSync.sentRev = null;
     planSync.sentText = null;
+    planSync.sentFit = false;
     planSync.waitForSnapshot = false;
+    fitRequested = false;
 }
 
 let renderSeq = 0;
@@ -133,9 +142,12 @@ function noteLocalPlanChange() {
     if (!editor) return;
     const text = editor.value;
     const current = planSync.pending ? planSync.pending.text : planSync.synced;
+    const fit = fitRequested;
+    fitRequested = false;
     if (text === current) return;
     if (planSync.pending) planSync.pending.text = text;
-    else planSync.pending = { base: planSync.synced, text };
+    else planSync.pending = { base: planSync.synced, text, fit: false };
+    if (fit) planSync.pending.fit = true;
     flushPlanChange();
 }
 
@@ -145,7 +157,7 @@ function rebasePending(latest) {
     if (!pending || pending.base === latest) return true;
     const merged = NoodleCollabMerge.merge3(pending.base, pending.text, latest);
     if (merged === null) return false;
-    planSync.pending = { base: latest, text: merged };
+    planSync.pending = { base: latest, text: merged, fit: pending.fit };
     return true;
 }
 
@@ -165,7 +177,11 @@ function flushPlanChange() {
     if (editor && editor.value !== text) showPlanText(text);
     planSync.sentRev = planSync.rev;
     planSync.sentText = text;
-    sendEncrypted({ type: 'plan_text_replace', rev: planSync.rev, text });
+    planSync.sentFit = Boolean(planSync.pending.fit);
+    planSync.pending.fit = false;
+    const message = { type: 'plan_text_replace', rev: planSync.rev, text };
+    if (planSync.sentFit) message.fit = true;
+    sendEncrypted(message);
 }
 
 function receivePlanSnapshot(rev, text) {
@@ -177,6 +193,7 @@ function receivePlanSnapshot(rev, text) {
         // Our replacement landed. Anything typed since builds on it.
         planSync.sentText = null;
         planSync.sentRev = null;
+        planSync.sentFit = false;
         if (planSync.pending) planSync.pending.base = text;
     } else if (planSync.pending) {
         // Someone else's change came first. If ours is still with the host
@@ -193,8 +210,10 @@ function receivePlanSnapshot(rev, text) {
 
 function receivePlanTextRejected(reason) {
     const sentRev = planSync.sentRev;
+    const sentFit = planSync.sentFit;
     planSync.sentText = null;
     planSync.sentRev = null;
+    planSync.sentFit = false;
     if (reason !== 'stale') {
         planSync.pending = null;
         showPlanNotice(reason === 'protected'
@@ -203,10 +222,24 @@ function receivePlanTextRejected(reason) {
         showPlanText(planSync.synced);
         return;
     }
+    // A bounced Tidy is still a Tidy when it is resent.
+    if (sentFit && planSync.pending) planSync.pending.fit = true;
     // Bounced before any newer snapshot reached us: the host has changes of
     // its own about to broadcast. Wait for them, then rebase and resend.
     if (sentRev === planSync.rev) planSync.waitForSnapshot = true;
     else flushPlanChange();
+}
+
+/**
+ * The whiteboard's Tidy, on a joiner (whiteboard-notes.js's
+ * wbCommitLayout()): the host's board and every other joiner's should zoom
+ * to fit as well. Called before the commit, so `withEdit` marks the edit
+ * that commit is about to send; with no edit, the request goes on its own.
+ */
+// eslint-disable-next-line no-unused-vars
+function collabShareWhiteboardFit(withEdit) {
+    if (withEdit) fitRequested = true;
+    else sendEncrypted({ type: 'whiteboard_fit' });
 }
 
 // The whiteboard commits through wbCommitMarkdown(), which calls
@@ -433,8 +466,20 @@ function handleEncryptedPayload(parsed) {
     if (parsed.type === 'plan_snapshot') {
         if (parsed.notice) showPlanNotice(parsed.notice);
         if (typeof parsed.plan_text === 'string' && Number.isInteger(parsed.rev)) {
+            // Someone tidied the board: zoom to fit once it is drawn. The
+            // render is asked for outright, since a snapshot that only
+            // confirms this joiner's own edit does not redraw anything.
+            const fit = parsed.fit === true && typeof wbQueueLayoutFit === 'function';
+            if (fit) wbQueueLayoutFit();
             receivePlanSnapshot(parsed.rev, parsed.plan_text);
+            if (fit) renderJoinerBoard();
         }
+        return;
+    }
+    if (parsed.type === 'whiteboard_fit') {
+        // A Tidy that moved nothing: there is no new board to wait for.
+        if (typeof wbQueueLayoutFit === 'function') wbQueueLayoutFit();
+        if (typeof wbRunPendingLayoutFit === 'function') wbRunPendingLayoutFit();
         return;
     }
     if (parsed.type === 'plan_text_replace_rejected') {

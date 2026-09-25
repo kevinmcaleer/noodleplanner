@@ -6,9 +6,16 @@
  * about caching, because the plan lives in the page and the app must never
  * show a stale shell after a deployment:
  *
- *   - Same-origin /static/ assets: cache-first. Their URLs carry a per-deploy
- *     ?v= hash, so a cached copy is never out of date, and the whole cache is
- *     dropped when the version below changes.
+ *   - Same-origin /static/ assets with a ?v= hash: cache-first. The hash is
+ *     per deploy, so a cached copy is never out of date, and the whole cache
+ *     is dropped when the version below changes.
+ *   - Same-origin /static/ assets without one -- the modules scripts import
+ *     at run time, such as ribbon.js's import('/static/ribbon-ia.js'):
+ *     network-first, like the page. Cache-first would hand them out of the
+ *     previous deploy's cache for as long as the old worker still controls
+ *     the page, which on a page that does not reload when the new worker
+ *     takes over (the planning-session joiner's) is the whole visit: a
+ *     ribbon.js from one deploy drawing ribbon-ia.js's buttons from the last.
  *   - Navigations (the app page itself): network-first, falling back to the
  *     last good copy only when the network is unavailable, so the app still
  *     opens offline with the plans held in the browser's storage.
@@ -70,6 +77,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   if (isStaticAsset(url)) {
-    event.respondWith(cacheFirst(request));
+    event.respondWith(url.searchParams.has("v") ? cacheFirst(request) : networkFirst(request));
   }
 });
