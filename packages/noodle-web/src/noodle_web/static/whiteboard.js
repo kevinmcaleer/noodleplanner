@@ -210,9 +210,10 @@ function wbApplyTransform(animate) {
 // wbOverlayGroup, and each one is placed in screen space from its board
 // geometry: x/y/width/height are the board rect run through the current
 // pan/zoom, and the content inside is laid out at board size and scaled
-// with CSS `zoom`. Board geometry is kept in data-wb-x/-y/-width/-height,
-// the single source of truth -- read it with wbBoardRect() and write it
-// with wbSetBoardRect(), never through the x/y/width/height attributes.
+// with a CSS transform (wbPlaceBoardObject() says why not CSS `zoom`).
+// Board geometry is kept in data-wb-x/-y/-width/-height, the single
+// source of truth -- read it with wbBoardRect() and write it with
+// wbSetBoardRect(), never through the x/y/width/height attributes.
 
 /** The pan/zoom the board objects are currently drawn at -- which lags
  * wbZoom/wbPanX/wbPanY while an animated transform is under way. */
@@ -254,13 +255,28 @@ function wbPlaceBoardObject(fo, view) {
     fo.setAttribute('height', String(r.height * v.zoom));
     const content = fo.firstElementChild;
     if (content && content.style) {
-        // A note's card fills its rect; a text object's wrap sizes to its
-        // own text inside an oversized box, so it only takes the zoom.
+        // A note's card fills its rect. A text object's wrap sizes to its
+        // own text inside an oversized box; the transform below leaves it
+        // laid out against the <foreignObject>'s *screen* width, so these
+        // three reproduce shrink-to-fit against the board width instead,
+        // and a text object wraps the same way at every zoom.
         if (fo.classList.contains('wb-note')) {
             content.style.width = r.width + 'px';
             content.style.height = r.height + 'px';
+        } else {
+            content.style.width = 'max-content';
+            content.style.minWidth = 'min-content';
+            content.style.maxWidth = r.width + 'px';
         }
-        content.style.zoom = String(v.zoom);
+        // Scaled with a transform rather than CSS `zoom`. `zoom` scales the
+        // font size, and WebKit clamps a zoomed font size to its minimum
+        // logical font size (9px by default), so in Safari a note's 13px
+        // text stopped shrinking below ~70% while the card kept shrinking:
+        // the text overflowed the note instead of staying in proportion to
+        // it. A transform scales the rendered text with the box, so nothing
+        // on a note changes size relative to the note at any zoom.
+        content.style.transformOrigin = '0 0';
+        content.style.transform = `scale(${v.zoom})`;
         // WebKit only re-places a <foreignObject>'s layered content when
         // that content's own style changes -- moving the x/y attributes
         // alone left a panned note painted where it was. Any style write
