@@ -652,7 +652,7 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 :root body .ribbon-shell :is(button, a) { color: var(--np-body); }
 :root body .ribbon-shell :is(button, a):hover { background: var(--np-sunken); color: var(--np-ink); }
 :root body .ribbon-tab-btn.active { color: var(--np-ink); border-bottom-color: var(--np-accent); background: transparent; }
-:root body .ribbon-shell :is(.ribbon-file-menu, .ribbon-more-popover, .ribbon-display-menu) {
+:root body .ribbon-shell :is(.ribbon-file-menu, .ribbon-more-popover, .ribbon-display-menu, .ribbon-simple-group-popover) {
     background: var(--np-surface); color: var(--np-ink); border-color: var(--np-border); border-radius: var(--np-radius-panel); box-shadow: var(--np-floating-shadow);
 }
 :root body .ribbon-simple-group, :root body .ribbon-group { border-color: var(--np-border); }
@@ -731,7 +731,7 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 :root body .ribbon-breadcrumb-rung.active { color: var(--np-ink); }
 :root body .ribbon-breadcrumb-sep { color: var(--np-faint); }
 :root body { font-size: 13.5px; line-height: 1.6; }
-:root body :is(.ribbon-tab-btn, .ribbon-simple-btn, .ribbon-display-menu-item) { font-size: 13.5px; }
+:root body :is(.ribbon-tab-btn, .ribbon-simple-btn, .ribbon-simple-group-trigger, .ribbon-display-menu-item) { font-size: 13.5px; }
 :root body :is(.ribbon-lg-btn, .ribbon-sm-btn) { font-size: 13px; }
 :root body :is(.milestones-placeholder, .timeline-placeholder, .gantt-placeholder,
     .resources-placeholder, .placeholder-view) h3 { font-family: var(--np-font-heading); font-size: 32px; font-weight: 300; color: var(--np-ink); line-height: 1.1; }

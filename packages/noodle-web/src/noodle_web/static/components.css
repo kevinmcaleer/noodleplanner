@@ -7895,10 +7895,9 @@ button.ribbon-breadcrumb-rung:hover {
     cursor: default;
 }
 
-/* Toggled by ribbon.js's applySimpleBody() (fitLabels(), ribbon-layout.js)
-   once the row runs out of room for every button's label -- "icons, and
-   text if it fits". Fixed width so the JS's SIMPLE_ICON_ONLY_WIDTH constant
-   matches what actually gets measured back. */
+/* Toggled on every button at once by ribbon.js's applySimpleBody()
+   (fitLabels(), ribbon-layout.js) once the row runs out of room for all of
+   the labels -- "icons, and text if it fits". */
 .ribbon-simple-btn.icon-only {
     width: 28px;
     padding: 0;
@@ -7924,20 +7923,23 @@ button.ribbon-breadcrumb-rung:hover {
     gap: var(--np-space-2);
 }
 
-/* A collapsed group's own compact dropdown trigger (#1026) -- fixed width
-   so ribbon.js's SIMPLE_GROUP_TRIGGER_WIDTH constant matches what actually
-   gets measured back. Never a single shared "More" catch-all the way the
-   full ribbon's own .ribbon-more (above) is -- each collapsed group gets
-   its own identifiable trigger, labelled by its group name via title/
-   aria-label since there's no room on-screen for the text itself. */
+/* A collapsed group's own dropdown trigger (#1026) -- never a single shared
+   "More" catch-all the way the full ribbon's own .ribbon-more (above) is --
+   each collapsed group gets its own trigger, showing the group's name so
+   several of them side by side are told apart at a glance. Sized by its
+   text; applySimpleBody() measures it rather than assuming a width. */
 .ribbon-simple-group-trigger {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 1px;
-    width: 32px;
+    gap: var(--np-space-4);
     height: 28px;
-    padding: 0;
+    padding: 0 var(--np-space-8);
+    font-family: inherit;
+    font-size: 11.5px;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
     background: transparent;
     border: 1px solid #cfdde3;
     border-radius: 4px;
@@ -7950,16 +7952,19 @@ button.ribbon-breadcrumb-rung:hover {
     border-color: #b6dced;
 }
 
-.ribbon-simple-group-trigger svg {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+/* The `display: flex` above would otherwise beat the `hidden` attribute
+   applySimpleBody() uses to show a trigger only while its group is
+   collapsed -- don't lean on Bootstrap's own [hidden] rule for that. */
+.ribbon-simple-group-trigger[hidden] {
+    display: none;
+}
+
+.ribbon-simple-group-trigger .ribbon-caret {
+    font-size: 8px;
 }
 
 /* A collapsed group no longer needs the full group's horizontal padding --
-   its trigger is a small square chip, not a row of buttons. */
+   its trigger is a single chip, not a row of buttons. */
 .ribbon-simple-group.ribbon-simple-group-collapsed {
     padding: 0 var(--np-space-4);
 }
@@ -7968,17 +7973,32 @@ button.ribbon-breadcrumb-rung:hover {
    (right/top) set by ribbon.js's renderGroupPopover(), appended straight to
    .ribbon-shell so it isn't clipped by .ribbon-body's `overflow: hidden`
    (same reason .ribbon-display-menu and .ribbon-more-popover live there
-   too). Reuses .ribbon-group's own full-style rendering inside, same as
-   .ribbon-more-popover does. */
+   too). A vertical menu: one .ribbon-simple-menu-item row per command. */
 .ribbon-simple-group-popover {
     position: absolute;
-    padding: var(--np-space-8);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--np-space-2);
+    min-width: 160px;
+    padding: var(--np-space-4);
     background: var(--np-surface);
     border: 1px solid #d8e1e5;
     border-radius: 6px;
     box-shadow: 0 14px 34px rgba(2, 20, 28, 0.2);
     z-index: 7;
     animation: ribbonCtxIn 0.16s ease both;
+}
+
+/* A command inside that menu: icon on the left, its label to the right,
+   the whole row the click target. */
+.ribbon-simple-group-popover .ribbon-simple-menu-item {
+    justify-content: flex-start;
+    gap: var(--np-space-8);
+    height: 32px;
+    width: 100%;
+    text-align: left;
+    text-decoration: none;
 }
 
 /* -- 3d. Ribbon display selector (#1027) --

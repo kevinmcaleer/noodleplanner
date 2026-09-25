@@ -875,19 +875,24 @@ function renderButton(scopeId, tuple, kind) {
  * what visually hides the `<span>` per the "icons, and text if it fits"
  * rule -- see ribbon-layout.js's fitLabels() for the exact decision.
  */
-function renderSimpleButton(scopeId, tuple) {
+function renderSimpleButton(scopeId, tuple, { menuItem = false } = {}) {
     const [iconName, label, flag] = tuple;
     const inner = `${icon(iconName, 15)}<span class="ribbon-simple-btn-label">${label}</span>${flag === 'caret' ? '<span class="ribbon-caret">▼</span>' : ''}`;
     const href = linkHrefFor(flag);
     const help = labelHelp(label);
+    // A collapsed group's dropdown (renderGroupPopover()) lists the same
+    // buttons as a vertical menu: same markup and click handling, one extra
+    // class for the icon-left/label-right row layout and a menu role.
+    const cls = `ribbon-simple-btn${menuItem ? ' ribbon-simple-menu-item' : ''}`;
+    const role = menuItem ? ' role="menuitem"' : '';
     if (href) {
-        return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="ribbon-simple-btn"
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="${cls}"${role}
             title="${help}" aria-label="${label} (opens in a new tab)">${inner}</a>`;
     }
     const live = getLiveState();
     const action = resolveAction(scopeId, label);
     const isActive = isButtonActive(scopeId, label, live);
-    return `<button type="button" class="ribbon-simple-btn${isActive ? ' active' : ''}" data-scope-id="${scopeId}" data-label="${label}"
+    return `<button type="button" class="${cls}${isActive ? ' active' : ''}" data-scope-id="${scopeId}" data-label="${label}"${role}
         title="${help}" aria-label="${label}" aria-pressed="${isActive}" ${action ? '' : 'data-stub="true"'}>${inner}</button>`;
 }
 
@@ -957,7 +962,9 @@ function flattenGroupButtons(group) {
  * live inside a `.ribbon-simple-group-buttons` wrapper rather than directly
  * in the group element so applySimpleBody()'s last-resort pass (#1026) can
  * collapse the whole group into its own `.ribbon-simple-group-trigger`
- * dropdown chip by toggling which of the two is shown -- never by
+ * dropdown -- labelled with the group's name, so several collapsed groups
+ * read as "Plan ▾ Views ▾ Share ▾" rather than a row of identical icons --
+ * by toggling which of the two is shown -- never by
  * destroying and later trying to reconstruct the buttons' markup, which
  * would have no way to restore itself correctly on a later resize wider
  * (this function isn't re-invoked on resize; only the fit passes re-run).
@@ -974,7 +981,7 @@ function renderSimpleGroup(scopeId, group, animate) {
     return `<div class="ribbon-simple-group${animate ? ' ribbon-group-tab-in' : ''}" data-group="${name}">
         <div class="ribbon-simple-group-buttons">${buttons}</div>
         <button type="button" class="ribbon-simple-group-trigger" data-action="toggle-group-menu" data-group="${name}"
-            title="${name}" aria-label="${name}" aria-haspopup="true" aria-expanded="false" hidden>${icon('grid', 12)}<span class="ribbon-caret">▼</span></button>
+            title="${name}" aria-label="${name}" aria-haspopup="true" aria-expanded="false" hidden><span class="ribbon-simple-group-trigger-label">${name}</span><span class="ribbon-caret">▼</span></button>
     </div>`;
 }
 
@@ -1126,20 +1133,18 @@ function applyOverflow() {
  * passes, each reusing a pure ribbon-layout.js function against real
  * measured DOM widths:
  *
- *   1. fitLabels() -- shrink labels left-to-right until the whole row (every
- *      button, across every group) fits at full text, or everything left of
- *      the point it stopped fitting is icon-only. This is the common case:
- *      a single dense row usually resolves itself by losing labels long
- *      before whole subsections need to disappear -- and every command's
- *      icon stays visible either way; only its label is ever at risk.
+ *   1. fitLabels() -- if the row doesn't fit with every label showing,
+ *      every button goes icon-only at once. All or nothing, so a row never
+ *      ends up with a few labelled commands on the left beside bare icons
+ *      everywhere else; every command's icon stays visible either way.
  *   2. fitSimpleGroups() -- only once every label is already gone and the
  *      row *still* doesn't fit does a group collapse, and then into its own
- *      small, identifiable `.ribbon-simple-group-trigger` dropdown -- never
- *      into one shared "More" catch-all the way the full ribbon's own
- *      applyOverflow() does (see fitSimpleGroups()'s own comment in
- *      ribbon-layout.js for why that needed a different fit algorithm, not
- *      just fitGroups() reused with different constants). Only needed as a
- *      last resort -- a very narrow window, or a tab with many subsections.
+ *      `.ribbon-simple-group-trigger` dropdown labelled with the group's
+ *      name -- never into one shared "More" catch-all the way the full
+ *      ribbon's own applyOverflow() does (see fitSimpleGroups()'s own
+ *      comment in ribbon-layout.js for why that needed a different fit
+ *      algorithm). The triggers carry text, so their widths are measured,
+ *      not assumed.
  *
  * Idempotent and always re-derived from the DOM's current widths, not from
  * what a previous call decided -- both passes reset every group/button back
@@ -1149,21 +1154,23 @@ function applyOverflow() {
  * previously collapsed, whether this run started from this function's own
  * previous output or from a fresh renderRibbonBody() render.
  */
-const SIMPLE_ICON_ONLY_WIDTH = 28; // matches `.ribbon-simple-btn.icon-only`'s fixed CSS width
-const SIMPLE_GROUP_TRIGGER_WIDTH = 32; // matches `.ribbon-simple-group-trigger`'s fixed CSS width
+function setSimpleGroupCollapsed(g, collapsed) {
+    g.classList.toggle('ribbon-simple-group-collapsed', collapsed);
+    const buttonsWrap = g.querySelector(':scope > .ribbon-simple-group-buttons');
+    const trigger = g.querySelector(':scope > .ribbon-simple-group-trigger');
+    if (buttonsWrap) buttonsWrap.style.display = collapsed ? 'none' : '';
+    if (trigger) {
+        trigger.hidden = !collapsed;
+        if (!collapsed) trigger.setAttribute('aria-expanded', 'false');
+    }
+}
 
 function applySimpleBody() {
     const body = document.querySelector('.ribbon-body');
     if (!body) return;
 
     const groups = Array.from(body.querySelectorAll(':scope > .ribbon-simple-group'));
-    groups.forEach((g) => {
-        g.classList.remove('ribbon-simple-group-collapsed');
-        const buttonsWrap = g.querySelector(':scope > .ribbon-simple-group-buttons');
-        const trigger = g.querySelector(':scope > .ribbon-simple-group-trigger');
-        if (buttonsWrap) buttonsWrap.style.display = '';
-        if (trigger) { trigger.hidden = true; trigger.setAttribute('aria-expanded', 'false'); }
-    });
+    groups.forEach((g) => setSimpleGroupCollapsed(g, false));
     const buttons = Array.from(body.querySelectorAll('.ribbon-simple-btn'));
     buttons.forEach((b) => b.classList.remove('icon-only'));
     if (groups.length === 0) return;
@@ -1172,25 +1179,22 @@ function applySimpleBody() {
     // #1027 moved the display-selector out of `.ribbon-body` and into the
     // tab strip, so the fit budget no longer needs to reserve width for it.
     const containerWidth = body.clientWidth;
+    const measure = () => groups.map((el) => el.getBoundingClientRect().width);
 
-    // Pass 1: per-button text-fit, densest pass first.
-    const items = buttons.map((b) => ({ iconWidth: SIMPLE_ICON_ONLY_WIDTH, fullWidth: b.getBoundingClientRect().width }));
-    const showLabel = fitLabels(items, containerWidth);
-    buttons.forEach((b, i) => { if (!showLabel[i]) b.classList.add('icon-only'); });
+    // Pass 1: labels on everywhere, or off everywhere.
+    if (fitLabels(measure(), containerWidth)) return;
+    buttons.forEach((b) => b.classList.add('icon-only'));
 
-    // Pass 2: each group's width, now that pass 1 has settled every
-    // button's label/icon-only state, decides which groups (if any) must
-    // collapse into their own trigger.
-    const widths = groups.map((el) => el.getBoundingClientRect().width);
-    const { collapsed } = fitSimpleGroups(widths, containerWidth, SIMPLE_GROUP_TRIGGER_WIDTH);
-    collapsed.forEach((i) => {
-        const g = groups[i];
-        g.classList.add('ribbon-simple-group-collapsed');
-        const buttonsWrap = g.querySelector(':scope > .ribbon-simple-group-buttons');
-        const trigger = g.querySelector(':scope > .ribbon-simple-group-trigger');
-        if (buttonsWrap) buttonsWrap.style.display = 'none';
-        if (trigger) trigger.hidden = false;
-    });
+    // Pass 2: each group's icon-only width against its collapsed width (its
+    // named trigger, measured by briefly collapsing every group -- all in
+    // one synchronous layout, so nothing paints in between).
+    const widths = measure();
+    groups.forEach((g) => setSimpleGroupCollapsed(g, true));
+    const triggerWidths = measure();
+    groups.forEach((g) => setSimpleGroupCollapsed(g, false));
+
+    const { collapsed } = fitSimpleGroups(widths, containerWidth, triggerWidths);
+    collapsed.forEach((i) => setSimpleGroupCollapsed(groups[i], true));
 }
 
 /** Runs whichever density's overflow pass applies -- see applyOverflow()/
@@ -1235,9 +1239,9 @@ function renderMorePopover(ia, ctxTab) {
  * #1026: a single collapsed simple-ribbon group's own dropdown -- unlike
  * renderMorePopover() above (which can gather several hidden full-style
  * groups into one flyout), this always renders exactly the one group behind
- * the trigger that was clicked, in the full-style rendering (renderGroup(),
- * not renderSimpleGroup()) since there's plenty of room in a flyout and no
- * reason to cram its contents into the dense simple layout. Appended to
+ * the trigger that was clicked, as a vertical menu: one row per command,
+ * icon on the left and its label to the right, in the same reading order
+ * the row itself uses (flattenGroupButtons()). Appended to
  * `.ribbon-shell` and positioned from the trigger's own measured rect for
  * the same reason renderDisplayMenu()/renderMorePopover() are: `.ribbon-body`
  * clips anything nested inside it via `overflow: hidden`.
@@ -1252,7 +1256,9 @@ function renderGroupPopover(ia, ctxTab, groupName, triggerEl) {
     popover.className = 'ribbon-simple-group-popover';
     popover.setAttribute('role', 'menu');
     popover.setAttribute('aria-label', groupName);
-    popover.innerHTML = renderGroup(tab.id, group, false);
+    popover.innerHTML = flattenGroupButtons(group)
+        .map((b) => renderSimpleButton(tab.id, b, { menuItem: true }))
+        .join('');
 
     const shell = document.querySelector('.ribbon-shell');
     if (shell && triggerEl) {
