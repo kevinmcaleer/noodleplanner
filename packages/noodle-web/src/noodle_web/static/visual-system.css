@@ -657,7 +657,8 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 }
 :root body .ribbon-simple-group, :root body .ribbon-group { border-color: var(--np-border); }
 :root body .ribbon-display-toggle-btn { border: 0; }
-:root body .ribbon-simple-btn.active, :root body .ribbon-scope-btn.active { color: var(--np-ink); background: var(--np-selected); }
+:root body .ribbon-simple-btn.active, :root body .ribbon-scope-btn.active,
+:root body .ribbon-sm-btn.active, :root body .ribbon-lg-btn.active { color: var(--np-ink); background: var(--np-selected); }
 :root body .ribbon-search-input { background: var(--np-paper); color: var(--np-ink); border-color: var(--np-border-strong); }
 /* Shared presentation surfaces use the same quiet hierarchy as the handoff. */
 :root body .ribbon-file-btn { background: var(--np-accent); color: var(--np-on-accent); }

@@ -126,7 +126,7 @@ class TestTheJoinerSeesTheHostsBoard:
         joiner.wait_for_function(
             "b => document.getElementById('whiteboardZoomLabel').textContent !== b", arg=before
         )
-        assert joiner.locator("#whiteboardOutlineBtn").is_visible()
+        assert joiner.locator('#ribbonShell [data-scope-id="whiteboard"][data-label="Structure"]').is_visible()
         assert joiner.locator(".wb-outline-panel").count() == 1
 
     def test_the_board_fills_the_page(self, joiner):

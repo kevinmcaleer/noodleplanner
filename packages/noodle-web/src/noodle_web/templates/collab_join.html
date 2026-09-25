@@ -75,11 +75,13 @@
             </div>
         </header>
 
+        <!-- The app's own ribbon, pinned to its Whiteboard tab -- see
+             ribbon.js's ribbonPinnedTabId(). Full width, above the board and
+             the chat, as it is across the top of the app. -->
+        <div id="ribbonShell" class="ribbon-shell" data-context-tab="whiteboard"></div>
+
         <div class="session-main">
             <section class="session-board" aria-label="Whiteboard">
-                <!-- The app's own ribbon, pinned to its Whiteboard tab -- see
-                     ribbon.js's ribbonPinnedTabId(). -->
-                <div id="ribbonShell" class="ribbon-shell" data-context-tab="whiteboard"></div>
                 {% with wb_active = true %}{% include "_whiteboard_view.html" %}{% endwith %}
             </section>
 

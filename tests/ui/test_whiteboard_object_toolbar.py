@@ -40,8 +40,7 @@ def board(page, app_server):
     page.evaluate("() => whiteboardZoomFit()")
     page.wait_for_timeout(350)
     page.evaluate(
-        """() => { const b = document.getElementById('whiteboardOutlineBtn');
-                   if (b && b.getAttribute('aria-pressed') === 'true') wbToggleOutlinePanel(); }"""
+        "() => wbToggleOutlinePanel(false)"
     )
     page.wait_for_timeout(150)
 

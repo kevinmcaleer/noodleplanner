@@ -74,7 +74,7 @@ The layouts live on the ribbon's **Whiteboard** tab, in the **Arrange** group:
 - **Flow** lays the notes out left to right, following their dependencies.
 - **Spacing** re-runs the grid with **Compact** or **Comfy** gaps between the notes.
 
-Each one is a single step you can undo. The whiteboard's own toolbar keeps to the board itself: zoom, the buttons that put something on the board, and the **Structure** and **Parking lot** panels.
+Each one is a single step you can undo. The whiteboard's own toolbar keeps to the board itself: zoom, and the buttons that put something on the board. The **Structure** and **Parking Lot** panels are shown and hidden from the ribbon's **Whiteboard** tab, in its **Show** group.
 
 The toolbar floats over the top of the board, which runs edge to edge beneath it. Next to it is a line of tips on the mouse and keyboard controls; close it with its ``×`` once you know them, and bring it back with **Tips** on the ribbon's **Whiteboard** tab. Whether it is showing is remembered on this device.
 
@@ -172,7 +172,7 @@ The panel floating on the left of the canvas shows your whole plan as a collapsi
 
    The plan structure panel. Filled dots mark the tasks that have a note on the board.
 
-Hide the panel with the ``‹`` button in its header, or the **Structure** button in the toolbar; a small **Structure** tab stays pinned to the canvas edge to bring it back. Whether the panel is open, and which branches you collapsed, is remembered per project on this device — it is never written into your plan file.
+Hide the panel with the ``‹`` button in its header, or **Structure** on the ribbon's **Whiteboard** tab; a small **Structure** tab stays pinned to the canvas edge to bring it back. Whether the panel is open, and which branches you collapsed, is remembered per project on this device — it is never written into your plan file.
 
 Put an Existing Task on the Board
 -----------------------------------
@@ -306,7 +306,7 @@ Not every note is ready to become a task yet. For a "good idea, not now" — som
 
 Unlike **Remove from board**, this genuinely takes the idea out of the working plan: the task (and any subtasks it has) is deleted from the outline, and the whiteboard row goes with it, but the note's own text and appearance — its title, its comment if it had one, its colour, and (for a checklist note) every item and its completion state — is kept as a new entry in the parking lot rather than thrown away. There is no confirmation prompt and it is one ordinary undo step, the same as every other board action.
 
-Click **Parking lot** in the whiteboard toolbar to slide the panel out from the board's right edge — a second click slides it back in. It lists everything sent there, each row showing the parked text and the date it was parked, with two actions per row: **Restore** rebuilds the note (and, for a checklist, every item on it) back onto the board, and **Remove** deletes the entry for good once you are sure you do not need it. Dragging a row out of the panel and dropping it on the board restores it at the exact spot you dropped it, rather than wherever free space happens to be, and dragging one row onto another reorders the list. The board stays interactive while the panel is open — it is a panel alongside your work, not a dialog blocking it.
+Click **Parking Lot** on the ribbon's **Whiteboard** tab to slide the panel out from the board's right edge — a second click slides it back in. It lists everything sent there, each row showing the parked text and the date it was parked, with two actions per row: **Restore** rebuilds the note (and, for a checklist, every item on it) back onto the board, and **Remove** deletes the entry for good once you are sure you do not need it. Dragging a row out of the panel and dropping it on the board restores it at the exact spot you dropped it, rather than wherever free space happens to be, and dragging one row onto another reorders the list. The board stays interactive while the panel is open — it is a panel alongside your work, not a dialog blocking it.
 
 Keyboard and Pointer Reference
 --------------------------------

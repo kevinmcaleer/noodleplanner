@@ -7573,8 +7573,6 @@ function wbCloseParkingLotPanel() {
     const panel = document.getElementById('wbParkingLotPanel');
     if (!panel) return;
     document.removeEventListener('keydown', wbParkingLotPanelKeydown, true);
-    const btn = document.getElementById('whiteboardParkingLotBtn');
-    if (btn) btn.setAttribute('aria-pressed', 'false');
 
     if (panel.dataset.wbClosing) return; // already mid-close
     panel.dataset.wbClosing = '1';
@@ -7602,7 +7600,31 @@ function wbCloseParkingLotPanel() {
         clearTimeout(panel._wbDetachTimer);
     };
 
-    if (btn) btn.focus();
+    wbParkingLotPanelChanged(true);
+}
+
+/** The ribbon's Whiteboard > Parking Lot button, when that tab is showing. */
+function wbParkingLotRibbonButton() {
+    return document.querySelector('#ribbonShell [data-scope-id="whiteboard"][data-label="Parking Lot"]');
+}
+
+/** Whether the panel is open (and not mid-close) -- the ribbon's Parking
+ * Lot button reads this for its pressed state. */
+function wbParkingLotPanelOpen() {
+    const panel = document.getElementById('wbParkingLotPanel');
+    return !!(panel && panel.classList.contains('open') && !panel.dataset.wbClosing);
+}
+
+/** Bring the ribbon's pressed state up to date after the panel opens or
+ * closes; on a close, hand focus back to the button that toggles it, or to
+ * the board when the ribbon's Whiteboard tab is not the one showing. */
+function wbParkingLotPanelChanged(returnFocus) {
+    const refreshed = (typeof refreshRibbon === 'function') ? refreshRibbon() : null;
+    if (!returnFocus) return;
+    Promise.resolve(refreshed).then(() => {
+        const target = wbParkingLotRibbonButton() || document.getElementById('whiteboardContainer');
+        if (target) target.focus();
+    });
 }
 
 /** Escape closes the panel, matching every other floating dialog here. */
@@ -7913,8 +7935,7 @@ function wbOpenParkingLotPanel() {
         delete existing.dataset.wbClosing;
         existing.classList.add('open');
         wbRenderParkingLotList();
-        const reopenBtn = document.getElementById('whiteboardParkingLotBtn');
-        if (reopenBtn) reopenBtn.setAttribute('aria-pressed', 'true');
+        wbParkingLotPanelChanged(false);
         return;
     }
 
@@ -7956,13 +7977,13 @@ function wbOpenParkingLotPanel() {
     wbWireParkingLotCanvasDropTarget();
     document.addEventListener('keydown', wbParkingLotPanelKeydown, true);
 
-    const btn = document.getElementById('whiteboardParkingLotBtn');
-    if (btn) btn.setAttribute('aria-pressed', 'true');
-
     // Slide in on the *next* frame: appending with .open already present
     // would give the transition no "closed" state to animate from, so it
     // would just appear in place instead of sliding.
-    requestAnimationFrame(() => panel.classList.add('open'));
+    requestAnimationFrame(() => {
+        panel.classList.add('open');
+        wbParkingLotPanelChanged(false);
+    });
     closeBtn.focus();
 }
 

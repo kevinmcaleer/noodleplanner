@@ -3253,16 +3253,6 @@ body.wb-linking * {
     font-weight: 600;
 }
 
-#whiteboardOutlineBtn.active {
-    background: var(--np-blue);
-    border-color: var(--np-blue);
-    color: #ffffff;
-}
-
-#whiteboardOutlineBtn.active:hover:not(:disabled) {
-    color: #ffffff;
-}
-
 .wb-toolbar-hint kbd,
 .wb-empty-state kbd {
     display: inline-block;

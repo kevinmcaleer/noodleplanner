@@ -316,11 +316,17 @@ export const CONTEXTUAL_TABS = [
             // rather than arranging anything differently, so they share one
             // "Spacing" menu instead of taking two buttons.
             { name: 'Arrange', cols: [[['grid', 'Tidy'], ['task-list', 'Hierarchy']], [['timeline', 'Flow'], ['sort', 'Spacing', 'caret']], [['grid', 'Align'], ['sort', 'Distribute']], [['link', 'Group'], ['pin', 'Lock']]] },
+            // Show: everything on the board that can be shown or hidden --
+            // its two side panels (Structure, Parking Lot), which used to be
+            // toggles on the whiteboard's own toolbar; the card saying what
+            // the solid and dashed lines mean (Key); and the how-to line
+            // under the toolbar, once its own close button has dismissed it
+            // (Tips).
+            { name: 'Show', cols: [[['task-list', 'Structure'], ['flag', 'Parking Lot']], [['link', 'Key'], ['bulb', 'Tips']]] },
+            // Last, because none of it is built yet: on a narrow screen the
+            // groups that overflow into "More" go from the right, and these
+            // are the ones to lose first.
             { name: 'Convert', cols: [[['task-list', 'To Tasks'], ['board', 'To PBS']]] },
-            // Tips: brings back the how-to line under the board's toolbar
-            // once its own close button has dismissed it. Key: shows or
-            // hides the card saying what the solid and dashed lines mean.
-            { name: 'Help', cols: [[['bulb', 'Tips'], ['link', 'Key']]] },
         ],
     },
     {

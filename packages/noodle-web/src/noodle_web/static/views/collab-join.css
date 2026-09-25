@@ -159,6 +159,12 @@ body.collab-join.is-joined {
     height: 100dvh;
 }
 
+/* The ribbon (pinned to its Whiteboard tab) spans the page between the
+   session bar and the board, as it spans the top of the app. */
+.session-shell > .ribbon-shell {
+    flex-shrink: 0;
+}
+
 .session-bar {
     display: flex;
     align-items: center;
