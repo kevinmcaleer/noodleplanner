@@ -7459,6 +7459,16 @@ button.ribbon-breadcrumb-rung:hover {
     flex-shrink: 0;
 }
 
+/* Who is in the live planning session, beside its button: the same
+   overlapping <np-resource-stack> chips task assignments use, sized to the
+   title bar and ringed in the bar's own surface so the overlap reads. */
+.ribbon-collab-people {
+    --np-avatar-size: var(--np-space-24);
+    --np-avatar-ring: var(--np-surface-alt);
+    flex-shrink: 0;
+    margin-inline: var(--np-space-4) var(--np-space-8);
+}
+
 /* -- 2. Tab strip -- */
 .ribbon-tabstrip {
     position: relative;

@@ -260,6 +260,15 @@ TEMPLATE.innerHTML = `
     :host([icon-only]) ::slotted([slot='icon']) {
       margin: 0;
     }
+    /* A neutral icon button has no border. The border is how a labelled
+       neutral button (Back, Skip) reads as a button; a lone icon needs no
+       box to be one, and every other icon control in the app -- the
+       <np-close-button> beside these in a panel header, the status bar's
+       own buttons -- has none, so a bordered one read as boxed-in beside
+       them. The hover background still says "press me". */
+    :host([icon-only][variant='neutral']) button {
+      border-color: transparent;
+    }
 
     /* small/medium icon-only steps (28px/36px) are below the 44px WCAG
        touch target size="large" already clears outright -- bumped here

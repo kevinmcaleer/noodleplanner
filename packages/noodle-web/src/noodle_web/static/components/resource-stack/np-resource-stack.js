@@ -49,6 +49,10 @@
  * assign menu -- so viewing who is on a task and changing it are one control
  * rather than a chip plus a detached `+`.
  *
+ * `card-action` relabels the card's link for a stack of people who are not
+ * resources: the ribbon's planning-session participants (#1347 follow-up)
+ * read "Open session chat", and their `role` line is their presence.
+ *
  * ## Usage
  *
  *   <np-resource-stack names="Sam Smith,Jo Lee" max="3"></np-resource-stack>
@@ -63,6 +67,10 @@
 // Its own module so it can be imported without a DOM -- see initials.js.
 export { initialsFor } from './initials.js';
 import { initialsFor } from './initials.js';
+
+// How long the card waits after the pointer leaves its chip, for the
+// pointer to reach it.
+const HIDE_GRACE_MS = 200;
 
 const TEMPLATE = document.createElement('template');
 TEMPLATE.innerHTML = `
@@ -178,7 +186,7 @@ TEMPLATE.innerHTML = `
 `;
 
 export class NpResourceStack extends HTMLElement {
-    static get observedAttributes() { return ['names', 'max', 'size']; }
+    static get observedAttributes() { return ['names', 'max', 'size', 'card-action']; }
 
     constructor() {
         super();
@@ -188,6 +196,13 @@ export class NpResourceStack extends HTMLElement {
         this._card = root.querySelector('.card');
         this._names = [];
         this._details = {};
+
+        // The card sits a few pixels below its chip, so a pointer heading
+        // for the card's link leaves the chip first. Leaving only starts a
+        // short grace period; arriving on the card cancels it.
+        this._hideTimer = null;
+        this._card.addEventListener('mouseenter', () => this._cancelHide());
+        this._card.addEventListener('mouseleave', () => this._scheduleHide());
 
         this.addEventListener('focusout', (event) => {
             if (!this.contains(event.relatedTarget) && !this.shadowRoot.contains(event.relatedTarget)) {
@@ -250,7 +265,7 @@ export class NpResourceStack extends HTMLElement {
             chip.setAttribute('aria-label', name);
             chip.addEventListener('mouseenter', () => this._showCard(chip, [name]));
             chip.addEventListener('focus', () => this._showCard(chip, [name]));
-            chip.addEventListener('mouseleave', () => this._maybeHide());
+            chip.addEventListener('mouseleave', () => this._scheduleHide());
             chip.addEventListener('click', (event) => {
                 event.stopPropagation();
                 this.dispatchEvent(new CustomEvent('resource-activate', {
@@ -268,7 +283,7 @@ export class NpResourceStack extends HTMLElement {
             more.setAttribute('aria-label', `${hidden.length} more: ${hidden.join(', ')}`);
             more.addEventListener('mouseenter', () => this._showCard(more, hidden));
             more.addEventListener('focus', () => this._showCard(more, hidden));
-            more.addEventListener('mouseleave', () => this._maybeHide());
+            more.addEventListener('mouseleave', () => this._scheduleHide());
             more.addEventListener('click', (event) => {
                 event.stopPropagation();
                 this._showCard(more, hidden);
@@ -281,6 +296,7 @@ export class NpResourceStack extends HTMLElement {
     }
 
     _showCard(anchor, names) {
+        this._cancelHide();
         this._card.replaceChildren();
         this._card.setAttribute('aria-label',
             names.length === 1 ? names[0] : `${names.length} resources`);
@@ -307,7 +323,7 @@ export class NpResourceStack extends HTMLElement {
             const open = document.createElement('button');
             open.type = 'button';
             open.className = 'open';
-            open.textContent = 'Resource details';
+            open.textContent = this.getAttribute('card-action') || 'Resource details';
             open.addEventListener('click', (event) => {
                 event.stopPropagation();
                 this.dispatchEvent(new CustomEvent('resource-open', {
@@ -330,6 +346,21 @@ export class NpResourceStack extends HTMLElement {
 
         this._card.hidden = false;
         this._anchor = anchor;
+    }
+
+    _scheduleHide() {
+        this._cancelHide();
+        this._hideTimer = setTimeout(() => {
+            this._hideTimer = null;
+            this._maybeHide();
+        }, HIDE_GRACE_MS);
+    }
+
+    _cancelHide() {
+        if (this._hideTimer !== null) {
+            clearTimeout(this._hideTimer);
+            this._hideTimer = null;
+        }
     }
 
     _maybeHide() {
