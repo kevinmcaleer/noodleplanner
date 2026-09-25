@@ -93,6 +93,24 @@ class TestHiding:
         assert joiner.locator(".wb-outline-eye").count() == 0
         assert joiner.locator(".wb-outline-share-all").is_visible() is False
 
+    def test_every_header_button_fits_inside_the_panel(self, joiner, host):
+        # The eye made the header four buttons; the last of them (hide the
+        # panel) used to be pushed past the panel's right-hand edge.
+        host_page, _ = host
+        host_page.bring_to_front()
+        overflow = host_page.evaluate(
+            """() => {
+                const panel = document.querySelector('.wb-outline-panel').getBoundingClientRect();
+                return [...document.querySelectorAll('.wb-outline-actions button')]
+                    .filter(b => !b.hidden)
+                    .map(b => b.getBoundingClientRect())
+                    .filter(r => r.right > panel.right - 1 || r.left < panel.left)
+                    .length;
+            }"""
+        )
+        assert host_page.locator(".wb-outline-share-all").is_visible()
+        assert overflow == 0
+
     def test_hiding_a_task_removes_it_and_its_references_from_the_joiner(self, joiner, host):
         host_page, _ = host
         host_page.bring_to_front()
