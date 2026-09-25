@@ -298,8 +298,8 @@ function wbRenderOutlinePanel() {
     wbRenderOutlineShareAll(tasks.length > 0);
 
     const { list, count } = wbOutlineRefs;
-    // Kept to a bare fraction: the header also carries a title and three
-    // buttons in ~260px, and anything wordier ("4 of 16 on the board")
+    // Kept to a bare fraction: the header also carries a title and up to four
+    // buttons in ~300px, and anything wordier ("4 of 16 on the board")
     // gets ellipsised down to "4 of ..." -- which reads as broken rather
     // than as a count. The full phrasing lives in the tooltip instead.
     if (tasks.length) {
