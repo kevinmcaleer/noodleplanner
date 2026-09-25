@@ -2751,7 +2751,10 @@ body.wb-linking * {
     top: calc(var(--wb-toolbar-inset, 0px) + 12px);
     left: 12px;
     bottom: 12px;
-    width: 260px;
+    /* Wide enough for the title, the count and all four header buttons --
+       the host's share/hide eye made it four, and at 260px the last one
+       (hide the panel) was pushed off the right-hand edge. */
+    width: 300px;
     max-width: calc(100% - 24px);
     display: flex;
     flex-direction: column;
@@ -2785,6 +2788,11 @@ body.wb-linking * {
     text-transform: uppercase;
     color: var(--np-text);
     white-space: nowrap;
+    /* On a screen too narrow for the full width the title gives way, never
+       the buttons: they stay put and the title ellipsises. */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .wb-outline-count {
@@ -2793,6 +2801,7 @@ body.wb-linking * {
     color: var(--np-text-muted);
     white-space: nowrap;
     flex: 1;
+    min-width: 0;
 }
 
 .wb-outline-actions {
