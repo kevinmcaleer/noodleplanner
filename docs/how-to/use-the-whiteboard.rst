@@ -37,7 +37,7 @@ Free-form Notes
 
 A brand-new note starts as a **free-form note**: just a title, with no checklist, dates or subtasks forced onto it. That is the whole point — the fastest way to get a thought onto the board is to type it and stop.
 
-If you also want a line or two of detail, open **Open task details** on the note's **More** menu and fill in **Comment**. It shows up in the note's body.
+If you also want a line or two of detail, choose **Edit task…** on the note's **More** menu and fill in **Comment**. It shows up in the note's body.
 
 The moment you give the note its *first* subtask — typing one into the ``Add task…`` row at the bottom of the note, indenting a task under it in the outline, adding one from the task form, or noodling an existing note underneath it — the note switches to a checklist automatically (see `Tick Off a Todo`_ below). There is no separate "add a checklist" step, no button to press first, and no way to switch back short of removing every subtask again.
 
@@ -205,7 +205,7 @@ Click a note (or a group's boundary) and a small toolbar appears above it, as on
 - **Edit title** — rename it in place.
 - **Unpin** (notes only) — take the note off the board; its task stays in your plan.
 - **Delete** — delete a note's task, and its subtasks, from the plan (after a confirmation), or remove a group (its notes stay where they are).
-- **More** (notes only) — everything else: Rename, Unlink, Open task details, Send to parking lot, Remove from board and Delete task. Right-clicking a note opens the same menu at the pointer.
+- **More** (notes only) — everything else: Rename, Unlink, Indent, Outdent, Edit task…, Assign resources…, Send to parking lot, Remove from board and Delete task. Right-clicking a note opens the same menu at the pointer, so a note offers everything the Plan structure panel's row menu does. Indent and Outdent are greyed out when the task has nowhere to go.
 
 The toolbar follows the note as you pan, zoom or drag it, and goes away when you click empty canvas or press ``Escape``. With two or more notes selected you get the **Group these** / **Combine** toolbar instead.
 
@@ -273,7 +273,7 @@ A child task that itself has children shows a count badge (for example ``2 ▾``
 
 The pin at the popover's top right puts *that* task on the board as a note of its own, next to where the popover was, so you can promote a subtask you have just drilled into without hunting for it in the plan structure panel afterwards. It appears greyed out for a task that is already on the board.
 
-This popover is deliberately lightweight — just name, assignee and completion. For anything else (dates, dependencies, comments, and so on), click **Open task details** at the top of the popover, or on the note's own **More** menu, to open the full task form for that task.
+This popover is deliberately lightweight — just name, assignee and completion. For anything else (dates, dependencies, comments, and so on), click **Open task details** at the top of the popover, or **Edit task…** on the note's own **More** menu, to open the full task form for that task.
 
 Colour a Note
 ---------------
