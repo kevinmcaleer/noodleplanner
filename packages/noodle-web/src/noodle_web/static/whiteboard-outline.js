@@ -65,6 +65,18 @@ const WB_OUTLINE_NEST_THRESHOLD_PX = 24;
 
 // -- Module state --------------------------------------------------------
 
+// While the host runs a planning session: lower-cased task name ->
+// 'shown' | 'hidden' | 'inherited', from collab-session.js. Null otherwise,
+// which is what keeps the eye controls off every other board -- the
+// joiner's included, since its page never loads collab-session.js.
+let wbOutlineVisibility = null;
+
+// The task whose name is being edited in place, or null. While set, the
+// panel does not rebuild its rows -- a plan snapshot arriving mid-edit (a
+// collaborator's change, or the host's in a planning session) would
+// otherwise throw away the input and what was typed into it.
+let wbOutlineEditingName = null;
+
 let wbOutlineOpen = true;
 let wbOutlineCollapsed = new Set();   // lower-cased task names
 let wbOutlineQuery = '';
@@ -168,10 +180,21 @@ function wbEnsureOutlinePanel() {
     const collapseBtn = wbOutlineIconButton('Collapse all', 'M4 12 L8 8 L12 12 M4 7 L8 3 L12 7');
     collapseBtn.addEventListener('click', () => wbOutlineCollapseAll());
 
+    // Planning-session host only: hide everything from collaborators, or
+    // share it all again -- see wbOutlineVisibilityActive().
+    const shareAllBtn = document.createElement('button');
+    shareAllBtn.type = 'button';
+    shareAllBtn.className = 'wb-outline-btn wb-outline-share-all';
+    shareAllBtn.hidden = true;
+    shareAllBtn.addEventListener('click', () => {
+        if (typeof toggleCollabAllVisibility === 'function') toggleCollabAllVisibility();
+    });
+
     const hideBtn = wbOutlineIconButton('Hide the outline', 'M10 3 L5 8 L10 13');
     hideBtn.classList.add('wb-outline-hide-btn');
     hideBtn.addEventListener('click', () => wbToggleOutlinePanel());
 
+    actions.appendChild(shareAllBtn);
     actions.appendChild(expandBtn);
     actions.appendChild(collapseBtn);
     actions.appendChild(hideBtn);
@@ -230,7 +253,7 @@ function wbEnsureOutlinePanel() {
     container.appendChild(rail);
 
     wbOutlineEl = panel;
-    wbOutlineRefs = { list, search, count, rail };
+    wbOutlineRefs = { list, search, count, rail, shareAllBtn };
     return panel;
 }
 
@@ -258,6 +281,7 @@ function wbOutlineIconButton(label, pathD) {
 function wbRenderOutlinePanel() {
     const panel = wbEnsureOutlinePanel();
     if (!panel) return;
+    if (wbOutlineEditingName !== null) return;
     wbLoadOutlineState();
 
     panel.classList.toggle('hidden', !wbOutlineOpen);
@@ -270,6 +294,8 @@ function wbRenderOutlinePanel() {
 
     const tree = wbBuildOutlineTree(tasks, boardNames);
     const flat = wbFlattenOutline(tree, wbOutlineCollapsed, wbOutlineQuery);
+    wbOutlineVisibility = wbOutlineVisibilityActive() ? collabVisibilityStatuses() : null;
+    wbRenderOutlineShareAll(tasks.length > 0);
 
     const { list, count } = wbOutlineRefs;
     // Kept to a bare fraction: the header also carries a title and three
@@ -362,6 +388,7 @@ function wbBuildOutlineRow(row) {
     label.title = row.onBoard
         ? `Show "${row.name}" on the board`
         : `${row.name} — not on the board yet`;
+    label.title += ' (double-click to rename)';
 
     const dot = document.createElement('span');
     dot.className = 'wb-outline-dot';
@@ -374,7 +401,19 @@ function wbBuildOutlineRow(row) {
     label.appendChild(dot);
     label.appendChild(text);
     label.addEventListener('click', () => wbOutlineRowActivated(row.name, row.onBoard));
+    label.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        wbOutlineBeginRename(label, row.name);
+    });
+    label.addEventListener('keydown', (e) => {
+        if (e.key === 'F2') {
+            e.preventDefault();
+            wbOutlineBeginRename(label, row.name);
+        }
+    });
     el.appendChild(label);
+
+    if (wbOutlineVisibility) wbAppendOutlineEye(el, label, row.name);
 
     // Percent complete, when the engine has one for this task.
     const percent = Number(row.task && row.task.percent);
@@ -411,6 +450,66 @@ function wbBuildOutlineRow(row) {
     el.appendChild(toggle);
 
     return el;
+}
+
+// -- Hiding from collaborators (planning-session host only) ----------------
+
+/** True on the host's board while a planning session is live. */
+function wbOutlineVisibilityActive() {
+    return typeof collabVisibilityControlsActive === 'function' && collabVisibilityControlsActive();
+}
+
+function wbOutlineEyeGlyph(button, hidden) {
+    button.innerHTML = '';
+    const icon = document.createElement('i');
+    icon.className = hidden ? 'bi bi-eye-slash' : 'bi bi-eye';
+    icon.setAttribute('aria-hidden', 'true');
+    button.appendChild(icon);
+}
+
+/** The header's eye: hide the whole plan from collaborators, or share it
+ * all again. */
+function wbRenderOutlineShareAll(hasTasks) {
+    const button = wbOutlineRefs && wbOutlineRefs.shareAllBtn;
+    if (!button) return;
+    button.hidden = !wbOutlineVisibility || !hasTasks;
+    if (button.hidden) return;
+    const anyShared = typeof collabAnyTaskShared === 'function' ? collabAnyTaskShared() : true;
+    const label = anyShared
+        ? 'Hide the whole plan from collaborators'
+        : 'Show the whole plan to collaborators';
+    button.title = label;
+    button.setAttribute('aria-label', label);
+    button.setAttribute('aria-pressed', String(!anyShared));
+    button.classList.toggle('is-hidden', !anyShared);
+    wbOutlineEyeGlyph(button, !anyShared);
+}
+
+/** A row's eye: hide this task and everything under it from collaborators,
+ * or share it again. A row hidden by a parent shows a dimmed slashed eye;
+ * clicking it shares the path down to this task, not its siblings. */
+function wbAppendOutlineEye(rowEl, label, taskName) {
+    const status = wbOutlineVisibility.get(String(taskName).toLowerCase()) || 'shown';
+    const hidden = status !== 'shown';
+    rowEl.classList.toggle('collab-hidden', hidden);
+    rowEl.classList.toggle('collab-hidden-inherited', status === 'inherited');
+
+    const eye = document.createElement('button');
+    eye.type = 'button';
+    eye.className = 'wb-outline-eye';
+    let text;
+    if (status === 'shown') text = `Hide "${taskName}" from collaborators`;
+    else if (status === 'hidden') text = `Show "${taskName}" to collaborators`;
+    else text = `"${taskName}" is hidden with its parent — show it to collaborators`;
+    eye.title = text;
+    eye.setAttribute('aria-label', text);
+    eye.setAttribute('aria-pressed', String(hidden));
+    wbOutlineEyeGlyph(eye, hidden);
+    eye.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (typeof toggleCollabTaskVisibility === 'function') toggleCollabTaskVisibility(taskName);
+    });
+    rowEl.insertBefore(eye, label);
 }
 
 /**
@@ -599,10 +698,17 @@ function wbAttachOutlineDragHandlers(handle, row, taskName) {
 // -- Interactions --------------------------------------------------------
 
 /**
- * A row was clicked: pan the board to that note and flash it, or -- for a
- * task with no note yet -- say so rather than silently doing nothing.
+ * A row was clicked: pan the board to that note and flash it, frame the
+ * whole boundary when the row is a group, or -- for a task with no note
+ * yet -- say so rather than silently doing nothing.
+ *
+ * A group has no note of its own (see whiteboard-groups.js), so
+ * whiteboardFocusNote() finds nothing for it; it is framed the way the
+ * group toolbar's "Zoom to this group" frames it, zooming out as well as
+ * in so a group bigger than the screen fits whole.
  */
 function wbOutlineRowActivated(taskName, onBoard) {
+    if (wbOutlineFocusGroup(taskName)) return;
     if (!onBoard) {
         if (typeof wbFlashNoodleMessage === 'function') {
             wbFlashNoodleMessage(`"${taskName}" isn't on the board yet — use + to add it.`);
@@ -610,6 +716,75 @@ function wbOutlineRowActivated(taskName, onBoard) {
         return;
     }
     if (typeof whiteboardFocusNote === 'function') whiteboardFocusNote(taskName);
+}
+
+/**
+ * Double-click (or F2) on a row's name: edit it in place. Enter or clicking
+ * away keeps what was typed, Escape keeps the old name. The rename goes
+ * through wbRenameNoteTask() -- the same path a note's own title edit takes
+ * -- so the outline line, every `[depends ...]` naming the task and its
+ * whiteboard rows (note or group) all follow the new name in one commit,
+ * for any task in the structure whether or not it is on the board. On a
+ * collaborator's board that commit is sent to the host like any other
+ * whiteboard edit.
+ */
+function wbOutlineBeginRename(label, taskName) {
+    if (wbOutlineEditingName !== null) return;
+    wbOutlineEditingName = taskName;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'wb-outline-rename-input';
+    input.value = taskName;
+    input.setAttribute('aria-label', `Rename ${taskName}`);
+    // The input replaces the whole label: an input nested in a <button>
+    // is invalid markup, and some browsers will not let it take a caret.
+    label.replaceWith(input);
+
+    let finished = false;
+    const finish = (keep) => {
+        if (finished) return;
+        finished = true;
+        const typed = input.value.trim();
+        wbOutlineEditingName = null;
+        if (keep && typed && typed !== taskName && typeof wbRenameNoteTask === 'function') {
+            wbRenameNoteTask(taskName, typed);
+        }
+        wbRenderOutlinePanel();
+    };
+
+    // Keep clicks and keys inside the input: a click would bubble to the
+    // label and pan the board, and canvas shortcuts must not fire on typing.
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('dblclick', (e) => e.stopPropagation());
+    input.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(true));
+    input.focus();
+    input.select();
+}
+
+/** Frame the group boundary named `taskName`, if the board draws one. */
+function wbOutlineFocusGroup(taskName) {
+    if (typeof wbGroupNodes === 'undefined' || !wbGroupNodes || typeof wbZoomToBoardRect !== 'function') {
+        return false;
+    }
+    const key = String(taskName).toLowerCase();
+    let node = wbGroupNodes.get(taskName);
+    if (!node) {
+        for (const [name, candidate] of wbGroupNodes) {
+            if (String(name).toLowerCase() === key) { node = candidate; break; }
+        }
+    }
+    if (!node || !node.rect) return false;
+    const r = node.rect;
+    return wbZoomToBoardRect({
+        x: +r.getAttribute('x'), y: +r.getAttribute('y'),
+        width: +r.getAttribute('width'), height: +r.getAttribute('height'),
+    });
 }
 
 function wbToggleOutlineNode(taskName) {

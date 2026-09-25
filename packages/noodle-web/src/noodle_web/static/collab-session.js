@@ -101,6 +101,13 @@ let collabConflicts = null;
 // docstring for why sharing collabConflicts would risk a task id and a
 // row id that happen to collide cross-reporting each other's conflicts.
 let collabBackmatterConflicts = null;
+// What the host has hidden from joiners -- see collab-visibility.js's
+// module docstring. Memory-only on purpose: it starts empty with every
+// session and is forgotten when the session ends. `collabVisibilityText`
+// is the plan text that state was last reconciled against, so a rename
+// (by the host typing, or by a joiner) carries a task's setting across.
+let collabVisibility = null;
+let collabVisibilityText = null;
 // #968: debounce handle for the host's local crash-recovery snapshot --
 // see collab-autosave.js's module docstring and scheduleCollabAutosave
 // below.
@@ -739,6 +746,7 @@ async function applyCollabReplacement(joinerId, nextText, rejectionType) {
     if (nextText === editor.value) return true;
 
     editor.value = nextText;
+    collabVisibilityText = nextText;
     collabApplyingRemoteOp = true;
     try {
         editor.dispatchEvent(new Event('input', { bubbles: true }));
@@ -771,7 +779,116 @@ async function applyCollabPlanTextReplace(joinerId, message) {
         await sendCollabJsonTo(joinerId, { type: 'plan_text_replace_rejected', reason: 'stale' });
         return;
     }
-    await applyCollabReplacement(joinerId, message.text, 'plan_text_replace_rejected');
+    // The joiner edited the shared copy; merge it back around whatever the
+    // host has hidden, and refuse it if it would have changed any of that.
+    const nextText = collabRestoreHidden(collabSharedPlanText(), message.text);
+    if (nextText === null) {
+        await sendCollabJsonTo(joinerId, { type: 'plan_text_replace_rejected', reason: 'protected' });
+        return;
+    }
+    await applyCollabReplacement(joinerId, nextText, 'plan_text_replace_rejected');
+}
+
+function collabVisibilityApi() {
+    return typeof NoodleCollabVisibility !== 'undefined' ? NoodleCollabVisibility : null;
+}
+
+/** True while the host has hidden at least one part of the plan. */
+function collabHidingActive() {
+    const api = collabVisibilityApi();
+    return !!(api && collabVisibility && !api.isTrivial(collabVisibility));
+}
+
+function resetCollabVisibility() {
+    const api = collabVisibilityApi();
+    collabVisibility = api ? api.createState() : null;
+    collabVisibilityText = null;
+    if (typeof wbRenderOutlinePanel === 'function') wbRenderOutlinePanel();
+}
+
+/** Bring the hide settings up to date with `text` -- carrying them across
+ * any rename since they were last looked at, so renaming a hidden task can
+ * never share it. */
+function syncCollabVisibility(text) {
+    const api = collabVisibilityApi();
+    if (api && collabHidingActive() && collabVisibilityText !== null && collabVisibilityText !== text) {
+        collabVisibility = api.reconcileRenames(collabVisibilityText, text, collabVisibility);
+    }
+    collabVisibilityText = text;
+}
+
+/** The plan as joiners may see it: the host's own, minus whatever the host
+ * has hidden. Every plan snapshot is built from this, never from the
+ * editor directly. */
+function collabSharedPlanText() {
+    const editor = collabEditor();
+    if (!editor) return '';
+    syncCollabVisibility(editor.value);
+    if (!collabHidingActive()) return editor.value;
+    return collabVisibilityApi().redactPlanText(editor.value, collabVisibility);
+}
+
+/** Merge a joiner's edited copy of the shared plan back into the host's,
+ * leaving hidden tasks exactly as they were. Returns the new full text, or
+ * null when the edit would have touched something hidden. */
+function collabRestoreHidden(sharedText, editedText) {
+    const editor = collabEditor();
+    if (!editor) return null;
+    if (!collabHidingActive()) return editedText;
+    const result = collabVisibilityApi().restoreHidden(editor.value, sharedText, editedText, collabVisibility);
+    if (!result.ok) return null;
+    collabVisibility = result.state;
+    return result.text;
+}
+
+/** The host's eye controls (the Plan structure panel) only exist while a
+ * session is live, and only on the host's page -- the joiner page never
+ * loads this file. */
+function collabVisibilityControlsActive() {
+    return isCollabSessionLive() && !!collabVisibilityApi() && !!collabVisibility;
+}
+
+/** Map of lower-cased task name -> 'shown' | 'hidden' | 'inherited'. */
+function collabVisibilityStatuses() {
+    const editor = collabEditor();
+    const api = collabVisibilityApi();
+    if (!editor || !api || !collabVisibility) return new Map();
+    syncCollabVisibility(editor.value);
+    return api.statuses(editor.value, collabVisibility);
+}
+
+/** True when joiners can currently see at least one task. */
+function collabAnyTaskShared() {
+    const editor = collabEditor();
+    const api = collabVisibilityApi();
+    if (!editor || !api || !collabVisibility) return true;
+    return api.anyShared(editor.value, collabVisibility);
+}
+
+async function applyCollabVisibilityChange(nextState) {
+    collabVisibility = nextState;
+    if (typeof wbRenderOutlinePanel === 'function') wbRenderOutlinePanel();
+    collabPlanRev++;
+    await broadcastCollabPlan(null, null, null);
+}
+
+/** One row's eye: hide that task (and what is under it) from joiners, or
+ * share it again. */
+async function toggleCollabTaskVisibility(taskName) {
+    const editor = collabEditor();
+    const api = collabVisibilityApi();
+    if (!editor || !api || !collabVisibility) return;
+    syncCollabVisibility(editor.value);
+    await applyCollabVisibilityChange(api.toggleTask(editor.value, collabVisibility, taskName));
+}
+
+/** The panel header's eye: hide everything, or share everything again. */
+async function toggleCollabAllVisibility() {
+    const editor = collabEditor();
+    const api = collabVisibilityApi();
+    if (!editor || !api || !collabVisibility) return;
+    syncCollabVisibility(editor.value);
+    await applyCollabVisibilityChange(api.toggleAll(editor.value, collabVisibility));
 }
 
 /** Broadcast the current plan to every joiner (#967).
@@ -798,7 +915,7 @@ async function broadcastCollabPlan(notice, raidNotice, sectionNotice) {
     const { buildRaidSnapshot, buildSectionSnapshot, EDITABLE_SECTIONS } = await loadCollabBackmatterOps();
     const editor = collabEditor();
     if (!editor) return 0;
-    const snapshot = buildPlanSnapshot(editor.value, collabPlanRev);
+    const snapshot = buildPlanSnapshot(collabSharedPlanText(), collabPlanRev);
     if (notice) snapshot.notice = notice;
     const raidSnapshot = buildRaidSnapshot(editor.value, collabPlanRev);
     if (raidNotice) raidSnapshot.notice = raidNotice;
@@ -832,18 +949,24 @@ async function applyCollabPlanOp(joinerId, op) {
     const editor = collabEditor();
     if (!editor) return;
 
-    const result = applyPlanOp(editor.value, op);
-    if (!result.ok) {
+    // The op's task ids index the plan the joiner was shown, which is the
+    // shared (possibly redacted) one -- so apply it there, then merge the
+    // result back around anything hidden.
+    const shared = collabSharedPlanText();
+    const result = applyPlanOp(shared, op);
+    const nextText = result.ok ? collabRestoreHidden(shared, result.text) : null;
+    if (!result.ok || nextText === null) {
         // Tell only the sender. A stale op means their snapshot has been
         // overtaken; the fresh one they already have (or are about to get)
         // is the fix, so this is informational rather than an error state.
         await sendCollabMessageTo(joinerId, JSON.stringify({
-            type: 'plan_op_rejected', op: op.op, reason: result.reason,
+            type: 'plan_op_rejected', op: op.op, reason: result.ok ? 'protected' : result.reason,
         }));
         return;
     }
 
-    editor.value = result.text;
+    editor.value = nextText;
+    collabVisibilityText = nextText;
     // The same event a human typing would raise, so the kanban editor
     // mirror, line numbers and autosave all stay in step -- a joiner's edit
     // must be indistinguishable from the host's own. The guard stops that
@@ -953,6 +1076,12 @@ function attachCollabLocalEditListener() {
     const editor = collabEditor();
     if (!editor) return;
     editor.addEventListener('input', scheduleCollabPlanBroadcast);
+    // Follow the host's own renames keystroke by keystroke, not only at the
+    // debounced broadcast: a rename plus another edit inside one debounce
+    // window could otherwise lose track of a hidden task's name.
+    editor.addEventListener('input', () => {
+        if (!collabApplyingRemoteOp && collabHidingActive()) syncCollabVisibility(editor.value);
+    });
     collabLocalEditListenerAttached = true;
 }
 
@@ -1018,7 +1147,7 @@ async function handleCollabMessage(raw) {
         } = await loadCollabBackmatterOps();
         const editor = collabEditor();
         if (editor) {
-            await sendCollabMessageTo(joinerId, JSON.stringify(buildPlanSnapshot(editor.value, collabPlanRev)));
+            await sendCollabMessageTo(joinerId, JSON.stringify(buildPlanSnapshot(collabSharedPlanText(), collabPlanRev)));
             await sendCollabMessageTo(joinerId, JSON.stringify(buildRaidSnapshot(editor.value, collabPlanRev)));
             // #1036: and the rest of the editable back matter, so a joiner
             // arrives with every section they can edit already populated.
@@ -1141,6 +1270,7 @@ async function startCollabSession() {
     if (collabBackmatterConflicts) collabBackmatterConflicts.reset();
     attachCollabLocalEditListener();
     renderCollabPresence([]);
+    resetCollabVisibility();
 
     overlay.classList.add('active');
     status.textContent = 'Starting session...';
@@ -1232,6 +1362,10 @@ async function startCollabSession() {
         }
         renderCollabPresence([]);
         refreshCollabRibbon();
+        // Hide settings are for this session only.
+        collabVisibility = null;
+        collabVisibilityText = null;
+        if (typeof wbRenderOutlinePanel === 'function') wbRenderOutlinePanel();
         // #1339: a minimised dialog can't show why the session ended, and
         // the chat bubble it was tucked into has just gone.
         const overlay = document.getElementById('collabSessionOverlay');

@@ -4227,6 +4227,8 @@ Build
     <script src="/static/ai-config.js?v={{ v }}"></script>
     <script src="/static/ai-chat.js?v={{ v }}"></script>
     <script src="/static/collab-chat.js?v={{ v }}"></script>
+    <script src="/static/collab-merge.js?v={{ v }}"></script>
+    <script src="/static/collab-visibility.js?v={{ v }}"></script>
     <script src="/static/collab-session.js?v={{ v }}"></script>
     <script src="/static/ribbon.js?v={{ v }}"></script>
     <script src="/static/date-detect.js?v={{ v }}"></script>
@@ -4277,6 +4279,7 @@ Build
                         <div class="collab-presence-heading">Participants</div>
                         <div id="collabPresenceList"></div>
                     </div>
+                    <p class="collab-session-hint">To keep part of the plan private, use the <i class="bi bi-eye" aria-hidden="true"></i> eye buttons in the whiteboard's Plan structure panel. Hidden tasks are not sent to collaborators and they can't change them. Settings last only for this session.</p>
                     <div id="collabSessionLog" style="max-height:120px; overflow-y:auto; font-family:var(--np-font-data); font-size:0.8rem;"></div>
                     <!-- #965: host-initiated explicit end -- see collab-session.js's endCollabSession() -->
                     <button type="button" class="btn btn-outline-danger btn-sm" style="margin-top:12px;" onclick="endCollabSession()">

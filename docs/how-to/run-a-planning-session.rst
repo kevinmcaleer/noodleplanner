@@ -63,6 +63,35 @@ same plan.
 Your own changes go out to everyone too, whether you make them on the
 board or type them into the plan's text.
 
+Anyone can rename a task, a note or a group from the board's **Plan
+structure** panel by double-clicking its name (or selecting it and pressing
+:kbd:`F2`). :kbd:`Enter` or clicking away keeps the new name and
+:kbd:`Escape` cancels. Tasks that depend on the renamed one are updated to
+the new name too.
+
+Keeping Part of the Plan Private
+--------------------------------
+
+While you host a session, every row in the whiteboard's **Plan structure**
+panel has an eye button that only you can see. Select it to hide that task,
+and everything under it, from the people who have joined. Hidden tasks are
+not sent to them at all, so they can neither see nor change them. Joiners
+also don't see a hidden task's name in other tasks' dependencies or on the
+board. Select the eye again to share the task again.
+
+The eye in the panel's header works on the whole plan: select it to hide
+everything, then use the eyes on individual rows to share only what the
+team should see. Sharing a task that sits inside a hidden one also shares
+the tasks above it, so it has somewhere to sit in the outline, but not
+the other tasks beside it.
+
+If a joiner makes an edit that would move or remove a hidden task (for
+example, deleting the task it sits under), the edit is refused, and they
+see a notice explaining why.
+
+These settings last only as long as the session. They are not saved in the
+plan, and ending the session (or reloading the page) forgets them.
+
 Using Session Chat
 --------------------
 
@@ -163,6 +192,9 @@ Limitations
 * Joiners hold no saved copy. Only the host's browser saves, by design.
 * Sessions do not survive a server restart — deliberately, since the server
   stores nothing.
+* Hiding works on the task outline. Free text elsewhere in the plan, such as
+  a RAID log description that mentions a hidden task by name, is still
+  shared. Two tasks with the same name share one hide setting.
 
 .. seealso::
 

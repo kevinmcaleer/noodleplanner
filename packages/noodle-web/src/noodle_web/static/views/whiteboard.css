@@ -3050,6 +3050,61 @@ body.wb-linking * {
     }
 }
 
+/* ── Hiding from collaborators (planning-session host only) ──────────
+   The eye is always visible while a session runs, so the host can read
+   at a glance what their collaborators can and cannot see. */
+.wb-outline-eye {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--np-text-secondary);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.wb-outline-eye:hover,
+.wb-outline-eye:focus-visible {
+    border-color: var(--np-blue);
+    color: var(--np-blue);
+}
+
+.wb-outline-row.collab-hidden .wb-outline-eye {
+    color: var(--np-red);
+}
+
+.wb-outline-row.collab-hidden .wb-outline-name {
+    color: var(--np-text-muted);
+    font-style: italic;
+}
+
+.wb-outline-row.collab-hidden-inherited .wb-outline-eye {
+    color: var(--np-text-muted);
+}
+
+.wb-outline-share-all.is-hidden {
+    color: var(--np-red);
+}
+
+/* Renaming a row in place (double-click or F2 on its name). */
+.wb-outline-rename-input {
+    flex: 1;
+    min-width: 0;
+    padding: 0 var(--np-space-2);
+    border: 1px solid var(--np-blue);
+    border-radius: 4px;
+    background: var(--np-surface);
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--np-text);
+}
+
 /* ── The collapsed rail ──────────────────────────────────────────────
    Hiding the panel must never be a one-way door, so a thin tab stays
    pinned to the same edge to bring it back. */
