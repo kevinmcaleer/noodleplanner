@@ -53,57 +53,25 @@ test("order is preserved: a later, narrower group does not jump ahead of an earl
   assert.deepEqual(overflow, [1, 2]);
 });
 
-// ── fitLabels() -- simple ribbon (#955) text-fits-or-icon-only ─────────────
+// ── fitLabels() -- simple ribbon (#955) labels-or-icons, all or nothing ───
 
-test("fitLabels: every label fits -- all buttons keep their text", () => {
-  const buttons = [
-    { iconWidth: 28, fullWidth: 60 },
-    { iconWidth: 28, fullWidth: 70 },
-    { iconWidth: 28, fullWidth: 50 },
-  ];
-  assert.deepEqual(fitLabels(buttons, 300), [true, true, true]);
-});
-
-test("fitLabels: nothing fits even icon-only-wide -- every button still renders icon-only, none dropped", () => {
-  const buttons = [
-    { iconWidth: 28, fullWidth: 60 },
-    { iconWidth: 28, fullWidth: 70 },
-  ];
-  const result = fitLabels(buttons, 10);
-  assert.equal(result.length, 2, "a button is never dropped -- only its label is");
-  assert.deepEqual(result, [false, false]);
-});
-
-test("fitLabels: labels shrink left-to-right once the running total stops fitting", () => {
-  // container 150: button 0 (60) fits (used=60), button 1 (70) fits (used=130),
-  // button 2 (50) would put used at 180 > 150 -- goes icon-only instead.
-  const buttons = [
-    { iconWidth: 28, fullWidth: 60 },
-    { iconWidth: 28, fullWidth: 70 },
-    { iconWidth: 28, fullWidth: 50 },
-  ];
-  assert.deepEqual(fitLabels(buttons, 150), [true, true, false]);
-});
-
-test("fitLabels: once a label doesn't fit, every later button is icon-only too -- a later, narrower label never jumps ahead", () => {
-  // container 100: button 0 (60) fits (used=60). button 1 (70) would put
-  // used at 130 > 100 -- icon-only (used=60+28=88). button 2's label (10)
-  // would easily fit the 12 remaining, but must not jump ahead of button 1.
-  const buttons = [
-    { iconWidth: 28, fullWidth: 60 },
-    { iconWidth: 28, fullWidth: 70 },
-    { iconWidth: 28, fullWidth: 10 },
-  ];
-  assert.deepEqual(fitLabels(buttons, 100), [true, false, false]);
-});
-
-test("fitLabels: empty input fits trivially", () => {
-  assert.deepEqual(fitLabels([], 300), []);
+test("fitLabels: the whole row fits with labels -- every button keeps its text", () => {
+  assert.equal(fitLabels([120, 90, 60], 300), true);
 });
 
 test("fitLabels: exact fit at the container edge counts as fitting", () => {
-  const buttons = [{ iconWidth: 28, fullWidth: 100 }, { iconWidth: 28, fullWidth: 100 }];
-  assert.deepEqual(fitLabels(buttons, 200), [true, true]);
+  assert.equal(fitLabels([100, 100], 200), true);
+});
+
+test("fitLabels: one pixel over -- every label goes, not just the rightmost ones", () => {
+  // The old greedy pass would have kept the first two groups labelled and
+  // stripped only the third; a half-labelled row is exactly what this
+  // replaced.
+  assert.equal(fitLabels([100, 100, 1], 200), false);
+});
+
+test("fitLabels: empty input fits trivially", () => {
+  assert.equal(fitLabels([], 300), true);
 });
 
 // ── fitSimpleGroups() -- simple ribbon (#1026) per-group dropdown fallback ─
@@ -145,6 +113,22 @@ test("fitSimpleGroups: never collapse everything -- the first group always stays
 
 test("fitSimpleGroups: empty input fits trivially", () => {
   assert.deepEqual(fitSimpleGroups([], 400, 64), { visible: [], collapsed: [] });
+});
+
+test("fitSimpleGroups: per-group trigger widths -- each named trigger reserves its own width", () => {
+  // container 300, triggers [40, 80, 60]. Group 0 (150) needs 150+80+60=290
+  // <= 300 -- visible. Group 1 (100) needs 150+100+60=310 > 300 -- collapses
+  // (used=150+80=230). Group 2 collapses too, to keep the order.
+  const { visible, collapsed } = fitSimpleGroups([150, 100, 60], 300, [40, 80, 60]);
+  assert.deepEqual(visible, [0]);
+  assert.deepEqual(collapsed, [1, 2]);
+});
+
+test("fitSimpleGroups: a wide trigger further right is what pushes a group out", () => {
+  // Same groups, but group 2's trigger is narrow enough that group 1 fits.
+  const { visible, collapsed } = fitSimpleGroups([150, 100, 80], 300, [40, 80, 40]);
+  assert.deepEqual(visible, [0, 1]);
+  assert.deepEqual(collapsed, [2]);
 });
 
 test("fitSimpleGroups: a single group always stays visible even far over budget", () => {

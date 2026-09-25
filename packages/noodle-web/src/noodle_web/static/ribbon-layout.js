@@ -50,56 +50,44 @@ export function fitGroups(groupWidths, containerWidth, moreWidth) {
 }
 
 /**
- * The simple ribbon's (#955) text-fits-or-icon-only decision: "just shows
- * the icons (and text if that fits)". Unlike fitGroups() -- which drops
- * whole groups into a "More" popover -- a button here is never hidden; it
- * only ever loses its label and falls back to its narrower icon-only width.
+ * The simple ribbon's (#955) text-or-icon-only decision: "just shows the
+ * icons (and text if that fits)". Unlike fitGroups() -- which drops whole
+ * groups into a "More" popover -- a button here is never hidden; it only
+ * ever loses its label and falls back to its narrower icon-only width.
  *
- * Greedy left-to-right, same ordering guarantee as fitGroups(): once one
- * button's label doesn't fit the remaining budget, every button after it
- * also goes icon-only, so a later, shorter label can never "jump ahead" of
- * an earlier one that lost its text -- that would read as an arbitrary
- * decision rather than a simple left-to-right degradation as the row runs
- * out of room.
+ * All or nothing: either the whole row fits with every label showing, or
+ * every button in the row goes icon-only. It used to shrink labels greedily
+ * right-to-left, which left the leftmost buttons fully labelled beside a
+ * run of bare icons -- a half-collapsed row that spent the room on text
+ * for a few commands while the rest of the ribbon was already being pushed
+ * into dropdowns. Labels are the first thing to go, for every button at
+ * once, before any group collapses.
  *
- * @param {{iconWidth: number, fullWidth: number}[]} buttons - each button's
- *   icon-only width and its full (icon+label) width, in display order.
+ * @param {number[]} groupWidths - each group's measured width with every
+ *   label showing, in display order.
  * @param {number} containerWidth - available width for the whole row.
- * @returns {boolean[]} per button, true = show the label, false = icon-only.
+ * @returns {boolean} true = show every label, false = every button icon-only.
  */
-export function fitLabels(buttons, containerWidth) {
-    const showLabel = [];
-    let used = 0;
-    let stillFitting = true;
-    for (const { iconWidth, fullWidth } of buttons) {
-        if (stillFitting && used + fullWidth <= containerWidth) {
-            used += fullWidth;
-            showLabel.push(true);
-        } else {
-            stillFitting = false;
-            used += iconWidth;
-            showLabel.push(false);
-        }
-    }
-    return showLabel;
+export function fitLabels(groupWidths, containerWidth) {
+    return groupWidths.reduce((sum, w) => sum + w, 0) <= containerWidth;
 }
 
 /**
  * The simple ribbon's last-resort fallback (issue #1026): once fitLabels()
  * has already shrunk every button in the row to icon-only and the row
- * *still* doesn't fit, individual groups collapse into their own small
- * identifiable dropdown trigger -- never into one shared "More" catch-all
- * (that's fitGroups()/applyOverflow()'s full-ribbon-only behaviour; the
- * simple ribbon's own group-level fallback needed a different shape because
- * every collapsed group still costs *some* width here -- its own trigger
- * chip -- unlike fitGroups()'s single shared "More" tile that the whole
- * overflow set shares).
+ * *still* doesn't fit, individual groups collapse into their own dropdown
+ * trigger, labelled with the group's name -- never into one shared "More"
+ * catch-all (that's fitGroups()/applyOverflow()'s full-ribbon-only
+ * behaviour; the simple ribbon's own group-level fallback needed a different
+ * shape because every collapsed group still costs *some* width here -- its
+ * own trigger -- unlike fitGroups()'s single shared "More" tile that the
+ * whole overflow set shares).
  *
- * Same greedy, left-to-right, order-preserving contract as fitGroups()/
- * fitLabels() elsewhere in this file: once a group doesn't fit, every group
- * after it collapses too, so a later, narrower group can never jump ahead of
- * an earlier one that didn't fit -- and the first group is never collapsed
- * (an empty-looking row of nothing but dropdown chips would be worse than
+ * Same greedy, left-to-right, order-preserving contract as fitGroups()
+ * elsewhere in this file: once a group doesn't fit, every group after it
+ * collapses too, so a later, narrower group can never jump ahead of an
+ * earlier one that didn't fit -- and the first group is never collapsed
+ * (an empty-looking row of nothing but dropdowns would be worse than
  * letting the first group run slightly over budget).
  *
  * A group considering whether to stay visible must also leave enough room
@@ -111,25 +99,26 @@ export function fitLabels(buttons, containerWidth) {
  * @param {number[]} groupWidths - each group's already-measured width (after
  *   fitLabels() has shrunk its buttons), in display order.
  * @param {number} containerWidth - available width for the whole row.
- * @param {number} triggerWidth - the fixed width a collapsed group's
- *   dropdown trigger chip takes (matches `.ribbon-simple-group-trigger`'s
- *   CSS width).
+ * @param {number|number[]} triggerWidths - the width each group takes once
+ *   collapsed to its trigger, in display order. The triggers carry the
+ *   group's name, so each is measured; a single number applies to all.
  * @returns {{visible: number[], collapsed: number[]}} group indices.
  */
-export function fitSimpleGroups(groupWidths, containerWidth, triggerWidth) {
+export function fitSimpleGroups(groupWidths, containerWidth, triggerWidths) {
     const total = groupWidths.reduce((sum, w) => sum + w, 0);
     if (total <= containerWidth) {
         return { visible: groupWidths.map((_, i) => i), collapsed: [] };
     }
 
+    const triggerWidth = (i) => (Array.isArray(triggerWidths) ? triggerWidths[i] : triggerWidths);
     const visible = [];
     const collapsed = [];
     let used = 0;
     let stillFitting = true;
     for (let i = 0; i < groupWidths.length; i++) {
         if (stillFitting) {
-            const remainingAfter = groupWidths.length - i - 1;
-            const reserveForRest = remainingAfter * triggerWidth;
+            let reserveForRest = 0;
+            for (let j = i + 1; j < groupWidths.length; j++) reserveForRest += triggerWidth(j);
             if (used + groupWidths[i] + reserveForRest <= containerWidth) {
                 visible.push(i);
                 used += groupWidths[i];
@@ -138,11 +127,11 @@ export function fitSimpleGroups(groupWidths, containerWidth, triggerWidth) {
             stillFitting = false;
         }
         collapsed.push(i);
-        used += triggerWidth;
+        used += triggerWidth(i);
     }
 
-    // Never collapse everything: a row of nothing but dropdown chips, with
-    // not even the first group shown in full, reads worse than letting the
+    // Never collapse everything: a row of nothing but dropdowns, with not
+    // even the first group shown in full, reads worse than letting the
     // first group overflow its budget slightly (same safety net fitGroups()
     // applies to the full ribbon's own "More" fallback).
     if (visible.length === 0 && groupWidths.length > 0) {

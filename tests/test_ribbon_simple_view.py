@@ -579,6 +579,16 @@ class TestNarrowWindowGroupCollapse:
         )
         for t in triggers:
             assert t.get_attribute("aria-label"), "each collapsed group's trigger has an accessible name"
+            assert t.text.replace('▼', '').strip() == t.get_attribute("data-group"), \
+                "each collapsed group's trigger shows the group's name, not a generic icon"
+
+        # Labels go all at once: with groups collapsing, no visible button
+        # is left holding its label beside icon-only neighbours.
+        labelled = browser.execute_script("""
+            return Array.from(document.querySelectorAll('.ribbon-body .ribbon-simple-btn'))
+                .filter((b) => b.offsetParent !== null && !b.classList.contains('icon-only')).length;
+        """)
+        assert labelled == 0, "every visible button in a collapsing row is icon-only"
 
         # No shared "More" tile in simple mode any more (#1026) -- each
         # collapsed group gets its own trigger instead.
@@ -593,8 +603,16 @@ class TestNarrowWindowGroupCollapse:
         popover = WebDriverWait(browser, 5).until(
             EC.visibility_of_element_located((By.CSS_SELECTOR, '.ribbon-simple-group-popover'))
         )
-        assert popover.find_elements(By.CSS_SELECTOR, '.ribbon-lg-btn, .ribbon-sm-btn'), \
-            f"the '{group_name}' group's popover exposes its full command set"
+        items = popover.find_elements(By.CSS_SELECTOR, '.ribbon-simple-menu-item[role="menuitem"]')
+        assert items, f"the '{group_name}' group's popover lists its commands as menu items"
+        for item in items:
+            label = item.find_element(By.CSS_SELECTOR, '.ribbon-simple-btn-label')
+            assert label.is_displayed() and label.text, "each menu item shows its label"
+            svg = item.find_element(By.CSS_SELECTOR, 'svg')
+            assert svg.location['x'] < label.location['x'], "icon sits to the left of the label"
+        xs = {item.location['x'] for item in items}
+        assert len(xs) == 1 and len({item.location['y'] for item in items}) == len(items), \
+            "the menu stacks its items vertically"
 
         reset_window_size(browser)
         choose_display_mode(browser, 'full')

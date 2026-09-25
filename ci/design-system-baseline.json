@@ -247,7 +247,7 @@
         "background: rgba(255, 255, 255, 0.03)": 1,
         "background: rgba(255, 255, 255, 0.15)": 1,
         "background: rgba(255,255,255,0.15)": 1,
-        "border-bottom-color: #233a45": 4,
+        "border-bottom-color: #233a45": 3,
         "border-bottom-color: #37b0dc": 1,
         "border-color: #233a45": 3,
         "border-color: #2a3a5a": 1,

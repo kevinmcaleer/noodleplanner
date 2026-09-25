@@ -2521,10 +2521,6 @@ body {
     border-color: #233a45;
 }
 
-[data-theme="dark"] .ribbon-simple-group-popover .ribbon-group {
-    border-bottom-color: #233a45;
-}
-
 /* -- #1027: ribbon display selector -- */
 [data-theme="dark"] .ribbon-display-toggle-btn {
     color: #8fa8b3;
