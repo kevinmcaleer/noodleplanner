@@ -726,12 +726,28 @@ function wbTaskDateSuggestions(task) {
     return wbDetectNaturalDates(text).filter(item => !attached.has(item.date));
 }
 
+/**
+ * Cut `tokens` out of `line`, taking one separating space with each so no
+ * double gap is left behind. Only the whitespace beside a removed token is
+ * touched: the line's leading indentation is its place in the outline, so
+ * collapsing whitespace line-wide re-indented (and reparented) the task.
+ */
 function wbReplaceTokenRanges(line, tokens, replacement = '') {
     let result = String(line || '');
     [...tokens].sort((a, b) => b.start - a.start).forEach(token => {
-        result = result.slice(0, token.start) + replacement + result.slice(token.end);
+        let start = token.start;
+        let end = token.end;
+        const before = result.slice(0, start);
+        const after = result.slice(end);
+        if (!replacement) {
+            if (/\S[ \t]$/.test(before) && /^([ \t]|$)/.test(after)) start -= 1;
+            // First thing after the indent: drop the space that follows it
+            // instead, or that space would become extra indentation.
+            else if (/^[ \t]*$/.test(before) && /^[ \t]/.test(after)) end += 1;
+        }
+        result = result.slice(0, start) + replacement + result.slice(end);
     });
-    return result.replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+$/g, '');
+    return result.replace(/[ \t]+$/g, '');
 }
 
 /** Apply a confirmed suggestion to the canonical task syntax. */
