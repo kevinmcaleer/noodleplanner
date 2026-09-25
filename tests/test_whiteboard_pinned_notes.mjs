@@ -139,7 +139,12 @@ test('wbPinTaskFromPeek adds through wbCommitAddNotes, at the popover in board c
     assert.equal(sandbox.wbPinTaskFromPeek('Draft the brief', { right: 30, top: 40 }), true);
     assert.deepEqual(JSON.parse(JSON.stringify(calls)), [{
         names: ['Draft the brief'],
-        options: { at: { x: 60, y: 80 } },
+        // genieFrom: the popover is the pin animation's fallback source
+        // (whiteboard-genie.js) when the task has no row on screen.
+        options: {
+            at: { x: 60, y: 80 },
+            genieFrom: { rect: { right: 30, top: 40 }, edgeRect: { right: 30, top: 40 } },
+        },
     }]);
 
     // No rect (or no converter): still pin it, just at the usual free space.

@@ -190,6 +190,28 @@
     pointer-events: none;
 }
 
+/* The pin's genie (whiteboard-genie.js): a funnel, clipped frame by frame,
+   pouring a pinned task out of its source row into its new note. Filled
+   with the note's own colour (falling back to the card's own default); the
+   copy of the card inside fades in as it arrives. The real note stays
+   .wb-note-ghosted underneath until it lands. */
+.wb-genie-ghost {
+    overflow: visible;
+    pointer-events: none;
+}
+
+.wb-genie-funnel {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: var(--wb-note-accent, var(--np-border));
+    will-change: clip-path;
+}
+
+.wb-genie-note {
+    position: absolute;
+}
+
 /* The park itself, once released over the panel (wbParkDraggedNote()):
    shrinks and fades the note into nothing before its task -- and this DOM
    node with it -- is actually deleted, so it visually "goes into" the

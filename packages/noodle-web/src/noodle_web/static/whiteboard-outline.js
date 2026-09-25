@@ -449,7 +449,7 @@ function wbBuildOutlineRow(row) {
     wbOutlineSetToggleGlyph(toggle, row.onBoard);
     toggle.addEventListener('click', (e) => {
         e.stopPropagation();
-        wbOutlineBoardToggleClicked(row.name, row.onBoard);
+        wbOutlineBoardToggleClicked(row.name, row.onBoard, el);
     });
     el.appendChild(toggle);
 
@@ -924,11 +924,22 @@ function wbOutlineBoardToggleAction(onBoard) {
  * trigger them, and removing a note here leaves the task and its subtasks
  * exactly as intact as it does from the note menu.
  */
-function wbOutlineBoardToggleClicked(taskName, onBoard) {
+function wbOutlineBoardToggleClicked(taskName, onBoard, rowEl) {
     if (wbOutlineBoardToggleAction(onBoard) === 'remove') {
         return (typeof wbRemoveNoteFromBoard === 'function') ? wbRemoveNoteFromBoard(taskName) : false;
     }
-    return (typeof wbCommitAddNotes === 'function') ? wbCommitAddNotes([taskName]) : false;
+    if (typeof wbCommitAddNotes !== 'function') return false;
+    // The pin's genie (whiteboard-genie.js) slides out of the outline panel
+    // when the task has no row in a note on the board to slide out of.
+    const panel = rowEl && rowEl.closest ? rowEl.closest('#whiteboardOutlinePanel') : null;
+    return rowEl && rowEl.getBoundingClientRect
+        ? wbCommitAddNotes([taskName], {
+            genieFrom: {
+                rect: rowEl.getBoundingClientRect(),
+                edgeRect: (panel || rowEl).getBoundingClientRect(),
+            },
+        })
+        : wbCommitAddNotes([taskName]);
 }
 
 // -- Drag to restructure (#1156) ------------------------------------------
