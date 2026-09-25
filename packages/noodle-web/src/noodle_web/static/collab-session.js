@@ -89,6 +89,10 @@ let collabPlanRev = 0;
 // only to name whoever superseded an edit in the conflict notice.
 const collabJoinerNames = new Map();
 let collabLocalEditTimer = null;
+// A whiteboard Tidy is waiting to reach the joiners: the next plan snapshot
+// carries `fit: true`, so each joiner zooms to fit once it has drawn the
+// tidied board. See collabShareWhiteboardFit().
+let collabFitPending = false;
 // True only while the host is writing a joiner's applied op back into the
 // editor -- see applyCollabPlanOp.
 let collabApplyingRemoteOp = false;
@@ -786,7 +790,41 @@ async function applyCollabPlanTextReplace(joinerId, message) {
         await sendCollabJsonTo(joinerId, { type: 'plan_text_replace_rejected', reason: 'protected' });
         return;
     }
+    // A joiner's Tidy: fit the host's board once it has drawn the result,
+    // and pass the request on to every joiner with the snapshot.
+    const fit = message.fit === true;
+    if (fit) {
+        collabFitPending = true;
+        if (typeof wbQueueLayoutFit === 'function') wbQueueLayoutFit();
+    }
     await applyCollabReplacement(joinerId, nextText, 'plan_text_replace_rejected');
+    if (fit && collabFitPending) {
+        // Nothing changed, so there was no snapshot to carry it or render
+        // to run it.
+        collabFitPending = false;
+        await collabFitEveryBoard();
+    }
+}
+
+/**
+ * The whiteboard's Tidy, on the host (whiteboard-notes.js's
+ * wbCommitLayout()): every joiner's board should zoom to fit as well.
+ * `withEdit` means a plan change is about to go out, and the request rides
+ * on its snapshot so it lands after the tidied board; otherwise the board
+ * was already tidy and the request goes on its own.
+ */
+function collabShareWhiteboardFit(withEdit) {
+    if (collabSessionKeys.size === 0) return;
+    if (withEdit) collabFitPending = true;
+    else sendCollabMessage(JSON.stringify({ type: 'whiteboard_fit' }));
+}
+
+/** A fit request with no plan change behind it: fit the host's board and
+ * every joiner's. */
+async function collabFitEveryBoard() {
+    if (typeof wbQueueLayoutFit === 'function') wbQueueLayoutFit();
+    if (typeof wbRunPendingLayoutFit === 'function') wbRunPendingLayoutFit();
+    await sendCollabMessage(JSON.stringify({ type: 'whiteboard_fit' }));
 }
 
 function collabVisibilityApi() {
@@ -917,6 +955,10 @@ async function broadcastCollabPlan(notice, raidNotice, sectionNotice) {
     if (!editor) return 0;
     const snapshot = buildPlanSnapshot(collabSharedPlanText(), collabPlanRev);
     if (notice) snapshot.notice = notice;
+    if (collabFitPending) {
+        snapshot.fit = true;
+        collabFitPending = false;
+    }
     const raidSnapshot = buildRaidSnapshot(editor.value, collabPlanRev);
     if (raidNotice) raidSnapshot.notice = raidNotice;
     let sent = await sendCollabMessage(JSON.stringify(snapshot));
@@ -1205,6 +1247,10 @@ async function handleCollabMessage(raw) {
             await applyCollabPlanTextReplace(joinerId, parsed);
             return;
         }
+        if (parsed && parsed.type === 'whiteboard_fit') {
+            await collabFitEveryBoard();
+            return;
+        }
         if (parsed && parsed.type === 'chat') {
             // The relay envelope authenticated the sender; discard any
             // display name supplied inside their payload to prevent spoofing.
@@ -1265,6 +1311,7 @@ async function startCollabSession() {
     collabSessionKeys.clear();
     collabJoinerNames.clear();
     collabPlanRev = 0;
+    collabFitPending = false;
     resetCollabChat();
     if (collabConflicts) collabConflicts.reset();
     if (collabBackmatterConflicts) collabBackmatterConflicts.reset();

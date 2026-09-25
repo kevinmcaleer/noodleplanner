@@ -360,6 +360,10 @@ let wbLastPlanText = '';
 // wbBuildThoughtViewModel()).
 let wbLastThoughts = [];
 let wbNoteNodes = new Map(); // summary task name -> { fo, refs: {...} }
+// Set by a layout that should end with the whole board in view (Tidy), and
+// by a planning session peer's Tidy; wbRenderNotes() consumes it once the
+// notes are drawn in their new places -- see wbQueueLayoutFit().
+let wbPendingLayoutFit = false;
 
 // Issue #1018: same idea as wbNoteNodes, keyed by a text object's own
 // generated `id` (never a task name) instead of a task name.
@@ -2029,6 +2033,27 @@ function wbRenderNotes() {
     // counts as having content -- the empty-state CTA would otherwise sit
     // on top of the very text the user just added.
     wbUpdateEmptyState(viewModels.length > 0 || textItems.length > 0);
+
+    wbRunPendingLayoutFit();
+}
+
+/**
+ * Zoom to fit after the next render, i.e. once the notes stand where a
+ * layout just put them: fitting straight after the commit would frame the
+ * old positions, since the render it triggers is asynchronous. A board that
+ * is not showing keeps the request until it is (initWhiteboard() renders the
+ * notes, and so fits, when the view opens).
+ */
+function wbQueueLayoutFit() {
+    wbPendingLayoutFit = true;
+}
+
+function wbRunPendingLayoutFit() {
+    if (!wbPendingLayoutFit || typeof whiteboardZoomFit !== 'function') return;
+    const visible = (typeof wbVisibleCanvasRect === 'function') ? wbVisibleCanvasRect() : null;
+    if (!visible || !visible.width || !visible.height) return;
+    wbPendingLayoutFit = false;
+    whiteboardZoomFit();
 }
 
 /** Build the static DOM skeleton for one note, cached refs for updates. */
@@ -5606,8 +5631,17 @@ function wbCurrentWhiteboardItems() {
     return section ? parseWhiteboardMarkdown(section) : [];
 }
 
-/** Apply one layout mode to all note rows and commit as one edit. */
-function wbCommitLayout(mode, options = {}) {
+/**
+ * Apply one layout mode to all note rows and commit as one edit.
+ *
+ * With `fit`, the board then zooms to fit the notes in their new places, and
+ * so does everyone else's in a planning session: collabShareWhiteboardFit()
+ * is defined by whichever side of a session this page is (collab-session.js
+ * on the host, collab-join.js on a joiner). It is told before the commit
+ * whether an edit carries the request, because the commit itself is what
+ * sends that edit.
+ */
+function wbCommitLayout(mode, options = {}, { fit = false } = {}) {
     const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
     if (!editor ||
         typeof extractWhiteboardFromPlanText !== 'function' ||
@@ -5631,17 +5665,29 @@ function wbCommitLayout(mode, options = {}) {
     });
 
     const nextText = updatePlanWhiteboardText(planText, nextItems);
+    if (!fit) return wbCommitMarkdown(nextText);
+
+    const share = (typeof collabShareWhiteboardFit === 'function') ? collabShareWhiteboardFit : null;
+    if (nextText === planText) {
+        // Already laid out: nothing to redraw, so fit now.
+        if (share) share(false);
+        if (typeof whiteboardZoomFit === 'function') whiteboardZoomFit();
+        return false;
+    }
+    if (share) share(true);
+    wbQueueLayoutFit();
     return wbCommitMarkdown(nextText);
 }
 
-/** Tidy up notes into a uniform grid with standard-size cards. */
+/** Tidy up notes into a uniform grid with standard-size cards, then zoom
+ * to fit them. */
 function wbLayoutTidyNotes() {
     return wbCommitLayout('tidy', {
         gap: WB_LAYOUT_GAP_DEFAULT,
         standardSize: true,
         width: WB_NOTE_DEFAULT_WIDTH,
         height: WB_NOTE_DEFAULT_HEIGHT,
-    });
+    }, { fit: true });
 }
 
 /** Arrange notes by plan hierarchy, with top-level summaries in columns. */
