@@ -81,13 +81,6 @@
     color: #111;
 }
 
-/* A toggle that is on (Structure, Parking lot): drawn as the hover state,
-   held. */
-.wb-toolbar-btn[aria-pressed="true"] {
-    background: var(--np-selected);
-    border-color: var(--np-accent);
-}
-
 .wb-toolbar-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;

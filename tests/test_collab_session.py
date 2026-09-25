@@ -136,9 +136,6 @@ class TestSessionCreation:
         # The board's side panels are toggled from the ribbon's Whiteboard
         # tab, which the join page carries pinned (ribbon.js).
         assert 'data-context-tab="whiteboard"' in response.text
-        # ...and from the board's own toolbar, one click away on either side.
-        assert 'id="whiteboardOutlineBtn"' in response.text
-        assert 'id="whiteboardParkingLotBtn"' in response.text
         assert "/static/ribbon.js" in response.text
         assert "/static/whiteboard-notes.js" in response.text
         assert "/static/views/whiteboard.css" in response.text
