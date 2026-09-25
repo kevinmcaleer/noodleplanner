@@ -618,6 +618,209 @@ def capture_how_to(driver, base_url):
         capture_full(driver, section / "wb-03-task-peek.png")
 
 
+def join_session(driver, base_url, code, name):
+    """Open a new window and join the live planning session as *name*.
+
+    Returns the window's handle, left as the current window. Each joiner is
+    a separate window of the same browser, the way a PM running a session
+    on one machine and a colleague on another look to the relay.
+    """
+    driver.switch_to.new_window("window")
+    fit_viewport(driver)
+    driver.get(f"{base_url}/join")
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "joinCode")))
+    driver.find_element(By.ID, "joinCode").send_keys(code)
+    driver.find_element(By.ID, "displayName").send_keys(name)
+    driver.find_element(By.ID, "joinBtn").click()
+    WebDriverWait(driver, 15).until(EC.visibility_of_element_located((By.ID, "relayInput")))
+    # The host's plan arrives over the encrypted channel a moment after
+    # `joined`; the board is drawn once it has.
+    WebDriverWait(driver, 15).until(
+        lambda d: d.execute_script(
+            "return document.querySelectorAll('#whiteboardContainer .wb-note').length > 0;"
+        )
+    )
+    return driver.current_window_handle
+
+
+def send_joiner_chat(driver, text):
+    """Send a chat message from the joiner window that is current.
+
+    Enter only sends once the secure channel is up, and clears the box when
+    it does -- so press it until the box empties.
+    """
+    box = driver.find_element(By.ID, "relayInput")
+    box.send_keys(text)
+    for _ in range(50):
+        box.send_keys(Keys.ENTER)
+        if not box.get_attribute("value"):
+            return
+        time.sleep(0.2)
+
+
+def capture_planning_session(driver, base_url):
+    """A live planning session, from both sides (docs/how-to/run-a-planning-session.rst).
+
+    Everything here only exists once someone has joined -- the joiner page,
+    the ribbon's participant chips, the session chat -- so this starts a
+    session as the host, joins it from two more windows, and has them talk.
+
+    ps-01  the joiner page: the host's whiteboard, and the chat beside it
+    ps-02  the host's ribbon: who is in the session, one chip's card open
+    ps-03  the host: the whiteboard with its parking lot open and the
+           chat docked beside it rather than over it
+    wb-05  a note mid-drag over the parking lot: drawn on top of the
+           panel, a dotted outline where it will land
+           (docs/how-to/use-the-whiteboard.rst)
+    """
+    section = IMG_ROOT / "how-to"
+    print("\n--- Planning session ---")
+
+    driver.get(base_url)
+    load_plan(driver, SAMPLE_PLAN)
+    wait_for_render(driver)
+    switch_to_view(driver, "whiteboard")
+    host = driver.current_window_handle
+
+    driver.execute_script("startCollabSession();")
+    WebDriverWait(driver, 15).until(
+        lambda d: len(d.execute_script(
+            "return document.getElementById('collabSessionCode').value;") or "") == 6
+    )
+    code = driver.execute_script("return document.getElementById('collabSessionCode').value;")
+    # Tucked into the chat bubble, as a host working on the plan has it.
+    driver.execute_script("minimiseCollabSessionModal();")
+    time.sleep(0.6)
+
+    joiners = []
+    try:
+        joiners.append(join_session(driver, base_url, code, "Priya Shah"))
+        send_joiner_chat(driver, "Morning! Shall we start with the design notes?")
+        joiners.append(join_session(driver, base_url, code, "Sam Lee"))
+
+        # The host answers, so the conversation has both sides.
+        driver.switch_to.window(host)
+        driver.execute_script(
+            "const box = document.getElementById('collabChatInput');"
+            "box.value = 'Yes -- drag anything that can wait into the parking lot.';"
+            "submitCollabChat();"
+        )
+        time.sleep(1)
+
+        # ps-01: Priya's page -- her own message on the right, the host's
+        # on the left, the host's board filling the rest.
+        driver.switch_to.window(joiners[0])
+        WebDriverWait(driver, 10).until(
+            lambda d: d.execute_script(
+                "return document.querySelectorAll('#relayLog .np-chat-message').length >= 2;")
+        )
+        driver.execute_script("if (typeof whiteboardZoomFit === 'function') whiteboardZoomFit();")
+        time.sleep(0.6)
+        capture_full(driver, section / "ps-01-joiner-board.png")
+
+        # ps-02: the host's title bar, with Priya's chip hovered so its card
+        # (name, presence, Open session chat) is showing.
+        driver.switch_to.window(host)
+        WebDriverWait(driver, 10).until(
+            lambda d: d.execute_script(
+                "const s = document.getElementById('ribbonCollabPeople');"
+                "return !!s && s.shadowRoot.querySelectorAll('.chip').length === 2;")
+        )
+        chip = driver.execute_script(
+            "return document.getElementById('ribbonCollabPeople').shadowRoot.querySelector('.chip');"
+        )
+        ActionChains(driver).move_to_element(chip).perform()
+        time.sleep(0.4)
+        capture_element(driver, "#ribbonShell", section / "ps-02-participant-chips.png")
+        ActionChains(driver).move_by_offset(0, 400).perform()
+
+        # ps-03: the chat docked beside the whiteboard, the parking lot open
+        # and still in view. Docked, the board is narrow, so give it the
+        # editor's width and put away the structure panel and the tips --
+        # otherwise the panels cover every note -- then fit the notes into
+        # the stretch the parking lot leaves.
+        driver.execute_script(
+            """
+            const editor = document.querySelector('.editor-panel');
+            window.__captureEditorWasOpen = !!editor && !editor.classList.contains('collapsed');
+            if (window.__captureEditorWasOpen && typeof toggleMainEditor === 'function') toggleMainEditor();
+            if (typeof wbToggleOutlinePanel === 'function') wbToggleOutlinePanel(false);
+            if (typeof wbSetToolbarHintVisible === 'function') wbSetToolbarHintVisible(false);
+            openCollabChatPanel();
+            document.getElementById('collabChatDockBtn').click();
+            if (typeof wbOpenParkingLotPanel === 'function') wbOpenParkingLotPanel();
+            """
+        )
+        time.sleep(0.8)
+        driver.execute_script(
+            """
+            if (typeof whiteboardZoomFit !== 'function') return;
+            whiteboardZoomFit({ maxZoom: 1 });
+            // Fit frames the whole canvas; shift the notes left of the panel.
+            const panel = document.getElementById('wbParkingLotPanel');
+            const board = document.getElementById('whiteboardContainer');
+            if (panel && board && typeof wbPanX === 'number' && typeof wbApplyTransform === 'function') {
+                const covered = board.getBoundingClientRect().right - panel.getBoundingClientRect().left;
+                wbPanX -= covered / 2;
+                wbApplyTransform(false);
+            }
+            """
+        )
+        time.sleep(0.6)
+        capture_full(driver, section / "ps-03-docked-chat.png")
+
+        # wb-05: hold a note over the open parking lot. Taken last, since
+        # letting go would park it. Only a note whose header is actually
+        # under the pointer can be picked up -- one under a panel would
+        # start a text selection instead -- so find one that is.
+        drag = driver.execute_script(
+            """
+            const panel = document.getElementById('wbParkingLotPanel');
+            if (!panel) return null;
+            const p = panel.getBoundingClientRect();
+            for (const header of document.querySelectorAll('#whiteboardContainer .wb-note .wb-note-header')) {
+                const h = header.getBoundingClientRect();
+                const x = h.left + 12, y = h.top + h.height / 2;
+                if (!header.contains(document.elementFromPoint(x, y))) continue;
+                return {header, dx: (p.left + p.width / 2) - (h.left + h.width / 2),
+                        dy: (p.top + p.height / 2) - (h.top + h.height / 2)};
+            }
+            return null;
+            """
+        )
+        if drag:
+            actions = ActionChains(driver).click_and_hold(drag["header"])
+            for _ in range(10):
+                actions.move_by_offset(drag["dx"] / 10, drag["dy"] / 10)
+            actions.perform()
+            time.sleep(0.4)
+            capture_full(driver, section / "wb-05-parking-lot-drag.png")
+            # Let go off the panel, so the note is moved rather than parked.
+            ActionChains(driver).move_by_offset(-drag["dx"], -drag["dy"]).release().perform()
+        else:
+            print("  [SKIP]    wb-05 -- no note on screen to drag, or no parking lot panel")
+
+        # Put the board back as the rest of the capture expects it.
+        driver.execute_script(
+            """
+            if (typeof wbCloseParkingLotPanel === 'function') wbCloseParkingLotPanel();
+            if (typeof closeCollabChatPanel === 'function') closeCollabChatPanel();
+            if (typeof wbToggleOutlinePanel === 'function') wbToggleOutlinePanel(true);
+            if (typeof wbSetToolbarHintVisible === 'function') wbSetToolbarHintVisible(true);
+            if (window.__captureEditorWasOpen && typeof toggleMainEditor === 'function') toggleMainEditor();
+            """
+        )
+    finally:
+        for handle in joiners:
+            driver.switch_to.window(handle)
+            driver.close()
+        driver.switch_to.window(host)
+        driver.execute_script(
+            "if (typeof endCollabSession === 'function') endCollabSession();"
+        )
+        time.sleep(0.4)
+
+
 def capture_reference(driver, base_url):
     """Capture screenshots for the reference section."""
     section = IMG_ROOT / "reference"
@@ -725,6 +928,7 @@ def main():
     try:
         capture_tutorials(driver, args.base_url)
         capture_how_to(driver, args.base_url)
+        capture_planning_session(driver, args.base_url)
         capture_reference(driver, args.base_url)
         capture_explanation(driver, args.base_url)
         print("\nDone. All screenshots saved.")
