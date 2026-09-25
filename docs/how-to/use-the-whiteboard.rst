@@ -148,6 +148,8 @@ The handle sits outside the note rather than inside the row, and so does the pla
 
 A dependency noodle is dashed and purple, so it never reads as a hierarchy link (solid, blue) even on a board that has both. As you drag, every row you pass over shows whether the link would be accepted.
 
+If you forget which is which, select **Key** on the ribbon's **Whiteboard** tab. A small card appears at the top right of the board: a solid line is a subtask, and a dashed line is a dependency. Select **Key** again, or the card's ``×``, to hide it. Whether it is showing is remembered on this device.
+
 Creating a link that would make a circular dependency (A depends on B, which already depends on A) is refused with a short message, the same way a self-link or an already-linked pair are refused for hierarchy noodles.
 
 Unlinking a dependency noodle works exactly like unlinking a hierarchy one — click to select, then the ``✕`` or :kbd:`Delete` — and removes only the dependency, never the task or its subtasks.

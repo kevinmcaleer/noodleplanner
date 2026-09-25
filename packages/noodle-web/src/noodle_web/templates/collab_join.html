@@ -35,6 +35,7 @@
     <link rel="stylesheet" href="/static/views/collab-join.css?v={{ v }}">
 </head>
 <body class="collab-join">
+    {% include "_icon_sprite.html" %}
     <main class="join-screen" id="joinScreen">
         <div class="join-card">
             <h1>Join planning session</h1>
@@ -76,6 +77,9 @@
 
         <div class="session-main">
             <section class="session-board" aria-label="Whiteboard">
+                <!-- The app's own ribbon, pinned to its Whiteboard tab -- see
+                     ribbon.js's ribbonPinnedTabId(). -->
+                <div id="ribbonShell" class="ribbon-shell" data-context-tab="whiteboard"></div>
                 {% with wb_active = true %}{% include "_whiteboard_view.html" %}{% endwith %}
             </section>
 
@@ -125,6 +129,7 @@
     <script src="/static/collab-chat.js?v={{ v }}"></script>
     <script src="/static/collab-merge.js?v={{ v }}"></script>
     <script src="/static/collab-join.js?v={{ v }}"></script>
+    <script src="/static/ribbon.js?v={{ v }}"></script>
     <script type="module" src="/static/components/close-button/np-close-button.js?v={{ v }}"></script>
     <script type="module" src="/static/components/empty-state/np-empty-state.js?v={{ v }}"></script>
     <script type="module" src="/static/components/button/np-button.js?v={{ v }}"></script>

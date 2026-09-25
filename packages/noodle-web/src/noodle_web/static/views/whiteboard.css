@@ -3105,6 +3105,97 @@ body.wb-linking * {
     color: var(--np-text);
 }
 
+/* ── The key to the lines ────────────────────────────────────────────
+   A small card, top right of the canvas, saying what a solid and a dashed
+   noodle mean -- see wbEnsureNoodleKey() in whiteboard.js. The samples
+   take the real noodles' colours and dash pattern (.wb-noodle-path and
+   .wb-dep-noodle-path above), so the key always matches the board. */
+.wb-key {
+    position: absolute;
+    top: calc(var(--wb-toolbar-inset, 0px) + 12px);
+    right: 12px;
+    width: 250px;
+    max-width: calc(100% - 24px);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
+    border-radius: 10px;
+    box-shadow: 0 6px 20px var(--np-shadow);
+    z-index: 5;
+}
+
+.wb-key[hidden] {
+    display: none;
+}
+
+.wb-key-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--np-space-4) var(--np-space-4) var(--np-space-4) var(--np-space-12);
+    border-bottom: 1px solid var(--np-border);
+}
+
+.wb-key-title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--np-text);
+}
+
+.wb-key-list {
+    list-style: none;
+    margin: 0;
+    padding: var(--np-space-8) var(--np-space-12);
+    display: flex;
+    flex-direction: column;
+    gap: var(--np-space-8);
+}
+
+.wb-key-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--np-space-8);
+}
+
+.wb-key-sample {
+    flex-shrink: 0;
+    margin-top: var(--np-space-2);
+}
+
+.wb-key-line {
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+}
+
+.wb-key-sample-hierarchy .wb-key-line {
+    stroke: var(--np-blue);
+}
+
+.wb-key-sample-hierarchy .wb-key-arrow {
+    fill: var(--np-blue);
+}
+
+.wb-key-sample-dependency .wb-key-line {
+    stroke: var(--np-purple);
+    stroke-dasharray: 6 5;
+}
+
+.wb-key-sample-dependency .wb-key-arrow {
+    fill: var(--np-purple);
+}
+
+.wb-key-text {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--np-text-secondary);
+}
+
+.wb-key-text strong {
+    color: var(--np-text);
+    font-weight: 600;
+}
+
 /* ── The collapsed rail ──────────────────────────────────────────────
    Hiding the panel must never be a one-way door, so a thin tab stays
    pinned to the same edge to bring it back. */
