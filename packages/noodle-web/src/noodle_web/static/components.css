@@ -8054,6 +8054,12 @@ button.ribbon-breadcrumb-rung:hover {
    collab-session.js's renderCollabPresence()/kickCollabJoiner().
    The --np-* tokens are redefined per theme in dark-mode.css, so these
    rules need no dark-mode counterpart. */
+.collab-session-hint {
+    margin: var(--np-space-8) 0;
+    font-size: 0.85em;
+    color: var(--np-text-secondary);
+}
+
 .collab-presence-heading {
     font-weight: 600;
     font-size: 0.9em;

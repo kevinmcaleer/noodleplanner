@@ -197,7 +197,9 @@ function receivePlanTextRejected(reason) {
     planSync.sentRev = null;
     if (reason !== 'stale') {
         planSync.pending = null;
-        showPlanNotice('The host could not apply that change.');
+        showPlanNotice(reason === 'protected'
+            ? 'That change touches part of the plan the host is keeping private, so it was not applied.'
+            : 'The host could not apply that change.');
         showPlanText(planSync.synced);
         return;
     }
@@ -439,7 +441,9 @@ function handleEncryptedPayload(parsed) {
     if (parsed.type === 'plan_op_rejected') {
         showPlanNotice(parsed.reason === 'stale'
             ? 'That task changed while you were editing — try again.'
-            : 'The host could not apply that change.');
+            : parsed.reason === 'protected'
+                ? 'That change touches part of the plan the host is keeping private, so it was not applied.'
+                : 'The host could not apply that change.');
         return;
     }
     if (parsed.type === 'chat' || parsed.type === 'activity') {
