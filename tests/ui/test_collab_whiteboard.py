@@ -129,6 +129,31 @@ class TestTheJoinerSeesTheHostsBoard:
         assert joiner.locator('#ribbonShell [data-scope-id="whiteboard"][data-label="Structure"]').is_visible()
         assert joiner.locator(".wb-outline-panel").count() == 1
 
+    def test_the_board_toolbar_toggles_both_side_panels(self, joiner, host):
+        """Structure and Parking lot sit on the board's own toolbar on both
+        sides of a session, not only behind the ribbon's contextual tab."""
+        host_page, _ = host
+        for pg in (host_page, joiner):
+            pg.bring_to_front()
+            structure = pg.locator("#whiteboardOutlineBtn")
+            parking = pg.locator("#whiteboardParkingLotBtn")
+            assert structure.is_visible() and parking.is_visible()
+
+            was_open = pg.evaluate("() => wbOutlinePanelOpen()")
+            assert structure.get_attribute("aria-pressed") == str(was_open).lower()
+            structure.click()
+            pg.wait_for_function("o => wbOutlinePanelOpen() === !o", arg=was_open)
+            assert structure.get_attribute("aria-pressed") == str(not was_open).lower()
+            structure.click()
+            pg.wait_for_function("o => wbOutlinePanelOpen() === o", arg=was_open)
+
+            parking.click()
+            pg.wait_for_function("() => wbParkingLotPanelOpen()")
+            assert parking.get_attribute("aria-pressed") == "true"
+            parking.click()
+            pg.wait_for_function("() => !wbParkingLotPanelOpen()")
+            assert parking.get_attribute("aria-pressed") == "false"
+
     def test_the_board_fills_the_page(self, joiner):
         board = joiner.locator("#whiteboardContainer").bounding_box()
         viewport = joiner.viewport_size

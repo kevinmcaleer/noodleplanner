@@ -7693,14 +7693,22 @@ function wbParkingLotPanelOpen() {
     return !!(panel && panel.classList.contains('open') && !panel.dataset.wbClosing);
 }
 
-/** Bring the ribbon's pressed state up to date after the panel opens or
- * closes; on a close, hand focus back to the button that toggles it, or to
- * the board when the ribbon's Whiteboard tab is not the one showing. */
+/** Bring the toggles' pressed state -- the board toolbar's Parking lot
+ * button and the ribbon's -- up to date after the panel opens or closes; on
+ * a close, hand focus back to a button that toggles it: the toolbar's when
+ * that is the one that closed it, else the ribbon's when its Whiteboard tab
+ * is showing, else the toolbar's. */
 function wbParkingLotPanelChanged(returnFocus) {
+    const toolbarBtn = document.getElementById('whiteboardParkingLotBtn');
+    if (toolbarBtn) toolbarBtn.setAttribute('aria-pressed', String(wbParkingLotPanelOpen()));
+    const closedFromToolbar = !!toolbarBtn && document.activeElement === toolbarBtn;
     const refreshed = (typeof refreshRibbon === 'function') ? refreshRibbon() : null;
     if (!returnFocus) return;
     Promise.resolve(refreshed).then(() => {
-        const target = wbParkingLotRibbonButton() || document.getElementById('whiteboardContainer');
+        const target = (closedFromToolbar && toolbarBtn)
+            || wbParkingLotRibbonButton()
+            || toolbarBtn
+            || document.getElementById('whiteboardContainer');
         if (target) target.focus();
     });
 }
