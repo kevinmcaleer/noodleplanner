@@ -2052,28 +2052,10 @@ function wbCreateNoteNode() {
     // across the re-renders that reuse this same node for the same task.
     const { card, rails, refs } = globalThis.NoodleNoteMarkup.buildNoteCard();
     const {
-        header, title, linkHandle, coachBtn, pinBtn,
+        header, title, linkHandle, coachBtn,
         parentCaption, body, footer, progress, moreBtn, resizeHandle,
         railHint, railDep,
     } = refs;
-
-    // The pin (issue #1291): unpin this note from the board. Deliberately the
-    // same wbRemoveNoteFromBoard() call the `...` menu's "Remove from board"
-    // item and the outline panel's own unpin control make -- one action, three
-    // places to reach it -- so it removes the note and nothing else: the task,
-    // its subtasks and every other section of the plan are left exactly as
-    // they were, and the single commit that removes the row is undoable like
-    // any other edit.
-    pinBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const taskName = fo.dataset.wbTask;
-        if (taskName) wbRemoveNoteFromBoard(taskName);
-    });
-    // Both press paths, or the pin becomes a drag handle: the header's own
-    // mousedown/touchstart guards skip this button (see
-    // wbNoteHeaderMouseDown()), but a press that starts here must not bubble
-    // into a selection change either.
-    pinBtn.addEventListener('mousedown', (e) => e.stopPropagation());
 
     // The noodle handle: drag from here to another note to make that note
     // a child of this one. Lives in the header rather than floating over
@@ -2109,7 +2091,7 @@ function wbCreateNoteNode() {
     const entry = {
         fo,
         refs: {
-            card, header, title, linkHandle, coachBtn, pinBtn, parentCaption,
+            card, header, title, linkHandle, coachBtn, parentCaption,
             body, footer, progress, moreBtn, resizeHandle, rails, railHint, railDep,
         },
     };
@@ -2226,17 +2208,6 @@ function wbUpdateNoteNode(entry, vm) {
                 : vm.task.name + ' — double-click to rename');
         }
     }
-    // Name the pin's target (#1291). The skeleton carries a generic label
-    // because it is built before it belongs to any task; from here on it says
-    // which note it would unpin, which is what a screen reader needs when it
-    // meets the same control on twenty notes.
-    if (refs.pinBtn) {
-        const pinLabel = `Unpin "${vm.task.name}" from the board`;
-        refs.pinBtn.setAttribute('title', pinLabel);
-        refs.pinBtn.setAttribute('aria-label',
-            `${pinLabel}. This only removes the note; the task and its subtasks stay in your plan.`);
-    }
-
     const planningType = wbTaskPlanningType(vm.task);
     const languageHint = wbActivityLanguageHint(vm.task && vm.task.name);
     refs.coachBtn.classList.toggle('suspected-activity', !!languageHint && !planningType);
@@ -2871,9 +2842,6 @@ function wbNoteHeaderMouseDown(e, entry) {
     // Nor the noodle handle, nor a title mid-rename: both are their own
     // gestures that happen to start inside the drag handle.
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
-    // Nor the pin (#1291) -- it is a click, and a press that landed on it must
-    // never start a move or a rename.
-    if (e.target && e.target.closest && e.target.closest('.wb-note-pin-btn')) return;
     if (e.target && e.target.isContentEditable) return;
     // Double-click-to-rename is detected here, from consecutive
     // mousedowns, rather than from a native 'dblclick' listener: the first
@@ -2949,7 +2917,6 @@ function wbNoteHeaderTouchStart(e, entry) {
     if (e.target && e.target.closest && e.target.closest('.wb-note-coach-btn')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-smart-btn')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
-    if (e.target && e.target.closest && e.target.closest('.wb-note-pin-btn')) return;
     // The fifth guard the mouse path has always carried, added here for the
     // same parity (#1250): a second tap inside a title already being
     // renamed places the caret, it does not re-enter the edit.

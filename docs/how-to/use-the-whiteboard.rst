@@ -203,7 +203,8 @@ Click a note (or a group's boundary) and a small toolbar appears above it, as on
 - **Colour** — pick the note's or group's colour.
 - **Zoom to** — frame it in the middle of the screen.
 - **Edit title** — rename it in place.
-- **Remove** — take a note off the board (its task stays in your plan), or remove a group (its notes stay where they are).
+- **Unpin** (notes only) — take the note off the board; its task stays in your plan.
+- **Delete** — delete a note's task, and its subtasks, from the plan (after a confirmation), or remove a group (its notes stay where they are).
 - **More** (notes only) — everything else: Rename, Unlink, Open task details, Send to parking lot, Remove from board and Delete task. Right-clicking a note opens the same menu at the pointer.
 
 The toolbar follows the note as you pan, zoom or drag it, and goes away when you click empty canvas or press ``Escape``. With two or more notes selected you get the **Group these** / **Combine** toolbar instead.
@@ -290,13 +291,13 @@ A colour you pick here is the same colour the Kanban board's column header and t
 Unpin a Note from the Board
 -------------------------------
 
-Hover a note and a pin slides in to the left of its title; click it to unpin the note. The same thing is the **Remove from board** button on the note's toolbar and an item on its **More** menu, and on the plan structure panel as that row's struck-through pin — three ways to the one action.
+Select the note and click **Unpin** (the struck-through pin) on the toolbar above it. The same action is **Remove from board** on the note's **More** menu, and the struck-through pin on that task's row in the plan structure panel — three ways to the one action.
 
 .. note::
 
    Removing a note only takes it off the whiteboard. The task and every one of its subtasks are left completely untouched in your plan's outline — nothing is deleted. There is no confirmation prompt; like every other change on the whiteboard, it is one ordinary undo step, so ``Ctrl+Z``/``Cmd+Z`` brings the note straight back if you remove the wrong one.
 
-   To delete the task itself, use **Delete task** on the same menu instead.
+   To delete the task itself, use **Delete** on the toolbar (or **Delete task** on the **More** menu) instead.
 
 Adding the same task back later gives it a fresh position on the board — it does not remember where the old note used to sit.
 

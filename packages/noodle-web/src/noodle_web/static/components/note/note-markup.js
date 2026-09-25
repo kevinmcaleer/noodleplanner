@@ -79,8 +79,8 @@ export function noodleGlyph(size) {
  * The pin (issue #1291). One drawing, two states: `pinGlyph()` is a pushpin
  * pressed into the board, `unpinGlyph()` is the same pin with a stroke through
  * it. Both are `stroke="currentColor"`, like noodleGlyph() above, so wherever
- * they land -- a note header measured against its own pastel, the outline
- * panel's row against the app surface -- they inherit that surface's ink
+ * they land -- the object toolbar over a selected note, the outline panel's
+ * row against the app surface -- they inherit that surface's ink
  * rather than carrying a colour of their own.
  *
  * "Pinned" is the board's word for what the plan file has always stored:
@@ -141,30 +141,11 @@ export function buildNoteCard() {
     // element is therefore part of the contract, not a tag choice.
     const title = el('h3', 'wb-note-title');
 
-    // The pin (issue #1291). A note on the board is pinned to it, and this is
-    // how you take it off -- the same act as the outline panel's own unpin
-    // control and the `...` menu's "Remove from board", never a third way to
-    // do it (whiteboard-notes.js wires all three to wbRemoveNoteFromBoard()).
-    //
-    // Left of the title, not in the right-hand cluster, and that is the whole
-    // point of where it sits: the cluster is note *options*, while this says
-    // something about the note's relationship to the board, so it reads with
-    // the identity the title carries rather than with the tools. It is also
-    // the one header control that must not widen the cluster the comment on
-    // the appendChild run below protects.
-    //
-    // Hidden at rest: it collapses to zero width and the title sits where it
-    // always has, so a board of notes is not a board of pins. `.wb-note-card`
-    // hover or keyboard focus slides it in and the title slides over to make
-    // room -- see `.wb-note-pin-btn` in views/whiteboard.css, which owns the
-    // transition and the reduced-motion opt-out.
-    const pinBtn = el('button', 'wb-note-pin-btn', {
-        type: 'button',
-        tabindex: '0',
-        title: 'Unpin from the board',
-        'aria-label': 'Unpin this note from the board. This only removes the note; the task and its subtasks stay in your plan.',
-    });
-    pinBtn.innerHTML = pinGlyph(13);
+    // No pin on the note itself. Unpinning a note from the board is on the
+    // object toolbar that floats above a selected note
+    // (whiteboard-object-toolbar.js), beside Delete; it used to slide in left
+    // of the title on hover, which put a control that removes the note under
+    // the pointer every time you reached for the title to drag it.
 
     // No date chip on the note. A detected date belongs to the task line it
     // was detected in, and the checklist rows carry their own
@@ -229,7 +210,7 @@ export function buildNoteCard() {
     // W - 10], and the midpoint W/2 can only fall there when W <= 2 * (10 + w),
     // which is 64px for the 22px handle and 80px for the 30px coarse-pointer
     // one -- both below WB_NOTE_MIN_WIDTH.
-    header.append(pinBtn, title, coachBtn, linkHandle);
+    header.append(title, coachBtn, linkHandle);
 
     const parentCaption = el('div', 'wb-note-parent');
     const body = el('div', 'wb-note-body');
@@ -300,7 +281,7 @@ export function buildNoteCard() {
         card,
         rails,
         refs: {
-            card, header, pinBtn, title, coachBtn,
+            card, header, title, coachBtn,
             linkHandle, parentCaption, body, footer, progress, moreBtn,
             resizeHandle, rails, railHint, railDep,
         },
