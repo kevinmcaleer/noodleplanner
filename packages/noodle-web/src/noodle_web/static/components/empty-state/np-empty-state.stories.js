@@ -114,8 +114,8 @@ export const CardWithIconAndActions = {
     variant: 'card',
     icon: '📝',
     heading: 'Nothing on the board yet',
-    body: "Start with a post-it. Double-click anywhere to add one — each post-it is a task in your plan.",
-    actions: 'New post-it,Add an existing task,Add all summary tasks',
+    body: "Start with a note. Double-click anywhere to add one — each note is a task in your plan.",
+    actions: 'New note,Add an existing task,Add all summary tasks',
   },
   parameters: {
     docs: {

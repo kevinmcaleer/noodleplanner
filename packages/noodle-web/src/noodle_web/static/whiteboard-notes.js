@@ -5225,7 +5225,7 @@ function wbBuildCanvasMenu(clientX, clientY) {
     // where the click was on the board, not under wherever that screen
     // point has drifted to.
     const at = wbClientToBoard(clientX, clientY);
-    addItem('New post-it here', 'A new note -- and a new task -- where you clicked (or double-click the canvas)',
+    addItem('New note here', 'A new note -- and a new task -- where you clicked (or double-click the canvas)',
         () => wbCreateNoteAt(at.x, at.y));
     addItem('Add title here', 'Free-floating text where you clicked -- no task, no card',
         () => wbCreateTextObjectAt(at.x, at.y));
@@ -5889,8 +5889,8 @@ function wbEnsureEmptyStateEl() {
     // board is the secondary action it used to be the only one.
     el.innerHTML = [
         '<np-empty-state variant="card" heading="Nothing on the board yet">',
-        '<p>Start with a post-it. Double-click anywhere (or press <kbd>n</kbd>) to add one &mdash; each post-it is a task in your plan. Drag a note\'s noodle handle onto another to make it a subtask, and the structure appears in the panel on the left.</p>',
-        '<button type="button" class="wb-empty-state-btn wb-empty-state-btn-primary" slot="actions" id="wbEmptyStateNewBtn">New post-it</button>',
+        '<p>Start with a note. Double-click anywhere (or press <kbd>n</kbd>) to add one &mdash; each note is a task in your plan. Drag a note\'s noodle handle onto another to make it a subtask, and the structure appears in the panel on the left.</p>',
+        '<button type="button" class="wb-empty-state-btn wb-empty-state-btn-primary" slot="actions" id="wbEmptyStateNewBtn">New note</button>',
         '<button type="button" class="wb-empty-state-btn" slot="actions" id="wbEmptyStateAddBtn">Add an existing task</button>',
         '<button type="button" class="wb-empty-state-btn" slot="actions" id="wbEmptyStateAddAllBtn">Add all summary tasks</button>',
         '</np-empty-state>',

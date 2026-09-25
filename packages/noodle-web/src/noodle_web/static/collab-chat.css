@@ -1,0 +1,129 @@
+/* Planning-session chat messages (#1347) -- rendered by collab-chat.js for
+   both the host's chat panel and the joiner page, so both read alike.
+
+   A message is a profile chip beside a bubble, with the sender's name and
+   the time on one small line above the bubble. The reader's own messages
+   sit on the right in the accent colour; session activity is a quiet
+   centred line, not a bubble. */
+
+.np-chat-empty {
+    margin: var(--np-space-32) var(--np-space-12);
+    color: var(--np-muted);
+    font-size: var(--np-text-90);
+    text-align: center;
+}
+
+.np-chat-message {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--np-space-8);
+    margin: 0 0 var(--np-space-12);
+    max-width: 100%;
+}
+
+.np-chat-message.is-own {
+    flex-direction: row-reverse;
+}
+
+.np-chat-avatar {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--np-space-32);
+    height: var(--np-space-32);
+    border-radius: var(--np-radius-circle);
+    background: var(--np-avatar-bg);
+    color: var(--np-avatar-ink);
+    font-family: var(--np-font-ui);
+    font-size: var(--np-text-75);
+    font-weight: var(--np-weight-semibold);
+    letter-spacing: 0.02em;
+}
+
+.np-chat-message.is-own .np-chat-avatar {
+    background: var(--np-accent);
+    color: var(--np-on-accent);
+}
+
+.np-chat-body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    max-width: 78%;
+}
+
+.np-chat-message.is-own .np-chat-body {
+    align-items: flex-end;
+}
+
+.np-chat-meta {
+    display: flex;
+    align-items: baseline;
+    gap: var(--np-space-8);
+    margin: 0 var(--np-space-4) var(--np-space-2);
+    color: var(--np-muted);
+    font-size: var(--np-text-75);
+    line-height: var(--np-leading-tight);
+}
+
+.np-chat-name {
+    color: var(--np-body);
+    font-weight: var(--np-weight-semibold);
+}
+
+.np-chat-time {
+    font-family: var(--np-font-data);
+}
+
+.np-chat-bubble {
+    padding: var(--np-space-8) var(--np-space-12);
+    border-radius: var(--np-radius-xl) var(--np-radius-xl) var(--np-radius-xl) var(--np-radius-xs);
+    background: var(--np-surface-alt);
+    color: var(--np-ink);
+    font-size: var(--np-text-90);
+    line-height: var(--np-leading-snug);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    box-shadow: var(--np-elevation-1);
+}
+
+.np-chat-message.is-own .np-chat-bubble {
+    border-radius: var(--np-radius-xl) var(--np-radius-xl) var(--np-radius-xs) var(--np-radius-xl);
+    background: var(--np-accent);
+    color: var(--np-on-accent);
+}
+
+.np-chat-promote {
+    margin-top: var(--np-space-2);
+    padding: 0 var(--np-space-4);
+    border: 0;
+    border-radius: var(--np-radius-sm);
+    background: transparent;
+    color: var(--np-muted);
+    font-size: var(--np-text-75);
+    cursor: pointer;
+}
+
+.np-chat-promote:hover {
+    background: var(--np-bg-hover);
+    color: var(--np-body);
+}
+
+.np-chat-activity {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--np-space-4);
+    margin: 0 0 var(--np-space-12);
+    color: var(--np-muted);
+    font-size: var(--np-text-75);
+    font-style: italic;
+    text-align: center;
+}
+
+.np-chat-activity time {
+    font-family: var(--np-font-data);
+    font-style: normal;
+}

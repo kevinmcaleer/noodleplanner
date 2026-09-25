@@ -347,7 +347,7 @@ Whiteboard rows
 ~~~~~~~~~~~~~~~~
 
 - ``Task`` names a task by name. Any task can have a row: the board
-  started out showing summary tasks only, but a post-it now creates its
+  started out showing summary tasks only, but a note now creates its
   own task, and a new one starts life as a leaf.
 - Whether a note renders as a plain **free-form note** (just its title
   and, if set, its ``comment`` -- see the table above) or as a
@@ -436,13 +436,13 @@ log uses for the ``---baseline---`` section:
 Group boundaries
 ~~~~~~~~~~~~~~~~
 
-A **group** (issue #874) is a titled boundary drawn around several post-its
+A **group** (issue #874) is a titled boundary drawn around several notes
 on the board. It is a row in this same table with ``Kind`` set to the
 literal string ``group`` and ``Task`` naming the summary task the group
 *is* -- because a group is not a separate concept in the plan: grouping
 notes indents their tasks under a new summary task, and this row only says
 "draw that task as a boundary around its children rather than as a
-post-it".
+note".
 
 Nothing else about a group is stored.
 
@@ -459,7 +459,7 @@ Nothing else about a group is stored.
 ``Collapsed`` is left blank -- a boundary has no checklist to collapse.
 
 A group row is only written for a grouping the user actually made. A
-summary task that simply has no post-it of its own is *not* drawn as a
+summary task that simply has no note of its own is *not* drawn as a
 boundary: those are different facts, and inferring one from the other would
 have the board invent an intent nobody expressed.
 
@@ -468,20 +468,20 @@ Free-floating text objects
 
 A **text object** (issue #1018) is bare text at a position -- a heading, a
 margin question, a section label -- with no card, no border, no
-background, and, unlike every post-it row above, no backing task at all.
+background, and, unlike every note row above, no backing task at all.
 It shares this same table rather than a section of its own (every existing
 whiteboard edit rewrites the whole table from its in-memory rows, so a
-second section would be silently lost the next time an unrelated post-it
-was dragged), discriminated by three more columns that a post-it row
+second section would be silently lost the next time an unrelated note
+was dragged), discriminated by three more columns that a note row
 leaves blank:
 
 - ``Kind`` is the literal string ``text``; blank (the default) means an
-  ordinary post-it row, exactly as before this issue, and ``group`` means a
+  ordinary note row, exactly as before this issue, and ``group`` means a
   group boundary (above).
 - ``Id`` is an opaque, app-generated identifier standing in for ``Task``'s
   role as the row's unique key -- a text object has no task name to key
   off. A ``Kind=text`` row with no ``Id`` is dropped, the same as a
-  post-it row with no ``Task``.
+  note row with no ``Task``.
 - ``Text`` is the object's own content. Embedded pipes and newlines are
   escaped (``\|``, ``\n``) so multi-line text survives the single-line
   table-cell format; every other column here flattens a newline to a
@@ -489,16 +489,16 @@ leaves blank:
 
 A text object row leaves ``Task``, ``Colour``, ``Width``, ``Height`` and
 ``Collapsed`` blank -- none of them apply to bare text (no size/collapse
-state, no task-derived title, no post-it colour). The ``Kind``/``Id``/
+state, no task-derived title, no note colour). The ``Kind``/``Id``/
 ``Text`` columns themselves are only written into the table at all once a
-plan has at least one text object; a plan with post-it rows only still
+plan has at least one text object; a plan with note rows only still
 round-trips through an edit as the same seven-column table it always has.
 
 Created via the toolbar's **Add title** button (renamed from **New text**
 by issue #1107), the ``t`` key, or double-
-clicking is reserved for a new post-it (``n``) -- a text object goes
+clicking is reserved for a new note (``n``) -- a text object goes
 straight into inline edit so typing its content is part of the same
-gesture, the same handoff a new post-it's title gets. Dragging repositions
+gesture, the same handoff a new note's title gets. Dragging repositions
 it; there is no resize, since bare text has no fixed box to fit -- it
 grows and shrinks with its own content. Deleting one (its own small ``×``
 button) removes only its row: there is no task, and so nothing else in the
@@ -507,7 +507,7 @@ plan to touch.
 Noodles are not stored
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-A **noodle** -- the curved line drawn between two post-its -- has no
+A **noodle** -- the curved line drawn between two notes -- has no
 column, no table and no field of its own anywhere in the file. A noodle
 from note A to note B *is* the statement "B is indented under A in the
 outline", so the noodles the board draws are derived from the task
@@ -538,7 +538,7 @@ correctly as a plain indented list in a text editor.
 Adding and removing notes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A post-it can be created from nothing: **New post-it** (toolbar), a
+A note can be created from nothing: **New note** (toolbar), a
 double-click on empty canvas, or the ``n`` key writes a brand-new
 top-level task line into the outline *and* a row here, in one edit. The
 task is named ``New idea`` (then ``New idea 2``, and so on) until you
@@ -583,7 +583,7 @@ resolved in this order, highest priority first:
    other two, and renaming the summary task carries the colour with it
    (the rename migrates the ``Theme`` key alongside the phase/task name).
 3. Otherwise, a colour derived from the task's position in the outline,
-   drawn from a fixed pastel "post-it" palette (soft yellows, pinks,
+   drawn from a fixed pastel "note" palette (soft yellows, pinks,
    greens, blues and reds) dedicated to whiteboard notes -- not the mind
    map's own branch palette, and not the Kanban board's rule-based
    conditional formatting swatches. Every note always has a colour by

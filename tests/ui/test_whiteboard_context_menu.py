@@ -123,7 +123,7 @@ class TestCanvasMenu:
         page.mouse.click(*_empty_canvas_point(page), button="right")
         page.wait_for_selector(MENU, state="visible")
         labels = _menu_labels(page)
-        assert "New post-it here" in labels
+        assert "New note here" in labels
         assert "Fit to content" in labels
         assert "Rename" not in labels, "not a note's menu"
 
@@ -133,7 +133,7 @@ class TestCanvasMenu:
         want = page.evaluate("([x, y]) => wbClientToBoard(x, y)", [x, y])
         page.mouse.click(x, y, button="right")
         page.wait_for_selector(MENU, state="visible")
-        page.locator(MENU).get_by_role("menuitem", name="New post-it here").click()
+        page.locator(MENU).get_by_role("menuitem", name="New note here").click()
         page.wait_for_selector(MENU, state="detached")
         page.wait_for_function(
             "() => document.querySelectorAll('foreignObject.wb-note').length === 2")

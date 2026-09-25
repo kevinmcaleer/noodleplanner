@@ -239,7 +239,7 @@ hand-maintained list is the only place the two consumers can drift, and
 — framework-free custom elements (`<np-button>`, `<np-card>`, `<np-board>`,
 `<np-note>`) consolidating duplicated markup (the four independently-styled
 button variants, the Kanban board's card/column chrome, the whiteboard's
-post-it note) onto the canonical `--np-*` tokens, each with a colocated
+note) onto the canonical `--np-*` tokens, each with a colocated
 `*.stories.js`. None are wired into the live app yet — see
 `static/components/README.md` for how to run them and add the next one.
 

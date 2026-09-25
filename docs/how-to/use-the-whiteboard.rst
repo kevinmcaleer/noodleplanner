@@ -1,7 +1,7 @@
 How to Use the Whiteboard
 ===========================
 
-The Whiteboard is a free-form canvas of post-it notes. You can write a plan on it from nothing: each post-it is a task, and linking two together with a **noodle** makes one a subtask of the other. The structure you build appears as a collapsible outline floating on the left, which is also how you find a note again once the board gets busy.
+The Whiteboard is a free-form canvas of notes. You can write a plan on it from nothing: each note is a task, and linking two together with a **noodle** makes one a subtask of the other. The structure you build appears as a collapsible outline floating on the left, which is also how you find a note again once the board gets busy.
 
 It works the other way round too — a task that already exists in your plan can be pulled onto the board — so you can start loose and formalise later, or start from an existing plan and rearrange it visually.
 
@@ -11,31 +11,31 @@ Open the Whiteboard
 Click **Views ▾** in the project sub-navigation bar, then choose **Whiteboard**.
 
 .. figure:: /_static/img/how-to/wb-01-whiteboard-notes.png
-   :alt: Post-it notes on the whiteboard, linked by curved noodles, with the plan structure panel floating on the left
+   :alt: Notes on the whiteboard, linked by curved noodles, with the plan structure panel floating on the left
    :width: 100%
 
-   A board mid-session: post-its, the noodles linking them, and the plan structure panel.
+   A board mid-session: notes, the noodles linking them, and the plan structure panel.
 
-Add a Post-it
----------------
+Add a Note
+----------
 
 Any of these creates a new task in your plan and puts a note for it on the board:
 
 - **Double-click** an empty part of the canvas — the note lands where you clicked.
-- **Right-click** an empty part of the canvas and choose **New post-it here** — it lands where you clicked too.
+- **Right-click** an empty part of the canvas and choose **New note here** — it lands where you clicked too.
 - Press ``n``.
-- Click **New post-it** in the toolbar.
+- Click **New note** in the toolbar.
 
 The note appears with its title already selected, so just type the name and press ``Enter``. Until you name it, it is called ``New idea``.
 
 .. note::
 
-   A post-it is a real task, straight away. It starts at the top level of your plan and shows up everywhere else — the Tasks table, the Gantt chart, the outline — immediately. Nothing needs to be "promoted" later.
+   A note is a real task, straight away. It starts at the top level of your plan and shows up everywhere else — the Tasks table, the Gantt chart, the outline — immediately. Nothing needs to be "promoted" later.
 
 Free-form Notes
 ------------------
 
-A brand-new post-it starts as a **free-form note**: just a title, with no checklist, dates or subtasks forced onto it. That is the whole point — the fastest way to get a thought onto the board is to type it and stop.
+A brand-new note starts as a **free-form note**: just a title, with no checklist, dates or subtasks forced onto it. That is the whole point — the fastest way to get a thought onto the board is to type it and stop.
 
 If you also want a line or two of detail, open **Open task details** on the note's **More** menu and fill in **Comment**. It shows up in the note's body.
 
@@ -54,9 +54,9 @@ Not everything on a whiteboard is work yet. A **text note** is a note that is *n
 2. Type its title and press ``Enter``. Until you name it, it is called ``New thought``.
 3. Double-click its body to write the thought itself; ``Enter`` saves it.
 
-A text note is always a very light grey with a dashed edge, so you can tell it from the coloured, solid post-its that are real tasks — it has no colour of its own to pick. It has no checklist, no facilitator prompts and no noodle handle — those are all about tasks. You can still move it, resize it and rename it like any other note.
+A text note is always a very light grey with a dashed edge, so you can tell it from the coloured, solid notes that are real tasks — it has no colour of its own to pick. It has no checklist, no facilitator prompts and no noodle handle — those are all about tasks. You can still move it, resize it and rename it like any other note.
 
-When a thought turns into work, choose **Promote to task** on its **More** menu. The same note, in the same place, becomes an ordinary post-it backed by a real task, with the thought's text as the task's comment. **Delete note** on the same menu removes it.
+When a thought turns into work, choose **Promote to task** on its **More** menu. The same note, in the same place, becomes an ordinary note backed by a real task, with the thought's text as the task's comment. **Delete note** on the same menu removes it.
 
 It works the other way too: **Turn into text note** on a task's **More** menu takes that task out of the schedule and keeps the note, in the same place, as a text note with the task's comment as its text. Everything else on the task's line is kept, so promoting it again gives you back exactly the task you had. It is only offered for a task with no subtasks (they would have nowhere to go), and it is refused, with a message, for a task other tasks depend on — remove those dependencies first.
 
@@ -93,7 +93,7 @@ task untyped.
 The same panel asks a short, fixed set of useful questions: whether the
 item needs approval, what it produces, and what must be true before it can
 start. Choosing one asks you to name the answer, creates it as a new
-post-it beside the current note, and adds a real predecessor or successor
+note beside the current note, and adds a real predecessor or successor
 dependency to the plan. **Who owns it?** opens the existing task-details
 resource field rather than inventing a second assignment interface.
 
@@ -252,7 +252,7 @@ A task that is part-way done (say ``Prototype 40%``) shows its progress as a pie
 
 If a note is too short to show all its tasks, the footer says how many are out of sight — ``+3 more ▾``. Click it to scroll to them (and, once you have seen everything below, back to the top), or resize the note. With the note selected, scrolling over its list scrolls the list rather than the board.
 
-A subtask that has a post-it of its own is **not** listed in the checklist; it is the noodle leaving that note instead. That way one relationship is only ever shown once — the noodle is on screen next to both notes, which is a better account of where the subtask went than a line of text on one of them. A note whose subtasks have *all* left says so in place of its checklist, since otherwise nothing on the card would mention them.
+A subtask that has a note of its own is **not** listed in the checklist; it is the noodle leaving that note instead. That way one relationship is only ever shown once — the noodle is on screen next to both notes, which is a better account of where the subtask went than a line of text on one of them. A note whose subtasks have *all* left says so in place of its checklist, since otherwise nothing on the card would mention them.
 
 Drill Into a Subtask
 ----------------------
@@ -298,7 +298,7 @@ Adding the same task back later gives it a fresh position on the board — it do
 Send an Idea to the Parking Lot
 ----------------------------------
 
-Not every post-it is ready to become a task yet. For a "good idea, not now" — something worth keeping but not worth cluttering the board or the plan with — open the note's **More** menu and choose **Send to parking lot**, or drag the note's header straight onto the open parking lot panel (see below) and drop it there.
+Not every note is ready to become a task yet. For a "good idea, not now" — something worth keeping but not worth cluttering the board or the plan with — open the note's **More** menu and choose **Send to parking lot**, or drag the note's header straight onto the open parking lot panel (see below) and drop it there.
 
 Unlike **Remove from board**, this genuinely takes the idea out of the working plan: the task (and any subtasks it has) is deleted from the outline, and the whiteboard row goes with it, but the note's own text and appearance — its title, its comment if it had one, its colour, and (for a checklist note) every item and its completion state — is kept as a new entry in the parking lot rather than thrown away. There is no confirmation prompt and it is one ordinary undo step, the same as every other board action.
 
@@ -314,13 +314,13 @@ Keyboard and Pointer Reference
    * - Gesture
      - Does
    * - Double-click empty canvas, or ``n``
-     - New post-it (and a new task)
+     - New note (and a new task)
    * - Double-click a note's header
      - Rename the task in place
    * - Right-click a note
      - The note's **More** menu, at the pointer
    * - Right-click empty canvas
-     - New post-it or title here, add an existing task, fit, zoom, and the side panels
+     - New note or title here, add an existing task, fit, zoom, and the side panels
    * - Drag the noodle handle onto another note
      - Make that note a subtask
    * - Click a noodle, then ``Delete``

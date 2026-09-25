@@ -78,6 +78,10 @@ def test_every_referenced_class_is_defined_in_a_linked_stylesheet():
     stranded -= BOOTSTRAP_UTILITIES
     # templates.html carries its own <style> block rather than linking one.
     stranded -= _classes_in((TEMPLATE_DIR / "templates.html").read_text())
+    # The planning-session join page (#1347) is a page of its own, and styles
+    # its own classes with the stylesheets it links.
+    for href in re.findall(r'href="/static/([^"?]+\.css)', (TEMPLATE_DIR / "collab_join.html").read_text()):
+        stranded -= _classes_in((STATIC_DIR / href).read_text())
     if not stranded:
         pytest.skip("no unlinked stylesheet defines anything the linked ones do not")
 

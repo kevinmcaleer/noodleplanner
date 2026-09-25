@@ -128,7 +128,7 @@ A radial diagram showing the project hierarchy (phases and tasks as nodes). Supp
 Whiteboard
 ~~~~~~~~~~~
 
-An infinite, free-form canvas holding post-it notes for a curated subset of your summary tasks — one todo list per note, with its own checkboxes, colour, position and size. Drag empty space to pan, scroll or pinch to zoom (25%-400%, anchored on the pointer), and use the toolbar's Fit and 100% buttons to reset the view. Fully keyboard-operable: arrow keys pan, ``+``/``-`` zoom, ``0`` resets to 100%, ``f`` fits. A note's layout (position, size, colour) is plan data, saved in the ``---whiteboard---`` back matter; pan and zoom are view state only, remembered per project in the browser and never written to the plan. See :doc:`../how-to/use-the-whiteboard` and :doc:`../explanation/whiteboard-layout-vs-viewport`.
+An infinite, free-form canvas holding notes for a curated subset of your summary tasks — one todo list per note, with its own checkboxes, colour, position and size. Drag empty space to pan, scroll or pinch to zoom (25%-400%, anchored on the pointer), and use the toolbar's Fit and 100% buttons to reset the view. Fully keyboard-operable: arrow keys pan, ``+``/``-`` zoom, ``0`` resets to 100%, ``f`` fits. A note's layout (position, size, colour) is plan data, saved in the ``---whiteboard---`` back matter; pan and zoom are view state only, remembered per project in the browser and never written to the plan. See :doc:`../how-to/use-the-whiteboard` and :doc:`../explanation/whiteboard-layout-vs-viewport`.
 
 Stakeholders
 ~~~~~~~~~~~~~
