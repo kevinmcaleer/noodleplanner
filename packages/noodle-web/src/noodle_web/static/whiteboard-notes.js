@@ -5752,7 +5752,10 @@ function wbRemoveNoteFromBoard(taskName) {
     if (next.length === items.length) return false; // no matching row -- nothing to do
 
     const nextText = updatePlanWhiteboardText(planText, next);
-    return wbCommitMarkdown(nextText);
+    const commit = () => wbCommitMarkdown(nextText);
+    // The note drains back into its row with the pin's genie played in
+    // reverse (whiteboard-genie.js); the commit itself is the same either way.
+    return (typeof wbGenieUnpin === 'function') ? wbGenieUnpin(taskName, commit) : commit();
 }
 
 /**

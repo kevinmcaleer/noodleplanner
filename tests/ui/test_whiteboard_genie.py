@@ -113,3 +113,106 @@ class TestGeniePin:
         # External resources are blocked in this suite; anything else is ours.
         errors = [e for e in board.console_errors if "Failed to load resource" not in e]
         assert errors == []
+
+
+# ── Unpin: the genie in reverse ──────────────────────────────────────────
+
+PINNED_PLAN = PLAN.replace(
+    "| Build     | 480 | 80 |        | 280   | 260    | no        |\n",
+    "| Build     | 480 | 80 |        | 280   | 260    | no        |\n"
+    "| Nested    | 880 | 80 |        | 280   | 240    | no        |\n",
+)
+
+# Records each reverse run as it starts -- the overlay carrying a funnel --
+# and whether the row it drains into was held hidden at that moment, and
+# every stand-in (an overlay with no funnel: the note's copy across the
+# commit, or the fade-out where there is no row to go back to).
+WATCH_UNPIN = """task => {
+    window.__unpinSeen = { runs: [], standIns: 0 };
+    new MutationObserver(records => {
+        for (const record of records) {
+            for (const node of record.addedNodes) {
+                if (!node.classList || !node.classList.contains('wb-genie-ghost')) continue;
+                const funnel = node.querySelector('.wb-genie-funnel');
+                if (!funnel) { window.__unpinSeen.standIns++; continue; }
+                const row = document.querySelector(
+                    `#whiteboardContainer .wb-note .wb-note-row[data-wb-row-task="${task}"]`);
+                window.__unpinSeen.runs.push({
+                    rowHeld: !!row && row.classList.contains('wb-genie-row-held'),
+                    reverse: funnel.getAnimations()
+                        .some(a => a.effect.getTiming().direction === 'reverse'),
+                });
+            }
+        }
+    }).observe(document.body, { childList: true, subtree: true });
+}"""
+
+
+def unpin_from_toolbar(page, task):
+    page.evaluate(WATCH_UNPIN, task)
+    page.evaluate("task => wbSetSelectedNote(task)", task)
+    unpin = page.locator(".wb-object-toolbar .wb-object-toolbar-unpin")
+    unpin.wait_for(state="attached")
+    unpin.dispatch_event("click")
+
+
+def wait_until_drained(page):
+    page.wait_for_function(
+        "() => !document.querySelector('.wb-genie-ghost')"
+        "  && !document.querySelector('.wb-genie-row-held')",
+        timeout=5_000,
+    )
+
+
+@pytest.fixture
+def pinned_board(page, app_server):
+    open_app(page, app_server)
+    load_plan(page, PINNED_PLAN)
+    switch_to_whiteboard(page, expected_notes=3)
+    return page
+
+
+class TestGenieUnpin:
+    def test_unpin_drains_the_note_back_into_its_row(self, pinned_board):
+        board = pinned_board
+        unpin_from_toolbar(board, "Nested")
+        board.wait_for_function(
+            "() => window.__unpinSeen.runs.length > 0", timeout=2_000
+        )
+
+        seen = board.evaluate("() => window.__unpinSeen")
+        assert len(seen["runs"]) == 1, seen
+        assert seen["runs"][0]["reverse"], "the genie did not play in reverse"
+        assert seen["runs"][0]["rowHeld"], "the row showed before the note drained into it"
+        assert seen["standIns"] == 1, "the note blinked out across the commit"
+
+        wait_until_drained(board)
+        assert whiteboard_tasks(board) == ["Discovery", "Build"]
+        assert note(board, "Nested").count() == 0
+        row = board.locator(
+            '#whiteboardContainer .wb-note[data-wb-task="Build"] '
+            '.wb-note-row[data-wb-row-task="Nested"]'
+        )
+        assert row.evaluate("r => getComputedStyle(r).visibility") == "visible"
+
+    def test_a_note_with_no_row_to_return_to_fades_out(self, pinned_board):
+        board = pinned_board
+        board.evaluate("() => wbToggleOutlinePanel(false)")
+        unpin_from_toolbar(board, "Discovery")
+        wait_until_drained(board)
+
+        seen = board.evaluate("() => window.__unpinSeen")
+        assert seen["runs"] == [], seen
+        assert whiteboard_tasks(board) == ["Build", "Nested"]
+
+    def test_reduced_motion_unpins_with_no_genie(self, pinned_board):
+        board = pinned_board
+        board.emulate_media(reduced_motion="reduce")
+        unpin_from_toolbar(board, "Nested")
+        board.wait_for_function(
+            "() => !document.querySelector("
+            "  '#whiteboardContainer .wb-note[data-wb-task=\"Nested\"]')"
+        )
+
+        assert board.evaluate("() => window.__unpinSeen") == {"runs": [], "standIns": 0}
+        assert whiteboard_tasks(board) == ["Discovery", "Build"]

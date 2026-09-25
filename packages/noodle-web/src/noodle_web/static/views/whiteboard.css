@@ -212,6 +212,17 @@
     position: absolute;
 }
 
+/* Unpinning plays the genie in reverse: a copy of the note stands in for it
+   across the commit, and the row it drains back into stays hidden until the
+   funnel lands in it. */
+.wb-genie-standin {
+    position: relative;
+}
+
+.wb-genie-row-held {
+    visibility: hidden;
+}
+
 /* The park itself, once released over the panel (wbParkDraggedNote()):
    shrinks and fades the note into nothing before its task -- and this DOM
    node with it -- is actually deleted, so it visually "goes into" the
