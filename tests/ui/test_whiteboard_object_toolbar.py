@@ -1,7 +1,9 @@
 """The object toolbar: quick actions floating above one selected note or group.
 
 Obsidian's canvas puts a small toolbar over whatever you select -- colour,
-zoom to, edit, delete -- and this board now does the same. It replaced the
+zoom to, edit, delete -- and this board now does the same, with an Unpin
+beside Delete: Unpin takes the note off the board, Delete takes the task
+out of the plan. It replaced the
 `...` button every note used to carry in its header; the note's More button
 on the toolbar opens that same menu, so nothing it offered went away.
 
@@ -77,7 +79,7 @@ class TestNotes:
         board(page, app_server)
         click_header(page, "Beta")
         page.wait_for_selector(BAR, state="visible")
-        assert actions(page) == ["colour", "zoom", "edit", "remove", "more"]
+        assert actions(page) == ["colour", "zoom", "edit", "unpin", "remove", "more"]
 
         bar = page.locator(BAR).bounding_box()
         card = note(page, "Beta").locator(".wb-note-card").bounding_box()
@@ -133,16 +135,39 @@ class TestNotes:
         page.click(f"{BAR} .wb-object-toolbar-edit")
         page.wait_for_selector(".wb-note[data-wb-task='Beta'] .wb-note-title.editing")
 
-    def test_remove_takes_the_note_off_the_board_but_keeps_the_task(self, page, app_server):
+    def test_unpin_takes_the_note_off_the_board_but_keeps_the_task(self, page, app_server):
         board(page, app_server)
         page.evaluate("() => wbSetSelectedNote('Beta')")
-        page.click(f"{BAR} .wb-object-toolbar-remove")
+        page.click(f"{BAR} .wb-object-toolbar-unpin")
         page.wait_for_function("() => !wbNoteNodes.has('Beta')")
         text = plan_text(page)
         board_rows = text.split("---whiteboard---")[1]
         assert "Beta" not in board_rows
         assert "Beta one" in text.split("---whiteboard---")[0], "the task stays in the plan"
         page.wait_for_selector(BAR, state="hidden")
+
+    def test_delete_removes_the_task_from_the_plan(self, page, app_server):
+        board(page, app_server)
+        page.evaluate("() => wbSetSelectedNote('Beta')")
+        page.once("dialog", lambda d: d.accept())
+        page.click(f"{BAR} .wb-object-toolbar-remove")
+        page.wait_for_function("() => !wbNoteNodes.has('Beta')")
+        text = plan_text(page)
+        outline, board_rows = text.split("---whiteboard---")
+        assert "Beta" not in board_rows
+        assert "Beta" not in outline, "the task and its subtasks leave the plan"
+        assert "Alpha one" in outline and "Gamma one" in outline
+        page.wait_for_selector(BAR, state="hidden")
+
+    def test_cancelling_delete_leaves_everything(self, page, app_server):
+        board(page, app_server)
+        page.evaluate("() => wbSetSelectedNote('Beta')")
+        before = plan_text(page)
+        page.once("dialog", lambda d: d.dismiss())
+        page.click(f"{BAR} .wb-object-toolbar-remove")
+        page.wait_for_timeout(200)
+        assert plan_text(page) == before
+        assert page.evaluate("() => wbNoteNodes.has('Beta')")
 
     def test_zoom_to_frames_the_note(self, page, app_server):
         board(page, app_server)

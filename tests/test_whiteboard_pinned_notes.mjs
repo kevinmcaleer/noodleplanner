@@ -8,12 +8,9 @@
  * Playwright suite is where a rendered note belongs):
  *
  *  - components/note/note-markup.js really exports the two glyphs, and the
- *    note header really carries a `.wb-note-pin-btn` -- built to the LEFT of
- *    the title, which is what lets the title slide over for it without the
- *    header's load-bearing right-hand cluster moving at all.
- *  - views/whiteboard.css hides that button at rest and reveals it on the
- *    card's hover/focus by animating its *width*, which is what makes the
- *    reveal a slide rather than a jump, plus the reduced-motion opt-out.
+ *    note header no longer carries a pin of its own: unpinning a note is the
+ *    object toolbar's Unpin button, which calls the one shared removal path,
+ *    while the toolbar's Delete button deletes the task from the plan.
  *  - wbAddNotesViewport(): the pure placement rule behind "pin it at that
  *    position" -- a peek's pin anchors the free-space scan at the popover,
  *    an ordinary add still starts at the viewport.
@@ -33,6 +30,7 @@ const repo = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 const staticDir = join(repo, 'packages', 'noodle-web', 'src', 'noodle_web', 'static');
 const notesSrc = readFileSync(join(staticDir, 'whiteboard-notes.js'), 'utf8');
 const markupSrc = readFileSync(join(staticDir, 'components', 'note', 'note-markup.js'), 'utf8');
+const toolbarSrc = readFileSync(join(staticDir, 'whiteboard-object-toolbar.js'), 'utf8');
 const peekSrc = readFileSync(join(staticDir, 'task-peek.js'), 'utf8');
 const wbCss = readFileSync(join(staticDir, 'views', 'whiteboard.css'), 'utf8');
 const peekCss = readFileSync(join(staticDir, 'task-peek.css'), 'utf8');
@@ -70,48 +68,29 @@ test('note-markup exports a pin and an unpin glyph, and hands both to the app', 
     assert.match(markupSrc, /globalThis\.NoodleNoteMarkup = \{[\s\S]*?pinGlyph, unpinGlyph,/);
 });
 
-test('the note header builds the pin to the LEFT of the title', () => {
-    assert.match(markupSrc, /el\('button', 'wb-note-pin-btn'/);
+test('the note header carries no pin: unpin lives on the object toolbar', () => {
+    assert.doesNotMatch(markupSrc, /wb-note-pin-btn/);
+    assert.doesNotMatch(notesSrc, /pinBtn/);
+    assert.doesNotMatch(wbCss, /\.wb-note-pin-btn/);
     const order = markupSrc.match(/header\.append\(([^)]*)\)/);
     assert.ok(order, 'could not find the header append');
     const children = order[1].split(',').map(s => s.trim());
-    assert.equal(children[0], 'pinBtn', 'the pin is the header\'s first child');
-    assert.equal(children[1], 'title');
+    assert.equal(children[0], 'title');
     assert.equal(children[children.length - 1], 'linkHandle',
         'the link handle stays last -- see the header-geometry comment it protects');
 });
 
-test('the note pin unpins through the one shared removal path, and never starts a drag', () => {
-    const wiring = notesSrc.match(/pinBtn\.addEventListener\('click'[\s\S]*?\}\);/);
-    assert.ok(wiring, 'the pin button is not wired');
-    assert.match(wiring[0], /wbRemoveNoteFromBoard\(taskName\)/,
-        'the pin must reuse wbRemoveNoteFromBoard(), not reimplement removal');
-
-    // Both press paths guard it, or a press on the pin drags or renames.
-    const mouse = notesSrc.slice(notesSrc.indexOf('function wbNoteHeaderMouseDown('));
-    const touch = notesSrc.slice(notesSrc.indexOf('function wbNoteHeaderTouchStart('));
-    for (const [name, src] of [['mouse', mouse], ['touch', touch]]) {
-        assert.match(src.slice(0, 1600), /closest\('\.wb-note-pin-btn'\)\) return;/,
-            `the ${name} path does not skip the pin button`);
-    }
-});
-
-test('whiteboard.css hides the note pin at rest and slides it open on hover/focus', () => {
-    const rule = wbCss.match(/\.wb-note-pin-btn \{[\s\S]*?\}/);
-    assert.ok(rule, 'no .wb-note-pin-btn rule');
-    assert.match(rule[0], /width:\s*0;/, 'the pin must take no width at rest');
-    assert.match(rule[0], /opacity:\s*0;/);
-    assert.match(rule[0], /transition:[^;]*width/,
-        'width is what is animated -- a display swap cannot slide');
-
-    const reveal = wbCss.match(/\.wb-note-card:hover \.wb-note-pin-btn,[\s\S]*?\}/);
-    assert.ok(reveal, 'the pin never becomes visible');
-    assert.match(reveal[0], /\.wb-note-card:focus-within \.wb-note-pin-btn/,
-        'keyboard users must get the pin too');
-    assert.match(reveal[0], /width:\s*18px;/);
-
-    assert.match(wbCss, /@media \(prefers-reduced-motion: reduce\) \{\s*\.wb-note-pin-btn \{\s*transition: none;/,
-        'no reduced-motion opt-out for the slide');
+test('the toolbar unpins through the shared removal path and deletes through wbDeleteNoteTask()', () => {
+    const buttons = toolbarSrc.slice(toolbarSrc.indexOf('function wbNoteToolbarButtons('));
+    const body = buttons.slice(0, buttons.indexOf('\n}\n'));
+    const unpin = body.match(/wbObjectToolbarBtn\('unpin'[\s\S]*?\)\),/);
+    assert.ok(unpin, 'the toolbar has no unpin button');
+    assert.match(unpin[0], /wbRemoveNoteFromBoard\(taskName\)/,
+        'unpin must reuse wbRemoveNoteFromBoard(), not reimplement removal');
+    assert.match(body, /wbObjectToolbarBtn\('remove', 'Delete task[\s\S]*?wbDeleteNoteTask\(taskName\)/,
+        'the toolbar delete must delete the task from the plan');
+    assert.ok(body.indexOf("'unpin'") < body.indexOf("'remove', 'Delete task"),
+        'unpin sits before delete');
 });
 
 // ── The peek's pin ──────────────────────────────────────────────────────

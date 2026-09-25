@@ -2,18 +2,18 @@
 
 A note is on the whiteboard because the plan's `---whiteboard---` table has a
 row for its task. #1291 gives that fact a name -- the note is *pinned* -- and
-one glyph for it everywhere it can be changed: on the note itself, on the
-outline panel's per-row toggle, and on the peek popover that opens from a
-child-count badge.
+one glyph for it everywhere it can be changed: on the object toolbar over a
+selected note, on the outline panel's per-row toggle, and on the peek popover
+that opens from a child-count badge.
 
 What is measured here is the behaviour those three surfaces have to share,
 because the unit tests in tests/test_whiteboard_pinned_notes.mjs can reach the
-source and the CSS but not a rendered, hovered, clicked note:
+source and the CSS but not a rendered, clicked note:
 
-  * the note's pin is invisible and takes no width at rest, appears on hover,
-    and the title slides over by exactly the width it gains;
-  * clicking it removes that note's row from the whiteboard table and nothing
-    else -- the task and its subtasks stay in the plan;
+  * the note header carries no pin of its own any more -- it moved to the
+    toolbar that floats above a selected note;
+  * the toolbar's Unpin removes that note's row from the whiteboard table and
+    nothing else -- the task and its subtasks stay in the plan;
   * the outline row's toggle is a pin on a task that is off the board and a
     struck-through pin on one that is on it;
   * the peek's own pin puts the child on the board near where the popover was,
@@ -22,8 +22,7 @@ source and the CSS but not a rendered, hovered, clicked note:
 Clicks go through `dispatch_event("click")` for the reason
 tests/ui/test_task_peek.py's docstring sets out: the board is a pan/zoom canvas
 and this plan's notes sit outside the visible pane, so a real mouse click has
-nothing to hit. The hover test is the exception -- it needs real pointer
-state -- so it pans the board to the note first and clicks nothing.
+nothing to hit.
 
 Usage:
     uv run pytest tests/ui/test_whiteboard_pinned_notes.py -q
@@ -108,70 +107,20 @@ def board(page, app_server):
 
 
 class TestNotePin:
-    def test_pin_is_collapsed_at_rest_and_slides_the_title_open_on_hover(
-        self, board
-    ):
-        # Real hover needs a real pointer, so put the note under one: centre
-        # the board on it rather than reaching for a note off-screen.
-        board.evaluate("() => whiteboardFocusNote('Build')")
-        board.wait_for_timeout(400)  # the focus pan is animated
-        card = note(board, "Build").locator(".wb-note-card")
-        card.scroll_into_view_if_needed()
+    def test_the_note_header_has_no_pin(self, board):
+        assert note(board, "Build").locator(".wb-note-pin-btn").count() == 0
 
-        def geometry():
-            return board.evaluate(
-                """() => {
-                    const card = document.querySelector(
-                        ".wb-note[data-wb-task='Build'] .wb-note-card");
-                    const pin = card.querySelector('.wb-note-pin-btn');
-                    const title = card.querySelector('.wb-note-title');
-                    return {
-                        pin_width: pin.getBoundingClientRect().width,
-                        pin_opacity: parseFloat(getComputedStyle(pin).opacity),
-                        pin_margin: parseFloat(getComputedStyle(pin).marginRight),
-                        zoom: wbZoom,
-                        title_left: title.getBoundingClientRect().left,
-                    };
-                }"""
-            )
-
-        at_rest = geometry()
-        assert at_rest["pin_width"] == pytest.approx(0, abs=0.5), (
-            "the pin must take no width until the note is hovered"
-        )
-        assert at_rest["pin_opacity"] == pytest.approx(0, abs=0.01)
-
-        card.hover()
-        board.wait_for_function(
-            """() => {
-                const pin = document.querySelector(
-                    ".wb-note[data-wb-task='Build'] .wb-note-pin-btn");
-                return pin && pin.getBoundingClientRect().width > 8
-                    && parseFloat(getComputedStyle(pin).opacity) > 0.5;
-            }"""
-        )
-
-        hovered = geometry()
-        assert hovered["title_left"] > at_rest["title_left"], (
-            "the title must slide right to make room for the pin"
-        )
-        # It slides by exactly what the pin costs the header and no more: the
-        # button's own width, plus the header gap its collapsed negative
-        # margin was cancelling. Nothing else on the header may move. Widths
-        # are client pixels on a zoomed canvas; the margin is layout pixels,
-        # so it is scaled to match before they are compared.
-        margin_gain = (hovered["pin_margin"] - at_rest["pin_margin"]) * at_rest["zoom"]
-        assert hovered["title_left"] - at_rest["title_left"] == pytest.approx(
-            hovered["pin_width"] + margin_gain, abs=1.5
-        )
-
-    def test_clicking_the_pin_unpins_that_note_and_leaves_the_plan_alone(
+    def test_the_toolbar_unpin_removes_that_note_and_leaves_the_plan_alone(
         self, board
     ):
         before = plan_text(board)
         assert whiteboard_tasks(board) == ["Discovery", "Build"]
 
-        note(board, "Build").locator(".wb-note-pin-btn").dispatch_event("click")
+        board.evaluate("() => wbSetSelectedNote('Build')")
+        unpin = board.locator(".wb-object-toolbar .wb-object-toolbar-unpin")
+        unpin.wait_for(state="attached")
+        assert "stays in your plan" in unpin.get_attribute("aria-label")
+        unpin.dispatch_event("click")
         board.wait_for_function(
             "() => document.querySelectorAll("
             "  '#whiteboardContainer .wb-note').length === 1"
@@ -183,11 +132,6 @@ class TestNotePin:
             assert line in before and line in after, (
                 f"unpinning must not touch the outline; lost {line!r}"
             )
-
-    def test_the_pin_names_the_note_it_would_unpin(self, board):
-        pin = note(board, "Build").locator(".wb-note-pin-btn")
-        assert pin.get_attribute("title") == 'Unpin "Build" from the board'
-        assert "stay in your plan" in pin.get_attribute("aria-label")
 
 
 # ── The outline panel's toggle ───────────────────────────────────────────

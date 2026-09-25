@@ -555,8 +555,8 @@ filters by name or path. Adding one or several at once writes one row per
 task, each placed in the first free space of the current view that does
 not overlap an existing note, all in a single edit to this section.
 
-**Remove from board**, on a note's ``...`` menu, deletes only that note's
-row from this table -- the summary task and every one of its children are
+**Unpin**, on a note's toolbar (or **Remove from board** on its **More**
+menu), deletes only that note's row from this table -- the summary task and every one of its children are
 left completely untouched in the outline above. There is no confirmation
 prompt; like every other whiteboard edit, it is a single, ordinary undo
 step. Re-adding a task that was previously removed gets a freshly

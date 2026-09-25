@@ -2,7 +2,7 @@
  * The object toolbar: quick actions floating above the one selected note or
  * group, the way Obsidian's canvas does it.
  *
- *   Note   — Colour, Zoom to, Edit title, Remove from board, More
+ *   Note   — Colour, Zoom to, Edit title, Unpin from board, Delete task, More
  *   Group  — Colour, Zoom to, Edit title, Remove group
  *
  * It replaced the `...` button every note used to carry in its header. The
@@ -39,6 +39,13 @@ const WB_OBJECT_TOOLBAR_ICONS = {
     colour: '<path d="M12 3a9 9 0 100 18c.9 0 1.5-.7 1.5-1.5 0-.4-.1-.7-.4-1-.2-.3-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H16a5 5 0 005-5c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="10.5" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/>',
     zoom: '<path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3"/><circle cx="12" cy="12" r="3"/>',
     edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>',
+    // The struck-through pin of unpinGlyph() (components/note/note-markup.js),
+    // drawn on that glyph's 16-unit grid and scaled up to this one's 24, with
+    // the stroke scaled down to match so it weighs the same as its neighbours.
+    unpin: '<g transform="scale(1.5)" stroke-width="1.35">'
+        + '<path d="M9.8 1.6 14.4 6.2"/>'
+        + '<path d="M10.6 2.4 9 4 6.2 4.6 3.3 7.5l5.2 5.2 2.9-2.9L12 7l1.6-1.6"/>'
+        + '<path d="M5.9 10.1 2.2 13.8"/><path d="M1.6 1.6 14.4 14.4"/></g>',
     remove: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>',
     more: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
 };
@@ -61,8 +68,8 @@ function wbObjectToolbarElement() {
     return bar;
 }
 
-/** The toolbar's button for `action` ('colour', 'zoom', 'edit', 'remove',
- * 'more'), or null when the toolbar is not showing one. */
+/** The toolbar's button for `action` ('colour', 'zoom', 'edit', 'unpin',
+ * 'remove', 'more'), or null when the toolbar is not showing one. */
 function wbObjectToolbarButton(action) {
     const bar = wbObjectToolbarElement();
     if (!bar || bar.hidden) return null;
@@ -170,14 +177,21 @@ function wbNoteToolbarButtons(taskName) {
             const entry = wbNoteNodes.get(taskName);
             if (entry && typeof wbBeginTitleEdit === 'function') wbBeginTitleEdit(entry);
         }),
-        // Taking a card off the canvas, as Obsidian's delete does: the task
-        // stays in the plan. A thought is only a note, so its note is all
-        // there is to delete. Deleting the task itself is under More, beside
-        // Remove from board, where the difference is spelt out.
+        // Unpin takes the card off the canvas and leaves the task in the plan
+        // -- the same wbRemoveNoteFromBoard() the outline panel's toggle and
+        // the More menu's "Remove from board" call. It used to be a pin that
+        // slid in left of the note's title on hover. A thought has no unpin:
+        // without its board row it is a line nobody can see.
+        thought ? null : wbObjectToolbarBtn('unpin', 'Unpin from board (the task stays in your plan)',
+            () => wbRemoveNoteFromBoard(taskName)),
+        // Delete removes the thing itself: the task and its subtasks go from
+        // the plan, confirmed first (wbDeleteNoteTask()), and the board row
+        // goes with them. A thought is only a note, so its note is all there
+        // is to delete.
         thought
             ? wbObjectToolbarBtn('remove', 'Delete this text note', () => wbDeleteThought(taskName))
-            : wbObjectToolbarBtn('remove', 'Remove from board (the task stays in your plan)',
-                () => wbRemoveNoteFromBoard(taskName)),
+            : wbObjectToolbarBtn('remove', 'Delete task (removes it and its subtasks from the plan)',
+                () => wbDeleteNoteTask(taskName)),
         wbObjectToolbarBtn('more', 'More options', (btn) => {
             if (wbNoteMenuState && wbNoteMenuState.btn === btn) { wbCloseNoteMenu(); return; }
             wbOpenNoteMenu(taskName, btn);
