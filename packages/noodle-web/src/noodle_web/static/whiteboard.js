@@ -260,7 +260,8 @@ function wbPlaceBoardObject(fo, view) {
         // laid out against the <foreignObject>'s *screen* width, so these
         // three reproduce shrink-to-fit against the board width instead,
         // and a text object wraps the same way at every zoom.
-        if (fo.classList.contains('wb-note')) {
+        // (The pin's genie overlay, whiteboard-genie.js, fills its rect too.)
+        if (fo.classList.contains('wb-note') || fo.classList.contains('wb-genie-ghost')) {
             content.style.width = r.width + 'px';
             content.style.height = r.height + 'px';
         } else {

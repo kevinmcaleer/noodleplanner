@@ -64,6 +64,7 @@ export const CODE_OWNED = [
 	'--np-anim-duration-fast',
 	'--np-anim-duration',
 	'--np-anim-duration-slow',
+	'--np-anim-duration-genie',
 	'--np-anim-easing',
 	'--np-danger-gradient',
 	'--np-success-gradient',

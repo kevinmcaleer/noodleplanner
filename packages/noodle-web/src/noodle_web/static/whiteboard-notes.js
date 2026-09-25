@@ -1989,6 +1989,11 @@ function wbRenderNotes() {
         let entry = wbNoteNodes.get(vm.task.name);
         if (!entry) {
             entry = wbCreateNoteNode();
+            // A note being pinned with the genie (whiteboard-genie.js) stays
+            // hidden until the animation lands on it.
+            if (typeof wbGenieIsHeld === 'function' && wbGenieIsHeld(vm.task.name)) {
+                entry.fo.classList.add('wb-note-ghosted');
+            }
             layer.appendChild(entry.fo);
             wbNoteNodes.set(vm.task.name, entry);
         }
@@ -4120,7 +4125,11 @@ function wbPinTaskFromPeek(taskName, rect) {
     if (rect && typeof wbClientToBoard === 'function') {
         at = wbClientToBoard(rect.right, rect.top);
     }
-    return wbCommitAddNotes([taskName], at ? { at } : {});
+    const options = at ? { at } : {};
+    // The genie falls back to sliding out of the popover's header when the
+    // task has no row of its own on screen (a drilled-in grandchild).
+    if (rect) options.genieFrom = { rect, edgeRect: rect };
+    return wbCommitAddNotes([taskName], options);
 }
 
 /**
@@ -5810,9 +5819,18 @@ function wbCommitAddNotes(taskNames, options = {}) {
     const items = parseWhiteboardMarkdown(section);
     const newRows = wbNewNoteRows(items, names, options.at);
 
+    // A single pin animates out of where the task was (whiteboard-genie.js).
+    // The source is read now, before the commit re-renders the parent note.
+    const genie = (names.length === 1 && typeof wbGenieCapture === 'function')
+        ? wbGenieCapture(names[0], options.genieFrom) : null;
+    if (genie) wbGenieHold(names[0]);
+
     const nextText = updatePlanWhiteboardText(planText, items.concat(newRows));
-    if (!wbCommitMarkdown(nextText)) return false;
-    wbRevealNewNote(names[0]);
+    if (!wbCommitMarkdown(nextText)) {
+        if (genie) wbGenieRelease(names[0]);
+        return false;
+    }
+    wbRevealNewNote(names[0], genie ? entry => wbGeniePlay(names[0], genie, entry) : undefined);
     return true;
 }
 
