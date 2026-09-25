@@ -2780,6 +2780,8 @@ function wbFinishDrag(clientX, clientY) {
     if (!drag) return;
     wbActiveDrag = null;
     wbSetDragCursor('');
+    // The ghost stays on screen for a park: the park animation plays on it.
+    const ghost = wbTakeParkDragGhost();
     wbUpdateParkingLotDropHint(drag.entry.fo, false);
 
     const taskName = drag.entry.fo.dataset.wbTask;
@@ -2790,8 +2792,12 @@ function wbFinishDrag(clientX, clientY) {
     if (drag.type === 'move' && drag.moved && !thought &&
         typeof clientX === 'number' && typeof clientY === 'number' &&
         wbPointOverParkingLotPanel(clientX, clientY)) {
-        wbParkDraggedNote(drag.entry, taskName);
+        wbParkDraggedNote(drag.entry, taskName, ghost);
         return;
+    }
+    if (ghost) {
+        ghost.el.remove();
+        ghost.fo.classList.remove('wb-note-ghosted');
     }
 
     // Drag-to-stack (issue #874): released on top of another note, this one
@@ -7344,6 +7350,89 @@ function wbUpdateParkingLotDropHint(fo, active) {
     const panel = document.getElementById('wbParkingLotPanel');
     if (panel) panel.classList.toggle('wb-parking-lot-panel-drop-armed', !!active);
     if (fo) fo.classList.toggle('wb-note-park-armed', !!active);
+    wbUpdateParkDragGhost(fo, active);
+    wbUpdateParkPlaceholder(fo, active);
+}
+
+/* The note being dragged over the parking lot panel, drawn above it.
+ *
+ * A note is an SVG <foreignObject> on the canvas, and the panel is an HTML
+ * layer stacked over the canvas, so the note itself can only ever pass
+ * *under* the panel -- the drag seemed to vanish just as it reached its
+ * target. While the pointer is over the panel, a copy of the note's card
+ * takes its place one layer above the panel, at exactly the note's
+ * on-screen rect; the note underneath is hidden (.wb-note-ghosted) and comes
+ * back the moment the pointer leaves the panel. */
+let wbParkGhost = null;
+
+function wbUpdateParkDragGhost(fo, active) {
+    if (!active || !fo) {
+        wbRemoveParkDragGhost();
+        return;
+    }
+    const container = document.getElementById('whiteboardContainer');
+    const content = fo.firstElementChild;
+    if (!container || !content) return;
+    if (!wbParkGhost || wbParkGhost.fo !== fo) {
+        wbRemoveParkDragGhost();
+        const ghost = document.createElement('div');
+        ghost.className = 'wb-note wb-note-park-armed wb-note-drag-ghost';
+        ghost.setAttribute('aria-hidden', 'true');
+        const style = fo.getAttribute('style');
+        if (style) ghost.setAttribute('style', style);
+        ghost.appendChild(content.cloneNode(true));
+        container.appendChild(ghost);
+        fo.classList.add('wb-note-ghosted');
+        wbParkGhost = { fo, el: ghost };
+    }
+    const box = container.getBoundingClientRect();
+    const rect = fo.getBoundingClientRect();
+    const el = wbParkGhost.el;
+    el.style.left = `${rect.left - box.left}px`;
+    el.style.top = `${rect.top - box.top}px`;
+    el.style.width = `${rect.width}px`;
+    el.style.height = `${rect.height}px`;
+}
+
+/** Take the ghost out of the drag without removing it from the page -- the
+ * park animation (wbParkDraggedNote()) plays on it. */
+function wbTakeParkDragGhost() {
+    const ghost = wbParkGhost;
+    wbParkGhost = null;
+    return ghost;
+}
+
+function wbRemoveParkDragGhost() {
+    const ghost = wbTakeParkDragGhost();
+    if (!ghost) return;
+    ghost.el.remove();
+    ghost.fo.classList.remove('wb-note-ghosted');
+}
+
+/* Where the note will land: a dotted outline at the end of the parking lot
+ * list -- where wbSendNoteToParkingLot() appends it -- naming the note,
+ * while the pointer is over the panel. */
+function wbUpdateParkPlaceholder(fo, active) {
+    const list = document.getElementById('wbParkingLotList');
+    if (!list) return;
+    const existing = list.querySelector('.wb-parking-lot-placeholder');
+    const empty = list.querySelector('.wb-parking-lot-empty');
+    if (!active || !fo) {
+        if (existing) existing.remove();
+        if (empty) empty.hidden = false;
+        return;
+    }
+    if (existing) return;
+    const placeholder = document.createElement('li');
+    placeholder.className = 'wb-parking-lot-item wb-parking-lot-placeholder';
+    placeholder.setAttribute('aria-hidden', 'true');
+    const text = document.createElement('span');
+    text.className = 'wb-parking-lot-item-text';
+    text.textContent = fo.dataset.wbTask || '';
+    placeholder.appendChild(text);
+    if (empty) empty.hidden = true;
+    list.appendChild(placeholder);
+    if (typeof placeholder.scrollIntoView === 'function') placeholder.scrollIntoView({ block: 'nearest' });
 }
 
 /**
@@ -7356,10 +7445,18 @@ function wbUpdateParkingLotDropHint(fo, active) {
  * animation is cosmetic only: if `entry.fo` is somehow gone (or transitions
  * are disabled) this still completes via the fallback timer.
  */
-function wbParkDraggedNote(entry, taskName) {
-    const fo = entry && entry.fo;
+function wbParkDraggedNote(entry, taskName, ghost) {
+    // Dropped over the panel, the note on show is the ghost above it
+    // (wbUpdateParkDragGhost()), so that is what shrinks into the panel.
+    const fo = ghost ? ghost.el : (entry && entry.fo);
     const finishPark = () => {
-        wbSendNoteToParkingLot(taskName);
+        const parked = wbSendNoteToParkingLot(taskName);
+        if (ghost) {
+            ghost.el.remove();
+            // Parked, the note's own node goes with the re-render; showing it
+            // again first would flash it back onto the board for a frame.
+            if (!parked) ghost.fo.classList.remove('wb-note-ghosted');
+        }
         if (wbParkingLotPanelEl()) wbRenderParkingLotList();
     };
     if (!fo) {

@@ -298,7 +298,7 @@ Adding the same task back later gives it a fresh position on the board — it do
 Send an Idea to the Parking Lot
 ----------------------------------
 
-Not every note is ready to become a task yet. For a "good idea, not now" — something worth keeping but not worth cluttering the board or the plan with — open the note's **More** menu and choose **Send to parking lot**, or drag the note's header straight onto the open parking lot panel (see below) and drop it there.
+Not every note is ready to become a task yet. For a "good idea, not now" — something worth keeping but not worth cluttering the board or the plan with — open the note's **More** menu and choose **Send to parking lot**, or drag the note's header straight onto the open parking lot panel (see below) and drop it there. While you hold it over the panel, the note is drawn on top of the panel and a dotted outline at the end of the list shows where it will land.
 
 Unlike **Remove from board**, this genuinely takes the idea out of the working plan: the task (and any subtasks it has) is deleted from the outline, and the whiteboard row goes with it, but the note's own text and appearance — its title, its comment if it had one, its colour, and (for a checklist note) every item and its completion state — is kept as a new entry in the parking lot rather than thrown away. There is no confirmation prompt and it is one ordinary undo step, the same as every other board action.
 

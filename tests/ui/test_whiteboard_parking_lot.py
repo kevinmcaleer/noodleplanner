@@ -858,3 +858,85 @@ class TestParkingLotRoundTrip:
         outline = plan_text(page).split("---whiteboard---")[0]
         assert "Discovery" in outline
         assert "Research" in outline
+
+
+def _press_and_hover_over_panel(page, task_name):
+    """Start dragging `task_name`'s note and hold it over the open panel,
+    without releasing. Returns the pointer's position."""
+    header_box = note(page, task_name).locator(".wb-note-header").bounding_box()
+    panel_box = page.locator(DIALOG).bounding_box()
+    start_x = header_box["x"] + header_box["width"] / 2
+    start_y = header_box["y"] + header_box["height"] / 2
+    end_x = panel_box["x"] + panel_box["width"] / 2
+    end_y = panel_box["y"] + panel_box["height"] / 2
+    page.mouse.move(start_x, start_y)
+    page.mouse.down()
+    for i in range(1, 11):
+        page.mouse.move(start_x + (end_x - start_x) * i / 10, start_y + (end_y - start_y) * i / 10)
+    return (start_x, start_y), (end_x, end_y)
+
+
+class TestDraggingOverTheParkingLot:
+    """A note dragged over the open panel is drawn above it, not under it,
+    and a dotted placeholder shows where in the list it will land."""
+
+    def test_the_dragged_note_is_drawn_above_the_panel(self, board):
+        open_parking_lot_panel(board)
+        _, (x, y) = _press_and_hover_over_panel(board, "Loose Idea")
+        # The copy lets the drag's pointer events through, so hit-testing
+        # cannot see it; check the stacking itself: both in the canvas, the
+        # copy under the pointer and a layer above the panel.
+        stacking = board.evaluate(
+            """([x, y]) => {
+                const ghost = document.querySelector('.wb-note-drag-ghost');
+                const panel = document.getElementById('wbParkingLotPanel');
+                const r = ghost.getBoundingClientRect();
+                return {
+                    sameParent: ghost.parentElement === panel.parentElement,
+                    underPointer: r.left <= x && x <= r.right && r.top <= y && y <= r.bottom,
+                    above: Number(getComputedStyle(ghost).zIndex) > Number(getComputedStyle(panel).zIndex),
+                };
+            }""",
+            [x, y],
+        )
+        assert stacking == {"sameParent": True, "underPointer": True, "above": True}, (
+            "the note should be on top of the panel, not behind it"
+        )
+        assert "Loose Idea" in board.locator(".wb-note-drag-ghost").inner_text()
+        assert board.evaluate(
+            """() => document.querySelector('#whiteboardContainer foreignObject.wb-note[data-wb-task="Loose Idea"]')
+                         .classList.contains('wb-note-ghosted')"""
+        )
+        board.mouse.up()
+
+    def test_a_dotted_placeholder_marks_where_it_will_land(self, board):
+        open_parking_lot_panel(board)
+        _press_and_hover_over_panel(board, "Loose Idea")
+        placeholder = board.locator("#wbParkingLotList .wb-parking-lot-placeholder")
+        assert placeholder.count() == 1
+        assert placeholder.inner_text() == "Loose Idea"
+        assert board.evaluate(
+            "() => getComputedStyle(document.querySelector('.wb-parking-lot-placeholder')).borderTopStyle"
+        ) == "dotted"
+        # Last in the list: where a parked note is appended.
+        assert board.evaluate(
+            "() => document.querySelector('#wbParkingLotList').lastElementChild.classList.contains('wb-parking-lot-placeholder')"
+        )
+        board.mouse.up()
+        wait_for_parked(board, "Loose Idea")
+        assert board.locator(".wb-parking-lot-placeholder").count() == 0
+        assert board.locator(".wb-note-drag-ghost").count() == 0
+        assert any("Loose Idea" in t for t in parking_lot_item_texts(board))
+
+    def test_dragging_back_off_the_panel_puts_the_note_back(self, board):
+        open_parking_lot_panel(board)
+        (start_x, start_y), (x, y) = _press_and_hover_over_panel(board, "Loose Idea")
+        board.mouse.move(start_x + 40, start_y + 40, steps=5)
+        assert board.locator(".wb-note-drag-ghost").count() == 0
+        assert board.locator(".wb-parking-lot-placeholder").count() == 0
+        assert not board.evaluate(
+            """() => document.querySelector('#whiteboardContainer foreignObject.wb-note[data-wb-task="Loose Idea"]')
+                         .classList.contains('wb-note-ghosted')"""
+        )
+        board.mouse.up()
+        assert "Loose Idea" in note_task_names(board)

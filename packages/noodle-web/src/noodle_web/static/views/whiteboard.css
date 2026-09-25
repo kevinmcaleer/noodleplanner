@@ -129,6 +129,19 @@
     opacity: 0.55;
 }
 
+/* Over the parking lot panel, the note is drawn by a copy of it one layer
+   above the panel (wbUpdateParkDragGhost()); the note itself, underneath,
+   is hidden until the pointer leaves the panel again. */
+.wb-note.wb-note-ghosted {
+    visibility: hidden;
+}
+
+.wb-note-drag-ghost {
+    position: absolute;
+    z-index: 6; /* one above .wb-parking-lot-panel */
+    pointer-events: none;
+}
+
 /* The park itself, once released over the panel (wbParkDraggedNote()):
    shrinks and fades the note into nothing before its task -- and this DOM
    node with it -- is actually deleted, so it visually "goes into" the
@@ -2213,6 +2226,15 @@ body.wb-note-drag-active * {
    released) stays legible; the target row grows a coloured rule on the
    edge the drop will land against, cheaper to read at a glance than
    reflowing the whole list on every dragover. */
+/* Where a note dragged over the panel will land (wbUpdateParkPlaceholder()):
+   a dotted outline at the end of the list, naming it. */
+.wb-parking-lot-placeholder {
+    grid-template-areas: "text text text text";
+    border: 2px dotted var(--np-accent);
+    background: var(--np-accent-tint);
+    color: var(--np-muted);
+}
+
 .wb-parking-lot-item-dragging {
     opacity: 0.4;
 }

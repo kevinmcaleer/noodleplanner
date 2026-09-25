@@ -215,14 +215,36 @@
     z-index: 1200;
 }
 
+/* Docked: a column down the right of the window, above the status bar,
+   and the app gives up the same width so nothing sits underneath it -- the
+   whiteboard's parking lot and structure panels stay in view, as they do
+   beside the joiner page's chat. collab-session.js's syncCollabChatDock()
+   keeps body.collab-chat-docked in step with the panel. */
+body {
+    --collab-chat-dock-width: min(400px, 100vw);
+}
+
+body.collab-chat-docked > .container-fluid {
+    margin-right: var(--collab-chat-dock-width);
+}
+
 .collab-chat-panel.expanded {
     position: fixed;
     top: 0;
     right: 0;
     bottom: 36px;
-    width: min(480px, 100vw);
+    width: var(--collab-chat-dock-width);
     height: auto;
+    border-width: 0 0 0 1px;
     border-radius: 0;
+    box-shadow: none;
+}
+
+/* No room to share on a phone: docked falls back to covering the plan. */
+@media (max-width: 720px) {
+    body.collab-chat-docked > .container-fluid {
+        margin-right: 0;
+    }
 }
 
 .collab-chat-header {
