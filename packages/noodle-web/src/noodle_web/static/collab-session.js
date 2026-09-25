@@ -149,6 +149,28 @@ function resetCollabChat() {
     const button = document.getElementById('collabChatBtn');
     if (button) button.setAttribute('aria-expanded', 'false');
     updateCollabChatUnread();
+    syncCollabChatDock();
+}
+
+/** Keep the page in step with a docked chat panel. Docked, the panel is a
+ * column down the right of the window and the app gives up that width
+ * (body.collab-chat-docked in status-bar.css), so the panel sits beside the
+ * canvas -- its parking lot and structure panels included -- rather than
+ * over it: the same arrangement as the joiner page. */
+function syncCollabChatDock() {
+    const panel = document.getElementById('collabChatPanel');
+    const docked = !!(panel && !panel.hidden && panel.classList.contains('expanded'));
+    const was = document.body.classList.contains('collab-chat-docked');
+    document.body.classList.toggle('collab-chat-docked', docked);
+    const dockBtn = document.getElementById('collabChatDockBtn');
+    if (dockBtn) {
+        const label = docked ? 'Undock chat' : 'Dock chat beside the plan';
+        dockBtn.setAttribute('title', label);
+        dockBtn.setAttribute('label', label);
+        dockBtn.setAttribute('aria-pressed', String(docked));
+    }
+    // Views that size themselves to the window (the Gantt, timelines) re-fit.
+    if (docked !== was) window.dispatchEvent(new Event('resize'));
 }
 
 function setCollabChatActive(active) {
@@ -175,6 +197,7 @@ function toggleCollabChatPanel() {
     if (!panel) return;
     panel.hidden = !panel.hidden;
     if (button) button.setAttribute('aria-expanded', String(!panel.hidden));
+    syncCollabChatDock();
     if (!panel.hidden) {
         collabChatUnread = 0;
         updateCollabChatUnread();
@@ -201,11 +224,14 @@ function closeCollabChatPanel() {
     const button = document.getElementById('collabChatBtn');
     if (panel) { panel.hidden = true; panel.classList.remove('expanded'); }
     if (button) { button.setAttribute('aria-expanded', 'false'); button.focus(); }
+    syncCollabChatDock();
 }
 
+/** Dock the chat beside the plan, or return it to the status-bar popup. */
 function toggleCollabChatExpanded() {
     const panel = document.getElementById('collabChatPanel');
     if (panel) panel.classList.toggle('expanded');
+    syncCollabChatDock();
 }
 
 function receiveCollabChatEntry(entry, countUnread) {

@@ -4681,8 +4681,8 @@ Build
                 <header class="collab-chat-header">
                     <strong>Session chat</strong>
                     <div class="collab-chat-header-actions">
-                        <np-button icon-only variant="neutral" size="small" onclick="toggleCollabChatExpanded()" title="Expand chat"
-                                label="Expand chat"><i class="bi bi-arrows-fullscreen" slot="icon"></i></np-button>
+                        <np-button icon-only variant="neutral" size="small" id="collabChatDockBtn" onclick="toggleCollabChatExpanded()"
+                                title="Dock chat beside the plan" label="Dock chat beside the plan" aria-pressed="false"><i class="bi bi-layout-sidebar-reverse" slot="icon"></i></np-button>
                         <np-button icon-only variant="neutral" size="small" onclick="exportCollabChat()" title="Download chat"
                                 label="Download chat"><i class="bi bi-download" slot="icon"></i></np-button>
                         <np-close-button onclick="closeCollabChatPanel()" label="Close chat"></np-close-button>

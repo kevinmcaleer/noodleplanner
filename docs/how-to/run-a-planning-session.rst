@@ -68,8 +68,10 @@ Using Session Chat
 
 While you are hosting, a chat icon appears in the status bar immediately
 to the left of the notification bell. Select it for a compact popup, or
-use **Expand chat** to make it a full-height panel on the right. Joiners
-have the same chat in a panel to the right of the board.
+use **Dock chat beside the plan** to make it a full-height column on the
+right: the plan moves over to make room, so the chat never covers the
+board or its panels. Joiners have the same chat in a panel to the right of
+the board.
 
 Messages appear as chat bubbles, each with the sender's initials beside
 it and their name and the time above it; your own sit on the right.
@@ -98,6 +100,10 @@ part of the board, and their board shows the version that won.
 
 Seeing and Removing Participants
 ----------------------------------
+
+While anyone is in the session, their initials appear in the title bar,
+next to the **Planning session** button. Hover over one to see who it is
+and whether they are active, or select it to open the session chat.
 
 The session panel lists everyone who has joined and whether they are
 currently active. **Remove** disconnects one person without affecting the
