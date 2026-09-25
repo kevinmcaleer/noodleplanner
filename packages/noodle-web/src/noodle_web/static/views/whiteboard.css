@@ -3039,10 +3039,10 @@ body.wb-linking * {
     color: var(--np-text);
 }
 
-/* A row's right-click menu (wbBuildOutlineRowMenu()). Indent and Outdent
-   stay listed when the task has nowhere to go, so they stay focusable and
-   are only greyed out -- aria-disabled, not disabled. */
-.wb-outline-row-menu .wb-note-menu-action[aria-disabled='true'] {
+/* Indent and Outdent, on a note's menu and a Plan structure row's, stay
+   listed when the task has nowhere to go, so they stay focusable and are
+   only greyed out -- aria-disabled, not disabled. */
+.wb-note-menu-action[aria-disabled='true'] {
     color: var(--np-text-muted);
     cursor: not-allowed;
 }

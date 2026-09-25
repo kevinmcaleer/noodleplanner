@@ -1,10 +1,13 @@
-"""The right-click menu on a Plan structure row.
+"""The right-click menu on a Plan structure row, and the same items on a note.
 
 A right-click on any row of the whiteboard's Plan structure panel opens a menu
 for that task (rename, edit, assign resources, indent, outdent, delete), and
 it works the same on the host's board and on a planning-session
 collaborator's. A collaborator has no task-details form -- that is the
 host's app -- so "Edit task…" there opens the board's quick editor instead.
+
+A note's own right-click menu (its More menu) carries the same six items,
+alongside the note-only ones (colour, unlink, parking lot, remove).
 
 Usage:
     uv run pytest tests/ui/test_whiteboard_outline_menu.py -q
@@ -274,3 +277,67 @@ class TestOnACollaboratorsBoard:
         joiner.wait_for_selector(".wb-quick-edit", state="visible")
         assert joiner.locator("#wbQuickEditDuration").count() == 0
         assert joiner.locator("#wbQuickEditPercent").is_visible()
+
+
+# ── The same items on a note's own right-click menu ─────────────────────────
+
+
+def open_note_context_menu(pg, task):
+    header = pg.locator(f'#whiteboardContainer .wb-note[data-wb-task="{task}"] .wb-note-header')
+    box = header.bounding_box()
+    pg.mouse.click(box["x"] + 12, box["y"] + box["height"] / 2, button="right")
+    pg.wait_for_selector(MENU, state="visible")
+
+
+def menu_labels(pg):
+    return pg.evaluate(
+        "() => [...document.querySelectorAll('#wbNoteMenu [role=menuitem]')]"
+        "        .map(n => n.textContent.trim())"
+    )
+
+
+class TestOnANote:
+    def test_a_notes_menu_has_every_row_menu_item(self, board):
+        open_note_context_menu(board, "Beta")
+        labels = menu_labels(board)
+        for label in LABELS:
+            assert label in labels, f"{label!r} is on the note's menu"
+
+    def test_indent_from_a_note(self, board):
+        open_note_context_menu(board, "Beta")
+        menu_item(board, "Indent").click()
+        board.wait_for_function(
+            "() => document.getElementById('planEditor').value.includes('\\n  Beta\\n    Beta one 1d')"
+        )
+
+    def test_outdent_is_disabled_on_a_top_level_note(self, board):
+        open_note_context_menu(board, "Beta")
+        assert menu_item(board, "Outdent").get_attribute("aria-disabled") == "true"
+
+    def test_assign_resources_from_a_note(self, board):
+        open_note_context_menu(board, "Beta")
+        menu_item(board, "Assign resources…").click()
+        board.wait_for_selector(".wb-resource-menu", state="visible")
+        board.locator(".wb-resource-menu .wb-resource-choice", has_text="kev").click()
+        board.wait_for_function(
+            "() => /\\nBeta @kev\\n/.test(document.getElementById('planEditor').value)"
+        )
+
+    def test_edit_task_from_a_note_opens_the_task_form(self, board):
+        open_note_context_menu(board, "Beta")
+        menu_item(board, "Edit task…").click()
+        board.wait_for_function("() => document.getElementById('taskName').value === 'Beta'")
+
+    def test_a_collaborators_note_menu_opens_the_quick_editor(self, joiner, host):
+        host_page, _ = host
+        joiner.evaluate("() => whiteboardZoomFit()")
+        joiner.wait_for_timeout(300)
+        open_note_context_menu(joiner, "Beta")
+        assert "Indent" in menu_labels(joiner)
+        menu_item(joiner, "Edit task…").click()
+        joiner.wait_for_selector(".wb-quick-edit", state="visible")
+        joiner.fill("#wbQuickEditComment", "From the note")
+        joiner.locator(".wb-quick-edit np-button[variant=primary]").click()
+        host_page.wait_for_function(
+            "() => document.getElementById('planEditor').value.includes('Beta \"From the note\"')"
+        )
