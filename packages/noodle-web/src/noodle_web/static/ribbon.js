@@ -94,6 +94,8 @@ function getLiveState() {
         // #1339: while a planning session runs, its quick action restores
         // the minimised session dialog instead of starting a new session.
         collabSessionLive: (typeof isCollabSessionLive === 'function') ? isCollabSessionLive() : false,
+        // Who has joined it, for the title bar's people chips.
+        collabParticipants: (typeof collabSessionParticipants === 'function') ? collabSessionParticipants() : [],
         kanbanViewMode: (typeof kanbanBoard !== 'undefined' && kanbanBoard) ? kanbanBoard.viewMode : null,
         ganttShowCriticalPath: !!document.getElementById('ganttShowCriticalPath')?.checked,
         ganttShowBaseline: !!document.getElementById('ganttShowBaseline')?.checked,
@@ -694,11 +696,44 @@ function renderTitleBar(ia, live) {
         <div class="ribbon-scope-track" role="radiogroup" aria-label="Scope">${scopePills}</div>
         <span class="ribbon-titlebar-sep"></span>
         <div class="ribbon-quick-actions">${quickActions}</div>
+        ${renderCollabPeople(live)}
         <span class="ribbon-doc-title" id="ribbonDocTitle"></span>
         <div class="ribbon-titlebar-spacer"></div>
         ${renderSearchBox()}
         <span class="ribbon-avatar" id="ribbonAvatar" aria-hidden="true"></span>
     `;
+}
+
+/**
+ * Who is in the live planning session: the design system's own
+ * <np-resource-stack>, the overlapping chips task assignments use, beside
+ * the planning-session button. Only while someone has joined. The names go
+ * in by property after the render (wireCollabPeople), not through the
+ * comma-separated `names` attribute, since a display name can hold a comma.
+ */
+function renderCollabPeople(live) {
+    const people = live.collabSessionLive ? live.collabParticipants : [];
+    if (!people.length) return '';
+    const label = people.length === 1
+        ? '1 person in the planning session'
+        : `${people.length} people in the planning session`;
+    return `<np-resource-stack class="ribbon-collab-people" id="ribbonCollabPeople" max="4"
+        card-action="Open session chat" role="group" aria-label="${label}"></np-resource-stack>`;
+}
+
+function wireCollabPeople(live) {
+    const stack = document.getElementById('ribbonCollabPeople');
+    if (!stack) return;
+    const people = live.collabParticipants;
+    stack.names = people.map((person) => person.display_name);
+    stack.details = Object.fromEntries(people.map((person) => [
+        person.display_name,
+        { name: person.display_name, role: person.active ? 'Active' : 'Inactive' },
+    ]));
+    // A chip, or its card's link, does what the status-bar chat bubble does.
+    const open = () => { if (typeof openCollabChatPanel === 'function') openCollabChatPanel(); };
+    stack.addEventListener('resource-activate', open);
+    stack.addEventListener('resource-open', open);
 }
 
 /**
@@ -1252,7 +1287,10 @@ async function refreshRibbon() {
     const tabstripEl = shell.querySelector('.ribbon-tabstrip');
     const bodyEl = shell.querySelector('.ribbon-body');
 
-    if (titleEl) titleEl.innerHTML = renderTitleBar(ia, live);
+    if (titleEl) {
+        titleEl.innerHTML = renderTitleBar(ia, live);
+        wireCollabPeople(live);
+    }
     if (tabstripEl) tabstripEl.innerHTML = renderTabStrip(ia, ctxTab);
     if (bodyEl) {
         bodyEl.classList.toggle('ribbon-body-simple', ribbonState.displayMode === 'simple');

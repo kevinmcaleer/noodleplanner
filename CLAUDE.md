@@ -178,6 +178,12 @@ renders every story, and it is a gating CI job too.
 
 ## Reminders
 
+- **Always build UI from the design system.** Use the `--np-*` tokens for
+  every colour, space, radius, font and shadow, and the shared components
+  (`<np-button>`, `<np-resource-stack>`, `<np-close-button>` ...) rather than
+  a custom, hand-built element with hard-coded values. When a component
+  doesn't quite fit, extend the component (and its story) rather than working
+  around it in one view.
 - **Work in a worktree, never in the primary checkout.** See the section
   above — on the deployment host that checkout is bind-mounted into the live
   production container, and `main` moves fast enough that a stale branch means

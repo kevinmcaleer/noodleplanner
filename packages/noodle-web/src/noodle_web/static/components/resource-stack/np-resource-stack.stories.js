@@ -83,3 +83,25 @@ export const Sizes = {
         return wrap;
     },
 };
+
+/** The ribbon's planning-session participants: people rather than
+ * resources, so the card's `role` line is their presence and `card-action`
+ * relabels its link. A chip, or that link, opens the session chat. */
+export const SessionParticipants = {
+    render: () => {
+        const el = document.createElement('np-resource-stack');
+        el.setAttribute('max', '4');
+        el.setAttribute('size', '24');
+        el.setAttribute('card-action', 'Open session chat');
+        el.names = ['Alex Ray', 'Jo Lee', 'Sam Smith'];
+        el.details = {
+            'Alex Ray': { name: 'Alex Ray', role: 'Active' },
+            'Jo Lee': { name: 'Jo Lee', role: 'Active' },
+            'Sam Smith': { name: 'Sam Smith', role: 'Inactive' },
+        };
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'padding:8px 8px 160px;';
+        wrap.appendChild(el);
+        return wrap;
+    },
+};
