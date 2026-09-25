@@ -18,9 +18,9 @@
  * removing the label and its resolver entry together so it could not
  * regress into the unresolved state this header describes.)
  *
- * This test parses ribbon.js's source (a lightweight, deliberately
- * conservative regex extraction -- see extractKnownLabels()) rather than
- * executing it, since ribbon.js reaches for globals (switchToView,
+ * This test parses ribbon.js's source (a small, deliberately conservative
+ * scan for the lookup tables' top-level keys -- see topLevelKeys() and
+ * extractKnownLabels()) rather than executing it, since ribbon.js reaches for globals (switchToView,
  * EditorUndoManager, ...) that only exist in a loaded page. It cannot
  * verify a mapped label's *function* is correct (see #895/#896's format-
  * string bugs, caught by browser QA instead) -- only that the label was
@@ -63,24 +63,93 @@ function isLinkButton(flag) {
   return typeof flag === "string" && flag.startsWith("link:");
 }
 
+/**
+ * The top-level keys of an object literal's body, in order.
+ *
+ * A small scanner rather than a regex over the text: it steps over string
+ * literals and `//`/`/* *\/` comments, and tracks bracket depth, so a key
+ * is only ever a string or identifier at depth 0, directly followed by a
+ * `:`. The regexes this replaced read the source as plain text, so an
+ * apostrophe or a colon in a comment ("the board's panels: ...") could
+ * pair up with a later quote and swallow a real key -- a correctly wired
+ * button then failed this test -- and a word before a colon in a comment
+ * could count as a key, which could hide a genuinely unwired one.
+ *
+ * Assumes the body has no regex literals (the three tables below have
+ * none -- a `/` that is not a comment is just skipped).
+ */
+function topLevelKeys(body) {
+  const keys = [];
+  let depth = 0;
+  let expectKey = true;
+  let pending = null; // a string/identifier at depth 0 that may be a key
+  let i = 0;
+  const n = body.length;
+  const skipString = (quote) => {
+    let text = "";
+    i++; // opening quote
+    while (i < n && body[i] !== quote) {
+      if (body[i] === "\\") { text += body[i + 1] ?? ""; i += 2; continue; }
+      text += body[i++];
+    }
+    i++; // closing quote
+    return text;
+  };
+  while (i < n) {
+    const c = body[i];
+    if (c === "/" && body[i + 1] === "/") { while (i < n && body[i] !== "\n") i++; continue; }
+    if (c === "/" && body[i + 1] === "*") { const end = body.indexOf("*/", i + 2); i = end < 0 ? n : end + 2; continue; }
+    if (/\s/.test(c)) { i++; continue; }
+    if (c === "'" || c === '"' || c === "`") {
+      const text = skipString(c);
+      pending = (depth === 0 && expectKey && c !== "`") ? text : null;
+      if (pending === null && depth === 0) expectKey = false;
+      continue;
+    }
+    if (depth === 0 && expectKey && /[A-Za-z_$]/.test(c)) {
+      const start = i;
+      while (i < n && /[\w$]/.test(body[i])) i++;
+      pending = body.slice(start, i);
+      continue;
+    }
+    if (c === ":" && depth === 0 && pending !== null) {
+      keys.push(pending);
+      pending = null;
+      expectKey = false;
+      i++;
+      continue;
+    }
+    pending = null;
+    if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") depth--;
+    else if (c === "," && depth === 0) expectKey = true;
+    if (depth === 0 && c !== ",") expectKey = expectKey && c === ",";
+    i++;
+  }
+  return keys;
+}
+
 /** Labels ribbon.js's resolver can currently handle, extracted from its
  * source. Deliberately conservative: a label only counts as "known" if it
- * appears as a key in one of the three lookup tables, or is one of the
- * hard-coded special cases in resolveAction(). */
+ * is a key in one of the three lookup tables, or is one of the hard-coded
+ * special cases in resolveAction(). */
 function extractKnownLabels() {
   const known = new Set();
 
   const viewBlock = ribbonSrc.match(/const VIEW_FOR_LABEL = \{([\s\S]*?)\n\};/)[1];
-  for (const m of viewBlock.matchAll(/(?:'([^']+)'|([A-Za-z][\w]*))\s*:/g)) known.add(m[1] || m[2]);
+  for (const key of topLevelKeys(viewBlock)) known.add(key);
 
   const labelActionsBlock = ribbonSrc.match(/const LABEL_ACTIONS = \{([\s\S]*?)\n\};/)[1];
-  for (const m of labelActionsBlock.matchAll(/(?:'([^']+)'|([A-Za-z][\w ]*[\w]))\s*:\s*\(\)/g)) known.add(m[1] || m[2]);
+  for (const key of topLevelKeys(labelActionsBlock)) known.add(key);
 
   // scopedAction()'s table keys are "scope:Label" -- collect the bare
   // labels too, since resolveAction() only needs *a* match to exist, and
   // several of these are scope-specific overrides of an otherwise-known label.
   const scopedBlock = ribbonSrc.match(/function scopedAction[\s\S]*?const table = \{([\s\S]*?)\n {4}\};/)[1];
-  for (const m of scopedBlock.matchAll(/'([^:']+):([^']+)'/g)) known.add(m[2]);
+  for (const key of topLevelKeys(scopedBlock)) {
+    const colon = key.indexOf(":");
+    if (colon > 0) known.add(key.slice(colon + 1));
+  }
 
   // Hard-coded special cases in resolveAction()/FILE_ACTIONS.
   for (const label of [
@@ -90,14 +159,6 @@ function extractKnownLabels() {
   return known;
 }
 
-/**
- * Labels reviewed and deliberately left as a "not available yet" stub,
- * because no existing function does the thing without inventing new
- * scope (a selection model that doesn't exist, a feature -- Programme,
- * portfolio heat maps -- that isn't built). Adding a label here is a
- * decision, not an oversight: if you're adding one, you looked for a real
- * function first and didn't find one.
- */
 const DELIBERATE_STUBS = new Set([
   // Needs a selected card/column/row the ribbon has no way to know.
   "Add Card", "Edit", "Assign", "Add Column", "Rename", "WIP Limit", "Close", "Escalate",
