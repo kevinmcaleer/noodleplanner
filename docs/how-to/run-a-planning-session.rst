@@ -39,27 +39,29 @@ Joining a Session
 -------------------
 
 People who join open the join page, enter the six-digit code and their
-name, and land on a deliberately simple page: the task outline, the RAID
-log, the benefits map, the comms plan and the weekly updates. No front
-matter, no syntax, no project cockpit.
+name, and land on your whiteboard — the same board you see, filling their
+window. Notes have the same colours and layout as on yours, and they get
+the same zoom controls and **Structure** panel. The session chat is a panel
+on the right of the board, which they can hide and bring back with **Chat**
+at the top of the page; a count on that button shows messages that arrived
+while it was hidden.
+
+**Leave session** takes a joiner back to the join form. You see them leave
+from your participant list, and they can rejoin with the same code.
 
 What Everyone Can Edit
 ------------------------
 
-Joiners send *intents* — "set this task to 75%", "add this risk" — and your
-browser applies them to the real plan and sends the result back out. That
-means the plan only ever changes in one place, so there is no merge to go
-wrong.
+A joiner can do on the board what you can: add a note, rename it, change
+its colour, move and resize it, add, tick and remove checklist items, draw
+noodles between notes, and group notes. Each change is shown straight away
+on their screen and sent to your browser, which applies it to the real
+plan and sends the result back out to everyone. The plan only ever changes
+in one place — your browser — so everyone always ends up looking at the
+same plan.
 
-Live editing covers:
-
-* **Tasks** — add, rename, set percent complete
-* **RAID log** — add, edit and delete rows
-* **Benefits map** and **comms plan** — add, edit and delete rows
-* **Weekly updates** — add, edit and delete entries
-
-Your own typing goes out to everyone too, so the session works whether the
-change starts with you or with someone else.
+Your own changes go out to everyone too, whether you make them on the
+board or type them into the plan's text.
 
 Using Session Chat
 --------------------
@@ -67,7 +69,10 @@ Using Session Chat
 While you are hosting, a chat icon appears in the status bar immediately
 to the left of the notification bell. Select it for a compact popup, or
 use **Expand chat** to make it a full-height panel on the right. Joiners
-have the same chat at the bottom of their session page.
+have the same chat in a panel to the right of the board.
+
+Messages appear as chat bubbles, each with the sender's initials beside
+it and their name and the time above it; your own sit on the right.
 
 Chat messages and the activity feed use the same end-to-end encrypted
 channel as plan edits. The feed records useful session actions such as a
@@ -82,21 +87,14 @@ saved plan.
 When Two People Edit the Same Thing
 -------------------------------------
 
-Edits are applied in the order your browser receives them, so the last one
-wins — and, importantly, it is never silent. Both people see a notice
-naming who changed it and what the value was before:
+Changes to *different* parts of the plan never lose either one: if a
+joiner moves one note while you rename another, both land, even when they
+happen at the same moment.
 
-.. code-block:: text
-
-   Bob also edited this — was 50%.
-
-Editing *different* tasks never loses either edit. The notice only appears
-when someone genuinely edited the same item moments after you did, so it
-stays worth reading.
-
-If someone else changed an item while you were typing, your edit is
-refused rather than applied to the wrong thing, and you are told to try
-again against the current version.
+If two people change the *same* line at the same moment — both recolour
+the same note, say — the one your browser received first wins, and it is
+never silent: the other person sees a notice that someone changed the same
+part of the board, and their board shows the version that won.
 
 Seeing and Removing Participants
 ----------------------------------
@@ -156,8 +154,6 @@ Security
 Limitations
 -------------
 
-* The free-form post-it whiteboard for joiners is not built yet; the joiner
-  page is the simple list described above.
 * Joiners hold no saved copy. Only the host's browser saves, by design.
 * Sessions do not survive a server restart — deliberately, since the server
   stores nothing.

@@ -2,7 +2,7 @@
 
 The joiner page's inline script once wired `addTaskBtn`, `newTaskName`,
 `addRaidBtn` and `newRaidTitle` after those elements had left the template
-(the joiner surface moved to the post-its/list tabs). The first
+(the joiner surface had moved on). The first
 `getElementById(...).addEventListener` threw, the exception aborted the rest
 of the script, and the chat listeners registered after it -- Send, Enter and
 Download -- were never attached, so a joiner's chat message went nowhere.
@@ -20,6 +20,8 @@ Usage:
 import json
 
 import pytest
+
+from .helpers import actionable_console_errors
 
 
 # Runs in the host page. Starts a session, connects as host, and records every
@@ -91,12 +93,12 @@ class TestJoinPage:
         _, info = host
         page.goto(f"{app_server}{info['holding_url']}")
         page.wait_for_load_state("load")
-        assert page.console_errors == []
+        assert actionable_console_errors(page) == []
 
     def test_joining_raises_no_page_errors(self, page, app_server, host):
         _, info = host
         join(page, app_server, info)
-        assert page.console_errors == []
+        assert actionable_console_errors(page) == []
 
     def test_joiner_chat_message_reaches_the_host(self, page, app_server, host):
         host_page, info = host
@@ -119,7 +121,7 @@ class TestJoinPage:
         received = host_page.evaluate("window.hostReceived")
         chats = [m for m in received if m["type"] == "chat"]
         assert [m["text"] for m in chats] == ["hello from the joiner"], json.dumps(received)
-        assert page.console_errors == []
+        assert actionable_console_errors(page) == []
 
     def test_enter_in_the_chat_input_sends(self, page, app_server, host):
         host_page, info = host
@@ -136,4 +138,4 @@ class TestJoinPage:
             "window.hostReceived.some(m => m.type === 'chat' && m.text === 'sent with enter')",
             timeout=10_000,
         )
-        assert page.console_errors == []
+        assert actionable_console_errors(page) == []

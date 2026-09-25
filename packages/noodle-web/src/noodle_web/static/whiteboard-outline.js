@@ -288,7 +288,7 @@ function wbRenderOutlinePanel() {
 
     if (!tasks.length) {
         list.appendChild(wbOutlineEmptyMessage(
-            'Nothing in the plan yet. Add a post-it and it appears here.'
+            'Nothing in the plan yet. Add a note and it appears here.'
         ));
         return;
     }

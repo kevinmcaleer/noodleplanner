@@ -329,7 +329,7 @@ what section 3 counts. Semicolons separate components.
 | Board (Kanban) | Live message region; Markdown editor (textarea + line numbers + highlight layer); Splitter; Toolbar; Tab bar; Checkbox + label; Breadcrumb; Column; Column header; Badge (count); Card; Checkbox; Select; Icon button; Avatar; Tag/chip; Colour swatch picker; Empty state; Button (primary); Button (secondary); Drag handle |
 | Calendar | Placeholder (pre-render); Icon button; Ribbon banner (view title); Calendar grid; Day cell; Badge (RAG) |
 | Mind Map | Placeholder (pre-render); Text button; Zoom toolbar; Icon button; Toolbar separator; Theme toggle; Colour swatch picker; Hint text; Canvas (pan/zoom); Graph node; Graph edge; Inline text editor; Icon button |
-| Whiteboard | Zoom toolbar; Icon button; Toolbar separator; Hint text; kbd key; Canvas (pan/zoom); Post-it note; Avatar; Badge (count); Context menu; Colour swatch picker; Empty state; Slide-out panel; Search input; List row; Drag handle; Button (primary) |
+| Whiteboard | Zoom toolbar; Icon button; Toolbar separator; Hint text; kbd key; Canvas (pan/zoom); Note; Avatar; Badge (count); Context menu; Colour swatch picker; Empty state; Slide-out panel; Search input; List row; Drag handle; Button (primary) |
 | PBS | Placeholder (pre-render); Code block; Text button; Ribbon banner (view title); Zoom toolbar; Icon button; Toolbar separator; Canvas (pan/zoom); Graph node; Graph edge; Badge (RAG) |
 | Deliverables Matrix | Placeholder (pre-render); Code block; Ribbon banner (view title); Data table; Table wrapper; Inline-editable cell; Select; Badge (type); Tick marker; Avatar |
 | Product Flow | Placeholder (pre-render); Code block; Text button; Ribbon banner (view title); Zoom toolbar; Icon button; Toolbar separator; Canvas (pan/zoom); Graph node; Graph edge; Badge (RAG); Tag/chip |
@@ -532,7 +532,7 @@ appears on). Sorted descending, so read top-down as the build order.
 | Menu divider | Chrome — Plan subnav | 1 | ☐ | ☐ |
 | Menu item | Chrome — Plan subnav | 1 | ☐ | ☐ |
 | Notification bell | Chrome — Status bar | 1 | ☐ | ☐ |
-| Post-it note | Whiteboard | 1 | ☐ | ☑ `np-note` |
+| Note | Whiteboard | 1 | ☐ | ☑ `np-note` |
 | Project switcher (select) | Chrome — Status bar | 1 | ☐ | ☐ |
 | Quad cell | Dashboard / Project Report | 1 | ☐ | ☐ |
 | Rail button | Chrome — Backstage | 1 | ☐ | ☐ |

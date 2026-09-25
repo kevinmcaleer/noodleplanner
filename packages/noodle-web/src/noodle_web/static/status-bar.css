@@ -246,16 +246,11 @@
     gap: 4px;
 }
 
-.collab-chat-promote,
 .collab-chat-composer button {
     border: 0;
     border-radius: 4px;
     background: transparent;
     color: inherit;
-}
-
-.collab-chat-promote:hover {
-    background: var(--np-bg-hover, #e8eaed);
 }
 
 .collab-chat-list {
@@ -265,52 +260,8 @@
     padding: var(--np-space-12);
 }
 
-.collab-chat-empty {
-    margin: var(--np-space-32) var(--np-space-12);
-    color: var(--np-text-muted, #777);
-    text-align: center;
-}
-
-.collab-chat-entry {
-    margin: 0 0 var(--np-space-12);
-    padding: var(--np-space-8) var(--np-space-12);
-    border-radius: 8px;
-    background: var(--np-bg-alt, #f5f6f8);
-}
-
-.collab-chat-entry.activity {
-    padding: 4px 2px;
-    background: transparent;
-    color: var(--np-text-muted, #777);
-    font-size: 0.9em;
-    font-style: italic;
-}
-
-.collab-chat-meta {
-    display: flex;
-    align-items: center;
-    gap: var(--np-space-8);
-    margin-bottom: var(--np-space-4);
-    color: var(--np-text-muted, #777);
-    font-size: 0.85em;
-}
-
-.collab-chat-author {
-    color: var(--np-text, #222);
-    font-weight: 700;
-}
-
-.collab-chat-text {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-}
-
-.collab-chat-promote {
-    margin-left: auto;
-    padding: var(--np-space-2) var(--np-space-4);
-    color: var(--np-text-muted, #777);
-    font-size: 0.9em;
-}
+/* The messages themselves are collab-chat.css's, shared with the joiner
+   page (#1347). */
 
 .collab-chat-composer {
     display: flex;

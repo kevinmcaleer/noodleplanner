@@ -5,861 +5,131 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Join planning session - Noodle Planner</title>
     <link rel="icon" type="image/png" href="/favicon.png">
-    <link rel="stylesheet" href="/static/views/notepad.css?v={{ v }}">
-    <style>
-        :root {
-            color-scheme: light dark;
-            --bg: #f8f9fa;
-            --card-bg: #ffffff;
-            --text: #1a1a1a;
-            --muted: #6b7280;
-            --border: #d8dce1;
-            --accent: #667eea;
-            --accent-soft: rgba(102, 126, 234, 0.12);
-            --note-bg: #fff6b8;
-            --note-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+    <script>
+    // The app's theme choice, so a joiner who also uses NoodlePlanner sees
+    // the board in the theme they picked there -- same as index.html.
+    (function() {
+        var choice = 'light';
+        try { choice = localStorage.getItem('np-theme-choice') || 'light'; } catch (e) { /* storage blocked */ }
+        var theme = choice;
+        if (choice === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #14161a;
-                --card-bg: #1e2126;
-                --text: #eef0f3;
-                --muted: #9aa1ab;
-                --border: #33373f;
-                --accent-soft: rgba(129, 140, 248, 0.18);
-                --note-bg: #6b5500;
-                --note-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
-            }
-        }
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
-            background: var(--bg);
-            color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }
-        .card {
-            width: 100%;
-            max-width: 420px;
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 28px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
-            transition: max-width 0.2s ease;
-        }
-        .card.joined { max-width: min(1180px, calc(100vw - 32px)); }
-        h1 { font-size: 1.4rem; margin: 0 0 4px; }
-        p.sub { color: var(--muted); margin: 0 0 24px; font-size: 0.9rem; }
-        label { display: block; font-size: 0.85rem; margin-bottom: 6px; color: var(--muted); }
-        input {
-            width: 100%;
-            padding: 10px 12px;
-            margin-bottom: 16px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: transparent;
-            color: var(--text);
-            font-size: 1rem;
-        }
-        input#joinCode { letter-spacing: 0.3em; font-variant-numeric: tabular-nums; }
-        button {
-            padding: 10px 12px;
-            border: none;
-            border-radius: 8px;
-            background: var(--accent);
-            color: #fff;
-            font-size: 0.95rem;
-            cursor: pointer;
-        }
-        button:disabled { opacity: 0.6; cursor: default; }
-        #status { margin-top: 16px; font-size: 0.85rem; color: var(--muted); min-height: 1.2em; }
-        #relay { margin-top: 20px; display: none; }
-        #planNotice {
-            margin-bottom: 12px;
-            padding: 8px 10px;
-            border-radius: 8px;
-            background: rgba(217, 119, 6, 0.12);
-            color: #b45309;
-            font-size: 0.85rem;
-        }
-        @media (prefers-color-scheme: dark) { #planNotice { color: #fbbf24; } }
-        .joiner-tabs {
-            display: inline-flex;
-            gap: 6px;
-            padding: 4px;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            background: var(--bg);
-            margin-bottom: 16px;
-        }
-        .joiner-tab {
-            background: transparent;
-            color: var(--muted);
-            padding: 8px 12px;
-        }
-        .joiner-tab.active {
-            background: var(--accent);
-            color: #fff;
-        }
-        .joiner-panel { display: none; }
-        .joiner-panel.active { display: block; }
-        .joiner-toolbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-        .joiner-hint { color: var(--muted); font-size: 0.85rem; }
-        .joiner-whiteboard-viewport {
-            height: min(68vh, 760px);
-            overflow: auto;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background:
-                radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--border) 75%, transparent) 1px, transparent 0) 0 0 / 24px 24px,
-                color-mix(in srgb, var(--bg) 60%, var(--card-bg));
-        }
-        .joiner-whiteboard-canvas {
-            position: relative;
-            min-width: 100%;
-            min-height: 100%;
-        }
-        .joiner-whiteboard-empty {
-            padding: 24px;
-            color: var(--muted);
-            font-size: 0.95rem;
-        }
-        .joiner-note {
-            position: absolute;
-            width: 260px;
-            min-height: 220px;
-            padding: 0;
-            border: 1px solid rgba(15, 23, 42, 0.12);
-            border-radius: 14px;
-            background: var(--note-bg);
-            color: #1f2937;
-            box-shadow: var(--note-shadow);
-            overflow: hidden;
-            user-select: none;
-        }
-        @media (prefers-color-scheme: dark) {
-            .joiner-note { color: #f8fafc; border-color: rgba(255, 255, 255, 0.08); }
-        }
-        .joiner-note.dragging { opacity: 0.88; }
-        .joiner-note-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            padding: 12px 14px 10px;
-            font-weight: 600;
-            cursor: grab;
-        }
-        .joiner-note-header:active { cursor: grabbing; }
-        .joiner-note-title {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .joiner-note-badge {
-            flex: 0 0 auto;
-            min-width: 24px;
-            padding: 2px 8px;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.32);
-            font-size: 0.75rem;
-            text-align: center;
-        }
-        .joiner-note-body {
-            padding: 0 14px 14px;
-            font-size: 0.88rem;
-        }
-        .joiner-note-checklist {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: grid;
-            gap: 8px;
-        }
-        .joiner-note-checklist li {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 10px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.28);
-        }
-        .joiner-note-checklist li.done { text-decoration: line-through; opacity: 0.7; }
-        .joiner-note-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 999px;
-            background: currentColor;
-            opacity: 0.65;
-            flex: 0 0 auto;
-        }
-        .joiner-note-empty {
-            color: rgba(31, 41, 55, 0.76);
-            font-size: 0.85rem;
-            margin-bottom: 12px;
-        }
-        @media (prefers-color-scheme: dark) {
-            .joiner-note-empty { color: rgba(248, 250, 252, 0.82); }
-        }
-        .joiner-note-footer {
-            margin-top: 10px;
-            color: rgba(31, 41, 55, 0.76);
-            font-size: 0.78rem;
-        }
-        @media (prefers-color-scheme: dark) {
-            .joiner-note-footer { color: rgba(248, 250, 252, 0.72); }
-        }
-        .joiner-promote-btn {
-            width: 100%;
-            background: rgba(31, 41, 55, 0.12);
-            color: inherit;
-        }
-        .joiner-promote-btn:hover { background: rgba(31, 41, 55, 0.18); }
-        .joiner-panel #joinNotepadContainer {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: var(--card-bg);
-            padding: 12px;
-        }
-        .joiner-panel #joinNotepadContainer .notepad-toolbar { display: none; }
-        @media (max-width: 900px) {
-            .card.joined { padding: 18px; }
-            .joiner-whiteboard-viewport { height: min(62vh, 620px); }
-        }
-    </style>
+        if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:wght@300;400;500&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- #1347: the host's own whiteboard stylesheets, so a joiner's notes
+         look exactly like the host's. -->
+    <link rel="stylesheet" href="/static/base.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/components.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/whiteboard.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/task-peek.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/dark-mode.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/visual-system.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/animations.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/collab-chat.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/collab-join.css?v={{ v }}">
 </head>
-<body>
-    <div class="card" id="joinCard">
-        <h1>Join planning session</h1>
-        <p class="sub">Enter the six-digit code your PM shared with you.</p>
+<body class="collab-join">
+    <main class="join-screen" id="joinScreen">
+        <div class="join-card">
+            <h1>Join planning session</h1>
+            <p class="join-sub">Enter the six-digit code your PM shared with you.</p>
 
-        <form id="joinForm">
-            <label for="joinCode">Session code</label>
-            <input id="joinCode" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required>
+            <form id="joinForm">
+                <label for="joinCode">Session code</label>
+                <input id="joinCode" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required>
 
-            <label for="displayName">Your name</label>
-            <input id="displayName" name="display_name" maxlength="100" placeholder="Alex" required>
+                <label for="displayName">Your name</label>
+                <input id="displayName" name="display_name" maxlength="100" placeholder="Alex" required>
 
-            <button type="submit" id="joinBtn">Join session</button>
-        </form>
-        <div id="status"></div>
+                <button type="submit" id="joinBtn" class="join-btn join-btn-primary">Join session</button>
+            </form>
+            <div id="status" role="status"></div>
+        </div>
+    </main>
 
-        <div id="relay">
-            <div id="planNotice" hidden></div>
-            <div class="joiner-tabs" role="tablist" aria-label="Joiner editing surface">
-                <button type="button" class="joiner-tab active" data-surface="whiteboard" aria-selected="true">Post-its</button>
-                <button type="button" class="joiner-tab" data-surface="notepad" aria-selected="false">List</button>
+    <div class="session-shell" id="relay" hidden>
+        <header class="session-bar">
+            <div class="session-title">
+                <i class="bi bi-people" aria-hidden="true"></i>
+                <strong>Planning session</strong>
+                <span class="session-who" id="sessionWho"></span>
             </div>
+            <div class="session-notice" id="planNotice" role="status" hidden></div>
+            <div class="session-actions">
+                <button type="button" class="join-btn" id="chatToggle" aria-controls="chatPanel" aria-expanded="true" title="Hide the session chat">
+                    <i class="bi bi-chat-dots" aria-hidden="true"></i>
+                    <span>Chat</span>
+                    <span class="session-unread" id="chatUnread" hidden></span>
+                </button>
+                <button type="button" class="join-btn join-btn-danger" id="leaveBtn">
+                    <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                    <span>Leave session</span>
+                </button>
+            </div>
+        </header>
 
-            <section id="whiteboardPanel" class="joiner-panel active">
-                <div class="joiner-toolbar">
-                    <span class="joiner-hint">Drag notes to move them. Promote a loose note to create its first checklist item.</span>
-                    <button type="button" id="joinWhiteboardAddBtn">New post-it</button>
-                </div>
-                <div id="joinWhiteboardViewport" class="joiner-whiteboard-viewport">
-                    <div id="joinWhiteboardCanvas" class="joiner-whiteboard-canvas"></div>
-                </div>
+        <div class="session-main">
+            <section class="session-board" aria-label="Whiteboard">
+                {% with wb_active = true %}{% include "_whiteboard_view.html" %}{% endwith %}
             </section>
 
-            <section id="notepadPanel" class="joiner-panel" aria-hidden="true">
-                <div id="joinNotepadContainer"></div>
-            </section>
-
-            <h2 class="section-heading">Session chat</h2>
-            <div id="relayLog" aria-live="polite"></div>
-            <div class="row">
-                <input id="relayInput" maxlength="2000" autocomplete="off" placeholder="Message the session">
-                <button type="button" id="relaySend">Send</button>
-                <button type="button" id="relayDownload" title="Download chat">Download</button>
-            </div>
+            <aside class="session-chat" id="chatPanel" aria-label="Session chat">
+                <header class="session-chat-header">
+                    <h2>Session chat</h2>
+                    <div class="session-chat-actions">
+                        <button type="button" class="session-icon-btn" id="relayDownload" title="Download chat" aria-label="Download chat">
+                            <i class="bi bi-download" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="session-icon-btn" id="chatCollapse" title="Hide the session chat" aria-label="Hide the session chat">
+                            <i class="bi bi-chevron-bar-right" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </header>
+                <div class="session-chat-list" id="relayLog" aria-live="polite"></div>
+                <form class="session-chat-composer" id="relayForm">
+                    <input id="relayInput" maxlength="2000" autocomplete="off" placeholder="Message the session" aria-label="Chat message">
+                    <button type="submit" id="relaySend" title="Send message" aria-label="Send message">
+                        <i class="bi bi-send" aria-hidden="true"></i>
+                    </button>
+                </form>
+            </aside>
         </div>
     </div>
 
+    <!-- The host's plan text, as the whiteboard scripts expect to find it.
+         Never shown, and never saved: a joiner holds no copy of the plan. -->
+    <textarea id="planEditor" hidden aria-hidden="true" tabindex="-1"></textarea>
+
+    <script src="/static/state.js?v={{ v }}"></script>
+    <script src="/static/task-tokenizer.js?v={{ v }}"></script>
     <script src="/static/plan-model.js?v={{ v }}"></script>
-    <script src="/static/notepad.js?v={{ v }}"></script>
-    <script>
-        let cryptoModulePromise = null;
-        function loadCollabCrypto() {
-            if (!cryptoModulePromise) cryptoModulePromise = import('/static/collab-crypto.js');
-            return cryptoModulePromise;
-        }
-
-        const NOTE_WIDTH = 260;
-        const NOTE_HEIGHT = 220;
-        // Learned from the server's `joined` reply: the joiner only types
-        // the code, and the code is what picks the session.
-        let sessionId = null;
-        const form = document.getElementById('joinForm');
-        const status = document.getElementById('status');
-        const joinBtn = document.getElementById('joinBtn');
-        const relay = document.getElementById('relay');
-        const relayLog = document.getElementById('relayLog');
-        const joinerChatEntries = [];
-        const joinerChatIds = new Set();
-        const joinCard = document.getElementById('joinCard');
-        const surfaceButtons = Array.from(document.querySelectorAll('.joiner-tab'));
-        const whiteboardPanel = document.getElementById('whiteboardPanel');
-        const notepadPanel = document.getElementById('notepadPanel');
-        const whiteboardViewport = document.getElementById('joinWhiteboardViewport');
-        const whiteboardCanvas = document.getElementById('joinWhiteboardCanvas');
-        const addNoteBtn = document.getElementById('joinWhiteboardAddBtn');
-
-        let socket = null;
-        // A promise, not a key: PBKDF2 takes a moment, and the host's pubkey
-        // announcement arrives straight after `joined`, so the handler for
-        // it has to be able to wait for the derivation to finish.
-        let connectKeyPromise = null;
-        let keyPair = null;
-        let sessionKey = null;
-        let presencePingTimer = null;
-        let planText = '';
-        let planRev = 0;
-        let whiteboardState = { items: [], tasks: [] };
-        let planNoticeTimer = null;
-        let notepadSurface = null;
-        let boardOffset = { x: 120, y: 120 };
-        let dragState = null;
-
-        function setJoinedUi(joined) {
-            joinCard.classList.toggle('joined', joined);
-        }
-
-        // Restored with the Session chat section: main's joiner-panel
-        // rewrite removed this helper, but submitJoinerChat() and the
-        // chat log still depend on it writing into #relayLog.
-        function log(line) {
-            const div = document.createElement('div');
-            div.textContent = line;
-            relayLog.appendChild(div);
-            relayLog.scrollTop = relayLog.scrollHeight;
-        }
-
-        function joinerChatId() {
-            if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
-                return globalThis.crypto.randomUUID();
-            }
-            return `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        }
-
-        function normaliseJoinerChatEntry(value) {
-            if (!value || (value.type !== 'chat' && value.type !== 'activity')) return null;
-            const text = String(value.text || '').replace(/\0/g, '').trim().slice(0, 2000);
-            if (!text) return null;
-            return {
-                type: value.type,
-                id: String(value.id || joinerChatId()).slice(0, 120),
-                sender: String(value.sender || 'Participant').replace(/[\r\n\0]+/g, ' ').trim().slice(0, 100),
-                text,
-                timestamp: Number.isFinite(Number(value.timestamp)) ? Number(value.timestamp) : Date.now(),
-            };
-        }
-
-        function receiveJoinerChatEntry(value) {
-            const entry = normaliseJoinerChatEntry(value);
-            if (!entry || joinerChatIds.has(entry.id)) return false;
-            joinerChatIds.add(entry.id);
-            joinerChatEntries.push(entry);
-            const div = document.createElement('div');
-            const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            div.textContent = entry.type === 'activity'
-                ? `${time} · ${entry.sender} ${entry.text}`
-                : `${time} · ${entry.sender}: ${entry.text}`;
-            if (entry.type === 'activity') div.style.fontStyle = 'italic';
-            relayLog.appendChild(div);
-            relayLog.scrollTop = relayLog.scrollHeight;
-            return true;
-        }
-
-        function joinerChatTranscript() {
-            return joinerChatEntries.map(entry => {
-                const stamp = new Date(entry.timestamp).toISOString();
-                return entry.type === 'activity'
-                    ? `[${stamp}] * ${entry.sender} ${entry.text}`
-                    : `[${stamp}] ${entry.sender}: ${entry.text}`;
-            }).join('\n');
-        }
-
-        function downloadJoinerChat() {
-            const blob = new Blob([joinerChatTranscript()], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `noodleplanner-session-chat-${new Date().toISOString().slice(0, 10)}.txt`;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
-        }
-
-        // ---- #967: live plan editing -------------------------------------
-
-        /** Show a transient message -- the "X also edited this" notice from
-         * the host's conflict rule, or an explanation for a bounced op. */
-        function showPlanNotice(text) {
-            const notice = document.getElementById('planNotice');
-            if (!notice || !text) return;
-            notice.textContent = text;
-            notice.hidden = false;
-            clearTimeout(planNoticeTimer);
-            planNoticeTimer = setTimeout(() => { notice.hidden = true; }, 6000);
-        }
-
-        function setJoinerSurface(name) {
-            const useWhiteboard = name !== 'notepad';
-            whiteboardPanel.classList.toggle('active', useWhiteboard);
-            notepadPanel.classList.toggle('active', !useWhiteboard);
-            whiteboardPanel.setAttribute('aria-hidden', String(!useWhiteboard));
-            notepadPanel.setAttribute('aria-hidden', String(useWhiteboard));
-            surfaceButtons.forEach((button) => {
-                const active = button.dataset.surface === (useWhiteboard ? 'whiteboard' : 'notepad');
-                button.classList.toggle('active', active);
-                button.setAttribute('aria-selected', String(active));
-            });
-            if (!useWhiteboard) ensureNotepadSurface().refresh();
-        }
-
-        surfaceButtons.forEach((button) => {
-            button.addEventListener('click', () => setJoinerSurface(button.dataset.surface));
-        });
-
-        function stopPresencePing() {
-            if (presencePingTimer !== null) {
-                clearInterval(presencePingTimer);
-                presencePingTimer = null;
-            }
-        }
-
-        function ensureNotepadSurface() {
-            if (notepadSurface) return notepadSurface;
-            const container = document.getElementById('joinNotepadContainer');
-            notepadSurface = NoodleNotepad.createNotepadSurface(container, {
-                getText: () => planText,
-                setText: (text) => {
-                    planText = text;
-                    sendEncrypted({ type: 'plan_text_replace', rev: planRev, text });
-                },
-                newTaskPlaceholder: 'Type a task and press Enter…',
-            });
-            return notepadSurface;
-        }
-
-        function taskMap() {
-            const map = new Map();
-            (whiteboardState.tasks || []).forEach((task) => {
-                if (task && task.name) map.set(String(task.name).toLowerCase(), task);
-            });
-            return map;
-        }
-
-        function directChildren(taskName) {
-            return (whiteboardState.tasks || []).filter(task => task && task.parent === taskName);
-        }
-
-        function renderWhiteboard() {
-            const items = Array.isArray(whiteboardState.items) ? whiteboardState.items : [];
-            const tasksByName = taskMap();
-            whiteboardCanvas.innerHTML = '';
-            if (!items.length) {
-                const empty = document.createElement('div');
-                empty.className = 'joiner-whiteboard-empty';
-                empty.textContent = 'No post-its yet. Start with a new post-it or switch to List to add tasks there.';
-                whiteboardCanvas.appendChild(empty);
-                whiteboardCanvas.style.width = '100%';
-                whiteboardCanvas.style.height = '100%';
-                boardOffset = { x: 120, y: 120 };
-                return;
-            }
-
-            let minX = 0;
-            let minY = 0;
-            let maxX = NOTE_WIDTH;
-            let maxY = NOTE_HEIGHT;
-            items.forEach((item) => {
-                if (!item || !item.task) return;
-                const x = Number.isFinite(Number(item.x)) ? Number(item.x) : 0;
-                const y = Number.isFinite(Number(item.y)) ? Number(item.y) : 0;
-                const width = Number.isFinite(Number(item.width)) ? Number(item.width) : NOTE_WIDTH;
-                const height = Number.isFinite(Number(item.height)) ? Number(item.height) : NOTE_HEIGHT;
-                minX = Math.min(minX, x);
-                minY = Math.min(minY, y);
-                maxX = Math.max(maxX, x + width);
-                maxY = Math.max(maxY, y + height);
-            });
-            boardOffset = { x: 120 - minX, y: 120 - minY };
-            whiteboardCanvas.style.width = `${Math.max(whiteboardViewport.clientWidth, maxX + boardOffset.x + 120)}px`;
-            whiteboardCanvas.style.height = `${Math.max(whiteboardViewport.clientHeight, maxY + boardOffset.y + 120)}px`;
-
-            items.forEach((item) => {
-                if (!item || !item.task) return;
-                const task = tasksByName.get(String(item.task).toLowerCase());
-                if (!task) return;
-                const children = directChildren(task.name);
-                const width = Number.isFinite(Number(item.width)) ? Number(item.width) : NOTE_WIDTH;
-                const height = Number.isFinite(Number(item.height)) ? Number(item.height) : NOTE_HEIGHT;
-                const x = (Number(item.x) || 0) + boardOffset.x;
-                const y = (Number(item.y) || 0) + boardOffset.y;
-
-                const note = document.createElement('div');
-                note.className = 'joiner-note';
-                note.style.left = `${x}px`;
-                note.style.top = `${y}px`;
-                note.style.width = `${width}px`;
-                note.style.minHeight = `${height}px`;
-                note.dataset.task = task.name;
-                note.dataset.boardX = String(Number(item.x) || 0);
-                note.dataset.boardY = String(Number(item.y) || 0);
-
-                const header = document.createElement('div');
-                header.className = 'joiner-note-header';
-
-                const title = document.createElement('span');
-                title.className = 'joiner-note-title';
-                title.textContent = task.name;
-                header.appendChild(title);
-
-                const badge = document.createElement('span');
-                badge.className = 'joiner-note-badge';
-                badge.textContent = String(children.length);
-                badge.title = children.length === 1 ? '1 checklist item' : `${children.length} checklist items`;
-                header.appendChild(badge);
-                note.appendChild(header);
-
-                const body = document.createElement('div');
-                body.className = 'joiner-note-body';
-                if (children.length) {
-                    const list = document.createElement('ul');
-                    list.className = 'joiner-note-checklist';
-                    let completed = 0;
-                    children.forEach((child) => {
-                        const row = document.createElement('li');
-                        const percent = Number.isFinite(Number(child.percent)) ? Number(child.percent) : 0;
-                        const done = percent >= 100;
-                        if (done) completed += 1;
-                        row.className = done ? 'done' : '';
-                        const dot = document.createElement('span');
-                        dot.className = 'joiner-note-dot';
-                        row.appendChild(dot);
-                        const text = document.createElement('span');
-                        text.textContent = child.name;
-                        row.appendChild(text);
-                        list.appendChild(row);
-                    });
-                    body.appendChild(list);
-                    const footer = document.createElement('div');
-                    footer.className = 'joiner-note-footer';
-                    footer.textContent = `${completed}/${children.length} complete`;
-                    body.appendChild(footer);
-                } else {
-                    const empty = document.createElement('div');
-                    empty.className = 'joiner-note-empty';
-                    empty.textContent = 'Loose note — promote it when you want a checklist.';
-                    body.appendChild(empty);
-                    const promote = document.createElement('button');
-                    promote.type = 'button';
-                    promote.className = 'joiner-promote-btn';
-                    promote.textContent = 'Promote to checklist';
-                    promote.addEventListener('click', () => {
-                        const childName = window.prompt(`Name the first task under "${task.name}":`, '');
-                        if (childName == null) return;
-                        sendWhiteboardOp({ op: 'promote_note', task: task.name, child_name: childName });
-                    });
-                    body.appendChild(promote);
-                }
-                note.appendChild(body);
-                header.addEventListener('pointerdown', (event) => beginDrag(event, note));
-                whiteboardCanvas.appendChild(note);
-            });
-        }
-
-        function beginDrag(event, note) {
-            if (event.button !== 0) return;
-            dragState = {
-                task: note.dataset.task,
-                startX: event.clientX,
-                startY: event.clientY,
-                boardX: Number(note.dataset.boardX || 0),
-                boardY: Number(note.dataset.boardY || 0),
-                width: note.offsetWidth || NOTE_WIDTH,
-                height: note.offsetHeight || NOTE_HEIGHT,
-                note,
-            };
-            note.classList.add('dragging');
-            note.setPointerCapture(event.pointerId);
-            event.preventDefault();
-        }
-
-        function handleDragMove(event) {
-            if (!dragState) return;
-            const nextX = Math.round(dragState.boardX + (event.clientX - dragState.startX));
-            const nextY = Math.round(dragState.boardY + (event.clientY - dragState.startY));
-            dragState.note.style.left = `${nextX + boardOffset.x}px`;
-            dragState.note.style.top = `${nextY + boardOffset.y}px`;
-            dragState.note.dataset.boardX = String(nextX);
-            dragState.note.dataset.boardY = String(nextY);
-        }
-
-        function handleDragEnd(event) {
-            if (!dragState) return;
-            const note = dragState.note;
-            note.classList.remove('dragging');
-            if (note.hasPointerCapture(event.pointerId)) note.releasePointerCapture(event.pointerId);
-            const nextX = Number(note.dataset.boardX || dragState.boardX);
-            const nextY = Number(note.dataset.boardY || dragState.boardY);
-            const moved = nextX !== dragState.boardX || nextY !== dragState.boardY;
-            const task = dragState.task;
-            dragState = null;
-            if (moved) sendWhiteboardOp({ op: 'move_note', task, x: nextX, y: nextY });
-            else renderWhiteboard();
-        }
-
-        whiteboardCanvas.addEventListener('pointermove', handleDragMove);
-        whiteboardCanvas.addEventListener('pointerup', handleDragEnd);
-        whiteboardCanvas.addEventListener('pointercancel', handleDragEnd);
-
-        function visibleBoardOrigin() {
-            return {
-                x: whiteboardViewport.scrollLeft - boardOffset.x,
-                y: whiteboardViewport.scrollTop - boardOffset.y,
-            };
-        }
-
-        function createNoteAt(x, y) {
-            sendWhiteboardOp({ op: 'add_note', x, y });
-        }
-
-        addNoteBtn.addEventListener('click', () => {
-            const origin = visibleBoardOrigin();
-            createNoteAt(
-                Math.round(origin.x + whiteboardViewport.clientWidth / 2 - NOTE_WIDTH / 2),
-                Math.round(origin.y + whiteboardViewport.clientHeight / 2 - NOTE_HEIGHT / 2)
-            );
-        });
-
-        whiteboardViewport.addEventListener('dblclick', (event) => {
-            if (event.target !== whiteboardViewport && event.target !== whiteboardCanvas) return;
-            const rect = whiteboardViewport.getBoundingClientRect();
-            const origin = visibleBoardOrigin();
-            createNoteAt(
-                Math.round(origin.x + event.clientX - rect.left - NOTE_WIDTH / 2),
-                Math.round(origin.y + event.clientY - rect.top - NOTE_HEIGHT / 2)
-            );
-        });
-
-        async function sendEncrypted(payload) {
-            if (!socket || socket.readyState !== WebSocket.OPEN) return;
-            if (!sessionKey) {
-                showPlanNotice('Still establishing the secure channel — try that again in a moment.');
-                return;
-            }
-            const { encryptMessage } = await loadCollabCrypto();
-            const envelope = await encryptMessage(sessionKey, JSON.stringify(payload), sessionId);
-            socket.send(envelope);
-        }
-
-        function sendWhiteboardOp(op) {
-            sendEncrypted({ type: 'whiteboard_op', rev: planRev, ...op });
-        }
-
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            joinBtn.disabled = true;
-            status.textContent = 'Connecting...';
-
-            const code = document.getElementById('joinCode').value.trim();
-            const displayName = document.getElementById('displayName').value.trim();
-            const { deriveConnectKey, generateEphemeralKeyPair } = await loadCollabCrypto();
-            keyPair = await generateEphemeralKeyPair();
-            sessionId = null;
-            connectKeyPromise = null;
-
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            socket = new WebSocket(`${protocol}//${window.location.host}/ws/join`);
-
-            socket.addEventListener('open', () => {
-                socket.send(JSON.stringify({ type: 'join', code, display_name: displayName }));
-            });
-
-            socket.addEventListener('message', async (event) => {
-                let parsed = null;
-                try { parsed = JSON.parse(event.data); } catch (error) { parsed = null; }
-
-                if (parsed && parsed.type === 'joined') {
-                    sessionId = parsed.session_id;
-                    connectKeyPromise = deriveConnectKey(code, sessionId);
-                    status.textContent = `Joined as ${parsed.display_name}.`;
-                    relay.style.display = 'block';
-                    setJoinedUi(true);
-                    form.hidden = true;
-                    document.querySelector('p.sub').hidden = true;
-                    ensureNotepadSurface();
-                    stopPresencePing();
-                    presencePingTimer = setInterval(() => {
-                        if (socket && socket.readyState === WebSocket.OPEN) {
-                            socket.send(JSON.stringify({ type: 'presence_ping' }));
-                        }
-                    }, 15000);
-                    return;
-                }
-
-                const { classifyFrameType, parsePubkeyAnnouncement, buildPubkeyAnnouncement, deriveSessionKey, decryptMessage } =
-                    await loadCollabCrypto();
-                const frameType = classifyFrameType(event.data);
-
-                if (frameType === 'host_pubkey') {
-                    if (!connectKeyPromise) return;
-                    const connectKey = await connectKeyPromise;
-                    const peerKey = await parsePubkeyAnnouncement('host_pubkey', connectKey, event.data);
-                    if (!peerKey) {
-                        status.textContent = 'Could not establish a secure channel with the host. Enter the code again to retry.';
-                        socket.close();
-                        joinBtn.disabled = false;
-                        return;
-                    }
-                    sessionKey = await deriveSessionKey(keyPair.privateKey, peerKey, sessionId);
-                    const announcement = await buildPubkeyAnnouncement('joiner_pubkey', connectKey, keyPair);
-                    socket.send(announcement);
-                    return;
-                }
-
-                if (frameType === 'enc') {
-                    if (!sessionKey) return;
-                    let plaintext;
-                    try {
-                        plaintext = await decryptMessage(sessionKey, event.data, sessionId);
-                    } catch (error) {
-                        return;
-                    }
-                    try { parsed = JSON.parse(plaintext); } catch (error) { parsed = null; }
-                    if (parsed && parsed.type === 'plan_snapshot') {
-                        planRev = parsed.rev;
-                        if (typeof parsed.plan_text === 'string') planText = parsed.plan_text;
-                        if (parsed.notice) showPlanNotice(parsed.notice);
-                        const surface = ensureNotepadSurface();
-                        if (!surface.hasFocus() || document.querySelector('.joiner-tab.active')?.dataset.surface !== 'notepad') {
-                            surface.refresh();
-                        }
-                        return;
-                    }
-                    if (parsed && parsed.type === 'plan_op_rejected') {
-                        // A stale op means someone else's edit landed
-                        // first and our snapshot was out of date; the
-                        // newer snapshot is already on its way, so this
-                        // explains the bounce rather than being an error.
-                        showPlanNotice(parsed.reason === 'stale'
-                            ? 'That task changed while you were editing — try again.'
-                            : 'The host could not apply that change.');
-                        return;
-                    }
-                    if (parsed && (parsed.type === 'chat' || parsed.type === 'activity')) {
-                        receiveJoinerChatEntry(parsed);
-                        return;
-                    }
-                    if (parsed && parsed.type === 'whiteboard_snapshot') {
-                        planRev = parsed.rev;
-                        whiteboardState = {
-                            items: Array.isArray(parsed.items) ? parsed.items : [],
-                            tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
-                        };
-                        renderWhiteboard();
-                        return;
-                    }
-                    if (parsed && parsed.type === 'plan_text_replace_rejected') {
-                        showPlanNotice(parsed.reason === 'stale'
-                            ? 'The plan changed while you were editing — the latest version is now on screen.'
-                            : 'The host could not apply that list edit.');
-                        const surface = ensureNotepadSurface();
-                        surface.refresh();
-                        return;
-                    }
-                    if (parsed && parsed.type === 'whiteboard_op_rejected') {
-                        let message = 'The host could not apply that whiteboard change.';
-                        if (parsed.reason === 'stale') message = 'That note changed while you were editing — try again.';
-                        else if (parsed.reason === 'already_checklist') message = 'That note already has a checklist.';
-                        else if (parsed.reason === 'unknown_note') message = 'That note is no longer on the board.';
-                        showPlanNotice(message);
-                        renderWhiteboard();
-                    }
-                    return;
-                }
-            });
-
-            socket.addEventListener('close', (event) => {
-                const wasJoined = relay.style.display === 'block';
-                stopPresencePing();
-                socket = null;
-                sessionKey = null;
-                keyPair = null;
-                connectKeyPromise = null;
-                relayLog.innerHTML = '';
-                joinerChatEntries.length = 0;
-                joinerChatIds.clear();
-                joinBtn.disabled = false;
-                relay.style.display = 'none';
-                form.hidden = false;
-                document.querySelector('p.sub').hidden = false;
-                setJoinedUi(false);
-                planText = '';
-                planRev = 0;
-                whiteboardState = { items: [], tasks: [] };
-                whiteboardCanvas.innerHTML = '';
-                clearTimeout(planNoticeTimer);
-                const notice = document.getElementById('planNotice');
-                if (notice) notice.hidden = true;
-                if (notepadSurface) {
-                    notepadSurface.destroy();
-                    notepadSurface = null;
-                }
-                setJoinerSurface('whiteboard');
-
-                if (!wasJoined) {
-                    if (event.reason) {
-                        status.textContent = `${event.reason} Enter the code again to try again.`;
-                    } else if (event.code === 1006) {
-                        status.textContent = 'Could not connect to the session -- this looks like a network issue (for example, a corporate proxy or firewall blocking secure WebSocket connections) rather than the code. Try a different network, or check with your IT team, then try again.';
-                    } else {
-                        status.textContent = 'Could not join -- check the code and try again.';
-                    }
-                    return;
-                }
-
-                status.textContent = event.reason
-                    ? `${event.reason} Enter the code again to rejoin.`
-                    : 'Lost connection to the session. Enter the code again to rejoin.';
-            });
-        });
-
-        async function submitJoinerChat() {
-            const input = document.getElementById('relayInput');
-            if (!socket || socket.readyState !== WebSocket.OPEN || !input.value) return;
-            if (!sessionKey) {
-                log('(cannot send yet -- secure channel not established)');
-                return;
-            }
-            const entry = normaliseJoinerChatEntry({
-                type: 'chat', id: joinerChatId(), sender: '', text: input.value, timestamp: Date.now(),
-            });
-            const { encryptMessage } = await loadCollabCrypto();
-            const envelope = await encryptMessage(sessionKey, JSON.stringify(entry), sessionId);
-            socket.send(envelope);
-            input.value = '';
-        }
-        document.getElementById('relaySend').addEventListener('click', submitJoinerChat);
-        document.getElementById('relayInput').addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') { event.preventDefault(); submitJoinerChat(); }
-        });
-        document.getElementById('relayDownload').addEventListener('click', downloadJoinerChat);
-    </script>
+    <script src="/static/editor-sync.js?v={{ v }}"></script>
+    <script src="/static/script.js?v={{ v }}"></script>
+    <script src="/static/kanban.js?v={{ v }}"></script>
+    <script src="/static/mindmap.js?v={{ v }}"></script>
+    <script src="/static/whiteboard.js?v={{ v }}"></script>
+    <script src="/static/task-peek.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-structure.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-notes.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-groups.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-object-toolbar.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-noodles.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-dep-noodles.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-outline.js?v={{ v }}"></script>
+    <script src="/static/collab-chat.js?v={{ v }}"></script>
+    <script src="/static/collab-merge.js?v={{ v }}"></script>
+    <script src="/static/collab-join.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/close-button/np-close-button.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/empty-state/np-empty-state.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/button/np-button.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/checkbox/np-checkbox.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/resource-stack/np-resource-stack.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/note/note-markup.js?v={{ v }}"></script>
 </body>
 </html>

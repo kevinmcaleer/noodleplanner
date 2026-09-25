@@ -1,0 +1,343 @@
+/* ========================================
+   Planning-session joiner page (/join, #1347)
+
+   Two states: the join card, centred; and, once joined, the session -- a
+   bar across the top, the host's own whiteboard filling the rest of the
+   page, and the session chat in a collapsible panel on its right. The board
+   itself is styled by views/whiteboard.css, exactly as in the app.
+   ======================================== */
+
+html,
+body.collab-join {
+    height: 100%;
+}
+
+body.collab-join {
+    margin: 0;
+    background: var(--np-paper);
+    color: var(--np-body);
+    font-family: var(--np-font-ui);
+}
+
+body.collab-join.is-joined {
+    overflow: hidden;
+}
+
+.collab-join [hidden] {
+    display: none !important;
+}
+
+/* ---- Join card ---- */
+
+.join-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: var(--np-space-16);
+    box-sizing: border-box;
+}
+
+.join-card {
+    width: 100%;
+    max-width: 420px;
+    padding: var(--np-space-24);
+    border: 1px solid var(--np-border);
+    border-radius: var(--np-radius-card);
+    background: var(--np-surface);
+    box-shadow: var(--np-elevation-3);
+    box-sizing: border-box;
+}
+
+.join-card h1 {
+    margin: 0 0 var(--np-space-4);
+    color: var(--np-ink);
+    font-family: var(--np-font-heading);
+    font-size: var(--np-text-150);
+    font-weight: var(--np-weight-medium);
+}
+
+.join-sub {
+    margin: 0 0 var(--np-space-24);
+    color: var(--np-muted);
+    font-size: var(--np-text-90);
+}
+
+.join-card label {
+    display: block;
+    margin-bottom: var(--np-space-4);
+    color: var(--np-muted);
+    font-size: var(--np-text-85);
+}
+
+.join-card input {
+    display: block;
+    width: 100%;
+    margin-bottom: var(--np-space-16);
+    padding: var(--np-space-8) var(--np-space-12);
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-control);
+    background: var(--np-input-bg);
+    color: var(--np-ink);
+    font: inherit;
+    box-sizing: border-box;
+}
+
+.join-card input#joinCode {
+    font-family: var(--np-font-data);
+    letter-spacing: 0.3em;
+}
+
+#status {
+    min-height: 1.2em;
+    margin-top: var(--np-space-16);
+    color: var(--np-muted);
+    font-size: var(--np-text-85);
+}
+
+/* ---- Buttons ---- */
+
+.join-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--np-space-8);
+    padding: var(--np-space-8) var(--np-space-12);
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-control);
+    background: var(--np-surface);
+    color: var(--np-ink);
+    font: inherit;
+    font-size: var(--np-text-90);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.join-btn:hover {
+    background: var(--np-bg-hover);
+}
+
+.join-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.join-btn-primary {
+    justify-content: center;
+    width: 100%;
+    border-color: var(--np-accent);
+    background: var(--np-accent);
+    color: var(--np-on-accent);
+    font-weight: var(--np-weight-semibold);
+}
+
+.join-btn-primary:hover {
+    background: var(--np-accent-hover);
+}
+
+.join-btn-danger {
+    border-color: var(--np-danger);
+    color: var(--np-danger-ink);
+}
+
+.join-btn-danger:hover {
+    background: var(--np-danger-tint);
+}
+
+.join-btn:focus-visible,
+.session-icon-btn:focus-visible,
+.session-chat-composer button:focus-visible {
+    outline: var(--np-focus-ring);
+    outline-offset: var(--np-focus-ring-offset);
+}
+
+/* ---- Session: bar, board, chat ---- */
+
+.session-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+}
+
+.session-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-12);
+    padding: var(--np-space-8) var(--np-space-16);
+    border-bottom: 1px solid var(--np-border);
+    background: var(--np-surface);
+}
+
+.session-title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--np-space-8);
+    min-width: 0;
+    color: var(--np-ink);
+}
+
+.session-who {
+    overflow: hidden;
+    color: var(--np-muted);
+    font-size: var(--np-text-85);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.session-notice {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: var(--np-space-4) var(--np-space-12);
+    border-radius: var(--np-radius-control);
+    background: var(--np-warning-tint);
+    color: var(--np-warning-ink);
+    font-size: var(--np-text-85);
+}
+
+.session-actions {
+    display: flex;
+    gap: var(--np-space-8);
+    margin-left: auto;
+}
+
+.session-unread {
+    min-width: var(--np-space-16);
+    padding: 0 var(--np-space-4);
+    border-radius: var(--np-radius-pill);
+    background: var(--np-danger);
+    color: var(--np-on-accent);
+    font-size: var(--np-text-75);
+    font-weight: var(--np-weight-bold);
+    text-align: center;
+}
+
+.session-main {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.session-board {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* The app gives the view its padding inside a tabbed shell; here the board
+   is the page, edge to edge. */
+.session-board #whiteboard-view {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.session-chat {
+    display: flex;
+    flex: 0 0 340px;
+    flex-direction: column;
+    min-height: 0;
+    border-left: 1px solid var(--np-border);
+    background: var(--np-surface);
+}
+
+.session-chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--np-space-8) var(--np-space-12);
+    border-bottom: 1px solid var(--np-border);
+}
+
+.session-chat-header h2 {
+    margin: 0;
+    color: var(--np-ink);
+    font-size: var(--np-text-100);
+    font-weight: var(--np-weight-semibold);
+}
+
+.session-chat-actions {
+    display: flex;
+    gap: var(--np-space-4);
+}
+
+.session-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--np-space-32);
+    height: var(--np-space-32);
+    border: 0;
+    border-radius: var(--np-radius-sm);
+    background: transparent;
+    color: var(--np-muted);
+    cursor: pointer;
+}
+
+.session-icon-btn:hover {
+    background: var(--np-bg-hover);
+    color: var(--np-ink);
+}
+
+.session-chat-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--np-space-12);
+}
+
+.session-chat-composer {
+    display: flex;
+    gap: var(--np-space-8);
+    padding: var(--np-space-12);
+    border-top: 1px solid var(--np-border);
+}
+
+.session-chat-composer input {
+    flex: 1;
+    min-width: 0;
+    padding: var(--np-space-8) var(--np-space-12);
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-pill);
+    background: var(--np-input-bg);
+    color: var(--np-ink);
+    font: inherit;
+    font-size: var(--np-text-90);
+}
+
+.session-chat-composer button {
+    flex: 0 0 auto;
+    width: var(--np-space-40);
+    border: 0;
+    border-radius: var(--np-radius-circle);
+    background: var(--np-accent);
+    color: var(--np-on-accent);
+    cursor: pointer;
+}
+
+.session-chat-composer button:hover {
+    background: var(--np-accent-hover);
+}
+
+/* A phone: the chat opens over the board rather than squeezing it. */
+@media (max-width: 720px) {
+    .session-bar {
+        flex-wrap: wrap;
+    }
+
+    .session-actions .join-btn span:not(.session-unread) {
+        display: none;
+    }
+
+    .session-chat {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: min(340px, 100vw);
+        box-shadow: var(--np-elevation-4);
+        z-index: 1200;
+    }
+}

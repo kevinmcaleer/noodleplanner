@@ -1,0 +1,71 @@
+{#- The whiteboard view's markup: its toolbar and canvas. Shared by
+    index.html and collab_join.html (#1347) so a planning-session joiner gets
+    the host's own board -- same notes, same controls -- rather than a
+    second, hand-built look that drifts from it. Set `wb_collab_joiner` to
+    drop the controls that reach outside the board (Add existing opens the
+    host's task picker) and `wb_active` to show the view without the app's
+    tab navigation. -#}
+<!-- Whiteboard View -->
+<div id="whiteboard-view" class="output-tab-content{% if wb_active %} active{% endif %}">
+    <div class="wb-content">
+        <div class="wb-toolbar" role="toolbar" aria-label="Whiteboard view controls">
+            <div class="wb-toolbar-group">
+                <button class="wb-toolbar-btn" id="whiteboardZoomInBtn" onclick="whiteboardZoomIn()" title="Zoom in" aria-label="Zoom in">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                </button>
+                <span class="wb-zoom-label" id="whiteboardZoomLabel">100%</span>
+                <button class="wb-toolbar-btn" id="whiteboardZoomOutBtn" onclick="whiteboardZoomOut()" title="Zoom out" aria-label="Zoom out">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                </button>
+                <button class="wb-toolbar-btn" onclick="whiteboardZoomFit()" title="Fit to content" aria-label="Fit to content">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+                </button>
+                <button class="wb-toolbar-btn" onclick="whiteboardZoomReset()" title="Reset to 100%" aria-label="Reset zoom to 100%">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><circle cx="12" cy="12" r="1.5"/></svg>
+                </button>
+            </div>
+            <div class="wb-toolbar-group">
+                <button class="wb-toolbar-btn wb-toolbar-btn-add wb-toolbar-btn-new" id="whiteboardNewNoteBtn" onclick="wbCreateNoteInViewportCentre()" title="New note (creates a new task)" aria-label="New note, creating a new task in the plan">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11a0 0 0 010 0H4z"/><path d="M15 4v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="12" y1="10" x2="12" y2="16"/></svg>
+                    <span>New note</span>
+                </button>
+                <!-- A text note is a note that is not a task: it never reaches
+                     the schedule. Stored as a commented-out task line plus a
+                     whiteboard row (whiteboard-structure.js's "Thoughts"), and
+                     promoted from its own ... menu by uncommenting that line. -->
+                <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardTextNoteBtn" onclick="wbCreateThoughtInViewportCentre()" title="New text note -- capture a thought without adding a task; promote it to a task later from its ... menu" aria-label="New text note, not added to the plan as a task">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>
+                    <span>Text note</span>
+                </button>
+                <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardNewTextBtn" onclick="wbCreateTextObjectInViewportCentre()" title="Add a title -- free-floating text, no task, no card, just text on the canvas" aria-label="Add a free-floating title text object on the whiteboard">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg>
+                    <span>Add title</span>
+                </button>
+                <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardAddNoteBtn" onclick="wbOpenAddNotePicker()" title="Add an existing task to the board" aria-label="Add an existing task to the whiteboard">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span>Add existing</span>
+                </button>
+            </div>
+            <div class="wb-toolbar-group" role="group" aria-label="Side panels">
+                <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardOutlineBtn" onclick="wbToggleOutlinePanel()" title="Show or hide the plan structure" aria-label="Show or hide the plan structure panel" aria-pressed="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M8 12h12M12 18h8"/></svg>
+                    <span>Structure</span>
+                </button>
+                <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardParkingLotBtn" onclick="wbToggleParkingLotPanel()" title="View parked ideas -- items sent here from the board" aria-label="Show or hide the parking lot panel" aria-pressed="false">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    <span>Parking lot</span>
+                </button>
+            </div>
+            <!-- The layout buttons (Tidy, Hierarchy, Flow, and the Compact/Comfy
+                 spacing) live in the ribbon's Whiteboard tab, Arrange group --
+                 ribbon-ia.js / ribbon.js. This toolbar keeps to the board itself:
+                 zoom, putting things on it, and its two side panels. -->
+            <div class="wb-toolbar-hint">
+                Double-click empty space (or press <kbd>n</kbd>) for a new note, or press <kbd>t</kbd> for free-floating text &middot; double-click a note's header to rename &middot; drag the noodle handle onto another note to make it a subtask &middot; hover a checklist row and drag its own handle onto another task's row to make it depend on that task &middot; click a noodle to select, then <kbd>Delete</kbd> to unlink &middot; drag empty space to select notes, then <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>G</kbd> to group them &middot; two-finger swipe (or <kbd>Space</kbd>+drag) pans &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; <kbd>f</kbd> fits
+            </div>
+        </div>
+        <div class="wb-canvas-wrapper" id="whiteboardContainer" tabindex="0" role="application" aria-label="Whiteboard canvas. Drag empty space to select notes, swipe with two fingers to pan, and double-click empty space to add a note.">
+            <!-- SVG whiteboard rendered by JavaScript -->
+        </div>
+    </div>
+</div>

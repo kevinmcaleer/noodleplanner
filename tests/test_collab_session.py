@@ -123,19 +123,27 @@ class TestSessionCreation:
         # than the old developer-facing arbitrary relay input.
         assert "Session chat" in response.text
         assert 'id="relayDownload"' in response.text
-        assert "JSON.stringify(entry)" in response.text
+        assert "/static/collab-chat.js" in response.text
 
-    def test_join_page_uses_the_minimal_post_its_and_list_surface(self, client):
+    def test_join_page_runs_the_hosts_own_whiteboard(self, client):
+        """#1347: the joiner gets the app's whiteboard, not a look of its own,
+        and no second "List" surface."""
         info = _start_session(client)
         response = client.get(info["holding_url"])
         assert response.status_code == 200
-        assert 'id="joinWhiteboardCanvas"' in response.text
-        assert 'id="joinNotepadContainer"' in response.text
-        assert "/static/notepad.js" in response.text
+        assert 'id="whiteboardContainer"' in response.text
+        assert 'id="whiteboardZoomInBtn"' in response.text
+        assert 'id="whiteboardOutlineBtn"' in response.text
+        assert "/static/whiteboard-notes.js" in response.text
+        assert "/static/views/whiteboard.css" in response.text
+        assert 'id="leaveBtn"' in response.text
+        assert 'id="chatPanel"' in response.text
+        assert 'id="joinNotepadContainer"' not in response.text
+        assert "joiner-tab" not in response.text
+        assert "post-it" not in response.text.lower()
         assert 'id="planTasks"' not in response.text
         assert 'id="raidRows"' not in response.text
         assert "RAID / risk log" not in response.text
-        assert "Benefits" not in response.text
         assert "Comms plan" not in response.text
         assert "Weekly updates" not in response.text
 
