@@ -30,6 +30,11 @@
  * genie lands on it, and a fallback timer shows it regardless if anything
  * goes wrong. Reduced motion, the app's own "no animations" setting, or no
  * source to animate from all skip the effect and the note simply appears.
+ *
+ * Unpinning plays the same genie in reverse (wbGenieUnpin(), called from
+ * wbRemoveNoteFromBoard()): the note drains into the funnel and slides back
+ * into its row in the parent note -- or its row in the outline panel -- and
+ * fades out where it has no row to go back to.
  */
 
 /** Share of the run spent sliding out of the source surface. */
@@ -246,21 +251,39 @@ function wbGenieNoteRect(fo) {
     return { left, top, right: left + width, bottom: top + height, width, height };
 }
 
-/**
- * Play the genie from `source` (wbGenieCapture()'s result) into the rendered
- * note `entry`, then show the real note. Always ends with the note released,
- * whether or not the animation could run.
- */
-function wbGeniePlay(taskName, source, entry) {
-    const fo = entry && entry.fo;
-    const layer = fo && fo.parentNode;
-    const dst = fo ? wbGenieNoteRect(fo) : null;
-    if (!layer || !source || !dst) {
-        wbGenieRelease(taskName);
-        return false;
-    }
+/** The colour a note's card paints (wbUpdateNoteNode() sets it on the card). */
+function wbGenieAccent(entry) {
+    const card = entry && entry.refs && entry.refs.card;
+    return card ? card.style.getPropertyValue('--wb-note-accent').trim() : '';
+}
 
-    const { src, edge } = source;
+/** A board-object <foreignObject> for the genie at board rect `r`: last in
+ * `layer`, so it draws above every note, and given a board rect like every
+ * note's, so wbPlaceBoardObject() (whiteboard.js) draws it -- and every pan
+ * or zoom tween redraws it -- in step with them. */
+function wbGenieBoardObject(layer, r, content) {
+    const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+    fo.setAttribute('class', 'wb-genie-ghost');
+    fo.setAttribute('aria-hidden', 'true');
+    fo.setAttribute('inert', ''); // the copied card's controls are not live
+    fo.dataset.wbX = String(r.left);
+    fo.dataset.wbY = String(r.top);
+    fo.dataset.wbWidth = String(r.right - r.left);
+    fo.dataset.wbHeight = String(r.bottom - r.top);
+    fo.appendChild(content);
+    layer.appendChild(fo);
+    if (typeof wbPlaceBoardObject === 'function') wbPlaceBoardObject(fo);
+    return fo;
+}
+
+/**
+ * Run the genie between a row (`src`, sliding in or out at `edge`) and a
+ * note's board rect `dst`, drawing `card` (a copy of the note's card) inside
+ * it. Forward pours the row into the note (a pin); `reverse` drains the note
+ * back into the row (an unpin) -- the same keyframes, played backwards.
+ * `onDone` runs exactly once, however the run ends.
+ */
+function wbGenieRun({ layer, src, edge, dst, card, accent, reverse, onDone }) {
     const toRight = (dst.left + dst.right) / 2 >= (src.left + src.right) / 2;
     const edgeX = toRight ? edge.right : edge.left;
     const rowWidth = src.right - src.left;
@@ -278,39 +301,23 @@ function wbGeniePlay(taskName, source, entry) {
         right: r.right - span.left, bottom: r.bottom - span.top,
     });
 
-    // Last in the notes layer, so it draws above every note.
-    const ghost = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-    ghost.setAttribute('class', 'wb-genie-ghost');
-    ghost.setAttribute('aria-hidden', 'true');
-    ghost.setAttribute('inert', ''); // the copied card's controls are not live
-    // A board rect, like every note's, so wbPlaceBoardObject() (whiteboard.js)
-    // draws it -- and every pan or zoom tween redraws it -- in step with them.
-    ghost.dataset.wbX = String(span.left);
-    ghost.dataset.wbY = String(span.top);
-    ghost.dataset.wbWidth = String(span.right - span.left);
-    ghost.dataset.wbHeight = String(span.bottom - span.top);
-
     const funnel = document.createElement('div');
     funnel.className = 'wb-genie-funnel';
-    // The note's colour lives on its card (wbUpdateNoteNode()).
-    const card = entry.refs && entry.refs.card;
-    const accent = card ? card.style.getPropertyValue('--wb-note-accent').trim() : '';
     if (accent) funnel.style.setProperty('--wb-note-accent', accent);
 
-    // A copy of the real card at its own spot, fading in as the funnel
-    // arrives -- the same copying the parking-lot drag ghost does.
+    // The copy of the card at the note's own spot, faded in as the funnel
+    // arrives (or out as it leaves) -- the same copying the parking-lot drag
+    // ghost does.
     const d = shift(dst);
     const copy = document.createElement('div');
     copy.className = 'wb-genie-note';
     copy.style.left = `${d.left}px`;
     copy.style.top = `${d.top}px`;
-    copy.style.width = `${dst.width}px`;
-    copy.style.height = `${dst.height}px`;
-    if (fo.firstElementChild) copy.appendChild(fo.firstElementChild.cloneNode(true));
+    copy.style.width = `${dst.right - dst.left}px`;
+    copy.style.height = `${dst.bottom - dst.top}px`;
+    if (card) copy.appendChild(card);
     funnel.appendChild(copy);
-    ghost.appendChild(funnel);
-    layer.appendChild(ghost);
-    if (typeof wbPlaceBoardObject === 'function') wbPlaceBoardObject(ghost);
+    const ghost = wbGenieBoardObject(layer, span, funnel);
 
     const duration = wbGenieDurationMs();
     let finished = false;
@@ -320,22 +327,174 @@ function wbGeniePlay(taskName, source, entry) {
         finished = true;
         clearTimeout(fallback);
         ghost.remove();
-        wbGenieRelease(taskName);
+        if (onDone) onDone();
     };
     fallback = setTimeout(finish, duration + 300);
     try {
-        const run = funnel.animate(
-            wbGenieKeyframes(shift(src), edgeX - span.left, d),
-            { duration, easing: 'linear', fill: 'forwards' });
+        const timing = {
+            duration, easing: 'linear', fill: 'forwards',
+            direction: reverse ? 'reverse' : 'normal',
+        };
+        const run = funnel.animate(wbGenieKeyframes(shift(src), edgeX - span.left, d), timing);
         copy.animate(
             [{ opacity: 0, offset: 0 }, { opacity: 0, offset: 0.6 }, { opacity: 1, offset: 1 }],
-            { duration, easing: 'linear', fill: 'forwards' });
+            timing);
         run.addEventListener('finish', finish);
         run.addEventListener('cancel', finish);
     } catch (err) {
         finish();
         return false;
     }
+    return true;
+}
+
+/**
+ * Play the genie from `source` (wbGenieCapture()'s result) into the rendered
+ * note `entry`, then show the real note. Always ends with the note released,
+ * whether or not the animation could run.
+ */
+function wbGeniePlay(taskName, source, entry) {
+    const fo = entry && entry.fo;
+    const layer = fo && fo.parentNode;
+    const dst = fo ? wbGenieNoteRect(fo) : null;
+    if (!layer || !source || !dst) {
+        wbGenieRelease(taskName);
+        return false;
+    }
+    return wbGenieRun({
+        layer, src: source.src, edge: source.edge, dst,
+        card: fo.firstElementChild ? fo.firstElementChild.cloneNode(true) : null,
+        accent: wbGenieAccent(entry),
+        reverse: false,
+        onDone: () => wbGenieRelease(taskName),
+    });
+}
+
+// ── Unpin: the genie in reverse ─────────────────────────────────────────
+
+/** How long an unpin waits for the task's row to re-render in its parent
+ * note before giving up on the reverse genie and just fading the note out. */
+const WB_GENIE_ROW_WAIT_MS = 500;
+
+/** `taskName`'s rendered note entry, matched case-insensitively (the board's
+ * rows and the plan's task names can differ in case). */
+function wbGenieNoteEntry(taskName) {
+    if (typeof wbNoteNodes === 'undefined' || !wbNoteNodes || !taskName) return null;
+    if (wbNoteNodes.has(taskName)) return wbNoteNodes.get(taskName);
+    const key = String(taskName).toLowerCase();
+    for (const [name, entry] of wbNoteNodes) {
+        if (String(name).toLowerCase() === key) return entry;
+    }
+    return null;
+}
+
+/** Whether `taskName`'s parent task has a note on the board -- where its
+ * row will come back once its own note is unpinned. */
+function wbGenieParentOnBoard(taskName) {
+    const tasks = (typeof wbLastTasks !== 'undefined' && Array.isArray(wbLastTasks)) ? wbLastTasks : [];
+    const key = String(taskName).toLowerCase();
+    const task = tasks.find(t => t && t.name && t.name.toLowerCase() === key);
+    return !!(task && task.parent && wbGenieNoteEntry(task.parent));
+}
+
+/**
+ * Where an unpinned note drains back to, in board coordinates
+ * ({src, edge, row}), or null if it is not on screen (yet). `inParent`
+ * looks for the task's checklist row in its parent note; otherwise its row
+ * in the open outline panel.
+ */
+function wbGenieFindReturnRow(taskName, inParent) {
+    const escaped = (window.CSS && CSS.escape) ? CSS.escape(taskName) : taskName;
+    let row = null;
+    let surface = null;
+    if (inParent) {
+        const container = document.getElementById('whiteboardContainer');
+        row = container
+            ? container.querySelector(`.wb-note .wb-note-row[data-wb-row-task="${escaped}"]`) : null;
+        surface = row ? row.closest('.wb-note') : null;
+    } else {
+        const panel = document.getElementById('whiteboardOutlinePanel');
+        row = (panel && !panel.classList.contains('hidden'))
+            ? panel.querySelector(`[data-task="${escaped}"]`) : null;
+        surface = panel;
+    }
+    if (!row || !wbGenieRectOK(row.getBoundingClientRect())) return null;
+    const src = wbGenieToBoard(row.getBoundingClientRect());
+    const edge = wbGenieToBoard((surface || row).getBoundingClientRect());
+    if (!src || !edge) return null;
+    const zoom = (typeof wbZoom === 'number' && wbZoom > 0) ? wbZoom : 1;
+    src.bottom = Math.min(src.bottom, src.top + WB_GENIE_MAX_SOURCE_HEIGHT / zoom);
+    return { src, edge, row };
+}
+
+/**
+ * Unpin `taskName`'s note with the genie played backwards: the note drains
+ * into a funnel and slides back into its row in the parent note.
+ *
+ * `commit` is the unpin itself (wbRemoveNoteFromBoard()'s one
+ * wbCommitMarkdown() call) and runs exactly as it would without the effect.
+ * A copy of the note stands in for it across the commit, so nothing blinks
+ * while the board re-renders; once the task's row is back on screen the
+ * genie runs from the note into it, with the row held hidden until the
+ * funnel lands. No row to return to (a top-level task, the outline closed)
+ * fades the stand-in out instead. Motion off: just the commit.
+ */
+function wbGenieUnpin(taskName, commit) {
+    const entry = wbGenieNoteEntry(taskName);
+    const fo = entry && entry.fo;
+    const layer = fo && fo.parentNode;
+    const dst = fo ? wbGenieNoteRect(fo) : null;
+    if (!layer || !dst || !fo.firstElementChild || !wbGenieMotionAllowed()) return commit();
+
+    // Read before the commit: a note of the parent's own is where the row
+    // comes back, and the only surface worth waiting for it to re-render on.
+    const inParent = wbGenieParentOnBoard(taskName);
+    const accent = wbGenieAccent(entry);
+    const card = fo.firstElementChild.cloneNode(true);
+    const standInContent = document.createElement('div');
+    standInContent.className = 'wb-genie-standin';
+    standInContent.appendChild(fo.firstElementChild.cloneNode(true));
+    const standIn = wbGenieBoardObject(layer, dst, standInContent);
+
+    if (!commit()) {
+        standIn.remove();
+        return false;
+    }
+
+    const fadeOut = () => {
+        try {
+            const fade = standInContent.animate([{ opacity: 1 }, { opacity: 0 }],
+                { duration: wbGenieDurationMs() / 3, easing: 'ease-out', fill: 'forwards' });
+            fade.addEventListener('finish', () => standIn.remove());
+            setTimeout(() => standIn.remove(), wbGenieDurationMs());
+        } catch (err) {
+            standIn.remove();
+        }
+    };
+
+    const started = Date.now();
+    const tryStart = () => {
+        const target = wbGenieFindReturnRow(taskName, inParent);
+        if (!target) {
+            if (inParent && Date.now() - started < WB_GENIE_ROW_WAIT_MS) {
+                setTimeout(tryStart, 50);
+            } else {
+                fadeOut();
+            }
+            return;
+        }
+        const row = target.row;
+        row.classList.add('wb-genie-row-held');
+        // The run's own overlay goes up in the same task as the stand-in
+        // comes down, so there is no frame without either.
+        standIn.remove();
+        wbGenieRun({
+            layer, src: target.src, edge: target.edge, dst, card, accent,
+            reverse: true,
+            onDone: () => row.classList.remove('wb-genie-row-held'),
+        });
+    };
+    setTimeout(tryStart, 0);
     return true;
 }
 
