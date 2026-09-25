@@ -76,8 +76,7 @@ def board(page, app_server, plan=PLAN, notes=3):
     # The outline panel floats over the left of the canvas, which is where
     # `Alpha` is; a lasso that starts under it never reaches the board.
     page.evaluate(
-        """() => { const b = document.getElementById('whiteboardOutlineBtn');
-                   if (b && b.getAttribute('aria-pressed') === 'true') wbToggleOutlinePanel(); }"""
+        "() => wbToggleOutlinePanel(false)"
     )
     page.wait_for_timeout(150)
 

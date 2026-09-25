@@ -50,8 +50,7 @@ def board(page, app_server):
     switch_to_whiteboard(page, expected_notes=2)
     page.evaluate("() => whiteboardZoomReset()")
     page.evaluate(
-        """() => { const b = document.getElementById('whiteboardOutlineBtn');
-                   if (b && b.getAttribute('aria-pressed') === 'true') wbToggleOutlinePanel(); }"""
+        "() => wbToggleOutlinePanel(false)"
     )
     page.evaluate("() => whiteboardRevealNote('Build', { centre: true })")
     page.wait_for_timeout(300)

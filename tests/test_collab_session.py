@@ -133,7 +133,10 @@ class TestSessionCreation:
         assert response.status_code == 200
         assert 'id="whiteboardContainer"' in response.text
         assert 'id="whiteboardZoomInBtn"' in response.text
-        assert 'id="whiteboardOutlineBtn"' in response.text
+        # The board's side panels are toggled from the ribbon's Whiteboard
+        # tab, which the join page carries pinned (ribbon.js).
+        assert 'data-context-tab="whiteboard"' in response.text
+        assert "/static/ribbon.js" in response.text
         assert "/static/whiteboard-notes.js" in response.text
         assert "/static/views/whiteboard.css" in response.text
         assert 'id="leaveBtn"' in response.text

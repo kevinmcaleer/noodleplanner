@@ -1188,10 +1188,15 @@ function wbToggleOutlinePanel(force) {
     wbUpdateOutlineToolbarButton();
 }
 
-/** Keep the toolbar's Structure toggle in sync with the panel. */
+/** Keep the ribbon's Whiteboard > Structure toggle in step with the panel,
+ * which its own hide button and rail open and close too. */
 function wbUpdateOutlineToolbarButton() {
-    const btn = document.getElementById('whiteboardOutlineBtn');
-    if (!btn) return;
-    btn.classList.toggle('active', wbOutlineOpen);
-    btn.setAttribute('aria-pressed', String(wbOutlineOpen));
+    if (typeof refreshRibbon === 'function') refreshRibbon();
+}
+
+/** Whether the panel is open -- the ribbon's Structure button reads this
+ * for its pressed state. */
+function wbOutlinePanelOpen() {
+    wbLoadOutlineState();
+    return wbOutlineOpen;
 }

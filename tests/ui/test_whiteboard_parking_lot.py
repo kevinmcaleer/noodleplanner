@@ -132,8 +132,21 @@ def wait_for_parked(page, task_name=None):
         )
 
 
+# The panel's toggle lives on the ribbon's Whiteboard tab (Show group).
+RIBBON_PARKING_LOT = '#ribbonShell [data-scope-id="whiteboard"][data-label="Parking Lot"]'
+
+
+def click_ribbon_parking_lot(page):
+    """Select the ribbon's Whiteboard tab if it is not the one showing, then
+    its Parking Lot button."""
+    tab = page.locator("#ribbonShell .ribbon-tab-btn.contextual")
+    if tab.get_attribute("aria-selected") != "true":
+        tab.click()
+    page.locator(RIBBON_PARKING_LOT).click()
+
+
 def open_parking_lot_panel(page):
-    page.click("#whiteboardParkingLotBtn")
+    click_ribbon_parking_lot(page)
     page.wait_for_selector(DIALOG, state="visible")
     # The panel slides in over ~200ms (views/whiteboard.css's
     # .wb-parking-lot-panel transition) rather than appearing instantly --
@@ -393,11 +406,17 @@ class TestParkingLotPanel:
         )
 
     def test_toggle_button_closes_an_already_open_panel(self, board):
-        """Issue #1201: the toolbar button now toggles -- a second click
+        """Issue #1201: the button toggles (now on the ribbon) -- a second click
         closes the panel instead of leaving a no-op modal-reopen."""
         open_parking_lot_panel(board)
-        board.click("#whiteboardParkingLotBtn")
+        assert board.locator(RIBBON_PARKING_LOT).get_attribute("aria-pressed") == "true"
+        click_ribbon_parking_lot(board)
         board.wait_for_selector(DIALOG, state="detached")
+        assert board.locator(RIBBON_PARKING_LOT).get_attribute("aria-pressed") == "false"
+        # Focus goes back to the button that toggles it.
+        board.wait_for_function(
+            "sel => document.activeElement === document.querySelector(sel)", arg=RIBBON_PARKING_LOT
+        )
 
 
 class TestParkingLotDragAndDrop:

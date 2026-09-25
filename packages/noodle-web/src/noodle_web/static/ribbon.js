@@ -141,6 +141,8 @@ function getLiveState() {
         highlightToggles: (typeof HighlightToggles !== 'undefined') ? HighlightToggles.getState() : null,
         editorVisible: !document.querySelector('.editor-panel')?.classList.contains('collapsed'),
         whiteboardKeyVisible: (typeof wbNoodleKeyVisible === 'function') ? wbNoodleKeyVisible() : false,
+        whiteboardOutlineOpen: (typeof wbOutlinePanelOpen === 'function') ? wbOutlinePanelOpen() : false,
+        whiteboardParkingLotOpen: (typeof wbParkingLotPanelOpen === 'function') ? wbParkingLotPanelOpen() : false,
     };
 }
 
@@ -317,6 +319,8 @@ const LABEL_HELP = {
     // bare label cannot collide with another tab's button.
     Group: 'Draw a named boundary round the selected notes (select two or more first)',
     Key: 'Show or hide the key to the board’s solid and dashed lines',
+    Structure: 'Show or hide the plan structure panel',
+    'Parking Lot': 'Show or hide the parking lot -- ideas sent off the board for later',
     // #1266: moved off the Gantt toolbar, where these were the button
     // titles; Baseline itself still opens the dialog (#1112).
     'Set Baseline': 'Save the current schedule as the baseline',
@@ -488,8 +492,12 @@ function scopedAction(scopeId, label) {
         // Shows or hides the tips under the whiteboard's toolbar, which
         // their own close button dismisses.
         'whiteboard:Tips': onWhiteboard('wbToggleToolbarHint'),
-        // Shows or hides the key to the board's solid and dashed lines.
+        // Shows or hides the key to the solid and dashed lines on the board.
         'whiteboard:Key': onWhiteboard('wbToggleNoodleKey'),
+        // The two side panels of the board, moved here from the toolbar of
+        // the whiteboard itself -- the plan structure outline and the parking lot.
+        'whiteboard:Structure': onWhiteboard('wbToggleOutlinePanel'),
+        'whiteboard:Parking Lot': onWhiteboard('wbToggleParkingLotPanel'),
         'whiteboard:Spacing': () => openFormatMenu(WHITEBOARD_SPACINGS, 'Spacing'),
         // #1341: was a "not available yet" stub although #874 had already
         // built grouping -- the selection toolbar's "Group these" calls the
@@ -916,6 +924,8 @@ function isButtonActive(scopeId, label, live) {
         if (label === 'Years') return live.ganttScale === 'years';
     }
     if (scopeId === 'whiteboard' && label === 'Key') return live.whiteboardKeyVisible;
+    if (scopeId === 'whiteboard' && label === 'Structure') return live.whiteboardOutlineOpen;
+    if (scopeId === 'whiteboard' && label === 'Parking Lot') return live.whiteboardParkingLotOpen;
     if (scopeId === 'kanban') {
         if (label === 'Phase') return live.kanbanViewMode === 'phase';
         if (label === 'Resource') return live.kanbanViewMode === 'resource';
