@@ -347,6 +347,22 @@ const tasks = [
     assert(assigned.includes('Build 2d @sam'), 'quick assignment writes the ordinary resource token');
     const removed = wbApplyResourceToPlanText(assigned, 'Build', 'sam', false);
     assert(!removed.includes('Build 2d @sam'), 'clicking an assigned resource removes its ordinary token');
+
+    // Assigning to an indented task must not re-indent it: the old
+    // line-wide whitespace collapse turned `    Build` into ` Build`,
+    // reparenting it (and its siblings) in the outline.
+    const nested = 'Phase 1\n    Build 2d\n    Test 1d  "keep  spacing"\n';
+    const nestedAssigned = wbApplyResourceToPlanText(nested, 'Build', 'sam', true);
+    assert(nestedAssigned === 'Phase 1\n    Build 2d @sam\n    Test 1d  "keep  spacing"\n',
+        'assigning a resource keeps the task\'s indentation');
+    assert(wbApplyResourceToPlanText(nestedAssigned, 'Build', 'sam', false) === nested,
+        'unassigning a resource keeps the task\'s indentation');
+    assert(wbApplyResourceToPlanText(nested, 'Test', 'sam', true) === 'Phase 1\n    Build 2d\n    Test 1d  "keep  spacing" @sam\n',
+        'assigning a resource leaves the rest of the line\'s spacing alone');
+    assert(wbApplyResourceToLine('    @sam Build 2d', 'sam', false) === '    Build 2d',
+        'removing a leading token does not add indentation');
+    assert(wbApplyResourceToLine('    Build @sam 2d', 'sam', false) === '    Build 2d',
+        'removing a mid-line token leaves a single space');
 }
 
 // ── WCAG contrast helpers ────────────────────────────────────────────────
