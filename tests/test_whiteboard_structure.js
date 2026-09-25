@@ -71,6 +71,11 @@ const {
     wbPromoteThoughtInPlanText,
     wbDemoteTaskToThoughtInPlanText,
     wbDeleteThoughtFromPlanText,
+    wbOutlineNeighbours,
+    wbIndentTaskInPlanText,
+    wbOutdentTaskInPlanText,
+    wbSetTaskFieldsInPlanText,
+    wbTaskFieldsFromPlanText,
 } = sandbox;
 
 // ── Fixtures ────────────────────────────────────────────────────────────
@@ -640,6 +645,70 @@ assert(!merged.split('\n').includes('Beta'), 'merge leaves one task holding ever
         'a task with subtasks is refused -- they would be orphaned');
     assertEqual(wbDemoteTaskToThoughtInPlanText('Alpha', 'Nope'), 'Alpha',
         'demoting a missing task changes nothing');
+}
+
+// ── Indent / outdent and the quick editor's field writes ───────────────
+{
+    const PLAN = [
+        'Alpha 2d',
+        '  One 1d',
+        '  Two 1d',
+        '    Deep 1d',
+        '  Three 1d',
+        'Beta',
+    ].join('\n');
+
+    const n = wbOutlineNeighbours(PLAN, 'two');
+    assertEqual(`${n.previousSibling}|${n.parent}`, 'One|Alpha', 'neighbours of a middle child');
+    assertEqual(wbOutlineNeighbours(PLAN, 'One').previousSibling, '',
+        'a first child has no previous sibling');
+    assertEqual(wbOutlineNeighbours(PLAN, 'Beta').previousSibling, 'Alpha',
+        'a top-level task\'s previous sibling skips the earlier task\'s subtree');
+    assertEqual(wbOutlineNeighbours(PLAN, 'Beta').parent, '', 'a top-level task has no parent');
+
+    assertEqual(wbIndentTaskInPlanText(PLAN, 'Two'),
+        ['Alpha 2d', '  One 1d', '    Two 1d', '      Deep 1d', '  Three 1d', 'Beta'].join('\n'),
+        'indent nests a task under its previous sibling, in place, taking its subtree');
+    assertEqual(wbIndentTaskInPlanText(PLAN, 'Beta'),
+        ['Alpha 2d', '  One 1d', '  Two 1d', '    Deep 1d', '  Three 1d', '  Beta'].join('\n'),
+        'indenting a top-level task makes it the last child of the task above');
+    assertEqual(wbIndentTaskInPlanText(PLAN, 'One'), PLAN, 'a first child cannot be indented');
+    assertEqual(wbIndentTaskInPlanText(PLAN, 'Alpha'), PLAN, 'nor can the first task in the plan');
+    assertEqual(wbIndentTaskInPlanText(PLAN, 'Nope'), PLAN, 'a missing task changes nothing');
+
+    assertEqual(wbOutdentTaskInPlanText(PLAN, 'Two'),
+        ['Alpha 2d', '  One 1d', '  Three 1d', 'Two 1d', '  Deep 1d', 'Beta'].join('\n'),
+        'outdent makes a task its parent\'s next sibling, taking its subtree');
+    assertEqual(wbOutdentTaskInPlanText(PLAN, 'Deep'),
+        ['Alpha 2d', '  One 1d', '  Two 1d', '  Deep 1d', '  Three 1d', 'Beta'].join('\n'),
+        'outdenting a last child leaves it where it was, one level out');
+    assertEqual(wbOutdentTaskInPlanText(PLAN, 'Beta'), PLAN, 'a top-level task cannot be outdented');
+    assertEqual(wbOutdentTaskInPlanText(wbIndentTaskInPlanText(PLAN, 'Three'), 'Three'), PLAN,
+        'outdent undoes indent for a last child');
+
+    const LINE = 'Alpha\n  Build @kev 3d [depends Alpha] "old note" 20%';
+    assertEqual(wbSetTaskFieldsInPlanText(LINE, 'build', { duration: '5', percent: '60', comment: 'new "one"' }),
+        'Alpha\n  Build @kev 5d [depends Alpha] "new \'one\'" 60%',
+        'fields are replaced in place, leaving every other token alone');
+    assertEqual(wbSetTaskFieldsInPlanText('Alpha', 'Alpha', { duration: '2w', percent: '10', comment: 'hi' }),
+        'Alpha 2w 10% "hi"', 'missing fields are appended');
+    assertEqual(wbSetTaskFieldsInPlanText(LINE, 'Build', { duration: '', percent: '', comment: '' }),
+        'Alpha\n  Build @kev [depends Alpha]', 'an empty value removes the token and its space');
+    assertEqual(wbSetTaskFieldsInPlanText(LINE, 'Build', { percent: '250' }),
+        'Alpha\n  Build @kev 3d [depends Alpha] "old note" 100%', 'percent is capped at 100');
+    assertEqual(wbSetTaskFieldsInPlanText(LINE, 'Build', { duration: 'soon' }), LINE,
+        'an invalid duration changes nothing');
+    assertEqual(wbSetTaskFieldsInPlanText(LINE, 'Nope', { duration: '1' }), LINE,
+        'a missing task changes nothing');
+    assertEqual(wbSetTaskFieldsInPlanText(LINE, 'Build', {}), LINE, 'no fields, no change');
+
+    assertEqual(JSON.stringify(wbTaskFieldsFromPlanText(LINE, 'build')),
+        JSON.stringify({ name: 'Build', duration: '3d', percent: '20', comment: 'old note' }),
+        'the fields read back from the line, under the outline\'s own spelling of the name');
+    assertEqual(JSON.stringify(wbTaskFieldsFromPlanText('Alpha', 'Alpha')),
+        JSON.stringify({ name: 'Alpha', duration: '', percent: '', comment: '' }),
+        'absent fields read as empty');
+    assertEqual(wbTaskFieldsFromPlanText(LINE, 'Nope'), null, 'a missing task reads as null');
 }
 
 console.log(failures === 0 ? '\nAll structure tests passed.' : `\n${failures} test(s) failed.`);

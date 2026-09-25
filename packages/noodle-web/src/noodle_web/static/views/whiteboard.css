@@ -3105,6 +3105,72 @@ body.wb-linking * {
     color: var(--np-text);
 }
 
+/* A row's right-click menu (wbBuildOutlineRowMenu()). Indent and Outdent
+   stay listed when the task has nowhere to go, so they stay focusable and
+   are only greyed out -- aria-disabled, not disabled. */
+.wb-outline-row-menu .wb-note-menu-action[aria-disabled='true'] {
+    color: var(--np-text-muted);
+    cursor: not-allowed;
+}
+
+/* The quick task editor (wbOpenQuickTaskEditor()): the note's smart-menu
+   popup, holding a small form. */
+.wb-quick-edit {
+    display: flex;
+    flex-direction: column;
+    gap: var(--np-space-8);
+}
+
+.wb-quick-edit > strong {
+    margin-bottom: 0;
+    overflow-wrap: anywhere;
+}
+
+.wb-quick-edit-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--np-space-4);
+}
+
+.wb-quick-edit-field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--np-text-secondary);
+}
+
+.wb-quick-edit-field input,
+.wb-quick-edit-field textarea {
+    padding: var(--np-space-4) var(--np-space-8);
+    border: 1px solid var(--np-border);
+    border-radius: 6px;
+    background: var(--np-surface);
+    color: var(--np-text);
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.wb-quick-edit-field textarea {
+    resize: vertical;
+}
+
+.wb-quick-edit-field input:focus-visible,
+.wb-quick-edit-field textarea:focus-visible {
+    outline: 2px solid var(--np-accent);
+    outline-offset: 1px;
+}
+
+.wb-quick-edit-error {
+    margin: 0;
+    color: var(--np-red);
+    font-size: 12px;
+}
+
+.wb-quick-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--np-space-8);
+}
+
 /* ── The key to the lines ────────────────────────────────────────────
    A small card, top right of the canvas, saying what a solid and a dashed
    noodle mean -- see wbEnsureNoodleKey() in whiteboard.js. The samples

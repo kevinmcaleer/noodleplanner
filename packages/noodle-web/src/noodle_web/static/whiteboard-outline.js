@@ -34,6 +34,10 @@
  * there is exactly one "make X a child of Y" implementation either
  * gesture can produce.
  *
+ * A right-click on a row opens its own menu -- rename, edit, assign
+ * resources, indent, outdent, delete -- on the host's board and a
+ * collaborator's alike; see wbBuildOutlineRowMenu().
+ *
  * Data flow, matching whiteboard-notes.js's own rule: this file never
  * parses plan text. It reads the already-scheduled `wbLastTasks` that
  * updateWhiteboardView() cached, builds its tree with
@@ -449,7 +453,371 @@ function wbBuildOutlineRow(row) {
     });
     el.appendChild(toggle);
 
+    el.addEventListener('contextmenu', (e) => wbOutlineRowContextMenu(e, row.name, el));
+
     return el;
+}
+
+// -- Right-click menu ------------------------------------------------------
+//
+// A row's own menu: rename, edit, assign resources, indent, outdent and
+// delete, for any task in the structure whether or not it has a note. It is
+// the same on the host's board and a collaborator's, because every item
+// commits through wbCommitMarkdown(), which a collaborator's page sends to
+// the host like any other whiteboard edit. It shares the note menu's DOM
+// id, styling and wbShowBoardMenu() plumbing, so opening it closes any other
+// board menu and the keyboard and outside-click handling are that menu's.
+
+/** Right-click (or the context-menu key) on a row. A rename in progress
+ * keeps the browser's own menu, where cut, copy and paste live. */
+function wbOutlineRowContextMenu(e, taskName, rowEl) {
+    const target = e.target;
+    if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName || '')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    let x = e.clientX;
+    let y = e.clientY;
+    if (x === 0 && y === 0) {
+        // From the keyboard: no pointer, so open under the row's name.
+        const rect = rowEl.getBoundingClientRect();
+        x = rect.left + 24;
+        y = rect.bottom;
+    }
+    wbOpenOutlineRowMenu(taskName, x, y, rowEl.querySelector('.wb-outline-label') || rowEl);
+}
+
+function wbOpenOutlineRowMenu(taskName, clientX, clientY, returnFocus) {
+    if (typeof wbShowBoardMenu !== 'function') return;
+    wbShowBoardMenu(wbBuildOutlineRowMenu(taskName),
+        { taskName, btn: null, returnFocus }, { x: clientX, y: clientY });
+}
+
+/** The plan text the menu's writes start from. */
+function wbOutlinePlanText() {
+    const editor = document.getElementById('planEditor');
+    return editor ? editor.value : '';
+}
+
+/**
+ * Build the row menu for `taskName`. Indent and Outdent are always listed,
+ * so they can be found, but are marked aria-disabled -- still focusable,
+ * per the menu pattern -- with the reason in their tooltip when the task
+ * has nowhere to go.
+ */
+function wbBuildOutlineRowMenu(taskName) {
+    const menu = document.createElement('div');
+    menu.id = 'wbNoteMenu';
+    menu.className = 'wb-note-menu wb-outline-row-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', `Options for ${taskName}`);
+
+    const list = document.createElement('ul');
+    list.className = 'wb-note-menu-list';
+    list.setAttribute('role', 'none');
+    menu.appendChild(list);
+
+    const addItem = (label, title, action, options) => {
+        const opts = options || {};
+        const li = document.createElement('li');
+        li.setAttribute('role', 'none');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = opts.className || 'wb-note-menu-action';
+        btn.setAttribute('role', 'menuitem');
+        btn.textContent = label;
+        btn.title = title;
+        if (opts.disabled) btn.setAttribute('aria-disabled', 'true');
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (opts.disabled) return;
+            wbCloseNoteMenu();
+            action();
+        });
+        li.appendChild(btn);
+        list.appendChild(li);
+        return btn;
+    };
+    const addDivider = () => {
+        const li = document.createElement('li');
+        li.className = 'wb-note-menu-divider';
+        li.setAttribute('role', 'separator');
+        list.appendChild(li);
+    };
+
+    addItem('Rename', 'Rename this task (or double-click its name, or press F2)',
+        () => wbOutlineRenameByName(taskName));
+    addItem('Edit task…', 'Change the task\'s details',
+        () => wbOutlineEditTask(taskName));
+    addItem('Assign resources…', 'Choose who works on this task',
+        () => wbOutlineAssignResources(taskName));
+
+    addDivider();
+    const text = wbOutlinePlanText();
+    const neighbours = wbOutlineNeighbours(text, taskName);
+    const canIndent = wbIndentTaskInPlanText(text, taskName) !== text;
+    const canOutdent = wbOutdentTaskInPlanText(text, taskName) !== text;
+    addItem('Indent',
+        canIndent
+            ? `Make this a subtask of "${neighbours.previousSibling}"`
+            : 'Nothing above this task at the same level to make it a subtask of',
+        () => wbOutlineIndentTask(taskName), { disabled: !canIndent });
+    addItem('Outdent',
+        canOutdent
+            ? `Move this task out of "${neighbours.parent}", one level up`
+            : 'Already at the top level of the plan',
+        () => wbOutlineOutdentTask(taskName), { disabled: !canOutdent });
+
+    addDivider();
+    const deleteBtn = addItem('Delete task',
+        'Deletes the task and its subtasks from the plan, not just its note',
+        () => { if (typeof wbDeleteNoteTask === 'function') wbDeleteNoteTask(taskName); },
+        { className: 'wb-note-menu-remove wb-note-menu-delete' });
+    deleteBtn.setAttribute('aria-label',
+        `Delete ${taskName}. This removes the task and its subtasks from the plan, not just the note.`);
+
+    return menu;
+}
+
+/** The outline row showing `taskName`, or null when it is not rendered. */
+function wbOutlineRowFor(taskName) {
+    if (!wbOutlineRefs || !wbOutlineRefs.list) return null;
+    const key = String(taskName).toLowerCase();
+    return Array.from(wbOutlineRefs.list.querySelectorAll('.wb-outline-row'))
+        .find(row => String(row.dataset.task).toLowerCase() === key) || null;
+}
+
+/** "Rename": the same in-place edit a double-click on the row starts. */
+function wbOutlineRenameByName(taskName) {
+    const row = wbOutlineRowFor(taskName);
+    const label = row && row.querySelector('.wb-outline-label');
+    if (label) wbOutlineBeginRename(label, taskName);
+}
+
+/**
+ * "Edit task…": the task-details form, through the same wbOpenChildTask()
+ * the note menu's "Open task details" uses. On a collaborator's page that
+ * form is the host's, so collab-join.js answers it with the quick editor
+ * below instead.
+ */
+function wbOutlineEditTask(taskName) {
+    if (typeof wbOpenChildTask === 'function') wbOpenChildTask(taskName);
+}
+
+/** "Assign resources…": the note's own quick-assign menu, under the row. */
+function wbOutlineAssignResources(taskName) {
+    if (typeof wbToggleResourceMenu !== 'function') return;
+    const row = wbOutlineRowFor(taskName);
+    const anchor = (row && row.querySelector('.wb-outline-label')) || row;
+    if (anchor) wbToggleResourceMenu(taskName, anchor);
+}
+
+function wbOutlineIndentTask(taskName) {
+    if (typeof wbCommitMarkdown !== 'function') return false;
+    const text = wbOutlinePlanText();
+    const next = wbIndentTaskInPlanText(text, taskName);
+    return next === text ? false : wbCommitMarkdown(next);
+}
+
+function wbOutlineOutdentTask(taskName) {
+    if (typeof wbCommitMarkdown !== 'function') return false;
+    const text = wbOutlinePlanText();
+    const next = wbOutdentTaskInPlanText(text, taskName);
+    return next === text ? false : wbCommitMarkdown(next);
+}
+
+// -- Quick task editor ------------------------------------------------------
+//
+// A small form for the fields a task line carries that the board has no
+// direct control for: duration, percent complete and the comment. It exists
+// for planning-session collaborators, whose page has no task-details form
+// (that form is the host's app) -- see openTaskFormByName() in
+// collab-join.js. Saving writes through wbSetTaskFieldsInPlanText() and
+// wbCommitMarkdown(), so it is one undo step on the host and one edit sent
+// to the host from a collaborator. Renaming stays the row's and the note's
+// own job, rather than a second way to do it here.
+
+let wbQuickEditState = null;   // { form, returnFocus }
+
+function wbCloseQuickTaskEditor(restoreFocus) {
+    if (!wbQuickEditState) return;
+    const { form, returnFocus } = wbQuickEditState;
+    wbQuickEditState = null;
+    if (form.parentNode) form.remove();
+    document.removeEventListener('mousedown', wbQuickEditOutsideClick, true);
+    if (restoreFocus && returnFocus && document.contains(returnFocus)) returnFocus.focus();
+}
+
+function wbQuickEditOutsideClick(e) {
+    if (!wbQuickEditState || wbQuickEditState.form.contains(e.target)) return;
+    wbCloseQuickTaskEditor(false);
+}
+
+/** The element the editor opens beside: the task's note, its outline row,
+ * or failing both the board itself. */
+function wbQuickEditAnchor(taskName) {
+    const entry = (typeof wbNoteNodes !== 'undefined' && wbNoteNodes) ? wbNoteNodes.get(taskName) : null;
+    if (entry && entry.refs && entry.refs.card) return entry.refs.card;
+    return wbOutlineRowFor(taskName) || document.getElementById('whiteboardContainer');
+}
+
+/** A labelled field for the quick editor. */
+function wbQuickEditField(form, id, labelText, input, hint) {
+    const group = document.createElement('div');
+    group.className = 'wb-quick-edit-field';
+    const label = document.createElement('label');
+    label.setAttribute('for', id);
+    label.textContent = labelText;
+    input.id = id;
+    group.appendChild(label);
+    group.appendChild(input);
+    if (hint) {
+        const small = document.createElement('small');
+        small.textContent = hint;
+        group.appendChild(small);
+    }
+    form.appendChild(group);
+    return input;
+}
+
+/**
+ * Open the quick editor for `taskName`. Returns false (and opens nothing)
+ * when the task is not in the plan outline.
+ */
+function wbOpenQuickTaskEditor(taskName) {
+    const editor = document.getElementById('planEditor');
+    const current = editor ? wbTaskFieldsFromPlanText(editor.value, taskName) : null;
+    if (!current) return false;
+    const name = current.name;
+    // A summary task's duration is its children's span; the scheduler
+    // ignores one written on its line, so offering it would be a lie.
+    const isSummary = typeof wbHasChildren === 'function' && wbHasChildren(wbLastTasks, name);
+
+    wbCloseQuickTaskEditor(false);
+    if (typeof wbCloseNoteMenu === 'function') wbCloseNoteMenu();
+    if (typeof wbCloseSmartMenu === 'function') wbCloseSmartMenu();
+
+    const returnFocus = document.activeElement;
+    const form = document.createElement('form');
+    form.className = 'wb-smart-menu wb-quick-edit';
+    form.setAttribute('role', 'dialog');
+    form.setAttribute('aria-label', `Edit ${name}`);
+    form.noValidate = true;
+
+    const heading = document.createElement('strong');
+    heading.textContent = name;
+    form.appendChild(heading);
+
+    let durationInput = null;
+    if (!isSummary) {
+        durationInput = document.createElement('input');
+        durationInput.type = 'text';
+        durationInput.value = current.duration;
+        durationInput.placeholder = 'e.g. 3d or 2w';
+        wbQuickEditField(form, 'wbQuickEditDuration', 'Duration', durationInput);
+    }
+
+    const percentInput = document.createElement('input');
+    percentInput.type = 'number';
+    percentInput.min = '0';
+    percentInput.max = '100';
+    percentInput.step = '5';
+    percentInput.value = current.percent;
+    wbQuickEditField(form, 'wbQuickEditPercent', '% complete', percentInput);
+
+    const commentInput = document.createElement('textarea');
+    commentInput.rows = 3;
+    commentInput.value = current.comment;
+    wbQuickEditField(form, 'wbQuickEditComment', 'Comment', commentInput);
+
+    const error = document.createElement('p');
+    error.className = 'wb-quick-edit-error';
+    error.setAttribute('role', 'alert');
+    error.hidden = true;
+    form.appendChild(error);
+
+    const actions = document.createElement('div');
+    actions.className = 'wb-quick-edit-actions';
+    const cancel = document.createElement('np-button');
+    cancel.setAttribute('variant', 'neutral');
+    cancel.setAttribute('size', 'small');
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => wbCloseQuickTaskEditor(true));
+    const save = document.createElement('np-button');
+    save.setAttribute('variant', 'primary');
+    save.setAttribute('size', 'small');
+    save.textContent = 'Save';
+    save.addEventListener('click', () => form.requestSubmit());
+    actions.appendChild(cancel);
+    actions.appendChild(save);
+    form.appendChild(actions);
+
+    const fail = (message, input) => {
+        error.textContent = message;
+        error.hidden = false;
+        input.focus();
+    };
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const duration = durationInput ? durationInput.value.trim() : undefined;
+        const percent = percentInput.value.trim();
+        if (durationInput && duration && !/^\d+[dwmy]?$/i.test(duration)) {
+            fail('Duration is a number of days, or e.g. 2w for weeks.', durationInput);
+            return;
+        }
+        if (percent && !(/^\d+$/.test(percent) && Number(percent) <= 100)) {
+            fail('% complete is a whole number from 0 to 100.', percentInput);
+            return;
+        }
+        const fields = { percent, comment: commentInput.value };
+        if (durationInput) fields.duration = duration;
+        const text = editor.value;
+        const next = wbSetTaskFieldsInPlanText(text, name, fields);
+        wbCloseQuickTaskEditor(true);
+        if (next !== text && typeof wbCommitMarkdown === 'function') wbCommitMarkdown(next);
+    });
+    form.addEventListener('keydown', (e) => {
+        // Keep the board's shortcuts (arrows pan, f fits ...) out of the form.
+        e.stopPropagation();
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            wbCloseQuickTaskEditor(true);
+        } else if (e.key === 'Enter' && !e.shiftKey &&
+                   /^(INPUT|TEXTAREA)$/.test(e.target.tagName || '')) {
+            // Enter saves from any field; Shift+Enter is left to the comment.
+            e.preventDefault();
+            form.requestSubmit();
+        }
+    });
+
+    document.body.appendChild(form);
+    wbPlaceQuickTaskEditor(form, wbQuickEditAnchor(name));
+    wbQuickEditState = { form, returnFocus };
+    setTimeout(() => {
+        if (wbQuickEditState && wbQuickEditState.form === form) {
+            document.addEventListener('mousedown', wbQuickEditOutsideClick, true);
+        }
+    }, 0);
+    (durationInput || percentInput).focus();
+    return true;
+}
+
+/** Beside `anchor`, kept inside the board's safe band -- the placement
+ * rule wbOpenSmartMenu() uses for the note's own popups. */
+function wbPlaceQuickTaskEditor(form, anchor) {
+    const edgeGap = 8;
+    const bounds = (typeof wbNoteMenuSafeBounds === 'function')
+        ? wbNoteMenuSafeBounds(edgeGap)
+        : { top: edgeGap, bottom: window.innerHeight - edgeGap };
+    const rect = anchor ? anchor.getBoundingClientRect()
+        : { left: edgeGap, right: edgeGap, top: bounds.top, bottom: bounds.top };
+    const box = form.getBoundingClientRect();
+    let left = rect.right + edgeGap;
+    if (left + box.width > window.innerWidth - edgeGap) left = rect.left - box.width - edgeGap;
+    left = Math.max(edgeGap, Math.min(left, window.innerWidth - box.width - edgeGap));
+    const top = Math.max(bounds.top, Math.min(rect.top, bounds.bottom - box.height));
+    form.style.maxHeight = `${Math.max(120, bounds.bottom - top)}px`;
+    form.style.left = `${left}px`;
+    form.style.top = `${top}px`;
 }
 
 // -- Hiding from collaborators (planning-session host only) ----------------

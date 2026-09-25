@@ -662,6 +662,146 @@ function wbMoveTaskInPlanText(planText, taskName, referenceName, before) {
 }
 
 /**
+ * The outline neighbours indent and outdent are measured against:
+ * `previousSibling` is the nearest earlier task at the same depth under the
+ * same parent, `parent` the nearest earlier task that is shallower. Either
+ * is '' when there is none; both are '' when the task is not in the outline.
+ */
+function wbOutlineNeighbours(planText, taskName) {
+    const { entries } = wbParseOutline(planText);
+    const pos = wbFindOutlineIndex(entries, taskName);
+    const result = { previousSibling: '', parent: '' };
+    if (pos === -1) return result;
+    const indent = entries[pos].indent;
+    for (let i = pos - 1; i >= 0; i--) {
+        if (entries[i].indent === indent && !result.previousSibling && !result.parent) {
+            result.previousSibling = entries[i].name;
+        } else if (entries[i].indent < indent) {
+            result.parent = entries[i].name;
+            break;
+        }
+    }
+    return result;
+}
+
+/**
+ * Indent `taskName` (with its subtree) one level: it becomes the last child
+ * of its previous sibling, which leaves it exactly where it was in the
+ * outline, one step deeper -- what Tab does in any outliner. Composed from
+ * wbReparentTaskInPlanText(), so it is the same move a drawn noodle makes.
+ * Returns `planText` unchanged when there is no previous sibling to nest
+ * under (the first child of its parent, or the first task in the plan).
+ */
+function wbIndentTaskInPlanText(planText, taskName) {
+    const text = String(planText == null ? '' : planText);
+    const { previousSibling } = wbOutlineNeighbours(text, taskName);
+    if (!previousSibling) return text;
+    return wbReparentTaskInPlanText(text, taskName, previousSibling);
+}
+
+/**
+ * Outdent `taskName` (with its subtree) one level: it becomes the next
+ * sibling of its current parent, placed straight after that parent's
+ * subtree. Any later siblings stay with the parent -- the task moves, the
+ * rest of the plan does not. Composed from wbMoveTaskInPlanText(), the
+ * write a structure-panel drag already makes. Returns `planText` unchanged
+ * for a top-level task, which has nowhere further out to go.
+ */
+function wbOutdentTaskInPlanText(planText, taskName) {
+    const text = String(planText == null ? '' : planText);
+    const { parent } = wbOutlineNeighbours(text, taskName);
+    if (!parent) return text;
+    return wbMoveTaskInPlanText(text, taskName, parent, false);
+}
+
+/**
+ * The fields wbSetTaskFieldsInPlanText() writes, as they stand on
+ * `taskName`'s outline line: `{ name, duration, percent, comment }`, each
+ * the token's own text ('3d', '40' -- no `%` -- and the comment without its
+ * quotes), '' when the line has none. Null when the task is not in the
+ * outline.
+ */
+function wbTaskFieldsFromPlanText(planText, taskName) {
+    if (typeof TaskLineTokenizer === 'undefined' || !TaskLineTokenizer) return null;
+    const parsed = wbParseOutline(planText);
+    const pos = wbFindOutlineIndex(parsed.entries, taskName);
+    if (pos === -1) return null;
+    const tokens = TaskLineTokenizer.tokenize(parsed.lines[parsed.entries[pos].index]);
+    const text = (type) => (tokens.find(t => t.type === type) || {}).text || '';
+    return {
+        name: parsed.entries[pos].name,
+        duration: text('duration'),
+        percent: text('percent').replace(/%$/, ''),
+        comment: text('comment').slice(1, -1),
+    };
+}
+
+/**
+ * Set a task's duration, percent complete and/or comment on its own outline
+ * line, leaving every other token on the line as it was. `fields` may carry
+ * any of:
+ *
+ *   duration -- a number of days, or a token such as '2w'; '' removes it
+ *   percent  -- 0..100; '' removes it
+ *   comment  -- free text, stored as the line's `"..."` token; '' removes it
+ *
+ * A key that is absent (undefined) is left alone. This is the write behind
+ * the whiteboard's quick task editor -- the task form is the host's app, so
+ * a planning-session collaborator edits these through here instead.
+ * Returns `planText` unchanged when the task is not in the outline or a
+ * value is not valid.
+ */
+function wbSetTaskFieldsInPlanText(planText, taskName, fields) {
+    const text = String(planText == null ? '' : planText);
+    if (typeof TaskLineTokenizer === 'undefined' || !TaskLineTokenizer) return text;
+    const parsed = wbParseOutline(text);
+    const pos = wbFindOutlineIndex(parsed.entries, taskName);
+    if (pos === -1) return text;
+    const want = fields || {};
+
+    const tokenFor = {};
+    if (want.duration !== undefined) {
+        const raw = String(want.duration).trim().toLowerCase();
+        if (raw && !/^\d+(?:[dwmy])?$/.test(raw)) return text;
+        tokenFor.duration = !raw ? '' : (/[dwmy]$/.test(raw) ? raw : raw + 'd');
+    }
+    if (want.percent !== undefined) {
+        const raw = String(want.percent).trim().replace(/%$/, '');
+        if (raw && !/^\d+$/.test(raw)) return text;
+        tokenFor.percent = raw ? Math.min(100, Number(raw)) + '%' : '';
+    }
+    if (want.comment !== undefined) {
+        const clean = String(want.comment).replace(/[\r\n]+/g, ' ').replace(/"/g, "'")
+            .replace(/\s+/g, ' ').trim();
+        tokenFor.comment = clean ? `"${clean}"` : '';
+    }
+
+    const lines = parsed.lines.slice();
+    const index = parsed.entries[pos].index;
+    let line = lines[index];
+    const indent = line.slice(0, wbLineIndent(line));
+    for (const type of Object.keys(tokenFor)) {
+        const token = TaskLineTokenizer.tokenize(line).find(t => t.type === type);
+        const value = tokenFor[type];
+        if (token && value) {
+            line = line.slice(0, token.start) + value + line.slice(token.end);
+        } else if (token) {
+            // Take one separating space with the token, so no gap is left.
+            const start = (token.start > indent.length && line[token.start - 1] === ' ')
+                ? token.start - 1 : token.start;
+            const end = (start === token.start && line[token.end] === ' ') ? token.end + 1 : token.end;
+            line = line.slice(0, start) + line.slice(end);
+        } else if (value) {
+            line = line.replace(/\s+$/, '') + ' ' + value;
+        }
+        line = line.replace(/\s+$/, '');
+    }
+    lines[index] = line;
+    const result = lines.join('\n');
+    return result === text ? text : result;
+}
+
+/**
  * Rename a task in the outline (the line itself), leaving every other
  * token on that line untouched -- only the name run is replaced.
  *
