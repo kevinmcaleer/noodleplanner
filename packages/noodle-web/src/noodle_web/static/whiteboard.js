@@ -1146,6 +1146,7 @@ function wbSyncToolbarInset() {
 
 function wbInitFloatingToolbar() {
     wbApplyToolbarHintVisibility();
+    wbApplyNoodleKeyVisibility();
     wbSyncToolbarInset();
     const toolbar = document.getElementById('whiteboardToolbar');
     if (!toolbar || toolbar.dataset.wbInsetObserved || typeof ResizeObserver === 'undefined') return;
@@ -1188,6 +1189,118 @@ function wbDismissToolbarHint() {
 function wbToggleToolbarHint() {
     const hint = document.getElementById('whiteboardToolbarHint');
     wbSetToolbarHintVisible(hint ? hint.hidden : wbToolbarHintDismissed());
+}
+
+// ── The key to the lines ────────────────────────────────────────────────
+//
+// A small card on the canvas saying what the two kinds of noodle mean: a
+// solid line is the outline's parent/child link (whiteboard-noodles.js), a
+// dashed one a `[depends ...]` link (whiteboard-dep-noodles.js). The ribbon's
+// Whiteboard > Key button shows and hides it. Whether it is showing is a
+// per-browser view preference, like the tips above, so it is remembered in
+// localStorage and never written into the plan.
+
+const WB_KEY_VISIBLE_KEY = 'whiteboard_key_visible';
+
+function wbNoodleKeyWanted() {
+    try {
+        return localStorage.getItem(WB_KEY_VISIBLE_KEY) === '1';
+    } catch (e) {
+        return false;
+    }
+}
+
+/** One key row: a short sample of the line, and what it means. The sample
+ * uses the same stroke classes as the real noodles' look, so the key cannot
+ * drift from the board. */
+function wbNoodleKeyRow(kind, title, text) {
+    const row = document.createElement('li');
+    row.className = 'wb-key-row';
+    const sample = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    sample.setAttribute('class', `wb-key-sample wb-key-sample-${kind}`);
+    sample.setAttribute('width', '44');
+    sample.setAttribute('height', '14');
+    sample.setAttribute('viewBox', '0 0 44 14');
+    sample.setAttribute('aria-hidden', 'true');
+    sample.innerHTML = '<path class="wb-key-line" d="M2 7 H34"/>' +
+        '<polygon class="wb-key-arrow" points="42,7 33,2.5 33,11.5"/>';
+    const label = document.createElement('div');
+    label.className = 'wb-key-text';
+    const strong = document.createElement('strong');
+    strong.textContent = title;
+    label.appendChild(strong);
+    label.appendChild(document.createTextNode(text));
+    row.appendChild(sample);
+    row.appendChild(label);
+    return row;
+}
+
+function wbEnsureNoodleKey() {
+    const container = document.getElementById('whiteboardContainer');
+    if (!container) return null;
+    let panel = document.getElementById('whiteboardKey');
+    if (panel && container.contains(panel)) return panel;
+
+    panel = document.createElement('section');
+    panel.id = 'whiteboardKey';
+    panel.className = 'wb-key';
+    panel.setAttribute('aria-label', 'Key');
+    panel.hidden = true;
+
+    const header = document.createElement('div');
+    header.className = 'wb-key-header';
+    const heading = document.createElement('h3');
+    heading.className = 'wb-key-title';
+    heading.textContent = 'Key';
+    const close = document.createElement('np-close-button');
+    close.setAttribute('label', 'Hide the key');
+    close.setAttribute('title', 'Hide the key');
+    close.addEventListener('click', () => wbSetNoodleKeyVisible(false));
+    header.appendChild(heading);
+    header.appendChild(close);
+
+    const list = document.createElement('ul');
+    list.className = 'wb-key-list';
+    list.appendChild(wbNoodleKeyRow('hierarchy', 'Solid line',
+        ' — a sub-task. The arrow points from a note to a task inside it.'));
+    list.appendChild(wbNoodleKeyRow('dependency', 'Dashed line',
+        ' — a dependency. The task at the arrow can’t start until the other finishes.'));
+
+    panel.appendChild(header);
+    panel.appendChild(list);
+    container.appendChild(panel);
+    return panel;
+}
+
+/** Called when the board starts up. The card is only built once it is
+ * wanted, so a board that never shows it never builds it. */
+function wbApplyNoodleKeyVisibility() {
+    const wanted = wbNoodleKeyWanted();
+    const panel = wanted ? wbEnsureNoodleKey() : document.getElementById('whiteboardKey');
+    if (panel) panel.hidden = !wanted;
+}
+
+/** Show or hide the key, remembered across visits. */
+function wbSetNoodleKeyVisible(visible) {
+    try {
+        if (visible) localStorage.setItem(WB_KEY_VISIBLE_KEY, '1');
+        else localStorage.removeItem(WB_KEY_VISIBLE_KEY);
+    } catch (e) { /* storage blocked: still show/hide for this page */ }
+    const panel = wbEnsureNoodleKey();
+    if (panel) panel.hidden = !visible;
+    if (typeof refreshRibbon === 'function') refreshRibbon();
+}
+
+/** Whether the key is showing -- the ribbon's Key button reads this for
+ * its pressed state. */
+function wbNoodleKeyVisible() {
+    const panel = document.getElementById('whiteboardKey');
+    return panel ? !panel.hidden : wbNoodleKeyWanted();
+}
+
+/** The ribbon's Whiteboard > Key button. */
+function wbToggleNoodleKey() {
+    wbSetNoodleKeyVisible(!wbNoodleKeyVisible());
 }
 
 // ── Initialization ────────────────────────────────────────────────────

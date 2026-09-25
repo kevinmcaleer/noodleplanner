@@ -41,7 +41,8 @@ Joining a Session
 People who join open the join page, enter the six-digit code and their
 name, and land on your whiteboard — the same board you see, filling their
 window. Notes have the same colours and layout as on yours, and they get
-the same zoom controls and **Structure** panel. The session chat is a panel
+the same zoom controls, **Structure** panel and the ribbon's **Whiteboard**
+tab, including **Key**, which explains the solid and dashed lines. The session chat is a panel
 on the right of the board, which they can hide and bring back with **Chat**
 at the top of the page; a count on that button shows messages that arrived
 while it was hidden.

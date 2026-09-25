@@ -318,8 +318,9 @@ export const CONTEXTUAL_TABS = [
             { name: 'Arrange', cols: [[['grid', 'Tidy'], ['task-list', 'Hierarchy']], [['timeline', 'Flow'], ['sort', 'Spacing', 'caret']], [['grid', 'Align'], ['sort', 'Distribute']], [['link', 'Group'], ['pin', 'Lock']]] },
             { name: 'Convert', cols: [[['task-list', 'To Tasks'], ['board', 'To PBS']]] },
             // Tips: brings back the how-to line under the board's toolbar
-            // once its own close button has dismissed it.
-            { name: 'Help', cols: [[['bulb', 'Tips']]] },
+            // once its own close button has dismissed it. Key: shows or
+            // hides the card saying what the solid and dashed lines mean.
+            { name: 'Help', cols: [[['bulb', 'Tips'], ['link', 'Key']]] },
         ],
     },
     {

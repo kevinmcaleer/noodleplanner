@@ -14,6 +14,28 @@
  * "not available yet" toast rather than doing nothing silently.
  */
 
+/**
+ * A page can pin the ribbon to one contextual tab by giving #ribbonShell a
+ * `data-context-tab` (the planning-session joiner page does, with
+ * "whiteboard"): just that tab's groups, with no title bar, File button,
+ * scope tabs or app-wide shortcuts -- none of which exist on that page.
+ * Everything else (the buttons, their actions, the display modes, overflow)
+ * is this same code, so the joiner's Whiteboard tab cannot drift from the
+ * host's. Null on the app itself.
+ */
+function ribbonPinnedTabId() {
+    const shell = (typeof document !== 'undefined') ? document.getElementById('ribbonShell') : null;
+    return (shell && shell.dataset.contextTab) || null;
+}
+
+/** The contextual tab for the current view -- or, on a pinned ribbon, the
+ * pinned tab whatever the view. */
+function currentContextTab(ia, live) {
+    const pinned = ribbonPinnedTabId();
+    if (pinned) return ia.CONTEXTUAL_TABS.find((c) => c.id === pinned) || null;
+    return ia.contextualTabFor(live.view);
+}
+
 let iaModule = null;
 function loadIA() {
     if (!iaModule) iaModule = import('/static/ribbon-ia.js');
@@ -118,6 +140,7 @@ function getLiveState() {
         themeChoice: (typeof currentThemeChoice !== 'undefined') ? currentThemeChoice : 'light',
         highlightToggles: (typeof HighlightToggles !== 'undefined') ? HighlightToggles.getState() : null,
         editorVisible: !document.querySelector('.editor-panel')?.classList.contains('collapsed'),
+        whiteboardKeyVisible: (typeof wbNoodleKeyVisible === 'function') ? wbNoodleKeyVisible() : false,
     };
 }
 
@@ -293,6 +316,7 @@ const LABEL_HELP = {
     // #1341: the whiteboard's Group. Only on the Whiteboard tab, so the
     // bare label cannot collide with another tab's button.
     Group: 'Draw a named boundary round the selected notes (select two or more first)',
+    Key: 'Show or hide the key to the board’s solid and dashed lines',
     // #1266: moved off the Gantt toolbar, where these were the button
     // titles; Baseline itself still opens the dialog (#1112).
     'Set Baseline': 'Save the current schedule as the baseline',
@@ -464,6 +488,8 @@ function scopedAction(scopeId, label) {
         // Shows or hides the tips under the whiteboard's toolbar, which
         // their own close button dismisses.
         'whiteboard:Tips': onWhiteboard('wbToggleToolbarHint'),
+        // Shows or hides the key to the board's solid and dashed lines.
+        'whiteboard:Key': onWhiteboard('wbToggleNoodleKey'),
         'whiteboard:Spacing': () => openFormatMenu(WHITEBOARD_SPACINGS, 'Spacing'),
         // #1341: was a "not available yet" stub although #874 had already
         // built grouping -- the selection toolbar's "Group these" calls the
@@ -778,6 +804,14 @@ const FILE_ACTIONS = {
 };
 
 function renderTabStrip(ia, ctxTab) {
+    if (ribbonPinnedTabId() && ctxTab) {
+        return `
+            <button type="button" class="ribbon-tab-btn contextual active" data-tab="__ctx"
+                role="tab" aria-selected="true" style="border-bottom-color:${ctxTab.accent}">${ctxTab.label}</button>
+            <div class="ribbon-tabstrip-spacer"></div>
+            ${renderDisplaySelector()}
+        `;
+    }
     const tabs = ia.tabsForScope(ribbonState.scope).map((t) => {
         const active = ribbonState.activeTab === t.id;
         return `<button type="button" class="ribbon-tab-btn${active ? ' active' : ''}" data-tab="${t.id}" role="tab" aria-selected="${active}">${t.label}</button>`;
@@ -881,6 +915,7 @@ function isButtonActive(scopeId, label, live) {
         if (label === 'Quarters') return live.ganttScale === 'quarters';
         if (label === 'Years') return live.ganttScale === 'years';
     }
+    if (scopeId === 'whiteboard' && label === 'Key') return live.whiteboardKeyVisible;
     if (scopeId === 'kanban') {
         if (label === 'Phase') return live.kanbanViewMode === 'phase';
         if (label === 'Resource') return live.kanbanViewMode === 'resource';
@@ -929,9 +964,13 @@ function flattenGroupButtons(group) {
  * `hidden` on the trigger keeps it out of the accessibility tree and tab
  * order until a group actually collapses.
  */
+function ribbonEscapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
 function renderSimpleGroup(scopeId, group, animate) {
     const buttons = flattenGroupButtons(group).map((b) => renderButton(scopeId, b, 'simple')).join('');
-    const name = escapeHtml(group.name);
+    const name = ribbonEscapeHtml(group.name);
     return `<div class="ribbon-simple-group${animate ? ' ribbon-group-tab-in' : ''}" data-group="${name}">
         <div class="ribbon-simple-group-buttons">${buttons}</div>
         <button type="button" class="ribbon-simple-group-trigger" data-action="toggle-group-menu" data-group="${name}"
@@ -1252,13 +1291,15 @@ async function refreshRibbon() {
     // stale portfolio-scope tabs showing). A scope that changes this way
     // gets the same tab-switch animation an explicit setRibbonScope() call
     // triggers, so landing at a new altitude reads as a real transition.
-    const derivedScope = ia.scopeForView(live.view);
+    const pinned = ribbonPinnedTabId();
+    if (pinned) ribbonState.activeTab = '__ctx';
+    const derivedScope = pinned ? ribbonState.scope : ia.scopeForView(live.view);
     if (derivedScope !== ribbonState.scope) {
         ribbonState.scope = derivedScope;
         ribbonState.animateTabSwitch = true;
     }
 
-    const ctxTab = ia.contextualTabFor(live.view);
+    const ctxTab = currentContextTab(ia, live);
     const scopeTabs = activeScopeTabs(ia);
 
     // #1003: navigating to a view with a contextual tab (e.g. Gantt, Board)
@@ -1481,13 +1522,13 @@ function wireEvents(shell) {
             const wasOpenForThisGroup = ribbonState.openGroupTrigger === groupName;
             closePopovers();
             if (!wasOpenForThisGroup) {
-                loadIA().then((ia) => renderGroupPopover(ia, ia.contextualTabFor(getLiveState().view), groupName, groupTriggerBtn));
+                loadIA().then((ia) => renderGroupPopover(ia, currentContextTab(ia, getLiveState()), groupName, groupTriggerBtn));
             }
             return;
         }
 
         if (e.target.closest('[data-action="toggle-more"]')) {
-            loadIA().then((ia) => renderMorePopover(ia, ia.contextualTabFor(getLiveState().view)));
+            loadIA().then((ia) => renderMorePopover(ia, currentContextTab(ia, getLiveState())));
             return;
         }
 
@@ -1537,6 +1578,8 @@ function wireEvents(shell) {
     // FILE_ACTIONS map the rail/File button use, so there is exactly one
     // place each command lives.
     document.addEventListener('keydown', (e) => {
+        // A pinned ribbon's page has no plans to make, open or print.
+        if (ribbonPinnedTabId()) return;
         if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
         const key = e.key.toLowerCase();
         if (key === 'n') { e.preventDefault(); FILE_ACTIONS['New plan'](); }
@@ -1631,7 +1674,12 @@ function wireGanttCheckboxSync() {
 function initRibbon() {
     const shell = document.getElementById('ribbonShell');
     if (!shell) return;
-    shell.innerHTML = `
+    shell.innerHTML = ribbonPinnedTabId()
+        ? `
+        <div class="ribbon-tabstrip"></div>
+        <div class="ribbon-body"></div>
+    `
+        : `
         <div class="ribbon-titlebar"></div>
         <div class="ribbon-tabstrip"></div>
         <div class="ribbon-body"></div>
