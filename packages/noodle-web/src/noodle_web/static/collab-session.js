@@ -191,6 +191,18 @@ function toggleCollabChatPanel() {
     }
 }
 
+/** Open the chat panel -- the status-bar chat bubble's action -- from
+ * somewhere else, such as the ribbon's participant chips. Unlike the
+ * bubble's toggle it never closes a panel that is already open. */
+function openCollabChatPanel() {
+    if (collabChatIsOpen()) {
+        const input = document.getElementById('collabChatInput');
+        if (input) input.focus();
+        return;
+    }
+    toggleCollabChatPanel();
+}
+
 function closeCollabChatPanel() {
     const panel = document.getElementById('collabChatPanel');
     const button = document.getElementById('collabChatBtn');
@@ -574,7 +586,25 @@ function kickCollabJoiner(joinerId) {
  * collab_session.py's `SessionState.presence_snapshot()` for the payload
  * shape (`id`, `display_name`, `active`). Hidden entirely while no one has
  * joined yet. */
+/** The session's participants as the latest presence snapshot names them:
+ * `[{ id, display_name, active }]`, empty outside a session. The ribbon's
+ * title bar draws its people chips from this (see ribbon.js's
+ * renderTitleBar). */
+let collabParticipants = [];
+
+function collabSessionParticipants() {
+    return collabParticipants.slice();
+}
+
 function renderCollabPresence(joiners) {
+    const next = Array.isArray(joiners)
+        ? joiners.filter(joiner => joiner && joiner.display_name)
+            .map(joiner => ({ id: joiner.id, display_name: String(joiner.display_name), active: !!joiner.active }))
+        : [];
+    const changed = JSON.stringify(next) !== JSON.stringify(collabParticipants);
+    collabParticipants = next;
+    if (changed) refreshCollabRibbon();
+
     const panel = document.getElementById('collabPresencePanel');
     const list = document.getElementById('collabPresenceList');
     if (!panel || !list) return;
