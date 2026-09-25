@@ -317,6 +317,9 @@ export const CONTEXTUAL_TABS = [
             // "Spacing" menu instead of taking two buttons.
             { name: 'Arrange', cols: [[['grid', 'Tidy'], ['task-list', 'Hierarchy']], [['timeline', 'Flow'], ['sort', 'Spacing', 'caret']], [['grid', 'Align'], ['sort', 'Distribute']], [['link', 'Group'], ['pin', 'Lock']]] },
             { name: 'Convert', cols: [[['task-list', 'To Tasks'], ['board', 'To PBS']]] },
+            // Tips: brings back the how-to line under the board's toolbar
+            // once its own close button has dismissed it.
+            { name: 'Help', cols: [[['bulb', 'Tips']]] },
         ],
     },
     {

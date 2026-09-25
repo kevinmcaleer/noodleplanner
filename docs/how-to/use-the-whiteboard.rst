@@ -76,6 +76,8 @@ The layouts live on the ribbon's **Whiteboard** tab, in the **Arrange** group:
 
 Each one is a single step you can undo. The whiteboard's own toolbar keeps to the board itself: zoom, the buttons that put something on the board, and the **Structure** and **Parking lot** panels.
 
+The toolbar floats over the top of the board, which runs edge to edge beneath it. Next to it is a line of tips on the mouse and keyboard controls; close it with its ``×`` once you know them, and bring it back with **Tips** on the ribbon's **Whiteboard** tab. Whether it is showing is remembered on this device.
+
 Use Facilitator Prompts
 -------------------------
 
