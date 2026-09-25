@@ -376,7 +376,7 @@ class TestKeyboard:
             By.CSS_SELECTOR, '#whiteboard-view button[title="Reset to 100%"]'
         )
         reset_btn.click()
-        expected_stops = ["whiteboardNewNoteBtn", "whiteboardTextNoteBtn", "whiteboardNewTextBtn", "whiteboardAddNoteBtn"]
+        expected_stops = ["whiteboardNewNoteBtn", "whiteboardTextNoteBtn", "whiteboardNewTextBtn", "whiteboardAddNoteBtn", "whiteboardOutlineBtn", "whiteboardParkingLotBtn"]
         if browser.find_element(By.ID, "whiteboardToolbarHint").is_displayed():
             expected_stops.append("whiteboardHintDismissBtn")
         for expected in expected_stops:

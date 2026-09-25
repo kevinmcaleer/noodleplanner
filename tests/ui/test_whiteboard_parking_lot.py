@@ -418,6 +418,25 @@ class TestParkingLotPanel:
             "sel => document.activeElement === document.querySelector(sel)", arg=RIBBON_PARKING_LOT
         )
 
+    def test_the_board_toolbar_toggles_it_too(self, board):
+        """The ribbon's Whiteboard tab is contextual and not selected by
+        default, so the board's own toolbar carries the toggle as well."""
+        btn = board.locator("#whiteboardParkingLotBtn")
+        assert btn.is_visible()
+        assert btn.get_attribute("aria-pressed") == "false"
+        btn.click()
+        board.wait_for_selector(DIALOG, state="visible")
+        board.wait_for_function(
+            "() => document.getElementById('whiteboardParkingLotBtn').getAttribute('aria-pressed') === 'true'"
+        )
+        btn.click()
+        board.wait_for_selector(DIALOG, state="detached")
+        assert btn.get_attribute("aria-pressed") == "false"
+        # Closed from the toolbar, focus goes back to the toolbar's button.
+        board.wait_for_function(
+            "() => document.activeElement === document.getElementById('whiteboardParkingLotBtn')"
+        )
+
 
 class TestParkingLotDragAndDrop:
     """Issue #1201: dragging a note onto the open panel parks it, dragging a
