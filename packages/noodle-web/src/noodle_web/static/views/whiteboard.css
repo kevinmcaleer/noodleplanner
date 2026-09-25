@@ -1057,20 +1057,47 @@
 /* A text chip, so a pill -- and an explicit height, where this rule used to
    have none at all and derived one from `font-size` x `line-height`. Colour
    comes from the note like every other indicator; the theme surface tokens it
-   carried were chosen against a theme background, not a pastel note. */
+   carried were chosen against a theme background, not a pastel note.
+
+   Sized to hold a two-digit count ("99 ▾") whatever the actual count, so a
+   summary with 12 children neither clips nor draws a wider pill than its
+   neighbour with 3. Tabular figures keep every count the same width; nobody
+   is expected to nest 100+ children under one summary, and one that does
+   still grows the pill rather than clipping it. The width is in px, not
+   `ch`, because the content zone below reserves the same number and `ch`
+   would resolve against its larger font: at the badge's 10px, "99 ▾" is
+   ~20px of text plus 2 x 4px padding and a 1px border each side. */
+.wb-note-card {
+    --wb-count-badge-w: 30px;
+}
+
 .wb-note-count-badge {
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: var(--wb-count-badge-w);
     height: var(--wb-ind-size);
     border: 1px solid currentColor;
     border-radius: var(--wb-ind-chip-radius);
     background: color-mix(in srgb, currentColor 10%, transparent);
     color: inherit;
     font-size: 10px;
-    padding: 0 var(--np-space-8);
+    font-variant-numeric: tabular-nums;
+    padding: 0 var(--np-space-4);
     cursor: pointer;
     line-height: 1;
+    white-space: nowrap;
+}
+
+/* The content zone shrinks before the name does, and clips what no longer
+   fits -- right for the date chip, which ellipsises, but a long task name used
+   to squeeze a row with a badge down to ~12px and cut the count to one digit.
+   A row with a badge never gives up the badge's width; the date chip ahead of
+   it absorbs the squeeze, and past that the name ellipsises at its floor. */
+.wb-note-row-content:has(> .wb-note-count-badge) {
+    min-width: var(--wb-count-badge-w);
 }
 
 .wb-note-count-badge:hover,
