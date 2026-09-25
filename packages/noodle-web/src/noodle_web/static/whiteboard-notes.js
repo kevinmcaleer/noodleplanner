@@ -4731,11 +4731,11 @@ function wbBuildNoteMenu(taskName) {
  *
  * "Unlink" only appears when there *is* a noodle to cut -- a menu item
  * that is present but inert teaches the wrong thing about what the board
- * can do.
+ * can do. Indent and Outdent follow it (wbAppendIndentMenuItems()).
  */
 function wbAppendStructureMenuSection(list, taskName) {
     // These carry .wb-note-menu-action, NOT .wb-note-menu-open-task: that
-    // class identifies exactly one item ("Open task details") and is what
+    // class identifies exactly one item ("Edit task…") and is what
     // callers and tests select it by, so borrowing it for a second item
     // would silently make that selector ambiguous.
     const dividerLi = document.createElement('li');
@@ -4761,17 +4761,21 @@ function wbAppendStructureMenuSection(list, taskName) {
     list.appendChild(renameLi);
 
     const task = (wbLastTasks || []).find(t => t && t.name === taskName);
-    if (!task || !task.parent) return;
+    if (task && task.parent) wbAppendUnlinkMenuItem(list, taskName, task.parent);
+    if (!wbIsThoughtNote(taskName)) wbAppendIndentMenuItems(list, taskName);
+}
 
+/** "Unlink from <parent>" -- see wbAppendStructureMenuSection(). */
+function wbAppendUnlinkMenuItem(list, taskName, parentName) {
     const unlinkLi = document.createElement('li');
     const unlinkBtn = document.createElement('button');
     unlinkBtn.type = 'button';
     unlinkBtn.className = 'wb-note-menu-action';
     unlinkBtn.setAttribute('role', 'menuitem');
-    unlinkBtn.textContent = `Unlink from "${task.parent}"`;
+    unlinkBtn.textContent = `Unlink from "${parentName}"`;
     unlinkBtn.title = 'Moves this task back to the top level of the plan; nothing is deleted';
     unlinkBtn.setAttribute('aria-label',
-        `Unlink ${taskName} from ${task.parent}, moving it back to the top level`);
+        `Unlink ${taskName} from ${parentName}, moving it back to the top level`);
     unlinkBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         wbCloseNoteMenu();
@@ -4779,6 +4783,57 @@ function wbAppendStructureMenuSection(list, taskName) {
     });
     unlinkLi.appendChild(unlinkBtn);
     list.appendChild(unlinkLi);
+}
+
+/**
+ * Indent and Outdent -- the same two moves, through the same writes
+ * (wbOutlineIndentTask()/wbOutlineOutdentTask() in whiteboard-outline.js),
+ * as the Plan structure panel's row menu, so a note and its row offer the
+ * same menu. Unlike Unlink these are listed even when the task cannot move
+ * that way, greyed out (aria-disabled, so still focusable) with the reason
+ * in the tooltip: two items that come and go depending on where a task
+ * sits read as a menu that changes for no reason.
+ */
+function wbAppendIndentMenuItems(list, taskName) {
+    if (typeof wbIndentTaskInPlanText !== 'function' || typeof wbOutlineIndentTask !== 'function') return;
+    const editor = document.getElementById('planEditor');
+    const text = editor ? editor.value : '';
+    const neighbours = wbOutlineNeighbours(text, taskName);
+    const canIndent = wbIndentTaskInPlanText(text, taskName) !== text;
+    const canOutdent = wbOutdentTaskInPlanText(text, taskName) !== text;
+    wbAppendNoteMenuItem(list, 'Indent',
+        canIndent
+            ? `Make this a subtask of "${neighbours.previousSibling}"`
+            : 'Nothing above this task at the same level to make it a subtask of',
+        () => wbOutlineIndentTask(taskName), { disabled: !canIndent });
+    wbAppendNoteMenuItem(list, 'Outdent',
+        canOutdent
+            ? `Move this task out of "${neighbours.parent}", one level up`
+            : 'Already at the top level of the plan',
+        () => wbOutlineOutdentTask(taskName), { disabled: !canOutdent });
+}
+
+/** One plain `.wb-note-menu-action` item. `options.disabled` marks it
+ * aria-disabled: focusable, but a click does nothing and keeps the menu. */
+function wbAppendNoteMenuItem(list, label, title, action, options) {
+    const opts = options || {};
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = opts.className || 'wb-note-menu-action';
+    btn.setAttribute('role', 'menuitem');
+    btn.textContent = label;
+    btn.title = title;
+    if (opts.disabled) btn.setAttribute('aria-disabled', 'true');
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (opts.disabled) return;
+        wbCloseNoteMenu();
+        action();
+    });
+    li.appendChild(btn);
+    list.appendChild(li);
+    return btn;
 }
 
 /**
@@ -4896,8 +4951,11 @@ function wbAppendOpenTaskMenuSection(list, taskName) {
     btn.type = 'button';
     btn.className = 'wb-note-menu-open-task';
     btn.setAttribute('role', 'menuitem');
-    btn.textContent = 'Open task details';
-    btn.setAttribute('aria-label', `Open task details for ${taskName}`);
+    // "Edit task…", matching the Plan structure panel's row menu; the class
+    // is still the one callers and tests select this item by.
+    btn.textContent = 'Edit task…';
+    btn.title = 'Open the task details';
+    btn.setAttribute('aria-label', `Edit task details for ${taskName}`);
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         wbCloseNoteMenu();
@@ -4905,6 +4963,13 @@ function wbAppendOpenTaskMenuSection(list, taskName) {
     });
     li.appendChild(btn);
     list.appendChild(li);
+
+    // The quick-assign menu a note's resource chips open, beside the note.
+    wbAppendNoteMenuItem(list, 'Assign resources…', 'Choose who works on this task', () => {
+        const entry = wbNoteNodes.get(taskName);
+        const anchor = entry && entry.refs && entry.refs.card;
+        if (anchor) wbToggleResourceMenu(taskName, anchor);
+    });
 }
 
 /**
