@@ -70,6 +70,13 @@ structure** panel by double-clicking its name (or selecting it and pressing
 :kbd:`Escape` cancels. Tasks that depend on the renamed one are updated to
 the new name too.
 
+Right-clicking a row in that panel opens a menu for the task — rename,
+edit, assign resources, indent, outdent and delete — for joiners as well
+as for you. The full task details form is only in your app, so a joiner's
+**Edit task…** opens a small editor for the task's duration, % complete
+and comment instead, and a joiner's changes reach the plan like any other
+board edit.
+
 Keeping Part of the Plan Private
 --------------------------------
 

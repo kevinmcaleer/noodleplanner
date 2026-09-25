@@ -250,12 +250,15 @@ function downloadMarkdown() {}
 function initializeKanban() {}
 function setupKanbanAutoSync() {}
 // The full task-details form and the resource form are the host's app, not
-// part of the board. The note's peek (task-peek.js) still shows a task's
-// details here; the form itself is for the host.
-function openTaskFormByName() {
+// part of the board. Here a task's details open in the whiteboard's quick
+// editor instead (duration, % complete, comment -- whiteboard-outline.js),
+// which commits like any other board edit; the notice is the fallback for
+// a task it cannot find.
+function openTaskFormByName(taskName) {
+    if (typeof wbOpenQuickTaskEditor === 'function' && wbOpenQuickTaskEditor(taskName)) return;
     showPlanNotice('The full task details open in the host’s plan — ask them to open it.');
 }
-function openTaskInspectorByName() { openTaskFormByName(); }
+function openTaskInspectorByName(taskName) { openTaskFormByName(taskName); }
 function openResourceForm() {
     showPlanNotice('Resource details open in the host’s plan — ask them to open it.');
 }
