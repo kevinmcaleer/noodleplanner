@@ -1396,7 +1396,7 @@ function updateResourcesTable(tasks) {
             shortnameCell.style.cursor = 'pointer';
             shortnameCell.title = 'Double-click to rename shortname';
             shortnameCell.addEventListener('dblclick', () => {
-                startInlineRename(shortnameCell, displayShortname);
+                startResourceShortnameRename(shortnameCell, displayShortname);
             });
             row.appendChild(shortnameCell);
 
@@ -1471,8 +1471,11 @@ function updateResourcesTable(tasks) {
     }
 }
 
-// Inline rename for resource shortname in the resources table
-function startInlineRename(cell, currentShortname) {
+// Inline rename for resource shortname in the resources table. Not
+// startInlineRename(): portfolio-projects-table.js declares a global of
+// that name (the project-name rename), which, loading later, replaced
+// this one and made a double-click on a shortname throw.
+function startResourceShortnameRename(cell, currentShortname) {
     const input = document.createElement('input');
     input.type = 'text';
     input.value = currentShortname;
@@ -1556,14 +1559,6 @@ function fixResourceNames() {
         editor.value = content;
         editor.dispatchEvent(new Event('input', { bubbles: true }));
     }
-}
-
-/**
- * Check if a date is a weekend (Saturday or Sunday)
- */
-function isWeekend(date) {
-    const day = date.getDay();
-    return day === 0 || day === 6; // Sunday = 0, Saturday = 6
 }
 
 /**
