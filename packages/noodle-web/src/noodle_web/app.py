@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import logging
 import tempfile
+import unicodedata
 import zipfile
 import xml.etree.ElementTree as ET
 import yaml
@@ -12,6 +13,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
+from urllib.parse import quote
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response, HTMLResponse, FileResponse, StreamingResponse
@@ -185,6 +187,26 @@ def _sanitized_detail(message: str, error: Exception) -> str:
     if is_production():
         return message
     return f"{message}: {error}"
+
+
+def content_disposition(filename: str, disposition: str = "attachment") -> str:
+    """Build a Content-Disposition header value for a download.
+
+    Starlette encodes header values as latin-1, so a project title in
+    Cyrillic, or with an em dash, put raw into ``filename="..."`` made the
+    download a 500. The header carries an ASCII ``filename`` fallback
+    (accents folded, anything else non-ASCII replaced) plus the real name as
+    RFC 6266 / 5987 ``filename*``, which browsers prefer when present.
+    Quotes, backslashes and control characters (CR/LF above all) never reach
+    the header.
+    """
+    name = "".join(c for c in filename if unicodedata.category(c) != "Cc")
+    folded = unicodedata.normalize("NFKD", name)
+    fallback = "".join(
+        c if c.isascii() else "_"
+        for c in folded if not unicodedata.combining(c)
+    ).replace('"', "").replace("\\", "")
+    return f"{disposition}; filename=\"{fallback}\"; filename*=UTF-8''{quote(name, safe='')}"
 
 
 def export_to_file(export_fn, suffix, read_mode='rb'):
@@ -379,7 +401,7 @@ async def render_plan(data: RenderRequest):
                     content=result.content,
                     media_type=result.media_type,
                     headers={
-                        "Content-Disposition": f'attachment; filename="{result.filename}"'
+                        "Content-Disposition": content_disposition(result.filename)
                     },
                 )
             else:
@@ -396,7 +418,7 @@ async def render_plan(data: RenderRequest):
                     content=result.content,
                     media_type=result.media_type,
                     headers={
-                        "Content-Disposition": f'attachment; filename="{result.filename}"'
+                        "Content-Disposition": content_disposition(result.filename)
                     },
                 )
         else:
@@ -752,7 +774,7 @@ async def export_plan_report(data: PlanReportExportRequest):
     return Response(
         content=file_bytes,
         media_type=_REPORT_MEDIA_TYPES[data.format],
-        headers={"Content-Disposition": f'attachment; filename="{stem}_{suffix}.{data.format}"'},
+        headers={"Content-Disposition": content_disposition(f"{stem}_{suffix}.{data.format}")},
     )
 
 
@@ -852,7 +874,7 @@ async def export_report_pptx_route(data: ReportExportRequest):
             content=result.content,
             media_type=result.media_type,
             headers={
-                "Content-Disposition": f'attachment; filename="{result.filename}"'
+                "Content-Disposition": content_disposition(result.filename)
             }
         )
     except (ValueError, KeyError, TypeError, OSError) as e:
@@ -919,7 +941,7 @@ async def export_portfolio_pptx_route(data: PortfolioReportRequest):
             content=result.content,
             media_type=result.media_type,
             headers={
-                "Content-Disposition": f'attachment; filename="{result.filename}"'
+                "Content-Disposition": content_disposition(result.filename)
             }
         )
     except (ValueError, KeyError, TypeError, OSError) as e:
@@ -1063,7 +1085,7 @@ async def export_benefits_excel(data: BenefitsExportRequest):
         content=file_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f'attachment; filename="{project_name}-benefits.xlsx"'
+            "Content-Disposition": content_disposition(f"{project_name}-benefits.xlsx")
         }
     )
 
@@ -1124,7 +1146,7 @@ async def export_raid_excel(data: RaidExportRequest):
         content=file_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f'attachment; filename="{project_name}-raid.xlsx"'
+            "Content-Disposition": content_disposition(f"{project_name}-raid.xlsx")
         }
     )
 
@@ -1260,7 +1282,7 @@ async def export_comms_docx(data: CommsExportRequest):
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        headers={"Content-Disposition": content_disposition(filename)}
     )
 
 
@@ -1329,7 +1351,7 @@ async def export_budget_excel(data: BudgetExportRequest):
         content=file_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f'attachment; filename="{project_name}-budget.xlsx"'
+            "Content-Disposition": content_disposition(f"{project_name}-budget.xlsx")
         }
     )
 
