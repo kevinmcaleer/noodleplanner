@@ -115,6 +115,12 @@ async def proxy_chat_completion(
     """Stream chat completion tokens as SSE events.
 
     Yields lines in the format: data: {"content": "token", "done": false}
+
+    The stream always ends with a ``done`` event. By the time this runs the
+    route has already sent its 200 and SSE headers, so a transport failure
+    that escaped here reached the browser only as a cut-off stream, with no
+    error to show and no end-of-stream to stop waiting for. Failures are
+    reported as an ``error`` event, as proxy_chat_with_tools does.
     """
     url = _get_chat_url(provider, endpoint)
     headers = _get_headers(provider, api_key)
@@ -126,51 +132,65 @@ async def proxy_chat_completion(
 
     logger.info("AI proxy request to %s (provider=%s, model=%s)", url, provider, model)
 
-    async with httpx.AsyncClient(timeout=AI_PROXY_TIMEOUT) as client:
-        async with client.stream("POST", url, json=payload, headers=headers) as resp:
-            if resp.status_code != 200:
-                body = await resp.aread()
-                error_text = body.decode("utf-8", errors="replace")
-                logger.warning("AI proxy error %d from %s", resp.status_code, url)
-                yield _sse_event({"error": error_text, "status": resp.status_code, "done": True})
-                return
+    try:
+        async with httpx.AsyncClient(timeout=AI_PROXY_TIMEOUT) as client:
+            async with client.stream("POST", url, json=payload, headers=headers) as resp:
+                if resp.status_code != 200:
+                    body = await resp.aread()
+                    error_text = body.decode("utf-8", errors="replace")
+                    logger.warning("AI proxy error %d from %s", resp.status_code, url)
+                    yield _sse_event({"error": error_text, "status": resp.status_code, "done": True})
+                    return
 
-            async for line in resp.aiter_lines():
-                if not line:
-                    continue
-
-                # Handle SSE data lines
-                if line.startswith("data: "):
-                    data_str = line[6:]
-                    if data_str.strip() == "[DONE]":
-                        yield _sse_event({"content": "", "done": True})
-                        return
-
-                    try:
-                        data = json.loads(data_str)
-                    except json.JSONDecodeError:
+                async for line in resp.aiter_lines():
+                    if not line:
                         continue
 
-                    token = _extract_token(data, provider)
-                    if token is not None:
-                        yield _sse_event({"content": token, "done": False})
-
-                # Anthropic streaming uses event types
-                elif provider == "anthropic":
-                    if line.startswith("event: "):
-                        event_type = line[7:].strip()
-                        if event_type == "message_stop":
+                    # Handle SSE data lines
+                    if line.startswith("data: "):
+                        data_str = line[6:]
+                        if data_str.strip() == "[DONE]":
                             yield _sse_event({"content": "", "done": True})
                             return
-                    elif not line.startswith(":"):
-                        # Raw JSON lines (some providers)
+
                         try:
-                            data = json.loads(line)
-                            token = _extract_token(data, provider)
-                            if token is not None:
-                                yield _sse_event({"content": token, "done": False})
+                            data = json.loads(data_str)
                         except json.JSONDecodeError:
                             continue
+
+                        token = _extract_token(data, provider)
+                        if token is not None:
+                            yield _sse_event({"content": token, "done": False})
+
+                    # Anthropic streaming uses event types
+                    elif provider == "anthropic":
+                        if line.startswith("event: "):
+                            event_type = line[7:].strip()
+                            if event_type == "message_stop":
+                                yield _sse_event({"content": "", "done": True})
+                                return
+                        elif not line.startswith(":"):
+                            # Raw JSON lines (some providers)
+                            try:
+                                data = json.loads(line)
+                                token = _extract_token(data, provider)
+                                if token is not None:
+                                    yield _sse_event({"content": token, "done": False})
+                            except json.JSONDecodeError:
+                                continue
+
+    except httpx.TimeoutException:
+        logger.warning("AI proxy request timed out to %s", url)
+        yield _sse_event({"error": "Request timed out.", "done": True})
+        return
+    except httpx.ConnectError:
+        logger.warning("AI proxy connection failed to %s", url)
+        yield _sse_event({"error": "Could not connect to the AI endpoint.", "done": True})
+        return
+    except Exception as exc:
+        logger.warning("AI proxy error: %s", type(exc).__name__)
+        yield _sse_event({"error": "Unexpected error during chat.", "done": True})
+        return
 
     yield _sse_event({"content": "", "done": True})
 

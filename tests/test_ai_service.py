@@ -630,3 +630,78 @@ class TestAgentEdgeCases:
         for agent_meta in list_agents():
             assert "category" in agent_meta
             assert agent_meta["category"] in ("planning", "tracking", "reporting", "resources")
+
+
+# The real class, captured before any test patches httpx.AsyncClient (the
+# patch target, noodle_web.ai_service.httpx, is the httpx module itself).
+_RealAsyncClient = httpx.AsyncClient
+
+
+def _client_via(handler):
+    """An AsyncClient factory whose requests are answered by *handler*."""
+    def factory(*args, **kwargs):
+        return _RealAsyncClient(*args, transport=httpx.MockTransport(handler), **kwargs)
+    return factory
+
+
+def _refuse(request):
+    raise httpx.ConnectError("refused", request=request)
+
+
+def _time_out(request):
+    raise httpx.ReadTimeout("no response", request=request)
+
+
+def _stall_mid_stream(request):
+    class Stalls(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b'data: {"choices": [{"delta": {"content": "Hel"}}]}\n\n'
+            raise httpx.ReadTimeout("stalled", request=request)
+
+    return httpx.Response(200, stream=Stalls())
+
+
+class TestPlainChatTransportErrors:
+    """proxy_chat_completion had no error handling: a connect error or a
+    timeout escaped the generator after the 200 headers had been sent, so
+    the browser saw the stream cut off with neither an error nor a done
+    event. It now ends the way the tool-calling path does."""
+
+    def _events(self, handler):
+        async def collect():
+            return [event async for event in proxy_chat_completion(
+                endpoint="http://ai.invalid/v1", api_key="", model="m",
+                messages=[AIChatMessage(role="user", content="hi")],
+            )]
+
+        with patch("noodle_web.ai_service.httpx.AsyncClient", _client_via(handler)):
+            chunks = asyncio.run(collect())
+        return [json.loads(chunk[len("data: "):]) for chunk in chunks]
+
+    def test_connect_error_ends_stream_with_error(self):
+        assert self._events(_refuse) == [
+            {"error": "Could not connect to the AI endpoint.", "done": True}]
+
+    def test_timeout_ends_stream_with_error(self):
+        assert self._events(_time_out) == [{"error": "Request timed out.", "done": True}]
+
+    def test_failure_mid_stream_ends_stream_with_error(self):
+        events = self._events(_stall_mid_stream)
+        assert events == [
+            {"content": "Hel", "done": False},
+            {"error": "Request timed out.", "done": True},
+        ]
+
+    def test_chat_route_stream_ends_with_error_event(self):
+        from fastapi.testclient import TestClient
+        from noodle_web import app
+
+        with patch("noodle_web.ai_service.httpx.AsyncClient", _client_via(_refuse)):
+            response = TestClient(app).post("/api/ai/chat", json={
+                "endpoint": "http://ai.invalid/v1", "model": "m",
+                "messages": [{"role": "user", "content": "hi"}],
+            })
+        assert response.status_code == 200
+        last = response.text.strip().split("\n\n")[-1]
+        assert json.loads(last[len("data: "):]) == {
+            "error": "Could not connect to the AI endpoint.", "done": True}
