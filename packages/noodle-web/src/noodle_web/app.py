@@ -557,7 +557,10 @@ async def search_plan(data: SearchRequest):
         purpose = item.get("purpose", "") or ""
         frequency = item.get("frequency", "") or ""
         if _matches(q_l, title, audience, channel, owner, purpose, frequency):
-            snippet_src = purpose or f"{audience} via {channel}".strip(" via")
+            # Join what is there: this used .strip(" via"), which strips
+            # those characters from both ends, not the word ("all staff via
+            # Wiki" came out as "ll staff via Wik").
+            snippet_src = purpose or " via ".join(p for p in (audience, channel) if p)
             results.append({
                 "type": "comms",
                 "label": "Comms",

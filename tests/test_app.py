@@ -546,6 +546,49 @@ class TestMultipleExports:
         assert response.content[:2] == b'PK'
 
 
+class TestSearchEndpoint:
+    """/api/search over a plan's tasks and back-matter sections."""
+
+    PLAN = """---
+title: Search Demo
+---
+Phase 1
+  Kick-off 1d @alice
+
+---comms---
+| ID | Activity   | Audience       | Content       | Frequency | Channel    | Owner | Status |
+|----|------------|----------------|---------------|-----------|------------|-------|--------|
+| 1  | Town hall  | all staff      | Weekly status | Weekly    | Wiki       | Alice | Active |
+| 2  | Newsletter | Varsity alumni | Monthly       | Monthly   |            | Bob   | Active |
+| 3  | Stand-up   |                | Daily         | Daily     | video call | Cara  | Active |
+"""
+
+    def _search(self, client, query):
+        response = client.post("/api/search", json={"plan_text": self.PLAN, "query": query})
+        assert response.status_code == 200
+        return response.json()["results"]
+
+    def test_finds_task(self, client):
+        results = self._search(client, "kick")
+        assert [(r["type"], r["title"]) for r in results] == [("task", "Kick-off")]
+
+    def test_comms_snippet_keeps_audience_and_channel_whole(self, client):
+        # The snippet was built with .strip(" via"), which strips those
+        # *characters* from both ends: "all staff via Wiki" came back as
+        # "ll staff via Wik".
+        snippets = {r["ref"]["id"]: r["snippet"] for r in self._search(client, "weekly")}
+        assert snippets == {1: "all staff via Wiki"}
+
+    def test_comms_snippet_without_channel_or_audience(self, client):
+        snippets = {r["ref"]["id"]: r["snippet"] for r in self._search(client, "ly")}
+        assert snippets[2] == "Varsity alumni"
+        assert snippets[3] == "video call"
+
+    def test_empty_query_returns_nothing(self, client):
+        response = client.post("/api/search", json={"plan_text": self.PLAN, "query": "  "})
+        assert response.json() == {"query": "", "results": []}
+
+
 def _utf8_filename(disposition):
     """The filename* (RFC 6266 / 5987) a Content-Disposition carries."""
     from urllib.parse import unquote
