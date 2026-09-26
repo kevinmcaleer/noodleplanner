@@ -1445,6 +1445,18 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
     if (output) output.classList.remove('empty');
 
     try {
+        // A plain editor render asks the server for nothing the page shows:
+        // /render's only answer without an export is the ASCII table for
+        // #editorOutput, which is display:none. updateAllViews schedules the
+        // plan in the browser (issue #793), so going to the server first cost
+        // a full parse and schedule per edit and, worse, gated every view
+        // update on that round trip -- offline, or on a 429 or 5xx, edits
+        // stopped reaching any view. Only an export still needs /render.
+        if (!(exportExcel || exportCSV || exportPPT || exportPDF || exportMSProject)) {
+            await updateAllViews(planText, projectName);
+            return;
+        }
+
         const data = {
             plan_text: planText,
             project_name: projectName || null,
@@ -1469,11 +1481,14 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
         }
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'Rendering failed');
+            // A proxy's 502 or a rate limiter's page is HTML, not JSON: reading
+            // it as JSON threw a SyntaxError that replaced the real failure.
+            let detail = null;
+            try { detail = (await response.json()).detail; } catch (e) { /* not JSON */ }
+            throw new Error(detail || `Rendering failed (HTTP ${response.status})`);
         }
 
-        const contentType = response.headers.get('content-type');
+        const contentType = response.headers.get('content-type') || '';
 
         if (contentType.includes('application/json')) {
             // ASCII output
