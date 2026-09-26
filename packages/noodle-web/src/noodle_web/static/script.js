@@ -7070,6 +7070,8 @@ function triggerNwdAutoSave(tbodyId) {
         autoSaveProjectDetails();
     } else if (tbodyId === 'resourceNonWorkingDaysTableBody') {
         autoSaveResource();
+    } else if (tbodyId === 'userProfileNonWorkingDaysTableBody' && typeof NoodleUserProfile !== 'undefined') {
+        NoodleUserProfile.autoSave();
     }
 }
 

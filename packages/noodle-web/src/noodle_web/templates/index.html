@@ -4231,6 +4231,7 @@ Build
     <script src="/static/collab-chat.js?v={{ v }}"></script>
     <script src="/static/collab-merge.js?v={{ v }}"></script>
     <script src="/static/collab-visibility.js?v={{ v }}"></script>
+    <script src="/static/user-profile.js?v={{ v }}"></script>
     <script src="/static/collab-session.js?v={{ v }}"></script>
     <script src="/static/ribbon.js?v={{ v }}"></script>
     <script src="/static/date-detect.js?v={{ v }}"></script>
@@ -4249,6 +4250,8 @@ Build
          script and cannot import it, so it arrives as globalThis.NoodleNoteMarkup
          -- see that file's own note on the ordering. -->
     <script type="module" src="/static/components/note/note-markup.js?v={{ v }}"></script>
+
+    {% include "_user_profile_dialog.html" %}
 
     <!-- Collab Session Modal (#963) -->
     <div id="collabSessionOverlay" class="modal-overlay" onclick="if(event.target===this) closeCollabSessionModal()" role="dialog" aria-modal="true" aria-label="Planning session">

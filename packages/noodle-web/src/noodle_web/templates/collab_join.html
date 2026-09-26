@@ -80,6 +80,9 @@
                     <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                     <span>Leave session</span>
                 </button>
+                <!-- The joiner's own profile circle (#1377), as at the right
+                     of the app's title bar -- filled by user-profile.js. -->
+                <span class="user-profile-slot" id="sessionProfile"></span>
             </div>
         </header>
 
@@ -116,6 +119,8 @@
         </div>
     </div>
 
+    {% include "_user_profile_dialog.html" %}
+
     <!-- The host's plan text, as the whiteboard scripts expect to find it.
          Never shown, and never saved: a joiner holds no copy of the plan. -->
     <textarea id="planEditor" hidden aria-hidden="true" tabindex="-1"></textarea>
@@ -138,6 +143,7 @@
     <script src="/static/whiteboard-noodles.js?v={{ v }}"></script>
     <script src="/static/whiteboard-dep-noodles.js?v={{ v }}"></script>
     <script src="/static/whiteboard-outline.js?v={{ v }}"></script>
+    <script src="/static/user-profile.js?v={{ v }}"></script>
     <script src="/static/collab-chat.js?v={{ v }}"></script>
     <script src="/static/collab-merge.js?v={{ v }}"></script>
     <script src="/static/collab-undo.js?v={{ v }}"></script>
