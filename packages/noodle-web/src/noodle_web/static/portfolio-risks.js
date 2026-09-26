@@ -121,7 +121,7 @@ async function renderPortfolioRisks() {
             return;
         }
 
-        // Filter to red and amber by default
+        // Red and amber: what the default RAG filter shows
         const items = allItems.filter(item => item.rag === 'red' || item.rag === 'amber');
 
         // Build unique project names for filter dropdown (from all items)
@@ -221,11 +221,15 @@ async function renderPortfolioRisks() {
             '</thead>' +
             '<tbody id="portfolioRisksTableBody">';
 
-        html += buildRisksTableRows(items);
+        // Every item gets a row and the RAG filter (Red & Amber by default)
+        // hides the rest: filterPortfolioRisks() only shows and hides rows,
+        // so a green item with no row could never be shown
+        html += buildRisksTableRows(allItems);
 
         html += '</tbody></table></div>';
 
         container.innerHTML = html;
+        filterPortfolioRisks();
 
         // Store data for sorting / filtering
         window.portfolioRisksData = allItems;
