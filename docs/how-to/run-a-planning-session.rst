@@ -77,6 +77,26 @@ as for you. The full task details form is only in your app, so a joiner's
 and comment instead, and a joiner's changes reach the plan like any other
 board edit.
 
+Undoing a Change
+~~~~~~~~~~~~~~~~
+
+Joiners have **Undo** and **Redo** at the top of the page, next to
+**Chat**, or they can press :kbd:`Ctrl+Z` to undo and :kbd:`Ctrl+Shift+Z`
+or :kbd:`Ctrl+Y` to redo (:kbd:`Cmd` on a Mac). While the cursor is in a
+text box, such as the chat or a note's name, those keys undo the typing in
+that box instead.
+
+Undo only takes back the joiner's *own* changes, one at a time. Anything
+you or anyone else changed on the board in the meantime stays as it is: if
+a joiner adds a note and you then rename a task, their Undo removes the
+note and keeps your rename. The undo reaches everyone's board like any
+other edit.
+
+If someone has since changed the same part of the board — recoloured the
+very note the joiner is trying to undo, say — that change can't be undone
+without overwriting theirs, so nothing changes and the joiner sees a notice
+saying why. Leaving the session clears the joiner's undo history.
+
 Keeping Part of the Plan Private
 --------------------------------
 
