@@ -424,6 +424,158 @@ class TestUpdateTaskPreservesMetadata:
 
 
 # ===================================================================
+# Labels, recurrence, milestones and non-working-day updates
+# ===================================================================
+
+def _changed_lines(before, after):
+    """The lines of *after* that differ from *before* (same line count)."""
+    old, new = before.split('\n'), after.split('\n')
+    assert len(old) == len(new)
+    return [n for o, n in zip(old, new) if o != n]
+
+
+class TestLabelTools:
+    """add_label/remove_label unpacked _get_task_area's (str, int, int) as
+    (text, before, after) and concatenated them: a TypeError on every call,
+    reported to the model as "Invalid arguments"."""
+
+    def test_add_label(self):
+        result, msg = execute_tool("add_label", SAMPLE_PLAN,
+                                   {"task_name": "Build", "label": "backend"})
+        assert "Added #backend" in msg
+        assert _changed_lines(SAMPLE_PLAN, result) == ['  *Build 10d @BL #backend']
+
+    def test_add_label_already_present(self):
+        result, msg = execute_tool("add_label", RICH_PLAN,
+                                   {"task_name": "Design", "label": "#ux"})
+        assert result == RICH_PLAN
+        assert "already has label" in msg
+
+    def test_add_label_missing_task(self):
+        result, msg = execute_tool("add_label", SAMPLE_PLAN,
+                                   {"task_name": "Nope", "label": "x"})
+        assert result == SAMPLE_PLAN
+        assert "not found" in msg
+
+    def test_remove_label(self):
+        result, msg = execute_tool("remove_label", RICH_PLAN,
+                                   {"task_name": "Design", "label": "ux"})
+        assert "Removed #ux" in msg
+        assert _task_meta(result, "Design")['labels'] == ['urgent']
+
+    def test_remove_label_does_not_eat_a_longer_label(self):
+        result, msg = execute_tool("remove_label", RICH_PLAN,
+                                   {"task_name": "Design", "label": "urg"})
+        assert result == RICH_PLAN
+        assert "does not have label" in msg
+
+
+class TestRecurrenceTools:
+    """set_recurrence/remove_recurrence had the same TypeError as the label
+    tools."""
+
+    def test_set_recurrence(self):
+        result, msg = execute_tool("set_recurrence", RICH_PLAN,
+                                   {"task_name": "Kickoff", "pattern": "weekly mon"})
+        assert "Set recurrence" in msg
+        assert _changed_lines(RICH_PLAN, result) == ['  Kickoff 1d @alice [repeats weekly mon]']
+        assert _task_meta(result, "Kickoff")['recurrence']['days'] == ['mon']
+
+    def test_set_recurrence_replaces_existing(self):
+        plan, _ = execute_tool("set_recurrence", RICH_PLAN,
+                               {"task_name": "Kickoff", "pattern": "daily"})
+        result, _ = execute_tool("set_recurrence", plan,
+                                 {"task_name": "Kickoff", "pattern": "monthly 1st mon"})
+        assert _task_line(result, "Kickoff") == '  Kickoff 1d @alice [repeats monthly 1st mon]'
+
+    def test_remove_recurrence_on_task_with_no_other_metadata(self):
+        plan = RICH_PLAN.replace("  Sign-off\n", "  Standup [repeats daily]\n")
+        result, msg = execute_tool("remove_recurrence", plan,
+                                   {"task_name": "Standup"})
+        assert "Removed recurrence" in msg
+        assert _changed_lines(plan, result) == ['  Standup']
+
+    def test_remove_recurrence_when_none(self):
+        result, msg = execute_tool("remove_recurrence", RICH_PLAN,
+                                   {"task_name": "Kickoff"})
+        assert result == RICH_PLAN
+        assert "has no recurrence" in msg
+
+
+class TestUpdateNonWorkingDay:
+    """update_non_working_day called an undefined _split_front_matter, so
+    every call failed with a NameError."""
+
+    def _named(self, plan_text):
+        from noodle_core import FrontMatterParser
+        return FrontMatterParser(plan_text).parse_named_non_working_days()
+
+    def test_update_end_date(self):
+        result, msg = execute_tool("update_non_working_day", SAMPLE_PLAN,
+                                   {"name": "Easter", "end_date": "2026-04-07"})
+        assert "Updated non-working day" in msg
+        assert self._named(result) == [
+            {'name': 'Easter', 'start': '2026-04-03', 'finish': '2026-04-07'}]
+        assert _changed_lines(SAMPLE_PLAN, result) == ['  - Easter: 2026-04-03:2026-04-07']
+
+    def test_rename_keeps_dates(self):
+        result, _ = execute_tool("update_non_working_day", SAMPLE_PLAN,
+                                 {"name": "Easter", "new_name": "Easter break"})
+        assert self._named(result) == [
+            {'name': 'Easter break', 'start': '2026-04-03', 'finish': '2026-04-06'}]
+
+    def test_not_found(self):
+        result, msg = execute_tool("update_non_working_day", SAMPLE_PLAN,
+                                   {"name": "Christmas", "start_date": "2026-12-25"})
+        assert result == SAMPLE_PLAN
+        assert "not found" in msg
+
+
+class TestMilestoneDates:
+    """add_milestone/update_milestone accepted a date and dropped it."""
+
+    def test_add_milestone_with_date(self):
+        result, msg = execute_tool("add_milestone", SAMPLE_PLAN,
+                                   {"name": "Go Live", "parent": "Phase 2",
+                                    "date": "2026-06-01"})
+        assert "Added task 'Go Live'" in msg
+        assert _task_line(result, "Go Live") == '  Go Live 0d 2026-06-01'
+        meta = _task_meta(result, "Go Live")
+        assert meta['due'] == '2026-06-01'
+        assert meta['duration'].days == 0
+
+    def test_add_milestone_rejects_non_iso_date(self):
+        result, msg = execute_tool("add_milestone", SAMPLE_PLAN,
+                                   {"name": "Go Live", "date": "June 1st"})
+        assert result == SAMPLE_PLAN
+        assert "YYYY-MM-DD" in msg
+
+    def test_update_milestone_date_replaces_existing(self):
+        plan, _ = execute_tool("add_milestone", SAMPLE_PLAN,
+                               {"name": "Go Live", "date": "2026-06-01"})
+        result, msg = execute_tool("update_milestone", plan,
+                                   {"name": "Go Live", "new_name": "Launch",
+                                    "date": "2026-07-01"})
+        assert "not found" not in msg
+        assert _changed_lines(plan, result) == ['Launch 0d 2026-07-01']
+
+    def test_update_milestone_date_appended_when_absent(self):
+        plan = SAMPLE_PLAN.replace("  Deployment 1d @AL $release_v1\n",
+                                   "  Deployment 1d @AL $release_v1\n  Go Live 0d\n")
+        result, _ = execute_tool("update_milestone", plan,
+                                 {"name": "Go Live", "date": "2026-07-01"})
+        assert _changed_lines(plan, result) == ['  Go Live 0d 2026-07-01']
+
+    def test_update_milestone_leaves_deadline_alone(self):
+        plan = SAMPLE_PLAN.replace("  Deployment 1d @AL $release_v1\n",
+                                   "  Deployment 1d @AL $release_v1\n"
+                                   "  Go Live 0d D2026-08-01 2026-06-01\n")
+        result, _ = execute_tool("update_milestone", plan,
+                                 {"name": "Go Live", "date": "2026-07-01"})
+        assert _changed_lines(plan, result) == ['  Go Live 0d D2026-08-01 2026-07-01']
+
+
+# ===================================================================
 # Task area ends at every back-matter section
 # ===================================================================
 
