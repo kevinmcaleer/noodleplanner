@@ -22,6 +22,9 @@ let pbsDragStartX = 0;
 let pbsDragStartY = 0;
 let pbsDragStartPanX = 0;
 let pbsDragStartPanY = 0;
+// Whether the current tree has been zoom-fitted yet: updatePbs() fits only
+// the first render, so an edit does not throw away the user's pan and zoom
+let pbsHasFitted = false;
 
 // Layout constants (top-down PBS with stacked children)
 const PBS_SIBLING_GAP = 8;    // horizontal gap between sibling subtrees
@@ -829,7 +832,11 @@ function initPbs() {
 
     container.appendChild(pbsSvg);
 
-    // Pan/zoom handlers
+    // Pan/zoom handlers. #pbsContainer outlives every render (only its
+    // contents are replaced above) and initPbs() runs on each, so attach
+    // them once: stacked copies made one wheel notch zoom 1.1^N.
+    if (container.dataset.pbsPanZoom) return;
+    container.dataset.pbsPanZoom = 'attached';
     container.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -890,6 +897,9 @@ function pbsZoomFit() {
     const bounds = pbsGetBounds(pbsTree);
     const cw = container.clientWidth;
     const ch = container.clientHeight;
+    // Hidden behind another view: nothing to fit to (it would zoom to 0).
+    // nav.js fits again when the PBS view is shown.
+    if (!cw || !ch) return;
     const padding = 60;
 
     const bw = bounds.maxX - bounds.minX + padding * 2;
@@ -902,6 +912,7 @@ function pbsZoomFit() {
     pbsPanX = (cw - bw * pbsZoom) / 2 - bounds.minX * pbsZoom + padding * pbsZoom;
     pbsPanY = padding * pbsZoom - bounds.minY * pbsZoom;
     pbsApplyTransform();
+    pbsHasFitted = true;
 }
 
 function pbsGetBounds(node) {
@@ -938,6 +949,7 @@ function updatePbs(tasks, projectName) {
         if (placeholder) placeholder.style.display = '';
         if (content) content.style.display = 'none';
         pbsTree = null;
+        pbsHasFitted = false;
         return;
     }
 
@@ -951,7 +963,7 @@ function updatePbs(tasks, projectName) {
     pbsMeasure(pbsTree);
     pbsLayoutTree(pbsTree, 40, 40);
     pbsRender();
-    pbsZoomFit();
+    if (!pbsHasFitted) pbsZoomFit();
 }
 
 // ── Deliverables Matrix ───────────────────────────────────────────────
