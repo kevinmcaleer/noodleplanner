@@ -127,27 +127,22 @@ def _looks_like_yaml(content: str) -> bool:
     return any(indicator in content for indicator in yaml_indicators)
 
 
+# A plan in the canonical markdown format (see tests/fixtures/conformance/).
+# This used to be a project/tasks/depends_on YAML schema that nothing in
+# noodle_core reads, so `init` followed by `render` showed zero tasks.
 SAMPLE_PROJECT = """\
-project:
-  name: Sample Project
-resources:
-  - name: alice
-  - name: bob
-tasks:
-  - id: PLAN
-    name: Planning
-    start: 2025-01-06
-    finish: 2025-01-13
-    resources: [alice]
-  - id: BUILD
-    name: Build Prototype
-    depends_on: PLAN
-    duration: P5D
-    resources: [alice, bob]
-  - id: REVIEW
-    name: Stakeholder Review
-    depends_on: BUILD
-    duration: P0D
+---
+title: Sample Project
+Resources:
+- @alice: Alice, Project Manager
+- @bob: Bob, Developer
+---
+Planning
+  Scope the project 3d @alice
+  *Plan the build 2d @alice
+Build
+  Build prototype 5d @alice @bob [depends Plan the build]
+  Stakeholder review 0d @alice [depends Build prototype]
 """
 
 
@@ -163,16 +158,30 @@ def _command_init(args: argparse.Namespace) -> int:
 
 def _command_validate(args: argparse.Namespace) -> int:
     # Import lazily to keep CLI lightweight for render/init operations.
-    from project_validator import load_yaml_or_front_matter, validate
+    # (This used to import a `project_validator` module that no longer
+    # exists, so the command always died with ModuleNotFoundError.)
+    from noodle_core.plan_quality import review_plan
 
-    data = load_yaml_or_front_matter(str(args.yaml_path))
-    issues, _derived = validate(data)
+    content = args.input_path.read_text(encoding="utf-8")
+    if _looks_like_yaml(content):
+        print(
+            f"{args.input_path} looks like YAML; validate checks plan files in the "
+            "markdown plan format.",
+            file=sys.stderr,
+        )
+        return 2
+
+    # The plan review's errors and warnings: whether the plan schedules at
+    # all, missing or circular dependencies, over-allocation and the like.
+    # `analyze` prints the same review in full, suggestions and fixes too.
+    issues = [f for f in review_plan(content)["findings"] if f["severity"] in ("error", "warning")]
     if not issues:
         print("No validation issues found.")
         return 0
     for issue in issues:
-        print(f"{issue.level}: {issue.code} - {issue.message} ({issue.where})")
-    return 1 if any(issue.level == "ERROR" for issue in issues) else 0
+        where = f" (line {issue['line']})" if issue.get("line") else ""
+        print(f"{issue['severity'].upper()}: {issue['check']} - {issue['message']}{where}")
+    return 1 if any(issue["severity"] == "error" for issue in issues) else 0
 
 
 def _command_export(args: argparse.Namespace) -> int:
@@ -295,12 +304,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     init_cmd = subparsers.add_parser(
         "init",
-        help="Create a starter YAML project file.",
+        help="Create a starter project plan.",
     )
     init_cmd.add_argument(
         "output_path",
         type=Path,
-        help="Destination path for the sample YAML project.",
+        help="Destination path for the sample plan (e.g. plan.md).",
     )
     init_cmd.add_argument(
         "--force",
@@ -311,9 +320,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate_cmd = subparsers.add_parser(
         "validate",
-        help="Validate a project file using the validator module.",
+        help="Check a project plan for errors and warnings (exits 1 on errors).",
     )
-    validate_cmd.add_argument("yaml_path", type=Path, help="Project YAML file to validate.")
+    validate_cmd.add_argument("input_path", type=Path, help="Project plan file to validate.")
     validate_cmd.set_defaults(func=_command_validate)
 
     export_cmd = subparsers.add_parser(
