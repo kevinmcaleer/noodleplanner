@@ -66,7 +66,9 @@ function planEditorEl() { return el('planEditor'); }
 /**
  * The joiner's view of the plan, kept in step with the host.
  *
- *  rev, synced      the host's latest revision and its plan text.
+ *  rev, synced      the host's latest revision and its plan text; rev is
+ *                   -1 until the first snapshot arrives (the host's first
+ *                   revision is 0).
  *  pending          {base, text, fit}: the joiner's own edit the host has
  *                   not yet confirmed -- `text` is what the joiner wants,
  *                   made against `base`; `fit` when it is a whiteboard Tidy,
@@ -78,7 +80,7 @@ function planEditorEl() { return el('planEditor'); }
  *                   would bounce again.
  */
 const planSync = {
-    rev: 0,
+    rev: -1,
     synced: '',
     pending: null,
     sentRev: null,
@@ -102,7 +104,7 @@ let applyingHistory = false;
 function resetPlanSync() {
     joinerHistory.clear();
     refreshUndoButtons();
-    planSync.rev = 0;
+    planSync.rev = -1;
     planSync.synced = '';
     planSync.pending = null;
     planSync.sentRev = null;
@@ -544,6 +546,11 @@ function handleEncryptedPayload(parsed) {
     if (parsed.type === 'plan_snapshot') {
         if (parsed.notice) showPlanNotice(parsed.notice);
         if (typeof parsed.plan_text === 'string' && Number.isInteger(parsed.rev)) {
+            // Revisions only move forward. The host builds and encrypts
+            // each snapshot asynchronously, so one can reach us after a
+            // newer one; drawing it would put the board back to an older
+            // plan, and rebase this joiner's pending edit onto it.
+            if (parsed.rev <= planSync.rev) return;
             // Someone tidied the board: zoom to fit once it is drawn. The
             // render is asked for outright, since a snapshot that only
             // confirms this joiner's own edit does not redraw anything.
@@ -599,7 +606,7 @@ async function joinSession(event) {
         socket.send(JSON.stringify({ type: 'join', code, display_name: displayName }));
     });
 
-    socket.addEventListener('message', async (messageEvent) => {
+    const handleJoinerMessage = async (messageEvent) => {
         let parsed = null;
         try { parsed = JSON.parse(messageEvent.data); } catch { parsed = null; }
 
@@ -652,6 +659,16 @@ async function joinSession(event) {
             try { payload = JSON.parse(plaintext); } catch { payload = null; }
             handleEncryptedPayload(payload);
         }
+    };
+
+    // Messages are handled one at a time, in arrival order. Decrypting is
+    // async, so handling each as it arrived let a snapshot that finished
+    // decrypting late overwrite a newer one already drawn.
+    let inbox = Promise.resolve();
+    socket.addEventListener('message', (messageEvent) => {
+        inbox = inbox
+            .then(() => handleJoinerMessage(messageEvent))
+            .catch((error) => console.warn('[join] could not handle a message:', error));
     });
 
     socket.addEventListener('close', (closeEvent) => {
