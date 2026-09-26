@@ -369,7 +369,7 @@ async function renderPortfolioResources() {
                 '<td><span class="workload-badge ' + workloadClass + '">' +
                 resource.workloadLevel.toUpperCase() + '</span></td>' +
                 '<td><button class="btn-small" onclick="showResourceDetails(\'' +
-                escapeHtml(resource.name).replace(/'/g, "\\'") + '\')">View</button></td>' +
+                escapeJsAttr(resource.name) + '\')">View</button></td>' +
                 '</tr>';
         });
 
@@ -534,7 +534,7 @@ function showResourceDetails(resourceName) {
         const assignments = byProject[projectName];
 
         html += '<div class="project-assignments">' +
-            '<h4 onclick="switchToProjectByName(\'' + escapeHtml(projectName).replace(/'/g, "\\'") + '\')" ' +
+            '<h4 onclick="switchToProjectByName(\'' + escapeJsAttr(projectName) + '\')" ' +
             'style="cursor: pointer; color: #667eea;">' +
             escapeHtml(projectName) + '</h4>';
 
@@ -710,7 +710,7 @@ function rerenderResourcesTable(resources) {
             '<td><span class="workload-badge ' + workloadClass + '">' +
             resource.workloadLevel.toUpperCase() + '</span></td>' +
             '<td><button class="btn-small" onclick="showResourceDetails(\'' +
-            escapeHtml(resource.name).replace(/'/g, "\\'") + '\')">View</button></td>' +
+            escapeJsAttr(resource.name) + '\')">View</button></td>' +
             '</tr>';
     });
 

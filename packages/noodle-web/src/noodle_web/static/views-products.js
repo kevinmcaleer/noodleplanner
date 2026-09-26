@@ -1180,7 +1180,7 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
 
         // Fixed columns: ID, Deliverable, Description, Dates, Status
         let html = `
-            <td class="deliverable-id dm-col-fixed">$${task.deliverable}</td>
+            <td class="deliverable-id dm-col-fixed">$${escapeHtml(task.deliverable)}</td>
             <td class="deliverable-name dm-col-fixed">${escapedName}</td>
             <td class="deliverable-desc dm-col-fixed">${escapedComment}</td>
             <td class="deliverable-dates dm-col-fixed">${task.start || '\u2014'} \u2192 ${task.finish || '\u2014'}</td>
@@ -1199,8 +1199,8 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
             else if (role === 'A') { roleLabel = 'A'; roleClass = 'dm-role-approver'; }
             const inferredStyle = isInferred ? ' font-style: italic;' : '';
 
-            html += `<td class="dm-role-cell" title="${p.displayName}">
-                <select class="role-${role}" style="${inferredStyle}" data-deliverable="${task.deliverable}" data-person="${p.shortname}" onchange="dmUpdateRole(this)">
+            html += `<td class="dm-role-cell" title="${escapeHtml(p.displayName)}">
+                <select class="role-${role}" style="${inferredStyle}" data-deliverable="${escapeHtml(task.deliverable)}" data-person="${escapeHtml(p.shortname)}" onchange="dmUpdateRole(this)">
                     <option value=""${role === '' ? ' selected' : ''}>—</option>
                     <option value="P"${role === 'P' ? ' selected' : ''}>P</option>
                     <option value="R"${role === 'R' ? ' selected' : ''}>R</option>
@@ -3411,7 +3411,7 @@ function openProductForm(task) {
         let html = activities.map(a => {
             const pct = parseFloat(a.percent) || 0;
             const name = (a.description || a.name || '').replace(/</g, '&lt;');
-            const safeName = (a.name || '').replace(/'/g, "\\'");
+            const safeName = escapeJsAttr(a.name || '');
             return `<div class="product-comp-item">
                 <span class="product-comp-name">${name}</span>
                 <span class="product-comp-pct">${pct}%</span>
@@ -3549,7 +3549,7 @@ function openProductForm(task) {
 
         function buildRoleSelect(roleCode, roleLabel, currentShortname) {
             const options = availablePeople.map(p =>
-                `<option value="${p.shortname}"${p.shortname === currentShortname ? ' selected' : ''}>${p.displayName}</option>`
+                `<option value="${escapeHtml(p.shortname)}"${p.shortname === currentShortname ? ' selected' : ''}>${escapeHtml(p.displayName)}</option>`
             ).join('');
             return `<div class="product-qa-role-row">
                 <span class="product-qa-role-label role-${roleCode}">${roleLabel}</span>

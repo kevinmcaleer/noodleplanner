@@ -1249,11 +1249,15 @@ class KanbanBoard {
 
             const crumbEl = document.createElement('span');
             crumbEl.className = 'breadcrumb-item';
-            crumbEl.innerHTML = `<a href="#">${crumb.name}</a>`;
-            crumbEl.querySelector('a').addEventListener('click', (e) => {
+            // The name is plan text: set it as text, never as markup
+            const crumbLink = document.createElement('a');
+            crumbLink.href = '#';
+            crumbLink.textContent = crumb.name;
+            crumbLink.addEventListener('click', (e) => {
                 e.preventDefault();
                 this.navigateUp(index);
             });
+            crumbEl.appendChild(crumbLink);
             breadcrumbContainer.appendChild(crumbEl);
         });
 

@@ -622,12 +622,6 @@ function renderVersionHistoryList(projectId) {
     container.innerHTML = html;
 }
 
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
-
 // ---------------------------------------------------------------------------
 // Update the version badge in the status bar
 // ---------------------------------------------------------------------------

@@ -6575,7 +6575,7 @@ function populateResourceAssignedTasks(shortname) {
         const pct = t.percent || 0;
         const rag = t.rag || '';
         const ragClass = rag ? 'rag-' + (typeof ragStatusToColour === 'function' ? ragStatusToColour(rag) : '') : '';
-        return `<div class="product-comp-item" style="cursor: pointer;" onclick="openTaskFormByName('${name.replace(/'/g, "\\'")}')">
+        return `<div class="product-comp-item" style="cursor: pointer;" onclick="openTaskFormByName('${escapeJsAttr(t.name || '')}')">
             <span class="product-comp-name">${name}</span>
             <span class="product-comp-pct">${pct}%</span>
         </div>`;
@@ -8463,8 +8463,8 @@ function renderRaidTable() {
         const scoreClass = item.score >= 16 ? 'raid-score-high' : item.score >= 6 ? 'raid-score-medium' : 'raid-score-low';
 
         row.innerHTML = `
-            <td>${item.id || ''}</td>
-            <td><span class="raid-type-badge raid-type-${item.type || 'risk'}">${item.type || 'risk'}</span></td>
+            <td>${escapeHtml(item.id || '')}</td>
+            <td><span class="raid-type-badge raid-type-${escapeHtml(item.type || 'risk')}">${escapeHtml(item.type || 'risk')}</span></td>
             <td title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</td>
             <td title="${escapeHtml(item.description)}">${escapeHtml(item.description)}</td>
             <td>${escapeHtml(item.raised_by)}</td>
@@ -8474,8 +8474,8 @@ function renderRaidTable() {
             <td>${item.likelihood || ''}</td>
             <td><span class="raid-score ${scoreClass}">${item.score || ''}</span></td>
             <td>
-                <span class="raid-status-badge raid-status-${item.status || 'open'}">${item.status || 'open'}</span>
-                ${item.escalated ? `<span class="raid-escalation-badge raid-escalation-${item.escalation_level}" title="Escalated to ${escapeHtml(item.escalation_level)}">&#9650; ${escapeHtml(item.escalation_level)}</span>` : ''}
+                <span class="raid-status-badge raid-status-${escapeHtml(item.status || 'open')}">${escapeHtml(item.status || 'open')}</span>
+                ${item.escalated ? `<span class="raid-escalation-badge raid-escalation-${escapeHtml(item.escalation_level)}" title="Escalated to ${escapeHtml(item.escalation_level)}">&#9650; ${escapeHtml(item.escalation_level)}</span>` : ''}
             </td>
             <td>${escapeHtml(item.priority || '')}</td>
             <td>${escapeHtml(item.target_date || '')}</td>
@@ -8560,13 +8560,6 @@ function renderEscalationsView() {
         </tr>`;
     }).join('');
     if (empty) empty.hidden = escalated.length > 0;
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 function sortRaidTable(column) {
@@ -10640,12 +10633,6 @@ function onWorksheetSelected() {
 
     previewDiv.style.display = 'block';
     nextBtn.disabled = false;
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 function buildMappingGrid(columns) {
@@ -16443,7 +16430,7 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
             html += '        </span>';
             html += '        <span class="inspector-dep-name">';
             if (dep.lineNumber) {
-                html += '<a href="#" onclick="openTaskInspectorByName(\'' + escapeHtml(dep.name).replace(/'/g, "\\'") + '\'); return false;" style="color: inherit; text-decoration: underline dotted;">';
+                html += '<a href="#" onclick="openTaskInspectorByName(\'' + escapeJsAttr(dep.name) + '\'); return false;" style="color: inherit; text-decoration: underline dotted;">';
                 html += escapeHtml(dep.name);
                 html += '</a>';
             } else {
