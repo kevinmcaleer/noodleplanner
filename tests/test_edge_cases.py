@@ -126,6 +126,39 @@ class TestCircularDependencies:
         result = detect_dependency_loops(tasks)
         assert result['has_loops'] is True
 
+    def test_cycle_is_reported_as_a_path_from_where_the_walk_entered_it(self):
+        """Pins the reported form so the iterative walk (which replaced a
+        recursive one that overflowed on long chains) cannot drift."""
+        tasks = [
+            {'name': 'Task A', 'depends': ['Task B']},
+            {'name': 'Task B', 'depends': ['Task C']},
+            {'name': 'Task C', 'depends': ['Task A']},
+            {'name': 'Task D', 'depends': ['Task C']},
+        ]
+
+        result = detect_dependency_loops(tasks)
+        assert result['loops'] == ['task a -> task b -> task c -> task a']
+        assert sorted(result['affected_tasks']) == ['task a', 'task b', 'task c']
+        assert result['task_warnings']['Task B'] == (
+            'Circular dependency detected. Part of cycle: task a -> task b -> task c -> task a'
+        )
+
+    def test_long_chain_does_not_overflow_the_stack(self):
+        """A chain far longer than Python's recursion limit, written
+        dependant-first, used to raise RecursionError out of the DFS."""
+        n = 3000
+        tasks = [{'name': f'T{i}', 'depends': [f'T{i - 1}'] if i > 1 else []}
+                 for i in range(n, 0, -1)]
+
+        result = detect_dependency_loops(tasks)
+        assert result['has_loops'] is False
+
+        # ...and one link back to the far end closes a loop through all of it
+        tasks[-1]['depends'] = [f'T{n}']
+        result = detect_dependency_loops(tasks)
+        assert result['loops'] == [' -> '.join(f't{i}' for i in range(n, 0, -1)) + f' -> t{n}']
+        assert len(result['affected_tasks']) == n
+
 
 class TestMissingDependencies:
     """Tests for tasks with dependencies on non-existent tasks."""
@@ -494,6 +527,21 @@ class TestMemoryAndPerformance:
         assert len(tasks) == 100
         # Should complete in reasonable time even with long chain
         assert duration < 2.0, f"Scheduling took {duration}s, should be < 2s"
+
+    def test_long_chain_written_dependant_first_schedules(self):
+        """A 3,000-task chain listed last-task-first used to crash
+        schedule_tasks with RecursionError in the dependency-loop check."""
+        n = 3000
+        lines = ["Phase 1"]
+        for i in range(n, 0, -1):
+            dep = f" [depends Task{i - 1}]" if i > 1 else ""
+            lines.append(f"  Task{i} @alice 1d{dep}")
+
+        yaml_data = natural_language_to_yaml("\n".join(lines), "Project")
+        tasks = schedule_tasks(yaml_data["Project"])
+
+        assert len(tasks) == n + 1  # n tasks + 1 phase
+        assert not any('loop_warning' in t for t in tasks)
 
 
 class TestDeadlineMetadata:

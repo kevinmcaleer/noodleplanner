@@ -328,6 +328,21 @@ def test_long_chain_without_a_milestone_is_reported_once():
     assert found[0]["task"] == "Step 9"
 
 
+def test_a_very_long_chain_written_dependant_first_does_not_overflow_the_stack():
+    # Each task names the one on the next line, so the walk back from the
+    # first task goes 3,000 links deep -- past Python's recursion limit,
+    # which used to surface as "The plan could not be scheduled".
+    n = 3000
+    lines = [f"  T{i} @alex 1d [depends T{i - 1}]" for i in range(n, 1, -1)]
+    body = "Phase\n" + "\n".join(lines) + "\n  T1 @alex 1d 2026-03-16\n"
+    result = review(body)
+    assert not [f for f in result["findings"] if "could not be scheduled" in f["message"]]
+    found = only(result, "long-chain-no-milestone")
+    assert len(found) == 1
+    assert found[0]["task"] == f"T{n}"
+    assert found[0]["message"].startswith(f"{n} tasks")
+
+
 def test_a_milestone_in_the_middle_breaks_the_chain():
     first = "\n".join(f"  * A{i} @alex 1d" for i in range(5))
     second = "\n".join(f"  * B{i} @alex 1d" for i in range(5))
