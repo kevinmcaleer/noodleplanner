@@ -103,3 +103,25 @@ test('a non-JSON error page reports the HTTP status, not a SyntaxError', async (
   assert.equal(calls.showMessage[0].type, 'error');
   assert.match(calls.showMessage[0].text, /HTTP 502/);
 });
+
+// The server sends a non-Latin-1 download name as RFC 5987 filename* beside
+// an ASCII fallback (a raw one in the header was a 500). These are exactly
+// what noodle_web.app.content_disposition() produces.
+test('download names prefer the UTF-8 filename* over the ASCII fallback', () => {
+  const sandbox = {};
+  vm.runInNewContext(extractFunction(scriptSrc, 'filenameFromDisposition'), sandbox);
+  const name = sandbox.filenameFromDisposition;
+
+  assert.equal(
+    name(`attachment; filename="______ _____.csv"; filename*=UTF-8''%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%20%D0%90%D0%BB%D1%8C%D1%84%D0%B0.csv`),
+    'Проект Альфа.csv');
+  assert.equal(
+    name(`attachment; filename="Plan _ v2.xlsx"; filename*=UTF-8''Plan%20%E2%80%94%20v2.xlsx`),
+    'Plan — v2.xlsx');
+  assert.equal(name(`attachment; filename="Demo.zip"; filename*=UTF-8''Demo.zip`), 'Demo.zip');
+  assert.equal(name('attachment; filename="Old-style.xlsx"'), 'Old-style.xlsx');
+  assert.equal(name(`attachment; filename="fallback.csv"; filename*=UTF-8''%E0%A4%A`), 'fallback.csv',
+    'a malformed encoding falls back rather than throwing');
+  assert.equal(name(null), null);
+  assert.equal(name('attachment'), null);
+});

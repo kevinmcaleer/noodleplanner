@@ -1429,6 +1429,24 @@ async function exportReportPptx() {
     }
 }
 
+/**
+ * The download name a Content-Disposition header carries, or null.
+ *
+ * The server sends the real name as RFC 5987 `filename*=UTF-8''...` beside an
+ * ASCII `filename="..."` fallback, because a raw non-Latin-1 name in the
+ * header was a 500. Reading only the fallback saved a Cyrillic title as
+ * "______.csv", so the encoded form wins when it is there.
+ */
+function filenameFromDisposition(header) {
+    if (!header) return null;
+    const encoded = header.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+    if (encoded) {
+        try { return decodeURIComponent(encoded[1].trim()); } catch (e) { /* malformed: use the fallback */ }
+    }
+    const plain = header.match(/filename\s*=\s*"([^"]+)"/i);
+    return plain ? plain[1] : null;
+}
+
 async function render(planText, projectName, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject) {
     // Capture generation so we can bail out if the user switched projects
     // while waiting for the /render response.
@@ -1506,10 +1524,9 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
             a.href = url;
 
             // Use filename from Content-Disposition header (includes version)
-            const disposition = response.headers.get('content-disposition');
-            const filenameMatch = disposition && disposition.match(/filename="([^"]+)"/);
-            if (filenameMatch) {
-                a.download = filenameMatch[1];
+            const headerFilename = filenameFromDisposition(response.headers.get('content-disposition'));
+            if (headerFilename) {
+                a.download = headerFilename;
             } else {
                 // Fallback: determine filename from content type
                 let filename = projectName || 'project';
@@ -12016,7 +12033,7 @@ async function exportCommsToWord() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = response.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'Communications Plan.docx';
+        a.download = filenameFromDisposition(response.headers.get('Content-Disposition')) || 'Communications Plan.docx';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
