@@ -412,6 +412,7 @@ async def render_plan(data: RenderRequest):
                     csv=data.export_csv,
                     ppt=data.export_ppt,
                     pdf=data.export_pdf,
+                    msproject=data.export_msproject,
                 )
                 logger.info("Successfully generated exports")
                 return Response(

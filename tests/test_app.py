@@ -545,6 +545,25 @@ class TestMultipleExports:
         # ZIP files start with PK
         assert response.content[:2] == b'PK'
 
+    def test_zip_includes_requested_msproject_file(self, client, sample_plan):
+        """MS Project in a multi-format export used to be dropped silently:
+        /render never passed the flag on and export_zip had no such option."""
+        import io
+        import zipfile
+        response = client.post(
+            "/render",
+            json={
+                "plan_text": sample_plan,
+                "project_name": "Demo",
+                "export_csv": True,
+                "export_msproject": True,
+            }
+        )
+        assert response.status_code == 200
+        with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+            assert sorted(zf.namelist()) == ["Demo.csv", "Demo.txt", "Demo.xml"]
+            assert b"<Project" in zf.read("Demo.xml")
+
 
 class TestSearchEndpoint:
     """/api/search over a plan's tasks and back-matter sections."""
