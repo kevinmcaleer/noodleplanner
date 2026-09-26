@@ -8265,18 +8265,13 @@ function extractRaidLogFromPlanText(planText) {
     if (idx === -1) return '';
     const afterMarker = idx + marker.length;
 
-    // Stop at the next section marker (budget, comms, lessons learned,
-    // baseline, or whiteboard) if present. This must match every other
-    // section marker (comms in particular) so that a comms plan following
-    // the RAID log is never swept into the extracted RAID log text -- see
-    // #978.
-    let endIdx = planText.length;
-    for (const sectionMarker of [BUDGET_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]) {
-        const mIdx = planText.indexOf(sectionMarker, afterMarker);
-        if (mIdx !== -1 && mIdx < endIdx) {
-            endIdx = mIdx;
-        }
-    }
+    // Stop at the next section marker, whichever it is. This must match
+    // every other section marker (comms in particular) so that a comms
+    // plan following the RAID log is never swept into the extracted RAID
+    // log text -- see #978 -- and an estimates or benefits table after it
+    // never turns into phantom RAID items that the next RAID edit writes
+    // back as real ones.
+    const endIdx = npBackMatterSectionEnd(planText, afterMarker, [marker]);
     return planText.substring(afterMarker, endIdx).trim();
 }
 
@@ -11759,11 +11754,7 @@ function extractCommsFromPlanText(planText) {
 
     const afterStart = startIdx + COMMS_START.length;
 
-    let endIdx = planText.length;
-    for (const marker of [LESSONS_START, BASELINE_START, WHITEBOARD_START]) {
-        const mIdx = planText.indexOf(marker, afterStart);
-        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-    }
+    const endIdx = npBackMatterSectionEnd(planText, afterStart, [COMMS_START]);
 
     return planText.substring(afterStart, endIdx).trim();
 }
@@ -13452,11 +13443,7 @@ function extractBaselineSectionText(planText) {
     if (idx === -1) return '';
 
     const afterStart = idx + marker.length;
-    let endIdx = planText.length;
-    for (const other of [WHITEBOARD_START]) {
-        const oi = planText.indexOf(other, afterStart);
-        if (oi !== -1 && oi < endIdx) endIdx = oi;
-    }
+    const endIdx = npBackMatterSectionEnd(planText, afterStart, [marker]);
 
     return planText.substring(afterStart, endIdx).trim();
 }
@@ -13818,17 +13805,10 @@ function extractWhiteboardFromPlanText(planText) {
     if (startIdx === -1) return '';
     const afterStart = startIdx + WHITEBOARD_START.length;
 
-    // Whiteboard is canonically the second-to-last back-matter section
-    // (parking lot, issue #1019, follows it) -- scan for every other
-    // marker, not just the ones that used to come after it, so a parking
-    // lot section is never swallowed into "whiteboard text".
-    let endIdx = planText.length;
-    for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
-                          RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
-                          PARKING_LOT_START]) {
-        const mIdx = planText.indexOf(marker, afterStart);
-        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-    }
+    // Parking lot and estimates both canonically follow the whiteboard --
+    // stop at every other marker (back-matter-markers.js), not just the ones
+    // that used to come after it, or an estimates table is read as notes.
+    const endIdx = npBackMatterSectionEnd(planText, afterStart, [WHITEBOARD_START]);
 
     return planText.substring(afterStart, endIdx).trim();
 }
@@ -14104,13 +14084,10 @@ function updatePlanWhiteboardText(planText, items) {
     let after = '';
     if (startIdx !== -1) {
         const afterStart = startIdx + WHITEBOARD_START.length;
-        let endIdx = planText.length;
-        for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
-                              RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
-                              PARKING_LOT_START]) {
-            const mIdx = planText.indexOf(marker, afterStart);
-            if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-        }
+        // The same boundary extractWhiteboardFromPlanText() reads to, so a
+        // section after the whiteboard (estimates, typically) is carried
+        // over in `after` rather than overwritten with the new table.
+        const endIdx = npBackMatterSectionEnd(planText, afterStart, [WHITEBOARD_START]);
         before = planText.substring(0, startIdx);
         after = planText.substring(endIdx);
     }
@@ -14222,15 +14199,9 @@ function extractParkingLotFromPlanText(planText) {
     if (startIdx === -1) return '';
     const afterStart = startIdx + PARKING_LOT_START.length;
 
-    // Parking lot is canonically the last back-matter section, but stay
-    // defensive in case some other marker follows it in hand-edited text.
-    let endIdx = planText.length;
-    for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
-                          RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
-                          WHITEBOARD_START]) {
-        const mIdx = planText.indexOf(marker, afterStart);
-        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-    }
+    // Estimates (#1053) canonically follows the parking lot, and hand-edited
+    // text can put anything after it -- stop at every other marker.
+    const endIdx = npBackMatterSectionEnd(planText, afterStart, [PARKING_LOT_START]);
 
     return planText.substring(afterStart, endIdx).trim();
 }
@@ -14352,9 +14323,9 @@ function generateParkingLotText(items) {
  * Update plan text with the given parking lot items, rewriting only the
  * ---parking lot--- section and leaving every other back-matter section,
  * front matter, and the task outline untouched. If `items` is empty, any
- * existing parking lot section is removed. Parking lot is canonically the
- * last back-matter section, so nothing needs to be preserved and
- * re-appended after it -- mirrors updatePlanWhiteboardText().
+ * existing parking lot section is removed. Whatever follows it -- the
+ * estimates section, canonically -- is carried over untouched; mirrors
+ * updatePlanWhiteboardText().
  */
 function updatePlanParkingLotText(planText, items) {
     const startIdx = planText.indexOf(PARKING_LOT_START);
@@ -14362,13 +14333,7 @@ function updatePlanParkingLotText(planText, items) {
     let after = '';
     if (startIdx !== -1) {
         const afterStart = startIdx + PARKING_LOT_START.length;
-        let endIdx = planText.length;
-        for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
-                              RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
-                              WHITEBOARD_START]) {
-            const mIdx = planText.indexOf(marker, afterStart);
-            if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-        }
+        const endIdx = npBackMatterSectionEnd(planText, afterStart, [PARKING_LOT_START]);
         before = planText.substring(0, startIdx);
         after = planText.substring(endIdx);
     }
@@ -15006,24 +14971,15 @@ function extractHighlightsFromText(text) {
     if (!text) return [];
 
     const HIGHLIGHTS_START = '---highlights---';
-    const HIGHLIGHTS_END = '---end-highlights---';
-    const RAID_LOG_START_MARKER = '---raid log---';
-    const BUDGET_START_MARKER = '---budget---';
 
     const startIdx = text.indexOf(HIGHLIGHTS_START);
     if (startIdx === -1) return [];
 
     const afterStart = startIdx + HIGHLIGHTS_START.length;
 
-    // Find the end: explicit end marker, budget section, raid log section,
-    // whiteboard section, or EOF
-    let endIdx = text.length;
-    for (const marker of [HIGHLIGHTS_END, BUDGET_START_MARKER, RAID_LOG_START_MARKER, WHITEBOARD_START]) {
-        const idx = text.indexOf(marker, afterStart);
-        if (idx !== -1 && idx < endIdx) {
-            endIdx = idx;
-        }
-    }
+    // Find the end: the explicit ---end-highlights--- marker, whichever
+    // other section follows, or EOF
+    const endIdx = npBackMatterSectionEnd(text, afterStart, [HIGHLIGHTS_START]);
 
     const section = text.substring(afterStart, endIdx);
     const highlights = [];

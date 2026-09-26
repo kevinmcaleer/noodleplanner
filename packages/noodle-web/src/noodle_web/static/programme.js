@@ -251,11 +251,7 @@ function extractProgrammeBenefitItems(planText) {
     if (idx === -1) return [];
 
     const afterStart = idx + BENEFITS_START.length;
-    let endIdx = planText.length;
-    [BUDGET_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START].forEach((marker) => {
-        const markerIdx = planText.indexOf(marker, afterStart);
-        if (markerIdx !== -1 && markerIdx < endIdx) endIdx = markerIdx;
-    });
+    const endIdx = npBackMatterSectionEnd(planText, afterStart, [BENEFITS_START]);
 
     const parsed = parseBenefitsMarkdown(planText.substring(afterStart, endIdx));
     return (parsed && parsed.items) ? parsed.items : [];

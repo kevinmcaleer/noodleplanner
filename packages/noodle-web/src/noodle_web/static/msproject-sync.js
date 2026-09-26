@@ -25,15 +25,33 @@
 // the imported task tree as a single reviewable unit: it goes in whole, or
 // not at all, but never at the cost of the rest of the plan.
 
-const SECTION_MARKERS = [
-    '---highlights---',
-    '---budget---',
-    '---benefits---',
-    '---raid log---',
-    '---comms---',
-    '---lessons learned---',
-    '---baseline---',
-    '---whiteboard---',
+// back-matter-markers.js is a classic script, not a module, so it has no
+// exports to name: this import only runs it, and it publishes the canonical
+// marker list and section-boundary helper on globalThis (already there when
+// index.html loaded it as a <script>; in Node tests this import is what
+// provides them).
+import './back-matter-markers.js';
+
+const { npBackMatterSectionEnd } = globalThis;
+
+// Every back-matter section this module carries across an import, by the
+// key extractBackMatterSections() returns it under, in canonical write
+// order. This used to be a hand-kept copy of the marker list without the
+// parking lot or estimates: a plan whose only back matter was one of those
+// lost it on every re-import, since the merge rebuilds the plan from the
+// sections it knows. Each section still ends at *any* other marker
+// (npBackMatterSectionEnd), so one it does not carry is never swallowed.
+const SECTIONS = [
+    ['highlights', '---highlights---'],
+    ['budget', '---budget---'],
+    ['benefits', '---benefits---'],
+    ['raidLog', '---raid log---'],
+    ['comms', '---comms---'],
+    ['lessons', '---lessons learned---'],
+    ['baseline', '---baseline---'],
+    ['whiteboard', '---whiteboard---'],
+    ['parkingLot', '---parking lot---'],
+    ['estimates', '---estimates---'],
 ];
 const HIGHLIGHTS_END = '---end-highlights---';
 
@@ -99,43 +117,26 @@ export function mergeFrontMatter(currentLines, importedLines) {
     return merged.flatMap((b) => b.lines);
 }
 
-function extractSection(text, startMarker, endMarkers) {
+function extractSection(text, startMarker) {
     const idx = text.indexOf(startMarker);
     if (idx === -1) return '';
     const afterStart = idx + startMarker.length;
-    let endIdx = text.length;
-    for (const marker of endMarkers) {
-        const markerIdx = text.indexOf(marker, afterStart);
-        if (markerIdx !== -1 && markerIdx < endIdx) endIdx = markerIdx;
-    }
+    const endIdx = npBackMatterSectionEnd(text, afterStart, [startMarker]);
     return text.substring(afterStart, endIdx).replace(/^\r?\n+/, '').replace(/\r?\n+$/, '');
 }
 
 /**
  * Pull every back-matter section (highlights, budget, benefits, RAID log,
- * comms, lessons learned, baseline, whiteboard) out of a plan's body text
- * (the part after front matter). Returns each section's raw content plus
- * whether the plan had an explicit ---end-highlights--- marker, so it can
- * be rebuilt faithfully.
+ * comms, lessons learned, baseline, whiteboard, parking lot, estimates)
+ * out of a plan's body text (the part after front matter). Returns each
+ * section's raw content plus whether the plan had an explicit
+ * ---end-highlights--- marker, so it can be rebuilt faithfully.
  */
 export function extractBackMatterSections(bodyText) {
-    const [highlightsStart, budgetStart, benefitsStart, raidStart, commsStart, lessonsStart, baselineStart, whiteboardStart] = SECTION_MARKERS;
-    // extractSection is called with HIGHLIGHTS_START separately below since
-    // it has its own end marker precedence.
-    const highlights = extractSection(bodyText, highlightsStart,
-        [HIGHLIGHTS_END, budgetStart, benefitsStart, raidStart, commsStart, lessonsStart, baselineStart, whiteboardStart]);
-    const hasEndHighlights = bodyText.includes(HIGHLIGHTS_END);
-    const budget = extractSection(bodyText, budgetStart,
-        [benefitsStart, raidStart, commsStart, lessonsStart, baselineStart, whiteboardStart]);
-    const benefits = extractSection(bodyText, benefitsStart,
-        [raidStart, commsStart, lessonsStart, baselineStart, whiteboardStart]);
-    const raidLog = extractSection(bodyText, raidStart, [commsStart, lessonsStart, baselineStart, whiteboardStart]);
-    const comms = extractSection(bodyText, commsStart, [lessonsStart, baselineStart, whiteboardStart]);
-    const lessons = extractSection(bodyText, lessonsStart, [baselineStart, whiteboardStart]);
-    const baseline = extractSection(bodyText, baselineStart, [whiteboardStart]);
-    const whiteboard = extractSection(bodyText, whiteboardStart, []);
-
-    return { highlights, hasEndHighlights, budget, benefits, raidLog, comms, lessons, baseline, whiteboard };
+    const sections = {};
+    for (const [key, marker] of SECTIONS) sections[key] = extractSection(bodyText, marker);
+    sections.hasEndHighlights = bodyText.includes(HIGHLIGHTS_END);
+    return sections;
 }
 
 /**
@@ -143,11 +144,7 @@ export function extractBackMatterSections(bodyText) {
  * outline (plus a leading blank line or two, trimmed).
  */
 export function stripBackMatterSections(bodyText) {
-    let earliestIdx = bodyText.length;
-    for (const marker of SECTION_MARKERS) {
-        const idx = bodyText.indexOf(marker);
-        if (idx !== -1 && idx < earliestIdx) earliestIdx = idx;
-    }
+    const earliestIdx = npBackMatterSectionEnd(bodyText, 0);
     let base = earliestIdx < bodyText.length ? bodyText.substring(0, earliestIdx) : bodyText;
     base = base.replace(/\r?\n+$/, '');
     const lines = base.split(/\r?\n/);
@@ -171,17 +168,12 @@ function appendSection(text, marker, content) {
 export function assemblePlanText(frontMatterLines, taskBody, sections) {
     let result = '---\n' + frontMatterLines.join('\n') + '\n---\n' + taskBody;
 
-    result = appendSection(result, '---highlights---', sections.highlights);
-    if (sections.highlights && sections.hasEndHighlights) {
-        result = result.replace(/\n+$/, '') + '\n\n' + '---end-highlights---';
+    for (const [key, marker] of SECTIONS) {
+        result = appendSection(result, marker, sections[key]);
+        if (key === 'highlights' && sections.highlights && sections.hasEndHighlights) {
+            result = result.replace(/\n+$/, '') + '\n\n' + HIGHLIGHTS_END;
+        }
     }
-    result = appendSection(result, '---budget---', sections.budget);
-    result = appendSection(result, '---benefits---', sections.benefits);
-    result = appendSection(result, '---raid log---', sections.raidLog);
-    result = appendSection(result, '---comms---', sections.comms);
-    result = appendSection(result, '---lessons learned---', sections.lessons);
-    result = appendSection(result, '---baseline---', sections.baseline);
-    result = appendSection(result, '---whiteboard---', sections.whiteboard);
 
     return result;
 }
@@ -191,9 +183,8 @@ export function assemblePlanText(frontMatterLines, taskBody, sections) {
  * front matter fields (title, Resources) are applied on top of the
  * current front matter (everything else -- version, project manager, rag,
  * last_saved, custom fields -- is preserved), the import's task outline
- * replaces the current one, and every back-matter section (highlights,
- * budget, benefits, RAID log, comms, lessons learned, baseline) is carried
- * over unchanged.
+ * replaces the current one, and every back-matter section (see SECTIONS
+ * above) is carried over unchanged.
  */
 export function mergeImportedTasks(currentPlanText, importedMarkdown) {
     const current = splitFrontMatter(currentPlanText);

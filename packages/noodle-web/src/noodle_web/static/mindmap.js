@@ -1760,10 +1760,9 @@ function mindmapClearToEmpty() {
     if (content) content.style.display = 'none';
 
     // Clear task lines from the plan text, preserving front matter and
-    // every back-matter section (highlights, budget, benefits, RAID log,
-    // comms, lessons learned, baseline, whiteboard) -- not just RAID log,
-    // or a plan whose only back matter was e.g. a whiteboard section
-    // would have it silently dropped here.
+    // every back-matter section (back-matter-markers.js) -- not just RAID
+    // log, or a plan whose only back matter was e.g. a whiteboard or
+    // estimates section would have it silently dropped here.
     const editor = document.getElementById('planEditor');
     if (editor) {
         const currentText = editor.value;
@@ -1782,14 +1781,8 @@ function mindmapClearToEmpty() {
             frontMatter = lines.slice(0, fmEnd + 1).join('\n') + '\n';
         }
 
-        let backMatterIdx = -1;
-        for (const marker of ['---highlights---', '---budget---', '---benefits---',
-                              '---raid log---', '---comms---', '---lessons learned---',
-                              '---baseline---', '---whiteboard---']) {
-            const idx = currentText.indexOf(marker);
-            if (idx !== -1 && (backMatterIdx === -1 || idx < backMatterIdx)) backMatterIdx = idx;
-        }
-        if (backMatterIdx >= 0) {
+        const backMatterIdx = npBackMatterSectionEnd(currentText, 0);
+        if (backMatterIdx < currentText.length) {
             backMatter = '\n' + currentText.substring(backMatterIdx);
         }
 
@@ -1849,18 +1842,11 @@ function mindmapSyncToEditor() {
         frontMatter = lines.slice(0, fmEnd + 1).join('\n') + '\n\n';
     }
 
-    // Preserve every back-matter section (highlights, budget, benefits,
-    // RAID log, comms, lessons learned, baseline, whiteboard) -- not just
-    // RAID log, or a plan whose only back matter was e.g. a whiteboard
-    // section would have it silently dropped here.
-    let backMatterIdx = -1;
-    for (const marker of ['---highlights---', '---budget---', '---benefits---',
-                          '---raid log---', '---comms---', '---lessons learned---',
-                          '---baseline---', '---whiteboard---']) {
-        const idx = currentText.indexOf(marker);
-        if (idx !== -1 && (backMatterIdx === -1 || idx < backMatterIdx)) backMatterIdx = idx;
-    }
-    if (backMatterIdx >= 0) {
+    // Preserve every back-matter section (back-matter-markers.js) -- not
+    // just RAID log, or a plan whose only back matter was e.g. a whiteboard
+    // or estimates section would have it silently dropped here.
+    const backMatterIdx = npBackMatterSectionEnd(currentText, 0);
+    if (backMatterIdx < currentText.length) {
         backMatter = '\n' + currentText.substring(backMatterIdx);
     }
 

@@ -315,16 +315,8 @@ function extractCompletionFromPlanText(planText) {
     var fmMatch = body.match(/^---\n[\s\S]*?\n---\n?/);
     if (fmMatch) body = body.substring(fmMatch[0].length);
 
-    // Stop at special sections
-    var markers = ['---highlights---', '---budget---', '---benefits---',
-        '---raid log---', '---comms---', '---lessons learned---', '---baseline---',
-        '---whiteboard---'];
-    var endIdx = body.length;
-    for (var i = 0; i < markers.length; i++) {
-        var idx = body.indexOf(markers[i]);
-        if (idx !== -1 && idx < endIdx) endIdx = idx;
-    }
-    body = body.substring(0, endIdx);
+    // Stop at the back matter (every section -- see back-matter-markers.js)
+    body = body.substring(0, npBackMatterSectionEnd(body, 0));
 
     var lines = body.split('\n');
 
