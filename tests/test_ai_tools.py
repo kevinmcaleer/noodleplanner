@@ -292,6 +292,59 @@ class TestTasks:
 
 
 # ===================================================================
+# Task area ends at every back-matter section
+# ===================================================================
+
+def _scheduled_task_names(plan_text):
+    from noodle_web.plan_service import PlanService
+    result = PlanService().parse(plan_text)
+    assert result.success, result.error
+    return [t.get('name') for t in result.tasks]
+
+
+class TestTaskAreaBoundary:
+    """The task area used to end only at the six markers ai_tools listed
+    itself, so a task added to a plan whose first back-matter section was
+    lessons learned, parking lot, estimates or highlights went to the end of
+    the file -- inside that section, where it was never scheduled."""
+
+    @pytest.mark.parametrize("section", [
+        "---lessons learned---\n"
+        "| ID | Observation | Impact Type |\n"
+        "|----|-------------|-------------|\n"
+        "| 1  | Plan early  | Went Well   |\n",
+        "---parking lot---\n- Maybe a mobile app\n",
+        "---estimates---\n| Task | Optimistic | Likely | Pessimistic |\n"
+        "|------|------------|--------|-------------|\n"
+        "| Build | 5d | 10d | 20d |\n",
+    ], ids=["lessons-learned", "parking-lot", "estimates"])
+    def test_add_task_lands_before_section(self, section):
+        plan = SAMPLE_PLAN.rstrip() + "\n\n" + section
+        result, msg = execute_tool("add_task", plan,
+                                   {"name": "Launch prep", "duration": "2d"})
+        assert "Added task" in msg
+        marker = section.split('\n')[0]
+        assert result.index("Launch prep 2d") < result.index(marker)
+        assert "Launch prep" in _scheduled_task_names(result)
+
+    def test_add_task_lands_before_highlights_separator(self):
+        # update_plan_highlights writes a bare "---" lead-in before the
+        # highlights marker; a task inserted between the two would sit
+        # after a stray separator rather than in the task list.
+        from noodle_core.format_converter import update_plan_highlights
+        plan = update_plan_highlights(SAMPLE_PLAN, [
+            {'date': '2026-01-20', 'author': 'AL', 'content': 'On track'},
+        ])
+        result, _ = execute_tool("add_task", plan,
+                                 {"name": "Launch prep", "duration": "2d"})
+        lines = result.split('\n')
+        marker_idx = lines.index("---highlights---")
+        separator_idx = max(i for i in range(marker_idx) if lines[i] == "---")
+        assert lines.index("Launch prep 2d") < separator_idx
+        assert "Launch prep" in _scheduled_task_names(result)
+
+
+# ===================================================================
 # Non-working day tests
 # ===================================================================
 

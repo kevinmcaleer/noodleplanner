@@ -10,6 +10,7 @@ import re
 import yaml
 
 from noodle_core.format_converter import (
+    ALL_SECTION_MARKERS,
     BASELINE_START,
     BENEFITS_START,
     BUDGET_START,
@@ -17,7 +18,6 @@ from noodle_core.format_converter import (
     HIGHLIGHTS_START,
     HIGHLIGHTS_END,
     RAID_LOG_START,
-    WHITEBOARD_START,
     extract_baseline,
     extract_benefits,
     extract_budget,
@@ -45,18 +45,14 @@ from noodle_core.format_converter import (
 )
 
 # ---------------------------------------------------------------------------
-# Section order for reassembly: budget, benefits, raid log, comms, baseline,
-# whiteboard
+# Every back-matter section marker: the task area ends at the first of them.
+# This used to be a hand-kept list of six that had fallen behind the core's
+# sections (no highlights, lessons learned, parking lot or estimates), so
+# add_task on a plan whose first section was one of those appended the task
+# inside that section, where it was never scheduled.
 # ---------------------------------------------------------------------------
 
-SECTION_MARKERS = [
-    BUDGET_START,
-    BENEFITS_START,
-    RAID_LOG_START,
-    COMMS_START,
-    BASELINE_START,
-    WHITEBOARD_START,
-]
+SECTION_MARKERS = ALL_SECTION_MARKERS
 
 
 # ===================================================================
@@ -201,6 +197,15 @@ def _get_task_area(plan_text: str) -> tuple[str, int, int]:
         if any(stripped == m for m in SECTION_MARKERS):
             task_end = i
             break
+
+    # update_plan_highlights leads its section in with a bare ``---`` line
+    # (see strip_highlights). That separator belongs to the section, not the
+    # task list, so a task appended at the end must go above it.
+    j = task_end
+    while j > task_start and not lines[j - 1].strip():
+        j -= 1
+    if j > task_start and task_end < len(lines) and lines[j - 1].strip() == '---':
+        task_end = j - 1
 
     return '\n'.join(lines[task_start:task_end]), task_start, task_end
 
