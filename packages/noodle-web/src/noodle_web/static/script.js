@@ -4573,7 +4573,7 @@ function saveTask() {
     let newPlanText;
     if (typeof NoodlePlanModel !== 'undefined') {
         let model = NoodlePlanModel.modelForEditor(editor);
-        let node = model.tasks.find(task => model.lineNumber(task) === currentTaskLineNumber);
+        let node = model.taskAtLine(currentTaskLineNumber);
         if (node) {
             // Rename first while dependency edges still point at this object;
             // serialising the graph updates every predecessor reference.

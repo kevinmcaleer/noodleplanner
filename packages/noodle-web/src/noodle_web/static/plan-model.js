@@ -110,6 +110,8 @@
             this.suffix = [];
             this.roots = [];
             this.tasks = [];
+            this._lineIndex = null;
+            this._lineIndexLeading = 0;
             this._parse();
         }
 
@@ -271,6 +273,7 @@
             const fullLine = task.indentText + this._serialiseContent(task);
             const updated = updater(fullLine);
             if (typeof updated !== 'string') return false;
+            this._lineIndex = null;
             const indent = (updated.match(/^\s*/) || [''])[0].length;
             task.indent = indent;
             task.indentText = updated.slice(0, indent);
@@ -605,6 +608,7 @@
             if (!physical.length) return;
 
             const preferred = physical.find(line => line.eol)?.eol || '\n';
+            this._lineIndex = null;
             for (let index = 0; index < physical.length - 1; index++) {
                 if (!physical[index].eol) physical[index].eol = preferred;
             }
@@ -681,6 +685,7 @@
                 if (previous) previous.trailing.push(...task.trailing);
                 else this.leading.push(...task.trailing);
             }
+            this._lineIndex = null;
             this._refreshTaskOrder();
             this._normalisePhysicalLineEndings(hadFinalEol);
             this._resolveDependencies();
@@ -710,6 +715,7 @@
         }
 
         _rebuildHierarchyFromIndents() {
+            this._lineIndex = null;
             this.roots = [];
             const stack = [];
             for (const task of this.tasks) {
@@ -730,6 +736,7 @@
         // separator it used to be (#911). Non-blank trailing lines (e.g. a
         // `//` comment) are real content and stay with the task.
         _dropTrailingBlankLines(task) {
+            this._lineIndex = null;
             task.trailing = task.trailing.filter(line => line.text.trim() !== '');
         }
 
@@ -769,6 +776,7 @@
         }
 
         _refreshTaskOrder() {
+            this._lineIndex = null;
             const ordered = [];
             const walk = task => { ordered.push(task); task.children.forEach(walk); };
             this.roots.forEach(walk);
@@ -841,6 +849,35 @@
             for (const node of before) lines += 1 + node.trailing.reduce((sum, line) => sum + (line.eol ? 1 : 0), 0);
             return lines;
         }
+
+        /**
+         * Map of 1-based editor line -> the task on it, by lineNumber()'s
+         * count but from a single walk. lineNumber() walks the plan again for
+         * every task asked about, so finding the task on each of n lines that
+         * way is quadratic in the calls alone -- kanban.js's parse did it on
+         * every edit. Memoised: every method that reorders tasks or changes
+         * a line count drops the memo, and the front-matter count is checked
+         * on each call, since front-matter-panel.js and kanban.js splice
+         * `leading` from outside.
+         */
+        lineIndex() {
+            const leadingLines = this.leading.reduce((sum, line) => sum + (line.eol ? 1 : 0), 0);
+            if (!this._lineIndex || this._lineIndexLeading !== leadingLines) {
+                const index = new Map();
+                let line = leadingLines + 1;
+                const walk = task => {
+                    index.set(line, task);
+                    line += 1 + task.trailing.reduce((sum, trailing) => sum + (trailing.eol ? 1 : 0), 0);
+                    task.children.forEach(walk);
+                };
+                this.roots.forEach(walk);
+                this._lineIndex = index;
+                this._lineIndexLeading = leadingLines;
+            }
+            return this._lineIndex;
+        }
+
+        taskAtLine(line) { return this.lineIndex().get(line) || null; }
     }
 
     function modelForEditor(editor) {

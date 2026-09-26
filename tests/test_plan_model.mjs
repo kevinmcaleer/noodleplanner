@@ -472,3 +472,84 @@ test('a sequential lag is not part of the task name, and rides on the implicit e
     const review = model.findByName('Review').dependencies[0];
     assert.equal(review.target, model.findByName('Build'));
 });
+
+// lineIndex()/taskAtLine(): the task on each editor line from one walk of
+// the plan, for callers that look up many lines (kanban.js's parse did it
+// with tasks.find(lineNumber(...)) per line -- cubic in the plan's size).
+
+/** Every task's lineNumber() is its line in lineIndex(), and nothing else is. */
+function assertIndexMatches(model, when) {
+    const index = model.lineIndex();
+    assert.equal(index.size, model.tasks.length, `${when}: one line per task`);
+    for (const task of model.tasks) {
+        const line = model.lineNumber(task);
+        assert.equal(index.get(line), task, `${when}: ${task.name} on line ${line}`);
+        assert.equal(model.taskAtLine(line), task, `${when}: taskAtLine(${line})`);
+    }
+    // and they are the editor's lines: the serialised text has each there
+    const lines = model.serialize().split(/\r\n|\n|\r/);
+    for (const [line, task] of index) {
+        assert.equal(lines[line - 1].trim(), model._serialiseContent(task).trim(), `${when}: line ${line} holds ${task.name}`);
+    }
+}
+
+const INDEXED_PLAN = '---\ntitle: Index\nlabels: [a, b]\n---\n\n// comment\nPhase One\n  Design 3d\n\n  Build 5d [depends Design]\n  // note\n  Test 2d\nPhase Two\n  Ship 1d\n\n---whiteboard---\n| Task |\n';
+
+test('lineIndex() puts every task on the line lineNumber() gives it', () => {
+    const model = PlanModel.parse(INDEXED_PLAN);
+    assertIndexMatches(model, 'parsed');
+    assert.equal(model.taskAtLine(1), null, 'front matter holds no task');
+    assert.equal(model.taskAtLine(6), null, 'nor does a comment line');
+    assert.equal(model.taskAtLine(999), null);
+    assertIndexMatches(PlanModel.parse('A 1d\r\n\r\nB 1d\r\n  C 1d'), 'CRLF, no final newline');
+});
+
+test('lineIndex() follows every mutation of the model', () => {
+    const mutations = [
+        ['updateLine', m => m.updateLine(m.findByName('Design'), line => line + ' @kev')],
+        ['rename', m => m.rename(m.findByName('Build'), 'Construct')],
+        ['moveAsChild', m => m.moveAsChild(m.findByName('Ship'), m.findByName('Phase One'), true)],
+        ['moveBefore', m => m.moveBefore(m.findByName('Test'), m.findByName('Design'))],
+        ['moveAfter', m => m.moveAfter(m.findByName('Design'), m.findByName('Test'))],
+        ['moveAsRoot', m => m.moveAsRoot(m.findByName('Design'))],
+        ['insertTaskAfter', m => m.insertTaskAfter(m.findByName('Design'), 2, 'Review 1d')],
+        ['insertCardAfter', m => m.insertCardAfter(m.findByName('Ship'), 2, 'Card\n  Sub 1d')],
+        ['removeTask', m => m.removeTask(m.findByName('Design'))],
+        ['indentTasks', m => m.indentTasks([m.findByName('Phase Two')])],
+        ['outdentTasks', m => m.outdentTasks([m.findByName('Test')])],
+        ['addDependency', m => m.addDependency(m.findByName('Ship'), m.findByName('Test'))],
+        ['removeDependency', m => m.removeDependency(m.findByName('Build'), m.findByName('Design'))],
+        // front-matter-panel.js and kanban.js splice `leading` directly
+        ['a front-matter line removed from outside', m => m.leading.splice(2, 1)],
+        ['a front-matter line added from outside', m => m.leading.splice(1, 0, { text: 'owner: kev', eol: '\n' })],
+    ];
+    for (const [name, mutate] of mutations) {
+        const model = PlanModel.parse(INDEXED_PLAN);
+        assertIndexMatches(model, `before ${name}`); // builds the memo
+        const before = model.serialize();
+        mutate(model);
+        assert.notEqual(model.serialize(), before, `${name} changed the plan`);
+        assertIndexMatches(model, `after ${name}`);
+    }
+});
+
+test('looking up the task on each line of a 1000-task plan is fast', () => {
+    const lines = [];
+    for (let phase = 0; phase < 50; phase++) {
+        lines.push(`Phase ${phase}`);
+        for (let task = 0; task < 20; task++) lines.push(`  Task ${phase}.${task} 2d @kev 10%`, '');
+    }
+    const model = PlanModel.parse(lines.join('\n'));
+    assert.equal(model.tasks.length, 1050);
+
+    // what kanban.js's parse does: every line, then the task on it
+    const started = performance.now();
+    let found = 0;
+    for (let line = 1; line <= lines.length; line++) if (model.taskAtLine(line)) found++;
+    const elapsed = performance.now() - started;
+
+    assert.equal(found, 1050);
+    // one walk, then a Map lookup per line -- tasks.find(lineNumber(...))
+    // per line, which this replaces, took seconds at this size
+    assert.ok(elapsed < 250, `took ${elapsed.toFixed(0)}ms`);
+});
