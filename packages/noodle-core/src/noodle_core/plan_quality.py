@@ -49,7 +49,7 @@ import difflib
 import re
 from datetime import date, datetime, timedelta
 
-from .date_math import count_working_days, get_next_working_day
+from .date_math import count_working_days, get_next_working_day, is_working_day
 from .exporters import (
     parse_resource_mappings,
     parse_stakeholders_from_frontmatter,
@@ -669,7 +669,10 @@ def _check_over_allocation(review, ctx):
                                                        resource_calendars)
         day = start
         while day < finish:
-            if get_next_working_day(day, task_calendar) == day:
+            # Not `get_next_working_day(day, ...) == day`: that searches ahead
+            # from every non-working day, and gave up (raising, which took the
+            # whole review down) inside a long enough shutdown.
+            if is_working_day(day, task_calendar):
                 for name, share in shares:
                     per_day = load.setdefault(name, {})
                     key = _as_date(day)

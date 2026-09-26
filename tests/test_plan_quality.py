@@ -301,6 +301,17 @@ def test_over_allocation_ignores_the_resources_own_non_working_days():
     assert "over-allocation" not in checks(review(body, front_matter=fm))
 
 
+def test_over_allocation_survives_a_shutdown_longer_than_a_year():
+    # The check used to test each day with get_next_working_day(day) == day,
+    # which searches ahead -- and gave up, raising out of review_plan, from
+    # any day more than a year before the end of a shutdown.
+    fm = FM.replace("---\n\n", "non-working-days:\n  - Closure: 2026-04-01:2027-09-30\n---\n\n", 1)
+    body = "Phase\n  A @alex 10d 2026-03-25\n  B @alex 10d 2026-03-25\n"
+    [finding] = only(review(body, front_matter=fm), "over-allocation")
+    # five days either side of the closure, none inside it
+    assert "on 10 working days between 2026-03-25 and 2027-10-07" in finding["message"]
+
+
 def test_start_on_a_non_working_day_fires_with_a_fix_to_the_next_working_day():
     body = "Phase\n  A @alex 2d 2026-03-21\n"   # a Saturday
     [finding] = only(review(body), "non-working-day")
