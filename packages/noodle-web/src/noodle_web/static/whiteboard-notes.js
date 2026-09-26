@@ -3637,8 +3637,19 @@ function wbBuildChildRow(childVm, options) {
         // area -- the issue's "click a todo's child-count badge, or the todo
         // row itself" affordance. `.wb-note-row-drillable` comes with the
         // badge, from the builder.
-        row.addEventListener('click', () => wbTogglePeekFor(child.name, refs.countBadge));
+        //
+        // Not the second click of a double-click, though, nor a click inside
+        // the name while it is being renamed: those belong to edit-in-place
+        // (whiteboard-row-drag.js).
+        row.addEventListener('click', (e) => {
+            if (e.detail > 1 || (refs.name && refs.name.isContentEditable)) return;
+            wbTogglePeekFor(child.name, refs.countBadge);
+        });
     }
+
+    // Double-click to rename the row in place, and drag it to re-order it,
+    // move it to another note or lift it off as a note of its own.
+    if (typeof wbWireRowGestures === 'function') wbWireRowGestures(row);
 
     // No per-row coach button or dependency handle to wire: both are rail
     // controls now (wbWireRowRails()), shared by every row of this note and

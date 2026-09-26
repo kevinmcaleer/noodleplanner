@@ -711,5 +711,49 @@ assert(!merged.split('\n').includes('Beta'), 'merge leaves one task holding ever
     assertEqual(wbTaskFieldsFromPlanText(LINE, 'Nope'), null, 'a missing task reads as null');
 }
 
+// ── wbMoveRowInPlanText: dragging a checklist row on the board ─────────
+{
+    const { wbMoveRowInPlanText } = sandbox;
+    const ROWS = [
+        'Build',
+        '  Keep @sam 1d',
+        '  MoveMe @jo 2d [depends Keep]',
+        '    Nested 1d',
+        '  After 3d',
+        'Other',
+        '  Existing 1d',
+        'Empty',
+    ].join('\n');
+
+    assertEqual(wbMoveRowInPlanText(ROWS, 'After', { kind: 'row', ref: 'Keep', before: true }),
+        ['Build', '  After 3d', '  Keep @sam 1d', '  MoveMe @jo 2d [depends Keep]', '    Nested 1d',
+            'Other', '  Existing 1d', 'Empty'].join('\n'),
+        'a row dropped before another row of the same note re-orders it');
+
+    assertEqual(wbMoveRowInPlanText(ROWS, 'MoveMe', { kind: 'row', ref: 'Existing', before: false }),
+        ['Build', '  Keep @sam 1d', '  After 3d', 'Other', '  Existing 1d',
+            '  MoveMe @jo 2d [depends Keep]', '    Nested 1d', 'Empty'].join('\n'),
+        'a row dropped between another note\'s rows moves there, subtree and tokens included');
+
+    assertEqual(wbMoveRowInPlanText(ROWS, 'Keep', { kind: 'note', note: 'Empty' }),
+        ['Build', '  MoveMe @jo 2d [depends Keep]', '    Nested 1d', '  After 3d',
+            'Other', '  Existing 1d', 'Empty', '  Keep @sam 1d'].join('\n'),
+        'a row dropped on a note with no rows becomes its last child');
+
+    assertEqual(wbMoveRowInPlanText(ROWS, 'MoveMe', { kind: 'top' }),
+        ['Build', '  Keep @sam 1d', '  After 3d', 'Other', '  Existing 1d', 'Empty',
+            'MoveMe @jo 2d [depends Keep]', '  Nested 1d'].join('\n'),
+        'a row dragged onto bare board comes out to the top level, unlinked');
+
+    assertEqual(wbMoveRowInPlanText(ROWS, 'Keep', { kind: 'row', ref: 'Keep', before: true }), ROWS,
+        'a row dropped on itself changes nothing');
+    assertEqual(wbMoveRowInPlanText(ROWS, 'MoveMe', { kind: 'note', note: 'Nested' }), ROWS,
+        'a row cannot be dropped into its own subtree');
+    assertEqual(wbMoveRowInPlanText(ROWS, 'Keep', { kind: 'invalid', note: 'Other' }), ROWS,
+        'an invalid target changes nothing');
+    assertEqual(wbMoveRowInPlanText(ROWS, 'Nope', { kind: 'top' }), ROWS,
+        'a missing task changes nothing');
+}
+
 console.log(failures === 0 ? '\nAll structure tests passed.' : `\n${failures} test(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

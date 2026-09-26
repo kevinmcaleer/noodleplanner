@@ -662,6 +662,44 @@ function wbMoveTaskInPlanText(planText, taskName, referenceName, before) {
 }
 
 /**
+ * Where a checklist row dragged on the whiteboard lands in the outline --
+ * the one plan-text write behind every row drop (see whiteboard-row-drag.js).
+ * `target` is one of:
+ *
+ *   - `{ kind: 'row', ref, before }` -- next to row `ref` (before or after
+ *     it), as that row's sibling. The same note re-orders it; another note's
+ *     row moves it onto that note. wbMoveTaskInPlanText(), which takes the
+ *     reference's depth, so a row landing on a note nested three deep is
+ *     re-indented to match.
+ *   - `{ kind: 'note', note }` -- onto a note with no rows to drop between
+ *     (an empty or collapsed one): last child of `note`.
+ *     wbReparentTaskInPlanText(), the same move a drawn noodle makes.
+ *   - `{ kind: 'top' }` -- dragged off every note onto bare board: out to
+ *     the top level, so the task becomes a note of its own with no noodle
+ *     back to where it came from. The ---whiteboard--- row that puts it on
+ *     the board is the caller's to add; this only moves the outline.
+ *
+ * The task's subtree and every token on its lines travel with it. Returns
+ * `planText` unchanged for a drop that would change nothing or is illegal
+ * (onto itself, or into its own subtree).
+ */
+function wbMoveRowInPlanText(planText, taskName, target) {
+    const text = String(planText == null ? '' : planText);
+    if (!taskName || !target) return text;
+    if (target.kind === 'row') {
+        return wbMoveTaskInPlanText(text, taskName, target.ref, !!target.before);
+    }
+    if (target.kind === 'note') {
+        if (!target.note) return text;
+        return wbReparentTaskInPlanText(text, taskName, target.note);
+    }
+    if (target.kind === 'top') {
+        return wbReparentTaskInPlanText(text, taskName, null);
+    }
+    return text;
+}
+
+/**
  * The outline neighbours indent and outdent are measured against:
  * `previousSibling` is the nearest earlier task at the same depth under the
  * same parent, `parent` the nearest earlier task that is shallower. Either

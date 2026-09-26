@@ -260,6 +260,19 @@ If a note is too short to show all its tasks, the footer says how many are out o
 
 A subtask that has a note of its own is **not** listed in the checklist; it is the noodle leaving that note instead. That way one relationship is only ever shown once — the noodle is on screen next to both notes, which is a better account of where the subtask went than a line of text on one of them. A note whose subtasks have *all* left says so in place of its checklist, since otherwise nothing on the card would mention them.
 
+Edit and Move a Checklist Item
+--------------------------------
+
+Double-click an item's name (or double-tap it on a touchscreen) to rename it where it sits. ``Enter`` saves, ``Escape`` abandons the change. As with renaming a note, this renames the task itself and updates anything that pointed at the old name, and inline shorthand such as ``Design 3d @kev`` works here too.
+
+Press an item and drag it (on a touchscreen, press and hold first) to move it:
+
+- **Within its note** — drop it between two other items to re-order the checklist. A line shows where it will land.
+- **Onto another note** — drop it between that note's items, or anywhere on a note with no items, to move it there.
+- **Onto bare board** — the item turns into a little post-it as you carry it; let go and it becomes a note of its own at that spot. It is lifted out to the top level of the plan, so there is no noodle linking it back to the note it came from.
+
+Any subtasks of the item go with it, along with its dates, resources, dependencies and progress. A note an item cannot go on — a text note, or one of the item's own subtasks — is outlined in red and the drop does nothing. ``Escape`` cancels a drag. Each move is a single undo step.
+
 Drill Into a Subtask
 ----------------------
 
