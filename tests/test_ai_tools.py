@@ -292,6 +292,138 @@ class TestTasks:
 
 
 # ===================================================================
+# update_task edits tokens in place
+# ===================================================================
+
+RICH_PLAN = """\
+---
+title: Rich
+start date: 2026-01-19
+resources:
+  - @alice: Alice
+  - @bob: Bob
+---
+Phase 1
+  Kickoff 1d @alice
+  Design @alice @bob[50%] 3d 75% #urgent #ux 2026-02-02 $spec [depends Kickoff] !"needs sign-off"
+  Build 5d @bob p40 [depends Design +2d] @alice:A
+  Sign-off
+"""
+
+
+def _task_line(plan_text, name):
+    from noodle_web.ai_tools import _find_task_line
+    idx = _find_task_line(plan_text, name)
+    assert idx is not None, f"{name} not found"
+    return plan_text.split('\n')[idx]
+
+
+def _task_meta(plan_text, name):
+    from noodle_core.metadata import extract_metadata
+    return extract_metadata(_task_line(plan_text, name).strip())
+
+
+class TestUpdateTaskPreservesMetadata:
+    """update_task used to rebuild the line from seven regex captures,
+    dropping every resource and label but the first, allocations, dates and
+    N%/pN progress, and writing completion as "%80", which the core never
+    reads."""
+
+    def test_duration_change_keeps_every_other_token(self):
+        result, msg = execute_tool("update_task", RICH_PLAN,
+                                   {"name": "Design", "duration": "5d"})
+        assert "duration=5d" in msg
+        line = _task_line(result, "Design")
+        assert line == ('  Design @alice @bob[50%] 5d 75% #urgent #ux 2026-02-02 '
+                        '$spec [depends Kickoff] !"needs sign-off"')
+        meta = _task_meta(result, "Design")
+        assert meta['resources'] == 'alice, bob[50%]'
+        assert meta['labels'] == ['urgent', 'ux']
+        assert meta['percent'] == 75
+        assert meta['due'] == '2026-02-02'
+        assert meta['duration'].days == 5
+
+    def test_lag_is_not_mistaken_for_duration(self):
+        result, _ = execute_tool("update_task", RICH_PLAN,
+                                 {"name": "Build", "duration": "8d"})
+        line = _task_line(result, "Build")
+        assert line == '  Build 8d @bob p40 [depends Design +2d] @alice:A'
+
+    def test_duration_appended_when_absent(self):
+        result, _ = execute_tool("update_task", RICH_PLAN,
+                                 {"name": "Sign-off", "duration": "1d"})
+        assert _task_line(result, "Sign-off") == '  Sign-off 1d'
+
+    def test_completion_written_as_core_percent(self):
+        result, msg = execute_tool("update_task", RICH_PLAN,
+                                   {"name": "Design", "completion": 80})
+        assert "completion=80%" in msg
+        line = _task_line(result, "Design")
+        assert ' 80% ' in line
+        assert '75%' not in line and '%80' not in line
+        # The allocation's [50%] is not progress and is left alone.
+        assert '@bob[50%]' in line
+        assert _task_meta(result, "Design")['percent'] == 80
+
+    def test_completion_replaces_legacy_progress(self):
+        result, _ = execute_tool("update_task", RICH_PLAN,
+                                 {"name": "Build", "completion": 90})
+        line = _task_line(result, "Build")
+        assert line == '  Build 5d @bob 90% [depends Design +2d] @alice:A'
+        assert _task_meta(result, "Build")['percent'] == 90
+
+    def test_completion_replaces_old_ai_percent_form(self):
+        # SAMPLE_PLAN's Testing line carries "%50", the form this tool used
+        # to write; it is replaced rather than left beside the new value.
+        result, _ = execute_tool("update_task", SAMPLE_PLAN,
+                                 {"name": "Testing", "completion": 60})
+        assert _task_line(result, "Testing") == '  *Testing 5d @BL 60%'
+        assert _task_meta(result, "Testing")['percent'] == 60
+
+    def test_task_still_found_after_completion_on_bare_name(self):
+        result, _ = execute_tool("update_task", RICH_PLAN,
+                                 {"name": "Sign-off", "completion": 20})
+        assert _task_line(result, "Sign-off") == '  Sign-off 20%'
+        result, msg = execute_tool("update_task", result,
+                                   {"name": "Sign-off", "duration": "1d"})
+        assert "not found" not in msg
+        assert _task_line(result, "Sign-off") == '  Sign-off 20% 1d'
+
+    def test_resource_change_keeps_labels_and_quality_roles(self):
+        result, msg = execute_tool("update_task", RICH_PLAN,
+                                   {"name": "Build", "resource": "carol"})
+        assert "resource=@carol" in msg
+        line = _task_line(result, "Build")
+        assert line == '  Build 5d @carol p40 [depends Design +2d] @alice:A'
+
+    def test_resource_replaces_all_assigned_resources(self):
+        result, _ = execute_tool("update_task", RICH_PLAN,
+                                 {"name": "Design", "resource": "carol"})
+        meta = _task_meta(result, "Design")
+        assert meta['resources'] == 'carol'
+        assert meta['labels'] == ['urgent', 'ux']
+        assert meta['percent'] == 75
+
+    def test_rename_and_comment_keep_metadata(self):
+        result, _ = execute_tool("update_task", RICH_PLAN,
+                                 {"name": "Design", "new_name": "UX Design",
+                                  "comment": "approved"})
+        line = _task_line(result, "UX Design")
+        assert line == ('  UX Design @alice @bob[50%] 3d 75% #urgent #ux 2026-02-02 '
+                        '$spec [depends Kickoff] !"approved"')
+
+    def test_comment_appended_when_absent(self):
+        result, _ = execute_tool("update_task", RICH_PLAN,
+                                 {"name": "Kickoff", "comment": "all hands"})
+        assert _task_line(result, "Kickoff") == '  Kickoff 1d @alice !"all hands"'
+
+    def test_sequential_marker_kept(self):
+        result, _ = execute_tool("update_task", SAMPLE_PLAN,
+                                 {"name": "Design", "duration": "8d"})
+        assert _task_line(result, "Design") == '  *Design 8d @AL'
+
+
+# ===================================================================
 # Task area ends at every back-matter section
 # ===================================================================
 

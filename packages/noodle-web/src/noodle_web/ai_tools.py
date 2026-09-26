@@ -210,6 +210,31 @@ def _get_task_area(plan_text: str) -> tuple[str, int, int]:
     return '\n'.join(lines[task_start:task_end]), task_start, task_end
 
 
+# A token that starts a task line's metadata: the task's name is every token
+# before the first of these. ``N%`` is among them because update_task writes
+# progress in that form, and a bare-name task given a completion must still be
+# found by name afterwards.
+_METADATA_TOKEN = re.compile(r'^(\d+[dwmy]|\d{1,3}%|@|!\"|%\d|#|\$|\[depends)')
+
+
+def _split_task_line(line: str) -> tuple[str, str, str]:
+    """Split a task line into ``(prefix, name, rest)``.
+
+    *prefix* is the indentation and any sequential ``*``, *name* the task
+    name as written, and *rest* everything after the name (starting with the
+    whitespace before its first metadata token), so that
+    ``prefix + name + rest == line``.
+    """
+    prefix = re.match(r'\s*\**\s*', line).group()
+    body = line[len(prefix):]
+    name_end = len(body.rstrip())
+    for token in re.finditer(r'\S+', body):
+        if _METADATA_TOKEN.match(token.group()):
+            name_end = len(body[:token.start()].rstrip())
+            break
+    return prefix, body[:name_end], body[name_end:]
+
+
 def _find_task_line(plan_text: str, task_name: str) -> int | None:
     """Find the line index of a task by name (case-insensitive).
 
@@ -219,23 +244,55 @@ def _find_task_line(plan_text: str, task_name: str) -> int | None:
     lines = plan_text.split('\n')
 
     for i in range(area_start, area_end):
-        line = lines[i]
-        stripped = line.lstrip()
-        # Remove leading * for sequential tasks
-        name_part = stripped.lstrip('*').strip()
-        # Extract just the task name (before any metadata tokens)
-        tokens = name_part.split()
-        # Build the name by taking tokens until we hit a metadata marker
-        name_tokens = []
-        for t in tokens:
-            if re.match(r'^(\d+[dwmy]|@|!\"|%\d|#|\$|\[depends)', t):
-                break
-            name_tokens.append(t)
-        line_name = ' '.join(name_tokens)
+        line_name = ' '.join(_split_task_line(lines[i])[1].split())
         if line_name.lower() == task_name.lower():
             return i
 
     return None
+
+
+# Parts of a task line whose insides are not task tokens: the [depends ...],
+# [repeats ...] and [levelled ...] blocks, a resource allocation's [50%], and
+# quoted comments. The "+2d" in "[depends Design +2d]" is a lag, not the
+# task's duration, so token edits must not look inside them.
+_OPAQUE_SPAN = re.compile(r'\[[^\]]*\]|!?"[^"]*"|!\'[^\']*\'')
+_COMMENT_SPAN = re.compile(r'!?"[^"]*"|!\'[^\']*\'')
+_DURATION_TOKEN = re.compile(r'\d+[dwmy]')
+# Percent complete as the core reads it (``80%``), its legacy form (``p80``),
+# and the ``%80`` form this module used to write, which the core never read.
+_PROGRESS_TOKEN = re.compile(r'\d{1,3}%|p\d{1,3}|%\d{1,3}')
+# ``@name:P`` / ``:R`` / ``:A`` is a quality-role assignment, not a resource.
+_QUALITY_ROLE_TOKEN = re.compile(r'@[^:\s]+:[PRA]', re.IGNORECASE)
+
+
+def _is_resource_token(token: str) -> bool:
+    return token.startswith('@') and not _QUALITY_ROLE_TOKEN.fullmatch(token)
+
+
+def _remove_span(text: str, start: int, end: int) -> str:
+    """Remove ``text[start:end]`` and the whitespace in front of it."""
+    while start > 0 and text[start - 1] in ' \t':
+        start -= 1
+    return text[:start] + text[end:]
+
+
+def _set_token(rest: str, is_token, new_token: str,
+               drop_others: bool = False) -> str:
+    """Put *new_token* in place of the first token of *rest* that *is_token*
+    accepts, or append it if there is none. With *drop_others*, any further
+    matching tokens are removed. Every other token is left as written.
+    """
+    # Blank opaque spans to NULs (not spaces, so an allocation stays part of
+    # its @name token); the offsets still line up with *rest*.
+    masked = _OPAQUE_SPAN.sub(lambda m: '\0' * len(m.group()), rest)
+    spans = [m.span() for m in re.finditer(r'\S+', masked) if is_token(m.group())]
+    if not spans:
+        return rest.rstrip() + f' {new_token}'
+    if drop_others:
+        for start, end in reversed(spans[1:]):
+            rest = _remove_span(rest, start, end)
+    start, end = spans[0]
+    return rest[:start] + new_token + rest[end:]
 
 
 def _get_parent_indent(plan_text: str, parent_name: str) -> int | None:
@@ -280,7 +337,7 @@ def _build_task_line(indent: int, name: str, duration: str | None = None,
     if comment:
         parts.append(f' !"{comment}"')
     if completion is not None and completion > 0:
-        parts.append(f' %{completion}')
+        parts.append(f' {completion}%')
 
     return ''.join(parts)
 
@@ -728,75 +785,44 @@ def _update_task(plan_text: str, name: str, new_name: str | None = None,
                  duration: str | None = None, resource: str | None = None,
                  completion: int | None = None,
                  comment: str | None = None) -> tuple[str, str]:
-    """Update an existing task's properties."""
+    """Update an existing task's properties.
+
+    Each change edits its own token in place, or appends one, and every other
+    token on the line is left exactly as written. This used to rebuild the
+    line from seven regex captures, which dropped the second and later
+    resources, every label but the first, allocations, dates and
+    ``N%``/``pN`` progress, and wrote completion as ``%80``, which the core
+    parser never reads.
+    """
     idx = _find_task_line(plan_text, name)
     if idx is None:
         return plan_text, f"Task '{name}' not found."
 
     lines = plan_text.split('\n')
-    old_line = lines[idx]
-    indent = len(old_line) - len(old_line.lstrip())
-    stripped = old_line.lstrip()
-    is_sequential = stripped.startswith('*')
+    prefix, old_name, rest = _split_task_line(lines[idx])
 
-    # Parse existing metadata from the line
-    existing_duration = None
-    existing_resource = None
-    existing_completion = None
-    existing_comment = None
-    existing_depends = None
-    existing_deliverable = None
-    existing_label = None
+    if duration:
+        rest = _set_token(rest, _DURATION_TOKEN.fullmatch, duration)
+    if resource:
+        # The task's resource becomes this one, as with assign_resource;
+        # quality-role assignments are not resources and stay put.
+        r = resource if resource.startswith('@') else f'@{resource}'
+        rest = _set_token(rest, _is_resource_token, r, drop_others=True)
+    if completion is not None:
+        pct = max(0, min(100, int(completion)))
+        rest = _set_token(rest, _PROGRESS_TOKEN.fullmatch, f'{pct}%',
+                          drop_others=True)
+    if comment is not None:
+        match = _COMMENT_SPAN.search(rest)
+        new_comment = f'!"{comment}"' if comment else ''
+        if match and new_comment:
+            rest = rest[:match.start()] + new_comment + rest[match.end():]
+        elif match:
+            rest = _remove_span(rest, *match.span())
+        elif new_comment:
+            rest = rest.rstrip() + f' {new_comment}'
 
-    # Duration
-    dur_match = re.search(r'\b(\d+[dwmy])\b', stripped)
-    if dur_match:
-        existing_duration = dur_match.group(1)
-
-    # Resource
-    res_match = re.search(r'@(\S+)', stripped)
-    if res_match:
-        existing_resource = res_match.group(1)
-
-    # Completion
-    comp_match = re.search(r'%(\d+)', stripped)
-    if comp_match:
-        existing_completion = int(comp_match.group(1))
-
-    # Comment
-    comment_match = re.search(r'!"([^"]*)"', stripped)
-    if comment_match:
-        existing_comment = comment_match.group(1)
-
-    # Dependency
-    dep_match = re.search(r'\[depends\s*([^\]]*)\]', stripped, re.IGNORECASE)
-    if dep_match:
-        existing_depends = dep_match.group(1).strip()
-
-    # Deliverable
-    deliv_match = re.search(r'\$([A-Za-z_][A-Za-z0-9_-]*)', stripped)
-    if deliv_match:
-        existing_deliverable = deliv_match.group(1)
-
-    # Label
-    label_match = re.search(r'#([^@%#!\s]+)', stripped)
-    if label_match:
-        existing_label = label_match.group(1)
-
-    task_line = _build_task_line(
-        indent,
-        new_name if new_name else name,
-        duration=duration if duration else existing_duration,
-        resource=resource if resource else existing_resource,
-        sequential=is_sequential,
-        depends_on=existing_depends,
-        comment=comment if comment is not None else existing_comment,
-        completion=completion if completion is not None else existing_completion,
-        deliverable=existing_deliverable,
-        label=existing_label,
-    )
-
-    lines[idx] = task_line
+    lines[idx] = prefix + (new_name or old_name) + rest
     changes = []
     if new_name:
         changes.append(f"renamed to '{new_name}'")
