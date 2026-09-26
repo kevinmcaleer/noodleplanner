@@ -3434,5 +3434,54 @@ class TestParkingLotPreservedDuringSectionUpdates:
         assert '---parking lot---' not in result
 
 
+class TestHighlightsEndAtEveryOtherMarker:
+    """The highlights section must end at *any* other section marker,
+    including ---parking lot--- and ---estimates---.  It used to end only
+    at a hard-coded subset of markers that predated those two sections, so
+    a parking lot (or estimates) table directly after the highlights was
+    swallowed into the last highlight's text -- and re-saving the
+    highlights then wrote that table out twice."""
+
+    HIGHLIGHT = {'date': '2026-01-01', 'author': 'Al', 'content': 'Hello'}
+    PARKED = {'id': 1, 'text': 'Idea', 'date_parked': '2026-01-02'}
+    ESTIMATES = (
+        "---estimates---\n"
+        "| Task | Optimistic | Most Likely | Pessimistic | Mode | Size |\n"
+        "|------|------------|-------------|-------------|------|------|\n"
+        "| Task A | 1d | 2d | 5d | duration | |"
+    )
+
+    def _plan_with_highlights_then_parking_lot(self):
+        plan = update_plan_highlights("# Plan\n\n- A\n  2d\n", [self.HIGHLIGHT])
+        return update_plan_parking_lot(plan, [self.PARKED])
+
+    def test_extract_highlights_stops_at_parking_lot(self):
+        plan = self._plan_with_highlights_then_parking_lot()
+        assert extract_highlights(plan) == [self.HIGHLIGHT]
+
+    def test_highlights_round_trip_does_not_duplicate_parking_lot(self):
+        plan = self._plan_with_highlights_then_parking_lot()
+        result = update_plan_highlights(plan, extract_highlights(plan))
+        assert result.count('---parking lot---') == 1
+        assert result == plan
+
+    def test_strip_highlights_keeps_parking_lot(self):
+        plan = self._plan_with_highlights_then_parking_lot()
+        result = strip_highlights(plan)
+        assert '---highlights---' not in result
+        assert 'Hello' not in result
+        assert parse_parking_lot_markdown(extract_parking_lot(result)) == [self.PARKED]
+
+    def test_extract_highlights_stops_at_estimates(self):
+        plan = (
+            "Phase 1\n  Task A 3d\n\n---\n\n"
+            "---highlights---\n## 2026-01-01 @Al\nHello\n\n" + self.ESTIMATES
+        )
+        assert extract_highlights(plan) == [self.HIGHLIGHT]
+        stripped = strip_highlights(plan)
+        assert 'Hello' not in stripped
+        assert 'Task A | 1d | 2d | 5d' in extract_estimates(stripped)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -233,7 +233,7 @@ def extract_highlights(text: str) -> list:
 
     Parses the ---highlights--- section and returns a list of highlight
     dictionaries with date, author, and content fields.  The section ends
-    at ---end-highlights---, ---raid log---, or end of file.
+    at ---end-highlights---, any other section marker, or end of file.
 
     Returns:
         List of dicts: [{'date': '2026-02-13', 'author': 'Alice', 'content': '...'}]
@@ -245,13 +245,11 @@ def extract_highlights(text: str) -> list:
     after_start = start_idx + len(HIGHLIGHTS_START)
 
     # Find the end: explicit end marker, or whichever other section marker
-    # occurs next in the actual text, or EOF.
-    end_idx = len(text)
-    for marker in (HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START,
-                   COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START):
-        idx = text.find(marker, after_start)
-        if idx != -1 and idx < end_idx:
-            end_idx = idx
+    # occurs next in the actual text, or EOF.  Uses the shared
+    # ALL_SECTION_MARKERS scan rather than a hand-kept list: the old list
+    # predated ---parking lot--- and ---estimates---, so either one
+    # directly after the highlights was swallowed into the last highlight.
+    end_idx = _next_marker_idx(text, after_start, exclude=(HIGHLIGHTS_START,))
 
     section = text[after_start:end_idx]
     return _parse_highlights_section(section)
@@ -321,7 +319,7 @@ def strip_highlights(text: str) -> str:
     Returns the plan text without the highlights block, suitable for
     passing to the task parser.  Also removes the --- separator line
     that precedes the highlights section.  The section ends at
-    ---end-highlights---, ---raid log---, or end of file.
+    ---end-highlights---, any other section marker, or end of file.
     """
     start_idx = text.find(HIGHLIGHTS_START)
     if start_idx == -1:
@@ -330,17 +328,12 @@ def strip_highlights(text: str) -> str:
     after_start = start_idx + len(HIGHLIGHTS_START)
 
     # Find the end: explicit end marker, or whichever other section marker
-    # occurs next in the actual text, or EOF.
-    end_idx = len(text)
-    end_len = 0
-    for marker in (HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START,
-                   COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START):
-        idx = text.find(marker, after_start)
-        if idx != -1 and idx < end_idx:
-            end_idx = idx
-            # Only consume the end-highlights marker, not the raid log or
-            # baseline markers so their strippers can still find them
-            end_len = len(marker) if marker == HIGHLIGHTS_END else 0
+    # occurs next in the actual text, or EOF (same scan as
+    # extract_highlights -- see the note there).
+    end_idx = _next_marker_idx(text, after_start, exclude=(HIGHLIGHTS_START,))
+    # Only consume the end-highlights marker, not another section's start
+    # marker, so that section's own stripper can still find it.
+    end_len = len(HIGHLIGHTS_END) if text.startswith(HIGHLIGHTS_END, end_idx) else 0
 
     # Remove trailing --- separator that precedes the highlights section
     before = _strip_trailing_bare_separator(text[:start_idx])
