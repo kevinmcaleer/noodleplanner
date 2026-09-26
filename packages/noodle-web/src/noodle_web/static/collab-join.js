@@ -18,6 +18,10 @@
  * else's rebases it onto the newer plan with collab-merge.js and sends it
  * again, and gives up (with a notice) only when both changed the same lines.
  *
+ * Undo and Redo (the bar's buttons, Ctrl+Z and Ctrl+Shift+Z / Ctrl+Y) take
+ * back only this joiner's own edits, rebased onto the current plan -- see
+ * collab-undo.js.
+ *
  * Crypto, the join handshake and chat are unchanged from the page this
  * replaces; see collab-crypto.js and collab-session.js.
  */
@@ -87,7 +91,17 @@ const planSync = {
 // committed, and moved onto that edit by noteLocalPlanChange().
 let fitRequested = false;
 
+// The joiner's own edits, for Undo and Redo (collab-undo.js). Each is
+// reversed by rebasing it onto the plan as it is now, so an undo never takes
+// back what the host or another joiner has done since.
+const joinerHistory = NoodleCollabUndo.createHistory();
+// Set while an undo or redo is being committed, so it is not recorded as a
+// fresh edit of its own.
+let applyingHistory = false;
+
 function resetPlanSync() {
+    joinerHistory.clear();
+    refreshUndoButtons();
     planSync.rev = 0;
     planSync.synced = '';
     planSync.pending = null;
@@ -145,6 +159,10 @@ function noteLocalPlanChange() {
     const fit = fitRequested;
     fitRequested = false;
     if (text === current) return;
+    if (!applyingHistory) {
+        joinerHistory.record(current, text);
+        refreshUndoButtons();
+    }
     if (planSync.pending) planSync.pending.text = text;
     else planSync.pending = { base: planSync.synced, text, fit: false };
     if (fit) planSync.pending.fit = true;
@@ -296,6 +314,66 @@ function openResourceForm() {
     showPlanNotice('Resource details open in the host’s plan — ask them to open it.');
 }
 /* eslint-enable no-unused-vars */
+
+// ---- Undo and redo ------------------------------------------------------------
+
+function refreshUndoButtons() {
+    const undoBtn = el('undoBtn');
+    const redoBtn = el('redoBtn');
+    if (undoBtn) undoBtn.disabled = !joinerHistory.canUndo();
+    if (redoBtn) redoBtn.disabled = !joinerHistory.canRedo();
+}
+
+/** Undo (or redo) the joiner's last edit on top of the plan as it is now,
+ * and send the result to the host like any other board edit. */
+function stepJoinerHistory(direction) {
+    const editor = planEditorEl();
+    if (!editor || !socket) return;
+    const result = direction === 'redo'
+        ? joinerHistory.redo(editor.value)
+        : joinerHistory.undo(editor.value);
+    refreshUndoButtons();
+    if (!result) return;
+    if (result.conflict) {
+        showPlanNotice(direction === 'redo'
+            ? 'That change can’t be redone — someone has since changed the same part of the board.'
+            : 'That change can’t be undone — someone has since changed the same part of the board.');
+        return;
+    }
+    if (result.text === editor.value) return;
+    editor.value = result.text;
+    applyingHistory = true;
+    try {
+        noteLocalPlanChange();
+    } finally {
+        applyingHistory = false;
+    }
+    renderJoinerBoard();
+}
+
+function undoJoinerEdit() { stepJoinerHistory('undo'); }
+function redoJoinerEdit() { stepJoinerHistory('redo'); }
+
+/** Typing in a field (chat, a note's text, the quick editor) keeps the
+ * browser's own text undo; everywhere else Ctrl+Z is the board's. */
+function isTextEntryTarget(target) {
+    if (!target || !(target instanceof Element)) return false;
+    if (target.isContentEditable) return true;
+    const tag = target.tagName;
+    if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (tag !== 'INPUT') return false;
+    const type = (target.getAttribute('type') || 'text').toLowerCase();
+    return !['button', 'checkbox', 'radio', 'range', 'color', 'submit', 'reset'].includes(type);
+}
+
+function handleUndoShortcut(event) {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+    if (el('relay').hidden || isTextEntryTarget(event.target)) return;
+    const key = String(event.key || '').toLowerCase();
+    if (key !== 'z' && key !== 'y') return;
+    event.preventDefault();
+    if (key === 'y' || event.shiftKey) redoJoinerEdit(); else undoJoinerEdit();
+}
 
 // ---- Notices ------------------------------------------------------------------
 
@@ -627,6 +705,10 @@ function initJoinPage() {
         submitJoinerChat();
     });
     el('relayDownload').addEventListener('click', downloadJoinerChat);
+    el('undoBtn').addEventListener('click', undoJoinerEdit);
+    el('redoBtn').addEventListener('click', redoJoinerEdit);
+    document.addEventListener('keydown', handleUndoShortcut);
+    refreshUndoButtons();
     // A hand edit to #planEditor -- nothing on this page makes one, but the
     // whiteboard's own commit raises this event too -- is a local change.
     const editor = planEditorEl();
