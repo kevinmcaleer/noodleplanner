@@ -12,6 +12,26 @@ function updateEditorTaskViaModel(editor, task, taskIndex, updater) {
     return true;
 }
 
+/**
+ * Set a task line's resources to `value` -- the Resources cell's text, names
+ * separated by commas or spaces, with or without the @.
+ *
+ * Resources are `@name` tokens (`@dev[30%]` with an allocation), not a
+ * bracket: the first `[...]` on a line is its `[depends ...]` or
+ * `[repeats ...]`. The line's resource tokens are dropped and the new ones
+ * appended; a quality role (`@kev:A`) and an @ inside a bracket, a comment
+ * or a bucket are not resources and stay put.
+ */
+function setTaskLineResources(line, value) {
+    const indent = (line.match(/^\s*/) || [''])[0];
+    const names = String(value || '').split(/[\s,]+/).map(name => name.replace(/^@+/, '')).filter(Boolean);
+    const body = line.slice(indent.length).replace(
+        /\[[^\]]*\]|["\u201c][^"\u201d]*["\u201d]|\{[^}]*\}|(?:^|\s+)@([^\s@[\]"{}]+)(?:\[\d+%\])?(?=\s|$)/g,
+        (token, name) => (name !== undefined && !/:[PRA]$/i.test(name) ? '' : token)
+    ).trim();
+    return indent + [body, ...names.map(name => '@' + name)].filter(Boolean).join(' ');
+}
+
 function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null) {
     // Get the editor content
     const editor = document.getElementById('planEditor');
@@ -25,12 +45,7 @@ function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null)
             model.rename(node, newValue);
         } else {
             model.updateLine(node, line => {
-                if (field === 'resources') {
-                    const pattern = /\[([^\]]+)\]/;
-                    return newValue
-                        ? (pattern.test(line) ? line.replace(pattern, `[${newValue}]`) : line.trimEnd() + ` [${newValue}]`)
-                        : line.replace(pattern, '').trimEnd();
-                }
+                if (field === 'resources') return setTaskLineResources(line, newValue);
                 if (field === 'comment') {
                     const pattern = /"([^"]*)"/;
                     return newValue
@@ -73,19 +88,7 @@ function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null)
                 const rest = line.substring(indent.length + prefix.length + searchName.length);
                 lines[i] = indent + prefix + newValue + rest;
             } else if (field === 'resources') {
-                // Update resources - need to find and replace resource pattern
-                const resourcePattern = /\[([^\]]+)\]/;
-                if (newValue) {
-                    if (resourcePattern.test(line)) {
-                        lines[i] = line.replace(resourcePattern, `[${newValue}]`);
-                    } else {
-                        // Add resources if not present
-                        lines[i] = line.trimEnd() + ` [${newValue}]`;
-                    }
-                } else {
-                    // Remove resources
-                    lines[i] = line.replace(resourcePattern, '').trimEnd();
-                }
+                lines[i] = setTaskLineResources(line, newValue);
             } else if (field === 'comment') {
                 // Update comment - use "quoted" format matching backend parser
                 const commentPattern = /"([^"]*)"/;
