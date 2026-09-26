@@ -7444,19 +7444,103 @@ button.ribbon-breadcrumb-rung:hover {
     appearance: none;
 }
 
-.ribbon-avatar {
-    display: flex;
+/* The user's own profile circle (#1377), drawn by static/user-profile.js
+   into a `.user-profile-slot`: the ribbon title bar's last item, and the
+   join page's session bar. With a profile saved it is an
+   <np-resource-stack> of one, the same chip the planning-session people
+   use, so "you" and "them" read alike. Its card opens leftward: the circle
+   is the last thing on its bar, and a card anchored at the chip's left
+   edge, as elsewhere, would run off the right of the window. */
+.user-profile-slot {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.user-profile-circle {
+    --np-avatar-size: var(--np-space-24);
+    --np-avatar-ring: var(--np-surface);
+}
+
+.ribbon-titlebar .user-profile-circle {
+    --np-avatar-ring: var(--np-surface-alt);
+}
+
+.user-profile-circle::part(card) {
+    left: auto;
+    right: 0;
+}
+
+/* Without one, an empty dashed circle with a person in it: a place for a
+   profile, and the button that sets one up. */
+.user-profile-circle-empty {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 23px;
-    height: 23px;
-    border-radius: 50%;
-    background: var(--np-blue);
-    color: #fff;
-    font-weight: 600;
-    font-size: 10px;
-    line-height: 1;
+    box-sizing: border-box;
+    width: var(--np-space-24);
+    height: var(--np-space-24);
+    padding: 0;
+    border: 1px dashed var(--np-border-control);
+    border-radius: var(--np-radius-circle);
+    background: var(--np-surface);
+    color: var(--np-text-secondary);
+    cursor: pointer;
     flex-shrink: 0;
+}
+
+.user-profile-circle-empty:hover {
+    border-style: solid;
+    color: var(--np-ink);
+}
+
+.user-profile-circle-empty:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: 2px;
+}
+
+.user-profile-circle-empty svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+}
+
+/* "Your profile" (#1377): static/user-profile.js. A native modal <dialog>,
+   so focus stays inside it and Esc closes it, on both the app and the join
+   page -- which is why it is styled here, a sheet both load, and not in
+   responsive.css with the .modal-overlay dialogs. The panel fills the whole
+   box so that a click on the <dialog> itself is a click on the backdrop. */
+.user-profile-dialog {
+    width: min(560px, calc(100vw - var(--np-space-32)));
+    max-height: calc(100vh - var(--np-space-32));
+    /* What centres a modal dialog, and what base.css's reset takes away. */
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--np-border);
+    border-radius: var(--np-radius-panel);
+    background: var(--np-modal-bg);
+    color: var(--np-text);
+    box-shadow: 0 20px 60px var(--np-shadow-strong);
+    overflow: auto;
+}
+
+.user-profile-dialog::backdrop {
+    background: var(--np-overlay);
+}
+
+.user-profile-dialog .modal-body {
+    padding: var(--np-space-24) var(--np-space-32);
+}
+
+.user-profile-note {
+    margin: 0 0 var(--np-space-16);
+    color: var(--np-text-secondary);
+    font-size: var(--np-text-90);
+}
+
+.user-profile-actions {
+    justify-content: space-between;
 }
 
 /* Who is in the live planning session, beside its button: the same

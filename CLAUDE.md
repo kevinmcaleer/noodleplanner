@@ -176,6 +176,25 @@ Storybook renders the same gallery plus a story that forces every base control
 into its hover, focus and disabled states. `ci/run.sh storybook` builds it and
 renders every story, and it is a gating CI job too.
 
+## Filing issues
+
+Every new issue goes on the **NoodlePlanner** GitHub Project with its
+**Status** set to **Backlog**, not just into the repository. Creating the issue
+is not the end of the job: an issue that is not on the board is invisible to
+planning.
+
+```bash
+gh project list --owner kevinmcaleer                     # the NoodlePlanner project's number
+gh project item-add <number> --owner kevinmcaleer --url <issue-url>
+gh project field-list <number> --owner kevinmcaleer      # the Status field's id and its Backlog option
+gh project item-edit --id <item-id> --project-id <project-id> \
+    --field-id <status-field-id> --single-select-option-id <backlog-option-id>
+```
+
+If the session cannot reach GitHub Projects (a cloud session with only the
+issue and pull-request tools, say), do not skip this silently. Tell the user
+that the issue still needs adding to the project, and give them its link.
+
 ## Reminders
 
 - **Always build UI from the design system.** Use the `--np-*` tokens for
@@ -184,6 +203,8 @@ renders every story, and it is a gating CI job too.
   a custom, hand-built element with hard-coded values. When a component
   doesn't quite fit, extend the component (and its story) rather than working
   around it in one view.
+- **New issues go on the NoodlePlanner project, in Backlog.** See "Filing
+  issues" above.
 - **Work in a worktree, never in the primary checkout.** See the section
   above — on the deployment host that checkout is bind-mounted into the live
   production container, and `main` moves fast enough that a stale branch means

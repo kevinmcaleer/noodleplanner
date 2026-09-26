@@ -22,6 +22,24 @@ Starting a Session
 The session is live from that moment. You stay in your normal editor; the
 plan on screen is the one everybody is editing.
 
+Showing Your Name
+-------------------
+
+Without a profile, the people who join see your messages from "Host". To
+show your own name, select the profile circle at the far right of the
+title bar and fill in **Your profile**. It asks for the same details as a
+resource: full name, shortname, role, email, work allocation and
+non-working days. It saves as you type, and your initials then fill the
+circle. Hover over the circle to see your name, role and email.
+
+The profile is kept in this browser only, and NoodlePlanner never writes it
+into a plan. The one part other people see is your name: on the messages
+you send while you host, and as the name you join a session with. A
+message you promote with **Add to task** keeps its sender's name in the
+task's comment, as it always has. The other details are stored with the
+profile, but nothing else in NoodlePlanner uses them yet.
+**Clear profile** removes it, and your messages say "Host" again.
+
 Working While the Session Runs
 --------------------------------
 
@@ -49,6 +67,11 @@ while it was hidden.
 
 **Leave session** takes a joiner back to the join form. You see them leave
 from your participant list, and they can rejoin with the same code.
+
+Joiners have a profile circle too, at the right of the bar across the top
+of the join page. It opens the same **Your profile** form, starting from
+the name they joined as. Once they have saved a profile in that browser,
+the join page fills in their name for them next time.
 
 What Everyone Can Edit
 ------------------------
