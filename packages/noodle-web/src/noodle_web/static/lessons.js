@@ -156,11 +156,7 @@ function extractLessonsFromPlanText(planText) {
     const startIdx = planText.indexOf(LESSONS_START);
     if (startIdx === -1) return '';
     const afterStart = startIdx + LESSONS_START.length;
-    let endIdx = planText.length;
-    for (const marker of [BASELINE_START, WHITEBOARD_START]) {
-        const mIdx = planText.indexOf(marker, afterStart);
-        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-    }
+    const endIdx = npBackMatterSectionEnd(planText, afterStart, [LESSONS_START]);
     return planText.substring(afterStart, endIdx).trim();
 }
 

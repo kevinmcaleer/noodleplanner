@@ -301,6 +301,17 @@ def test_over_allocation_ignores_the_resources_own_non_working_days():
     assert "over-allocation" not in checks(review(body, front_matter=fm))
 
 
+def test_over_allocation_survives_a_shutdown_longer_than_a_year():
+    # The check used to test each day with get_next_working_day(day) == day,
+    # which searches ahead -- and gave up, raising out of review_plan, from
+    # any day more than a year before the end of a shutdown.
+    fm = FM.replace("---\n\n", "non-working-days:\n  - Closure: 2026-04-01:2027-09-30\n---\n\n", 1)
+    body = "Phase\n  A @alex 10d 2026-03-25\n  B @alex 10d 2026-03-25\n"
+    [finding] = only(review(body, front_matter=fm), "over-allocation")
+    # five days either side of the closure, none inside it
+    assert "on 10 working days between 2026-03-25 and 2027-10-07" in finding["message"]
+
+
 def test_start_on_a_non_working_day_fires_with_a_fix_to_the_next_working_day():
     body = "Phase\n  A @alex 2d 2026-03-21\n"   # a Saturday
     [finding] = only(review(body), "non-working-day")
@@ -326,6 +337,21 @@ def test_long_chain_without_a_milestone_is_reported_once():
     found = only(review(body), "long-chain-no-milestone")
     assert len(found) == 1
     assert found[0]["task"] == "Step 9"
+
+
+def test_a_very_long_chain_written_dependant_first_does_not_overflow_the_stack():
+    # Each task names the one on the next line, so the walk back from the
+    # first task goes 3,000 links deep -- past Python's recursion limit,
+    # which used to surface as "The plan could not be scheduled".
+    n = 3000
+    lines = [f"  T{i} @alex 1d [depends T{i - 1}]" for i in range(n, 1, -1)]
+    body = "Phase\n" + "\n".join(lines) + "\n  T1 @alex 1d 2026-03-16\n"
+    result = review(body)
+    assert not [f for f in result["findings"] if "could not be scheduled" in f["message"]]
+    found = only(result, "long-chain-no-milestone")
+    assert len(found) == 1
+    assert found[0]["task"] == f"T{n}"
+    assert found[0]["message"].startswith(f"{n} tasks")
 
 
 def test_a_milestone_in_the_middle_breaks_the_chain():

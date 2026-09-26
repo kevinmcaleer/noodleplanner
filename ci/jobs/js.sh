@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The JavaScript suites -- node --test over the ~45 files listed in
-# package.json's test:js script.
+# The JavaScript suites -- node --test over every tests/test_*.mjs file, then
+# each tests/test_*.js script, as package.json's test:js script runs them.
 #
 # The browser libraries are vendored into static/vendor, but these tests import
 # the npm originals to check the two agree, so the dev dependencies have to be

@@ -5,48 +5,31 @@ import asyncio
 import hashlib
 import logging
 import tempfile
-import zipfile
+import unicodedata
 import xml.etree.ElementTree as ET
 import yaml
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
+from urllib.parse import quote
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response, HTMLResponse, FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 import uvicorn
 from dotenv import load_dotenv
 
 from noodle_core import (
-    text_to_markdown_table,
-    export_to_excel,
-    export_to_csv,
-    export_timeline_to_powerpoint,
-    export_report_to_powerpoint,
-    export_portfolio_to_powerpoint,
-    export_to_pdf,
-    convert_plan_format_to_standard,
-    extract_title_from_frontmatter,
-    natural_language_to_yaml,
-    schedule_tasks,
-    calculate_rag_status,
-    parse_resource_mappings,
     analyze_workbook,
     convert_excel_to_markdown,
     convert_planner_to_markdown,
-    extract_highlights,
-    extract_raid_log,
-    parse_raid_markdown,
-    extract_baseline,
-    parse_baseline_markdown,
     extract_budget,
     parse_budget_markdown,
-    FrontMatterParser,
     import_from_msproject_xml,
 )
 import json
@@ -61,7 +44,7 @@ from .collab_session import (
     collab_sessions,
     run_idle_sweep_forever,
 )
-from .plan_service import PlanService, export_to_file
+from .plan_service import PlanService
 from .ai_service import (
     AIChatRequest,
     AITestRequest,
@@ -185,6 +168,26 @@ def _sanitized_detail(message: str, error: Exception) -> str:
     if is_production():
         return message
     return f"{message}: {error}"
+
+
+def content_disposition(filename: str, disposition: str = "attachment") -> str:
+    """Build a Content-Disposition header value for a download.
+
+    Starlette encodes header values as latin-1, so a project title in
+    Cyrillic, or with an em dash, put raw into ``filename="..."`` made the
+    download a 500. The header carries an ASCII ``filename`` fallback
+    (accents folded, anything else non-ASCII replaced) plus the real name as
+    RFC 6266 / 5987 ``filename*``, which browsers prefer when present.
+    Quotes, backslashes and control characters (CR/LF above all) never reach
+    the header.
+    """
+    name = "".join(c for c in filename if unicodedata.category(c) != "Cc")
+    folded = unicodedata.normalize("NFKD", name)
+    fallback = "".join(
+        c if c.isascii() else "_"
+        for c in folded if not unicodedata.combining(c)
+    ).replace('"', "").replace("\\", "")
+    return f"{disposition}; filename=\"{fallback}\"; filename*=UTF-8''{quote(name, safe='')}"
 
 
 def export_to_file(export_fn, suffix, read_mode='rb'):
@@ -350,8 +353,18 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 
+# Routes that parse, schedule, render, export or import go through the
+# synchronous core (openpyxl, python-pptx, reportlab, temp files), so they
+# must not run on the event loop: on the single-worker Pi deployment one
+# PowerPoint export (~10s there) used to freeze collab relaying, AI token
+# streaming and every other request until it finished. A handler that
+# awaits nothing is a plain ``def``, which FastAPI runs in its threadpool;
+# one that must ``await file.read()`` reads the upload on the loop and hands
+# the processing to ``run_in_threadpool``.
+
+
 @app.post("/render")
-async def render_plan(data: RenderRequest):
+def render_plan(data: RenderRequest):
     """Render a project plan and optionally export to Excel/PPT/PDF/MS Project."""
     logger.info(f"Render request: exports={data.export_excel}, {data.export_ppt}, {data.export_pdf}, {data.export_msproject}")
 
@@ -379,7 +392,7 @@ async def render_plan(data: RenderRequest):
                     content=result.content,
                     media_type=result.media_type,
                     headers={
-                        "Content-Disposition": f'attachment; filename="{result.filename}"'
+                        "Content-Disposition": content_disposition(result.filename)
                     },
                 )
             else:
@@ -390,13 +403,14 @@ async def render_plan(data: RenderRequest):
                     csv=data.export_csv,
                     ppt=data.export_ppt,
                     pdf=data.export_pdf,
+                    msproject=data.export_msproject,
                 )
                 logger.info("Successfully generated exports")
                 return Response(
                     content=result.content,
                     media_type=result.media_type,
                     headers={
-                        "Content-Disposition": f'attachment; filename="{result.filename}"'
+                        "Content-Disposition": content_disposition(result.filename)
                     },
                 )
         else:
@@ -450,7 +464,7 @@ def _matches(query_l: str, *fields) -> bool:
 
 
 @app.post("/api/search")
-async def search_plan(data: SearchRequest):
+def search_plan(data: SearchRequest):
     """Search the supplied plan text for matching items across all item types.
 
     Returns a flat list of result objects, each shaped as:
@@ -535,7 +549,10 @@ async def search_plan(data: SearchRequest):
         purpose = item.get("purpose", "") or ""
         frequency = item.get("frequency", "") or ""
         if _matches(q_l, title, audience, channel, owner, purpose, frequency):
-            snippet_src = purpose or f"{audience} via {channel}".strip(" via")
+            # Join what is there: this used .strip(" via"), which strips
+            # those characters from both ends, not the word ("all staff via
+            # Wiki" came out as "ll staff via Wik").
+            snippet_src = purpose or " via ".join(p for p in (audience, channel) if p)
             results.append({
                 "type": "comms",
                 "label": "Comms",
@@ -617,7 +634,7 @@ async def search_plan(data: SearchRequest):
 
 
 @app.post("/api/parse")
-async def parse_plan(data: RenderRequest):
+def parse_plan(data: RenderRequest):
     """Parse a project plan and return structured JSON data for tabbed views."""
     logger.info("Parse request received")
 
@@ -674,7 +691,7 @@ def _parse_today(value):
 
 
 @app.post("/api/analyse")
-async def analyse_plan_endpoint(data: AnalyseRequest):
+def analyse_plan_endpoint(data: AnalyseRequest):
     """Review a plan for common problems (#782): findings, fixes, health score.
 
     Stateless like /api/parse: the plan is reviewed and forgotten.
@@ -685,7 +702,7 @@ async def analyse_plan_endpoint(data: AnalyseRequest):
 
 
 @app.post("/api/analyse/fix")
-async def analyse_fix_endpoint(data: AnalyseFixRequest):
+def analyse_fix_endpoint(data: AnalyseFixRequest):
     """Apply one finding's one-click fix and return the new plan text."""
     from noodle_core.plan_quality import FixError, apply_finding_fix, apply_fix
 
@@ -719,7 +736,7 @@ _REPORT_MEDIA_TYPES = {
 
 
 @app.post("/api/reports/export")
-async def export_plan_report(data: PlanReportExportRequest):
+def export_plan_report(data: PlanReportExportRequest):
     """Export the Tasks by Assignment or Slippage report (#776) to Excel or PowerPoint.
 
     The browser sends the rows it is showing; the exporter only lays them
@@ -752,7 +769,7 @@ async def export_plan_report(data: PlanReportExportRequest):
     return Response(
         content=file_bytes,
         media_type=_REPORT_MEDIA_TYPES[data.format],
-        headers={"Content-Disposition": f'attachment; filename="{stem}_{suffix}.{data.format}"'},
+        headers={"Content-Disposition": content_disposition(f"{stem}_{suffix}.{data.format}")},
     )
 
 
@@ -827,7 +844,7 @@ class ReportExportRequest(BaseModel):
 
 
 @app.post("/api/export-report-pptx")
-async def export_report_pptx_route(data: ReportExportRequest):
+def export_report_pptx_route(data: ReportExportRequest):
     """Export the project report as a PowerPoint file."""
     logger.info(f"Report PPTX export request for: {data.project_name}")
 
@@ -852,7 +869,7 @@ async def export_report_pptx_route(data: ReportExportRequest):
             content=result.content,
             media_type=result.media_type,
             headers={
-                "Content-Disposition": f'attachment; filename="{result.filename}"'
+                "Content-Disposition": content_disposition(result.filename)
             }
         )
     except (ValueError, KeyError, TypeError, OSError) as e:
@@ -882,7 +899,7 @@ class PortfolioReportRequest(BaseModel):
 
 
 @app.post("/api/portfolio/export-pptx")
-async def export_portfolio_pptx_route(data: PortfolioReportRequest):
+def export_portfolio_pptx_route(data: PortfolioReportRequest):
     """Export a portfolio report as a multi-slide PowerPoint file."""
     logger.info(f"Portfolio PPTX export request: {data.portfolio_name} "
                 f"({len(data.project_reports)} projects)")
@@ -919,7 +936,7 @@ async def export_portfolio_pptx_route(data: PortfolioReportRequest):
             content=result.content,
             media_type=result.media_type,
             headers={
-                "Content-Disposition": f'attachment; filename="{result.filename}"'
+                "Content-Disposition": content_disposition(result.filename)
             }
         )
     except (ValueError, KeyError, TypeError, OSError) as e:
@@ -977,7 +994,7 @@ class BenefitsExportRequest(BaseModel):
 
 
 @app.post("/api/benefits/export-excel")
-async def export_benefits_excel(data: BenefitsExportRequest):
+def export_benefits_excel(data: BenefitsExportRequest):
     """Export benefit items to an Excel file with two sheets."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill
@@ -1063,13 +1080,13 @@ async def export_benefits_excel(data: BenefitsExportRequest):
         content=file_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f'attachment; filename="{project_name}-benefits.xlsx"'
+            "Content-Disposition": content_disposition(f"{project_name}-benefits.xlsx")
         }
     )
 
 
 @app.post("/api/raid/export-excel")
-async def export_raid_excel(data: RaidExportRequest):
+def export_raid_excel(data: RaidExportRequest):
     """Export RAID log items to an Excel file."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill
@@ -1124,7 +1141,7 @@ async def export_raid_excel(data: RaidExportRequest):
         content=file_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f'attachment; filename="{project_name}-raid.xlsx"'
+            "Content-Disposition": content_disposition(f"{project_name}-raid.xlsx")
         }
     )
 
@@ -1141,7 +1158,7 @@ async def import_raid_excel(file: UploadFile = File(...)):
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File too large")
 
-    try:
+    def read_items():
         wb = load_workbook(filename=io.BytesIO(content))
         ws = wb.active
 
@@ -1204,6 +1221,8 @@ async def import_raid_excel(file: UploadFile = File(...)):
 
         return {"items": items}
 
+    try:
+        return await run_in_threadpool(read_items)
     except (ValueError, KeyError, TypeError, IndexError) as e:
         logger.error(f"Error importing RAID Excel: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -1245,7 +1264,7 @@ class CommsExportRequest(BaseModel):
 
 
 @app.post("/api/comms/export-docx")
-async def export_comms_docx(data: CommsExportRequest):
+def export_comms_docx(data: CommsExportRequest):
     """Export comms plan to a Word document."""
     from noodle_core import export_comms_to_docx
 
@@ -1260,12 +1279,12 @@ async def export_comms_docx(data: CommsExportRequest):
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        headers={"Content-Disposition": content_disposition(filename)}
     )
 
 
 @app.post("/api/budget/export-excel")
-async def export_budget_excel(data: BudgetExportRequest):
+def export_budget_excel(data: BudgetExportRequest):
     """Export budget items to an Excel file."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill
@@ -1329,7 +1348,7 @@ async def export_budget_excel(data: BudgetExportRequest):
         content=file_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f'attachment; filename="{project_name}-budget.xlsx"'
+            "Content-Disposition": content_disposition(f"{project_name}-budget.xlsx")
         }
     )
 
@@ -1346,7 +1365,7 @@ async def import_budget_excel(file: UploadFile = File(...)):
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File too large")
 
-    try:
+    def read_items():
         wb = load_workbook(filename=io.BytesIO(content))
         ws = wb.active
 
@@ -1419,6 +1438,8 @@ async def import_budget_excel(file: UploadFile = File(...)):
 
         return {"items": items}
 
+    try:
+        return await run_in_threadpool(read_items)
     except (ValueError, KeyError, TypeError, IndexError) as e:
         logger.error(f"Error importing budget Excel: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -1447,7 +1468,7 @@ async def excel_analyze(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="File size exceeds maximum allowed")
 
     try:
-        result = analyze_workbook(file_bytes, file.filename)
+        result = await run_in_threadpool(analyze_workbook, file_bytes, file.filename)
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1483,7 +1504,9 @@ async def excel_convert(
         raise HTTPException(status_code=400, detail="task_name mapping is required")
 
     try:
-        result = convert_excel_to_markdown(file_bytes, file.filename, sheet_name, mapping)
+        result = await run_in_threadpool(
+            convert_excel_to_markdown, file_bytes, file.filename, sheet_name, mapping
+        )
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1507,7 +1530,7 @@ async def excel_convert_planner(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="File size exceeds maximum allowed")
 
     try:
-        result = convert_planner_to_markdown(file_bytes, file.filename)
+        result = await run_in_threadpool(convert_planner_to_markdown, file_bytes, file.filename)
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1539,7 +1562,7 @@ async def import_msproject(file: UploadFile = File(...)):
 
     try:
         xml_content = file_bytes.decode("utf-8")
-        markdown = import_from_msproject_xml(xml_content)
+        markdown = await run_in_threadpool(import_from_msproject_xml, xml_content)
 
         return {"markdown": markdown, "filename": file.filename}
     except HTTPException:

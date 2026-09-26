@@ -103,24 +103,29 @@
  *    Python/script.js serialisers remains open -- worth a follow-up.
  */
 
+// back-matter-markers.js is a classic script, not a module: this import
+// only runs it, publishing the canonical marker list on globalThis (where
+// the host page's <script> tag has usually put it already).
+import './back-matter-markers.js';
+
 const RAID_LOG_START = '---raid log---';
 const COMMS_START = '---comms---';
 const LESSONS_START = '---lessons learned---';
 const BASELINE_START = '---baseline---';
 const WHITEBOARD_START = '---whiteboard---';
 const PARKING_LOT_START = '---parking lot---';
+const ESTIMATES_START = '---estimates---';
 
 // Every back-matter section marker this module needs to avoid tripping
-// over -- mirrors format_converter.py's ALL_SECTION_MARKERS. A section
-// boundary is always "whichever other marker occurs next in the actual
-// text", never just the ones that are supposed to come later in canonical
-// order (see noodle-core's #978 fix) -- otherwise a section that's out of
-// canonical position gets silently swallowed into its neighbour.
-const ALL_SECTION_MARKERS = [
-    '---highlights---', '---end-highlights---', '---budget---', '---benefits---',
-    RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START,
-    PARKING_LOT_START,
-];
+// over: the canonical list (back-matter-markers.js, which mirrors
+// format_converter.py's ALL_SECTION_MARKERS). A section boundary is always
+// "whichever other marker occurs next in the actual text", never just the
+// ones that are supposed to come later in canonical order (see
+// noodle-core's #978 fix) -- otherwise a section that's out of canonical
+// position gets silently swallowed into its neighbour. This module's own
+// copy of the list lacked ---estimates---, so estimate rows following the
+// RAID log were parsed as RAID rows.
+const ALL_SECTION_MARKERS = globalThis.NP_BACK_MATTER_MARKERS;
 
 /** Index of `marker` where it is the *entire* trimmed content of its own
  * physical line, at or after `fromIdx` -- never a substring embedded
@@ -801,6 +806,11 @@ export function spliceRaidSection(planText, items) {
     const baselineText = extractSection(text, BASELINE_START);
     const whiteboardText = extractSection(text, WHITEBOARD_START);
     const parkingLotText = extractSection(text, PARKING_LOT_START);
+    // Estimates (#1053) is canonically last. Left out here, it would stay
+    // in `base` and the RAID log and everything after it would be
+    // re-appended below it. (format_converter.py's update_plan_raid_log has
+    // the same gap.)
+    const estimatesText = extractSection(text, ESTIMATES_START);
 
     let base = stripSection(text, RAID_LOG_START);
     base = stripSection(base, COMMS_START);
@@ -808,6 +818,7 @@ export function spliceRaidSection(planText, items) {
     base = stripSection(base, BASELINE_START);
     base = stripSection(base, WHITEBOARD_START);
     base = stripSection(base, PARKING_LOT_START);
+    base = stripSection(base, ESTIMATES_START);
     base = base.replace(/\n+$/, '');
 
     const table = serializeRaidTable(items);
@@ -818,6 +829,7 @@ export function spliceRaidSection(planText, items) {
     if (baselineText) result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
     if (whiteboardText) result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
     if (parkingLotText) result = result.replace(/\n+$/, '') + '\n\n' + PARKING_LOT_START + '\n' + parkingLotText;
+    if (estimatesText) result = result.replace(/\n+$/, '') + '\n\n' + ESTIMATES_START + '\n' + estimatesText;
     return result;
 }
 

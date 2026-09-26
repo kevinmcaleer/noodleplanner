@@ -251,11 +251,7 @@ function extractProgrammeBenefitItems(planText) {
     if (idx === -1) return [];
 
     const afterStart = idx + BENEFITS_START.length;
-    let endIdx = planText.length;
-    [BUDGET_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START].forEach((marker) => {
-        const markerIdx = planText.indexOf(marker, afterStart);
-        if (markerIdx !== -1 && markerIdx < endIdx) endIdx = markerIdx;
-    });
+    const endIdx = npBackMatterSectionEnd(planText, afterStart, [BENEFITS_START]);
 
     const parsed = parseBenefitsMarkdown(planText.substring(afterStart, endIdx));
     return (parsed && parsed.items) ? parsed.items : [];
@@ -274,7 +270,7 @@ function renderProgrammeSroVision(programme) {
 
     const data = (typeof getProgrammeData === 'function') ? (getProgrammeData(programme.slug) || {}) : {};
     const outcomes = data.outcomes || [];
-    const slugAttr = escapeHtml(programme.slug).replace(/'/g, "\\'");
+    const slugAttr = escapeJsAttr(programme.slug);
 
     const outcomesHtml = outcomes.length === 0
         ? '<np-empty-state>No outcomes defined yet. Outcomes are what project benefits roll up into, below.</np-empty-state>'
@@ -411,7 +407,7 @@ function renderProgrammeBenefitsRealisation(outcomeContributions, slug) {
         return;
     }
 
-    const slugAttr = escapeHtml(slug).replace(/'/g, "\\'");
+    const slugAttr = escapeJsAttr(slug);
     el.innerHTML = toolbar + outcomeContributions.map((oc) => {
         const rows = oc.contributions.length === 0
             ? '<np-empty-state>No project benefits linked to this outcome yet.</np-empty-state>'
@@ -424,7 +420,7 @@ function renderProgrammeBenefitsRealisation(outcomeContributions, slug) {
                     '<td>' + escapeHtml(c.status || '-') + '</td>' +
                     '<td>' + c.contributionPercent + '%</td>' +
                     '<td><button class="btn-danger btn-sm" ' +
-                    `onclick="unlinkProgrammeBenefit('${slugAttr}', '${escapeHtml(c.projectId).replace(/'/g, "\\'")}', ${c.benefitItemId})" ` +
+                    `onclick="unlinkProgrammeBenefit('${slugAttr}', '${escapeJsAttr(c.projectId)}', ${c.benefitItemId})" ` +
                     'aria-label="Unlink">Unlink</button></td>' +
                     '</tr>').join('') +
                 '</tbody></table>';
@@ -446,7 +442,7 @@ function showLinkBenefitToOutcomeDialog() {
     const itemOptions = programmeLinkableBenefitItems.map((b, idx) =>
         `<option value="${idx}">${escapeHtml(b.projectName)} — ${escapeHtml(b.title)}</option>`).join('');
     const outcomeOptions = outcomes.map((o) => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
-    const slugAttr = escapeHtml(programme.slug).replace(/'/g, "\\'");
+    const slugAttr = escapeJsAttr(programme.slug);
 
     const html = '<div id="linkBenefitModalOverlay" class="modal-overlay active" ' +
         'onclick="if(event.target===this)closeLinkBenefitDialog()" role="dialog" aria-modal="true" aria-labelledby="linkBenefitModalTitle">' +

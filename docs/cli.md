@@ -65,21 +65,23 @@ uv run noodle render tasks.txt --project-name "My Awesome Project"
 
 ### `init` - Create Sample Project
 
-Create a starter YAML project file.
+Create a starter project plan (two phases, two resources, a dependency and a
+milestone) in the markdown plan format.
 
 ```bash
-uv run noodle init sample_project.yaml
+uv run noodle init sample_project.md
 
 # Overwrite existing file
-uv run noodle init sample_project.yaml --force
+uv run noodle init sample_project.md --force
 ```
 
 ### `validate` - Validate Project
 
-Validate a project file.
+Check a plan for errors and warnings -- the same checks as `analyze`, one line
+per issue and without the suggestions. Exits 1 if there are any errors.
 
 ```bash
-uv run noodle validate my_project.yaml
+uv run noodle validate my_project.md
 ```
 
 ## Natural Language Format
@@ -235,8 +237,8 @@ uv sync
 See the `test_project.txt` file for a working example, or run:
 
 ```bash
-uv run noodle init example.yaml
-uv run noodle render example.yaml
+uv run noodle init example.md
+uv run noodle render example.md
 ```
 
 ## Next Steps

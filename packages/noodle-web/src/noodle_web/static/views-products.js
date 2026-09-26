@@ -22,6 +22,9 @@ let pbsDragStartX = 0;
 let pbsDragStartY = 0;
 let pbsDragStartPanX = 0;
 let pbsDragStartPanY = 0;
+// Whether the current tree has been zoom-fitted yet: updatePbs() fits only
+// the first render, so an edit does not throw away the user's pan and zoom
+let pbsHasFitted = false;
 
 // Layout constants (top-down PBS with stacked children)
 const PBS_SIBLING_GAP = 8;    // horizontal gap between sibling subtrees
@@ -829,7 +832,11 @@ function initPbs() {
 
     container.appendChild(pbsSvg);
 
-    // Pan/zoom handlers
+    // Pan/zoom handlers. #pbsContainer outlives every render (only its
+    // contents are replaced above) and initPbs() runs on each, so attach
+    // them once: stacked copies made one wheel notch zoom 1.1^N.
+    if (container.dataset.pbsPanZoom) return;
+    container.dataset.pbsPanZoom = 'attached';
     container.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -890,6 +897,9 @@ function pbsZoomFit() {
     const bounds = pbsGetBounds(pbsTree);
     const cw = container.clientWidth;
     const ch = container.clientHeight;
+    // Hidden behind another view: nothing to fit to (it would zoom to 0).
+    // nav.js fits again when the PBS view is shown.
+    if (!cw || !ch) return;
     const padding = 60;
 
     const bw = bounds.maxX - bounds.minX + padding * 2;
@@ -902,6 +912,7 @@ function pbsZoomFit() {
     pbsPanX = (cw - bw * pbsZoom) / 2 - bounds.minX * pbsZoom + padding * pbsZoom;
     pbsPanY = padding * pbsZoom - bounds.minY * pbsZoom;
     pbsApplyTransform();
+    pbsHasFitted = true;
 }
 
 function pbsGetBounds(node) {
@@ -938,6 +949,7 @@ function updatePbs(tasks, projectName) {
         if (placeholder) placeholder.style.display = '';
         if (content) content.style.display = 'none';
         pbsTree = null;
+        pbsHasFitted = false;
         return;
     }
 
@@ -951,7 +963,7 @@ function updatePbs(tasks, projectName) {
     pbsMeasure(pbsTree);
     pbsLayoutTree(pbsTree, 40, 40);
     pbsRender();
-    pbsZoomFit();
+    if (!pbsHasFitted) pbsZoomFit();
 }
 
 // ── Deliverables Matrix ───────────────────────────────────────────────
@@ -1180,7 +1192,7 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
 
         // Fixed columns: ID, Deliverable, Description, Dates, Status
         let html = `
-            <td class="deliverable-id dm-col-fixed">$${task.deliverable}</td>
+            <td class="deliverable-id dm-col-fixed">$${escapeHtml(task.deliverable)}</td>
             <td class="deliverable-name dm-col-fixed">${escapedName}</td>
             <td class="deliverable-desc dm-col-fixed">${escapedComment}</td>
             <td class="deliverable-dates dm-col-fixed">${task.start || '\u2014'} \u2192 ${task.finish || '\u2014'}</td>
@@ -1199,8 +1211,8 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
             else if (role === 'A') { roleLabel = 'A'; roleClass = 'dm-role-approver'; }
             const inferredStyle = isInferred ? ' font-style: italic;' : '';
 
-            html += `<td class="dm-role-cell" title="${p.displayName}">
-                <select class="role-${role}" style="${inferredStyle}" data-deliverable="${task.deliverable}" data-person="${p.shortname}" onchange="dmUpdateRole(this)">
+            html += `<td class="dm-role-cell" title="${escapeHtml(p.displayName)}">
+                <select class="role-${role}" style="${inferredStyle}" data-deliverable="${escapeHtml(task.deliverable)}" data-person="${escapeHtml(p.shortname)}" onchange="dmUpdateRole(this)">
                     <option value=""${role === '' ? ' selected' : ''}>—</option>
                     <option value="P"${role === 'P' ? ' selected' : ''}>P</option>
                     <option value="R"${role === 'R' ? ' selected' : ''}>R</option>
@@ -3411,7 +3423,7 @@ function openProductForm(task) {
         let html = activities.map(a => {
             const pct = parseFloat(a.percent) || 0;
             const name = (a.description || a.name || '').replace(/</g, '&lt;');
-            const safeName = (a.name || '').replace(/'/g, "\\'");
+            const safeName = escapeJsAttr(a.name || '');
             return `<div class="product-comp-item">
                 <span class="product-comp-name">${name}</span>
                 <span class="product-comp-pct">${pct}%</span>
@@ -3549,7 +3561,7 @@ function openProductForm(task) {
 
         function buildRoleSelect(roleCode, roleLabel, currentShortname) {
             const options = availablePeople.map(p =>
-                `<option value="${p.shortname}"${p.shortname === currentShortname ? ' selected' : ''}>${p.displayName}</option>`
+                `<option value="${escapeHtml(p.shortname)}"${p.shortname === currentShortname ? ' selected' : ''}>${escapeHtml(p.displayName)}</option>`
             ).join('');
             return `<div class="product-qa-role-row">
                 <span class="product-qa-role-label role-${roleCode}">${roleLabel}</span>

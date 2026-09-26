@@ -472,7 +472,7 @@ function renderProjectsTable() {
 
         const programmeBadge = project.programme
             ? ` <span class="programme-badge" title="View programme: ${escapeHtml(project.programme.name)}" ` +
-              `onclick="event.stopPropagation(); if (typeof openProgramme === 'function') openProgramme('${escapeHtml(project.programme.slug).replace(/'/g, "\\'")}');">` +
+              `onclick="event.stopPropagation(); if (typeof openProgramme === 'function') openProgramme('${escapeJsAttr(project.programme.slug)}');">` +
               `${escapeHtml(project.programme.name)}</span>`
             : '';
 
@@ -494,7 +494,7 @@ function renderProjectsTable() {
             `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
             `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>` +
             `</svg></button>`;
-        html += `<button class="project-action-btn project-action-delete" onclick="event.stopPropagation(); confirmDeleteProjectFromTable('${project.id}', '${escapeHtml(project.name).replace(/'/g, "\\'")}')" title="Delete project">` +
+        html += `<button class="project-action-btn project-action-delete" onclick="event.stopPropagation(); confirmDeleteProjectFromTable('${project.id}', '${escapeJsAttr(project.name)}')" title="Delete project">` +
             `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
             `<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>` +
             `</svg></button>`;
@@ -618,7 +618,7 @@ function renderSortedTable(tableData) {
 
         const programmeBadge = project.programme
             ? ` <span class="programme-badge" title="View programme: ${escapeHtml(project.programme.name)}" ` +
-              `onclick="event.stopPropagation(); if (typeof openProgramme === 'function') openProgramme('${escapeHtml(project.programme.slug).replace(/'/g, "\\'")}');">` +
+              `onclick="event.stopPropagation(); if (typeof openProgramme === 'function') openProgramme('${escapeJsAttr(project.programme.slug)}');">` +
               `${escapeHtml(project.programme.name)}</span>`
             : '';
 
@@ -640,7 +640,7 @@ function renderSortedTable(tableData) {
             `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
             `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>` +
             `</svg></button>`;
-        html += `<button class="project-action-btn project-action-delete" onclick="event.stopPropagation(); confirmDeleteProjectFromTable('${project.id}', '${escapeHtml(project.name).replace(/'/g, "\\'")}')" title="Delete project">` +
+        html += `<button class="project-action-btn project-action-delete" onclick="event.stopPropagation(); confirmDeleteProjectFromTable('${project.id}', '${escapeJsAttr(project.name)}')" title="Delete project">` +
             `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
             `<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>` +
             `</svg></button>`;
@@ -763,16 +763,6 @@ function startInlineRename(projectId, cellElement) {
     input.addEventListener('click', function(e) {
         e.stopPropagation();
     });
-}
-
-/**
- * Escape HTML for safe rendering
- */
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // ---------------------------------------------------------------------------

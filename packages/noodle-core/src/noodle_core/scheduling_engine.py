@@ -21,6 +21,7 @@ from .date_math import (
     count_working_days,
     parse_duration,
     parse_duration_to_days,
+    _normalize_calendar_or_holidays,
 )
 from .metadata import (
     extract_metadata,
@@ -71,7 +72,12 @@ MAX_TASK_COUNT = int(os.environ.get("NOODLE_MAX_TASK_COUNT", 10000))
 MAX_NESTING_DEPTH = int(os.environ.get("NOODLE_MAX_NESTING_DEPTH", 20))
 MAX_TASK_NAME_LENGTH = int(os.environ.get("NOODLE_MAX_TASK_NAME_LENGTH", 500))
 
-DURATION_REGEX = re.compile(r"P(?:\d+D)?(?:\d+H)?(?:\d+M)?(?:\d+S)?")
+# A calendar date anywhere on a line marks it as carrying task details. This
+# used to be three hard-coded substrings ('2024-', '2025-', '2026-'), so from
+# 2027 a line whose only metadata was a date parsed as a bare heading: the date
+# became part of the task's name and every `[depends ...]` on it stopped
+# resolving. Same pattern the name extraction below already uses.
+_DATE_ANY = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 # RAID Log Excel column widths (in characters)
 RAID_COLUMN_WIDTHS = {
@@ -123,16 +129,27 @@ def _calendar_or_holidays_for_task(task, holidays, resource_non_working_days, ca
     falling back to the project's `calendar` (or Standard), with the
     project-wide and resource-specific exception dates layered on top as
     extra exceptions (issue #1132).
+
+    The plain set comes back already normalized for date_math (see
+    ``_normalize_calendar_or_holidays``), so the per-task date arithmetic
+    doesn't re-normalize it on every call; and a task with no
+    resource-specific days gets the project set itself rather than a copy.
     """
     task_resource_keys = _task_resource_keys(task)
 
     if calendar is None and not resource_calendars:
+        resource_days = [
+            resource_non_working_days[res_key]
+            for res_key in task_resource_keys
+            if resource_non_working_days and res_key in resource_non_working_days
+        ]
+        if not resource_days:
+            # A no-op when the caller passes holidays it normalized itself.
+            return _normalize_calendar_or_holidays(holidays)
         task_holidays = set(holidays)
-        if resource_non_working_days:
-            for res_key in task_resource_keys:
-                if res_key in resource_non_working_days:
-                    task_holidays |= resource_non_working_days[res_key]
-        return task_holidays
+        for days in resource_days:
+            task_holidays |= days
+        return _normalize_calendar_or_holidays(task_holidays)
 
     base = calendar or STANDARD_CALENDAR
     if resource_calendars:
@@ -177,8 +194,9 @@ def calculate_critical_path(tasks, holidays=None):
     Adds to each leaf task: early_start, early_finish, late_start,
     late_finish, total_float, critical (bool).
     """
-    if holidays is None:
-        holidays = set()
+    # Normalized once here rather than inside each of the several date_math
+    # calls made per task below.
+    holidays = _normalize_calendar_or_holidays(holidays)
 
     leaf_tasks = [t for t in tasks if not t.get('summary') and 'start' in t and 'finish' in t]
     if not leaf_tasks:
@@ -453,6 +471,16 @@ def schedule_tasks(
         holidays = set()
     if resource_non_working_days is None:
         resource_non_working_days = {}
+    if calendar is None and not resource_calendars:
+        # Plain-set scheduling: normalize the project holidays once for
+        # every task and date_math call below, instead of once per call.
+        # (With a calendar in play they are layered onto its exceptions
+        # as given, exactly as before.)
+        holidays = _normalize_calendar_or_holidays(holidays)
+
+    # A task's calendar depends only on its resource list, so build each
+    # distinct one once rather than copying the holiday set per task.
+    task_calendars = {}
 
     for idx, t in enumerate(all_tasks):
         # Skip summary tasks - their dates will be calculated from children
@@ -461,9 +489,12 @@ def schedule_tasks(
 
         # Per-task calendar: project-wide + assigned resource's non-working
         # days, plus (issue #1132) whichever calendar applies to this task.
-        task_holidays = _calendar_or_holidays_for_task(
-            t, holidays, resource_non_working_days, calendar, resource_calendars
-        )
+        resource_keys = tuple(_task_resource_keys(t))
+        task_holidays = task_calendars.get(resource_keys)
+        if task_holidays is None:
+            task_holidays = task_calendars[resource_keys] = _calendar_or_holidays_for_task(
+                t, holidays, resource_non_working_days, calendar, resource_calendars
+            )
 
         logger.debug("[SCHEDULE] Task %d: %s (sequential: %s, depends: %s, start: %s)", idx, t.get('name'), t.get('sequential'), t.get('depends'), t.get('start'))
 
@@ -861,7 +892,7 @@ def natural_language_to_yaml(text, project_name="Project"):
         has_quotes = '"' in stripped or "'" in stripped
         has_deliverable = re.search(r'[/^]?\$[A-Za-z_]', stripped) is not None
         has_brackets = '[' in stripped
-        has_details = '@' in stripped or '%' in stripped or '!' in stripped or '#' in stripped or '2025-' in stripped or '2024-' in stripped or '2026-' in stripped or has_duration or has_quotes or has_deliverable or has_brackets
+        has_details = '@' in stripped or '%' in stripped or '!' in stripped or '#' in stripped or _DATE_ANY.search(stripped) is not None or has_duration or has_quotes or has_deliverable or has_brackets
 
         # Extract task name (everything before metadata), from the line
         # with a sequential lag (`* +2d Build 3d`) blanked out, so neither
@@ -988,9 +1019,3 @@ def natural_language_to_yaml(text, project_name="Project"):
         del result_dict['_is_summary']
 
     return {project_name: [result_dict] if result_dict else []}
-
-if __name__ == "__main__":
-    import sys
-    from projects.scheduling_engine.cli import main
-
-    raise SystemExit(main(sys.argv[1:]))

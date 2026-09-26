@@ -1569,6 +1569,37 @@ class TestDSTBoundaryRegression:
                 break
 
 
+class TestResourceSheetHolidays:
+    """Project holidays are shaded on the resource sheet, like weekends.
+
+    The sheet walks the scheduled `datetime`s but the holiday set holds
+    `date`s -- and a `date` is never equal to a `datetime`, so no holiday
+    was ever shaded."""
+
+    def test_holidays_are_shaded_inside_and_outside_a_task(self):
+        from datetime import date
+        from noodle_core.scheduling_engine import render_resource_sheet
+        tasks = [{
+            'name': 'Task',
+            'start': datetime(2026, 3, 26),   # Thu
+            'finish': datetime(2026, 4, 2),   # exclusive: through Wed 1 Apr
+            'duration': timedelta(days=4),
+            'resources': 'alice',
+            'level': 0,
+        }]
+        sheet = render_resource_sheet(
+            tasks,
+            start_date=datetime(2026, 3, 26),
+            finish_date=datetime(2026, 4, 7),
+            holidays={date(2026, 3, 31), date(2026, 4, 3)},
+            terminal_width=80,
+        )
+        [line] = [l for l in sheet.split('\n') if l.startswith('alice')]
+        chart = line.split('|')[-2]
+        # Thu Fri Sat Sun Mon [Tue: holiday] Wed | Thu [Fri: holiday] Sat Sun Mon
+        assert chart == '██░░█░█ ░░░ '
+
+
 class TestInheritSummaryResources:
     """Test suite for summary task resource inheritance."""
 

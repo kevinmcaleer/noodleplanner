@@ -717,10 +717,11 @@ function indentSelectedLines() {
         const startLine = editor.value.slice(0, editor.selectionStart).split('\n').length;
         const endLine = editor.value.slice(0, editor.selectionEnd).split('\n').length;
         const model = NoodlePlanModel.modelForEditor(editor);
-        const selected = model.tasks.filter(task => {
-            const line = model.lineNumber(task);
-            return line >= startLine && line <= endLine;
-        });
+        const selected = [];
+        for (let line = startLine; line <= endLine; line++) {
+            const task = model.taskAtLine(line);
+            if (task) selected.push(task);
+        }
         if (model.indentTasks(selected)) {
             NoodlePlanModel.commitToEditor(editor, model);
             return;
@@ -782,10 +783,11 @@ function outdentSelectedLines() {
         const startLine = editor.value.slice(0, editor.selectionStart).split('\n').length;
         const endLine = editor.value.slice(0, editor.selectionEnd).split('\n').length;
         const model = NoodlePlanModel.modelForEditor(editor);
-        const selected = model.tasks.filter(task => {
-            const line = model.lineNumber(task);
-            return line >= startLine && line <= endLine;
-        });
+        const selected = [];
+        for (let line = startLine; line <= endLine; line++) {
+            const task = model.taskAtLine(line);
+            if (task) selected.push(task);
+        }
         if (model.outdentTasks(selected)) {
             NoodlePlanModel.commitToEditor(editor, model);
             return;

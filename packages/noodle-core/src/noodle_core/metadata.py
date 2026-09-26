@@ -542,20 +542,33 @@ def detect_dependency_loops(tasks):
                     if dep_name in task_map:
                         deps_graph[task_name].add(dep_name)
 
-    # DFS to detect cycles
+    # DFS to detect cycles.  Iterative, with an explicit stack of neighbour
+    # iterators: this used to recurse once per link in a chain (copying the
+    # path at every level), so a long enough chain -- ~1,000 tasks written
+    # dependant-first, well under MAX_TASK_COUNT -- blew Python's recursion
+    # limit and schedule_tasks raised RecursionError.  The walk visits
+    # nodes and neighbours in exactly the order the recursive version did,
+    # so the same cycles are reported in the same form and order.
     visited = set()
-    rec_stack = set()  # Recursion stack to detect back edges
+    rec_stack = set()  # Nodes on the current DFS path, to detect back edges
 
-    def dfs(node, path):
-        """Perform DFS to find cycles."""
-        visited.add(node)
-        rec_stack.add(node)
-        path.append(node)
-
-        if node in deps_graph:
-            for neighbor in deps_graph[node]:
+    for task_name in deps_graph:
+        if task_name in visited:
+            continue
+        visited.add(task_name)
+        rec_stack.add(task_name)
+        path = [task_name]  # the current DFS path; path[-1] is being expanded
+        iterators = [iter(deps_graph.get(task_name, ()))]
+        while iterators:
+            for neighbor in iterators[-1]:
                 if neighbor not in visited:
-                    dfs(neighbor, path[:])  # Continue search
+                    # Descend; this node's remaining neighbours resume
+                    # once the neighbour's subtree is exhausted.
+                    visited.add(neighbor)
+                    rec_stack.add(neighbor)
+                    path.append(neighbor)
+                    iterators.append(iter(deps_graph.get(neighbor, ())))
+                    break
                 elif neighbor in rec_stack:
                     # Found a cycle
                     cycle_start_idx = path.index(neighbor)
@@ -567,13 +580,10 @@ def detect_dependency_loops(tasks):
                     # Mark all tasks in the cycle as affected
                     for task_in_cycle in cycle[:-1]:  # Exclude the repeated node
                         result['affected_tasks'].add(task_in_cycle)
-
-        rec_stack.remove(node)
-
-    # Run DFS from each unvisited node
-    for task_name in deps_graph:
-        if task_name not in visited:
-            dfs(task_name, [])
+            else:
+                # Every neighbour of path[-1] is done: back up a level.
+                iterators.pop()
+                rec_stack.remove(path.pop())
 
     # Convert affected_tasks set to list and create warning messages
     result['affected_tasks'] = list(result['affected_tasks'])

@@ -248,6 +248,46 @@ class TestProxyChatWithToolsCalls:
 
         assert events[-1]["done"] is True
 
+    def test_tool_runs_off_the_event_loop_thread(self):
+        """Tools parse and rewrite the whole plan; run inline they held up
+        every other request on the single-worker deployment."""
+        import threading
+
+        mock_defs = [{"type": "function", "function": {"name": "analyse_plan"}}]
+        ran_on = []
+
+        def mock_exec(name, plan, args):
+            ran_on.append(threading.current_thread())
+            return plan, "Reviewed"
+
+        tool_calls = [{
+            "id": "call_001",
+            "type": "function",
+            "function": {"name": "analyse_plan", "arguments": "{}"},
+        }]
+        client = AsyncMock()
+        client.post = AsyncMock(side_effect=[
+            _make_response(200, _tool_call_response(tool_calls)),
+            _make_response(200, _final_text_response("Looks fine.")),
+        ])
+        client.__aenter__ = AsyncMock(return_value=client)
+        client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("noodle_web.ai_service._load_ai_tools", return_value=(mock_defs, mock_exec)):
+            with patch("noodle_web.ai_service.httpx.AsyncClient", return_value=client):
+                events = _collect_events(proxy_chat_with_tools(
+                    endpoint="http://localhost:11434/v1",
+                    api_key="",
+                    model="llama3",
+                    provider="ollama",
+                    messages=SIMPLE_MESSAGES,
+                    plan_text=PLAN_TEXT,
+                ))
+
+        assert events[-1]["done"] is True
+        assert len(ran_on) == 1
+        assert ran_on[0] is not threading.main_thread()
+
     def test_multiple_tool_calls_in_one_response(self):
         mock_defs = [{"type": "function", "function": {"name": "add_stakeholder"}}]
 

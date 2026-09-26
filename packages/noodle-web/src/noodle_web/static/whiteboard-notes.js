@@ -8060,6 +8060,10 @@ function wbOpenParkingLotPanel() {
         }
         delete existing.dataset.wbClosing;
         existing.classList.add('open');
+        // Closing took Escape's listener off straight away, while the panel
+        // slid out; a reopen before it finished must put it back. Adding the
+        // same listener twice is a no-op, so an already-open panel is fine.
+        document.addEventListener('keydown', wbParkingLotPanelKeydown, true);
         wbRenderParkingLotList();
         wbParkingLotPanelChanged(false);
         return;

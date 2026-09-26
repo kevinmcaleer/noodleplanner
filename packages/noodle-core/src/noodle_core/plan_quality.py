@@ -49,7 +49,7 @@ import difflib
 import re
 from datetime import date, datetime, timedelta
 
-from .date_math import count_working_days, get_next_working_day
+from .date_math import count_working_days, get_next_working_day, is_working_day
 from .exporters import (
     parse_resource_mappings,
     parse_stakeholders_from_frontmatter,
@@ -669,7 +669,10 @@ def _check_over_allocation(review, ctx):
                                                        resource_calendars)
         day = start
         while day < finish:
-            if get_next_working_day(day, task_calendar) == day:
+            # Not `get_next_working_day(day, ...) == day`: that searches ahead
+            # from every non-working day, and gave up (raising, which took the
+            # whole review down) inside a long enough shutdown.
+            if is_working_day(day, task_calendar):
                 for name, share in shares:
                     per_day = load.setdefault(name, {})
                     key = _as_date(day)
@@ -757,18 +760,44 @@ def _check_long_chains(review, ctx):
     # longest run of non-milestone leaves ending at each task
     memo = {}
 
-    def run(uid, stack=()):
-        if uid in memo:
-            return memo[uid]
-        if uid in stack:  # a loop; reported elsewhere
-            return 0
-        task = leaves.get(uid)
-        if task is None or _is_milestone(task):
-            memo[uid] = 0
-            return 0
-        best = max((run(p, stack + (uid,)) for p in preds.get(uid, ())), default=0)
-        memo[uid] = best + 1
-        return memo[uid]
+    def run(root):
+        # Iterative, with an explicit stack of frames: this used to recurse
+        # once per link, so a chain of ~1,000 tasks written dependant-first
+        # blew Python's recursion limit.  Predecessors are visited in the
+        # same order as the recursive version and memoised at the same
+        # points, so every length (loops included) comes out the same.
+        on_path = set()  # uids with an open frame: the old `stack` tuple
+        frames = []      # [uid, iterator over its predecessors, best so far]
+
+        def enter(uid):
+            """uid's length if known without descending; else open a frame."""
+            if uid in memo:
+                return memo[uid]
+            if uid in on_path:  # a loop; reported elsewhere
+                return 0
+            task = leaves.get(uid)
+            if task is None or _is_milestone(task):
+                memo[uid] = 0
+                return 0
+            on_path.add(uid)
+            frames.append([uid, iter(preds.get(uid, ())), 0])
+            return None
+
+        length = enter(root)
+        while frames:
+            frame = frames[-1]
+            for p in frame[1]:
+                length = enter(p)
+                if length is None:
+                    break  # finish p's frame first, then resume this one
+                frame[2] = max(frame[2], length)
+            else:
+                uid, _, best = frames.pop()
+                on_path.discard(uid)
+                memo[uid] = length = best + 1
+                if frames:
+                    frames[-1][2] = max(frames[-1][2], length)
+        return length
 
     lengths = {uid: run(uid) for uid in leaves}
     successors = {uid: set() for uid in leaves}

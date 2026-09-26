@@ -5,6 +5,8 @@ Depends on: date_math (for timedelta usage in rendering).
 
 from datetime import timedelta
 
+from .date_math import _as_date
+
 
 def render_gantt_chart(tasks, start_date, finish_date, terminal_width=80):
     chart = "# Gantt Chart\n\n"
@@ -146,8 +148,10 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
         terminal_width: Width of terminal for formatting
         resource_map: Dict mapping short names to full names (e.g., {'kev': 'Kevin McAleer'})
     """
-    if holidays is None:
-        holidays = set()
+    # Plain dates, compared against each day's _as_date() below: the days
+    # walked here are the scheduled `datetime`s, and a `date` holiday is
+    # never equal to a `datetime`, so no holiday used to be shaded.
+    holidays = {_as_date(h) for h in holidays or ()}
     if resource_map is None:
         resource_map = {}
 
@@ -283,7 +287,7 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
                     if 0 <= pos < chart_width:
                         # Check if it's a working day
                         is_weekend = current_day.weekday() >= 5
-                        is_holiday = current_day in holidays
+                        is_holiday = _as_date(current_day) in holidays
 
                         if is_weekend or is_holiday:
                             line[pos] = '\u2591'  # Non-working day
@@ -305,7 +309,7 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
                 day = start_date + timedelta(days=pos)
                 if line[pos] == ' ':
                     is_weekend = day.weekday() >= 5
-                    is_holiday = day in holidays
+                    is_holiday = _as_date(day) in holidays
                     if is_weekend or is_holiday:
                         line[pos] = '\u2591'
 

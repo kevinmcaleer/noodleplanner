@@ -564,7 +564,7 @@ export function buildPortfolioDeck(portfolioData, projectReports, onProgress) {
 
 /** A safe file-name stem, as the server's Content-Disposition produced. */
 export function pptxFilename(name, suffix = "") {
-  const stem = String(name || "Project").replace(/[\\/:*?"<>| -]+/g, "-").trim() || "Project";
+  const stem = String(name || "Project").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "-").trim() || "Project";
   return `${stem}${suffix}.pptx`;
 }
 

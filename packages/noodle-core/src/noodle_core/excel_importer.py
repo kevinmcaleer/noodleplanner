@@ -633,7 +633,7 @@ def convert_planner_to_markdown(file_bytes, filename):
             for task in tasks:
                 task_count += 1
                 meta = _build_planner_task_metadata(task, resource_map)
-                markdown_lines.append(f"  {task['name']}{meta}")
+                markdown_lines.append(f"  {_chain_marker(task)}{task['name']}{meta}")
         else:
             current_phase = None
             for task in tasks:
@@ -655,7 +655,7 @@ def convert_planner_to_markdown(file_bytes, filename):
                         phase_count += 1
                     indent = "  " * level
                     meta = _build_planner_task_metadata(task, resource_map)
-                    markdown_lines.append(f"{indent}{task['name']}{meta}")
+                    markdown_lines.append(f"{indent}{_chain_marker(task)}{task['name']}{meta}")
 
         markdown = "\n".join(markdown_lines) + "\n"
 
@@ -670,13 +670,23 @@ def convert_planner_to_markdown(file_bytes, filename):
         wb.close()
 
 
+def _chain_marker(task):
+    """The ``*`` that chains a task on after the one above it, or ``""``.
+
+    It goes at the start of the task line, before the name: the parser only
+    honours a leading ``*``. Both importers used to append it to the
+    metadata suffix instead (``Task B * @alice``), so every chain imported
+    as parallel tasks named "Task B *". No space after it (``*Task B``, as
+    in the conformance corpus): a chained 1d task often has no metadata at
+    all, and the parser keeps the space of a bare ``* Task B`` line as part
+    of the name.
+    """
+    return "*" if task.get("use_dep_chain") else ""
+
+
 def _build_planner_task_metadata(task, resource_map):
     """Build the metadata suffix for a Planner task line."""
     parts = []
-
-    # Dependency chain marker
-    if task.get("use_dep_chain"):
-        parts.append("*")
 
     # Resources
     if task.get("resources"):
@@ -1366,7 +1376,7 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
         for task in tasks:
             task_count += 1
             meta = _build_task_metadata(task, resource_map)
-            markdown_lines.append(f"  {task['name']}{meta}")
+            markdown_lines.append(f"  {_chain_marker(task)}{task['name']}{meta}")
     else:
         for task in tasks:
             level = task["level"]
@@ -1392,7 +1402,7 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
 
                 indent = "  " * level
                 meta = _build_task_metadata(task, resource_map)
-                markdown_lines.append(f"{indent}{task['name']}{meta}")
+                markdown_lines.append(f"{indent}{_chain_marker(task)}{task['name']}{meta}")
 
     markdown = "\n".join(markdown_lines) + budget_section + raid_log_section + "\n"
 
@@ -1413,12 +1423,14 @@ def _apply_dependency_chain(tasks):
     """
     prev_leaf_task = None
     current_phase_level = -1
+    # Computed once, not per task: the loop below never changes a level
+    has_hierarchy = any(t.get("level", 0) > 0 for t in tasks)
 
     for task in tasks:
         level = task.get("level", 0)
 
         # Phase headers reset the chain
-        if level == 0 and any(t.get("level", 0) > 0 for t in tasks):
+        if level == 0 and has_hierarchy:
             prev_leaf_task = None
             current_phase_level = level
             continue
@@ -1450,10 +1462,6 @@ def _apply_dependency_chain(tasks):
 def _build_task_metadata(task, resource_map):
     """Build the metadata suffix for a task line (resources, duration, percent, comment)."""
     parts = []
-
-    # Dependency chain marker
-    if task.get("use_dep_chain"):
-        parts.append("*")
 
     # Resources
     if task.get("resources"):

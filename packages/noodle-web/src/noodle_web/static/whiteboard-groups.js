@@ -823,13 +823,37 @@ function wbGroupMouseDown(e, groupName) {
 }
 
 function wbGroupMouseMove(e) {
-    if (!wbActiveGroupDrag) return;
+    const drag = wbActiveGroupDrag;
+    if (!drag) return;
     const at = wbClientToBoard(e.clientX, e.clientY);
-    const dx = at.x - wbActiveGroupDrag.startX;
-    const dy = at.y - wbActiveGroupDrag.startY;
-    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) wbActiveGroupDrag.moved = true;
+    const dx = at.x - drag.startX;
+    const dy = at.y - drag.startY;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) drag.moved = true;
 
-    for (const origin of wbActiveGroupDrag.origins) {
+    // A mouse reports several moves a frame, and redrawing the noodles
+    // re-parses the whole plan -- so keep only the latest offset and move
+    // everything once, on the next frame (wbFlushGroupDrag()).
+    drag.pending = { dx, dy };
+    if (!drag.frame) {
+        if (typeof requestAnimationFrame !== 'function') { wbFlushGroupDrag(); return; }
+        drag.frame = requestAnimationFrame(() => {
+            drag.frame = 0;
+            wbFlushGroupDrag();
+        });
+    }
+}
+
+/** Move the dragged group's notes to the latest pointer offset, if one is
+ * waiting, and redraw what hangs off them. */
+function wbFlushGroupDrag() {
+    const drag = wbActiveGroupDrag;
+    if (!drag || !drag.pending) return;
+    if (drag.frame && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(drag.frame);
+    drag.frame = 0;
+    const { dx, dy } = drag.pending;
+    drag.pending = null;
+
+    for (const origin of drag.origins) {
         wbSetBoardRect(origin.entry.fo, { x: Math.round(origin.x + dx), y: Math.round(origin.y + dy) });
     }
     // The boundary and the noodles are both measured from the notes, so
@@ -841,6 +865,9 @@ function wbGroupMouseMove(e) {
 function wbGroupMouseUp() {
     const drag = wbActiveGroupDrag;
     if (!drag) return;
+    // The last move may still be waiting for its frame; the commit below
+    // reads the notes' positions, so apply it first.
+    wbFlushGroupDrag();
     wbActiveGroupDrag = null;
     if (typeof wbSetDragCursor === 'function') wbSetDragCursor('');
     // A press that did not move is a click, and a click selects the group

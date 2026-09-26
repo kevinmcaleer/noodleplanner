@@ -1429,6 +1429,24 @@ async function exportReportPptx() {
     }
 }
 
+/**
+ * The download name a Content-Disposition header carries, or null.
+ *
+ * The server sends the real name as RFC 5987 `filename*=UTF-8''...` beside an
+ * ASCII `filename="..."` fallback, because a raw non-Latin-1 name in the
+ * header was a 500. Reading only the fallback saved a Cyrillic title as
+ * "______.csv", so the encoded form wins when it is there.
+ */
+function filenameFromDisposition(header) {
+    if (!header) return null;
+    const encoded = header.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+    if (encoded) {
+        try { return decodeURIComponent(encoded[1].trim()); } catch (e) { /* malformed: use the fallback */ }
+    }
+    const plain = header.match(/filename\s*=\s*"([^"]+)"/i);
+    return plain ? plain[1] : null;
+}
+
 async function render(planText, projectName, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject) {
     // Capture generation so we can bail out if the user switched projects
     // while waiting for the /render response.
@@ -1445,6 +1463,18 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
     if (output) output.classList.remove('empty');
 
     try {
+        // A plain editor render asks the server for nothing the page shows:
+        // /render's only answer without an export is the ASCII table for
+        // #editorOutput, which is display:none. updateAllViews schedules the
+        // plan in the browser (issue #793), so going to the server first cost
+        // a full parse and schedule per edit and, worse, gated every view
+        // update on that round trip -- offline, or on a 429 or 5xx, edits
+        // stopped reaching any view. Only an export still needs /render.
+        if (!(exportExcel || exportCSV || exportPPT || exportPDF || exportMSProject)) {
+            await updateAllViews(planText, projectName);
+            return;
+        }
+
         const data = {
             plan_text: planText,
             project_name: projectName || null,
@@ -1469,11 +1499,14 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
         }
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'Rendering failed');
+            // A proxy's 502 or a rate limiter's page is HTML, not JSON: reading
+            // it as JSON threw a SyntaxError that replaced the real failure.
+            let detail = null;
+            try { detail = (await response.json()).detail; } catch (e) { /* not JSON */ }
+            throw new Error(detail || `Rendering failed (HTTP ${response.status})`);
         }
 
-        const contentType = response.headers.get('content-type');
+        const contentType = response.headers.get('content-type') || '';
 
         if (contentType.includes('application/json')) {
             // ASCII output
@@ -1491,10 +1524,9 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
             a.href = url;
 
             // Use filename from Content-Disposition header (includes version)
-            const disposition = response.headers.get('content-disposition');
-            const filenameMatch = disposition && disposition.match(/filename="([^"]+)"/);
-            if (filenameMatch) {
-                a.download = filenameMatch[1];
+            const headerFilename = filenameFromDisposition(response.headers.get('content-disposition'));
+            if (headerFilename) {
+                a.download = headerFilename;
             } else {
                 // Fallback: determine filename from content type
                 let filename = projectName || 'project';
@@ -1830,7 +1862,6 @@ async function updateAllViews(planText, projectName) {
             { name: 'lessons',                 fn: () => { if (typeof updateLessonsView === 'function') updateLessonsView(result, planText); } },
             { name: 'budget',                  fn: () => updateBudgetView(planText) },
             { name: 'stakeholders',            fn: () => updateStakeholdersView() },
-            { name: 'benefits',                fn: () => { if (typeof updateBenefits === 'function') updateBenefits(); } },
             { name: 'evm',                     fn: () => updateEVM(result.tasks || []) },
             // #1114: the Forecast view shares calculateEVM()'s cached
             // evmData with the EVM view above (this entry runs right after
@@ -2085,225 +2116,6 @@ function updateLocalFileStatusIndicator() {
 
 // Task Form Modal Functions
 // Task form state is now in state.js
-
-// Task class to manage task state
-class Task {
-    constructor(lineNumber, lineText) {
-        this.lineNumber = lineNumber;
-        this.originalLine = lineText || '';
-        this.indent = this.extractIndent(lineText);
-        this.name = '';
-        this.duration = '';
-        this.startDate = '';
-        this.finishDate = '';
-        this.percent = 0;
-        this.resources = [];
-        this.comment = '';
-        this.priority = 'Low';
-        this.bucket = '';
-        this.dependencies = [];
-        this.labels = [];
-        this.dependsOnPrevious = false;
-
-        // Parse the line if provided
-        if (lineText) {
-            this.parseFromLine(lineText);
-        }
-    }
-
-    extractIndent(line) {
-        if (!line) return '';
-        const match = line.match(/^(\\s*)/);
-        return match ? match[1] : '';
-    }
-
-    parseFromLine(line) {
-        const trimmed = line.trim();
-        if (!trimmed) return;
-
-        let remaining = trimmed;
-
-        // Check for * prefix (depends on previous task)
-        if (remaining.startsWith('*')) {
-            this.dependsOnPrevious = true;
-            remaining = remaining.substring(1).trim();
-        }
-
-        // Extract task name - stop at first: duration, @, #, %, ", or RAG
-        const nameMatch = remaining.match(/^([^\\d@#%"]+?)(?=\\s+\\d+d|\\s+@|\\s+#|\\s+\\d+%|\\s+"|$)/);
-        if (nameMatch) {
-            this.name = nameMatch[1].trim();
-        }
-
-        // Extract duration (e.g., "5d")
-        const durationMatch = remaining.match(/\\b(\\d+)d\\b/);
-        if (durationMatch) {
-            this.duration = durationMatch[1];
-        }
-
-        // Extract percent (e.g., "50%")
-        const percentMatch = remaining.match(/\\b(\\d+)%\\b/);
-        if (percentMatch) {
-            this.percent = parseInt(percentMatch[1]);
-        }
-
-        // Extract resources (all @mentions)
-        const resourceMatches = remaining.match(/@([^\\s@#%!"]+)/g);
-        if (resourceMatches) {
-            this.resources = resourceMatches.map(r => r.substring(1));
-        }
-
-        // Extract labels/tags (after #)
-        const labelMatches = remaining.match(/#([^\\s@%!"]+)/g);
-        if (labelMatches) {
-            this.labels = labelMatches.map(l => l.substring(1));
-        }
-
-        // Extract comment (text in quotes)
-        const commentMatch = remaining.match(/"([^"]*)"/);
-        if (commentMatch) {
-            this.comment = commentMatch[1];
-        }
-
-        // Extract bucket (text in curly braces)
-        const bucketMatch = remaining.match(/\{([^}]+)\}/);
-        if (bucketMatch) {
-            this.bucket = bucketMatch[1].trim();
-        }
-
-        // Extract priority markers
-        const priorityMatch = remaining.match(/(?<!\w)(!!!|!!|!)(?!["'{])/);
-        if (priorityMatch) {
-            const marker = priorityMatch[1];
-            if (marker === '!!!') this.priority = 'Urgent';
-            else if (marker === '!!') this.priority = 'Important';
-            else if (marker === '!') this.priority = 'Medium';
-        }
-    }
-
-    // Calculate duration from dates
-    calculateDurationFromDates() {
-        if (!this.startDate || !this.finishDate) return null;
-        const start = new Date(this.startDate);
-        const finish = new Date(this.finishDate);
-        const diffTime = Math.abs(finish - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays;
-    }
-
-    // Calculate finish date from start + duration
-    calculateFinishDateFromDuration() {
-        if (!this.startDate || !this.duration) return null;
-        const start = new Date(this.startDate);
-        const durationDays = parseInt(this.duration);
-        if (isNaN(durationDays)) return null;
-        const finish = new Date(start);
-        finish.setDate(finish.getDate() + durationDays);
-        return finish.toISOString().split('T')[0];
-    }
-
-    // Reconstruct task line from current state
-    toString() {
-        let line = this.indent;
-
-        // Add * prefix if depends on previous
-        if (this.dependsOnPrevious) {
-            line += '*';
-        }
-
-        // Add task name
-        line += this.name;
-
-        // Add duration
-        if (this.duration) {
-            line += ' ' + this.duration + 'd';
-        }
-
-        // Add resources
-        if (this.resources.length > 0) {
-            line += ' ' + this.resources.map(r => '@' + r).join(' ');
-        }
-
-        // Add dependencies using [depends] syntax
-        const nonPrevDeps = this.dependencies.filter(d => {
-            // Get previous task name to filter it out
-            const editor = document.getElementById('planEditor');
-            if (editor) {
-                const lines = editor.value.split('\n');
-                const prevName = this.getPreviousTaskName(lines);
-                return d !== prevName;
-            }
-            return true;
-        });
-
-        if (nonPrevDeps.length > 0) {
-            line += ' [depends ' + nonPrevDeps.join(', ') + ']';
-        }
-
-        // Add labels
-        if (this.labels.length > 0) {
-            line += ' ' + this.labels.map(l => '#' + l).join(' ');
-        }
-
-        // Add percent
-        if (this.percent > 0) {
-            line += ' ' + this.percent + '%';
-        }
-
-        // Add priority marker
-        const priorityMarkers = { 'Urgent': '!!!', 'Important': '!!', 'Medium': '!' };
-        if (priorityMarkers[this.priority]) {
-            line += ' ' + priorityMarkers[this.priority];
-        }
-
-        // Add bucket
-        if (this.bucket) {
-            line += ' {' + this.bucket + '}';
-        }
-
-        // Add comment
-        if (this.comment) {
-            line += ' "' + this.comment + '"';
-        }
-
-        return line;
-    }
-
-    getPreviousTaskName(lines) {
-        // Find the previous non-empty, non-summary task line
-        for (let i = this.lineNumber - 2; i >= 0; i--) {
-            const line = lines[i].trim();
-            if (line && !line.includes('===') && !line.includes('---') && !line.startsWith('#')) {
-                // Skip summary tasks (phases that have children)
-                if (typeof isSummaryLine === 'function' && isSummaryLine(lines, i)) continue;
-
-                // Extract task name
-                let taskLine = line;
-                if (taskLine.startsWith('*')) {
-                    taskLine = taskLine.substring(1).trim();
-                }
-                const nameMatch = taskLine.match(/^([^\\d@#%"]+?)(?=\\s+\\d+d|\\s+@|\\s+#|\\s+\\d+%|\\s+"|$)/);
-                if (nameMatch) {
-                    return nameMatch[1].trim();
-                }
-            }
-        }
-        return null;
-    }
-
-    // Update task in editor
-    updateInEditor() {
-        const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        lines[this.lineNumber - 1] = this.toString();
-        editor.value = lines.join('\n');
-
-        // Trigger render
-        setTimeout(() => renderText(), 10);
-    }
-}
 
 // Check if a date is a weekend (Saturday or Sunday)
 function isWeekend(date) {
@@ -4760,7 +4572,7 @@ function saveTask() {
     let newPlanText;
     if (typeof NoodlePlanModel !== 'undefined') {
         let model = NoodlePlanModel.modelForEditor(editor);
-        let node = model.tasks.find(task => model.lineNumber(task) === currentTaskLineNumber);
+        let node = model.taskAtLine(currentTaskLineNumber);
         if (node) {
             // Rename first while dependency edges still point at this object;
             // serialising the graph updates every predecessor reference.
@@ -5159,10 +4971,12 @@ function getPreviousTaskName(lines, currentLineNum) {
             // Skip summary tasks (phases that have children)
             if (isSummaryLine(lines, i)) continue;
 
-            // Parse this line to get just the task name
-            const task = parseTaskLine(line, i + 1);
-            if (task.name) {
-                return task.name;
+            // Just the task name, as parseTaskLine() reads it -- not
+            // parseTaskLine() itself: on a `*` line that would resolve this
+            // task's own predecessor too, and so on up the whole chain
+            const name = TaskLineTokenizer.metadata(line).values.name;
+            if (name) {
+                return name;
             }
         }
     }
@@ -5209,222 +5023,6 @@ function parseTaskLine(line, lineNum) {
         }
     }
     return task;
-
-    /*
-    const legacyTask = {
-        lineNumber: lineNum,
-        name: '',
-        duration: '',
-        startDate: '',
-        finishDate: '',
-        percent: '',
-        resources: '',
-        comment: '',
-        priority: 'Low',
-        bucket: '',
-        dependencies: '',
-        labels: '',
-        recurrence: '',
-        effortCompleted: '',
-        effortCompletedUnit: 'h',
-        effortRemaining: '',
-        effortRemainingUnit: 'h',
-        effortTotal: '',
-        effortTotalUnit: 'h'
-    };
-
-    // Remove leading whitespace
-    const trimmed = line.trim();
-    if (!trimmed) return task;
-
-    // Check for * prefix (depends on previous task)
-    let hasStar = false;
-    let starLagLead = ''; // Capture lag/lead after *
-    let text = trimmed;
-    if (text.startsWith('*')) {
-        hasStar = true;
-        text = text.substring(1).trim();
-
-        // Check if there's a lag/lead time immediately after the *
-        // Pattern: * +2d TaskName or * -1w TaskName
-        const starLagMatch = text.match(/^([+\-]\d+[dwmy])\s+/);
-        if (starLagMatch) {
-            starLagLead = starLagMatch[1];
-            text = text.substring(starLagMatch[0].length).trim();
-        }
-    }
-
-    // Handle effort syntax: ~8h, ~3d, ~8h/16h, ~2d/5d
-    let effortMatch = text.match(/~(\d+(?:\.\d+)?)(h|d)(?:\/(\d+(?:\.\d+)?)(h|d))?/);
-    if (effortMatch) {
-        if (effortMatch[3] !== undefined) {
-            // Format: ~completed/total
-            task.effortCompleted = effortMatch[1];
-            task.effortCompletedUnit = effortMatch[2];
-            task.effortTotal = effortMatch[3];
-            task.effortTotalUnit = effortMatch[4];
-            const total = parseFloat(effortMatch[3]);
-            const completed = parseFloat(effortMatch[1]);
-            task.effortRemaining = String(total - completed);
-            task.effortRemainingUnit = effortMatch[4];
-        } else {
-            // Format: ~total only
-            task.effortCompleted = '0';
-            task.effortCompletedUnit = effortMatch[2];
-            task.effortTotal = effortMatch[1];
-            task.effortTotalUnit = effortMatch[2];
-            task.effortRemaining = effortMatch[1];
-            task.effortRemainingUnit = effortMatch[2];
-        }
-        text = text.replace(/~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?/, '').trim();
-
-        // Auto-calculate percent from effort
-        const effortCompleted = parseFloat(task.effortCompleted) || 0;
-        const effortTotal = parseFloat(task.effortTotal) || 0;
-        if (effortTotal > 0) {
-            const cUnit = task.effortCompletedUnit || 'h';
-            const tUnit = task.effortTotalUnit || 'h';
-            const completedHours = cUnit === 'd' ? effortCompleted * 8 : effortCompleted;
-            const totalHours = tUnit === 'd' ? effortTotal * 8 : effortTotal;
-            if (totalHours > 0) {
-                task.percent = String(Math.max(0, Math.min(100, Math.round(completedHours / totalHours * 100))));
-            }
-        }
-    }
-
-    // Handle comment first (everything in quotes)
-    let comment = '';
-    const quoteMatch = text.match(/"([^"]*)"/);
-    if (quoteMatch) {
-        comment = quoteMatch[1];
-        // Remove the comment from the text
-        text = text.replace(/"[^"]*"/, '').trim();
-    }
-
-    // Handle bucket (text in curly braces {BucketName})
-    const bucketMatch = text.match(/\{([^}]+)\}/);
-    if (bucketMatch) {
-        task.bucket = bucketMatch[1].trim();
-        text = text.replace(/\{[^}]+\}/, '').trim();
-    }
-
-    // Handle priority markers (!!!=Urgent, !!=Important, !=Medium)
-    // Must check longest first; avoid matching !"comment" patterns
-    const priorityMatch = text.match(/(?<!\w)(!!!|!!|!)(?!["'{])/);
-    if (priorityMatch) {
-        const marker = priorityMatch[1];
-        if (marker === '!!!') task.priority = 'Urgent';
-        else if (marker === '!!') task.priority = 'Important';
-        else if (marker === '!') task.priority = 'Medium';
-        text = text.replace(/(?<!\w)(!!!|!!|!)(?!["'{])/, '').trim();
-    }
-
-    // Handle recurrence ([repeats daily], [repeats weekly mon,wed], [repeats monthly 3rd thu], [repeats yearly])
-    const repeatsMatch = text.match(/\[repeats\s+([^\]]+)\]/i);
-    if (repeatsMatch) {
-        task.recurrence = repeatsMatch[1].trim().toLowerCase();
-        text = text.replace(/\[repeats\s+[^\]]+\]/i, '').trim();
-    }
-
-    // Handle dependencies (everything in square brackets [depends ...])
-    const dependencies = [];
-    const dependsMatch = text.match(/\[depends(?::\s*|\s+)([^\]]+)\]/i);
-    if (dependsMatch) {
-        // Parse dependencies - can be comma-separated
-        const depText = dependsMatch[1];
-        dependencies.push(...depText.split(',').map(d => d.trim()).filter(d => d));
-        // Remove the dependency from the text
-        text = text.replace(/\[depends(?::\s*|\s+)[^\]]+\]/i, '').trim();
-    }
-
-    // Split by spaces to get tokens
-    const tokens = text.split(/\s+/);
-
-    const nameTokens = [];
-    const resources = [];
-    const labels = [];
-    const dates = [];
-
-    for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
-
-        // Skip empty tokens
-        if (!token) continue;
-
-        // Check what type of token this is
-        if (token.startsWith('@')) {
-            // Resource: @kev, @jen
-            resources.push(token.substring(1));
-        }
-        else if (token.startsWith('#')) {
-            // Label/Tag: #DEV, #HIGH
-            labels.push(token.substring(1));
-        }
-        else if (token.match(/^\d+[dmw]$/)) {
-            // Duration: 5d, 2w, 3m
-            const num = token.match(/^(\d+)/)[1];
-            task.duration = num;
-        }
-        else if (token.match(/^\d+%$/)) {
-            // Percent: 50%
-            const num = token.match(/^(\d+)/)[1];
-            task.percent = num;
-        }
-        else if (token.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            // ISO Date: 2025-11-11
-            dates.push(token);
-        }
-        else if (token.match(/^[/^]?\$[A-Za-z_]/)) {
-            // Deliverable marker: $fuselage, /$group, ^$external
-            if (token.startsWith('/')) {
-                task.product_type = 'group';
-                task.deliverable = token.substring(2); // strip /$
-            } else if (token.startsWith('^')) {
-                task.product_type = 'external';
-                task.deliverable = token.substring(2); // strip ^$
-            } else {
-                task.product_type = 'internal';
-                task.deliverable = token.substring(1); // strip $
-            }
-        }
-        else {
-            // Part of task name
-            nameTokens.push(token);
-        }
-    }
-
-    // Assemble the results
-    task.name = nameTokens.join(' ');
-    task.comment = comment;
-    task.resources = resources.join(', ');
-
-    // Handle dates
-    if (dates.length > 0) {
-        task.startDate = dates[0];
-        if (dates.length > 1) {
-            task.finishDate = dates[1];
-        }
-    }
-
-    // Handle dependencies
-    if (hasStar) {
-        // Add previous task as dependency (with lag/lead if present)
-        const editor = document.getElementById('planEditor');
-        if (editor) {
-            const lines = editor.value.split('\n');
-            const previousTaskName = getPreviousTaskName(lines, lineNum);
-            if (previousTaskName) {
-                const prevDep = starLagLead ? `${previousTaskName} ${starLagLead}` : previousTaskName;
-                dependencies.unshift(prevDep);
-            }
-        }
-    }
-
-    task.dependencies = dependencies.join(', ');
-    task.labels = labels.join(', ');
-
-    return task;
-    */
 }
 
 /**
@@ -5558,111 +5156,6 @@ function getAllTaskNames() {
     }
 
     return taskNames;
-}
-
-function handleDependencyInput() {
-    const input = document.getElementById('taskDependencies');
-    const dropdown = document.getElementById('dependencyAutocomplete');
-    const value = input.value;
-
-    // Get the current word being typed (after the last comma)
-    const lastCommaIndex = value.lastIndexOf(',');
-    const currentWord = value.substring(lastCommaIndex + 1).trim();
-
-    if (currentWord.length === 0) {
-        dropdown.style.display = 'none';
-        autocompleteSelectedIndex = -1;
-        saveTask();
-        return;
-    }
-
-    // Get all task names and filter by current word
-    const allTasks = getAllTaskNames();
-    const matches = allTasks.filter(name =>
-        name.toLowerCase().includes(currentWord.toLowerCase())
-    );
-
-    if (matches.length === 0) {
-        dropdown.style.display = 'none';
-        autocompleteSelectedIndex = -1;
-        saveTask();
-        return;
-    }
-
-    // Build dropdown HTML
-    dropdown.innerHTML = '';
-    matches.forEach((name, index) => {
-        const item = document.createElement('div');
-        item.className = 'autocomplete-item';
-        item.textContent = name;
-        item.onclick = function() {
-            selectDependency(name);
-        };
-        dropdown.appendChild(item);
-    });
-
-    dropdown.style.display = 'block';
-    autocompleteSelectedIndex = -1;
-    saveTask();
-}
-
-function handleDependencyKeydown(event) {
-    const dropdown = document.getElementById('dependencyAutocomplete');
-    if (dropdown.style.display !== 'block') return;
-
-    const items = dropdown.querySelectorAll('.autocomplete-item');
-    if (items.length === 0) return;
-
-    if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        autocompleteSelectedIndex = Math.min(autocompleteSelectedIndex + 1, items.length - 1);
-        updateAutocompleteSelection(items);
-    } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        autocompleteSelectedIndex = Math.max(autocompleteSelectedIndex - 1, -1);
-        updateAutocompleteSelection(items);
-    } else if (event.key === 'Enter') {
-        event.preventDefault();
-        if (autocompleteSelectedIndex >= 0) {
-            const selectedItem = items[autocompleteSelectedIndex];
-            selectDependency(selectedItem.textContent);
-        }
-    } else if (event.key === 'Escape') {
-        dropdown.style.display = 'none';
-        autocompleteSelectedIndex = -1;
-    }
-}
-
-function updateAutocompleteSelection(items) {
-    items.forEach((item, index) => {
-        if (index === autocompleteSelectedIndex) {
-            item.classList.add('selected');
-            item.scrollIntoView({ block: 'nearest' });
-        } else {
-            item.classList.remove('selected');
-        }
-    });
-}
-
-function selectDependency(name) {
-    const input = document.getElementById('taskDependencies');
-    const value = input.value;
-
-    // Replace the current word being typed with the selected name
-    const lastCommaIndex = value.lastIndexOf(',');
-    let newValue;
-    if (lastCommaIndex >= 0) {
-        newValue = value.substring(0, lastCommaIndex + 1) + ' ' + name;
-    } else {
-        newValue = name;
-    }
-
-    input.value = newValue;
-    const dropdown = document.getElementById('dependencyAutocomplete');
-    dropdown.style.display = 'none';
-    autocompleteSelectedIndex = -1;
-    input.focus();
-    saveTask();
 }
 
 // Autocomplete functionality for resources
@@ -6543,7 +6036,7 @@ function populateResourceAssignedTasks(shortname) {
         const pct = t.percent || 0;
         const rag = t.rag || '';
         const ragClass = rag ? 'rag-' + (typeof ragStatusToColour === 'function' ? ragStatusToColour(rag) : '') : '';
-        return `<div class="product-comp-item" style="cursor: pointer;" onclick="openTaskFormByName('${name.replace(/'/g, "\\'")}')">
+        return `<div class="product-comp-item" style="cursor: pointer;" onclick="openTaskFormByName('${escapeJsAttr(t.name || '')}')">
             <span class="product-comp-name">${name}</span>
             <span class="product-comp-pct">${pct}%</span>
         </div>`;
@@ -8431,8 +7924,8 @@ function renderRaidTable() {
         const scoreClass = item.score >= 16 ? 'raid-score-high' : item.score >= 6 ? 'raid-score-medium' : 'raid-score-low';
 
         row.innerHTML = `
-            <td>${item.id || ''}</td>
-            <td><span class="raid-type-badge raid-type-${item.type || 'risk'}">${item.type || 'risk'}</span></td>
+            <td>${escapeHtml(item.id || '')}</td>
+            <td><span class="raid-type-badge raid-type-${escapeHtml(item.type || 'risk')}">${escapeHtml(item.type || 'risk')}</span></td>
             <td title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</td>
             <td title="${escapeHtml(item.description)}">${escapeHtml(item.description)}</td>
             <td>${escapeHtml(item.raised_by)}</td>
@@ -8442,8 +7935,8 @@ function renderRaidTable() {
             <td>${item.likelihood || ''}</td>
             <td><span class="raid-score ${scoreClass}">${item.score || ''}</span></td>
             <td>
-                <span class="raid-status-badge raid-status-${item.status || 'open'}">${item.status || 'open'}</span>
-                ${item.escalated ? `<span class="raid-escalation-badge raid-escalation-${item.escalation_level}" title="Escalated to ${escapeHtml(item.escalation_level)}">&#9650; ${escapeHtml(item.escalation_level)}</span>` : ''}
+                <span class="raid-status-badge raid-status-${escapeHtml(item.status || 'open')}">${escapeHtml(item.status || 'open')}</span>
+                ${item.escalated ? `<span class="raid-escalation-badge raid-escalation-${escapeHtml(item.escalation_level)}" title="Escalated to ${escapeHtml(item.escalation_level)}">&#9650; ${escapeHtml(item.escalation_level)}</span>` : ''}
             </td>
             <td>${escapeHtml(item.priority || '')}</td>
             <td>${escapeHtml(item.target_date || '')}</td>
@@ -8528,13 +8021,6 @@ function renderEscalationsView() {
         </tr>`;
     }).join('');
     if (empty) empty.hidden = escalated.length > 0;
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 function sortRaidTable(column) {
@@ -8779,18 +8265,13 @@ function extractRaidLogFromPlanText(planText) {
     if (idx === -1) return '';
     const afterMarker = idx + marker.length;
 
-    // Stop at the next section marker (budget, comms, lessons learned,
-    // baseline, or whiteboard) if present. This must match every other
-    // section marker (comms in particular) so that a comms plan following
-    // the RAID log is never swept into the extracted RAID log text -- see
-    // #978.
-    let endIdx = planText.length;
-    for (const sectionMarker of [BUDGET_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]) {
-        const mIdx = planText.indexOf(sectionMarker, afterMarker);
-        if (mIdx !== -1 && mIdx < endIdx) {
-            endIdx = mIdx;
-        }
-    }
+    // Stop at the next section marker, whichever it is. This must match
+    // every other section marker (comms in particular) so that a comms
+    // plan following the RAID log is never swept into the extracted RAID
+    // log text -- see #978 -- and an estimates or benefits table after it
+    // never turns into phantom RAID items that the next RAID edit writes
+    // back as real ones.
+    const endIdx = npBackMatterSectionEnd(planText, afterMarker, [marker]);
     return planText.substring(afterMarker, endIdx).trim();
 }
 
@@ -10610,12 +10091,6 @@ function onWorksheetSelected() {
     nextBtn.disabled = false;
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 function buildMappingGrid(columns) {
     const grid = document.getElementById('wizardMappingGrid');
     const fields = [
@@ -12001,7 +11476,7 @@ async function exportCommsToWord() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = response.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'Communications Plan.docx';
+        a.download = filenameFromDisposition(response.headers.get('Content-Disposition')) || 'Communications Plan.docx';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -12279,11 +11754,7 @@ function extractCommsFromPlanText(planText) {
 
     const afterStart = startIdx + COMMS_START.length;
 
-    let endIdx = planText.length;
-    for (const marker of [LESSONS_START, BASELINE_START, WHITEBOARD_START]) {
-        const mIdx = planText.indexOf(marker, afterStart);
-        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-    }
+    const endIdx = npBackMatterSectionEnd(planText, afterStart, [COMMS_START]);
 
     return planText.substring(afterStart, endIdx).trim();
 }
@@ -13972,11 +13443,7 @@ function extractBaselineSectionText(planText) {
     if (idx === -1) return '';
 
     const afterStart = idx + marker.length;
-    let endIdx = planText.length;
-    for (const other of [WHITEBOARD_START]) {
-        const oi = planText.indexOf(other, afterStart);
-        if (oi !== -1 && oi < endIdx) endIdx = oi;
-    }
+    const endIdx = npBackMatterSectionEnd(planText, afterStart, [marker]);
 
     return planText.substring(afterStart, endIdx).trim();
 }
@@ -14338,17 +13805,10 @@ function extractWhiteboardFromPlanText(planText) {
     if (startIdx === -1) return '';
     const afterStart = startIdx + WHITEBOARD_START.length;
 
-    // Whiteboard is canonically the second-to-last back-matter section
-    // (parking lot, issue #1019, follows it) -- scan for every other
-    // marker, not just the ones that used to come after it, so a parking
-    // lot section is never swallowed into "whiteboard text".
-    let endIdx = planText.length;
-    for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
-                          RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
-                          PARKING_LOT_START]) {
-        const mIdx = planText.indexOf(marker, afterStart);
-        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-    }
+    // Parking lot and estimates both canonically follow the whiteboard --
+    // stop at every other marker (back-matter-markers.js), not just the ones
+    // that used to come after it, or an estimates table is read as notes.
+    const endIdx = npBackMatterSectionEnd(planText, afterStart, [WHITEBOARD_START]);
 
     return planText.substring(afterStart, endIdx).trim();
 }
@@ -14624,13 +14084,10 @@ function updatePlanWhiteboardText(planText, items) {
     let after = '';
     if (startIdx !== -1) {
         const afterStart = startIdx + WHITEBOARD_START.length;
-        let endIdx = planText.length;
-        for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
-                              RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
-                              PARKING_LOT_START]) {
-            const mIdx = planText.indexOf(marker, afterStart);
-            if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-        }
+        // The same boundary extractWhiteboardFromPlanText() reads to, so a
+        // section after the whiteboard (estimates, typically) is carried
+        // over in `after` rather than overwritten with the new table.
+        const endIdx = npBackMatterSectionEnd(planText, afterStart, [WHITEBOARD_START]);
         before = planText.substring(0, startIdx);
         after = planText.substring(endIdx);
     }
@@ -14742,15 +14199,9 @@ function extractParkingLotFromPlanText(planText) {
     if (startIdx === -1) return '';
     const afterStart = startIdx + PARKING_LOT_START.length;
 
-    // Parking lot is canonically the last back-matter section, but stay
-    // defensive in case some other marker follows it in hand-edited text.
-    let endIdx = planText.length;
-    for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
-                          RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
-                          WHITEBOARD_START]) {
-        const mIdx = planText.indexOf(marker, afterStart);
-        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-    }
+    // Estimates (#1053) canonically follows the parking lot, and hand-edited
+    // text can put anything after it -- stop at every other marker.
+    const endIdx = npBackMatterSectionEnd(planText, afterStart, [PARKING_LOT_START]);
 
     return planText.substring(afterStart, endIdx).trim();
 }
@@ -14872,9 +14323,9 @@ function generateParkingLotText(items) {
  * Update plan text with the given parking lot items, rewriting only the
  * ---parking lot--- section and leaving every other back-matter section,
  * front matter, and the task outline untouched. If `items` is empty, any
- * existing parking lot section is removed. Parking lot is canonically the
- * last back-matter section, so nothing needs to be preserved and
- * re-appended after it -- mirrors updatePlanWhiteboardText().
+ * existing parking lot section is removed. Whatever follows it -- the
+ * estimates section, canonically -- is carried over untouched; mirrors
+ * updatePlanWhiteboardText().
  */
 function updatePlanParkingLotText(planText, items) {
     const startIdx = planText.indexOf(PARKING_LOT_START);
@@ -14882,13 +14333,7 @@ function updatePlanParkingLotText(planText, items) {
     let after = '';
     if (startIdx !== -1) {
         const afterStart = startIdx + PARKING_LOT_START.length;
-        let endIdx = planText.length;
-        for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
-                              RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
-                              WHITEBOARD_START]) {
-            const mIdx = planText.indexOf(marker, afterStart);
-            if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-        }
+        const endIdx = npBackMatterSectionEnd(planText, afterStart, [PARKING_LOT_START]);
         before = planText.substring(0, startIdx);
         after = planText.substring(endIdx);
     }
@@ -15526,24 +14971,15 @@ function extractHighlightsFromText(text) {
     if (!text) return [];
 
     const HIGHLIGHTS_START = '---highlights---';
-    const HIGHLIGHTS_END = '---end-highlights---';
-    const RAID_LOG_START_MARKER = '---raid log---';
-    const BUDGET_START_MARKER = '---budget---';
 
     const startIdx = text.indexOf(HIGHLIGHTS_START);
     if (startIdx === -1) return [];
 
     const afterStart = startIdx + HIGHLIGHTS_START.length;
 
-    // Find the end: explicit end marker, budget section, raid log section,
-    // whiteboard section, or EOF
-    let endIdx = text.length;
-    for (const marker of [HIGHLIGHTS_END, BUDGET_START_MARKER, RAID_LOG_START_MARKER, WHITEBOARD_START]) {
-        const idx = text.indexOf(marker, afterStart);
-        if (idx !== -1 && idx < endIdx) {
-            endIdx = idx;
-        }
-    }
+    // Find the end: the explicit ---end-highlights--- marker, whichever
+    // other section follows, or EOF
+    const endIdx = npBackMatterSectionEnd(text, afterStart, [HIGHLIGHTS_START]);
 
     const section = text.substring(afterStart, endIdx);
     const highlights = [];
@@ -16411,7 +15847,7 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
             html += '        </span>';
             html += '        <span class="inspector-dep-name">';
             if (dep.lineNumber) {
-                html += '<a href="#" onclick="openTaskInspectorByName(\'' + escapeHtml(dep.name).replace(/'/g, "\\'") + '\'); return false;" style="color: inherit; text-decoration: underline dotted;">';
+                html += '<a href="#" onclick="openTaskInspectorByName(\'' + escapeJsAttr(dep.name) + '\'); return false;" style="color: inherit; text-decoration: underline dotted;">';
                 html += escapeHtml(dep.name);
                 html += '</a>';
             } else {

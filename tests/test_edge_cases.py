@@ -3,6 +3,7 @@
 import pytest
 from datetime import datetime, timedelta
 from noodle_core import (
+    Calendar,
     get_next_working_day,
     add_working_days,
     extract_metadata,
@@ -10,23 +11,41 @@ from noodle_core import (
     natural_language_to_yaml,
     detect_dependency_loops,
 )
+from noodle_core.date_math import is_working_day
 
 
 class TestInfiniteLoopProtection:
     """Tests to prevent infinite loops in scheduling functions."""
 
     def test_get_next_working_day_with_all_holidays(self):
-        """Test that function doesn't hang with unreasonable holiday sets."""
+        """A long unbroken run of holidays is searched past, not given up on.
+
+        The search used to be capped at a flat 366 days, so this raised;
+        the cap now scales with the number of holiday dates, which still
+        bounds the loop (it can't hang) but always reaches the far side of
+        any finite holiday set.
+        """
         start = datetime(2025, 1, 1)
         # Create a set of 1000 consecutive days as holidays
         holidays = {start + timedelta(days=i) for i in range(1000)}
 
-        # Should not hang - need to add max iteration protection
-        # This test will currently fail/hang without the fix
-        with pytest.raises((ValueError, RuntimeError)) as exc_info:
-            result = get_next_working_day(start, holidays)
-            # If it returns, check it didn't iterate too far
-            assert result < start + timedelta(days=365), "Iterated too far looking for working day"
+        result = get_next_working_day(start, holidays)
+        assert result == datetime(2027, 9, 28)  # the Tuesday after day 999
+
+    def test_get_next_working_day_with_no_working_days_at_all(self):
+        """With no working day to find, the bounded search still gives up."""
+        never = Calendar(name='Never', week_pattern=[set()])
+        with pytest.raises(ValueError):
+            get_next_working_day(datetime(2025, 1, 1), never)
+
+    def test_an_18_month_shutdown_is_scheduled_past(self):
+        start = datetime(2026, 1, 1)
+        shutdown = {(start + timedelta(days=i)).date() for i in range(548)}
+        reopen = datetime(2027, 7, 5)  # the shutdown ends Fri 2027-07-02
+        assert get_next_working_day(start, shutdown) == reopen
+        assert add_working_days(start, 2, shutdown) == datetime(2027, 7, 7)  # Mon, Tue; exclusive
+        assert not is_working_day(start + timedelta(days=300), shutdown)
+        assert is_working_day(reopen, shutdown)
 
     def test_add_working_days_large_number(self):
         """Test adding a very large number of working days."""
@@ -125,6 +144,39 @@ class TestCircularDependencies:
 
         result = detect_dependency_loops(tasks)
         assert result['has_loops'] is True
+
+    def test_cycle_is_reported_as_a_path_from_where_the_walk_entered_it(self):
+        """Pins the reported form so the iterative walk (which replaced a
+        recursive one that overflowed on long chains) cannot drift."""
+        tasks = [
+            {'name': 'Task A', 'depends': ['Task B']},
+            {'name': 'Task B', 'depends': ['Task C']},
+            {'name': 'Task C', 'depends': ['Task A']},
+            {'name': 'Task D', 'depends': ['Task C']},
+        ]
+
+        result = detect_dependency_loops(tasks)
+        assert result['loops'] == ['task a -> task b -> task c -> task a']
+        assert sorted(result['affected_tasks']) == ['task a', 'task b', 'task c']
+        assert result['task_warnings']['Task B'] == (
+            'Circular dependency detected. Part of cycle: task a -> task b -> task c -> task a'
+        )
+
+    def test_long_chain_does_not_overflow_the_stack(self):
+        """A chain far longer than Python's recursion limit, written
+        dependant-first, used to raise RecursionError out of the DFS."""
+        n = 3000
+        tasks = [{'name': f'T{i}', 'depends': [f'T{i - 1}'] if i > 1 else []}
+                 for i in range(n, 0, -1)]
+
+        result = detect_dependency_loops(tasks)
+        assert result['has_loops'] is False
+
+        # ...and one link back to the far end closes a loop through all of it
+        tasks[-1]['depends'] = [f'T{n}']
+        result = detect_dependency_loops(tasks)
+        assert result['loops'] == [' -> '.join(f't{i}' for i in range(n, 0, -1)) + f' -> t{n}']
+        assert len(result['affected_tasks']) == n
 
 
 class TestMissingDependencies:
@@ -494,6 +546,58 @@ class TestMemoryAndPerformance:
         assert len(tasks) == 100
         # Should complete in reasonable time even with long chain
         assert duration < 2.0, f"Scheduling took {duration}s, should be < 2s"
+
+    def test_many_holidays_do_not_slow_scheduling_down(self):
+        """The holiday set used to be re-normalized (and copied per task) on
+        every date calculation: 2,000 tasks against ~3,000 holiday dates
+        took seconds instead of hundredths of a second."""
+        from datetime import date
+
+        first = date(2020, 1, 1)
+        holidays = {first + timedelta(days=3 * i) for i in range(3000)}  # to 2044
+        lines = ["Phase 1", "  Task 0 @alice 1d 2026-03-16"]
+        lines += [f"  * Task {i} @alice 1d" for i in range(1, 2000)]
+        # a few with a resource day of their own, so there is more than one
+        # task calendar in play
+        lines += [f"  Extra {i} @bob 1d 2026-03-16" for i in range(5)]
+        yaml_data = natural_language_to_yaml("\n".join(lines), "Project")
+
+        import time
+        start = time.perf_counter()
+        tasks = schedule_tasks(yaml_data["Project"], holidays=holidays,
+                               resource_non_working_days={'bob': {date(2026, 3, 16)}})
+        duration = time.perf_counter() - start
+        assert duration < 1.5, f"Scheduling took {duration:.2f}s, should be well under 1.5s"
+
+        # Same dates as ever: a chain of 1-day tasks takes consecutive
+        # working days, i.e. weekdays not in the holiday set.
+        expected, day = [], datetime(2026, 3, 16)
+        while len(expected) < 2000:
+            if day.weekday() < 5 and day.date() not in holidays:
+                expected.append(day)
+            day += timedelta(days=1)
+        chain = [t for t in tasks if t['name'].startswith('Task ')]
+        assert [t['start'] for t in chain] == expected
+        assert [t['finish'] for t in chain] == [d + timedelta(days=1) for d in expected]
+        assert all(t['critical'] for t in chain)
+        # 2026-03-16 is a Monday, a working day but not bob's
+        extras = [t for t in tasks if t['name'].startswith('Extra ')]
+        assert {t['finish'] for t in extras} == {datetime(2026, 3, 18)}
+
+    def test_long_chain_written_dependant_first_schedules(self):
+        """A 3,000-task chain listed last-task-first used to crash
+        schedule_tasks with RecursionError in the dependency-loop check."""
+        n = 3000
+        lines = ["Phase 1"]
+        for i in range(n, 0, -1):
+            dep = f" [depends Task{i - 1}]" if i > 1 else ""
+            lines.append(f"  Task{i} @alice 1d{dep}")
+
+        yaml_data = natural_language_to_yaml("\n".join(lines), "Project")
+        tasks = schedule_tasks(yaml_data["Project"])
+
+        assert len(tasks) == n + 1  # n tasks + 1 phase
+        assert not any('loop_warning' in t for t in tasks)
 
 
 class TestDeadlineMetadata:

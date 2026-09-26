@@ -315,16 +315,8 @@ function extractCompletionFromPlanText(planText) {
     var fmMatch = body.match(/^---\n[\s\S]*?\n---\n?/);
     if (fmMatch) body = body.substring(fmMatch[0].length);
 
-    // Stop at special sections
-    var markers = ['---highlights---', '---budget---', '---benefits---',
-        '---raid log---', '---comms---', '---lessons learned---', '---baseline---',
-        '---whiteboard---'];
-    var endIdx = body.length;
-    for (var i = 0; i < markers.length; i++) {
-        var idx = body.indexOf(markers[i]);
-        if (idx !== -1 && idx < endIdx) endIdx = idx;
-    }
-    body = body.substring(0, endIdx);
+    // Stop at the back matter (every section -- see back-matter-markers.js)
+    body = body.substring(0, npBackMatterSectionEnd(body, 0));
 
     var lines = body.split('\n');
 
@@ -1396,7 +1388,7 @@ function updateResourcesTable(tasks) {
             shortnameCell.style.cursor = 'pointer';
             shortnameCell.title = 'Double-click to rename shortname';
             shortnameCell.addEventListener('dblclick', () => {
-                startInlineRename(shortnameCell, displayShortname);
+                startResourceShortnameRename(shortnameCell, displayShortname);
             });
             row.appendChild(shortnameCell);
 
@@ -1471,8 +1463,11 @@ function updateResourcesTable(tasks) {
     }
 }
 
-// Inline rename for resource shortname in the resources table
-function startInlineRename(cell, currentShortname) {
+// Inline rename for resource shortname in the resources table. Not
+// startInlineRename(): portfolio-projects-table.js declares a global of
+// that name (the project-name rename), which, loading later, replaced
+// this one and made a double-click on a shortname throw.
+function startResourceShortnameRename(cell, currentShortname) {
     const input = document.createElement('input');
     input.type = 'text';
     input.value = currentShortname;
@@ -1556,14 +1551,6 @@ function fixResourceNames() {
         editor.value = content;
         editor.dispatchEvent(new Event('input', { bubbles: true }));
     }
-}
-
-/**
- * Check if a date is a weekend (Saturday or Sunday)
- */
-function isWeekend(date) {
-    const day = date.getDay();
-    return day === 0 || day === 6; // Sunday = 0, Saturday = 6
 }
 
 /**

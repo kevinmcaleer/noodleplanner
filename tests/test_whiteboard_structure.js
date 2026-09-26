@@ -38,6 +38,8 @@ function assertEqual(actual, expected, msg) {
 
 const sandbox = { console };
 vm.createContext(sandbox);
+// The canonical back-matter markers, which index.html loads before either.
+vm.runInContext(read('back-matter-markers.js'), sandbox);
 vm.runInContext(read('task-tokenizer.js'), sandbox);
 vm.runInContext(read('whiteboard-structure.js'), sandbox);
 

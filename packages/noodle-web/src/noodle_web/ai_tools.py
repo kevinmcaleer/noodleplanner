@@ -10,6 +10,7 @@ import re
 import yaml
 
 from noodle_core.format_converter import (
+    ALL_SECTION_MARKERS,
     BASELINE_START,
     BENEFITS_START,
     BUDGET_START,
@@ -17,7 +18,6 @@ from noodle_core.format_converter import (
     HIGHLIGHTS_START,
     HIGHLIGHTS_END,
     RAID_LOG_START,
-    WHITEBOARD_START,
     extract_baseline,
     extract_benefits,
     extract_budget,
@@ -45,18 +45,14 @@ from noodle_core.format_converter import (
 )
 
 # ---------------------------------------------------------------------------
-# Section order for reassembly: budget, benefits, raid log, comms, baseline,
-# whiteboard
+# Every back-matter section marker: the task area ends at the first of them.
+# This used to be a hand-kept list of six that had fallen behind the core's
+# sections (no highlights, lessons learned, parking lot or estimates), so
+# add_task on a plan whose first section was one of those appended the task
+# inside that section, where it was never scheduled.
 # ---------------------------------------------------------------------------
 
-SECTION_MARKERS = [
-    BUDGET_START,
-    BENEFITS_START,
-    RAID_LOG_START,
-    COMMS_START,
-    BASELINE_START,
-    WHITEBOARD_START,
-]
+SECTION_MARKERS = ALL_SECTION_MARKERS
 
 
 # ===================================================================
@@ -202,7 +198,42 @@ def _get_task_area(plan_text: str) -> tuple[str, int, int]:
             task_end = i
             break
 
+    # update_plan_highlights leads its section in with a bare ``---`` line
+    # (see strip_highlights). That separator belongs to the section, not the
+    # task list, so a task appended at the end must go above it.
+    j = task_end
+    while j > task_start and not lines[j - 1].strip():
+        j -= 1
+    if j > task_start and task_end < len(lines) and lines[j - 1].strip() == '---':
+        task_end = j - 1
+
     return '\n'.join(lines[task_start:task_end]), task_start, task_end
+
+
+# A token that starts a task line's metadata: the task's name is every token
+# before the first of these. ``N%`` is among them because update_task writes
+# progress in that form, and a bare-name task given a completion must still be
+# found by name afterwards; ``[repeats`` so that "Standup [repeats daily]" is
+# found as "Standup" by the recurrence tools.
+_METADATA_TOKEN = re.compile(r'^(\d+[dwmy]|\d{1,3}%|@|!\"|%\d|#|\$|\[depends|\[repeats)')
+
+
+def _split_task_line(line: str) -> tuple[str, str, str]:
+    """Split a task line into ``(prefix, name, rest)``.
+
+    *prefix* is the indentation and any sequential ``*``, *name* the task
+    name as written, and *rest* everything after the name (starting with the
+    whitespace before its first metadata token), so that
+    ``prefix + name + rest == line``.
+    """
+    prefix = re.match(r'\s*\**\s*', line).group()
+    body = line[len(prefix):]
+    name_end = len(body.rstrip())
+    for token in re.finditer(r'\S+', body):
+        if _METADATA_TOKEN.match(token.group()):
+            name_end = len(body[:token.start()].rstrip())
+            break
+    return prefix, body[:name_end], body[name_end:]
 
 
 def _find_task_line(plan_text: str, task_name: str) -> int | None:
@@ -214,23 +245,55 @@ def _find_task_line(plan_text: str, task_name: str) -> int | None:
     lines = plan_text.split('\n')
 
     for i in range(area_start, area_end):
-        line = lines[i]
-        stripped = line.lstrip()
-        # Remove leading * for sequential tasks
-        name_part = stripped.lstrip('*').strip()
-        # Extract just the task name (before any metadata tokens)
-        tokens = name_part.split()
-        # Build the name by taking tokens until we hit a metadata marker
-        name_tokens = []
-        for t in tokens:
-            if re.match(r'^(\d+[dwmy]|@|!\"|%\d|#|\$|\[depends)', t):
-                break
-            name_tokens.append(t)
-        line_name = ' '.join(name_tokens)
+        line_name = ' '.join(_split_task_line(lines[i])[1].split())
         if line_name.lower() == task_name.lower():
             return i
 
     return None
+
+
+# Parts of a task line whose insides are not task tokens: the [depends ...],
+# [repeats ...] and [levelled ...] blocks, a resource allocation's [50%], and
+# quoted comments. The "+2d" in "[depends Design +2d]" is a lag, not the
+# task's duration, so token edits must not look inside them.
+_OPAQUE_SPAN = re.compile(r'\[[^\]]*\]|!?"[^"]*"|!\'[^\']*\'')
+_COMMENT_SPAN = re.compile(r'!?"[^"]*"|!\'[^\']*\'')
+_DURATION_TOKEN = re.compile(r'\d+[dwmy]')
+# Percent complete as the core reads it (``80%``), its legacy form (``p80``),
+# and the ``%80`` form this module used to write, which the core never read.
+_PROGRESS_TOKEN = re.compile(r'\d{1,3}%|p\d{1,3}|%\d{1,3}')
+# ``@name:P`` / ``:R`` / ``:A`` is a quality-role assignment, not a resource.
+_QUALITY_ROLE_TOKEN = re.compile(r'@[^:\s]+:[PRA]', re.IGNORECASE)
+
+
+def _is_resource_token(token: str) -> bool:
+    return token.startswith('@') and not _QUALITY_ROLE_TOKEN.fullmatch(token)
+
+
+def _remove_span(text: str, start: int, end: int) -> str:
+    """Remove ``text[start:end]`` and the whitespace in front of it."""
+    while start > 0 and text[start - 1] in ' \t':
+        start -= 1
+    return text[:start] + text[end:]
+
+
+def _set_token(rest: str, is_token, new_token: str,
+               drop_others: bool = False) -> str:
+    """Put *new_token* in place of the first token of *rest* that *is_token*
+    accepts, or append it if there is none. With *drop_others*, any further
+    matching tokens are removed. Every other token is left as written.
+    """
+    # Blank opaque spans to NULs (not spaces, so an allocation stays part of
+    # its @name token); the offsets still line up with *rest*.
+    masked = _OPAQUE_SPAN.sub(lambda m: '\0' * len(m.group()), rest)
+    spans = [m.span() for m in re.finditer(r'\S+', masked) if is_token(m.group())]
+    if not spans:
+        return rest.rstrip() + f' {new_token}'
+    if drop_others:
+        for start, end in reversed(spans[1:]):
+            rest = _remove_span(rest, start, end)
+    start, end = spans[0]
+    return rest[:start] + new_token + rest[end:]
 
 
 def _get_parent_indent(plan_text: str, parent_name: str) -> int | None:
@@ -275,7 +338,7 @@ def _build_task_line(indent: int, name: str, duration: str | None = None,
     if comment:
         parts.append(f' !"{comment}"')
     if completion is not None and completion > 0:
-        parts.append(f' %{completion}')
+        parts.append(f' {completion}%')
 
     return ''.join(parts)
 
@@ -723,75 +786,44 @@ def _update_task(plan_text: str, name: str, new_name: str | None = None,
                  duration: str | None = None, resource: str | None = None,
                  completion: int | None = None,
                  comment: str | None = None) -> tuple[str, str]:
-    """Update an existing task's properties."""
+    """Update an existing task's properties.
+
+    Each change edits its own token in place, or appends one, and every other
+    token on the line is left exactly as written. This used to rebuild the
+    line from seven regex captures, which dropped the second and later
+    resources, every label but the first, allocations, dates and
+    ``N%``/``pN`` progress, and wrote completion as ``%80``, which the core
+    parser never reads.
+    """
     idx = _find_task_line(plan_text, name)
     if idx is None:
         return plan_text, f"Task '{name}' not found."
 
     lines = plan_text.split('\n')
-    old_line = lines[idx]
-    indent = len(old_line) - len(old_line.lstrip())
-    stripped = old_line.lstrip()
-    is_sequential = stripped.startswith('*')
+    prefix, old_name, rest = _split_task_line(lines[idx])
 
-    # Parse existing metadata from the line
-    existing_duration = None
-    existing_resource = None
-    existing_completion = None
-    existing_comment = None
-    existing_depends = None
-    existing_deliverable = None
-    existing_label = None
+    if duration:
+        rest = _set_token(rest, _DURATION_TOKEN.fullmatch, duration)
+    if resource:
+        # The task's resource becomes this one, as with assign_resource;
+        # quality-role assignments are not resources and stay put.
+        r = resource if resource.startswith('@') else f'@{resource}'
+        rest = _set_token(rest, _is_resource_token, r, drop_others=True)
+    if completion is not None:
+        pct = max(0, min(100, int(completion)))
+        rest = _set_token(rest, _PROGRESS_TOKEN.fullmatch, f'{pct}%',
+                          drop_others=True)
+    if comment is not None:
+        match = _COMMENT_SPAN.search(rest)
+        new_comment = f'!"{comment}"' if comment else ''
+        if match and new_comment:
+            rest = rest[:match.start()] + new_comment + rest[match.end():]
+        elif match:
+            rest = _remove_span(rest, *match.span())
+        elif new_comment:
+            rest = rest.rstrip() + f' {new_comment}'
 
-    # Duration
-    dur_match = re.search(r'\b(\d+[dwmy])\b', stripped)
-    if dur_match:
-        existing_duration = dur_match.group(1)
-
-    # Resource
-    res_match = re.search(r'@(\S+)', stripped)
-    if res_match:
-        existing_resource = res_match.group(1)
-
-    # Completion
-    comp_match = re.search(r'%(\d+)', stripped)
-    if comp_match:
-        existing_completion = int(comp_match.group(1))
-
-    # Comment
-    comment_match = re.search(r'!"([^"]*)"', stripped)
-    if comment_match:
-        existing_comment = comment_match.group(1)
-
-    # Dependency
-    dep_match = re.search(r'\[depends\s*([^\]]*)\]', stripped, re.IGNORECASE)
-    if dep_match:
-        existing_depends = dep_match.group(1).strip()
-
-    # Deliverable
-    deliv_match = re.search(r'\$([A-Za-z_][A-Za-z0-9_-]*)', stripped)
-    if deliv_match:
-        existing_deliverable = deliv_match.group(1)
-
-    # Label
-    label_match = re.search(r'#([^@%#!\s]+)', stripped)
-    if label_match:
-        existing_label = label_match.group(1)
-
-    task_line = _build_task_line(
-        indent,
-        new_name if new_name else name,
-        duration=duration if duration else existing_duration,
-        resource=resource if resource else existing_resource,
-        sequential=is_sequential,
-        depends_on=existing_depends,
-        comment=comment if comment is not None else existing_comment,
-        completion=completion if completion is not None else existing_completion,
-        deliverable=existing_deliverable,
-        label=existing_label,
-    )
-
-    lines[idx] = task_line
+    lines[idx] = prefix + (new_name or old_name) + rest
     changes = []
     if new_name:
         changes.append(f"renamed to '{new_name}'")
@@ -1443,14 +1475,22 @@ def _remove_highlight(plan_text: str, date: str,
 # ── Milestones ────────────────────────────────────────────────
 
 
+# A bare YYYY-MM-DD token on a task line is its explicit start date (see
+# "Explicit Start Date" in docs/reference/plan-syntax.rst). A "D" prefix makes
+# it a deadline instead, which a milestone's date is not.
+_ISO_DATE = re.compile(r'\d{4}-\d{2}-\d{2}')
+
+
 def _add_milestone(plan_text: str, name: str,
                    parent: str | None = None,
                    date: str | None = None) -> tuple[str, str]:
-    """Add a milestone (a task with 0d duration)."""
-    extra = ''
-    if date:
-        extra = f' start:{date}'
-    return _add_task(plan_text, name=name, parent=parent, duration='0d',
+    """Add a milestone (a task with 0d duration), dated if *date* is given."""
+    if date and not _ISO_DATE.fullmatch(date):
+        return plan_text, f"Invalid date '{date}': use YYYY-MM-DD."
+    # _build_task_line writes the duration straight after the name, so the
+    # date rides along with it rather than widening add_task's own arguments.
+    duration = f'0d {date}' if date else '0d'
+    return _add_task(plan_text, name=name, parent=parent, duration=duration,
                      comment=None, resource=None, depends_on=None,
                      sequential=False)
 
@@ -1459,62 +1499,70 @@ def _update_milestone(plan_text: str, name: str,
                       new_name: str | None = None,
                       date: str | None = None) -> tuple[str, str]:
     """Update a milestone name or date."""
-    return _update_task(plan_text, name=name, new_name=new_name,
-                        duration=None, resource=None, completion=None,
-                        comment=None)
+    if date and not _ISO_DATE.fullmatch(date):
+        return plan_text, f"Invalid date '{date}': use YYYY-MM-DD."
+    idx = _find_task_line(plan_text, name)
+    if idx is None:
+        return plan_text, f"Milestone '{name}' not found."
+
+    lines = plan_text.split('\n')
+    prefix, old_name, rest = _split_task_line(lines[idx])
+    if date:
+        rest = _set_token(rest, _ISO_DATE.fullmatch, date)
+    lines[idx] = prefix + (new_name or old_name) + rest
+
+    changes = []
+    if new_name:
+        changes.append(f"renamed to '{new_name}'")
+    if date:
+        changes.append(f"date={date}")
+    return '\n'.join(lines), f"Updated milestone '{name}': {', '.join(changes)}."
 
 
 # ── Labels ────────────────────────────────────────────────────
+#
+# These and the recurrence tools below used to unpack _get_task_area's
+# (text, start, end) as (text, before, after) and return
+# ``before + text + after`` -- a TypeError on every call, which execute_tool
+# reported to the model as "Invalid arguments". They now find the task with
+# _find_task_line and edit that one line, like set_dependency.
+
+
+def _label_pattern(tag: str) -> re.Pattern:
+    # Whole tokens only, so "#urg" is not found in (or cut out of) "#urgent".
+    return re.compile(r'(?<!\S)' + re.escape(tag) + r'(?!\S)', re.IGNORECASE)
 
 
 def _add_label(plan_text: str, task_name: str,
                label: str) -> tuple[str, str]:
     """Add a #label tag to a task."""
-    task_area, before, after = _get_task_area(plan_text)
-    lines = task_area.split('\n')
     tag = f'#{label}' if not label.startswith('#') else label
+    idx = _find_task_line(plan_text, task_name)
+    if idx is None:
+        return plan_text, f"Task '{task_name}' not found."
 
-    for i, line in enumerate(lines):
-        stripped = line.strip().lstrip('*').strip()
-        tokens = stripped.split()
-        t_name = []
-        for t in tokens:
-            if re.match(r'^(\d+[dwmy]|@|!\"|%\d|#|\$|\[depends)', t):
-                break
-            t_name.append(t)
-        if ' '.join(t_name).lower() == task_name.lower():
-            if tag.lower() in line.lower():
-                return plan_text, f"Task '{task_name}' already has label {tag}."
-            lines[i] = line.rstrip() + f' {tag}'
-            return before + '\n'.join(lines) + after, f"Added {tag} to '{task_name}'."
-
-    return plan_text, f"Task '{task_name}' not found."
+    lines = plan_text.split('\n')
+    if _label_pattern(tag).search(lines[idx]):
+        return plan_text, f"Task '{task_name}' already has label {tag}."
+    lines[idx] = lines[idx].rstrip() + f' {tag}'
+    return '\n'.join(lines), f"Added {tag} to '{task_name}'."
 
 
 def _remove_label(plan_text: str, task_name: str,
                   label: str) -> tuple[str, str]:
     """Remove a #label tag from a task."""
-    task_area, before, after = _get_task_area(plan_text)
-    lines = task_area.split('\n')
     tag = f'#{label}' if not label.startswith('#') else label
+    idx = _find_task_line(plan_text, task_name)
+    if idx is None:
+        return plan_text, f"Task '{task_name}' not found."
 
-    for i, line in enumerate(lines):
-        stripped = line.strip().lstrip('*').strip()
-        tokens = stripped.split()
-        t_name = []
-        for t in tokens:
-            if re.match(r'^(\d+[dwmy]|@|!\"|%\d|#|\$|\[depends)', t):
-                break
-            t_name.append(t)
-        if ' '.join(t_name).lower() == task_name.lower():
-            # Remove the label tag (case-insensitive)
-            new_line = re.sub(r'\s*' + re.escape(tag), '', line, flags=re.IGNORECASE)
-            if new_line == line:
-                return plan_text, f"Task '{task_name}' does not have label {tag}."
-            lines[i] = new_line
-            return before + '\n'.join(lines) + after, f"Removed {tag} from '{task_name}'."
-
-    return plan_text, f"Task '{task_name}' not found."
+    lines = plan_text.split('\n')
+    # Remove the label tag (case-insensitive) and the space before it
+    match = _label_pattern(tag).search(lines[idx])
+    if not match:
+        return plan_text, f"Task '{task_name}' does not have label {tag}."
+    lines[idx] = _remove_span(lines[idx], *match.span())
+    return '\n'.join(lines), f"Removed {tag} from '{task_name}'."
 
 
 # ── Recurrence ────────────────────────────────────────────────
@@ -1523,48 +1571,29 @@ def _remove_label(plan_text: str, task_name: str,
 def _set_recurrence(plan_text: str, task_name: str,
                     pattern: str) -> tuple[str, str]:
     """Set a recurrence pattern on a task. Pattern examples: 'weekly', 'monthly', 'every 2 weeks'."""
-    task_area, before, after = _get_task_area(plan_text)
-    lines = task_area.split('\n')
+    idx = _find_task_line(plan_text, task_name)
+    if idx is None:
+        return plan_text, f"Task '{task_name}' not found."
 
-    for i, line in enumerate(lines):
-        stripped = line.strip().lstrip('*').strip()
-        tokens = stripped.split()
-        t_name = []
-        for t in tokens:
-            if re.match(r'^(\d+[dwmy]|@|!\"|%\d|#|\$|\[depends|\[repeats)', t):
-                break
-            t_name.append(t)
-        if ' '.join(t_name).lower() == task_name.lower():
-            # Remove existing recurrence
-            new_line = re.sub(r'\s*\[repeats\s+[^\]]*\]', '', line)
-            new_line = new_line.rstrip() + f' [repeats {pattern}]'
-            lines[i] = new_line
-            return before + '\n'.join(lines) + after, f"Set recurrence '{pattern}' on '{task_name}'."
-
-    return plan_text, f"Task '{task_name}' not found."
+    lines = plan_text.split('\n')
+    # Remove existing recurrence
+    new_line = re.sub(r'\s*\[repeats\s+[^\]]*\]', '', lines[idx])
+    lines[idx] = new_line.rstrip() + f' [repeats {pattern}]'
+    return '\n'.join(lines), f"Set recurrence '{pattern}' on '{task_name}'."
 
 
 def _remove_recurrence(plan_text: str, task_name: str) -> tuple[str, str]:
     """Remove recurrence from a task."""
-    task_area, before, after = _get_task_area(plan_text)
-    lines = task_area.split('\n')
+    idx = _find_task_line(plan_text, task_name)
+    if idx is None:
+        return plan_text, f"Task '{task_name}' not found."
 
-    for i, line in enumerate(lines):
-        stripped = line.strip().lstrip('*').strip()
-        tokens = stripped.split()
-        t_name = []
-        for t in tokens:
-            if re.match(r'^(\d+[dwmy]|@|!\"|%\d|#|\$|\[depends|\[repeats)', t):
-                break
-            t_name.append(t)
-        if ' '.join(t_name).lower() == task_name.lower():
-            new_line = re.sub(r'\s*\[repeats\s+[^\]]*\]', '', line)
-            if new_line == line:
-                return plan_text, f"Task '{task_name}' has no recurrence."
-            lines[i] = new_line
-            return before + '\n'.join(lines) + after, f"Removed recurrence from '{task_name}'."
-
-    return plan_text, f"Task '{task_name}' not found."
+    lines = plan_text.split('\n')
+    new_line = re.sub(r'\s*\[repeats\s+[^\]]*\]', '', lines[idx])
+    if new_line == lines[idx]:
+        return plan_text, f"Task '{task_name}' has no recurrence."
+    lines[idx] = new_line
+    return '\n'.join(lines), f"Removed recurrence from '{task_name}'."
 
 
 # ── Update non-working day ────────────────────────────────────
@@ -1574,12 +1603,21 @@ def _update_non_working_day(plan_text: str, name: str,
                             new_name: str | None = None,
                             start_date: str | None = None,
                             end_date: str | None = None) -> tuple[str, str]:
-    """Update an existing non-working day entry."""
-    fm, body = _split_front_matter(plan_text)
-    lines = fm.split('\n')
+    """Update an existing non-working day entry.
+
+    Edits the entry's line in place, so the rest of the front matter keeps
+    its order and formatting. (This called an undefined
+    ``_split_front_matter``, so every call failed with a NameError.)
+    """
+    _, fm_start, fm_end = _parse_front_matter(plan_text)
+    if fm_start == -1:
+        return plan_text, "No front matter found in plan."
+
+    lines = plan_text.split('\n')
     in_nwd = False
 
-    for i, line in enumerate(lines):
+    for i in range(fm_start + 1, fm_end):
+        line = lines[i]
         stripped = line.strip()
         if stripped.lower() in ('non-working-days:', 'holidays:'):
             in_nwd = True
@@ -1595,12 +1633,14 @@ def _update_non_working_day(plan_text: str, name: str,
                 if match:
                     s = s or match.group(1)
                     e = e or match.group(2) or ''
-                new_entry = f'  - {n}: {s}'
+                if not s:
+                    return plan_text, f"Non-working day '{name}' has no date; give a start_date."
+                indent = line[:len(line) - len(line.lstrip())]
+                new_entry = f'{indent}- {n}: {s}'
                 if e:
                     new_entry += f':{e}'
                 lines[i] = new_entry
-                updated_fm = '\n'.join(lines)
-                return updated_fm + '\n' + body, f"Updated non-working day '{name}'."
+                return '\n'.join(lines), f"Updated non-working day '{name}'."
         elif in_nwd and not stripped.startswith('-') and stripped and ':' in stripped:
             in_nwd = False
 
