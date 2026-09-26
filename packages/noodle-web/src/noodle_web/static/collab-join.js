@@ -713,6 +713,21 @@ function initJoinPage() {
     // whiteboard's own commit raises this event too -- is a local change.
     const editor = planEditorEl();
     if (editor) editor.addEventListener('input', noteLocalPlanChange);
+    prefillJoinName();
+}
+
+/** #1377: the name from the joiner's saved profile, so they need not type
+ * it again. Only into an empty field -- never over what they typed. */
+function prefillJoinName() {
+    const input = el('displayName');
+    if (!input || input.value || typeof NoodleUserProfile === 'undefined') return;
+    input.value = NoodleUserProfile.displayName(NoodleUserProfile.get());
+}
+
+/** The name "Your profile" starts from when there is no profile yet
+ * (user-profile.js): the one this joiner joined the session as. */
+function userProfileSuggestedName() {
+    return joinedName;
 }
 
 if (document.readyState === 'loading') {

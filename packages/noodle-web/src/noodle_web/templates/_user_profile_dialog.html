@@ -1,0 +1,67 @@
+    <!-- "Your profile" (#1377), opened from the profile circle at the right of
+         the ribbon's title bar. The same details as the Add/Edit Resource
+         form, kept in this browser only -- see static/user-profile.js, which
+         owns every control in here. A shared partial because the join page
+         shows the same circle and has no detail pane to put a form in. -->
+    <dialog id="userProfileDialog" class="user-profile-dialog" aria-labelledby="userProfileTitle">
+        <div class="user-profile-panel">
+            <div class="modal-header">
+                <h2 id="userProfileTitle">Your profile</h2>
+                <np-close-button id="userProfileClose" label="Close your profile"></np-close-button>
+            </div>
+            <div class="modal-body">
+                <p class="user-profile-note">Saved in this browser only, never in a plan. Your name and initials are
+                    what others see in a planning session.</p>
+                <form id="userProfileForm" autocomplete="on">
+                    <div class="form-group">
+                        <label for="userProfileFullName">Full Name *</label>
+                        <input type="text" id="userProfileFullName" maxlength="100" placeholder="e.g., Alice Smith" autocomplete="name">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userProfileShortname">Shortname</label>
+                        <input type="text" id="userProfileShortname" maxlength="50" placeholder="e.g., alice" autocomplete="username">
+                        <small>How plans refer to you, with an @ prefix (e.g., @alice)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userProfileRole">Role</label>
+                        <input type="text" id="userProfileRole" maxlength="100" placeholder="e.g., Project Manager" autocomplete="organization-title">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userProfileEmail">Email</label>
+                        <input type="email" id="userProfileEmail" maxlength="254" placeholder="e.g., alice@example.com" autocomplete="email">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userProfileAllocation">Work Allocation %</label>
+                        <input type="number" id="userProfileAllocation" min="0" max="100" placeholder="e.g., 50">
+                        <small>Share of your time you usually give a project (0-100%)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label id="userProfileNonWorkingDaysLabel">Non-Working Days</label>
+                        <table class="nwd-exceptions-table" role="grid" aria-labelledby="userProfileNonWorkingDaysLabel">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Name</th>
+                                    <th scope="col">Start</th>
+                                    <th scope="col">Finish</th>
+                                    <th scope="col" class="nwd-actions-col" aria-label="Actions"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="userProfileNonWorkingDaysTableBody">
+                            </tbody>
+                        </table>
+                        <small>Holidays, leave, or other days you are not working</small>
+                    </div>
+
+                    <div class="form-actions user-profile-actions">
+                        <np-button variant="danger" outline id="userProfileClear">Clear profile</np-button>
+                        <np-button variant="primary" id="userProfileDone">Done</np-button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </dialog>

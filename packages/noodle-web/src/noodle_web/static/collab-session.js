@@ -123,7 +123,21 @@ let collabAutosaveTimer = null;
 // action below, which writes one chosen message into the canonical plan.
 const collabChatEntries = [];
 const collabChatEntryIds = new Set();
+// The ids of the host's own messages: what puts them on the right of the
+// host's chat. Not the sender name, which a joiner can share and the host's
+// own profile can change mid-session.
+const collabOwnChatIds = new Set();
 let collabChatUnread = 0;
+
+/** The name the host goes by in the session (#1377): their saved profile's
+ * (user-profile.js), or "Host" without one. Read on every message, so a
+ * profile set up mid-session takes effect on the next one. */
+function collabHostName() {
+    const name = (typeof NoodleUserProfile !== 'undefined')
+        ? NoodleUserProfile.displayName(NoodleUserProfile.get())
+        : '';
+    return name || 'Host';
+}
 
 function collabChatId() {
     if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
@@ -152,6 +166,7 @@ function buildCollabChatEntry(type, sender, text, id, timestamp) {
 function resetCollabChat() {
     collabChatEntries.length = 0;
     collabChatEntryIds.clear();
+    collabOwnChatIds.clear();
     collabChatUnread = 0;
     const list = document.getElementById('collabChatList');
     if (list) list.innerHTML = '';
@@ -265,12 +280,12 @@ function receiveCollabChatEntry(entry, countUnread) {
 
 /** Draw the host's chat panel with collab-chat.js's shared bubbles (#1347),
  * the same renderer the joiner page uses. The host's own messages are sent
- * as "Host", so that is the name they sit on the right under. */
+ * under collabHostName() and sit on the right by id (collabOwnChatIds). */
 function renderCollabChat() {
     const list = document.getElementById('collabChatList');
     if (!list || typeof NoodleCollabChat === 'undefined') return;
     NoodleCollabChat.render(list, collabChatEntries, {
-        selfName: 'Host',
+        ownIds: collabOwnChatIds,
         onPromote: (entry) => promoteCollabChatToComment(entry.id),
     });
 }
@@ -279,7 +294,8 @@ async function submitCollabChat(event) {
     if (event) event.preventDefault();
     const input = document.getElementById('collabChatInput');
     if (!input || !input.value.trim()) return;
-    const entry = buildCollabChatEntry('chat', 'Host', input.value);
+    const entry = buildCollabChatEntry('chat', collabHostName(), input.value);
+    if (entry) collabOwnChatIds.add(entry.id);
     input.value = '';
     receiveCollabChatEntry(entry, false);
     await sendCollabMessage(JSON.stringify(entry));
@@ -1135,7 +1151,7 @@ function scheduleCollabPlanBroadcast() {
         collabLocalEditTimer = null;
         collabPlanRev++;
         broadcastCollabPlan(null, null)
-            .then(() => recordCollabActivity('Host', 'updated the plan'));
+            .then(() => recordCollabActivity(collabHostName(), 'updated the plan'));
     }, 250);
 }
 

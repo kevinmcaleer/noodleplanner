@@ -36,9 +36,13 @@
         try { return new Date(timestamp).toISOString(); } catch { return ''; }
     }
 
-    /** A message whose sender is `selfName` is the reader's own. */
-    function isOwn(entry, selfName) {
-        return !!selfName && String(entry.sender || '') === String(selfName);
+    /** The reader's own message: one whose id is in `ownIds`, when the
+     * reader knows which messages it sent, else one whose sender is
+     * `selfName`. Ids are exact where a name is not -- two people can share
+     * one, and the host's can change mid-session with their profile. */
+    function isOwn(entry, options) {
+        if (options.ownIds) return options.ownIds.has(String(entry.id));
+        return !!options.selfName && String(entry.sender || '') === String(options.selfName);
     }
 
     function buildActivity(entry) {
@@ -54,7 +58,7 @@
     }
 
     function buildMessage(entry, options) {
-        const own = isOwn(entry, options.selfName);
+        const own = isOwn(entry, options);
         const row = document.createElement('article');
         row.className = own ? 'np-chat-message is-own' : 'np-chat-message';
         row.dataset.entryId = entry.id;
@@ -104,6 +108,8 @@
      *
      * options.selfName   -- the reader's own display name; their messages
      *                       sit on the right.
+     * options.ownIds     -- a Set of the ids of the reader's own messages.
+     *                       When given, it decides instead of selfName.
      * options.onPromote  -- when given, each message gets an "Add to task"
      *                       action calling it with the entry (host only).
      * options.emptyText  -- shown when there is nothing yet.
