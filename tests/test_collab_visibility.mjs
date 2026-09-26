@@ -169,3 +169,100 @@ test('a plan without a final newline still merges a joiner\'s appended task', ()
     assert.equal(result.ok, true);
     assert.equal(result.text, 'Open\nSecret\nNew');
 });
+
+// A joiner's pin or unpin rewrites the whole whiteboard table, padded to its
+// widest cell (script.js's updatePlanWhiteboardText()). Merged line by line,
+// that edit spans the host's hidden rows, and every pin and unpin was
+// refused as `protected` while anything on the board was hidden.
+const BOARD_PLAN = [
+    'Alpha',
+    '  Alpha one',
+    '  Alpha two',
+    'Beta',
+    '  Beta one',
+    '',
+    '---whiteboard---',
+    '| Task  | X   | Y  | Colour  | Width | Height | Collapsed |',
+    '|-------|-----|----|---------|-------|--------|-----------|',
+    '| Alpha | 60  | 60 | #FFAFA3 | 240   | 180    | no        |',
+    '| Beta  | 360 | 60 |         | 240   | 180    | no        |',
+    '',
+].join('\n');
+
+test('a joiner pinning a note keeps the host\'s hidden rows on the board', () => {
+    const state = hide(BOARD_PLAN, null, 'Beta');
+    const shared = V.redactPlanText(BOARD_PLAN, state);
+    assert.doesNotMatch(shared, /Beta/);
+    // What the joiner's wbCommitAddNotes() sends: the table re-padded, the
+    // final newline gone.
+    const edited = [
+        'Alpha',
+        '  Alpha one',
+        '  Alpha two',
+        '',
+        '---whiteboard---',
+        '| Task      | X   | Y   | Colour  | Width | Height | Collapsed |',
+        '|-----------|-----|-----|---------|-------|--------|-----------|',
+        '| Alpha     | 60  | 60  | #FFAFA3 | 240   | 180    | no        |',
+        '| Alpha one | 200 | 284 |         |       |        | no        |',
+    ].join('\n');
+    const result = V.restoreHidden(BOARD_PLAN, shared, edited, state);
+    assert.equal(result.ok, true);
+    assert.equal(result.text, [
+        'Alpha',
+        '  Alpha one',
+        '  Alpha two',
+        'Beta',
+        '  Beta one',
+        '',
+        '---whiteboard---',
+        '| Task      | X   | Y   | Colour  | Width | Height | Collapsed |',
+        '|-----------|-----|-----|---------|-------|--------|-----------|',
+        '| Alpha     | 60  | 60  | #FFAFA3 | 240   | 180    | no        |',
+        '| Alpha one | 200 | 284 |         |       |        | no        |',
+        '| Beta      | 360 | 60  |         | 240   | 180    | no        |',
+    ].join('\n'));
+    // And the joiner is still shown only what they were before, plus the pin.
+    assert.doesNotMatch(V.redactPlanText(result.text, result.state), /Beta/);
+});
+
+test('a joiner unpinning the last note they can see keeps the hidden rows', () => {
+    const state = hide(BOARD_PLAN, null, 'Beta');
+    const shared = V.redactPlanText(BOARD_PLAN, state);
+    // An empty board: updatePlanWhiteboardText() drops the section outright.
+    const result = V.restoreHidden(BOARD_PLAN, shared, 'Alpha\n  Alpha one\n  Alpha two', state);
+    assert.equal(result.ok, true);
+    assert.equal(result.text, [
+        'Alpha',
+        '  Alpha one',
+        '  Alpha two',
+        'Beta',
+        '  Beta one',
+        '',
+        '---whiteboard---',
+        '| Task | X   | Y  | Colour | Width | Height | Collapsed |',
+        '|------|-----|----|--------|-------|--------|-----------|',
+        '| Beta | 360 | 60 |        | 240   | 180    | no        |',
+        '',
+    ].join('\n'));
+});
+
+test('a joiner\'s board edit leaves the section that follows it alone', () => {
+    const plan = BOARD_PLAN + '\n---parking lot---\n- idea\n';
+    const state = hide(plan, null, 'Beta');
+    const shared = V.redactPlanText(plan, state);
+    const edited = shared.replace('| Alpha | 60  | 60 |', '| Alpha | 90  | 60 |');
+    const result = V.restoreHidden(plan, shared, edited, state);
+    assert.equal(result.ok, true);
+    assert.equal(result.text, plan.replace('| Alpha | 60  | 60 |', '| Alpha | 90  | 60 |'));
+});
+
+test('a joiner cannot write a board row for a hidden task', () => {
+    const state = hide(BOARD_PLAN, null, 'Beta');
+    const shared = V.redactPlanText(BOARD_PLAN, state);
+    const edited = shared.replace(
+        '| Alpha | 60  | 60 | #FFAFA3 | 240   | 180    | no        |',
+        '| Alpha | 60  | 60 | #FFAFA3 | 240   | 180    | no        |\n| Beta  | 0   | 0  |         |       |        | no        |'
+    );
+    assert.deepEqual(V.restoreHidden(BOARD_PLAN, shared, edited, state), { ok: false, reason: 'protected' });
+});

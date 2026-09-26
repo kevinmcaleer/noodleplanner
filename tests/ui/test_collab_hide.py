@@ -152,6 +152,38 @@ class TestHiding:
         )
         assert re.search(r"Secret\n  Payroll \[depends:? Alpha one\]", plan_of(host_page))
 
+    def test_a_joiner_can_pin_and_unpin_while_a_note_is_hidden(self, joiner, host):
+        # A pin or unpin rewrites the whole whiteboard table, and merged line
+        # by line it ran across the hidden task's row: every one was refused
+        # as touching the host's private part of the plan.
+        host_page, _ = host
+        host_page.bring_to_front()
+        outline_row(host_page, "Secret").locator(".wb-outline-eye").click()
+        wait_for_joiner_plan(joiner, "!text.includes('Secret')")
+        joiner.bring_to_front()
+
+        row = outline_row(joiner, "Alpha one")
+        row.hover()
+        row.locator(".wb-outline-add").click()
+        host_page.wait_for_function(
+            "() => document.querySelector('#whiteboardContainer .wb-note[data-wb-task=\"Alpha one\"]')"
+        )
+
+        joiner.locator('#whiteboardContainer .wb-note[data-wb-task="Alpha"] .wb-note-title').click()
+        joiner.locator(".wb-object-toolbar .wb-object-toolbar-unpin").click()
+        host_page.wait_for_function(
+            "() => !document.querySelector('#whiteboardContainer .wb-note[data-wb-task=\"Alpha\"]')"
+        )
+
+        rows = host_page.evaluate(
+            "() => parseWhiteboardMarkdown(extractWhiteboardFromPlanText("
+            "  document.getElementById('planEditor').value)).map(row => row.task)"
+        )
+        assert "Secret" in rows and "Alpha one" in rows and "Alpha" not in rows
+        assert "private" not in joiner.inner_text("body")
+        # Still hidden from the joiner.
+        assert "Secret" not in plan_of(joiner)
+
     def test_ending_the_session_forgets_the_settings(self, joiner, host):
         host_page, _ = host
         host_page.bring_to_front()

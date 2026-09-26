@@ -322,6 +322,13 @@
         return new Set(model.tasks.filter(task => !isShared(task, state)));
     }
 
+    /** The lower-cased names of the `hidden` tasks. A name is only secret
+     * if no shared task also carries it. */
+    function secretNames(model, hidden) {
+        const sharedNames = new Set(model.tasks.filter(task => !hidden.has(task)).map(task => key(task.name)));
+        return new Set([...hidden].map(task => key(task.name)).filter(name => name && !sharedNames.has(name)));
+    }
+
     /** The plan as joiners are allowed to see it. */
     function redactPlanText(planText, state) {
         const text = String(planText == null ? '' : planText);
@@ -330,9 +337,7 @@
         const hidden = hiddenTaskSet(model, state);
         if (!hidden.size) return text;
 
-        // A name is only secret if no shared task also carries it.
-        const sharedNames = new Set(model.tasks.filter(task => !hidden.has(task)).map(task => key(task.name)));
-        const hiddenNames = new Set([...hidden].map(task => key(task.name)).filter(name => name && !sharedNames.has(name)));
+        const hiddenNames = secretNames(model, hidden);
 
         const out = [];
         const emit = line => out.push(line.text + line.eol);
@@ -401,6 +406,144 @@
         return `${block.parent === null ? '' : 'parent:' + block.parent}\u0000${block.text}`;
     }
 
+    // ── The whiteboard table ──────────────────────────────────────────────
+    //
+    // A joiner's whiteboard edit (a pin, an unpin, a move) rewrites the whole
+    // `---whiteboard---` table, re-padded to its widest cell. Line by line,
+    // that one edit spans every row -- including the gaps where the host's
+    // hidden rows sit -- so the merge below could never place it around them
+    // and every pin was refused as `protected`. The section is
+    // therefore merged as a table: the joiner's rows as they sent them, and
+    // the hidden rows put back in.
+
+    const WHITEBOARD = '---whiteboard---';
+
+    function isWhiteboardMarker(line) {
+        return line.trim().toLowerCase() === WHITEBOARD;
+    }
+
+    function isTableLine(line) {
+        return line.trim().startsWith('|');
+    }
+
+    /**
+     * Lift the whiteboard section's contents out of `text`. `rest` keeps the
+     * marker on a line of its own, with one blank line before it (and one
+     * after, when another section follows), so the three texts restoreHidden
+     * merges agree on it however the joiner's copy was spaced. `body` is the
+     * section's lines, or null when there is no section.
+     */
+    function liftWhiteboard(text) {
+        const lines = text.split('\n');
+        const start = lines.findIndex(isWhiteboardMarker);
+        if (start === -1) return { rest: text, body: null };
+        let end = start + 1;
+        while (end < lines.length && !BACK_MATTER.test(lines[end].trim())) end++;
+        let from = start;
+        while (from > 0 && !lines[from - 1].trim()) from--;
+        const body = lines.slice(start + 1, end);
+        while (body.length && !body[body.length - 1].trim()) body.pop();
+        const after = lines.slice(end);
+        const rest = lines.slice(0, from).concat(from ? [''] : [], [lines[start]], after.length ? [''] : [], after);
+        return { rest: rest.join('\n'), body };
+    }
+
+    /** Put `body` back under the whiteboard marker in `rest`, the merged
+     * text. `finalNewline` is whether a section that ends the plan ends
+     * with a newline. */
+    function lowerWhiteboard(rest, body, finalNewline) {
+        const lines = rest.split('\n');
+        const at = lines.findIndex(isWhiteboardMarker);
+        lines.splice(at + 1, 0, ...body);
+        if (at + 1 + body.length < lines.length) return lines.join('\n');
+        return lines.join('\n').replace(/\n+$/, '') + (finalNewline ? '\n' : '');
+    }
+
+    /**
+     * `edited` with an empty whiteboard section where `sharedRest` (the
+     * shared copy, lifted) has one: updatePlanWhiteboardText() drops the
+     * section outright when the joiner unpins the last note they can see,
+     * and the merge needs the marker on both sides to put the host's hidden
+     * rows back under it. It goes before the section that followed it in
+     * the shared copy, or at the end.
+     */
+    function withEmptyWhiteboard(edited, sharedRest) {
+        const shared = sharedRest.split('\n');
+        const next = shared.slice(shared.findIndex(isWhiteboardMarker) + 1).find(line => line.trim());
+        const lines = edited.split('\n');
+        let at = next ? lines.findIndex(line => line.trim().toLowerCase() === next.trim().toLowerCase()) : -1;
+        if (at === -1) {
+            at = lines.length;
+            while (at > 0 && !lines[at - 1].trim()) at--;
+        }
+        lines.splice(at, 0, WHITEBOARD);
+        return lines.join('\n');
+    }
+
+    /** A table row's cells, trimmed. An escaped `\|` is part of its cell. */
+    function tableCells(line) {
+        return line.trim().replace(/^\|/, '').replace(/(^|[^\\])\|$/, '$1').split(/(?<!\\)\|/).map(cell => cell.trim());
+    }
+
+    /**
+     * The joiner's whiteboard `body` with the host's `hidden` lines put back:
+     * hidden rows after its last row, reshaped to its columns (a board with
+     * a text object carries three more than one without), and anything else
+     * -- an HTML comment -- at the end. A padded table is re-padded
+     * around the new rows. When the joiner unpinned every note
+     * they could see, the rows go under the header of the host's own table.
+     */
+    function withHiddenRows(body, hidden, fullBody) {
+        const out = body.slice();
+        // The app writes a padded table; one typed by hand is left as typed.
+        const padded = new Set(out.filter(isTableLine).map(line => line.trimEnd().length)).size <= 1;
+        const fullHeader = fullBody.find(isTableLine);
+        const rows = hidden.filter(isTableLine);
+        const others = hidden.filter(line => !isTableLine(line));
+        let header = out.find(isTableLine);
+        if (!header && rows.length) {
+            const head = fullBody.filter(isTableLine).slice(0, 2);
+            out.push(...head);
+            header = head[0];
+        }
+        if (rows.length) {
+            const from = tableCells(fullHeader).map(name => name.toLowerCase());
+            const to = tableCells(header);
+            const reshaped = rows.map(row => {
+                const cells = tableCells(row);
+                const byName = new Map(from.map((name, index) => [name, cells[index] || '']));
+                return '| ' + to.map(name => byName.get(name.toLowerCase()) || '').join(' | ') + ' |';
+            });
+            let last = -1;
+            out.forEach((line, index) => { if (isTableLine(line)) last = index; });
+            out.splice(last + 1, 0, ...reshaped);
+        }
+        return (padded ? padTable(out) : out).concat(others);
+    }
+
+    /** `lines` with its table's columns padded to their widest cell, the
+     * way generateWhiteboardText() (script.js) writes them. */
+    function padTable(lines) {
+        const isSeparator = cells => cells.every(cell => /^:?-+:?$/.test(cell));
+        const rows = lines.map(line => (isTableLine(line) ? tableCells(line) : null));
+        const widths = [];
+        rows.forEach(cells => {
+            if (!cells || isSeparator(cells)) return;
+            cells.forEach((cell, index) => { widths[index] = Math.max(widths[index] || 0, cell.length); });
+        });
+        return lines.map((line, index) => {
+            const cells = rows[index];
+            if (!cells) return line;
+            if (isSeparator(cells)) return '|' + widths.map(width => '-'.repeat(width + 2)).join('|') + '|';
+            return '| ' + widths.map((width, i) => (cells[i] || '').padEnd(width)).join(' | ') + ' |';
+        });
+    }
+
+    function sameLines(a, b) {
+        if (a === null || b === null) return a === b;
+        return a.length === b.length && a.every((line, index) => line === b[index]);
+    }
+
     /**
      * Put a joiner's edit back together with the parts they cannot see.
      *
@@ -412,11 +555,44 @@
      */
     function restoreHidden(fullText, sharedText, editedText, state) {
         const full = String(fullText == null ? '' : fullText);
+        const shared = String(sharedText == null ? '' : sharedText);
         const edited = String(editedText == null ? '' : editedText);
         if (isTrivial(state)) return { ok: true, text: edited, state };
-        if (edited === sharedText) return { ok: true, text: full, state };
+        if (edited === shared) return { ok: true, text: full, state };
 
-        const merged = collabMerge().merge3(sharedText, edited, full);
+        const fullBoard = liftWhiteboard(full);
+        const model = asModel(full);
+        const hiddenNames = secretNames(model, hiddenTaskSet(model, state));
+        const leaks = line => leaksHiddenName(line, WHITEBOARD, hiddenNames);
+        const hiddenLines = fullBoard.body ? fullBoard.body.filter(leaks) : [];
+        if (!hiddenLines.length) return restoreOutline(full, shared, edited, state);
+
+        // The board holds rows the joiner cannot see: merge everything else
+        // line by line, and the table as a table.
+        const sharedBoard = liftWhiteboard(shared);
+        let editedBoard = liftWhiteboard(edited);
+        const finalNewline = editedBoard.body ? /\n$/.test(edited) : /\n$/.test(full);
+        if (!editedBoard.body && sharedBoard.body) {
+            editedBoard = liftWhiteboard(withEmptyWhiteboard(edited, sharedBoard.rest));
+        }
+        let body;
+        if (sameLines(sharedBoard.body, editedBoard.body)) {
+            body = fullBoard.body;
+        } else {
+            // A row naming a hidden task is not the joiner's to write.
+            if ((editedBoard.body || []).some(leaks)) return { ok: false, reason: 'protected' };
+            body = withHiddenRows(editedBoard.body || [], hiddenLines, fullBoard.body);
+        }
+        const result = restoreOutline(fullBoard.rest, sharedBoard.rest, editedBoard.rest, state);
+        if (!result.ok) return result;
+        if (!result.text.split('\n').some(isWhiteboardMarker)) return { ok: false, reason: 'protected' };
+        return { ...result, text: lowerWhiteboard(result.text, body, finalNewline) };
+    }
+
+    /** restoreHidden()'s line merge, and the check that it left every
+     * hidden subtree exactly as it was. */
+    function restoreOutline(full, shared, edited, state) {
+        const merged = collabMerge().merge3(shared, edited, full);
         if (merged === null) return { ok: false, reason: 'protected' };
 
         const fullModel = asModel(full);
