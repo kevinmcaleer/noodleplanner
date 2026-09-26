@@ -6,7 +6,6 @@ import hashlib
 import logging
 import tempfile
 import unicodedata
-import zipfile
 import xml.etree.ElementTree as ET
 import yaml
 from contextlib import asynccontextmanager
@@ -26,30 +25,11 @@ import uvicorn
 from dotenv import load_dotenv
 
 from noodle_core import (
-    text_to_markdown_table,
-    export_to_excel,
-    export_to_csv,
-    export_timeline_to_powerpoint,
-    export_report_to_powerpoint,
-    export_portfolio_to_powerpoint,
-    export_to_pdf,
-    convert_plan_format_to_standard,
-    extract_title_from_frontmatter,
-    natural_language_to_yaml,
-    schedule_tasks,
-    calculate_rag_status,
-    parse_resource_mappings,
     analyze_workbook,
     convert_excel_to_markdown,
     convert_planner_to_markdown,
-    extract_highlights,
-    extract_raid_log,
-    parse_raid_markdown,
-    extract_baseline,
-    parse_baseline_markdown,
     extract_budget,
     parse_budget_markdown,
-    FrontMatterParser,
     import_from_msproject_xml,
 )
 import json
@@ -64,7 +44,7 @@ from .collab_session import (
     collab_sessions,
     run_idle_sweep_forever,
 )
-from .plan_service import PlanService, export_to_file
+from .plan_service import PlanService
 from .ai_service import (
     AIChatRequest,
     AITestRequest,
