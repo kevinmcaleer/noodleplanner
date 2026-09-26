@@ -665,7 +665,6 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 /* Shared presentation surfaces use the same quiet hierarchy as the handoff. */
 :root body .ribbon-file-btn { background: var(--np-accent); color: var(--np-on-accent); }
 :root body .ribbon-file-btn:hover { background: var(--np-accent-hover); color: var(--np-on-accent); }
-:root body .ribbon-avatar { background: var(--np-selected); color: var(--np-ink); }
 :root body .ribbon-search-wrap, :root body .ribbon-search-input::placeholder,
 :root body .ribbon-group-caption, :root body .ribbon-more-caption { color: var(--np-faint); }
 :root body .ribbon-banner { background: transparent; border: 0; padding: 0; white-space: normal; color: var(--np-ink); }
