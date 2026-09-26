@@ -4972,10 +4972,12 @@ function getPreviousTaskName(lines, currentLineNum) {
             // Skip summary tasks (phases that have children)
             if (isSummaryLine(lines, i)) continue;
 
-            // Parse this line to get just the task name
-            const task = parseTaskLine(line, i + 1);
-            if (task.name) {
-                return task.name;
+            // Just the task name, as parseTaskLine() reads it -- not
+            // parseTaskLine() itself: on a `*` line that would resolve this
+            // task's own predecessor too, and so on up the whole chain
+            const name = TaskLineTokenizer.metadata(line).values.name;
+            if (name) {
+                return name;
             }
         }
     }
