@@ -71,7 +71,12 @@ MAX_TASK_COUNT = int(os.environ.get("NOODLE_MAX_TASK_COUNT", 10000))
 MAX_NESTING_DEPTH = int(os.environ.get("NOODLE_MAX_NESTING_DEPTH", 20))
 MAX_TASK_NAME_LENGTH = int(os.environ.get("NOODLE_MAX_TASK_NAME_LENGTH", 500))
 
-DURATION_REGEX = re.compile(r"P(?:\d+D)?(?:\d+H)?(?:\d+M)?(?:\d+S)?")
+# A calendar date anywhere on a line marks it as carrying task details. This
+# used to be three hard-coded substrings ('2024-', '2025-', '2026-'), so from
+# 2027 a line whose only metadata was a date parsed as a bare heading: the date
+# became part of the task's name and every `[depends ...]` on it stopped
+# resolving. Same pattern the name extraction below already uses.
+_DATE_ANY = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 # RAID Log Excel column widths (in characters)
 RAID_COLUMN_WIDTHS = {
@@ -861,7 +866,7 @@ def natural_language_to_yaml(text, project_name="Project"):
         has_quotes = '"' in stripped or "'" in stripped
         has_deliverable = re.search(r'[/^]?\$[A-Za-z_]', stripped) is not None
         has_brackets = '[' in stripped
-        has_details = '@' in stripped or '%' in stripped or '!' in stripped or '#' in stripped or '2025-' in stripped or '2024-' in stripped or '2026-' in stripped or has_duration or has_quotes or has_deliverable or has_brackets
+        has_details = '@' in stripped or '%' in stripped or '!' in stripped or '#' in stripped or _DATE_ANY.search(stripped) is not None or has_duration or has_quotes or has_deliverable or has_brackets
 
         # Extract task name (everything before metadata), from the line
         # with a sequential lag (`* +2d Build 3d`) blanked out, so neither
