@@ -1862,7 +1862,6 @@ async function updateAllViews(planText, projectName) {
             { name: 'lessons',                 fn: () => { if (typeof updateLessonsView === 'function') updateLessonsView(result, planText); } },
             { name: 'budget',                  fn: () => updateBudgetView(planText) },
             { name: 'stakeholders',            fn: () => updateStakeholdersView() },
-            { name: 'benefits',                fn: () => { if (typeof updateBenefits === 'function') updateBenefits(); } },
             { name: 'evm',                     fn: () => updateEVM(result.tasks || []) },
             // #1114: the Forecast view shares calculateEVM()'s cached
             // evmData with the EVM view above (this entry runs right after
