@@ -166,6 +166,9 @@ function wbLoadViewport() {
 
 function wbApplyTransform(animate) {
     if (!wbGroup) return;
+    // Supersedes a pan/zoom frame still waiting to run (see
+    // wbApplyTransformSoon()): everything it would do happens here.
+    wbCancelTransformFrame();
     // The first placement has nothing on screen to animate from.
     if (!wbGroup.getAttribute('transform')) animate = false;
     const transformStr = `translate(${wbPanX}, ${wbPanY}) scale(${wbZoom})`;
@@ -192,6 +195,77 @@ function wbApplyTransform(animate) {
     // threshold, independent of any plan-text change -- refresh that
     // per-note class on every pan/zoom tick.
     if (typeof wbUpdateNoteZoomTiers === 'function') wbUpdateNoteZoomTiers();
+}
+
+// ── Pan and zoom input: one placement per frame ────────────────────────
+//
+// A wheel, a trackpad pinch, a mouse-drag pan and a touch pan or pinch each
+// report several events per frame, and re-placing every note on the board
+// (wbPlaceBoardObjects(): O(notes) attribute and style writes) for each of
+// them was work the screen never showed. Their handlers update
+// wbZoom/wbPanX/wbPanY at once but hand the placement to
+// wbApplyTransformSoon(), which does it in the next animation frame, once,
+// at whatever the pan/zoom is by then.
+//
+// The board's own <g> transforms are still written at once: they are two
+// attributes, and code (and tests) that read the board's transform must
+// see the pan/zoom the handlers just set. Code that *measures* a note on
+// screen calls wbFlushTransform() first, so it never measures a note
+// still drawn at the previous frame's view.
+
+let wbTransformFrame = null;
+
+function wbCancelTransformFrame() {
+    if (wbTransformFrame === null) return;
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(wbTransformFrame);
+    wbTransformFrame = null;
+}
+
+/** wbApplyTransform(false) for pan/zoom input: the <g> transforms now, the
+ * notes on the next frame. */
+function wbApplyTransformSoon() {
+    if (!wbGroup) return;
+    if (typeof requestAnimationFrame !== 'function') { wbApplyTransform(false); return; }
+    const transformStr = `translate(${wbPanX}, ${wbPanY}) scale(${wbZoom})`;
+    [wbGroup, wbOverlayGroup].filter(Boolean).forEach((g) => {
+        g.style.transition = '';
+        g.setAttribute('transform', transformStr);
+    });
+    wbTweenBoardObjects(null);
+    if (wbTransformFrame === null) {
+        wbTransformFrame = requestAnimationFrame(() => {
+            wbTransformFrame = null;
+            wbPlaceBoardObjectsNow();
+        });
+    }
+}
+
+/** Run a pending pan/zoom frame now, if there is one. */
+function wbFlushTransform() {
+    if (wbTransformFrame === null) return;
+    wbCancelTransformFrame();
+    wbPlaceBoardObjectsNow();
+}
+
+function wbPlaceBoardObjectsNow() {
+    wbPlaceBoardObjects({ zoom: wbZoom, panX: wbPanX, panY: wbPanY });
+    if (typeof wbUpdateNoteZoomTiers === 'function') wbUpdateNoteZoomTiers();
+}
+
+/** wbSvg's client rect, measured at most once a frame. The pan/zoom
+ * handlers need it on every event, and measuring straight after the
+ * previous event's writes made the browser lay them out first. The canvas
+ * itself does not move when the board pans, so one measurement a frame is
+ * exact. */
+let wbCanvasRectThisFrame = null;
+function wbCanvasClientRect() {
+    if (wbCanvasRectThisFrame) return wbCanvasRectThisFrame;
+    const rect = wbSvg.getBoundingClientRect();
+    if (typeof requestAnimationFrame === 'function') {
+        wbCanvasRectThisFrame = rect;
+        requestAnimationFrame(() => { wbCanvasRectThisFrame = null; });
+    }
+    return rect;
 }
 
 // ── Notes and text objects: placed in screen space ─────────────────────
@@ -492,7 +566,9 @@ function wbRememberVisibleRect(rect) {
 
 /**
  * Zoom by `factor`, anchored on a screen-space point relative to the
- * canvas (so the board point under that point stays fixed).
+ * canvas (so the board point under that point stays fixed). Animated for
+ * the zoom buttons; unanimated is the wheel and trackpad pinch, a stream
+ * of events, so the notes follow on the next frame (wbApplyTransformSoon()).
  */
 function wbZoomAt(anchorX, anchorY, factor, animate) {
     const newZoom = wbClampZoom(wbZoom * factor);
@@ -501,7 +577,8 @@ function wbZoomAt(anchorX, anchorY, factor, animate) {
     wbZoom = newZoom;
     wbPanX = next.panX;
     wbPanY = next.panY;
-    wbApplyTransform(animate);
+    if (animate) wbApplyTransform(true);
+    else wbApplyTransformSoon();
     wbUpdateZoomLabel();
     wbUpdateZoomButtons();
     wbScheduleSaveViewport();
@@ -765,7 +842,7 @@ function wbHandleWheel(e) {
     if (wbWheelScrollsNoteBody(e, wbWheelPixels(e.deltaY, e.deltaMode))) return; // the browser scrolls it
     e.preventDefault();
     if (!wbSvg) return;
-    const rect = wbSvg.getBoundingClientRect();
+    const rect = wbCanvasClientRect();
     const anchorX = e.clientX - rect.left;
     const anchorY = e.clientY - rect.top;
     const dx = wbWheelPixels(e.deltaX, e.deltaMode);
@@ -791,7 +868,7 @@ function wbHandleWheel(e) {
         const horizontal = e.shiftKey && !dx;
         wbPanX -= horizontal ? dy : dx;
         wbPanY -= horizontal ? 0 : dy;
-        wbApplyTransform(false);
+        wbApplyTransformSoon();
         wbScheduleSaveViewport();
     }
 }
@@ -860,7 +937,7 @@ function wbHandleMouseMove(e) {
     if (!wbIsDragging) return;
     wbPanX = wbDragStartPanX + (e.clientX - wbDragStartX);
     wbPanY = wbDragStartPanY + (e.clientY - wbDragStartY);
-    wbApplyTransform(false);
+    wbApplyTransformSoon();
 }
 
 function wbHandleMouseUp() {
@@ -910,7 +987,7 @@ function wbHandleTouchMove(e) {
     if (e.touches.length === 1 && wbIsDragging) {
         wbPanX = wbDragStartPanX + (e.touches[0].clientX - wbDragStartX);
         wbPanY = wbDragStartPanY + (e.touches[0].clientY - wbDragStartY);
-        wbApplyTransform(false);
+        wbApplyTransformSoon();
     } else if (e.touches.length === 2) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -920,7 +997,7 @@ function wbHandleTouchMove(e) {
             // the last move drags the board with it, so a two-finger swipe
             // on a touchscreen moves the canvas the way it does on a
             // trackpad.
-            const rect = wbSvg ? wbSvg.getBoundingClientRect() : { left: 0, top: 0 };
+            const rect = wbSvg ? wbCanvasClientRect() : { left: 0, top: 0 };
             const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
             const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
             wbPanX += midX - wbTouchMidX;
@@ -932,7 +1009,7 @@ function wbHandleTouchMove(e) {
             wbZoom = newZoom;
             wbPanX = next.panX;
             wbPanY = next.panY;
-            wbApplyTransform(false);
+            wbApplyTransformSoon();
             wbUpdateZoomLabel();
             wbUpdateZoomButtons();
         }
