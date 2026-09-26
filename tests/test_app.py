@@ -675,6 +675,59 @@ class TestNonAsciiDownloadFilenames:
             "Проект - Communications Plan.docx"
 
 
+class TestEventLoopStaysResponsive:
+    """Every route was ``async def`` but called the synchronous core, so a
+    slow export ran on the event loop itself: on the single-worker Pi one
+    PowerPoint export (~10s there) froze collab relaying, AI token streaming
+    and every other request until it finished."""
+
+    def test_health_answers_while_an_export_is_running(self, monkeypatch, sample_plan):
+        import asyncio
+        import threading
+        import time
+
+        import httpx
+        from noodle_web import plan_service as plan_service_module
+
+        started, finished = threading.Event(), threading.Event()
+        real_export = plan_service_module.export_to_csv
+
+        def slow_export(*args, **kwargs):
+            started.set()
+            time.sleep(0.5)
+            try:
+                return real_export(*args, **kwargs)
+            finally:
+                finished.set()
+
+        monkeypatch.setattr(plan_service_module, "export_to_csv", slow_export)
+
+        async def scenario():
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+                export = asyncio.create_task(ac.post("/render", json={
+                    "plan_text": sample_plan, "export_csv": True,
+                }))
+                # Wait, without blocking the loop, for the export to start.
+                for _ in range(500):
+                    if started.is_set():
+                        break
+                    await asyncio.sleep(0.01)
+                t0 = time.perf_counter()
+                health = await ac.get("/health")
+                elapsed = time.perf_counter() - t0
+                # Were we served while the export was still going? On a
+                # blocked loop, the wait above only ends once it has finished.
+                overlapped = not finished.is_set()
+                return health.status_code, elapsed, overlapped, (await export).status_code
+
+        health_status, elapsed, overlapped, export_status = asyncio.run(scenario())
+        assert export_status == 200
+        assert health_status == 200
+        assert overlapped, "the export blocked the event loop until it finished"
+        assert elapsed < 0.25
+
+
 class TestStaticFiles:
     """Test suite for static file serving."""
 

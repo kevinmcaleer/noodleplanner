@@ -5,6 +5,7 @@ Proxies chat completion requests to user-configured AI providers.
 API keys are received per-request and never stored or logged.
 """
 
+import asyncio
 import json
 import logging
 from pathlib import Path
@@ -318,9 +319,11 @@ async def proxy_chat_with_tools(
                         except json.JSONDecodeError:
                             args = {}
 
-                        # Execute the tool against the current plan
-                        current_plan, result_msg = execute_tool(
-                            func_name, current_plan, args,
+                        # Execute the tool against the current plan. Tools
+                        # parse and rewrite the whole plan (analyse_plan
+                        # schedules it), so run them off the event loop.
+                        current_plan, result_msg = await asyncio.to_thread(
+                            execute_tool, func_name, current_plan, args,
                         )
 
                         # Yield progress so the user sees what is happening

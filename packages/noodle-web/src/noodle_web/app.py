@@ -20,6 +20,7 @@ from fastapi.responses import Response, HTMLResponse, FileResponse, StreamingRes
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 import uvicorn
 from dotenv import load_dotenv
@@ -372,8 +373,18 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 
+# Routes that parse, schedule, render, export or import go through the
+# synchronous core (openpyxl, python-pptx, reportlab, temp files), so they
+# must not run on the event loop: on the single-worker Pi deployment one
+# PowerPoint export (~10s there) used to freeze collab relaying, AI token
+# streaming and every other request until it finished. A handler that
+# awaits nothing is a plain ``def``, which FastAPI runs in its threadpool;
+# one that must ``await file.read()`` reads the upload on the loop and hands
+# the processing to ``run_in_threadpool``.
+
+
 @app.post("/render")
-async def render_plan(data: RenderRequest):
+def render_plan(data: RenderRequest):
     """Render a project plan and optionally export to Excel/PPT/PDF/MS Project."""
     logger.info(f"Render request: exports={data.export_excel}, {data.export_ppt}, {data.export_pdf}, {data.export_msproject}")
 
@@ -473,7 +484,7 @@ def _matches(query_l: str, *fields) -> bool:
 
 
 @app.post("/api/search")
-async def search_plan(data: SearchRequest):
+def search_plan(data: SearchRequest):
     """Search the supplied plan text for matching items across all item types.
 
     Returns a flat list of result objects, each shaped as:
@@ -643,7 +654,7 @@ async def search_plan(data: SearchRequest):
 
 
 @app.post("/api/parse")
-async def parse_plan(data: RenderRequest):
+def parse_plan(data: RenderRequest):
     """Parse a project plan and return structured JSON data for tabbed views."""
     logger.info("Parse request received")
 
@@ -700,7 +711,7 @@ def _parse_today(value):
 
 
 @app.post("/api/analyse")
-async def analyse_plan_endpoint(data: AnalyseRequest):
+def analyse_plan_endpoint(data: AnalyseRequest):
     """Review a plan for common problems (#782): findings, fixes, health score.
 
     Stateless like /api/parse: the plan is reviewed and forgotten.
@@ -711,7 +722,7 @@ async def analyse_plan_endpoint(data: AnalyseRequest):
 
 
 @app.post("/api/analyse/fix")
-async def analyse_fix_endpoint(data: AnalyseFixRequest):
+def analyse_fix_endpoint(data: AnalyseFixRequest):
     """Apply one finding's one-click fix and return the new plan text."""
     from noodle_core.plan_quality import FixError, apply_finding_fix, apply_fix
 
@@ -745,7 +756,7 @@ _REPORT_MEDIA_TYPES = {
 
 
 @app.post("/api/reports/export")
-async def export_plan_report(data: PlanReportExportRequest):
+def export_plan_report(data: PlanReportExportRequest):
     """Export the Tasks by Assignment or Slippage report (#776) to Excel or PowerPoint.
 
     The browser sends the rows it is showing; the exporter only lays them
@@ -853,7 +864,7 @@ class ReportExportRequest(BaseModel):
 
 
 @app.post("/api/export-report-pptx")
-async def export_report_pptx_route(data: ReportExportRequest):
+def export_report_pptx_route(data: ReportExportRequest):
     """Export the project report as a PowerPoint file."""
     logger.info(f"Report PPTX export request for: {data.project_name}")
 
@@ -908,7 +919,7 @@ class PortfolioReportRequest(BaseModel):
 
 
 @app.post("/api/portfolio/export-pptx")
-async def export_portfolio_pptx_route(data: PortfolioReportRequest):
+def export_portfolio_pptx_route(data: PortfolioReportRequest):
     """Export a portfolio report as a multi-slide PowerPoint file."""
     logger.info(f"Portfolio PPTX export request: {data.portfolio_name} "
                 f"({len(data.project_reports)} projects)")
@@ -1003,7 +1014,7 @@ class BenefitsExportRequest(BaseModel):
 
 
 @app.post("/api/benefits/export-excel")
-async def export_benefits_excel(data: BenefitsExportRequest):
+def export_benefits_excel(data: BenefitsExportRequest):
     """Export benefit items to an Excel file with two sheets."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill
@@ -1095,7 +1106,7 @@ async def export_benefits_excel(data: BenefitsExportRequest):
 
 
 @app.post("/api/raid/export-excel")
-async def export_raid_excel(data: RaidExportRequest):
+def export_raid_excel(data: RaidExportRequest):
     """Export RAID log items to an Excel file."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill
@@ -1167,7 +1178,7 @@ async def import_raid_excel(file: UploadFile = File(...)):
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File too large")
 
-    try:
+    def read_items():
         wb = load_workbook(filename=io.BytesIO(content))
         ws = wb.active
 
@@ -1230,6 +1241,8 @@ async def import_raid_excel(file: UploadFile = File(...)):
 
         return {"items": items}
 
+    try:
+        return await run_in_threadpool(read_items)
     except (ValueError, KeyError, TypeError, IndexError) as e:
         logger.error(f"Error importing RAID Excel: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -1271,7 +1284,7 @@ class CommsExportRequest(BaseModel):
 
 
 @app.post("/api/comms/export-docx")
-async def export_comms_docx(data: CommsExportRequest):
+def export_comms_docx(data: CommsExportRequest):
     """Export comms plan to a Word document."""
     from noodle_core import export_comms_to_docx
 
@@ -1291,7 +1304,7 @@ async def export_comms_docx(data: CommsExportRequest):
 
 
 @app.post("/api/budget/export-excel")
-async def export_budget_excel(data: BudgetExportRequest):
+def export_budget_excel(data: BudgetExportRequest):
     """Export budget items to an Excel file."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill
@@ -1372,7 +1385,7 @@ async def import_budget_excel(file: UploadFile = File(...)):
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File too large")
 
-    try:
+    def read_items():
         wb = load_workbook(filename=io.BytesIO(content))
         ws = wb.active
 
@@ -1445,6 +1458,8 @@ async def import_budget_excel(file: UploadFile = File(...)):
 
         return {"items": items}
 
+    try:
+        return await run_in_threadpool(read_items)
     except (ValueError, KeyError, TypeError, IndexError) as e:
         logger.error(f"Error importing budget Excel: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -1473,7 +1488,7 @@ async def excel_analyze(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="File size exceeds maximum allowed")
 
     try:
-        result = analyze_workbook(file_bytes, file.filename)
+        result = await run_in_threadpool(analyze_workbook, file_bytes, file.filename)
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1509,7 +1524,9 @@ async def excel_convert(
         raise HTTPException(status_code=400, detail="task_name mapping is required")
 
     try:
-        result = convert_excel_to_markdown(file_bytes, file.filename, sheet_name, mapping)
+        result = await run_in_threadpool(
+            convert_excel_to_markdown, file_bytes, file.filename, sheet_name, mapping
+        )
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1533,7 +1550,7 @@ async def excel_convert_planner(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="File size exceeds maximum allowed")
 
     try:
-        result = convert_planner_to_markdown(file_bytes, file.filename)
+        result = await run_in_threadpool(convert_planner_to_markdown, file_bytes, file.filename)
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1565,7 +1582,7 @@ async def import_msproject(file: UploadFile = File(...)):
 
     try:
         xml_content = file_bytes.decode("utf-8")
-        markdown = import_from_msproject_xml(xml_content)
+        markdown = await run_in_threadpool(import_from_msproject_xml, xml_content)
 
         return {"markdown": markdown, "filename": file.filename}
     except HTTPException:
