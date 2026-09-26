@@ -588,14 +588,32 @@ async function joinSession(event) {
     event.preventDefault();
     const joinBtn = el('joinBtn');
     const status = el('status');
+    // The session is end-to-end encrypted with the Web Crypto API, which the
+    // browser only provides in a secure context (HTTPS, or localhost). Over
+    // plain HTTP on a LAN address crypto.subtle is undefined, and the key
+    // setup below threw -- leaving "Connecting..." up and Join disabled.
+    if (!(window.isSecureContext && globalThis.crypto && globalThis.crypto.subtle)) {
+        status.textContent = 'Joining needs a secure connection, and this page was opened over plain HTTP. '
+            + 'Ask the host for the https:// link, open that, and enter the code again.';
+        return;
+    }
     joinBtn.disabled = true;
     status.textContent = 'Connecting...';
     leaving = false;
 
     const code = el('joinCode').value.trim();
     const displayName = el('displayName').value.trim();
-    const { deriveConnectKey, generateEphemeralKeyPair } = await loadCollabCrypto();
-    keyPair = await generateEphemeralKeyPair();
+    let deriveConnectKey;
+    try {
+        const cryptoModule = await loadCollabCrypto();
+        deriveConnectKey = cryptoModule.deriveConnectKey;
+        keyPair = await cryptoModule.generateEphemeralKeyPair();
+    } catch (error) {
+        console.warn('[join] could not set up the encryption keys:', error);
+        status.textContent = 'Could not set up a secure connection in this browser. Try again, or use another browser.';
+        joinBtn.disabled = false;
+        return;
+    }
     sessionId = null;
     connectKeyPromise = null;
 

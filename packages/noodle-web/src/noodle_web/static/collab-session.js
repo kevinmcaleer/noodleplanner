@@ -1334,6 +1334,15 @@ async function handleCollabMessage(raw) {
     collabLog('(received an unrecognized message -- ignored)');
 }
 
+/** Planning sessions are end-to-end encrypted with the Web Crypto API
+ * (collab-crypto.js), which browsers only provide in a secure context:
+ * HTTPS, or localhost. Opened over plain HTTP on a LAN address,
+ * `crypto.subtle` is undefined and the key setup throws -- after the
+ * server has already been asked for a session and its code shown. */
+function collabCryptoAvailable() {
+    return !!(window.isSecureContext && globalThis.crypto && globalThis.crypto.subtle);
+}
+
 async function startCollabSession() {
     const overlay = document.getElementById('collabSessionOverlay');
     const status = document.getElementById('collabSessionStatus');
@@ -1344,6 +1353,14 @@ async function startCollabSession() {
     // here used to close the socket and drop every joiner.
     if (isCollabSessionLive()) {
         showCollabSessionModal();
+        return;
+    }
+    if (!collabCryptoAvailable()) {
+        overlay.classList.add('active');
+        details.style.display = 'none';
+        status.textContent = 'Planning sessions are encrypted, and this browser only allows that over a '
+            + 'secure connection. Open NoodlePlanner over HTTPS (or on this computer as localhost) to start one.';
+        if (typeof showToast === 'function') showToast('Planning sessions need an HTTPS connection', 'error');
         return;
     }
     collabSessionStarting = true;
@@ -1401,6 +1418,17 @@ async function startCollabSession() {
         collabSocket = new WebSocket(
             `${protocol}//${window.location.host}/ws/session/${info.session_id}?token=${encodeURIComponent(info.host_token)}`
         );
+    } catch (error) {
+        // The code above is already on screen as "Session live" -- take it
+        // back rather than advertise a session nobody can join.
+        console.error('Planning session: could not set up the encryption keys', error);
+        collabSessionStarting = false;
+        details.style.display = 'none';
+        setCollabChatActive(false);
+        status.textContent = 'Could not start a session. Please try again.';
+        if (typeof showToast === 'function') showToast('Could not start planning session', 'error');
+        refreshCollabRibbon();
+        return;
     } finally {
         // From here the socket itself says whether the session is live.
         collabSessionStarting = false;
