@@ -66,16 +66,8 @@ function windowDropShowProjectPage() {
 async function windowDropImportMsProject(file) {
     // Like the editor drop for plan files: the import lands in a new
     // project rather than overwriting whatever is open.
-    if (typeof clearPlanTrackingData === 'function') clearPlanTrackingData();
-    if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
-    const name = file.name.replace(/\.(xml|mpp)$/i, '');
-    const project = createProject(name);
-    setCurrentProjectId(project.id);
-    if (typeof updateProjectBreadcrumb === 'function') updateProjectBreadcrumb(project.name);
-    windowDropShowProjectPage();
-    await uploadMSProjectFile(file);
-    if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
-    if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
+    const project = await importMSProjectAsNewProject(file);
+    if (project) windowDropShowProjectPage();
 }
 
 async function windowDropImportJson(file) {
@@ -125,7 +117,7 @@ async function windowDropImportFile(file) {
             return null;
         case 'msproject':
             await windowDropImportMsProject(file);
-            return null;                        // uploadMSProjectFile reports itself
+            return null;                        // importMSProjectAsNewProject reports itself
         case 'json':
             return windowDropImportJson(file);
         default:
