@@ -191,6 +191,10 @@ function collectSettingsFromPanel() {
     const themeSelect = document.querySelector('input[name="settingsTheme"]:checked');
     if (themeSelect) settings.theme = themeSelect.value;
 
+    // Detail forms (#1409): side peek is the default, so it is not written.
+    const peekSelect = document.querySelector('input[name="settingsDetailPeek"]:checked');
+    if (peekSelect && peekSelect.value !== 'side') settings.detail_peek = peekSelect.value;
+
     return settings;
 }
 
@@ -203,6 +207,7 @@ function collectSettingsFromPanel() {
  * Called after plan loads / updateAllViews.
  */
 function applySettingsFromFrontMatter(frontMatter) {
+    applyDetailPeekDefault(frontMatter);
     if (!frontMatter || !frontMatter.settings) return;
 
     const s = frontMatter.settings;
@@ -258,6 +263,20 @@ function applySettingsFromFrontMatter(frontMatter) {
         const radio = document.querySelector(`input[name="settingsTheme"][value="${s.theme}"]`);
         if (radio) radio.checked = true;
     }
+}
+
+/**
+ * The project's default for how the detail forms open (#1409): `side`,
+ * `center` or `full`, from `settings: detail_peek`. np-detail-sheet.js owns
+ * the mode; it is a module that may not have loaded yet, so the value is also
+ * left on window for it to pick up. Called for every parse, including a plan
+ * with no settings block, which goes back to the side peek.
+ */
+function applyDetailPeekDefault(frontMatter) {
+    const settings = frontMatter && frontMatter.settings;
+    const mode = String((settings && settings.detail_peek) || 'side').toLowerCase();
+    window.__npDetailPeekDefault = mode;
+    if (window.NoodlePeek) window.NoodlePeek.setDefaultPeekMode(mode);
 }
 
 /**
@@ -335,6 +354,12 @@ function populateSettingsPanelFromState() {
     const theme = saved.theme || currentThemeChoice || 'light';
     const radio = document.querySelector(`input[name="settingsTheme"][value="${theme}"]`);
     if (radio) radio.checked = true;
+
+    // Detail forms (#1409)
+    const peek = saved.detail_peek || 'side';
+    const peekRadio = document.querySelector(`input[name="settingsDetailPeek"][value="${peek}"]`)
+        || document.querySelector('input[name="settingsDetailPeek"][value="side"]');
+    if (peekRadio) peekRadio.checked = true;
 
     // Layout (#1379) is per browser, from layout-mode.js, not front matter.
     const layout = (window.NoodleLayout && window.NoodleLayout.getOverride()) || 'auto';
@@ -703,6 +728,11 @@ function onSettingChanged(settingType) {
             if (radio && typeof setThemeChoice === 'function') {
                 setThemeChoice(radio.value);
             }
+            break;
+        }
+        case 'detail_peek': {
+            const radio = document.querySelector('input[name="settingsDetailPeek"]:checked');
+            if (radio) applyDetailPeekDefault({ settings: { detail_peek: radio.value } });
             break;
         }
     }

@@ -115,6 +115,25 @@ UI theme preference for this project. Overrides the global theme setting when th
 
 Valid values: ``light``, ``dark``, ``system``.
 
+``settings``
+~~~~~~~~~~~~
+
+The Project Settings panel's choices for this project, as indented ``key: value`` lines. The panel writes this block itself; you rarely need to edit it by hand.
+
+.. code-block:: yaml
+
+   settings:
+     board_hide_completed: true
+     detail_peek: center
+
+``detail_peek`` is how the detail forms (a task's details, a RAID item, a resource and the rest) open by default. Set it from **Settings → Layout → Open forms as**:
+
+- ``side`` (the default, and not written): a side peek, the panel on the right.
+- ``center``: a centre peek, a dialog in the middle of the window.
+- ``full``: a full page.
+
+The icons at the top left of every form switch between the three until the page is reloaded. A phone always opens a form as a full page.
+
 ``Resources``
 ~~~~~~~~~~~~~
 
