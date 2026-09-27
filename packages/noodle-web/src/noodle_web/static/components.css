@@ -3091,7 +3091,7 @@ tr:hover .task-context-btn,
     background: var(--np-surface);
     border-radius: 8px;
     padding: var(--np-space-16);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px var(--np-shadow);
     border-left: 4px solid var(--np-border-strong);
     display: flex;
     flex-direction: column;

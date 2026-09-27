@@ -418,7 +418,6 @@ body {
 
 /* Tour popup */
 [data-theme="dark"] .tour-popup {
-    background: var(--np-surface);
     color: var(--np-text);
     border-color: var(--np-border);
     box-shadow: 0 4px 20px var(--np-shadow-strong);
@@ -426,9 +425,7 @@ body {
 
 /* Templates modal cards */
 [data-theme="dark"] .template-card {
-    background: var(--np-surface);
     border-color: var(--np-border);
-    color: var(--np-text);
 }
 
 /* Keyboard shortcut modal */
@@ -881,7 +878,6 @@ body {
 
 /* Piechart popup */
 [data-theme="dark"] .piechart-popup {
-    background: var(--np-surface);
     box-shadow: 0 4px 12px var(--np-shadow-strong);
 }
 
@@ -900,7 +896,6 @@ body {
 
 /* Theme colour picker popup */
 [data-theme="dark"] .theme-colour-picker {
-    background: var(--np-surface);
     border-color: var(--np-border);
     box-shadow: 0 4px 12px var(--np-shadow-strong);
 }
@@ -1087,10 +1082,6 @@ body {
     color: #6db3f0;
 }
 
-[data-theme="dark"] .highlight-body {
-    color: var(--np-text);
-}
-
 [data-theme="dark"] .highlight-body h1,
 [data-theme="dark"] .highlight-body h2,
 [data-theme="dark"] .highlight-body h3 {
@@ -1168,7 +1159,6 @@ body {
 }
 
 [data-theme="dark"] .qa-check-card {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -1978,12 +1968,7 @@ body {
 
 /* Resource details modal in dark mode */
 [data-theme="dark"] .resource-details-content {
-    background: var(--np-surface);
     box-shadow: 0 4px 12px var(--np-shadow-strong);
-    color: var(--np-text);
-}
-
-[data-theme="dark"] #resourceDetailsBody h2 {
     color: var(--np-text);
 }
 
@@ -2017,10 +2002,6 @@ body {
 }
 
 /* ---- Welcome screen ---- */
-[data-theme="dark"] .welcome-screen h2 {
-    color: var(--np-text);
-}
-
 [data-theme="dark"] .welcome-screen p {
     color: var(--np-text-secondary);
 }
@@ -2289,7 +2270,7 @@ body {
 
 [data-theme="dark"] .portfolio-benefits-map-section {
     background: #1e1e1e;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 1px 3px var(--np-shadow);
 }
 
 [data-theme="dark"] .portfolio-benefits-map-section h3 {
