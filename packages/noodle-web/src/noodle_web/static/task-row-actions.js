@@ -286,11 +286,16 @@ function addRowInteractions(row, task, index, tableId) {
         row.insertBefore(handleCell, doneCell);
     }
 
-    // Add hover + buttons to the ID cell (3rd cell: drag, done, ID)
-    const btns = createRowAddButtons(task, index);
+    // Add hover + buttons to the ID cell (3rd cell: drag, done, ID). Only
+    // where there is a hover to reveal them: on a touch screen they would be
+    // unreachable, and Insert Task Above / Below are on the row's ⋯ menu,
+    // which a finger can open (#1386).
+    const canHover = typeof window === 'undefined' || !window.matchMedia ||
+        window.matchMedia('(hover: hover)').matches;
     const cells = row.querySelectorAll('td');
     const idCell = cells[2]; // drag=0, done=1, id=2
-    if (idCell) {
+    if (idCell && canHover) {
+        const btns = createRowAddButtons(task, index);
         idCell.style.position = 'relative';
         idCell.appendChild(btns.above);
         idCell.appendChild(btns.below);

@@ -671,36 +671,13 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         }
     }
 
-    // Long-press on line numbers to open task form (mobile support)
-    let longPressTimer = null;
-    let longPressLineNumber = null;
-
-    lineNumbers.addEventListener('touchstart', function(e) {
-        const target = e.target.closest('.line-number');
-        if (!target) return;
-
-        if (target.dataset.foldHeader === 'true') return;
-        longPressLineNumber = parseInt(target.dataset.lineNumber);
-        longPressTimer = setTimeout(() => {
-            if (typeof openTaskForm === 'function') {
-                openTaskForm(longPressLineNumber);
-            }
-        }, 500); // 500ms long press
-    });
-
-    lineNumbers.addEventListener('touchend', function(e) {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
-    });
-
-    lineNumbers.addEventListener('touchmove', function(e) {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
-    });
+    // Long-press a line number to open that line's task form (mobile
+    // support), through the app's one long-press (touch-gestures.js, #1386).
+    if (typeof NoodleTouch !== 'undefined') {
+        NoodleTouch.onLongPress(lineNumbers, ({ target }) => {
+            if (typeof openTaskForm === 'function') openTaskForm(parseInt(target.dataset.lineNumber, 10));
+        }, { selector: '.line-number', ignore: '.line-number[data-fold-header="true"]' });
+    }
 }
 
 /**

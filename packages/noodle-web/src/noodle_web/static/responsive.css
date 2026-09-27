@@ -516,3 +516,27 @@ body {
         height: var(--np-touch-target);
     }
 }
+
+/* ========================================
+   Nothing waits for a hover (#1386)
+
+   A finger has no hover, so on a touch screen every control a hover would
+   reveal is simply there. (The Gantt's and Tasks' row "+" buttons are not
+   drawn at all without hover -- their Insert Above / Below are on the row's
+   ⋯ menu, task-row-actions.js -- and the row ⋯, the calendar's "+" and the
+   front matter's row actions have their rules beside their own.)
+   tests/ui/test_touch_parity.py reads every stylesheet's :hover reveals and
+   checks none is left hidden.
+   ======================================== */
+@media (hover: none) {
+    .splitter-arrow {
+        opacity: 1;
+    }
+
+    .nwd-exceptions-table .nwd-delete-btn,
+    .mm-plus-btn,
+    .mm-collapse-btn,
+    .wb-group-ungroup {
+        opacity: 1;
+    }
+}

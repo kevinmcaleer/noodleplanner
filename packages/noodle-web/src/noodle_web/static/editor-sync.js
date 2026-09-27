@@ -342,78 +342,26 @@ function createMiniPiechart(percent, onPercentChange) {
 
     updatePiechartAppearance(piechart, percent);
 
-    // Click handler: toggle between 100% and 0%
-    let longPressTimer = null;
-    let isLongPress = false;
-
-    piechart.addEventListener('mousedown', (e) => {
-        e.stopPropagation();
-        isLongPress = false;
-        longPressTimer = setTimeout(() => {
-            isLongPress = true;
+    // A press and hold -- mouse, finger or pen -- opens the popup, through the
+    // app's one long-press (touch-gestures.js, #1386), which also swallows the
+    // click that ends the hold; a plain click or tap toggles.
+    if (typeof NoodleTouch !== 'undefined') {
+        NoodleTouch.onLongPress(piechart, () => {
             showPiechartPopup(piechart, percent, (newPercent) => {
                 percent = newPercent;
                 updatePiechartAppearance(piechart, percent);
                 onPercentChange(percent + '%');
             });
-        }, 500);
-    });
-
-    piechart.addEventListener('mouseup', (e) => {
+        }, { pointerTypes: ['mouse', 'touch', 'pen'] });
+    }
+    // The row behind has its own click (open the task) and press (a drag).
+    piechart.addEventListener('pointerdown', (e) => e.stopPropagation());
+    piechart.addEventListener('mousedown', (e) => e.stopPropagation());
+    piechart.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
-        if (!isLongPress) {
-            const newPercent = percent >= 100 ? 0 : 100;
-            percent = newPercent;
-            updatePiechartAppearance(piechart, percent);
-            onPercentChange(percent + '%');
-        }
-    });
-
-    piechart.addEventListener('mouseleave', () => {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
-    });
-
-    // Touch support for long press
-    piechart.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-        isLongPress = false;
-        longPressTimer = setTimeout(() => {
-            isLongPress = true;
-            showPiechartPopup(piechart, percent, (newPercent) => {
-                percent = newPercent;
-                updatePiechartAppearance(piechart, percent);
-                onPercentChange(percent + '%');
-            });
-        }, 500);
-    });
-
-    piechart.addEventListener('touchend', (e) => {
-        e.stopPropagation();
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
-        if (!isLongPress) {
-            e.preventDefault();
-            const newPercent = percent >= 100 ? 0 : 100;
-            percent = newPercent;
-            updatePiechartAppearance(piechart, percent);
-            onPercentChange(percent + '%');
-        }
-    });
-
-    piechart.addEventListener('touchcancel', () => {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
+        percent = percent >= 100 ? 0 : 100;
+        updatePiechartAppearance(piechart, percent);
+        onPercentChange(percent + '%');
     });
 
     return piechart;
@@ -485,10 +433,10 @@ function showPiechartPopup(piechartElement, currentPercent, onSelect) {
     const closeHandler = (e) => {
         if (!popup.contains(e.target)) {
             popup.remove();
-            document.removeEventListener('mousedown', closeHandler);
+            document.removeEventListener('pointerdown', closeHandler);
         }
     };
-    setTimeout(() => document.addEventListener('mousedown', closeHandler), 10);
+    setTimeout(() => document.addEventListener('pointerdown', closeHandler), 10);
 }
 
 function syncGanttPercentToEditor(task, taskIndex) {

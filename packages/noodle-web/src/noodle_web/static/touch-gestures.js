@@ -16,6 +16,12 @@
  *   NoodleTouch.onLongPress(el, (point) => …, { delay, tolerance, selector })
  *   NoodleTouch.onSwipe(el, { left, right, move, end }, { distance, selector })
  *   NoodleTouch.dragByPointer(handle, { start, move, drop, cancel })
+ *   NoodleTouch.contextMenuOnLongPress(el, { selector, ignore })
+ *   NoodleTouch.hold(x, y, onHold, { delay, tolerance })
+ *
+ * `hold` is the long-press timer on its own, for code with its own event
+ * plumbing (the whiteboard's touch handlers arm a drag with it); every
+ * long-press in the app times and cancels the same way through it.
  *
  * `selector` delegates: the gesture starts on a descendant of `el` matching it,
  * and the callbacks get that element as `point.target`. `ignore` is a
@@ -33,6 +39,34 @@
     const LONG_PRESS_MS = 500;
     const TOLERANCE_PX = 8;
     const SWIPE_PX = 64;
+
+    /**
+     * Call `onHold()` once a press at (x, y) has lasted `delay` ms. The
+     * returned `move(x, y)` cancels it when the finger has wandered
+     * `tolerance` px (and says whether it is still pending); `cancel()` ends
+     * it on a lift.
+     */
+    function hold(x, y, onHold, options) {
+        const opts = options || {};
+        const delay = opts.delay || LONG_PRESS_MS;
+        const tolerance = opts.tolerance || TOLERANCE_PX;
+        let timer = setTimeout(() => {
+            timer = null;
+            onHold();
+        }, delay);
+        const cancel = () => {
+            if (timer) clearTimeout(timer);
+            timer = null;
+        };
+        return {
+            move(mx, my) {
+                if (timer && Math.hypot(mx - x, my - y) > tolerance) cancel();
+                return !!timer;
+            },
+            cancel,
+            get pending() { return !!timer; },
+        };
+    }
 
     function accepts(event, pointerTypes) {
         return event.isPrimary !== false && pointerTypes.includes(event.pointerType || 'mouse');
@@ -59,7 +93,7 @@
         let swallowClick = false;
 
         const clear = () => {
-            if (press) clearTimeout(press.timer);
+            if (press) press.timer.cancel();
             press = null;
         };
         const down = (event) => {
@@ -67,19 +101,21 @@
             const target = targetOf(el, event, opts.selector, opts.ignore);
             if (!target) return;
             clear();
-            const point = { clientX: event.clientX, clientY: event.clientY, target, pointerId: event.pointerId };
+            const point = {
+                clientX: event.clientX, clientY: event.clientY, target, origin: event.target, pointerId: event.pointerId,
+            };
             press = {
-                ...point,
-                timer: setTimeout(() => {
+                pointerId: event.pointerId,
+                timer: hold(event.clientX, event.clientY, () => {
                     press = null;
                     swallowClick = true;
                     callback(point);
-                }, delay),
+                }, { delay, tolerance }),
             };
         };
         const move = (event) => {
             if (!press || event.pointerId !== press.pointerId) return;
-            if (Math.hypot(event.clientX - press.clientX, event.clientY - press.clientY) > tolerance) clear();
+            if (!press.timer.move(event.clientX, event.clientY)) press = null;
         };
         const click = (event) => {
             if (!swallowClick) return;
@@ -89,8 +125,14 @@
             event.stopImmediatePropagation();
         };
         // The browser's own long-press menu (a link's, an image's) would open
-        // over ours.
+        // over ours. With `yieldToNative`, a menu the browser itself raises
+        // for the press (Chrome on Android does) is left to run, and ours
+        // stands down.
         const contextmenu = (event) => {
+            if (opts.yieldToNative && event.isTrusted && press) {
+                clear();
+                return;
+            }
             if (press || swallowClick) event.preventDefault();
         };
         const up = () => {
@@ -248,5 +290,44 @@
         };
     }
 
-    root.NoodleTouch = { LONG_PRESS_MS, TOLERANCE_PX, SWIPE_PX, onLongPress, onSwipe, dragByPointer };
+    // A synthetic contextmenu has just been raised for a long-press: the
+    // browser's own for the same press (Chrome on Android raises one; iOS
+    // Safari does not) is dropped, so a menu never opens twice.
+    let nativeMenuSuppressedUntil = 0;
+    if (typeof document !== 'undefined') {
+        document.addEventListener('contextmenu', (event) => {
+            if (event.isTrusted && Date.now() < nativeMenuSuppressedUntil) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        }, true);
+    }
+
+    /**
+     * Open a right-click menu by long-press: raise a `contextmenu` on the
+     * element under the finger, where the app's own right-click handler
+     * already listens, so every menu keeps one code path. Once per element.
+     */
+    function contextMenuOnLongPress(el, options) {
+        const opts = options || {};
+        const key = '__noodleContextMenu:' + (opts.selector || '');
+        if (el[key]) return el[key];
+        el[key] = onLongPress(el, (point) => {
+            nativeMenuSuppressedUntil = Date.now() + 1000;
+            // What the finger pressed: it has not moved, so that is still
+            // what it means, even if the page shifted under it meanwhile.
+            const at = (point.origin && point.origin.isConnected ? point.origin : null) ||
+                document.elementFromPoint(point.clientX, point.clientY) || point.target;
+            at.dispatchEvent(new MouseEvent('contextmenu', {
+                bubbles: true, cancelable: true, composed: true, button: 2,
+                clientX: point.clientX, clientY: point.clientY,
+            }));
+        }, { ...opts, yieldToNative: true });
+        return el[key];
+    }
+
+    root.NoodleTouch = {
+        LONG_PRESS_MS, TOLERANCE_PX, SWIPE_PX,
+        hold, onLongPress, onSwipe, dragByPointer, contextMenuOnLongPress,
+    };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

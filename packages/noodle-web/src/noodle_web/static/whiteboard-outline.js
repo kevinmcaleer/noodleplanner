@@ -643,7 +643,7 @@ function wbCloseQuickTaskEditor(restoreFocus) {
     const { form, returnFocus } = wbQuickEditState;
     wbQuickEditState = null;
     if (form.parentNode) form.remove();
-    document.removeEventListener('mousedown', wbQuickEditOutsideClick, true);
+    document.removeEventListener('pointerdown', wbQuickEditOutsideClick, true);
     if (restoreFocus && returnFocus && document.contains(returnFocus)) returnFocus.focus();
 }
 
@@ -794,7 +794,7 @@ function wbOpenQuickTaskEditor(taskName) {
     wbQuickEditState = { form, returnFocus };
     setTimeout(() => {
         if (wbQuickEditState && wbQuickEditState.form === form) {
-            document.addEventListener('mousedown', wbQuickEditOutsideClick, true);
+            document.addEventListener('pointerdown', wbQuickEditOutsideClick, true);
         }
     }, 0);
     (durationInput || percentInput).focus();

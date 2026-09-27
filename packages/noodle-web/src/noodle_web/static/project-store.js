@@ -175,12 +175,21 @@
          * Write every dirty record in one transaction. Resolves true when the
          * transaction committed, false when there was nothing to write or the
          * write failed (after the failure has been reported). Never rejects.
+         *
+         * `{ now: true }` is for a page that is leaving (project-storage.js's
+         * pagehide): it does not wait for a write already in flight, because
+         * waiting means starting this one from a later task, which a page
+         * being reloaded never reaches -- and the last edit was lost whenever
+         * the plan's own autosave happened to be mid-write. The transaction
+         * opens at once instead; IndexedDB still runs it after the earlier
+         * one, so the order of the writes is kept.
          */
-        function flush() {
+        function flush(options) {
+            const now = !!(options && options.now);
             if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
             if (state.failed) return Promise.resolve(false);
-            if (!state.ready) return readyPromise.then(flush);
-            if (inflight) return inflight.then(flush);
+            if (!state.ready) return readyPromise.then(function () { return flush(options); });
+            if (inflight && !now) return inflight.then(function () { return flush(); });
             if (dirtyCount() === 0) return Promise.resolve(false);
 
             const batch = {};
@@ -248,8 +257,14 @@
                     try { tx.abort(); } catch (e2) { /* already aborted */ }
                     fail(e);
                 }
-            }).then(function (ok) { inflight = null; return ok; });
-            return inflight;
+            });
+            // Cleared only if no urgent flush has taken the slot since.
+            const pending = inflight.then(function (ok) {
+                if (inflight === pending) inflight = null;
+                return ok;
+            });
+            inflight = pending;
+            return pending;
         }
 
         /** Put a failed batch back, without clobbering anything dirtied since. */

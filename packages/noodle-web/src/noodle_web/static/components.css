@@ -1648,6 +1648,16 @@ tr:hover .task-context-btn,
     }
 }
 
+/* A finger has no hover (#1386): the row's ⋯ -- its menu, Insert Above and
+   Below among it -- is always there, finger-sized. */
+@media (hover: none) {
+    .task-context-btn {
+        opacity: 1;
+        min-width: var(--np-touch-target);
+        min-height: var(--np-touch-target);
+    }
+}
+
 /* Task form inspect button */
 .task-form-inspect-btn {
     background: none;
@@ -4839,6 +4849,32 @@ tr:hover .task-context-btn,
 
 .calendar-day-cell:hover .calendar-add-btn {
     display: flex;
+}
+
+/* Without hover the day's "+" is always there (#1386): a finger-sized target
+   in the corner, drawn as the same small circle. */
+@media (hover: none) {
+    .calendar-add-btn {
+        display: flex;
+        width: var(--np-touch-target);
+        height: var(--np-touch-target);
+        max-width: none;
+        bottom: 0;
+        right: 0;
+        background: transparent;
+        color: var(--np-on-accent);
+        isolation: isolate;
+    }
+
+    .calendar-add-btn::before {
+        content: '';
+        position: absolute;
+        z-index: -1;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--np-accent);
+    }
 }
 
 .calendar-add-btn:hover {

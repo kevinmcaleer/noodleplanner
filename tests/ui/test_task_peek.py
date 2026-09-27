@@ -561,7 +561,7 @@ class TestPeekEscapeAndFocus:
         open_peek(board, "Build", "Nested")
         board.evaluate(
             "() => document.body.dispatchEvent("
-            "  new MouseEvent('mousedown', {bubbles: true}))"
+            "  new PointerEvent('pointerdown', {bubbles: true}))"
         )
         board.wait_for_selector(PEEK, state="detached")
 

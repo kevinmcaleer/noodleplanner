@@ -1132,9 +1132,10 @@ function submitProgrammeDialog(event, mode, targetSlug) {
 }
 
 // ---------------------------------------------------------------------------
-// Drag lasso: mousedown+drag over empty space (i.e. not a row, checkbox,
+// Drag lasso: press and drag over empty space (i.e. not a row, checkbox,
 // button, or other control) draws a rectangle and selects any project row
-// it intersects. The DOM/event wiring below is not unit tested -- it is
+// it intersects. Pointer events, so a pen draws one as a mouse does (#1386);
+// a finger's drag there is the page's scroll, which cancels the lasso. The DOM/event wiring below is not unit tested -- it is
 // covered by rectsIntersect/projectIdsInLasso/computeRangeSelection instead
 // -- and is guarded so it's a no-op outside a browser (e.g. under Node).
 // ---------------------------------------------------------------------------
@@ -1142,6 +1143,7 @@ function submitProgrammeDialog(event, mode, targetSlug) {
 if (typeof document !== 'undefined') {
     (function initProjectSelectionLasso() {
         let dragging = false;
+        let pointerId = null;
         let startX = 0;
         let startY = 0;
         let additive = false;
@@ -1163,12 +1165,13 @@ if (typeof document !== 'undefined') {
             lassoEl.style.height = Math.abs(y2 - y1) + 'px';
         }
 
-        document.addEventListener('mousedown', event => {
+        document.addEventListener('pointerdown', event => {
             const container = document.getElementById('portfolioProjectsList');
             if (!container || !container.contains(event.target)) return;
-            if (event.button !== 0 || isInteractiveTarget(event.target)) return;
+            if (event.button !== 0 || !event.isPrimary || isInteractiveTarget(event.target)) return;
 
             dragging = true;
+            pointerId = event.pointerId;
             additive = event.shiftKey;
             baseSelection = additive ? getSelectedProjectIds() : [];
             startX = event.clientX;
@@ -1180,8 +1183,8 @@ if (typeof document !== 'undefined') {
             positionLasso(startX, startY, startX, startY);
         });
 
-        document.addEventListener('mousemove', event => {
-            if (!dragging) return;
+        document.addEventListener('pointermove', event => {
+            if (!dragging || event.pointerId !== pointerId) return;
             positionLasso(startX, startY, event.clientX, event.clientY);
 
             const lassoRect = {
@@ -1198,14 +1201,17 @@ if (typeof document !== 'undefined') {
             setProjectSelection(additive ? Array.from(new Set(baseSelection.concat(hit))) : hit);
         });
 
-        document.addEventListener('mouseup', () => {
-            if (!dragging) return;
+        const end = event => {
+            if (!dragging || event.pointerId !== pointerId) return;
             dragging = false;
+            pointerId = null;
             if (lassoEl) {
                 lassoEl.remove();
                 lassoEl = null;
             }
-        });
+        };
+        document.addEventListener('pointerup', end);
+        document.addEventListener('pointercancel', end);
     })();
 }
 

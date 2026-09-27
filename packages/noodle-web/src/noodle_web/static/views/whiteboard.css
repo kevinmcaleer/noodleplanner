@@ -2288,6 +2288,19 @@ body.wb-note-drag-active * {
     cursor: grab;
 }
 
+/* The grip is what a finger drags an item by (#1386), so it is finger-sized
+   and the browser leaves the drag to the page. */
+@media (pointer: coarse) {
+    .wb-parking-lot-item-handle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: var(--np-touch-target);
+        min-height: var(--np-touch-target);
+        touch-action: none;
+    }
+}
+
 .wb-parking-lot-item-text {
     grid-area: text;
     min-width: 0;

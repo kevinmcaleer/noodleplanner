@@ -168,6 +168,11 @@
 .fm-row:hover .fm-row-actions,
 .fm-row:focus-within .fm-row-actions { opacity: 1; }
 
+/* No hover on a touch screen (#1386): the row's actions are always there. */
+@media (hover: none) {
+    .fm-row-actions { opacity: 1; }
+}
+
 .fm-row-reorder { display: flex; }
 
 .fm-add-line-btn {
@@ -322,6 +327,10 @@
 
 .fm-block-line:hover .fm-line-remove,
 .fm-block-line:focus-within .fm-line-remove { opacity: 1; }
+
+@media (hover: none) {
+    .fm-line-remove { opacity: 1; }
+}
 
 .fm-add-entry-btn,
 .fm-add-line-btn {

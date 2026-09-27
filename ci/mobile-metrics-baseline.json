@@ -54,7 +54,7 @@
         },
         "calendar": {
           "chrome_px": 110,
-          "hover_only": 30,
+          "hover_only": 0,
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 10,
@@ -108,7 +108,7 @@
         },
         "gantt": {
           "chrome_px": 110,
-          "hover_only": 45,
+          "hover_only": 0,
           "small_fields": 0,
           "targets_24": 1,
           "targets_44": 3,
@@ -327,7 +327,7 @@
           "hover_only": 0,
           "small_fields": 0,
           "targets_24": 0,
-          "targets_44": 6,
+          "targets_44": 0,
           "view_share": 87,
           "view_top": 110
         },
@@ -423,7 +423,7 @@
         },
         "calendar": {
           "chrome_px": 129,
-          "hover_only": 30,
+          "hover_only": 0,
           "small_fields": 0,
           "targets_24": 7,
           "targets_44": 32,
@@ -477,7 +477,7 @@
         },
         "gantt": {
           "chrome_px": 129,
-          "hover_only": 45,
+          "hover_only": 0,
           "small_fields": 0,
           "targets_24": 1,
           "targets_44": 25,
@@ -693,7 +693,7 @@
         },
         "tasks": {
           "chrome_px": 129,
-          "hover_only": 45,
+          "hover_only": 0,
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 22,
@@ -792,7 +792,7 @@
         },
         "calendar": {
           "chrome_px": 173,
-          "hover_only": 30,
+          "hover_only": 0,
           "small_fields": 0,
           "targets_24": 7,
           "targets_44": 28,
@@ -846,7 +846,7 @@
         },
         "gantt": {
           "chrome_px": 173,
-          "hover_only": 45,
+          "hover_only": 0,
           "small_fields": 0,
           "targets_24": 1,
           "targets_44": 21,
@@ -1062,7 +1062,7 @@
         },
         "tasks": {
           "chrome_px": 173,
-          "hover_only": 45,
+          "hover_only": 0,
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 18,

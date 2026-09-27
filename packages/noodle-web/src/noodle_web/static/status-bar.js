@@ -727,7 +727,7 @@ function openStatusHistoryPopup() {
     var popup = document.getElementById('statusBarHistoryPopup');
     if (popup) popup.classList.add('active');
     updateStatusBarHistoryToggle();
-    document.addEventListener('mousedown', handleStatusPopupOutsideClick, true);
+    document.addEventListener('pointerdown', handleStatusPopupOutsideClick, true);
     document.addEventListener('keydown', handleStatusPopupEscape, true);
 }
 
@@ -736,7 +736,7 @@ function closeStatusHistoryPopup() {
     var popup = document.getElementById('statusBarHistoryPopup');
     if (popup) popup.classList.remove('active');
     updateStatusBarHistoryToggle();
-    document.removeEventListener('mousedown', handleStatusPopupOutsideClick, true);
+    document.removeEventListener('pointerdown', handleStatusPopupOutsideClick, true);
     document.removeEventListener('keydown', handleStatusPopupEscape, true);
 }
 

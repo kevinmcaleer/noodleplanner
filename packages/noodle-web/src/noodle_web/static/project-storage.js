@@ -665,7 +665,8 @@ if (typeof module !== 'undefined' && module.exports) {
         } catch (error) {
             console.warn('Could not save before leaving:', error);
         }
-        if (window.NoodleStore && typeof window.NoodleStore.flush === 'function') window.NoodleStore.flush();
+        // Now, not after any write already in flight: the page is leaving.
+        if (window.NoodleStore && typeof window.NoodleStore.flush === 'function') window.NoodleStore.flush({ now: true });
     }
     window.addEventListener('pagehide', save);
     document.addEventListener('visibilitychange', function () {

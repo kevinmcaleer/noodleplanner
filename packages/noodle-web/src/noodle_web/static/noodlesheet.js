@@ -811,7 +811,7 @@ class NoodleSheet {
 
         const clearLongPress = () => {
             if (longPressTimer) {
-                clearTimeout(longPressTimer);
+                longPressTimer.cancel();
                 longPressTimer = null;
             }
         };
@@ -836,23 +836,27 @@ class NoodleSheet {
                 return;
             }
 
-            longPressTimer = setTimeout(() => {
+            // The app's one long-press timer (touch-gestures.js, #1386).
+            if (typeof NoodleTouch === 'undefined') return;
+            longPressTimer = NoodleTouch.hold(event.clientX, event.clientY, () => {
                 if (!gesture || gesture.moved) return;
                 gesture.longPressed = true;
                 if (ensureRow) this._ensureRowExists(row);
                 this._selectCell(row, col);
                 this._showCellContextMenu(row, col, event.clientX, event.clientY);
-            }, 550);
+            }, { delay: 550 });
         });
 
         cell.addEventListener('pointermove', event => {
             if (!gesture || event.pointerId !== gesture.pointerId) return;
-            if (Math.hypot(
+            if (longPressTimer && !longPressTimer.move(event.clientX, event.clientY)) {
+                gesture.moved = true;
+                clearLongPress();
+            } else if (!longPressTimer && Math.hypot(
                 event.clientX - gesture.startX,
                 event.clientY - gesture.startY
             ) > 8) {
                 gesture.moved = true;
-                clearLongPress();
             }
         });
 
@@ -881,32 +885,9 @@ class NoodleSheet {
     }
 
     _bindLongPress(element, callback) {
-        let gesture = null;
-        let timer = null;
-        const cancel = () => {
-            if (timer) clearTimeout(timer);
-            timer = null;
-            gesture = null;
-        };
-
-        element.addEventListener('pointerdown', event => {
-            if (event.pointerType === 'mouse' || event.button !== 0) return;
-            gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
-            timer = setTimeout(() => {
-                if (!gesture) return;
-                callback(gesture.x, gesture.y);
-                gesture = null;
-                timer = null;
-            }, 550);
-        });
-        element.addEventListener('pointermove', event => {
-            if (!gesture || event.pointerId !== gesture.pointerId) return;
-            if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 8) {
-                cancel();
-            }
-        });
-        element.addEventListener('pointerup', cancel);
-        element.addEventListener('pointercancel', cancel);
+        // The app's one long-press (touch-gestures.js, #1386).
+        if (typeof NoodleTouch === 'undefined') return;
+        NoodleTouch.onLongPress(element, ({ clientX, clientY }) => callback(clientX, clientY), { delay: 550 });
     }
 
     _ensureRowExists(row) {

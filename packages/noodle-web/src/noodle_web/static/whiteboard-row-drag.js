@@ -264,7 +264,7 @@ function wbTeardownRowDrag(drag) {
     wbClearRowDropIndicator();
     if (drag.ghost) drag.ghost.remove();
     if (drag.row) drag.row.classList.remove('wb-note-row-dragging');
-    if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
+    if (drag.longPressTimer) drag.longPressTimer.cancel();
     if (typeof wbSetDragCursor === 'function') wbSetDragCursor('');
     document.body.classList.remove('wb-row-drag-active');
 }
@@ -419,11 +419,10 @@ function wbRowTouchStart(e, row) {
     };
     // Long press, as for a note's header: a quick tap or a scroll of the
     // note's body must never pick the row up.
-    drag.longPressTimer = setTimeout(() => {
+    drag.longPressTimer = wbHoldToDrag(touch.clientX, touch.clientY, () => {
         if (wbActiveRowDrag !== drag) return;
-        drag.longPressTimer = null;
         wbActivateRowDrag(drag, drag.lastX, drag.lastY);
-    }, WB_TOUCH_LONG_PRESS_MS);
+    });
     wbActiveRowDrag = drag;
 }
 
@@ -460,7 +459,7 @@ function wbRowDragTouchMove(e) {
     drag.lastX = touch.clientX;
     drag.lastY = touch.clientY;
     if (drag.phase === 'pending') {
-        if (wbExceedsMoveThreshold(drag.startX, drag.startY, touch.clientX, touch.clientY, WB_TOUCH_CANCEL_THRESHOLD)) {
+        if (!drag.longPressTimer.move(touch.clientX, touch.clientY)) {
             wbCancelRowDrag(); // a scroll, not a drag
         }
         return;

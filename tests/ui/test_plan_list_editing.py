@@ -271,6 +271,7 @@ def test_a_tablet_table_row_is_dragged_by_touch(tablet_landscape, app_server, vi
     pg.evaluate(f"() => switchToView('{view}')")
     pg.wait_for_function("() => !NavigationController.isTransitioning()")
     pg.wait_for_selector(f"{body} tr .task-drag-handle")
+    pg.wait_for_timeout(600)  # a drag starts on the settled table, as a finger's would
     handle_visible = pg.evaluate(
         f"() => getComputedStyle(document.querySelector('{body} tr .task-drag-handle')).visibility"
     )

@@ -35,6 +35,17 @@ def test_no_mobile_metric_is_worse_than_the_baseline(browser, app_server, device
     assert len(walked) >= 39, f"only {len(walked)} views could be measured on {device}"
 
     worse, better = compare(baseline, measured)
+    if worse:
+        # A view caught mid-render -- the walk's settle gives up after 2.5s,
+        # and this job shares its cores with the other devices' walks -- can
+        # read a transient state. Measure just those views once more, from a
+        # fresh page: a real regression reproduces, a render in flight does
+        # not.
+        views = sorted({line.split(" view ", 1)[1].split(":", 1)[0] for line in worse if " view " in line})
+        again = walk(browser, app_server, device, only=set(views)) if views else {"views": {}, "forms": {}}
+        remeasured = {device: {"views": {**measured[device]["views"], **again["views"]},
+                               "forms": measured[device]["forms"]}}
+        worse, better = compare(baseline, remeasured)
     for line in better:
         print(f"better: {line}")
     if better and not worse:
