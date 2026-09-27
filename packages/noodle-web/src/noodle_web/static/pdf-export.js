@@ -548,12 +548,16 @@ export function renderResourceSheet(tasks, startDate, finishDate, holidays, term
       }
     }
   } else {
+    // One period per column, but a label is wider than a column: label a
+    // column only where the label clears the previous one by a space, and
+    // leave out one that would run off the edge, bar the first (#799).
     let current = startDate;
+    let nextFree = 0;
     for (let i = 0; i < chartWidth; i++) {
       let dateStr;
       let periodDays;
       if (scale === "week") {
-        dateStr = fmtDdMon(current);
+        dateStr = fmtDdMon(current).trimEnd();
         periodDays = 7;
       } else if (scale === "month") {
         dateStr = fmtMon(current);
@@ -562,9 +566,13 @@ export function renderResourceSheet(tasks, startDate, finishDate, holidays, term
         dateStr = `Q${Math.floor(parts(current).m / 3) + 1}`;
         periodDays = 90;
       }
-      chars(dateStr).forEach((c, j) => {
-        if (i + j < chartWidth) headerRow[i + j] = c;
-      });
+      const label = chars(dateStr);
+      if (i >= nextFree && (i === 0 || i + label.length <= chartWidth)) {
+        label.slice(0, chartWidth - i).forEach((c, j) => {
+          headerRow[i + j] = c;
+        });
+        nextFree = i + label.length + 1;
+      }
       current += periodDays;
     }
   }
