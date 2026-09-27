@@ -905,6 +905,8 @@ const FILE_ACTIONS = {
     // disk (backstage.js hides both elsewhere, where Save downloads).
     'Save As…': () => savePlanAs(),
     'Download a copy': () => downloadPlanCopy(),
+    // #1395: Backstage-only, on phones -- the share sheet, or a download.
+    'Save a copy': () => sharePlanCopy(),
     'Import from Excel / MS Project': () => openFormatMenu(IMPORT_FORMATS, 'Import'),
     'Export…': () => openFormatMenu(EXPORT_FORMATS, 'Export'),
     Templates: () => openTemplatesModal(),

@@ -9,9 +9,10 @@
  *    view's contextual tab first (Gantt Tools, Board Tools, RAID Log ...),
  *    then Home, Plan, Track, Resources, Report and View. Each shows its
  *    label with its help text underneath -- on a desktop that text is a
- *    hover-only tooltip. Undo and Redo sit at the top. The list comes from
- *    ribbon.js's ribbonCommandSections(), i.e. from ribbon-ia.js through the
- *    ribbon's own resolver, so the phone cannot fall out of step with it.
+ *    hover-only tooltip. Undo, Redo and Share (#1395) sit at the top. The
+ *    list comes from ribbon.js's ribbonCommandSections(), i.e. from
+ *    ribbon-ia.js through the ribbon's own resolver, so the phone cannot
+ *    fall out of step with it.
  *    A command that opens a menu on the ribbon (Export, Import, Group by ...)
  *    opens that menu as a second sheet here: ribbon.js's openFormatMenu()
  *    hands it over.
@@ -45,9 +46,13 @@
 
     function toolbar() {
         const state = undoState();
+        // #1395: saving a copy is about the plan, not the view, so it sits
+        // with Undo and Redo rather than among the ribbon's commands.
+        const share = sharePlanCopyLabels();
         return [
             { id: 'undo', label: 'Undo', icon: 'undo', disabled: !state.canUndo, keepOpen: true },
             { id: 'redo', label: 'Redo', icon: 'redo', disabled: !state.canRedo, keepOpen: true },
+            { id: 'share', label: share.short, icon: share.icon },
         ];
     }
 
@@ -107,6 +112,12 @@
             if (id === 'undo' || id === 'redo') {
                 if (typeof EditorUndoManager !== 'undefined') EditorUndoManager[id]();
                 sheet.toolbar = toolbar();
+                return;
+            }
+            if (id === 'share') {
+                // Straight away, not after the sheet closes: the share sheet
+                // needs this tap's user activation.
+                sharePlanCopy();
                 return;
             }
             const item = commands.get(id);

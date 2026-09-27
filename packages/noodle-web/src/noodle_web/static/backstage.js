@@ -374,6 +374,21 @@
         createPlanFromTemplate(card.dataset.templateId, card);
     }
 
+    /** #1395: Save a copy is the phone's way to get a plan off it, so it
+     * shows only in the phone layout, with the icon and label of what it
+     * will do there: open the share sheet, or download. */
+    function syncPhoneActions(rail) {
+        const phone = document.documentElement.dataset.layout === 'phone';
+        rail.querySelectorAll('[data-phone-only]').forEach((btn) => {
+            btn.hidden = !phone;
+        });
+        const share = rail.querySelector('[data-backstage-action="Save a copy"]');
+        if (!share || !phone || typeof sharePlanCopyLabels !== 'function') return;
+        const labels = sharePlanCopyLabels();
+        share.querySelector('[data-share-label]').textContent = labels.label;
+        share.querySelector('use').setAttribute('href', '#icon-' + labels.icon);
+    }
+
     function init() {
         const backArrow = document.getElementById('backstageBackBtn');
         if (backArrow) {
@@ -396,6 +411,8 @@
             rail.querySelectorAll('[data-needs-local-files]').forEach((btn) => {
                 btn.hidden = !canLinkFiles;
             });
+            syncPhoneActions(rail);
+            document.addEventListener('layoutchange', () => syncPhoneActions(rail));
 
             rail.addEventListener('click', (e) => {
                 const actionBtn = e.target.closest('[data-backstage-action]');
