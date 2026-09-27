@@ -84,6 +84,8 @@
         // row's input with, for a render triggered by something other than
         // the draft itself being committed (see handleIndent()).
         let pendingDraftText = null;
+        // The Outline row last focused, for the Indent / Outdent buttons.
+        let lastFocusedInput = null;
 
         function ensureModel() {
             const text = getText();
@@ -292,6 +294,7 @@
                 row.appendChild(estimateBtn);
             }
 
+            input.addEventListener('focus', () => { lastFocusedInput = input; });
             input.addEventListener('keydown', event => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
@@ -501,8 +504,69 @@
             header.appendChild(title);
             const hint = document.createElement('span');
             hint.className = 'notepad-hint';
-            hint.textContent = 'Type a line, press Enter. Tab / Shift+Tab to indent.';
+            hint.textContent = 'Type a line, press Enter.';
+            // Only for a keyboard (notepad.css): a phone's has no Tab key, so
+            // it gets the Indent and Outdent buttons below instead (#1385).
+            const keys = document.createElement('span');
+            keys.className = 'notepad-hint-keys';
+            keys.textContent = ' Tab / Shift+Tab to indent.';
+            hint.appendChild(keys);
             header.appendChild(hint);
+
+            // Indent and Outdent act on the row being edited: the focused
+            // input (a tap on the buttons does not take focus from it), or
+            // the last one focused.
+            const currentRow = () => {
+                const active = document.activeElement;
+                const input = active && container.contains(active) && active.matches('.notepad-input')
+                    ? active
+                    : (lastFocusedInput && lastFocusedInput.isConnected ? lastFocusedInput : null);
+                const rowEl = input ? input.closest('.notepad-row') : null;
+                if (!rowEl) return null;
+                if (rowEl.classList.contains('notepad-row--draft')) return { state: { isDraft: true }, input };
+                // By id, from the model as it is now: a TaskNode held from an
+                // earlier render may belong to a model since re-parsed.
+                const task = ensureModel().findById(Number(rowEl.dataset.taskId));
+                return task ? { state: { isDraft: false, task, indent: task.indent }, input } : null;
+            };
+            const shift = (direction, label, className, icon) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `notepad-shift-btn ${className}`;
+                button.setAttribute('aria-label', label);
+                button.title = label;
+                // The app's sprite icon; built by element, not markup, so a
+                // surface mounted without a full DOM still works.
+                if (typeof document.createElementNS === 'function') {
+                    const SVG = 'http://www.w3.org/2000/svg';
+                    const svg = document.createElementNS(SVG, 'svg');
+                    svg.setAttribute('class', 'icon');
+                    svg.setAttribute('width', '18');
+                    svg.setAttribute('height', '18');
+                    svg.setAttribute('aria-hidden', 'true');
+                    const use = document.createElementNS(SVG, 'use');
+                    use.setAttribute('href', `#icon-${icon}`);
+                    svg.appendChild(use);
+                    button.appendChild(svg);
+                } else {
+                    button.textContent = direction > 0 ? '→' : '←';
+                }
+                // Keep the keyboard (and the row's caret) where they are.
+                button.addEventListener('pointerdown', event => event.preventDefault());
+                button.addEventListener('mousedown', event => event.preventDefault());
+                button.addEventListener('click', () => {
+                    const current = currentRow();
+                    if (current) handleIndent(current.state, direction, current.input.value);
+                });
+                return button;
+            };
+            const shifts = document.createElement('div');
+            shifts.className = 'notepad-shift-group';
+            shifts.setAttribute('role', 'group');
+            shifts.setAttribute('aria-label', 'Indent');
+            shifts.appendChild(shift(-1, 'Outdent the current task', 'notepad-outdent-btn', 'outdent'));
+            shifts.appendChild(shift(1, 'Indent the current task', 'notepad-indent-btn', 'indent'));
+            header.appendChild(shifts);
             const kanbanBtn = document.createElement('button');
             kanbanBtn.type = 'button';
             kanbanBtn.className = 'notepad-kanban-btn';

@@ -1,0 +1,1112 @@
+{
+  "devices": {
+    "phone": {
+      "forms": {
+        "raid": {
+          "small_fields": 0,
+          "unreachable_actions": 0
+        },
+        "resource": {
+          "small_fields": 0,
+          "unreachable_actions": 0
+        },
+        "task": {
+          "small_fields": 0,
+          "unreachable_actions": 0
+        }
+      },
+      "views": {
+        "actions": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "analysis": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 6,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "benefits": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "budget": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 3,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "calendar": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "comms": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 2,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "deliverables": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "escalations": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 1,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "evm": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 1,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "forecast": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "gantt": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 1,
+          "targets_44": 3,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "guide": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "highlights": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "kanban": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 17,
+          "targets_44": 19,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "lookahead": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "milestones": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "mindmap": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "notepad": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 16,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "pbs": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "portfolio-actions": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 51,
+          "view_top": 376
+        },
+        "portfolio-benefits": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 51,
+          "view_top": 376
+        },
+        "portfolio-dependencies": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 51,
+          "view_top": 376
+        },
+        "portfolio-lessons": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 16,
+          "view_share": 51,
+          "view_top": 376
+        },
+        "portfolio-lookahead": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 51,
+          "view_top": 376
+        },
+        "portfolio-resources": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 51,
+          "view_top": 376
+        },
+        "portfolio-risks": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 51,
+          "view_top": 376
+        },
+        "portfolio-status": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 51,
+          "view_top": 376
+        },
+        "portfolio-timeline": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 51,
+          "view_top": 376
+        },
+        "product-flow": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "project-report": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "raid": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 2,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "resource-sheet": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 1,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "resources": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "stakeholders": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "tasks": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "timeline": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 3,
+          "targets_44": 3,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "timesheet": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "user-workload": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 1,
+          "view_share": 87,
+          "view_top": 110
+        },
+        "whiteboard": {
+          "chrome_px": 110,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 87,
+          "view_top": 110
+        }
+      }
+    },
+    "tablet_landscape": {
+      "forms": {
+        "raid": {
+          "small_fields": 0,
+          "unreachable_actions": 0
+        },
+        "resource": {
+          "small_fields": 0,
+          "unreachable_actions": 0
+        },
+        "task": {
+          "small_fields": 0,
+          "unreachable_actions": 0
+        }
+      },
+      "views": {
+        "actions": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 7,
+          "view_share": 83,
+          "view_top": 93
+        },
+        "analysis": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 28,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "benefits": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "budget": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 7,
+          "view_share": 83,
+          "view_top": 93
+        },
+        "calendar": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 7,
+          "targets_44": 32,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "comms": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 6,
+          "view_share": 83,
+          "view_top": 93
+        },
+        "deliverables": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "escalations": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 23,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "evm": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 23,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "forecast": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "gantt": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 1,
+          "targets_44": 25,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "guide": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 4,
+          "view_share": 83,
+          "view_top": 93
+        },
+        "highlights": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "kanban": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 19,
+          "targets_44": 80,
+          "view_share": 58,
+          "view_top": 93
+        },
+        "lookahead": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "milestones": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "mindmap": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "notepad": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 38,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "pbs": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "portfolio-actions": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 16,
+          "view_share": 70,
+          "view_top": 172
+        },
+        "portfolio-benefits": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 16,
+          "view_share": 70,
+          "view_top": 172
+        },
+        "portfolio-dependencies": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 16,
+          "view_share": 70,
+          "view_top": 172
+        },
+        "portfolio-lessons": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 19,
+          "view_share": 70,
+          "view_top": 172
+        },
+        "portfolio-lookahead": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 16,
+          "view_share": 70,
+          "view_top": 172
+        },
+        "portfolio-resources": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 16,
+          "view_share": 70,
+          "view_top": 172
+        },
+        "portfolio-risks": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 16,
+          "view_share": 70,
+          "view_top": 172
+        },
+        "portfolio-status": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 16,
+          "view_share": 70,
+          "view_top": 172
+        },
+        "portfolio-timeline": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 16,
+          "view_share": 70,
+          "view_top": 172
+        },
+        "product-flow": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "project-report": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 3,
+          "targets_44": 25,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "raid": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 6,
+          "view_share": 83,
+          "view_top": 93
+        },
+        "resource-sheet": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 23,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "resources": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "stakeholders": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "tasks": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "timeline": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 4,
+          "targets_44": 26,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "timesheet": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 22,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "user-workload": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 23,
+          "view_share": 53,
+          "view_top": 93
+        },
+        "whiteboard": {
+          "chrome_px": 129,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 30,
+          "targets_44": 60,
+          "view_share": 53,
+          "view_top": 93
+        }
+      }
+    },
+    "tablet_portrait": {
+      "forms": {
+        "raid": {
+          "small_fields": 0,
+          "unreachable_actions": 0
+        },
+        "resource": {
+          "small_fields": 0,
+          "unreachable_actions": 0
+        },
+        "task": {
+          "small_fields": 0,
+          "unreachable_actions": 0
+        }
+      },
+      "views": {
+        "actions": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 3,
+          "view_share": 35,
+          "view_top": 93
+        },
+        "analysis": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 24,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "benefits": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "budget": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 3,
+          "view_share": 60,
+          "view_top": 93
+        },
+        "calendar": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 7,
+          "targets_44": 28,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "comms": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 2,
+          "view_share": 48,
+          "view_top": 93
+        },
+        "deliverables": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "escalations": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 19,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "evm": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 19,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "forecast": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "gantt": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 1,
+          "targets_44": 21,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "guide": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 0,
+          "view_share": 83,
+          "view_top": 93
+        },
+        "highlights": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "kanban": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 17,
+          "targets_44": 20,
+          "view_share": 80,
+          "view_top": 123
+        },
+        "lookahead": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "milestones": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "mindmap": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "notepad": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 34,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "pbs": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "portfolio-actions": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 16,
+          "view_top": 287
+        },
+        "portfolio-benefits": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 16,
+          "view_top": 287
+        },
+        "portfolio-dependencies": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 29,
+          "view_top": 287
+        },
+        "portfolio-lessons": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 16,
+          "view_share": 49,
+          "view_top": 287
+        },
+        "portfolio-lookahead": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 16,
+          "view_top": 287
+        },
+        "portfolio-resources": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 16,
+          "view_top": 287
+        },
+        "portfolio-risks": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 16,
+          "view_top": 287
+        },
+        "portfolio-status": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 16,
+          "view_top": 287
+        },
+        "portfolio-timeline": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 13,
+          "view_share": 16,
+          "view_top": 287
+        },
+        "product-flow": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "project-report": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "raid": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 2,
+          "view_share": 51,
+          "view_top": 93
+        },
+        "resource-sheet": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 19,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "resources": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "stakeholders": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "tasks": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "timeline": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 4,
+          "targets_44": 22,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "timesheet": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 18,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "user-workload": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 0,
+          "targets_44": 19,
+          "view_share": 79,
+          "view_top": 137
+        },
+        "whiteboard": {
+          "chrome_px": 173,
+          "hover_only": 0,
+          "small_fields": 0,
+          "targets_24": 30,
+          "targets_44": 56,
+          "view_share": 79,
+          "view_top": 137
+        }
+      }
+    }
+  },
+  "note": "Mobile metrics ratchet (#1379): tests/ui/test_mobile_metrics.py fails when a number gets worse than this. Lower it when a change improves one: uv run python scripts/mobile_metrics.py --write-baseline"
+}

@@ -1155,7 +1155,11 @@
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.4);
-    z-index: 1015;
+    /* Above the status bar (status-bar.css, z-index 1050), not below it
+       (#1378). The pane is aria-modal, and at <=768px the status bar wraps to
+       80-128px, so under it the pane's own Done / Delete buttons sat beneath
+       the bar and could not be tapped on a phone or a portrait tablet. */
+    z-index: 1055;
 }
 
 .detail-pane-overlay.active {
@@ -1167,19 +1171,124 @@
     top: 0;
     right: 0;
     width: min(600px, 90vw);
-    height: 100%;
     background: var(--np-surface);
-    z-index: 1020;
+    z-index: 1056;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
     transform: translateX(100%);
     transition: transform 0.3s ease;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    /* The pane's footer clears the home indicator on a notched phone and in
+       the installed app (viewport-fit=cover in index.html). */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .detail-pane.open {
     transform: translateX(0);
+}
+
+/* The detail pane by layout (#1383): the shell for every <np-detail-sheet>.
+   Full screen and sliding up on a phone; full screen on a tablet held
+   upright; a 600px sheet on the right in landscape (the width below already
+   gives that at 1024px); today's side pane on a desktop. Its height leaves
+   room for the on-screen keyboard, whose height np-detail-sheet.js publishes
+   as --keyboard-inset, so the footer is never under the keys. */
+.detail-pane {
+    height: calc(100vh - var(--keyboard-inset, 0px));
+    height: calc(100dvh - var(--keyboard-inset, 0px));
+}
+
+[data-layout="phone"] .detail-pane {
+    width: 100%;
+    transform: translateY(100%);
+}
+
+[data-layout="phone"] .detail-pane.open {
+    transform: translateY(0);
+}
+
+@media (orientation: portrait) {
+    [data-layout="tablet"] .detail-pane {
+        width: 100%;
+    }
+}
+
+/* A sheet's footer holds its main action, side by side, at every width
+   (the <=768px rule below stacks a form's actions for the old in-body row). */
+np-detail-sheet > .form-actions[slot="footer"] {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin: 0;
+}
+
+np-detail-sheet > .form-actions[slot="footer"] > button {
+    min-height: var(--np-touch-target);
+}
+
+/* Collapsible groups of fields in a sheet (#1383): Schedule, People,
+   Dependencies, Subtasks and Notes on the task form. np-detail-sheet.js
+   remembers which were left open. */
+.sheet-section {
+    border-bottom: 1px solid var(--np-hairline);
+    margin: 0 calc(var(--np-space-20) * -1);
+    padding: 0 var(--np-space-20);
+}
+
+.sheet-section > summary {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-8);
+    min-height: var(--np-touch-target);
+    margin: 0 calc(var(--np-space-20) * -1);
+    padding: 0 var(--np-space-20);
+    font-family: var(--np-font-ui);
+    font-weight: var(--np-weight-semibold);
+    color: var(--np-ink);
+    cursor: pointer;
+    list-style: none;
+}
+
+.sheet-section > summary::-webkit-details-marker {
+    display: none;
+}
+
+.sheet-section > summary::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform var(--np-anim-duration-fast) var(--np-anim-easing);
+}
+
+.sheet-section[open] > summary::before {
+    transform: rotate(45deg);
+}
+
+.sheet-section > summary:hover {
+    background: var(--np-sunken);
+}
+
+.sheet-section[open] {
+    padding-bottom: var(--np-space-8);
+}
+
+/* A closed pane rests just off the right edge, and its 20px shadow blurred
+   back into the window as a grey strip down every screen (#1378). No shadow
+   until it is open. The selector outranks dark-mode.css's own .detail-pane
+   shadow, which would otherwise put it back in both themes. */
+.detail-pane:not(.open) {
+    box-shadow: none;
+}
+
+/* A confirmation opened from inside the pane (delete this RAID item?) is a
+   .modal-overlay, which sits at z-index 1000 -- under the pane. While the
+   pane is open, such dialogs stack above it instead. */
+body.detail-pane-open .modal-overlay {
+    z-index: 1070;
 }
 
 .detail-pane-section {
@@ -1539,6 +1648,16 @@ tr:hover .task-context-btn,
     }
 }
 
+/* A finger has no hover (#1386): the row's ⋯ -- its menu, Insert Above and
+   Below among it -- is always there, finger-sized. */
+@media (hover: none) {
+    .task-context-btn {
+        opacity: 1;
+        min-width: var(--np-touch-target);
+        min-height: var(--np-touch-target);
+    }
+}
+
 /* Task form inspect button */
 .task-form-inspect-btn {
     background: none;
@@ -1556,6 +1675,12 @@ tr:hover .task-context-btn,
     min-width: 44px;
     min-height: 32px;
     transition: background 0.2s, border-color 0.2s;
+}
+
+@media (pointer: coarse) {
+    .task-form-inspect-btn {
+        min-height: var(--np-touch-target);
+    }
 }
 
 .task-form-inspect-btn:hover {
@@ -2162,6 +2287,41 @@ tr:hover .task-context-btn,
     display: flex;
     gap: var(--np-space-8);
     margin-top: var(--np-space-8);
+}
+
+/* The task form's effort units (h / d): were an inline width of 3ch.
+   `.form-group` in the selector outranks `.form-group select`'s 100%. */
+.form-group .effort-unit-select {
+    width: 3ch;
+    min-width: 3ch;
+    flex: none;
+}
+
+/* Touch targets in the task form (#1383): the completion presets, the effort
+   units and the add links were 22-28px. */
+@media (pointer: coarse) {
+    .percent-quick-btn,
+    .add-item-link {
+        min-height: var(--np-touch-target);
+    }
+
+    /* Every field and button in a sheet is a 44px target: the dependency
+       table's inline fields and remove button, the product form's compact
+       inputs and type buttons, the resource form's narrow cells. */
+    np-detail-sheet :is(
+        input:not([type="hidden"], [type="checkbox"], [type="radio"], [type="range"]),
+        select,
+        button:not(.sheet-section > summary)
+    ) {
+        min-height: var(--np-touch-target);
+        min-width: var(--np-touch-target);
+    }
+
+    .form-group .effort-unit-select {
+        width: auto;
+        min-width: var(--np-touch-target);
+        min-height: var(--np-touch-target);
+    }
 }
 
 .percent-quick-btn {
@@ -4691,6 +4851,32 @@ tr:hover .task-context-btn,
     display: flex;
 }
 
+/* Without hover the day's "+" is always there (#1386): a finger-sized target
+   in the corner, drawn as the same small circle. */
+@media (hover: none) {
+    .calendar-add-btn {
+        display: flex;
+        width: var(--np-touch-target);
+        height: var(--np-touch-target);
+        max-width: none;
+        bottom: 0;
+        right: 0;
+        background: transparent;
+        color: var(--np-on-accent);
+        isolation: isolate;
+    }
+
+    .calendar-add-btn::before {
+        content: '';
+        position: absolute;
+        z-index: -1;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--np-accent);
+    }
+}
+
 .calendar-add-btn:hover {
     background: #0d7aa3;
 }
@@ -5885,8 +6071,7 @@ tr:hover .task-context-btn,
 /* ========================================
    Accessibility: focus-visible outlines
    ======================================== */
-.nav-menu-item:focus-visible,
-.plan-subnav-btn:focus-visible {
+.nav-menu-item:focus-visible {
     outline: 2px solid var(--np-accent);
     outline-offset: -2px;
     border-radius: 4px;
@@ -6101,6 +6286,12 @@ tr:hover .task-context-btn,
 .budget-view-toggle:focus-visible {
     outline: 2px solid var(--np-accent);
     outline-offset: 2px;
+}
+
+/* Was an inline style on #budgetSupplierFilter, where the touch rule in
+   responsive.css (#1378) could not reach it. */
+.budget-filter-group input {
+    font-size: 0.85em;
 }
 
 .budget-filter-group label {
@@ -8164,6 +8355,190 @@ button.ribbon-breadcrumb-rung:hover {
     text-align: center;
 }
 
+/* The touch tab picker and search button (#1388) exist only in the touch
+   layout below; everywhere else the tab strip and the search box do. */
+.ribbon-tab-picker,
+.ribbon-search-btn {
+    display: none;
+}
+
+/* ============================================================================
+   The ribbon under a touch pointer (#1388, epic #1376)
+
+   On a tablet the ribbon is the navigation, and every control in it was
+   22-28px: scope pills 22, quick actions ~24, File 24, small buttons 23,
+   Simple-mode buttons 28. With `data-pointer="coarse"` (layout-mode.js) every
+   ribbon control takes --np-touch-target instead.
+
+   Three 44px rows -- title bar, tabs, commands -- would be 132px and more, so
+   a touch device defaults to the Simple ribbon (ribbon.js's
+   resolveDisplayMode), and in Simple mode the tabs fold into one picker at the
+   start of the command row: two rows, about 90px, where the full ribbon was
+   170-207px on the same tablets. The ▼ menu still offers every mode, and a
+   choice made there is kept.
+
+   `:root[data-pointer="coarse"] body` outranks visual-system.css's
+   `:root body` narrow-width rules, which wrap the title bar onto three rows
+   below 900px.
+   ============================================================================ */
+:root[data-pointer="coarse"] body .ribbon-titlebar {
+    height: auto;
+    min-height: var(--np-touch-target);
+    flex-wrap: nowrap;
+    gap: var(--np-space-4);
+    padding: 0 var(--np-space-8);
+}
+
+:root[data-pointer="coarse"] body :is(
+    .ribbon-scope-btn,
+    .ribbon-quick-btn,
+    .ribbon-file-btn,
+    .ribbon-tab-btn,
+    .ribbon-tab-picker,
+    .ribbon-search-btn,
+    .ribbon-breadcrumb-rung,
+    .ribbon-display-toggle-btn,
+    .ribbon-simple-btn,
+    .ribbon-simple-group-trigger,
+    .ribbon-sm-btn,
+    .ribbon-lg-btn,
+    .ribbon-more-btn,
+    .ribbon-display-menu-item,
+    .ribbon-file-menu-item,
+    .ribbon-simple-menu-item
+) {
+    min-width: var(--np-touch-target);
+    min-height: var(--np-touch-target);
+}
+
+:root[data-pointer="coarse"] body :is(.ribbon-scope-btn, .ribbon-quick-btn, .ribbon-search-btn) {
+    justify-content: center;
+    align-items: center;
+    height: var(--np-touch-target);
+}
+
+/* The profile circle is a 24px circle on a desktop; a 44px one here. */
+:root[data-pointer="coarse"] body .ribbon-titlebar .user-profile-circle-empty {
+    width: var(--np-touch-target);
+    height: var(--np-touch-target);
+}
+
+:root[data-pointer="coarse"] body .ribbon-titlebar .user-profile-circle {
+    --np-avatar-size: var(--np-touch-target);
+}
+
+:root[data-pointer="coarse"] body .ribbon-search-wrap {
+    height: var(--np-touch-target);
+}
+
+:root[data-pointer="coarse"] body .ribbon-search-input {
+    align-self: stretch;
+    min-height: var(--np-touch-target);
+}
+
+:root[data-pointer="coarse"] body .ribbon-tabstrip {
+    height: auto;
+    min-height: var(--np-touch-target);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+:root[data-pointer="coarse"] body :is(.ribbon-tab-btn, .ribbon-file-btn) {
+    height: var(--np-touch-target);
+    flex-shrink: 0;
+}
+
+:root[data-pointer="coarse"] body .ribbon-body:not(.ribbon-body-simple) {
+    height: auto;
+    min-height: 98px;
+}
+
+:root[data-pointer="coarse"] body .ribbon-body.ribbon-body-simple {
+    height: auto;
+    min-height: var(--np-touch-target);
+}
+
+/* Room for the 44px targets on a tablet: the mark is decoration, the scope
+   pills keep their icons (and names for screen readers), and below 900px the
+   search box becomes a button to the Search view. */
+@media (max-width: 1024px) {
+    :root[data-pointer="coarse"] body .ribbon-mark {
+        display: none;
+    }
+
+    :root[data-pointer="coarse"] body .ribbon-scope-btn {
+        padding: 0;
+    }
+
+    :root[data-pointer="coarse"] body .ribbon-scope-label {
+        display: none;
+    }
+}
+
+@media (max-width: 900px) {
+    :root[data-pointer="coarse"] body .ribbon-search-wrap {
+        display: none;
+    }
+
+    :root[data-pointer="coarse"] body .ribbon-search-btn svg {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+    }
+
+    :root[data-pointer="coarse"] body .ribbon-search-btn {
+        display: flex;
+        padding: 0;
+        border: none;
+        border-radius: var(--np-radius-sm);
+        background: transparent;
+        color: var(--np-dark-blue-subtle);
+        cursor: pointer;
+    }
+}
+
+/* Simple mode: the tabs fold into the picker, which shares the command row. */
+:root[data-pointer="coarse"] body .ribbon-shell[data-mode="simple"] {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+}
+
+:root[data-pointer="coarse"] body .ribbon-shell[data-mode="simple"] > .ribbon-titlebar {
+    grid-column: 1 / -1;
+}
+
+:root[data-pointer="coarse"] body .ribbon-shell[data-mode="simple"] > .ribbon-tabstrip {
+    overflow: visible;
+    align-items: center;
+    background: var(--np-surface);
+    border-bottom: 1px solid var(--np-border);
+}
+
+:root[data-pointer="coarse"] body .ribbon-shell[data-mode="simple"] > .ribbon-tabstrip > :is(
+    .ribbon-file-btn,
+    .ribbon-tab-btn,
+    .ribbon-tabstrip-spacer
+) {
+    display: none;
+}
+
+:root[data-pointer="coarse"] body .ribbon-shell[data-mode="simple"] .ribbon-tab-picker {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-8);
+    padding: 0 var(--np-space-12);
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-control);
+    background: var(--np-surface);
+    color: var(--np-dark-blue);
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
 /* #966: host presence panel (Planning session modal) -- see
    collab-session.js's renderCollabPresence()/kickCollabJoiner().
    The --np-* tokens are redefined per theme in dark-mode.css, so these
@@ -8171,6 +8546,25 @@ button.ribbon-breadcrumb-rung:hover {
 .collab-session-hint {
     margin: var(--np-space-8) 0;
     font-size: 0.85em;
+    color: var(--np-text-secondary);
+}
+
+/* #1389: the join link as a QR code, for a phone's camera. Its caption goes
+   with it: no code (no session yet, or an ended one), no "scan this". */
+.collab-session-qr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--np-space-8);
+    margin: var(--np-space-12) 0;
+}
+
+.collab-session-qr:has(np-qr-code[hidden]) {
+    display: none;
+}
+
+.collab-session-qr figcaption {
+    font-size: var(--np-text-85);
     color: var(--np-text-secondary);
 }
 

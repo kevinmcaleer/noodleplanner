@@ -1,0 +1,113 @@
+/* ========================================
+   Phone shell (#1380, epic #1376)
+
+   With <html data-layout="phone"> (layout-mode.js) the ribbon and the fixed
+   status bar give way to the app bar and view chips (phone-shell.js). On a
+   390x844 phone those two took 475px -- the ribbon 347px, the status bar
+   128px -- and left the view 43px of the first screen. The app bar and the
+   chips are 108px together, and stay at the top while the view scrolls.
+
+   Layout is switched on the data attribute rather than a media query, so
+   Settings -> Layout's override reaches it too. Nothing here applies on a
+   tablet or a desktop.
+   ======================================== */
+
+.phone-shell {
+    display: none;
+}
+
+[data-layout="phone"] .phone-shell {
+    display: block;
+    position: sticky;
+    top: 0;
+    /* Above the views' own sticky headers; below the detail pane and its
+       backdrop (components.css, 1055+), the drawer and the sheets. */
+    z-index: 1040;
+}
+
+[data-layout="phone"] #ribbonShell,
+[data-layout="phone"] .status-bar {
+    display: none;
+}
+
+/* The status bar is gone, so there is nothing to reserve. status-bar.js
+   publishes its height as 0 when it is hidden; this is the same answer
+   before the first measurement lands. */
+[data-layout="phone"] body {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* The plan's RAG dot beside its name: the status bar's own dot, moved. */
+.phone-rag-dot[hidden] {
+    display: none;
+}
+
+/* The bell carries the status bar bell's badge (.status-bar-history-btn),
+   which is its own dot in the corner. */
+.phone-shell .phone-bell {
+    position: relative;
+}
+
+/* responsive.css pads a bare `header` for the old page header; the shell is
+   edge to edge. */
+.phone-shell {
+    padding: 0;
+}
+
+/* Below the shell the app takes what is left of the screen, not a whole
+   screen more (#1385): it was 100% of the body under a 110px shell, so every
+   view ran 110px off the bottom and the page scrolled to reach it -- a view's
+   own footer, like the plan list's quick-add, sat under the fold. Each view
+   scrolls inside itself instead. */
+[data-layout="phone"] body > .container-fluid {
+    height: calc(100vh - var(--phone-shell-height, 110px));
+    height: calc(100dvh - var(--phone-shell-height, 110px));
+    overflow: hidden;
+}
+
+/* responsive.css gives the editor layout a whole screen of its own at
+   <=768px (min-height: 100vh), which is what pushed every view under the
+   fold; on a phone it fills the space above instead. */
+[data-layout="phone"] .editor-layout {
+    height: 100%;
+    min-height: 0;
+}
+
+/* ========================================
+   The markdown editor on a phone (#1381)
+
+   Never beside or above a view: on a 390px screen the stacked editor was
+   296px of the first screen. It is its own full-screen view instead
+   ("Markdown" in the drawer, editor-visibility.js), and the board's copy of it
+   goes the same way. Hidden, the textarea is still in the page, so every view
+   goes on editing the plan through it.
+   ======================================== */
+[data-layout="phone"] .editor-panel,
+[data-layout="phone"] .editor-splitter,
+[data-layout="phone"] #kanbanEditorPanel,
+[data-layout="phone"] #kanbanSplitter {
+    display: none;
+}
+
+[data-layout="phone"] body.markdown-view .editor-panel {
+    display: flex;
+    /* !important over the splitter's inline pixel width and over
+       .editor-panel.collapsed's own `width: 0 !important` (layout.css): the
+       Markdown view shows the editor whatever the other layouts left it as. */
+    width: 100% !important;
+    min-width: 0;
+    max-width: none;
+    height: calc(100vh - var(--phone-shell-height, 110px));
+    height: calc(100dvh - var(--phone-shell-height, 110px));
+    min-height: 0;
+}
+
+[data-layout="phone"] body.markdown-view .output-panel {
+    display: none;
+}
+
+/* The "+" is a phone control (#1382); phone-commands.js also hides it on a
+   view with nothing to create. */
+:root:not([data-layout="phone"]) #phoneFab {
+    display: none;
+}

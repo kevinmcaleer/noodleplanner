@@ -202,6 +202,10 @@ const PAIRINGS = [
 	{ fg: '--np-avatar-ink', bg: '--np-avatar-bg', min: 4.5, what: 'resource avatar initials on their chip' },
 	{ fg: '--np-avatar-bg', bg: '--np-paper', min: 3, what: 'a resource avatar chip against the page' },
 
+	// A QR code's modules on its paper (#1389). Not text, but a camera reads
+	// it: held to the text threshold and then some, as a printed code is.
+	{ fg: '--np-qr-ink', bg: '--np-qr-paper', min: 7, what: 'QR code modules on their paper' },
+
 	// The whiteboard note's own ink on its own paper (#1250). Every one of
 	// these is a pairing the app renders and nothing scored, because the
 	// palette was a JS array in whiteboard-notes.js until this issue moved it

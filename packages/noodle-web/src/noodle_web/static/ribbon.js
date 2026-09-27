@@ -69,6 +69,11 @@ function savePersistedState() {
             // display preference, same category the old fields were -- never
             // written into plan text or front matter.
             displayMode: ribbonState.displayMode,
+            // #1388: whether that mode was picked from the ▼ menu, as
+            // opposed to being the default for the device -- a touch
+            // tablet defaults to Simple, and a choice made there must not
+            // be mistaken for a default later.
+            displayModeChosen: !!ribbonState.displayModeChosen,
         }));
     } catch (error) {
         // localStorage unavailable (private mode, quota) -- state just won't persist.
@@ -85,9 +90,16 @@ function savePersistedState() {
  * ribbon into an unrenderable state).
  */
 function resolveDisplayMode(persisted) {
-    if (persisted.displayMode === 'tabs' || persisted.displayMode === 'simple' || persisted.displayMode === 'full') {
-        return persisted.displayMode;
-    }
+    const valid = persisted.displayMode === 'tabs' || persisted.displayMode === 'simple' || persisted.displayMode === 'full';
+    // #1388: a touch device defaults to the Simple ribbon, whose one row of
+    // commands keeps a 44px-target ribbon near 90px tall where the full one
+    // would be well over 200px. Only the default changes: a mode someone
+    // picked from the ▼ menu is theirs.
+    const root = typeof document !== 'undefined' ? document.documentElement : null;
+    const coarse = !!(root && root.dataset && root.dataset.pointer === 'coarse');
+    if (valid && (persisted.displayModeChosen || !coarse)) return persisted.displayMode;
+    if (coarse && !persisted.displayModeChosen) return 'simple';
+    if (valid) return persisted.displayMode;
     if (persisted.collapsed) return 'tabs';
     if (persisted.density === 'simple') return 'simple';
     return 'full';
@@ -98,6 +110,7 @@ const ribbonState = {
     scope: persisted.scope || 'project',
     activeTab: 'home',
     displayMode: resolveDisplayMode(persisted),
+    displayModeChosen: !!persisted.displayModeChosen,
     morePopoverOpen: false,
     displayMenuOpen: false,
     openGroupTrigger: null,
@@ -163,6 +176,12 @@ function notAvailable(label) {
  * target panel isn't open.
  */
 function revealEditorPanel() {
+    // A phone has no editor beside the views: it is its own Markdown view
+    // there (#1381, editor-visibility.js).
+    if (document.documentElement.dataset.layout === 'phone') {
+        switchToView('markdown');
+        return;
+    }
     const editorTab = document.getElementById('editor-tab');
     if (!editorTab || !editorTab.classList.contains('active')) switchToView('notepad');
     const editorPanel = document.querySelector('.editor-panel');
@@ -414,6 +433,19 @@ function scopedAction(scopeId, label) {
         // the default; Realisation is the only reason this button existed).
         'track:Realisation': () => { switchToView('benefits'); if (typeof benSwitchView === 'function') benSwitchView('tracking'); },
         'lessons:New Lesson': () => addLessonsItem(),
+        // The phone's "+" button's create actions (#1382, CREATE_FOR_VIEW in
+        // ribbon-ia.js) that had no ribbon command of their own: each view's
+        // own "Add" function, the one its empty state and toolbar call.
+        'calendar:New Task': () => {
+            const today = new Date();
+            const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            addCalendarTask(iso);
+        },
+        'actions:New Action': () => addAction(),
+        'highlights:New Highlight': () => addHighlight(),
+        'comms:New Comms Item': () => addCommsItem(),
+        'budget:New Budget Line': () => openBudgetForm(),
+        'benefits:New Benefit': () => addBenefitItem(),
         'stakeholders:Add Stakeholder': () => addStakeholderRow(),
         'stakeholders:Comms Plan': switchView('comms'),
         'resources:Add Resource': () => openResourceForm(),
@@ -661,6 +693,63 @@ function runAction(scopeId, label, anchorEl = null) {
 }
 
 // ---------------------------------------------------------------------------
+// The ribbon's commands as a list (#1382)
+//
+// On a phone the ribbon is hidden and its commands open from the app bar's ⋯
+// as a bottom sheet (phone-commands.js, <np-action-sheet>). The sheet is not a
+// second copy of the commands: it is this, built from the same ribbon-ia.js
+// tabs, resolved by the same resolveAction(), pressed by the same
+// isButtonActive() and run by the same runAction() -- so a command added to
+// the ribbon is on the phone too, in the same state.
+// ---------------------------------------------------------------------------
+
+/** The current view's commands, contextual tab first, then the scope's tabs:
+ * `[{ id, label, items: [{ scopeId, label, icon, help, disabled, active,
+ * href }] }]`. */
+async function ribbonCommandSections() {
+    const ia = await loadIA();
+    const live = getLiveState();
+    const scope = ribbonPinnedTabId() ? ribbonState.scope : ia.scopeForView(live.view);
+    const ctx = currentContextTab(ia, live);
+    const tabs = [...(ctx ? [ctx] : []), ...ia.tabsForScope(scope)];
+    return tabs.map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+        items: tab.groups.flatMap(flattenGroupButtons).map(([icon, label, flag]) => {
+            const href = linkHrefFor(flag);
+            const help = LABEL_HELP[label] || '';
+            if (href) return { scopeId: tab.id, label, icon, href, help: help || 'Opens in a new tab', disabled: false, active: false };
+            const action = resolveAction(tab.id, label);
+            return {
+                scopeId: tab.id,
+                label,
+                icon,
+                help: action ? help : "Not available yet",
+                disabled: !action,
+                active: isButtonActive(tab.id, label, live),
+            };
+        }),
+    }));
+}
+
+/** Run one of ribbonCommandSections()'s commands, exactly as its ribbon
+ * button would. */
+function runRibbonCommand(scopeId, label) {
+    runAction(scopeId, label, null);
+}
+
+/** The current view's main create action, for the phone's "+" (#1382):
+ * `{ label, run }`, or null for a view with none. */
+async function ribbonCreateCommand(view) {
+    const ia = await loadIA();
+    const create = ia.createActionFor ? ia.createActionFor(view) : null;
+    if (!create) return null;
+    const [scopeId, label] = create.command;
+    const action = resolveAction(scopeId, label);
+    return action ? { label: create.label, run: () => runAction(scopeId, label, null) } : null;
+}
+
+// ---------------------------------------------------------------------------
 // Small popovers: caret format-choice menus (Import/Export) render as a
 // `.ribbon-file-menu` -- a name kept from #972 retiring the File dropdown
 // that originally introduced the look; only that one caller remains.
@@ -669,6 +758,7 @@ function runAction(scopeId, label, anchorEl = null) {
 function closePopovers() {
     document.querySelectorAll('.ribbon-file-menu, .ribbon-more-popover, .ribbon-display-menu, .ribbon-simple-group-popover').forEach((el) => el.remove());
     ribbonState.morePopoverOpen = false;
+    ribbonState.tabMenuOpen = false;
     ribbonState.displayMenuOpen = false;
     ribbonState.openGroupTrigger = null;
 }
@@ -677,6 +767,12 @@ let ribbonActionAnchor = null;
 
 function openFormatMenu(formats, label, anchorEl = ribbonActionAnchor) {
     closePopovers();
+    // A phone has no ribbon to hang the menu off (#1382): the same choices
+    // open as a sheet instead (phone-commands.js).
+    if (document.documentElement.dataset.layout === 'phone' && window.NoodlePhoneCommands) {
+        window.NoodlePhoneCommands.openChoices(label, formats);
+        return;
+    }
     const shell = document.querySelector('.ribbon-shell');
     if (!shell) return;
     const menu = document.createElement('div');
@@ -714,13 +810,13 @@ function icon(name, size, extraStyle) {
 function renderTitleBar(ia, live) {
     const scopePills = ia.SCOPES.map((s) => {
         const active = s.id === ribbonState.scope;
-        return `<button type="button" class="ribbon-scope-btn${active ? ' active' : ''}" data-scope="${s.id}" title="${s.blurb}">
-            ${icon(s.icon, 14)}${s.label}
+        return `<button type="button" class="ribbon-scope-btn${active ? ' active' : ''}" data-scope="${s.id}" title="${s.blurb}" aria-label="${s.label}">
+            ${icon(s.icon, 14)}<span class="ribbon-scope-label">${s.label}</span>
         </button>`;
     }).join('');
 
     const quickActions = ia.QUICK_ACTIONS.map((q) => {
-        const disabled = q.label === 'Undo' && !live.canUndo;
+        const disabled = (q.label === 'Undo' && !live.canUndo) || (q.label === 'Redo' && !live.canRedo);
         // data-quick stays the action's id; only what the user reads changes.
         const title = (q.label === 'Start planning session' && live.collabSessionLive) ? 'Show planning session' : q.label;
         return `<button type="button" class="ribbon-quick-btn" data-quick="${q.label}" title="${title}" aria-label="${title}" ${disabled ? 'disabled' : ''}>
@@ -786,7 +882,13 @@ function wireCollabPeople(live) {
  * own, DOM-stable input on the very first keystroke rather than trying to
  * keep typing in a node that won't survive the next render. */
 function renderSearchBox() {
+    // A narrow touch tablet (#1388) has no room for the box beside 44px
+    // quick actions: the search button goes straight to the Search view,
+    // as the phone's does. Hidden everywhere else (components.css).
     return `
+        <button type="button" class="ribbon-search-btn" data-action="open-search" aria-label="Search this project" title="Search this project">
+            ${icon('search', 18)}
+        </button>
         <div class="ribbon-search-wrap">
             ${icon('search', 13)}
             <input type="search" class="ribbon-search-input" id="ribbonSearchInput"
@@ -832,12 +934,57 @@ function renderTabStrip(ia, ctxTab) {
             role="tab" aria-selected="${active}" style="border-bottom-color:${ctxTab.accent}">${ctxTab.label}</button>`;
     }
 
+    // #1388: with a touch pointer the Simple ribbon puts its tabs behind one
+    // picker at the start of the command row -- three 44px rows (title, tabs,
+    // commands) would not fit a tablet's 130px budget, two do. Rendered
+    // always, shown only there (components.css).
+    const activeLabel = (ribbonState.activeTab === '__ctx' && ctxTab)
+        ? ctxTab.label
+        : (ia.tabsForScope(ribbonState.scope).find((t) => t.id === ribbonState.activeTab) || {}).label || 'Home';
+    const picker = `<button type="button" class="ribbon-tab-picker" data-action="toggle-tab-menu"
+        aria-haspopup="menu" aria-expanded="${!!ribbonState.tabMenuOpen}" aria-label="Ribbon tab: ${ribbonEscapeHtml(activeLabel)}">
+        <span class="ribbon-tab-picker-label">${ribbonEscapeHtml(activeLabel)}</span><span class="ribbon-caret">▼</span></button>`;
+
     return `
+        ${picker}
         <button type="button" class="ribbon-file-btn" data-action="open-backstage" title="Home" aria-label="Home">File</button>
         ${tabs}${ctxHtml}
         <div class="ribbon-tabstrip-spacer"></div>
         ${renderDisplaySelector()}
     `;
+}
+
+/** The touch tab picker's menu (#1388): File, the scope's tabs and the
+ * view's contextual tab -- what the tab strip holds. */
+async function renderTabMenu() {
+    const shell = document.querySelector('.ribbon-shell');
+    const picker = shell?.querySelector('.ribbon-tab-picker');
+    if (!shell || !picker) return;
+    const ia = await loadIA();
+    const live = getLiveState();
+    const ctxTab = currentContextTab(ia, live);
+    const tabs = [
+        ...ia.tabsForScope(ribbonState.scope).map((t) => ({ id: t.id, label: t.label })),
+        ...(ctxTab ? [{ id: '__ctx', label: ctxTab.label }] : []),
+    ];
+    const menu = document.createElement('div');
+    menu.className = 'ribbon-display-menu ribbon-tab-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Ribbon tabs');
+    menu.innerHTML = `
+        <button type="button" class="ribbon-display-menu-item" data-action="open-backstage" role="menuitem">
+            <span class="ribbon-display-menu-item-check"></span>File</button>
+        ${tabs.map((t) => {
+            const selected = ribbonState.activeTab === t.id;
+            return `<button type="button" class="ribbon-display-menu-item${selected ? ' selected' : ''}" data-tab-choice="${t.id}"
+                role="menuitemradio" aria-checked="${selected}">
+                <span class="ribbon-display-menu-item-check">${selected ? '✓' : ''}</span>${ribbonEscapeHtml(t.label)}</button>`;
+        }).join('')}`;
+    const btnRect = picker.getBoundingClientRect();
+    const shellRect = shell.getBoundingClientRect();
+    menu.style.left = `${Math.round(btnRect.left - shellRect.left)}px`;
+    menu.style.top = `${Math.round(btnRect.bottom - shellRect.top)}px`;
+    shell.appendChild(menu);
 }
 
 /** `'link:<url>'` marks a button as a plain external link rather than a
@@ -1360,6 +1507,9 @@ async function refreshRibbon() {
 
     const collapsed = ribbonState.displayMode === 'tabs';
     shell.classList.toggle('collapsed', collapsed);
+    // For the touch layout's CSS (#1388), which arranges the Simple ribbon's
+    // rows differently from the other two modes.
+    shell.dataset.mode = ribbonState.displayMode;
     if (bodyEl) bodyEl.style.display = collapsed ? 'none' : '';
 
     updateDocTitleAndAvatar();
@@ -1455,6 +1605,7 @@ function wireEvents(shell) {
             const label = quickBtn.dataset.quick;
             if (label === 'Save') downloadMarkdown();
             else if (label === 'Undo') EditorUndoManager.undo();
+            else if (label === 'Redo') EditorUndoManager.redo();
             else if (label === 'New task') addNewTaskViaShortcut();
             else if (label === 'Print') window.print();
             else if (label === 'AI Chat') { if (typeof onAIButtonClick === 'function') onAIButtonClick(); }
@@ -1477,6 +1628,30 @@ function wireEvents(shell) {
         // ribbon-file-menu markup this replaced, and FILE_ACTIONS.Home above.
         if (e.target.closest('[data-action="open-backstage"]')) {
             switchToView('backstage');
+            return;
+        }
+
+        // #1388: the touch tab picker and its menu.
+        if (e.target.closest('[data-action="toggle-tab-menu"]')) {
+            const wasOpen = ribbonState.tabMenuOpen;
+            closePopovers();
+            ribbonState.tabMenuOpen = !wasOpen;
+            refreshRibbon().then(() => {
+                if (ribbonState.tabMenuOpen) requestAnimationFrame(renderTabMenu);
+            });
+            return;
+        }
+        const tabChoice = e.target.closest('[data-tab-choice]');
+        if (tabChoice) {
+            closePopovers();
+            if (tabChoice.dataset.tabChoice !== ribbonState.activeTab) ribbonState.animateTabSwitch = true;
+            ribbonState.activeTab = tabChoice.dataset.tabChoice;
+            refreshRibbon();
+            return;
+        }
+        if (e.target.closest('[data-action="open-search"]')) {
+            switchToView('search');
+            requestAnimationFrame(() => document.getElementById('searchViewInput')?.focus());
             return;
         }
 
@@ -1526,8 +1701,9 @@ function wireEvents(shell) {
             // which only re-renders the titlebar/tabstrip/body, would leave
             // a stale popover behind.
             closePopovers();
-            if (isValidMode && next !== ribbonState.displayMode) {
+            if (isValidMode) {
                 ribbonState.displayMode = next;
+                ribbonState.displayModeChosen = true;
                 savePersistedState();
             }
             refreshRibbon();
@@ -1676,6 +1852,9 @@ function wrapUndoRedoRefresh() {
         original.apply(EditorUndoManager, args);
         const undoBtn = document.querySelector('.ribbon-quick-btn[data-quick="Undo"]');
         if (undoBtn) undoBtn.disabled = !EditorUndoManager.canUndo();
+        const redoBtn = document.querySelector('.ribbon-quick-btn[data-quick="Redo"]');
+        if (redoBtn) redoBtn.disabled = !EditorUndoManager.canRedo();
+        document.dispatchEvent(new CustomEvent('undostatechange'));
     };
     EditorUndoManager.__ribbonWrapped = true;
 }
@@ -1709,6 +1888,10 @@ function initRibbon() {
         wrapUndoRedoRefresh();
         wireGanttCheckboxSync();
     });
+
+    // A phone hides the ribbon (phone-shell.css, #1380), and a hidden ribbon
+    // measures nothing: redraw it when the layout brings it back.
+    document.addEventListener('layoutchange', () => refreshRibbon());
 
     let resizeTimer = null;
     window.addEventListener('resize', () => {

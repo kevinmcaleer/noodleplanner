@@ -97,13 +97,18 @@ JOBS_ARG=""
 
 # Per-job deadlines in seconds, mirroring the timeout-minutes on the matching
 # workflow jobs so a wedged job fails in the same order of time either side.
-# Each is several times the job's real runtime -- the gating jobs finish in
-# under a minute, `usability` takes ~20 of them -- because this is a backstop
-# against a job that has stopped making progress, not a performance budget. One
-# shared 30-minute ceiling would mean a deadlocked `python` job holding a push
-# open for half an hour, which is the problem, not the fix.
+# Each is well over the job's real runtime -- most gating jobs finish in under
+# a minute, `usability` takes ~20 of them -- because this is a backstop against
+# a job that has stopped making progress, not a performance budget. One shared
+# 30-minute ceiling would mean a deadlocked `python` job holding a push open for
+# half an hour, which is the problem, not the fix.
+#
+# `ui` is the exception to "under a minute": the Playwright suite is ~810 tests.
+# It ran 512s of its old 600s deadline on main, the mobile epic's browser tests
+# (#1376) took it to ~780s and over the deadline mid-run, and 1500s leaves it
+# about twice its runtime.
 declare -A JOB_TIMEOUT=(
-  [python]=600 [js]=600 [conformance]=900 [roundtrip]=900 [ui]=600 [storybook]=600 [usability]=2100
+  [python]=600 [js]=600 [conformance]=900 [roundtrip]=900 [ui]=1500 [storybook]=600 [usability]=2100
 )
 JOB_TIMEOUT_DEFAULT=${CI_JOB_TIMEOUT:-900}
 TIMEOUT_OVERRIDE=""

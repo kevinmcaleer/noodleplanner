@@ -30,6 +30,12 @@ function formatLocalDate(date) {
     return `${year}-${month}-${day}`;
 }
 
+/**
+ * Make `cell` editable the ways a person can reach it: a double-click, Enter
+ * or F2, and a tap (a touch or a pen that neither moves nor rests long enough
+ * to be a long-press -- a long-press on a row opens its menu instead, #1386).
+ * The Gantt's and the Tasks, Resources and Timesheet tables' cells all use it.
+ */
 function setupGanttEditableCell(cell, edit) {
     let touchStart = null;
     cell.tabIndex = 0;
@@ -45,17 +51,21 @@ function setupGanttEditableCell(cell, edit) {
         touchStart = {
             pointerId: event.pointerId,
             x: event.clientX,
-            y: event.clientY
+            y: event.clientY,
+            at: event.timeStamp
         };
     });
     cell.addEventListener('pointerup', event => {
         if (!touchStart || event.pointerId !== touchStart.pointerId) return;
+        const start = touchStart;
         const distance = Math.hypot(
-            event.clientX - touchStart.x,
-            event.clientY - touchStart.y
+            event.clientX - start.x,
+            event.clientY - start.y
         );
+        const held = event.timeStamp - start.at;
         touchStart = null;
-        if (distance < 8 && !event.target.closest('button, input, select, a')) {
+        const longPress = typeof NoodleTouch !== 'undefined' ? NoodleTouch.LONG_PRESS_MS : 500;
+        if (distance < 8 && held < longPress && !event.target.closest('button, input, select, a')) {
             edit();
         }
     });
@@ -311,6 +321,52 @@ function setupGanttZoomControls() {
         }, { passive: false });
         chartSide.dataset.zoomWheel = 'true';
     }
+    if (chartSide && !chartSide.dataset.zoomPinch) {
+        setupGanttPinchZoom(chartSide);
+        chartSide.dataset.zoomPinch = 'true';
+    }
+}
+
+/**
+ * Two fingers pinch the chart's zoom (#1386), about their midpoint, the way
+ * the whiteboard and the mind map already zoom. One finger still pans: the
+ * chart is `touch-action: pan-x pan-y` (gantt.css), which leaves panning to
+ * the browser and the pinch to this. Applied once a frame.
+ */
+function setupGanttPinchZoom(chartSide) {
+    const touches = new Map();
+    let pinch = null;
+    let frame = null;
+    const spread = () => {
+        const [a, b] = [...touches.values()];
+        return { distance: Math.hypot(a.x - b.x, a.y - b.y), midX: (a.x + b.x) / 2 };
+    };
+    chartSide.addEventListener('pointerdown', event => {
+        if (event.pointerType !== 'touch') return;
+        touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (touches.size === 2) pinch = { distance: spread().distance, pixelsPerDay: ganttPixelsPerDay };
+    });
+    chartSide.addEventListener('pointermove', event => {
+        if (!touches.has(event.pointerId)) return;
+        touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (!pinch || touches.size !== 2 || frame) return;
+        frame = requestAnimationFrame(() => {
+            frame = null;
+            if (!pinch || touches.size !== 2) return;
+            const now = spread();
+            if (now.distance < 1 || pinch.distance < 1) return;
+            setGanttZoom(pinch.pixelsPerDay * (now.distance / pinch.distance), { anchorClientX: now.midX });
+        });
+    });
+    const lift = event => {
+        touches.delete(event.pointerId);
+        if (touches.size < 2 && pinch) {
+            pinch = null;
+            refreshRibbonIfPresent();
+        }
+    };
+    chartSide.addEventListener('pointerup', lift);
+    chartSide.addEventListener('pointercancel', lift);
 }
 
 /** Reflect the current zoom in the slider and its readout. */
@@ -635,6 +691,21 @@ function renderGanttHeaders() {
     });
 }
 
+/**
+ * Whether `task`'s rows are folded away. NoodleSummaryCollapse keeps it per
+ * project, across a reload, and the plan list's cards read the same answer
+ * (#1384); on the Gantt a summary is open until someone closes it.
+ */
+function ganttSummaryCollapsed(task) {
+    return typeof NoodleSummaryCollapse !== 'undefined' && NoodleSummaryCollapse.isCollapsed(task.name, false);
+}
+
+// A summary opened or closed anywhere -- here, or as a card on a phone --
+// redraws the rows.
+document.addEventListener('summarycollapsechange', () => {
+    if (ganttTasks && ganttTasks.length) renderGanttRows();
+});
+
 function renderGanttRows() {
     const ganttInfoBody = document.getElementById('ganttInfoBody');
     const ganttBody = document.getElementById('ganttBody');
@@ -657,7 +728,7 @@ function renderGanttRows() {
     const hiddenIndices = new Set();
     for (let i = 0; i < ganttTasks.length; i++) {
         const task = ganttTasks[i];
-        if (task.is_summary && collapsedSummaryTasks.has(task.id)) {
+        if (task.is_summary && ganttSummaryCollapsed(task)) {
             // Hide all descendants: tasks after this one with a higher level,
             // until we hit a task at the same or lower level
             for (let j = i + 1; j < ganttTasks.length; j++) {
@@ -729,19 +800,15 @@ function renderGanttRows() {
         if (task.is_summary) {
             const triangle = document.createElement('span');
             triangle.className = 'gantt-disclosure-triangle';
-            const isCollapsed = collapsedSummaryTasks.has(task.id);
+            const isCollapsed = ganttSummaryCollapsed(task);
             triangle.textContent = isCollapsed ? '\u25B6' : '\u25BC';
             if (isCollapsed) {
                 triangle.classList.add('collapsed');
             }
             triangle.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (collapsedSummaryTasks.has(task.id)) {
-                    collapsedSummaryTasks.delete(task.id);
-                } else {
-                    collapsedSummaryTasks.add(task.id);
-                }
-                renderGanttRows();
+                // The store's change event redraws the rows.
+                if (typeof NoodleSummaryCollapse !== 'undefined') NoodleSummaryCollapse.toggle(task.name, false);
             });
             ganttNameSpan.style.fontWeight = '600';
             ganttNameSpan.appendChild(document.createTextNode(indent));

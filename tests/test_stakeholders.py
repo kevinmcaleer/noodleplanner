@@ -10,6 +10,7 @@ Tests cover:
 """
 
 import pytest
+from pathlib import Path
 from fastapi.testclient import TestClient
 
 from noodle_web import app
@@ -70,9 +71,16 @@ class TestStakeholderNavigation:
         """Test that the stakeholders SVG icon is defined."""
         assert 'id="icon-stakeholders"' in html_content
 
-    def test_stakeholder_subnav_button(self, html_content):
-        """Test that the stakeholders subnav button exists."""
-        assert 'data-view="stakeholders"' in html_content
+    def test_stakeholder_nav_entry(self):
+        """Stakeholders has a navigation entry.
+
+        The old #planSubnav button was removed with #1380; the ribbon's
+        Resources tab and the phone's drawer both come from the router's
+        RESOURCES_VIEWS, and view-catalogue.js names each view for the drawer.
+        """
+        static = Path(__file__).resolve().parents[1] / "packages/noodle-web/src/noodle_web/static"
+        assert "'stakeholders'" in (static / "state.js").read_text().split("const RESOURCES_VIEWS", 1)[1].split("\n", 1)[0]
+        assert "stakeholders: { label: 'Stakeholders'" in (static / "view-catalogue.js").read_text()
 
 
 class TestStakeholderView:

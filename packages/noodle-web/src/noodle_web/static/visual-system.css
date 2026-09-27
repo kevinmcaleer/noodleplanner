@@ -96,6 +96,22 @@
        checkbox above it and every task name line up. A literal in two files
        cannot express "these are the same measurement". */
     --np-checkbox-target: 24px;
+
+    /* The smallest a touch target should be, in each dimension (#1376).
+       WCAG 2.2 SC 2.5.5 and both platform guides ask for 44x44 where the
+       pointer is a finger. It is the size every control takes under
+       `(pointer: coarse)` -- ribbon buttons on a tablet, the phone app bar,
+       row actions -- so "big enough to tap" is one measurement, not a
+       literal copied into each component. */
+    --np-touch-target: 44px;
+
+    /* The text size of a form field under a coarse pointer (#1378).
+       iOS Safari zooms the whole page into any focused input, select or
+       textarea whose text is under 16px, and leaves it zoomed. The app's
+       fields are 14px (11px in the ribbon search), so on a phone every tap
+       into a form shifted the page. An absolute px, not em like the type
+       scale: the threshold is 16 CSS pixels whatever the field inherits. */
+    --np-touch-field-text: 16px;
     --np-focus-ring-width: 2px;
     --np-focus-ring-offset: 2px;
     --np-focus-ring: 0 0 0 var(--np-focus-ring-offset) var(--np-paper), 0 0 0 calc(var(--np-focus-ring-offset) + var(--np-focus-ring-width)) var(--np-focus-ring-color);
@@ -216,6 +232,14 @@
        `#111` under a comment claiming `#161616`; scripts/check-contrast.mjs
        now scores this pairing so the claim is measured rather than asserted. */
     --np-orange-ink: #161616;
+
+    /* A QR code's modules and its paper (#1389): the planning session's join
+       link, drawn by <np-qr-code> for a phone's camera. Single-valued, like
+       --np-orange-ink: a camera reads dark modules on light paper most
+       reliably, so the code stays dark on light in the dark theme too, as a
+       printed code would. scripts/check-contrast.mjs scores the pair. */
+    --np-qr-ink: #161616;
+    --np-qr-paper: #ffffff;
 
     /* --- Status ramp, overlay and shadow tints (#1194, moved here from
        dark-mode.css, which is where the #1024 identity declared them).
@@ -787,7 +811,6 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
     .ai-chat-bubble.user,
     .ai-chat-setup-btn,
     .ai-chat-setup-btn:hover,
-    .plan-subnav-btn.active,
     .resources-table thead,
     [data-theme="dark"] .btn-outline-primary:hover,
     [data-theme="dark"] .task-row-add-btn:hover,

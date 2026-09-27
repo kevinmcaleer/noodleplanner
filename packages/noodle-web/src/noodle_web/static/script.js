@@ -385,9 +385,12 @@ function openDetailPane(sectionId) {
     // Hide all sections
     pane.querySelectorAll('.detail-pane-section').forEach(s => s.classList.remove('active'));
 
-    // Show the requested section
+    // Show the requested section. An <np-detail-sheet> (#1383) first puts
+    // its collapsible sections and its header in the state this screen wants.
     const section = document.getElementById(sectionId);
     if (section) {
+        if (typeof section.applySections === 'function') section.applySections();
+        if (typeof section._syncPresentation === 'function') section._syncPresentation();
         section.classList.add('active');
     }
 
@@ -413,6 +416,21 @@ function closeDetailPane() {
         pane.querySelectorAll('.detail-pane-section').forEach(s => s.classList.remove('active'));
         closeDetailPaneTimer = null;
     }, 300);
+}
+
+/**
+ * Dismiss the detail pane the way its open section closes itself (#1383): an
+ * Escape, a tap on the backdrop or the phone's back. Every section is an
+ * <np-detail-sheet> that knows its own close handler (`close-action`), so
+ * each form's clean-up runs however it is dismissed. This replaced a switch
+ * that named seven of the sections, one of them twice, and sent the rest
+ * straight to closeDetailPane() past their own close functions.
+ */
+function requestCloseDetailPane() {
+    const pane = document.getElementById('detailPane');
+    const section = pane && pane.querySelector('.detail-pane-section.active');
+    if (section && typeof section.requestClose === 'function') section.requestClose();
+    else closeDetailPane();
 }
 
 /**
@@ -623,6 +641,20 @@ const NavigationController = (() => {
         previousView = currentView;
         currentView = viewName;
         registry[viewName].activate();
+        announce();
+    }
+
+    /**
+     * Tell whoever is interested that the current view changed (#1380): a
+     * `viewchange` event on document, with `detail: { view, previous }`,
+     * once the new view's activate() has run. The ribbon learns the same
+     * thing by wrapping every activate() (ribbon.js's wrapViewActivations);
+     * the phone's app bar, chips and drawer listen for this instead.
+     */
+    function announce() {
+        document.dispatchEvent(new CustomEvent('viewchange', {
+            detail: { view: currentView, previous: previousView },
+        }));
     }
 
     /**
@@ -656,6 +688,7 @@ const NavigationController = (() => {
             previousView = currentView;
             currentView = viewName;
             registry[viewName].activate();
+            announce();
 
             // Phase 2: fade in new view
             const incoming = getActiveTabContent();
@@ -4318,7 +4351,7 @@ function closeTaskForm() {
     currentTaskLineNumber = null;
 }
 
-document.getElementById('taskFormPanelHeader')?.addEventListener('close', closeTaskForm);
+// The header's × is routed by its <np-detail-sheet> (close-action, #1383).
 
 /**
  * Delete the currently open task from the plan.
@@ -6152,24 +6185,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (detailOverlay) {
         detailOverlay.addEventListener('click', function() {
             if (isDetailPaneOpen()) {
-                // Determine which section is active and call its close function
-                const pane = document.getElementById('detailPane');
-                const activeSection = pane.querySelector('.detail-pane-section.active');
-                if (activeSection) {
-                    switch (activeSection.id) {
-                        case 'taskFormSection': closeTaskForm(); break;
-                        case 'raidFormSection': closeRaidForm(); break;
-                        case 'benefitsFormSection': closeBenefitForm(); break;
-                        case 'highlightFormSection': closeHighlightForm(); break;
-                        case 'benefitsFormSection': closeBenefitForm(); break;
-                        case 'projectDetailsSection': closeProjectDetailsForm(); break;
-                        case 'resourceFormSection': saveResource(); break;
-                        case 'taskInspectorSection': closeTaskInspector(); break;
-                        default: closeDetailPane();
-                    }
-                } else {
-                    closeDetailPane();
-                }
+                requestCloseDetailPane();
             }
         });
     }
@@ -6200,23 +6216,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // If detail pane is open, close the active section
             if (isDetailPaneOpen()) {
-                const pane = document.getElementById('detailPane');
-                const activeSection = pane.querySelector('.detail-pane-section.active');
-                if (activeSection) {
-                    switch (activeSection.id) {
-                        case 'taskFormSection': closeTaskForm(); break;
-                        case 'raidFormSection': closeRaidForm(); break;
-                        case 'benefitsFormSection': closeBenefitForm(); break;
-                        case 'highlightFormSection': closeHighlightForm(); break;
-                        case 'benefitsFormSection': closeBenefitForm(); break;
-                        case 'projectDetailsSection': closeProjectDetailsForm(); break;
-                        case 'resourceFormSection': saveResource(); break;
-                        case 'taskInspectorSection': closeTaskInspector(); break;
-                        default: closeDetailPane();
-                    }
-                } else {
-                    closeDetailPane();
-                }
+                requestCloseDetailPane();
             }
         }
     });
@@ -6548,6 +6548,22 @@ function populateResourceAssignedTasks(shortname) {
             <span class="product-comp-pct">${pct}%</span>
         </div>`;
     }).join('');
+}
+
+/**
+ * Dismiss the resource form -- Escape, a backdrop tap, its ← or × (#1383).
+ * Keeps what was typed (the form autosaves once shortname and full name are
+ * filled in, so a pending autosave is flushed now) but, unlike Done, does not
+ * insist on them: dismissing an empty new-resource form used to raise the
+ * "Shortname and Full Name are required" alert and leave the pane open.
+ */
+function dismissResourceForm() {
+    if (resourceDebounceTimer) {
+        clearTimeout(resourceDebounceTimer);
+        resourceDebounceTimer = null;
+        saveResourceInternal(false);
+    }
+    closeResourceForm();
 }
 
 function closeResourceForm() {
@@ -8424,7 +8440,7 @@ function renderRaidTable() {
     }
 
     emptyState.hidden = true;
-    document.getElementById('raidTable').style.display = 'table';
+    document.getElementById('raidTable').style.display = ''; // the stylesheet's: a card stack on a phone (#1387)
 
     filtered.forEach(item => {
         try {
@@ -8455,6 +8471,15 @@ function renderRaidTable() {
                 <np-button icon-only variant="danger" size="small" title="Delete" label="Delete" onclick="deleteRaidItem(${item.id})"><span slot="icon">🗑️</span></np-button>
             </td>
         `;
+
+        // On a phone the row is a card (#1387): tapping it opens the item,
+        // as a row does in the dashboard's RAID table. A wide table keeps
+        // its Edit button for that, and its cells' text selectable.
+        row.addEventListener('click', (e) => {
+            if (document.documentElement.dataset.layout !== 'phone') return;
+            if (e.target.closest('button, np-button, a, input, select, textarea')) return;
+            openRaidForm(item.id);
+        });
 
         // Right-click menu for the entry (#1286)
         row.addEventListener('contextmenu', (e) => {
@@ -10895,6 +10920,8 @@ function updateCalendar(tasks) {
     }
 
     renderCalendarMonth(calendarCurrentYear, calendarCurrentMonth);
+    // On a phone, the agenda (#1387).
+    if (typeof NoodleCalendarAgenda !== 'undefined') NoodleCalendarAgenda.render();
 }
 
 function navigateCalendar(direction) {
@@ -11115,12 +11142,7 @@ function addCalendarTask(dateStr) {
     if (!editor) return;
 
     const taskName = `New Task ${dateStr}`;
-    const taskLine = `  ${taskName} ${dateStr} ${dateStr}`;
-
-    const text = editor.value;
-    const newText = text.endsWith('\n') ? text + taskLine + '\n' : text + '\n' + taskLine + '\n';
-    editor.value = newText;
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    appendPlanTask(`${taskName} ${dateStr} ${dateStr}`);
     setTimeout(() => renderText(), 10);
 }
 
@@ -12189,7 +12211,7 @@ function renderCommsTable() {
         }
 
         emptyState.hidden = true;
-        document.getElementById('commsTable').style.display = 'table';
+        document.getElementById('commsTable').style.display = '';
 
         filtered.forEach(item => {
             try {
@@ -12709,7 +12731,7 @@ function renderBudgetTable() {
         }
 
         emptyState.hidden = true;
-        if (table) table.style.display = 'table';
+        if (table) table.style.display = '';
 
         let totalEstimate = 0;
         let totalForecast = 0;
@@ -15049,7 +15071,7 @@ function renderStakeholderTable() {
     }
 
     emptyState.hidden = true;
-    table.style.display = 'table';
+    table.style.display = '';
 
     stakeholderItems.forEach(item => {
         const row = document.createElement('tr');
@@ -16076,7 +16098,7 @@ function closeTaskInspector() {
     closeDetailPane();
 }
 
-document.getElementById('inspectorPanelHeader')?.addEventListener('close', closeTaskInspector);
+// The header's × is routed by its <np-detail-sheet> (close-action, #1383).
 
 function showInspectorEmpty(message) {
     const body = document.getElementById('inspectorBody');
@@ -16715,7 +16737,7 @@ function renderActionsTable() {
         }
 
         emptyState.hidden = true;
-        document.getElementById('actionsTable').style.display = 'table';
+        document.getElementById('actionsTable').style.display = '';
 
         filtered.forEach(item => {
             const row = document.createElement('tr');
@@ -16738,6 +16760,13 @@ function renderActionsTable() {
                     '<np-button icon-only variant="primary" size="medium" title="Edit" label="Edit" onclick="openActionForm(' + item.id + ')"><span slot="icon">✏️</span></np-button>' +
                     '<np-button icon-only variant="danger" size="medium" title="Delete" label="Delete" onclick="deleteAction(' + item.id + ')"><span slot="icon">🗑️</span></np-button>' +
                 '</td>';
+            // On a phone the row is a card (#1387): tapping it opens the
+            // action, as a RAID card does. A wide table keeps its Edit button.
+            row.addEventListener('click', (e) => {
+                if (document.documentElement.dataset.layout !== 'phone') return;
+                if (e.target.closest('button, np-button, a, input, select, textarea')) return;
+                openActionForm(item.id);
+            });
             tbody.appendChild(row);
         });
 
@@ -16824,7 +16853,7 @@ function updateReportActions() {
         return;
     }
 
-    table.style.display = 'table';
+    table.style.display = '';
     emptyState.style.display = 'none';
 
     openActions.forEach(action => {
@@ -17181,36 +17210,45 @@ function openRaidFormWithType(type) {
  * Add a new task line to the plan editor and open the task form for editing.
  * Appends a placeholder task line at the end of the editor content.
  */
-function addNewTaskViaShortcut() {
+/**
+ * Add a task line to the plan and return its (1-based) editor line number,
+ * or -1 (#1382). Through PlanModel, not by appending text: a plan with back
+ * matter (---raid---, ---whiteboard--- ...) ends in that back matter, and a
+ * task line appended after it landed inside the RAID log. The new task goes
+ * where the append meant it to -- the last child of the last top-level task,
+ * or a top-level task in a plan with none -- as one undo step.
+ */
+function appendPlanTask(content) {
     const editor = document.getElementById('planEditor');
-    if (!editor) return;
+    if (!editor || typeof NoodlePlanModel === 'undefined') return -1;
+    const undo = typeof EditorUndoManager !== 'undefined' ? EditorUndoManager : null;
+    if (undo) undo.captureImmediate(editor.value);
+    const model = NoodlePlanModel.modelForEditor(editor);
+    const last = model.roots[model.roots.length - 1] || null;
+    const node = model.insertTaskAfter(last, last ? last.indent + 2 : 0, content);
+    NoodlePlanModel.commitToEditor(editor, model);
+    if (undo) undo.captureImmediate(editor.value);
+    return model.lineNumber(node);
+}
 
-    const taskLine = '  New Task 1d';
-    const text = editor.value;
-    const newText = text.endsWith('\n') ? text + taskLine + '\n' : text + '\n' + taskLine + '\n';
-    editor.value = newText;
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
+function addNewTaskViaShortcut() {
+    const lineNumber = appendPlanTask('New Task 1d');
+    if (lineNumber < 1) return;
 
-    // Find the line number of the newly added task and open the task form
-    const lines = editor.value.split('\n');
-    for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].trim() === 'New Task 1d') {
-            openTaskForm(i + 1);
-            // Focus and select the title so the user can start typing immediately
-            setTimeout(() => {
-                const titleEl = document.getElementById('taskFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
-                if (titleEl) {
-                    titleEl.focus();
-                    const sel = window.getSelection();
-                    const range = document.createRange();
-                    range.selectNodeContents(titleEl);
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-                }
-            }, 150);
-            return;
+    // Open the task form on it, with the title selected so the user can start
+    // typing immediately.
+    openTaskForm(lineNumber);
+    setTimeout(() => {
+        const titleEl = document.getElementById('taskFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
+        if (titleEl) {
+            titleEl.focus();
+            const sel = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(titleEl);
+            sel.removeAllRanges();
+            sel.addRange(range);
         }
-    }
+    }, 150);
 }
 
 

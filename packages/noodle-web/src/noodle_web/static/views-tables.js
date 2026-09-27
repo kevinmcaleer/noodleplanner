@@ -185,7 +185,7 @@ function updateReportPage(tasks, projectName, frontMatter) {
 
         if (placeholder && content) {
             placeholder.style.display = 'none';
-            content.style.display = 'block';
+            content.style.display = ''; // its stylesheet's own display: a column on a phone (#1387)
         }
 
         // Populate project info header
@@ -1381,8 +1381,8 @@ function updateResourcesTable(tasks) {
             nameCell.textContent = resource.name;
             nameCell.classList.add('resource-name');
             nameCell.style.cursor = 'pointer';
-            nameCell.title = 'Double-click to edit resource';
-            nameCell.addEventListener('dblclick', () => {
+            nameCell.title = 'Double-click (or tap) to edit resource';
+            setupGanttEditableCell(nameCell, () => {
                 const shortname = resource.shortname || resource.name.replace(/^@/, '');
                 openResourceForm(shortname);
             });
@@ -1394,8 +1394,8 @@ function updateResourcesTable(tasks) {
             shortnameCell.textContent = '@' + displayShortname;
             shortnameCell.classList.add('resource-shortname');
             shortnameCell.style.cursor = 'pointer';
-            shortnameCell.title = 'Double-click to rename shortname';
-            shortnameCell.addEventListener('dblclick', () => {
+            shortnameCell.title = 'Double-click (or tap) to rename shortname';
+            setupGanttEditableCell(shortnameCell, () => {
                 startInlineRename(shortnameCell, displayShortname);
             });
             row.appendChild(shortnameCell);
@@ -1808,7 +1808,7 @@ function updateTimesheet(tasks, frontMatter = {}) {
             nameCell.textContent = resource;
             nameCell.className = 'timesheet-resource-name';
             nameCell.style.cursor = 'pointer';
-            nameCell.addEventListener('dblclick', () => {
+            setupGanttEditableCell(nameCell, () => {
                 // Strip @ symbol if present before passing to form
                 const shortname = resource.replace(/^@/, '');
                 openResourceForm(shortname);
@@ -1871,6 +1871,9 @@ function updateTasksTable(tasks) {
         content.style.display = 'flex';
     }
 
+    // On a phone the view is the plan list's cards instead (#1384).
+    if (typeof NoodlePlanList !== 'undefined') NoodlePlanList.renderTasksView(tasks);
+
     const tbody = document.getElementById('tasksTableBody');
     if (!tbody) return;
 
@@ -1925,7 +1928,7 @@ function updateTasksTable(tasks) {
         nameCell.appendChild(taskNameSpan);
         const contextBtn = createTaskContextButton(task, index);
         nameCell.appendChild(contextBtn);
-        nameCell.addEventListener('dblclick', () => makeEditable(nameCell, task, index));
+        setupGanttEditableCell(nameCell, () => makeEditable(nameCell, task, index));
         row.appendChild(nameCell);
 
         // Duration
@@ -1933,7 +1936,7 @@ function updateTasksTable(tasks) {
         durationCell.classList.add('editable');
         durationCell.dataset.field = 'duration';
         durationCell.textContent = task.duration_days ? `${task.duration_days}d` : '-';
-        durationCell.addEventListener('dblclick', () => makeEditable(durationCell, task, index));
+        setupGanttEditableCell(durationCell, () => makeEditable(durationCell, task, index));
         row.appendChild(durationCell);
 
         // Start
@@ -1941,7 +1944,7 @@ function updateTasksTable(tasks) {
         startCell.classList.add('editable');
         startCell.dataset.field = 'start';
         startCell.textContent = task.start || '-';
-        startCell.addEventListener('dblclick', () => makeEditable(startCell, task, index));
+        setupGanttEditableCell(startCell, () => makeEditable(startCell, task, index));
         row.appendChild(startCell);
 
         // Finish
@@ -1949,7 +1952,7 @@ function updateTasksTable(tasks) {
         finishCell.classList.add('editable');
         finishCell.dataset.field = 'finish';
         finishCell.textContent = task.finish || '-';
-        finishCell.addEventListener('dblclick', () => makeEditable(finishCell, task, index));
+        setupGanttEditableCell(finishCell, () => makeEditable(finishCell, task, index));
         row.appendChild(finishCell);
 
         // Resources
@@ -1961,7 +1964,7 @@ function updateTasksTable(tasks) {
             resourcesCell.style.fontStyle = 'italic';
             resourcesCell.title = 'Inherited from parent summary task';
         }
-        resourcesCell.addEventListener('dblclick', () => makeEditable(resourcesCell, task, index));
+        setupGanttEditableCell(resourcesCell, () => makeEditable(resourcesCell, task, index));
         row.appendChild(resourcesCell);
 
         // Percent
@@ -1969,7 +1972,7 @@ function updateTasksTable(tasks) {
         percentCell.classList.add('editable');
         percentCell.dataset.field = 'percent';
         percentCell.textContent = task.percent ? `${String(task.percent).replace('%', '')}%` : '-';
-        percentCell.addEventListener('dblclick', () => makeEditable(percentCell, task, index));
+        setupGanttEditableCell(percentCell, () => makeEditable(percentCell, task, index));
         row.appendChild(percentCell);
 
         // Effort
@@ -2025,7 +2028,7 @@ function updateTasksTable(tasks) {
         if (priorityValue === 'Urgent') priorityCell.classList.add('priority-urgent');
         else if (priorityValue === 'Important') priorityCell.classList.add('priority-important');
         else if (priorityValue === 'Medium') priorityCell.classList.add('priority-medium');
-        priorityCell.addEventListener('dblclick', () => makePriorityEditable(priorityCell, task, index));
+        setupGanttEditableCell(priorityCell, () => makePriorityEditable(priorityCell, task, index));
         row.appendChild(priorityCell);
 
         // Bucket (dropdown)
@@ -2033,7 +2036,7 @@ function updateTasksTable(tasks) {
         bucketCell.classList.add('editable');
         bucketCell.dataset.field = 'bucket';
         bucketCell.textContent = task.bucket || '-';
-        bucketCell.addEventListener('dblclick', () => makeBucketEditable(bucketCell, task, index));
+        setupGanttEditableCell(bucketCell, () => makeBucketEditable(bucketCell, task, index));
         row.appendChild(bucketCell);
 
         // Comment
@@ -2041,7 +2044,7 @@ function updateTasksTable(tasks) {
         commentCell.classList.add('editable');
         commentCell.dataset.field = 'comment';
         commentCell.textContent = task.comment || '-';
-        commentCell.addEventListener('dblclick', () => makeEditable(commentCell, task, index));
+        setupGanttEditableCell(commentCell, () => makeEditable(commentCell, task, index));
         row.appendChild(commentCell);
 
         // Predecessors
@@ -2050,7 +2053,7 @@ function updateTasksTable(tasks) {
         predCell.dataset.field = 'predecessors';
         const predText = formatPredecessors(task, nameToId);
         predCell.textContent = predText || '-';
-        predCell.addEventListener('dblclick', () => makeEditable(predCell, task, index));
+        setupGanttEditableCell(predCell, () => makeEditable(predCell, task, index));
         row.appendChild(predCell);
 
         // Click to open task

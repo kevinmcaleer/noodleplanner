@@ -327,23 +327,78 @@ body.collab-join.is-joined {
     background: var(--np-accent-hover);
 }
 
-/* A phone: the chat opens over the board rather than squeezing it. */
-@media (max-width: 720px) {
-    .session-bar {
-        flex-wrap: wrap;
-    }
+/* ---- A phone joiner (#1389) ----
 
-    .session-actions .join-btn span:not(.session-unread) {
-        display: none;
-    }
+   Keyed on layout-mode.js's data-layout, as the app is, so Settings ->
+   Layout's override reaches this page too. The board is its cards
+   (plan-list.js); the ribbon -- the canvas's tools, 347px of a 390x844
+   screen -- gives way, and the chat opens over the board rather than
+   squeezing it. */
 
-    .session-chat {
-        position: fixed;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        width: min(340px, 100vw);
-        box-shadow: var(--np-elevation-4);
-        z-index: 1200;
-    }
+/* By id: a touch screen's simple-mode ribbon (components.css, #1388) sets
+   its own display with a selector as specific as a class-only one here. */
+[data-layout="phone"] .session-shell > #ribbonShell {
+    display: none;
+}
+
+[data-layout="phone"] .session-bar {
+    flex-wrap: wrap;
+    gap: var(--np-space-8);
+    padding: calc(var(--np-space-8) + env(safe-area-inset-top, 0px))
+        calc(var(--np-space-12) + env(safe-area-inset-right, 0px))
+        var(--np-space-8)
+        calc(var(--np-space-12) + env(safe-area-inset-left, 0px));
+}
+
+[data-layout="phone"] .session-actions .join-btn span:not(.session-unread) {
+    display: none;
+}
+
+[data-layout="phone"] .session-actions {
+    gap: var(--np-space-4);
+}
+
+[data-layout="phone"] .join-btn,
+[data-layout="phone"] .session-icon-btn {
+    justify-content: center;
+    min-width: var(--np-touch-target);
+    min-height: var(--np-touch-target);
+}
+
+/* The profile circle is 24px in the bar; a 44px one here, as in the app's
+   title bar on a touch screen. */
+[data-layout="phone"] .session-bar .user-profile-circle-empty {
+    width: var(--np-touch-target);
+    height: var(--np-touch-target);
+}
+
+[data-layout="phone"] .session-bar .user-profile-circle {
+    --np-avatar-size: var(--np-touch-target);
+}
+
+[data-layout="phone"] .join-card input,
+[data-layout="phone"] .session-chat-composer input {
+    min-height: var(--np-touch-target);
+    font-size: var(--np-touch-field-text);
+}
+
+[data-layout="phone"] .session-chat-composer button {
+    min-height: var(--np-touch-target);
+    width: var(--np-touch-target);
+}
+
+[data-layout="phone"] .session-board #whiteboard-view {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+[data-layout="phone"] .session-chat {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(340px, 100vw);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: var(--np-elevation-4);
+    z-index: 1200;
 }

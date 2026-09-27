@@ -3,7 +3,14 @@ Use NoodlePlanner on a touch device
 
 NoodlePlanner supports touch input on phone and tablet browsers. Standard
 buttons, menus, forms, and cards use a minimum 44-pixel activation area when a
-coarse pointer is detected.
+coarse pointer is detected. A phone also gets a layout of its own; see
+:doc:`use-noodleplanner-on-a-phone`.
+
+Where you would right-click on a desktop, press and hold instead: a task
+row in Tasks or the Gantt chart, a RAID item, a product in the PBS, a row in
+the whiteboard's Plan structure panel, or the whiteboard's empty background.
+Pressing and holding a whiteboard note lifts it so you can drag it; tap the
+note for its toolbar.
 
 Navigate and edit
 -----------------

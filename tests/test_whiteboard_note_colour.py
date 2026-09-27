@@ -395,8 +395,10 @@ class TestNoteMenuOpenClose:
         # that point; dispatch the mousedown directly on <body> instead, so
         # this test exercises wbNoteMenuOutsideClick()'s own e.target check
         # rather than depending on where the menu happens to be positioned.
+        # A press starts with pointerdown, which is what the menu listens
+        # for (#1386) so a finger closes it too.
         browser.execute_script(
-            "document.body.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));"
+            "document.body.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));"
         )
         WebDriverWait(browser, 3).until_not(
             lambda d: d.find_elements(By.ID, "wbNoteMenu")

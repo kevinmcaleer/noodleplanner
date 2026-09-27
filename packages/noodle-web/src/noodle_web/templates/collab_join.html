@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- viewport-fit=cover: a phone joiner's bar pads itself below the notch
+         (env(safe-area-inset-*), views/collab-join.css). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Join planning session - Noodle Planner</title>
     <link rel="icon" type="image/png" href="/favicon.png">
     <script>
@@ -18,6 +20,9 @@
         if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
     })();
     </script>
+    <!-- Layout mode (#1379): <html data-layout="phone|tablet|desktop"> before
+         the body renders. A phone joiner gets the board as cards (#1389). -->
+    <script src="/static/layout-mode.js?v={{ v }}"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,6 +32,7 @@
     <link rel="stylesheet" href="/static/base.css?v={{ v }}">
     <link rel="stylesheet" href="/static/components.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/whiteboard.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/plan-list.css?v={{ v }}">
     <link rel="stylesheet" href="/static/task-peek.css?v={{ v }}">
     <link rel="stylesheet" href="/static/dark-mode.css?v={{ v }}">
     <link rel="stylesheet" href="/static/visual-system.css?v={{ v }}">
@@ -126,6 +132,9 @@
     <textarea id="planEditor" hidden aria-hidden="true" tabindex="-1"></textarea>
 
     <script src="/static/state.js?v={{ v }}"></script>
+    <!-- The app's one long-press, swipe and drag (#1386): the board's notes
+         and rows are lifted with it. -->
+    <script src="/static/touch-gestures.js?v={{ v }}"></script>
     <script src="/static/task-tokenizer.js?v={{ v }}"></script>
     <script src="/static/plan-model.js?v={{ v }}"></script>
     <script src="/static/editor-sync.js?v={{ v }}"></script>
@@ -143,6 +152,10 @@
     <script src="/static/whiteboard-noodles.js?v={{ v }}"></script>
     <script src="/static/whiteboard-dep-noodles.js?v={{ v }}"></script>
     <script src="/static/whiteboard-outline.js?v={{ v }}"></script>
+    <!-- The board as cards on a phone (#1384, #1389): updateWhiteboardView()
+         hands plan-list.js the tasks it drew. -->
+    <script src="/static/summary-collapse.js?v={{ v }}"></script>
+    <script src="/static/plan-list.js?v={{ v }}"></script>
     <script src="/static/user-profile.js?v={{ v }}"></script>
     <script src="/static/collab-chat.js?v={{ v }}"></script>
     <script src="/static/collab-merge.js?v={{ v }}"></script>
@@ -155,5 +168,7 @@
     <script type="module" src="/static/components/checkbox/np-checkbox.js?v={{ v }}"></script>
     <script type="module" src="/static/components/resource-stack/np-resource-stack.js?v={{ v }}"></script>
     <script type="module" src="/static/components/note/note-markup.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/note/np-note.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/view-chips/np-view-chips.js?v={{ v }}"></script>
 </body>
 </html>

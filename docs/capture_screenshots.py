@@ -16,12 +16,24 @@ Usage:
 Behind a restricted network, serve the CDN assets locally and set
 NOODLE_CDN_MIRROR=127.0.0.1:<port> -- see create_driver(). Without it the
 capture silently loses Bootstrap, every icon and the webfonts.
+
+The phone figures (ph-*, epic #1376) are taken with Playwright rather than
+Selenium -- see capture_phone(). They run after the rest, or on their own:
+
+    python docs/capture_screenshots.py --phone-only --base-url http://localhost:9000
+    python docs/capture_screenshots.py --phone-only --npm-mirror /tmp/cdn
+
+`--npm-mirror` serves cdn.jsdelivr.net's /npm/ paths from unpacked npm
+tarballs, where jsDelivr is blocked but the npm registry is not; see
+scripts/capture_screen_audit.py for how to build one.
 """
 
 import argparse
 import base64
 import hashlib
+import datetime
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -906,6 +918,187 @@ def capture_explanation(driver, base_url):
 
 
 # ---------------------------------------------------------------------------
+# On a phone (epic #1376)
+# ---------------------------------------------------------------------------
+
+PHONE = {
+    "viewport": {"width": 390, "height": 844},
+    "device_scale_factor": DEVICE_SCALE,
+    "has_touch": True,
+    "is_mobile": True,
+}
+
+# The RAID log's sample items, as the app loads them from a plan's back matter.
+PHONE_RAID = [
+    {
+        "id": 1, "type": "risk", "title": "Content freeze slips past the design sign-off",
+        "description": "Marketing's copy is late, so the designs are signed off on placeholder text.",
+        "raised_by": "Alex Chen", "owner": "Sam Lee", "mitigation_actions": "Agree a freeze date this week",
+        "impact": 4, "likelihood": 3, "score": 12, "status": "open", "priority": "High",
+        "target_date": "",
+    },
+    {
+        "id": 2, "type": "issue", "title": "Staging server is out of disk",
+        "description": "", "raised_by": "Jamie Smith", "owner": "Jamie Smith", "mitigation_actions": "",
+        "impact": 3, "likelihood": 5, "score": 15, "status": "open", "priority": "High", "target_date": "",
+    },
+    {
+        "id": 3, "type": "action", "title": "Book the UAT room",
+        "description": "", "raised_by": "Alex Chen", "owner": "Alex Chen", "mitigation_actions": "",
+        "impact": 1, "likelihood": 1, "score": 1, "status": "open", "priority": "Medium", "target_date": "",
+    },
+]
+
+
+# A project of its own, so the app bar names the plan, then the plan itself.
+LOAD_PHONE_PLAN = """text => {
+    const project = createProject('Website Redesign 2026');
+    setCurrentProjectId(project.id);
+    const editor = document.getElementById('planEditor');
+    editor.value = text;
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    if (typeof renderPlan === 'function') renderPlan();
+}"""
+
+
+def phone_plan():
+    """SAMPLE_PLAN, starting a week ago, so the calendar's agenda has a today."""
+    start = (datetime.date.today() - datetime.timedelta(days=7)).isoformat()
+    return SAMPLE_PLAN.replace("start:2026-04-14", f"start:{start}")
+
+
+def capture_phone(base_url, npm_mirror=None):
+    """The app on a 390x844 touch phone (docs/how-to/use-noodleplanner-on-a-phone.rst).
+
+    Playwright, not Selenium: a phone is a viewport *and* touch and mobile
+    emulation, which a Playwright browser context sets up in one place, and
+    it is what the phone's own tests (tests/ui) drive. The app sees
+    data-layout="phone" exactly as a real phone's browser would get it.
+
+    ph-01  the dashboard: app bar, view chips, one column
+    ph-02  the navigation drawer
+    ph-03  Tasks as cards, one open, the quick-add at the foot
+    ph-04  a task's detail sheet, full screen
+    ph-05  the RAID log as cards, one opened with its chevron
+    ph-06  the calendar's agenda
+    ph-07  the Gantt chart, with its "best on a larger screen" notice
+    ph-08  the session dialog's QR code (a desktop, the host's side)
+    ph-09  a phone that joined the session: the board as cards
+    """
+    from playwright.sync_api import sync_playwright
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    from capture_screen_audit import watch_cdn
+
+    section = IMG_ROOT / "how-to"
+    section.mkdir(parents=True, exist_ok=True)
+    print("\n--- On a phone ---")
+
+    def shot(page, name, selector=None):
+        page.wait_for_timeout(600)  # transitions and the chips' scroll settle
+        path = section / name
+        if selector:
+            page.locator(selector).first.screenshot(path=str(path))
+        else:
+            page.screenshot(path=str(path))
+        print(f"  [phone]   {path}")
+
+    def view(page, view_id):
+        page.evaluate("v => switchToView(v)", view_id)
+        page.wait_for_function("() => !NavigationController.isTransitioning()")
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=os.environ.get("NOODLE_PW_CHROME") or None)
+        failed = []
+        try:
+            context = browser.new_context(**PHONE)
+            failed += watch_cdn(context, Path(npm_mirror) if npm_mirror else None)
+            context.add_cookies([{"name": "tourCompleted", "value": "true", "url": base_url}])
+            page = context.new_page()
+            page.goto(base_url, wait_until="domcontentloaded")
+            page.wait_for_selector("#phoneAppBar", state="attached")
+            page.wait_for_function("() => document.documentElement.dataset.layout === 'phone'")
+            page.evaluate(LOAD_PHONE_PLAN, phone_plan())
+            page.wait_for_function("() => document.getElementById('planEditor').value.includes('rag:')")
+            page.evaluate(
+                "items => { raidItems = []; loadRaidItemsFromData(items); renderRaidTable(); }", PHONE_RAID
+            )
+
+            view(page, "project-report")
+            shot(page, "ph-01-dashboard.png")
+
+            page.evaluate("() => document.getElementById('phoneAppBar').menuButton.click()")
+            page.wait_for_function("() => document.getElementById('phoneNavDrawer').hasAttribute('open')")
+            shot(page, "ph-02-drawer.png")
+            page.keyboard.press("Escape")
+
+            view(page, "tasks")
+            card = page.locator('#planList > np-note[task="Design"]')
+            card.wait_for()
+            if card.get_attribute("collapsed") is not None:
+                card.locator(".wb-note-expand").tap()
+            shot(page, "ph-03-plan-list.png")
+
+            card.locator('.wb-note-row[data-wb-row-task="Wireframes"] .wb-note-row-name').tap()
+            page.wait_for_selector("#taskFormSection.active")
+            shot(page, "ph-04-task-sheet.png")
+            page.evaluate("() => closeTaskForm()")
+
+            view(page, "raid")
+            row = page.locator("#raidTable tbody tr", has_text="Content freeze")
+            row.locator(".np-rt-expand").tap()
+            shot(page, "ph-05-raid-cards.png")
+
+            view(page, "calendar")
+            page.wait_for_selector("#calendarAgenda .calendar-agenda-day")
+            shot(page, "ph-06-calendar-agenda.png")
+
+            page.evaluate("() => localStorage.removeItem('noodleplanner:larger-screen-dismissed')")
+            view(page, "gantt")
+            page.wait_for_function("() => !document.getElementById('phoneNotice').hidden")
+            shot(page, "ph-07-larger-screen-notice.png")
+
+            # The host's side of a session, on a desktop, and a phone joining it.
+            host_context = browser.new_context(
+                viewport={"width": 1440, "height": 900}, device_scale_factor=DEVICE_SCALE
+            )
+            failed += watch_cdn(host_context, Path(npm_mirror) if npm_mirror else None)
+            host_context.add_cookies([{"name": "tourCompleted", "value": "true", "url": base_url}])
+            host = host_context.new_page()
+            host.goto(base_url, wait_until="domcontentloaded")
+            host.wait_for_selector(".ribbon-scope-btn", state="attached")
+            host.evaluate(LOAD_PHONE_PLAN, phone_plan())
+            host.wait_for_function("() => document.getElementById('planEditor').value.includes('rag:')")
+            host.evaluate("() => switchToView('whiteboard')")
+            host.wait_for_function("() => !NavigationController.isTransitioning()")
+            host.evaluate("() => startCollabSession()")
+            host.wait_for_function("() => document.getElementById('collabSessionCode').value.length === 6")
+            host.locator("#collabSessionQr").wait_for(state="visible")
+            shot(host, "ph-08-session-qr.png", "#collabSessionOverlay .task-form-modal")
+            code = host.input_value("#collabSessionCode")
+
+            joiner = context.new_page()
+            joiner.goto(f"{base_url}/join#code={code}", wait_until="domcontentloaded")
+            joiner.fill("#displayName", "Priya Shah")
+            joiner.locator("#joinBtn").tap()
+            joiner.wait_for_selector("#whiteboardCards > np-note")
+            first = joiner.locator("#whiteboardCards > np-note").first
+            if first.get_attribute("collapsed") is not None:
+                first.locator(".wb-note-expand").tap()
+            shot(joiner, "ph-09-joiner-cards.png")
+            host.evaluate("() => endCollabSession()")
+        finally:
+            browser.close()
+
+    if failed:
+        print("\nThe CDN did not load, so these captures are missing styles or icons:")
+        for line in sorted(set(failed)):
+            print(f"  {line}")
+        return 1
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -919,23 +1112,34 @@ def main():
         default=DEFAULT_BASE_URL,
         help=f"URL of the running NoodlePlanner instance (default: {DEFAULT_BASE_URL})",
     )
+    parser.add_argument(
+        "--phone-only",
+        action="store_true",
+        help="capture only the phone figures (Playwright; no Selenium driver needed)",
+    )
+    parser.add_argument(
+        "--npm-mirror",
+        help="serve cdn.jsdelivr.net/npm/ from unpacked npm tarballs in this directory (phone figures)",
+    )
     args = parser.parse_args()
 
     print(f"Capturing screenshots from {args.base_url}")
     print(f"Saving to {IMG_ROOT}")
 
-    driver = create_driver()
-    try:
-        capture_tutorials(driver, args.base_url)
-        capture_how_to(driver, args.base_url)
-        capture_planning_session(driver, args.base_url)
-        capture_reference(driver, args.base_url)
-        capture_explanation(driver, args.base_url)
-        print("\nDone. All screenshots saved.")
-    finally:
-        driver.quit()
+    if not args.phone_only:
+        driver = create_driver()
+        try:
+            capture_tutorials(driver, args.base_url)
+            capture_how_to(driver, args.base_url)
+            capture_planning_session(driver, args.base_url)
+            capture_reference(driver, args.base_url)
+            capture_explanation(driver, args.base_url)
+        finally:
+            driver.quit()
+    status = capture_phone(args.base_url, args.npm_mirror)
+    print("\nDone. All screenshots saved.")
 
-    return report_duplicates()
+    return report_duplicates() or status
 
 
 def report_duplicates():

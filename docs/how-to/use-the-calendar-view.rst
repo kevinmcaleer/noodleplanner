@@ -8,6 +8,10 @@ Open the Calendar View
 
 After rendering your plan, click **Calendar** in the project sub-navigation bar.
 
+On a phone, the calendar opens on an agenda of today and the next seven
+days instead, with the month grid under **Month**. See
+:doc:`use-noodleplanner-on-a-phone`.
+
 Navigate the Calendar
 ----------------------
 

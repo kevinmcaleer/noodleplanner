@@ -17,6 +17,12 @@
  */
 
 import { GALLERY } from '../../packages/noodle-web/src/noodle_web/static/component-gallery.js'
+// The Phone section renders these elements from markup, so they must be
+// defined here: Storybook loads only the story file it is showing.
+import '../../packages/noodle-web/src/noodle_web/static/components/notice/np-notice.js'
+import '../../packages/noodle-web/src/noodle_web/static/components/qr-code/np-qr-code.js'
+import '../../packages/noodle-web/src/noodle_web/static/components/quick-add/np-quick-add.js'
+import '../../packages/noodle-web/src/noodle_web/static/components/responsive-table/np-responsive-table.js'
 
 function section(id) {
 	const found = GALLERY.find((s) => s.id === id)
@@ -97,6 +103,7 @@ export const Tables = storyFor('tables')
 export const Dashboard = storyFor('dashboard')
 export const Tasks = storyFor('tasks')
 export const Gantt = storyFor('gantt')
+export const Phone = storyFor('phone')
 export const IconsSprite = storyFor('icons-sprite')
 export const IconsBootstrap = storyFor('icons-bootstrap')
 export const IconsGlyph = storyFor('icons-glyph')

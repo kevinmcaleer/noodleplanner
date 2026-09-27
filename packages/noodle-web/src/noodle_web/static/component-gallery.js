@@ -561,6 +561,46 @@ export const GALLERY = [
         ],
     },
     {
+        id: 'phone',
+        title: 'Phone',
+        note:
+            'The phone layout\'s own components (epic #1376), each with its stories in ' +
+            'Storybook. The app bar, view chips, navigation drawer, action sheet, "+" button ' +
+            'and detail sheet take their content from script and are shown there; these four ' +
+            'render from their markup alone.',
+        variants: [
+            {
+                name: 'np-notice: a view best on a larger screen',
+                html: '<np-notice action="Open Tasks" dismiss-label="Dismiss this notice">Gantt is best on a larger screen.</np-notice>',
+            },
+            {
+                name: 'np-notice, no action',
+                html: '<np-notice>Saved to this browser.</np-notice>',
+            },
+            {
+                name: 'np-qr-code: a session\'s join link',
+                html: '<np-qr-code value="https://noodleplanner.example/join#code=482913" label="Scan to join on a phone" size="144"></np-qr-code>',
+            },
+            {
+                name: 'np-quick-add',
+                html: '<np-quick-add placeholder="Add a task to Design…" label="Add a task"></np-quick-add>',
+            },
+            {
+                name: 'np-responsive-table, stacked',
+                html:
+                    '<np-responsive-table stack="always"><table class="raid-table"><thead><tr>' +
+                    '<th data-priority="primary">Title</th><th data-priority="1">Status</th>' +
+                    '<th data-priority="2">Owner</th><th>Description</th></tr></thead><tbody>' +
+                    '<tr><td>Supplier slips on the June delivery</td>' +
+                    '<td><span class="raid-status-badge raid-status-open">open</span></td>' +
+                    '<td>Sam</td><td>Parts for the pilot arrive late.</td></tr>' +
+                    '<tr><td>Go with vendor B</td>' +
+                    '<td><span class="raid-status-badge raid-status-closed">closed</span></td>' +
+                    '<td>Jo</td><td></td></tr></tbody></table></np-responsive-table>',
+            },
+        ],
+    },
+    {
         id: 'icons-sprite',
         title: 'Icons — sprite',
         note:

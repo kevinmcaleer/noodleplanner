@@ -1,0 +1,190 @@
+/* ========================================
+   <np-responsive-table> (#1387, epic #1376)
+
+   A wrapped table, laid out as a stack of cards while the component is
+   `stacked` (a phone, or stack="always"). The rows and cells are the table's
+   own -- np-responsive-table.js only labels each cell with its column's name
+   and priority -- so a row keeps its click, its menu and its buttons.
+
+     primary   the card's title, with ▾ at its end
+     1-3       the meta line under it, in column order, each after a small
+               label of its column's name
+     detail    below, as "label  value" lines, once ▾ is open
+     none      not on the card at all
+   ======================================== */
+
+np-responsive-table {
+    display: block;
+}
+
+/* ▾ is a card's control only. */
+np-responsive-table:not([stacked]) .np-rt-expand {
+    display: none;
+}
+
+np-responsive-table[stacked] table,
+np-responsive-table[stacked] tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border: none;
+    background: none;
+}
+
+/* The header row says what each column is; on a card each cell says so
+   itself, so the header goes (but stays for a screen reader). */
+np-responsive-table[stacked] thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+np-responsive-table[stacked] tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--np-space-4) var(--np-space-12);
+    margin: 0 0 var(--np-space-12);
+    padding: var(--np-space-12) var(--np-space-12) var(--np-space-12) var(--np-space-16);
+    border: 1px solid var(--np-border);
+    border-radius: var(--np-radius-card);
+    background: var(--np-surface);
+    box-shadow: var(--np-elevation-1);
+}
+
+np-responsive-table[stacked] tbody td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    /* Cells a wide table truncated to one line read in full on a card. */
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+/* The title: the whole first line, with ▾ at its end. */
+np-responsive-table[stacked] tbody td[data-priority="primary"] {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-8);
+    flex: 1 0 100%;
+    order: -1;
+    min-height: var(--np-touch-target);
+    color: var(--np-ink);
+    font-weight: var(--np-weight-semibold);
+}
+
+/* The meta line: the priority columns, each after its column's name. */
+np-responsive-table[stacked] tbody td[data-priority="1"],
+np-responsive-table[stacked] tbody td[data-priority="2"],
+np-responsive-table[stacked] tbody td[data-priority="3"] {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--np-space-4);
+    color: var(--np-body);
+    font-size: var(--np-text-90);
+}
+
+np-responsive-table[stacked] tbody td[data-priority="1"]::before,
+np-responsive-table[stacked] tbody td[data-priority="2"]::before,
+np-responsive-table[stacked] tbody td[data-priority="3"]::before {
+    content: attr(data-label);
+    color: var(--np-muted);
+    font-size: var(--np-text-85);
+}
+
+np-responsive-table[stacked] tbody td[data-priority="1"] { order: 1; }
+np-responsive-table[stacked] tbody td[data-priority="2"] { order: 2; }
+np-responsive-table[stacked] tbody td[data-priority="3"] { order: 3; }
+
+/* An empty meta cell says nothing. */
+np-responsive-table[stacked] tbody td:empty {
+    display: none;
+}
+
+/* The rest, one line each, once the card is open. */
+np-responsive-table[stacked] tbody td[data-priority="detail"],
+np-responsive-table[stacked] tbody td[data-priority="none"] {
+    display: none;
+}
+
+np-responsive-table[stacked] tbody tr.np-rt-open td[data-priority="detail"] {
+    display: grid;
+    grid-template-columns: minmax(96px, 34%) minmax(0, 1fr);
+    gap: var(--np-space-8);
+    flex: 1 0 100%;
+    order: 4;
+    padding-top: var(--np-space-4);
+    color: var(--np-ink);
+    font-size: var(--np-text-90);
+}
+
+np-responsive-table[stacked] tbody tr.np-rt-open td[data-priority="detail"]::before {
+    content: attr(data-label);
+    color: var(--np-muted);
+}
+
+/* A cell of controls -- an Actions column's Edit and Delete -- puts them in
+   a row after its label, rather than one per cell of the label/value grid. */
+np-responsive-table[stacked] tbody tr.np-rt-open td[data-priority="detail"]:has(> :is(button, np-button, a)) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+np-responsive-table[stacked] tbody tr.np-rt-open td[data-priority="detail"]:has(> :is(button, np-button, a))::before {
+    flex: 0 0 calc(34% - var(--np-space-8));
+    min-width: 96px;
+}
+
+np-responsive-table[stacked] tbody tr.np-rt-open td[data-priority="detail"]:empty::after {
+    content: '—';
+    color: var(--np-muted);
+}
+
+/* A full-width row -- an empty state, a group heading -- spans the card. */
+np-responsive-table[stacked] tbody tr[data-rt-full] td {
+    flex: 1 0 100%;
+}
+
+.np-rt-expand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    margin-left: auto;
+    min-width: var(--np-touch-target);
+    min-height: var(--np-touch-target);
+    padding: 0;
+    border: none;
+    border-radius: var(--np-radius-control);
+    background: transparent;
+    color: var(--np-muted);
+    cursor: pointer;
+}
+
+.np-rt-expand:hover {
+    background: var(--np-sunken);
+    color: var(--np-ink);
+}
+
+.np-rt-expand:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: calc(var(--np-focus-ring-width) * -1);
+}
+
+.np-rt-expand svg {
+    transition: transform var(--np-anim-duration-fast) var(--np-anim-easing);
+}
+
+tr.np-rt-open .np-rt-expand svg {
+    transform: rotate(180deg);
+}

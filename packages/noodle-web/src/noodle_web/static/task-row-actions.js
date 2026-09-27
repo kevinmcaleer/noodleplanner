@@ -183,6 +183,62 @@ function attachRowDragListeners(row, task, index, tableId) {
 
         moveTaskInEditor(fromIndex, toIndex, insertBelow, tableId);
     });
+
+    // A finger cannot start an HTML5 drag (#1385): the same drop, by pointer,
+    // from the same handle -- which a coarse pointer always shows.
+    if (typeof NoodleTouch !== 'undefined') attachRowPointerDrag(row, handle, index, tableId);
+}
+
+/**
+ * Drag `row` by `handle` with a touch or a pen, to the same effect as the
+ * HTML5 drop above: onto a row's upper half nests it first under that row,
+ * onto the lower half last.
+ */
+function attachRowPointerDrag(row, handle, index, tableId) {
+    const tbody = () => row.parentElement;
+    const rowAt = (point) => {
+        const hit = point.over && point.over.closest ? point.over.closest('tr[data-task-index]') : null;
+        return hit && hit !== row && hit.parentElement === tbody() ? hit : null;
+    };
+    const below = (target, point) => {
+        const rect = target.getBoundingClientRect();
+        return point.clientY >= rect.top + rect.height / 2;
+    };
+    const clear = () => {
+        row.classList.remove('dragging');
+        const body = tbody();
+        if (body) {
+            body.querySelectorAll('.drag-over-above, .drag-over-below').forEach(el => {
+                el.classList.remove('drag-over-above', 'drag-over-below');
+            });
+        }
+    };
+    NoodleTouch.dragByPointer(handle, {
+        start: () => row.classList.add('dragging'),
+        move: (point) => {
+            const target = rowAt(point);
+            const body = tbody();
+            if (body) {
+                body.querySelectorAll('.drag-over-above, .drag-over-below').forEach(el => {
+                    if (el !== target) el.classList.remove('drag-over-above', 'drag-over-below');
+                });
+            }
+            if (!target) return;
+            const lower = below(target, point);
+            target.classList.toggle('drag-over-above', !lower);
+            target.classList.toggle('drag-over-below', lower);
+        },
+        drop: (point) => {
+            const target = rowAt(point);
+            const lower = target ? below(target, point) : false;
+            clear();
+            if (!target) return;
+            const toIndex = parseInt(target.dataset.taskIndex, 10);
+            if (isNaN(toIndex) || toIndex === index) return;
+            moveTaskInEditor(index, toIndex, lower, tableId);
+        },
+        cancel: clear,
+    });
 }
 
 /**
@@ -230,11 +286,16 @@ function addRowInteractions(row, task, index, tableId) {
         row.insertBefore(handleCell, doneCell);
     }
 
-    // Add hover + buttons to the ID cell (3rd cell: drag, done, ID)
-    const btns = createRowAddButtons(task, index);
+    // Add hover + buttons to the ID cell (3rd cell: drag, done, ID). Only
+    // where there is a hover to reveal them: on a touch screen they would be
+    // unreachable, and Insert Task Above / Below are on the row's ⋯ menu,
+    // which a finger can open (#1386).
+    const canHover = typeof window === 'undefined' || !window.matchMedia ||
+        window.matchMedia('(hover: hover)').matches;
     const cells = row.querySelectorAll('td');
     const idCell = cells[2]; // drag=0, done=1, id=2
-    if (idCell) {
+    if (idCell && canHover) {
+        const btns = createRowAddButtons(task, index);
         idCell.style.position = 'relative';
         idCell.appendChild(btns.above);
         idCell.appendChild(btns.below);

@@ -523,7 +523,7 @@ function renderLessonsTable() {
     }
 
     emptyState.hidden = true;
-    table.style.display = 'table';
+    table.style.display = '';
 
     const escapeHtml = (s) => String(s || '')
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

@@ -245,6 +245,16 @@
     "$type": "sizing",
     "$description": "The checkbox's hit target, as distinct from the box it draws (#1250).\nWCAG 2.2 SC 2.5.8 wants 24x24 for a pointer target, and <np-checkbox>\nalready used exactly that as a hard-coded fallback. It is here because\nit is a column width as much as a hit area: the whiteboard note's\nadd-task row reserves the same width for its \"+\" so that glyph, every\ncheckbox above it and every task name line up. A literal in two files\ncannot express \"these are the same measurement\"."
   },
+  "touch-target": {
+    "$value": "44px",
+    "$type": "sizing",
+    "$description": "The smallest a touch target should be, in each dimension (#1376).\nWCAG 2.2 SC 2.5.5 and both platform guides ask for 44x44 where the\npointer is a finger. It is the size every control takes under\n`(pointer: coarse)` -- ribbon buttons on a tablet, the phone app bar,\nrow actions -- so \"big enough to tap\" is one measurement, not a\nliteral copied into each component."
+  },
+  "touch-field-text": {
+    "$value": "16px",
+    "$type": "fontSizes",
+    "$description": "The text size of a form field under a coarse pointer (#1378).\niOS Safari zooms the whole page into any focused input, select or\ntextarea whose text is under 16px, and leaves it zoomed. The app's\nfields are 14px (11px in the ribbon search), so on a phone every tap\ninto a form shifted the page. An absolute px, not em like the type\nscale: the threshold is 16 CSS pixels whatever the field inherits."
+  },
   "focus-ring-width": {
     "$value": "2px",
     "$type": "dimension"

@@ -111,8 +111,14 @@ test('index.html has the forecast view container, summary, KPI grid and chart', 
   assert.match(html, /id="forecastChartLegend"/);
 });
 
-test('the Tracking dropdown menu has a Forecast entry that switches to the forecast view', () => {
-  assert.match(html, /data-view="forecast" onclick="switchToView\('forecast'\)/);
+test('Forecast is a Tracking view with a navigation entry', () => {
+  // The old #planSubnav Tracking dropdown was removed with #1380; the drawer
+  // lists state.js's TRACKING_VIEWS, named by view-catalogue.js.
+  const dir = new URL('../packages/noodle-web/src/noodle_web/static/', import.meta.url);
+  const state = readFileSync(new URL('state.js', dir), 'utf8');
+  assert.match(/const TRACKING_VIEWS = \[([^\]]*)\]/.exec(state)[1], /'forecast'/);
+  const catalogue = readFileSync(new URL('view-catalogue.js', dir), 'utf8');
+  assert.match(catalogue, /forecast: \{ label: 'Forecast'/);
 });
 
 // ---------------------------------------------------------------------------
