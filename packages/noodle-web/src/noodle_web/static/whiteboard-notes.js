@@ -326,6 +326,19 @@ const WB_TOUCH_CANCEL_THRESHOLD = 10;
 // and-drag on touch" requirement).
 const WB_TOUCH_LONG_PRESS_MS = 350;
 
+/**
+ * Arm a touch drag after a hold: the app's one long-press timer
+ * (NoodleTouch.hold(), touch-gestures.js -- #1386), at the board's own
+ * timings. `move(x, y)` is false once the finger has wandered past
+ * WB_TOUCH_CANCEL_THRESHOLD, which abandons the gesture; `cancel()` on lift.
+ */
+function wbHoldToDrag(clientX, clientY, onHold) {
+    return NoodleTouch.hold(clientX, clientY, onHold, {
+        delay: WB_TOUCH_LONG_PRESS_MS,
+        tolerance: WB_TOUCH_CANCEL_THRESHOLD,
+    });
+}
+
 // Below this zoom level a note switches to a title-only card rather than
 // trying to render illegible body/footer text (see whiteboardZoomFit()'s
 // sibling wbApplyTransform() in whiteboard.js, which toggles the class
@@ -1952,6 +1965,8 @@ function updateWhiteboardView(result, planText) {
     wbLastPlanText = planText || '';
     wbLastThoughts = (typeof wbParseThoughts === 'function') ? wbParseThoughts(wbLastPlanText) : [];
     wbRenderNotes();
+    // On a phone the board can be shown as cards instead (#1384).
+    if (typeof NoodlePlanList !== 'undefined') NoodlePlanList.renderWhiteboardCards(wbLastTasks);
 }
 
 /** Get-or-create the single <g> that holds all note foreignObjects. It is
@@ -2991,13 +3006,12 @@ function wbNoteHeaderTouchStart(e, entry) {
         startWidth: rect.width,
         startHeight: rect.height,
         moved: false,
-        longPressTimer: setTimeout(() => {
+        longPressTimer: wbHoldToDrag(touch.clientX, touch.clientY, () => {
             if (!wbActiveDrag || wbActiveDrag.entry !== entry) return;
             wbActiveDrag.phase = 'active';
-            wbActiveDrag.longPressTimer = null;
             wbRaiseNoteToFront(entry);
             wbSetDragCursor('grabbing');
-        }, WB_TOUCH_LONG_PRESS_MS),
+        }),
     };
 }
 
@@ -3016,11 +3030,10 @@ function wbNoteDragTouchMove(e) {
     if (!touch) return;
 
     if (drag.phase === 'pending') {
-        if (wbExceedsMoveThreshold(drag.startClientX, drag.startClientY, touch.clientX, touch.clientY, WB_TOUCH_CANCEL_THRESHOLD)) {
+        if (!drag.longPressTimer.move(touch.clientX, touch.clientY)) {
             // Moved too far before the long-press fired -- most likely the
             // user meant to pan/scroll, not drag this note. Abandon the
             // gesture with no side effects at all (no move, no reorder).
-            if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
             wbActiveDrag = null;
         }
         return; // never move the note during the pending phase
@@ -3036,7 +3049,7 @@ function wbNoteDragTouchEnd(e) {
     if (wbFindTouchById(e.touches, drag.touchId)) return; // a different touch ended
 
     if (drag.phase === 'pending') {
-        if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
+        drag.longPressTimer.cancel();
         wbActiveDrag = null;
         wbFinishNoteTap(drag.entry);
         return;
@@ -3252,12 +3265,11 @@ function wbTextObjectTouchStart(e, entry) {
         startX: rect.x,
         startY: rect.y,
         moved: false,
-        longPressTimer: setTimeout(() => {
+        longPressTimer: wbHoldToDrag(touch.clientX, touch.clientY, () => {
             if (!wbActiveTextDrag || wbActiveTextDrag.entry !== entry) return;
             wbActiveTextDrag.phase = 'active';
-            wbActiveTextDrag.longPressTimer = null;
             wbSetDragCursor('grabbing');
-        }, WB_TOUCH_LONG_PRESS_MS),
+        }),
     };
 }
 
@@ -3268,8 +3280,7 @@ function wbTextDragTouchMove(e) {
     if (!touch) return;
 
     if (drag.phase === 'pending') {
-        if (wbExceedsMoveThreshold(drag.startClientX, drag.startClientY, touch.clientX, touch.clientY, WB_TOUCH_CANCEL_THRESHOLD)) {
-            if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
+        if (!drag.longPressTimer.move(touch.clientX, touch.clientY)) {
             wbActiveTextDrag = null;
         }
         return;
@@ -3285,7 +3296,7 @@ function wbTextDragTouchEnd(e) {
     if (wbTextObjectFindTouchById(e.touches, drag.touchId)) return; // a different touch ended
 
     if (drag.phase === 'pending') {
-        if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
+        drag.longPressTimer.cancel();
         wbActiveTextDrag = null;
         // A plain tap: same resolution as a mouse click that never moved --
         // select, or edit on the second tap of a double-tap.
@@ -4258,7 +4269,7 @@ function wbCloseSmartMenu() {
     if (popup && popup.parentNode) popup.remove();
     if (trigger) trigger.setAttribute('aria-expanded', 'false');
     wbSmartMenuState = null;
-    document.removeEventListener('mousedown', wbSmartMenuOutsideClick, true);
+    document.removeEventListener('pointerdown', wbSmartMenuOutsideClick, true);
     document.removeEventListener('keydown', wbSmartMenuKeydown, true);
 }
 
@@ -4359,7 +4370,7 @@ function wbOpenSmartMenu(taskName, trigger, popup) {
     trigger.setAttribute('aria-expanded', 'true');
     wbSmartMenuState = { taskName, trigger, popup };
     setTimeout(() => {
-        document.addEventListener('mousedown', wbSmartMenuOutsideClick, true);
+        document.addEventListener('pointerdown', wbSmartMenuOutsideClick, true);
         document.addEventListener('keydown', wbSmartMenuKeydown, true);
     }, 0);
 
@@ -4462,7 +4473,7 @@ function wbCloseCoachingMenu() {
     if (popup && popup.parentNode) popup.remove();
     if (trigger) trigger.setAttribute('aria-expanded', 'false');
     wbCoachingMenuState = null;
-    document.removeEventListener('mousedown', wbCoachingOutsideClick, true);
+    document.removeEventListener('pointerdown', wbCoachingOutsideClick, true);
     document.removeEventListener('keydown', wbCoachingEscape, true);
 }
 
@@ -4566,7 +4577,7 @@ function wbToggleCoachingMenu(taskName, trigger) {
     trigger.setAttribute('aria-expanded', 'true');
     wbCoachingMenuState = { taskName, trigger, popup };
     setTimeout(() => {
-        document.addEventListener('mousedown', wbCoachingOutsideClick, true);
+        document.addEventListener('pointerdown', wbCoachingOutsideClick, true);
         document.addEventListener('keydown', wbCoachingEscape, true);
     }, 0);
 }
@@ -5396,7 +5407,7 @@ function wbShowBoardMenu(menu, state, at) {
     if (btn) btn.setAttribute('aria-expanded', 'true');
     wbNoteMenuState = state;
 
-    document.addEventListener('mousedown', wbNoteMenuOutsideClick, true);
+    document.addEventListener('pointerdown', wbNoteMenuOutsideClick, true);
     document.addEventListener('keydown', wbNoteMenuKeydown, true);
 
     const first = menu.querySelector('[role="menuitem"]');
@@ -5443,7 +5454,7 @@ function wbOpenColourPanelForSelectedNote(anchorEl) {
 function wbCloseNoteMenu() {
     const menu = document.getElementById('wbNoteMenu');
     if (menu) menu.remove();
-    document.removeEventListener('mousedown', wbNoteMenuOutsideClick, true);
+    document.removeEventListener('pointerdown', wbNoteMenuOutsideClick, true);
     document.removeEventListener('keydown', wbNoteMenuKeydown, true);
     if (wbNoteMenuState && wbNoteMenuState.btn) {
         wbNoteMenuState.btn.setAttribute('aria-expanded', 'false');
@@ -8038,7 +8049,54 @@ function wbRenderParkingLotList() {
             if (!Number.isNaN(draggedId)) wbReorderParkedItem(draggedId, item.id, placeAfter);
         });
 
+        // A finger cannot start an HTML5 drag (#1386): the same two drops --
+        // onto another item to reorder, onto the board to restore -- by
+        // pointer, from the grip.
+        if (typeof NoodleTouch !== 'undefined') wbWireParkedItemPointerDrag(li, handle, item, clearDropIndicators);
+
         list.appendChild(li);
+    });
+}
+
+/** Drag a parked item by its grip with a touch or a pen (#1386). */
+function wbWireParkedItemPointerDrag(li, handle, item, clearDropIndicators) {
+    const itemAt = (point) => {
+        const hit = point.over && point.over.closest ? point.over.closest('.wb-parking-lot-item') : null;
+        return hit && hit !== li ? hit : null;
+    };
+    const after = (target, point) => {
+        const rect = target.getBoundingClientRect();
+        return (point.clientY - rect.top) > rect.height / 2;
+    };
+    const onBoard = (point) => {
+        const panel = point.over && point.over.closest ? point.over.closest('#wbParkingLotPanel') : null;
+        const board = point.over && point.over.closest ? point.over.closest('#whiteboardContainer') : null;
+        return !!board && !panel;
+    };
+    NoodleTouch.dragByPointer(handle, {
+        start: () => li.classList.add('wb-parking-lot-item-dragging'),
+        move: (point) => {
+            clearDropIndicators();
+            const target = itemAt(point);
+            if (!target) return;
+            const below = after(target, point);
+            target.classList.toggle('wb-parking-lot-item-drop-after', below);
+            target.classList.toggle('wb-parking-lot-item-drop-before', !below);
+        },
+        drop: (point) => {
+            li.classList.remove('wb-parking-lot-item-dragging');
+            clearDropIndicators();
+            const target = itemAt(point);
+            if (target) {
+                wbReorderParkedItem(item.id, parseInt(target.dataset.wbParkedId, 10), after(target, point));
+            } else if (onBoard(point)) {
+                wbRestoreParkedItem(item.id, wbBoardPointFromClient(point.clientX, point.clientY));
+            }
+        },
+        cancel: () => {
+            li.classList.remove('wb-parking-lot-item-dragging');
+            clearDropIndicators();
+        },
     });
 }
 

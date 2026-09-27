@@ -2474,10 +2474,10 @@ function mindmapShowColourPicker() {
     const closeHandler = (e) => {
         if (!picker.contains(e.target) && e.target !== swatch) {
             mindmapHideColourPicker();
-            document.removeEventListener('mousedown', closeHandler);
+            document.removeEventListener('pointerdown', closeHandler);
         }
     };
-    setTimeout(() => document.addEventListener('mousedown', closeHandler), 0);
+    setTimeout(() => document.addEventListener('pointerdown', closeHandler), 0);
 }
 
 /**

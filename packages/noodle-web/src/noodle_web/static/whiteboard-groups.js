@@ -412,9 +412,11 @@ function wbRenderGroups(rows, tasks) {
             g.append(rect, label, undo);
             layer.appendChild(g);
 
-            g.addEventListener('mousedown', (e) => wbGroupMouseDown(e, name));
+            // Pointer events, so a finger or a pen drags a boundary as a
+            // mouse does (#1386); the box is `touch-action: none`.
+            g.addEventListener('pointerdown', (e) => wbGroupMouseDown(e, name));
             label.addEventListener('dblclick', (e) => { e.stopPropagation(); wbRenameGroup(name); });
-            undo.addEventListener('mousedown', (e) => e.stopPropagation()); // never starts a drag
+            undo.addEventListener('pointerdown', (e) => e.stopPropagation()); // never starts a drag
             undo.addEventListener('click', (e) => {
                 e.stopPropagation();
                 wbUngroupGroup(g.dataset.wbGroup);
@@ -795,7 +797,7 @@ let wbActiveGroupDrag = null;
  * somewhere else, which is a worse story than "the group moves".
  */
 function wbGroupMouseDown(e, groupName) {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || e.isPrimary === false || wbActiveGroupDrag) return;
     // The title is the rename target; the box is the drag handle. A press
     // that lands on the label still drags, because a double-click is two
     // presses and the first one must not move the group out from under the
@@ -809,6 +811,7 @@ function wbGroupMouseDown(e, groupName) {
 
     const start = wbClientToBoard(e.clientX, e.clientY);
     wbActiveGroupDrag = {
+        pointerId: e.pointerId,
         groupName,
         startX: start.x,
         startY: start.y,
@@ -824,7 +827,7 @@ function wbGroupMouseDown(e, groupName) {
 
 function wbGroupMouseMove(e) {
     const drag = wbActiveGroupDrag;
-    if (!drag) return;
+    if (!drag || (e.pointerId != null && e.pointerId !== drag.pointerId)) return;
     const at = wbClientToBoard(e.clientX, e.clientY);
     const dx = at.x - drag.startX;
     const dy = at.y - drag.startY;
@@ -862,9 +865,9 @@ function wbFlushGroupDrag() {
     if (typeof wbRenderDependencyNoodles === 'function') wbRenderDependencyNoodles();
 }
 
-function wbGroupMouseUp() {
+function wbGroupMouseUp(e) {
     const drag = wbActiveGroupDrag;
-    if (!drag) return;
+    if (!drag || (e && e.pointerId != null && e.pointerId !== drag.pointerId)) return;
     // The last move may still be waiting for its frame; the commit below
     // reads the notes' positions, so apply it first.
     wbFlushGroupDrag();
@@ -928,6 +931,7 @@ function wbRenderGroupsFromBoard() {
 // Window-level listeners, registered once: a boundary drag has to keep
 // tracking after the pointer leaves the boundary, exactly like a note drag.
 if (typeof window !== 'undefined') {
-    window.addEventListener('mousemove', wbGroupMouseMove);
-    window.addEventListener('mouseup', wbGroupMouseUp);
+    window.addEventListener('pointermove', wbGroupMouseMove);
+    window.addEventListener('pointerup', wbGroupMouseUp);
+    window.addEventListener('pointercancel', wbGroupMouseUp);
 }

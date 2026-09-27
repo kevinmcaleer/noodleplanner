@@ -1415,6 +1415,15 @@ async function startCollabSession() {
     // Just `<origin>/join` -- the same for every session, so the PM can say
     // it out loud alongside the code.
     if (urlInput) urlInput.value = `${window.location.origin}${info.holding_url}`;
+    // #1389: the same page as a QR code, with the code in its fragment, so
+    // a phone joins from its camera. The fragment never reaches the server,
+    // and the code is on this screen beside it anyway.
+    const qr = document.getElementById('collabSessionQr');
+    if (qr) {
+        qr.setAttribute('value',
+            `${window.location.origin}${info.holding_url}#code=${encodeURIComponent(info.join_code)}`);
+        qr.hidden = false;
+    }
 
     status.textContent = 'Session live. Tell your team to open the link below and enter the code.';
     details.style.display = 'block';
@@ -1475,6 +1484,12 @@ async function startCollabSession() {
         // the generic message stays accurate for that case.
         status.textContent = event.reason || 'Session ended.';
         collabSocket = null;
+        // The code is dead: nothing should be left to scan.
+        const qr = document.getElementById('collabSessionQr');
+        if (qr) {
+            qr.hidden = true;
+            qr.removeAttribute('value');
+        }
         collabSessionKeys.clear();
         collabJoinerNames.clear();
         setCollabChatActive(false);

@@ -195,7 +195,7 @@ function tpOpen(opts) {
     document.body.appendChild(tpBuildPopover());
     tpRender();
 
-    document.addEventListener('mousedown', tpOutsideClick, true);
+    document.addEventListener('pointerdown', tpOutsideClick, true);
     document.addEventListener('keydown', tpKeydown, true);
 }
 
@@ -212,7 +212,7 @@ function tpIsOpenFor(taskName) {
 function tpClose() {
     const popover = document.getElementById('taskPeekPopover');
     if (popover) popover.remove();
-    document.removeEventListener('mousedown', tpOutsideClick, true);
+    document.removeEventListener('pointerdown', tpOutsideClick, true);
     document.removeEventListener('keydown', tpKeydown, true);
 
     const state = tpState;

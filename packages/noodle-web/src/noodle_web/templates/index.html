@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- viewport-fit=cover lets fixed chrome pad itself clear of the notch and
+         home indicator with env(safe-area-inset-*) (#1378). No maximum-scale
+         or user-scalable=no: pinch-zoom stays available. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Noodle Planner - Project Planning Tool</title>
 
     <!-- Favicon -->
@@ -115,6 +118,9 @@
     <link rel="stylesheet" href="/static/views/cards.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/plan-wizard.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/whiteboard.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/plan-list.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/components/responsive-table/np-responsive-table.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/phone-views.css?v={{ v }}">
     <link rel="stylesheet" href="/static/task-peek.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/timeline.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/portfolio.css?v={{ v }}">
@@ -143,8 +149,12 @@
         if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
     })();
     </script>
+    <!-- Layout mode (#1379): sets <html data-layout="phone|tablet|desktop">
+         before the body renders, so the first paint is already the right layout. -->
+    <script src="/static/layout-mode.js?v={{ v }}"></script>
     <link rel="stylesheet" href="/static/animations.css?v={{ v }}">
     <link rel="stylesheet" href="/static/responsive.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/phone-shell.css?v={{ v }}">
     <link rel="stylesheet" href="/static/noodlesheet.css?v={{ v }}">
     <link rel="stylesheet" href="/static/ai-chat.css?v={{ v }}">
     <link rel="stylesheet" href="/static/front-matter-panel.css?v={{ v }}">
@@ -153,6 +163,32 @@
     {% include "_icon_sprite.html" %}
 
     <a href="#main-content" class="skip-to-content">Skip to content</a>
+
+    <!-- Phone shell (#1380): replaces the ribbon and the status bar when
+         <html data-layout="phone">; hidden otherwise (phone-shell.css).
+         phone-shell.js fills and wires it. -->
+    <header id="phoneShell" class="phone-shell">
+        <np-app-bar id="phoneAppBar">
+            <span slot="status" id="phoneRagDot" class="status-bar-rag phone-rag-dot" role="img" hidden></span>
+            <np-button slot="actions" id="phoneSearchBtn" variant="neutral" icon-only size="large" label="Search">
+                <svg slot="icon" class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
+            </np-button>
+            <np-button slot="actions" id="phoneBellBtn" class="status-bar-history-btn phone-bell" variant="neutral" icon-only size="large" label="Messages">
+                <svg slot="icon" class="icon" aria-hidden="true"><use href="#icon-bell"/></svg>
+            </np-button>
+            <np-button slot="actions" id="phoneMoreBtn" variant="neutral" icon-only size="large" label="Commands" aria-haspopup="dialog">
+                <svg slot="icon" class="icon" aria-hidden="true"><use href="#icon-more"/></svg>
+            </np-button>
+        </np-app-bar>
+        <np-view-chips id="phoneViewChips"></np-view-chips>
+    </header>
+    <np-nav-drawer id="phoneNavDrawer"></np-nav-drawer>
+    <np-action-sheet id="phoneSheet"></np-action-sheet>
+    <!-- The current view's create action (#1382, phone-commands.js). -->
+    <np-fab id="phoneFab" hidden></np-fab>
+    <!-- On a phone, a view that is best on a larger screen says so (#1387). -->
+    <np-notice id="phoneNotice" class="phone-notice" dismiss-label="Dismiss this notice" hidden></np-notice>
+
     <div class="container-fluid m-0 p-0">
         <div class="content" id="main-content" role="main">
             <!-- The old top nav bar (logo, Portfolio/Project tabs, Docs link, search
@@ -168,218 +204,10 @@
                 <span id="projectBreadcrumbName" class="breadcrumb-project-name"></span>
             </span>
 
-            <!-- Project Sub-Navigation Bar (shared across all project views) -->
-            <!-- Superseded by the ribbon (#833 follow-up, design handoff "Ribbon Toolbar
-                 option 2a"): Home/Plan/Track/Resources/Report/View replace this dropdown
-                 nav. Hidden, not deleted -- updatePlanSubnav() and friends in nav.js still
-                 read/write these elements' classes. -->
-            <div class="plan-subnav" id="planSubnav" role="navigation" aria-label="Project views" style="display: none;">
-                <button class="plan-subnav-btn active" data-view="project-report" onclick="switchPlanSubnavToDashboard()">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Dashboard
-                </button>
-                <!-- Views dropdown -->
-                <div class="plan-subnav-dropdown">
-                    <button class="plan-subnav-btn" id="viewsDropdownBtn"
-                            data-dropdown-views="tasks,notepad,gantt,kanban,calendar,milestones,timeline,mindmap,whiteboard,assignments,slippage"
-                            onclick="toggleDropdownMenu('viewsDropdownMenu', 'viewsDropdownBtn', event)"
-                            aria-haspopup="true" aria-expanded="false" aria-controls="viewsDropdownMenu">
-                        Views &#9662;
-                    </button>
-                    <div class="nav-menu" id="viewsDropdownMenu" role="menu" aria-label="Views">
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="tasks" onclick="switchToView('tasks'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="notepad" onclick="switchToView('notepad'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Outline
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="gantt" onclick="switchToView('gantt'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="kanban" onclick="switchPlanSubnavToBoard(); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Board
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="calendar" onclick="switchToView('calendar'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Calendar
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="milestones" onclick="switchToView('milestones'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Milestones
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="timeline" onclick="switchToView('timeline'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="mindmap" onclick="switchToView('mindmap'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-mind-map"/></svg> Mind Map
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="whiteboard" onclick="switchToView('whiteboard'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-whiteboard"/></svg> Whiteboard
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="assignments" onclick="switchToView('assignments'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-people"/></svg> By Assignment
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="slippage" onclick="switchToView('slippage'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-flag"/></svg> Slippage
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Deliverables dropdown -->
-                <div class="plan-subnav-dropdown">
-                    <button class="plan-subnav-btn" id="deliverablesDropdownBtn"
-                            data-dropdown-views="pbs,deliverables,product-flow"
-                            onclick="toggleDropdownMenu('deliverablesDropdownMenu', 'deliverablesDropdownBtn', event)"
-                            aria-haspopup="true" aria-expanded="false" aria-controls="deliverablesDropdownMenu">
-                        Deliverables &#9662;
-                    </button>
-                    <div class="nav-menu" id="deliverablesDropdownMenu" role="menu" aria-label="Deliverables">
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="pbs" onclick="switchToView('pbs'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-pbs"/></svg> PBS
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="deliverables" onclick="switchToView('deliverables'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-deliverables"/></svg> Deliverables
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="product-flow" onclick="switchToView('product-flow'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-pbs"/></svg> Product Flow
-                        </div>
-                    </div>
-                </div>
-
-                <button class="plan-subnav-btn" data-view="benefits" onclick="switchToView('benefits')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-benefits"/></svg> Benefits
-                </button>
-                <span class="plan-subnav-separator" aria-hidden="true"></span>
-
-                <!-- Tracking dropdown -->
-                <div class="plan-subnav-dropdown">
-                    <button class="plan-subnav-btn" id="trackingDropdownBtn"
-                            data-dropdown-views="raid,actions,highlights,lookahead,analysis,budget,evm,forecast,comms,lessons"
-                            onclick="toggleDropdownMenu('trackingDropdownMenu', 'trackingDropdownBtn', event)"
-                            aria-haspopup="true" aria-expanded="false" aria-controls="trackingDropdownMenu">
-                        Tracking &#9662;
-                    </button>
-                    <div class="nav-menu" id="trackingDropdownMenu" role="menu" aria-label="Tracking views">
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="raid" onclick="switchToView('raid'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-raid-log"/></svg> RAID Log
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="actions" onclick="switchToView('actions'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Actions
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="highlights" onclick="switchToView('highlights'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-highlights"/></svg> Highlights
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="lookahead" onclick="switchToView('lookahead'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Look-Ahead
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="analysis" onclick="switchToView('analysis'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Analysis
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="budget" onclick="switchToView('budget'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Budget
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="evm" onclick="switchToView('evm'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-evm"/></svg> EVM
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="forecast" onclick="switchToView('forecast'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-chart"/></svg> Forecast
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="comms" onclick="switchToView('comms'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Comms Plan
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="lessons" onclick="switchToView('lessons'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-highlights"/></svg> Lessons Learned
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Resources dropdown -->
-                <div class="plan-subnav-dropdown">
-                    <button class="plan-subnav-btn" id="resourcesDropdownBtn"
-                            data-dropdown-views="resources,timesheet,user-workload,resource-sheet,stakeholders"
-                            onclick="toggleDropdownMenu('resourcesDropdownMenu', 'resourcesDropdownBtn', event)"
-                            aria-haspopup="true" aria-expanded="false" aria-controls="resourcesDropdownMenu">
-                        Resources &#9662;
-                    </button>
-                    <div class="nav-menu" id="resourcesDropdownMenu" role="menu" aria-label="Resource views">
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="resources" onclick="switchToView('resources'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resource Table
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="timesheet" onclick="switchToView('timesheet'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Timesheet
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="user-workload" onclick="switchToView('user-workload'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Workload
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="resource-sheet" onclick="switchToView('resource-sheet'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Resource Sheet
-                        </div>
-                        <div class="nav-menu-divider"></div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="stakeholders" onclick="switchToView('stakeholders'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Stakeholders
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tools dropdown -->
-                <div class="plan-subnav-dropdown">
-                    <button class="plan-subnav-btn" id="toolsDropdownBtn"
-                            data-dropdown-views="guide"
-                            onclick="toggleDropdownMenu('toolsDropdownMenu', 'toolsDropdownBtn', event)"
-                            aria-haspopup="true" aria-expanded="false" aria-controls="toolsDropdownMenu">
-                        Tools &#9662;
-                    </button>
-                    <div class="nav-menu" id="toolsDropdownMenu" role="menu" aria-label="Tools">
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="openSettingsPanel(); event.stopPropagation();">
-                            <i class="bi bi-gear" aria-hidden="true"></i> Project Settings
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="openAISettingsModal(); event.stopPropagation();">
-                            <i class="bi bi-robot" aria-hidden="true"></i> AI Settings
-                        </div>
-                        <div class="nav-menu-divider"></div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="openTemplatesModal(); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Templates
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="guide" onclick="switchToView('guide'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Syntax Guide
-                        </div>
-                        <div class="nav-menu-divider"></div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="triggerExcelUpload(); event.stopPropagation();">
-                            <i class="bi bi-filetype-xlsx" aria-hidden="true"></i> Import from Excel
-                        </div>
-                        <div class="nav-menu-divider"></div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
-                            <i class="bi bi-filetype-xlsx" aria-hidden="true"></i> Export to Excel
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('csv', 'editor'); event.stopPropagation();">
-                            <i class="bi bi-filetype-csv" aria-hidden="true"></i> Export to CSV
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
-                            <i class="bi bi-filetype-pdf" aria-hidden="true"></i> Export to PDF
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportReportPptx(); event.stopPropagation();">
-                            <i class="bi bi-filetype-ppt" aria-hidden="true"></i> Export Report to PowerPoint
-                        </div>
-                        <div class="nav-menu-divider"></div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="triggerMSProjectUpload(); event.stopPropagation();">
-                            <i class="bi bi-bar-chart-steps" aria-hidden="true"></i> Import from MS Project
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('mpp', 'editor'); event.stopPropagation();">
-                            <i class="bi bi-bar-chart-steps" aria-hidden="true"></i> Export to MS Project
-                        </div>
-                        <div class="nav-menu-divider raid-export-item" style="display:none;"></div>
-                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="downloadRaidMarkdown(); event.stopPropagation();">
-                            Download RAID Markdown
-                        </div>
-                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="document.getElementById('raidMdUpload').click(); event.stopPropagation();">
-                            Upload RAID Markdown
-                        </div>
-                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="exportRaidExcel(); event.stopPropagation();">
-                            Export RAID to Excel
-                        </div>
-                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="document.getElementById('raidXlUpload').click(); event.stopPropagation();">
-                            Sync RAID with Excel
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!-- The old #planSubnav view bar (superseded by the ribbon, #833) was
+                 deleted with #1380: the phone has its own chips and drawer now,
+                 built from view-catalogue.js. nav.js's updatePlanSubnav() and
+                 closeAllNavMenus() find nothing to update and return. -->
 
             <!-- Ribbon (#833 follow-up, design handoff "Ribbon Toolbar option 2a"): renders from ribbon-ia.js -->
             <div id="ribbonShell" class="ribbon-shell"></div>
@@ -523,6 +351,7 @@ Press Enter to render..."></textarea>
                                         </div>
                                         <div class="milestones-table-wrapper" style="position: relative;">
                                             <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
+                                            <np-responsive-table priorities='{"Milestone": "primary", "Date": "1", "RAG": "2"}'>
                                             <table class="milestones-table quad-table" id="reportMilestonesTable" aria-label="Milestones">
                                                 <thead>
                                                     <tr>
@@ -535,6 +364,7 @@ Press Enter to render..."></textarea>
                                                     <!-- Milestone rows populated by JavaScript -->
                                                 </tbody>
                                             </table>
+                                            </np-responsive-table>
                                             <p class="quad-empty-state" id="reportMilestonesEmpty" style="display: none;">No upcoming milestones.</p>
                                         </div>
                                     </div>
@@ -547,6 +377,7 @@ Press Enter to render..."></textarea>
                                         </div>
                                         <div class="up-next-table-wrapper" style="position: relative;">
                                             <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
+                                            <np-responsive-table priorities='{"Task": "primary", "Finish": "1", "RAG": "2"}'>
                                             <table class="milestones-table quad-table" id="reportUpNextTable" aria-label="Up next tasks">
                                                 <thead>
                                                     <tr>
@@ -560,6 +391,7 @@ Press Enter to render..."></textarea>
                                                     <!-- Up Next rows populated by JavaScript -->
                                                 </tbody>
                                             </table>
+                                            </np-responsive-table>
                                             <p class="quad-empty-state" id="reportUpNextEmpty" style="display: none;">No upcoming tasks in the next 2 weeks.</p>
                                         </div>
                                     </div>
@@ -582,6 +414,7 @@ Press Enter to render..."></textarea>
                                             <span class="quad-header-actions"><span class="widget-shortcut" onclick="switchToView('raid')" title="Open RAID Log"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span><button class="quad-add-btn" onclick="openRaidForm()" title="Add new risk or issue">+</button></span>
                                         </div>
                                         <div class="raid-table-wrapper">
+                                            <np-responsive-table priorities='{"Title": "primary", "Type": "1", "Score": "2"}'>
                                             <table class="milestones-table quad-table" id="reportRaidTable" aria-label="Risks and issues">
                                                 <thead>
                                                     <tr>
@@ -594,6 +427,7 @@ Press Enter to render..."></textarea>
                                                     <!-- RAID rows populated by JavaScript -->
                                                 </tbody>
                                             </table>
+                                            </np-responsive-table>
                                             <p class="quad-empty-state" id="reportRaidEmpty" style="display: none;">No open risks or issues.</p>
                                         </div>
                                     </div>
@@ -645,6 +479,7 @@ Press Enter to render..."></textarea>
                                     </div>
                                     <div class="actions-table-wrapper" style="position: relative;">
                                         <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
+                                        <np-responsive-table priorities='{"Title": "primary", "Target Date": "1", "Owner": "2", "Priority": "3"}'>
                                         <table class="milestones-table quad-table" id="reportActionsTable" aria-label="Actions summary">
                                             <thead>
                                                 <tr>
@@ -658,6 +493,7 @@ Press Enter to render..."></textarea>
                                                 <!-- Actions rows populated by JavaScript -->
                                             </tbody>
                                         </table>
+                                        </np-responsive-table>
                                         <p class="quad-empty-state" id="reportActionsEmpty" style="display: none;">No open actions.</p>
                                     </div>
                                 </div>
@@ -684,6 +520,9 @@ Press Enter to render..."></textarea>
                                 </div>
                                 <div class="milestones-table-wrapper" style="position: relative;">
                                     <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
+                                    <!-- updateMilestonesView() rebuilds the header, so the
+                                         columns' phone priorities are on the host, by name. -->
+                                    <np-responsive-table priorities='{"ID": "none", "Task Name": "primary", "Finish": "1", "RAG": "2", "%": "3"}'>
                                     <table class="milestones-table">
                                         <thead>
                                             <tr id="milestonesTableHead">
@@ -702,6 +541,7 @@ Press Enter to render..."></textarea>
                                             <!-- Task rows will be populated by JavaScript -->
                                         </tbody>
                                     </table>
+                                    </np-responsive-table>
                                 </div>
                             </div>
                         </div>
@@ -907,6 +747,13 @@ Press Enter to render..."></textarea>
                                         </tbody>
                                     </table>
                                 </div>
+                                <!-- The plan list (#1384): the Tasks view on a phone, one
+                                     <np-note stacked> card per summary task. Filled by
+                                     plan-list.js from updateTasksTable(). -->
+                                <div id="planList" class="plan-list" role="region" aria-label="Plan" hidden></div>
+                                <!-- Quick-add (#1385): a task line, in the plan's grammar,
+                                     into the open card. Shown with the plan list. -->
+                                <np-quick-add id="planQuickAdd" class="plan-quick-add" hidden></np-quick-add>
                             </div>
                         </div>
 
@@ -937,14 +784,15 @@ Press Enter to render..."></textarea>
                                 </div>
                                 <div class="resources-table-wrapper" style="position: relative;">
                                     <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
+                                    <np-responsive-table>
                                     <table class="resources-table" aria-label="Resources">
                                         <thead>
                                             <tr>
-                                                <th>Full Name</th>
+                                                <th data-priority="primary">Full Name</th>
                                                 <th>Shortname</th>
-                                                <th>Role</th>
-                                                <th>Tasks Assigned</th>
-                                                <th>Total Days</th>
+                                                <th data-priority="1">Role</th>
+                                                <th data-priority="2">Tasks Assigned</th>
+                                                <th data-priority="3">Total Days</th>
                                                 <th>Total Hours</th>
                                             </tr>
                                         </thead>
@@ -952,6 +800,7 @@ Press Enter to render..."></textarea>
                                             <!-- Resource rows will be populated by JavaScript -->
                                         </tbody>
                                     </table>
+                                    </np-responsive-table>
                                 </div>
                             </div>
                         </div>
@@ -1069,19 +918,21 @@ Press Enter to render..."></textarea>
                                     <div class="lookahead-section" id="overdueSection" style="display: none;">
                                         <h3 class="lookahead-section-title overdue">⚠️ Overdue Tasks</h3>
                                         <div class="lookahead-table-wrapper">
+                                            <np-responsive-table>
                                             <table class="lookahead-table">
                                                 <thead>
                                                     <tr>
-                                                        <th>Task Name</th>
-                                                        <th>Due Date</th>
-                                                        <th>Days Late</th>
+                                                        <th data-priority="primary">Task Name</th>
+                                                        <th data-priority="1">Due Date</th>
+                                                        <th data-priority="2">Days Late</th>
                                                         <th>Resources</th>
                                                         <th>%</th>
-                                                        <th>RAG</th>
+                                                        <th data-priority="3">RAG</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="overdueTableBody"></tbody>
                                             </table>
+                                            </np-responsive-table>
                                         </div>
                                     </div>
 
@@ -1089,20 +940,22 @@ Press Enter to render..."></textarea>
                                     <div class="lookahead-section" id="upcomingSection" style="display: none;">
                                         <h3 class="lookahead-section-title upcoming">📅 Upcoming Tasks (Next 2 Weeks)</h3>
                                         <div class="lookahead-table-wrapper">
+                                            <np-responsive-table>
                                             <table class="lookahead-table">
                                                 <thead>
                                                     <tr>
-                                                        <th>Task Name</th>
+                                                        <th data-priority="primary">Task Name</th>
                                                         <th>Start Date</th>
-                                                        <th>Due Date</th>
+                                                        <th data-priority="1">Due Date</th>
                                                         <th>Duration</th>
-                                                        <th>Resources</th>
+                                                        <th data-priority="3">Resources</th>
                                                         <th>%</th>
-                                                        <th>RAG</th>
+                                                        <th data-priority="2">RAG</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="upcomingTableBody"></tbody>
                                             </table>
+                                            </np-responsive-table>
                                         </div>
                                     </div>
 
@@ -1134,10 +987,12 @@ Press Enter to render..."></textarea>
                                     </div>
                                 </div>
                                 <div class="raid-table-wrapper">
+                                    <np-responsive-table>
                                     <table class="raid-table" aria-label="Escalated risks">
-                                        <thead><tr><th>Title</th><th>Description</th><th>Owner</th><th>Score</th><th>Escalate To</th><th>Target Date</th><th>Status</th></tr></thead>
+                                        <thead><tr><th data-priority="primary">Title</th><th>Description</th><th>Owner</th><th data-priority="2">Score</th><th data-priority="3">Escalate To</th><th>Target Date</th><th data-priority="1">Status</th></tr></thead>
                                         <tbody id="escalationsTableBody"></tbody>
                                     </table>
+                                    </np-responsive-table>
                                     <np-empty-state variant="card" id="escalationsEmptyState" heading="No escalations">
                                         <p>Risks escalated to the Board or Programme will appear here.</p>
                                     </np-empty-state>
@@ -1219,6 +1074,11 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see tasks on a monthly calendar.</p>
                             </div>
                             <div class="calendar-content" style="display: none;">
+                                <!-- On a phone (#1387) the calendar opens as an agenda -- today,
+                                     then the week -- with the month grid a tap away.
+                                     calendar-agenda.js shows and fills both. -->
+                                <np-view-chips id="calendarModeChips" class="calendar-mode-chips" label="Show the calendar as" active="agenda" hidden></np-view-chips>
+                                <div id="calendarAgenda" class="calendar-agenda" role="region" aria-label="Agenda" hidden></div>
                                 <div class="calendar-header">
                                     <div class="calendar-nav">
                                         <button class="calendar-nav-btn" id="calendarPrev" onclick="navigateCalendar(-1)" title="Previous month">&lt;</button>
@@ -1487,15 +1347,16 @@ Press Enter to render..."></textarea>
                                 </div>
                                 <div class="ben-tracking-container" id="benefitsTrackingContainer" style="display: none;" role="tabpanel" aria-label="Benefits tracking table">
                                     <div class="ben-tracking-wrapper">
+                                        <np-responsive-table>
                                         <table class="table table-sm table-hover ben-tracking-table" id="benefitsTrackingTable">
                                             <thead>
                                                 <tr>
-                                                    <th>Title</th>
+                                                    <th data-priority="primary">Title</th>
                                                     <th>Target Value</th>
-                                                    <th>Current Value</th>
-                                                    <th>Target Date</th>
+                                                    <th data-priority="2">Current Value</th>
+                                                    <th data-priority="3">Target Date</th>
                                                     <th>Measurement Method</th>
-                                                    <th>Status</th>
+                                                    <th data-priority="1">Status</th>
                                                     <th>Last Updated</th>
                                                     <th>Source</th>
                                                 </tr>
@@ -1504,6 +1365,7 @@ Press Enter to render..."></textarea>
                                                 <!-- Populated by JavaScript -->
                                             </tbody>
                                         </table>
+                                        </np-responsive-table>
                                     </div>
                                 </div>
                             </div>
@@ -1518,6 +1380,7 @@ Press Enter to render..."></textarea>
                                 <div class="stakeholders-layout">
                                     <div class="stakeholders-table-panel" style="position: relative;">
                                         <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
+                                        <np-responsive-table priorities='{"Name": "primary", "Role": "1", "Interest": "2", "Influence": "3"}'>
                                         <table class="stakeholders-table" id="stakeholdersTable" aria-label="Stakeholders">
                                             <thead>
                                                 <tr>
@@ -1532,6 +1395,7 @@ Press Enter to render..."></textarea>
                                             <tbody id="stakeholdersTableBody">
                                             </tbody>
                                         </table>
+                                        </np-responsive-table>
                                         <np-empty-state variant="card" id="stakeholdersEmptyState" heading="Stakeholders">
                                             <p>Track project stakeholders, their interest and influence levels.</p>
                                             <p>Click <strong>"+ Add Stakeholder"</strong> to get started.</p>
@@ -1885,20 +1749,21 @@ Build
 
                     <!-- RAID Table -->
                     <div class="raid-table-wrapper">
+                        <np-responsive-table>
                         <table class="raid-table" id="raidTable" aria-label="RAID log">
                             <thead>
                                 <tr>
-                                    <th onclick="sortRaidTable('id')">ID <span class="sort-indicator"></span></th>
-                                    <th onclick="sortRaidTable('type')">Type <span class="sort-indicator"></span></th>
-                                    <th onclick="sortRaidTable('title')">Title <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('id')" data-priority="none">ID <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('type')" data-priority="2">Type <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('title')" data-priority="primary">Title <span class="sort-indicator"></span></th>
                                     <th>Description</th>
                                     <th onclick="sortRaidTable('raised_by')">Raised By <span class="sort-indicator"></span></th>
                                     <th onclick="sortRaidTable('owner')">Owner <span class="sort-indicator"></span></th>
                                     <th>Mitigation Actions</th>
                                     <th onclick="sortRaidTable('impact')">Impact <span class="sort-indicator"></span></th>
                                     <th onclick="sortRaidTable('likelihood')">Likelihood <span class="sort-indicator"></span></th>
-                                    <th onclick="sortRaidTable('score')">Score <span class="sort-indicator"></span></th>
-                                    <th onclick="sortRaidTable('status')">Status <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('score')" data-priority="3">Score <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('status')" data-priority="1">Status <span class="sort-indicator"></span></th>
                                     <th onclick="sortRaidTable('priority')">Priority <span class="sort-indicator"></span></th>
                                     <th onclick="sortRaidTable('target_date')">Target Date <span class="sort-indicator"></span></th>
                                     <th>Actions</th>
@@ -1907,6 +1772,7 @@ Build
                             <tbody id="raidTableBody">
                             </tbody>
                         </table>
+                        </np-responsive-table>
                         <np-empty-state variant="card" id="raidEmptyState" heading="RAID Log">
                             <p>Track Risks, Actions, Issues, Decisions, and Dependencies.</p>
                             <p>Click <strong>"+ Add Item"</strong> to get started, or upload an existing RAID log.</p>
@@ -1960,23 +1826,25 @@ Build
 
                     <!-- Comms Table -->
                     <div class="raid-table-wrapper">
+                        <np-responsive-table>
                         <table class="raid-table" id="commsTable" aria-label="Communications plan">
                             <thead>
                                 <tr>
-                                    <th onclick="sortCommsTable('id')">ID <span class="sort-indicator"></span></th>
-                                    <th onclick="sortCommsTable('activity')">Activity <span class="sort-indicator"></span></th>
-                                    <th onclick="sortCommsTable('audience')">Audience <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('id')" data-priority="none">ID <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('activity')" data-priority="primary">Activity <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('audience')" data-priority="2">Audience <span class="sort-indicator"></span></th>
                                     <th>Content</th>
-                                    <th onclick="sortCommsTable('frequency')">Frequency <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('frequency')" data-priority="3">Frequency <span class="sort-indicator"></span></th>
                                     <th onclick="sortCommsTable('channel')">Channel <span class="sort-indicator"></span></th>
                                     <th onclick="sortCommsTable('owner')">Owner <span class="sort-indicator"></span></th>
-                                    <th onclick="sortCommsTable('status')">Status <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('status')" data-priority="1">Status <span class="sort-indicator"></span></th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="commsTableBody">
                             </tbody>
                         </table>
+                        </np-responsive-table>
                         <np-empty-state variant="card" id="commsEmptyState" heading="Communications Plan">
                             <p>Plan and track stakeholder communications.</p>
                             <p>Click <strong>"+ Add Item"</strong> to get started.</p>
@@ -2028,24 +1896,26 @@ Build
 
                     <!-- Lessons Table -->
                     <div class="raid-table-wrapper">
+                        <np-responsive-table>
                         <table class="raid-table" id="lessonsTable" aria-label="Lessons learned">
                             <thead>
                                 <tr>
-                                    <th onclick="sortLessonsTable('id')">ID <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('id')" data-priority="none">ID <span class="sort-indicator"></span></th>
                                     <th onclick="sortLessonsTable('projectPhase')">Phase <span class="sort-indicator"></span></th>
-                                    <th onclick="sortLessonsTable('area')">Area <span class="sort-indicator"></span></th>
-                                    <th onclick="sortLessonsTable('impactType')">Impact Type <span class="sort-indicator"></span></th>
-                                    <th onclick="sortLessonsTable('observation')">Observation <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('area')" data-priority="1">Area <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('impactType')" data-priority="2">Impact Type <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('observation')" data-priority="primary">Observation <span class="sort-indicator"></span></th>
                                     <th>Impact</th>
                                     <th>Recommendations</th>
                                     <th onclick="sortLessonsTable('projectManager')">PM <span class="sort-indicator"></span></th>
-                                    <th onclick="sortLessonsTable('date')">Date <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('date')" data-priority="3">Date <span class="sort-indicator"></span></th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="lessonsTableBody">
                             </tbody>
                         </table>
+                        </np-responsive-table>
                         <np-empty-state variant="card" id="lessonsEmptyState" heading="Lessons Learned">
                             <p>Capture what went well and what to change next time, using an Appreciative Inquiry approach.</p>
                             <p>Try a starter prompt:</p>
@@ -2093,7 +1963,7 @@ Build
                         </div>
                         <div class="budget-filter-group">
                             <label for="budgetSupplierFilter">Supplier:</label>
-                            <input type="text" id="budgetSupplierFilter" class="form-control" placeholder="Filter supplier..." oninput="renderBudgetTable()" style="width: 150px; padding: 6px 12px; font-size: 0.85em;">
+                            <input type="text" id="budgetSupplierFilter" class="form-control" placeholder="Filter supplier..." oninput="renderBudgetTable()" style="width: 150px; padding: 6px 12px;">
                         </div>
                         <div class="budget-toolbar-separator"></div>
                         <button class="toolbar-btn budget-view-toggle" id="budgetViewToggle" onclick="toggleBudgetSheetView()" title="Toggle spreadsheet view" aria-label="Toggle spreadsheet view">
@@ -2114,17 +1984,18 @@ Build
 
                     <!-- Budget Table -->
                     <div class="budget-table-wrapper">
+                        <np-responsive-table>
                         <table class="budget-table" id="budgetTable" aria-label="Budget items">
                             <thead>
                                 <tr>
-                                    <th onclick="sortBudgetTable('id')">ID <span class="sort-indicator"></span></th>
-                                    <th onclick="sortBudgetTable('description')">Description <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('id')" data-priority="none">ID <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('description')" data-priority="primary">Description <span class="sort-indicator"></span></th>
                                     <th onclick="sortBudgetTable('estimate')">Estimate <span class="sort-indicator"></span></th>
                                     <th onclick="sortBudgetTable('forecast')">Forecast <span class="sort-indicator"></span></th>
-                                    <th onclick="sortBudgetTable('type')">Type <span class="sort-indicator"></span></th>
-                                    <th onclick="sortBudgetTable('category')">Category <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('type')" data-priority="2">Type <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('category')" data-priority="3">Category <span class="sort-indicator"></span></th>
                                     <th onclick="sortBudgetTable('supplier')">Supplier <span class="sort-indicator"></span></th>
-                                    <th onclick="sortBudgetTable('total')">Total <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('total')" data-priority="1">Total <span class="sort-indicator"></span></th>
                                     <th onclick="sortBudgetTable('date_ordered')">Ordered <span class="sort-indicator"></span></th>
                                     <th onclick="sortBudgetTable('date_received')">Received <span class="sort-indicator"></span></th>
                                     <th>Actions</th>
@@ -2135,6 +2006,7 @@ Build
                             <tfoot id="budgetTableFoot">
                             </tfoot>
                         </table>
+                        </np-responsive-table>
                         <np-empty-state variant="card" id="budgetEmptyState" heading="Budget Tracker">
                             <p>Track project costs, forecasts, and spending.</p>
                             <p>Click <strong>"+ Add Item"</strong> to get started.</p>
@@ -2205,23 +2077,25 @@ Build
 
                         <!-- Actions Table -->
                         <div class="actions-table-wrapper">
+                            <np-responsive-table>
                             <table class="actions-table" id="actionsTable" aria-label="Actions">
                                 <thead>
                                     <tr>
-                                        <th onclick="sortActionsTable('id')">ID <span class="sort-indicator"></span></th>
-                                        <th onclick="sortActionsTable('title')">Title <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('id')" data-priority="none">ID <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('title')" data-priority="primary">Title <span class="sort-indicator"></span></th>
                                         <th>Description</th>
-                                        <th onclick="sortActionsTable('owner')">Owner <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('owner')" data-priority="3">Owner <span class="sort-indicator"></span></th>
                                         <th onclick="sortActionsTable('resource')">Resource <span class="sort-indicator"></span></th>
                                         <th onclick="sortActionsTable('priority')">Priority <span class="sort-indicator"></span></th>
-                                        <th onclick="sortActionsTable('target_date')">Target Date <span class="sort-indicator"></span></th>
-                                        <th onclick="sortActionsTable('status')">Status <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('target_date')" data-priority="2">Target Date <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('status')" data-priority="1">Status <span class="sort-indicator"></span></th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="actionsTableBody">
                                 </tbody>
                             </table>
+                            </np-responsive-table>
                             <np-empty-state variant="card" id="actionsEmptyState" heading="Actions Tracker">
                                 <p>Track action items for resources in your project.</p>
                                 <p>Click <strong>"+ Add Action"</strong> to get started.</p>
@@ -2517,108 +2391,158 @@ Build
     <div id="detailPane" class="detail-pane" role="dialog" aria-modal="true" aria-label="Detail pane">
 
         <!-- Task Form Section -->
-        <div id="taskFormSection" class="detail-pane-section">
-            <np-panel-header id="taskFormPanelHeader" variant="accent" editable title="Task Name">
+        <np-detail-sheet id="taskFormSection" class="detail-pane-section" close-action="closeTaskForm">
+            <np-panel-header slot="header" id="taskFormPanelHeader" variant="accent" editable title="Task Name">
                 <button class="task-form-inspect-btn" slot="actions" onclick="openTaskInspectorFromForm()" title="Inspect task" aria-label="Open task inspector">&#128269; Inspect</button>
                 <button class="task-form-inspect-btn" slot="actions" id="taskDeliverableBtn" onclick="toggleTaskDeliverable()" title="Product details" style="display: none;">&#128230; Product</button>
+                <button type="button" slot="overflow" data-destructive onclick="deleteTask()">Delete task</button>
             </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="taskName">
 
-                    <div class="form-grid-2col">
-                        <div class="form-group">
-                            <label for="taskDuration">Duration (days)</label>
-                            <input type="number" id="taskDuration" placeholder="e.g., 5, 10" min="0" oninput="onDurationChange()">
-                            <small>Edit duration or use dates below</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label>RAG Status</label>
-                            <div id="ragDisplay" style="padding: 8px; border-radius: 4px; font-weight: bold; text-align: center; margin-bottom: 5px;">
-                                -
+                    <details class="sheet-section" data-section="task-schedule" data-primary open>
+                        <summary>Schedule</summary>
+                        <div class="form-grid-2col">
+                            <div class="form-group">
+                                <label for="taskDuration">Duration (days)</label>
+                                <input type="number" id="taskDuration" placeholder="e.g., 5, 10" min="0" oninput="onDurationChange()">
+                                <small>Edit duration or use dates below</small>
                             </div>
-                            <small id="ragReasoning" style="display: block; color: var(--np-faint);">-</small>
-                        </div>
-                    </div>
 
-                    <div class="form-grid-3col">
+                            <div class="form-group">
+                                <label>RAG Status</label>
+                                <div id="ragDisplay" style="padding: 8px; border-radius: 4px; font-weight: bold; text-align: center; margin-bottom: 5px;">
+                                    -
+                                </div>
+                                <small id="ragReasoning" style="display: block; color: var(--np-faint);">-</small>
+                            </div>
+                        </div>
+
+                        <div class="form-grid-3col">
+                            <div class="form-group">
+                                <label for="taskStartDate">Start Date</label>
+                                <input type="date" id="taskStartDate" class="form-control" onchange="onDateChange('start')">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="taskFinishDate">Finish Date</label>
+                                <input type="date" id="taskFinishDate" class="form-control" onchange="onDateChange('finish')">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="taskDeadline">Deadline</label>
+                                <input type="date" id="taskDeadline" class="form-control" onchange="onDeadlineChange()">
+                            </div>
+                        </div>
+
                         <div class="form-group">
-                            <label for="taskStartDate">Start Date</label>
-                            <input type="date" id="taskStartDate" class="form-control" onchange="onDateChange('start')">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="taskFinishDate">Finish Date</label>
-                            <input type="date" id="taskFinishDate" class="form-control" onchange="onDateChange('finish')">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="taskDeadline">Deadline</label>
-                            <input type="date" id="taskDeadline" class="form-control" onchange="onDeadlineChange()">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="taskPercent">Completion %</label>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <input type="number" id="taskPercent" min="0" max="100" placeholder="0-100"
-                                   style="width: 80px; flex-shrink: 0;"
-                                   oninput="saveTask(); updateRagDisplay(); updateProgressBar()">
-                            <div class="progress percent-progress-clickable" id="taskProgressBarWrapper" style="flex: 1; height: 25px;"
-                                 title="Click to mark 100% complete" onclick="setTaskPercentQuick(100)">
-                                <div id="progressBar" class="progress-bar progress-bar-striped bg-success"
-                                     role="progressbar" style="width: 0%; transition: width 0.3s ease;"
-                                     aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-                                    <span id="progressText"></span>
+                            <label for="taskPercent">Completion %</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="number" id="taskPercent" min="0" max="100" placeholder="0-100"
+                                       style="width: 80px; flex-shrink: 0;"
+                                       oninput="saveTask(); updateRagDisplay(); updateProgressBar()">
+                                <div class="progress percent-progress-clickable" id="taskProgressBarWrapper" style="flex: 1; height: 25px;"
+                                     title="Click to mark 100% complete" onclick="setTaskPercentQuick(100)">
+                                    <div id="progressBar" class="progress-bar progress-bar-striped bg-success"
+                                         role="progressbar" style="width: 0%; transition: width 0.3s ease;"
+                                         aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                        <span id="progressText"></span>
+                                    </div>
                                 </div>
                             </div>
+                            <div class="percent-quick-toolbar" id="percentQuickToolbar" role="group" aria-label="Quick-set completion percentage">
+                                <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(0)">0%</button>
+                                <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(25)">25%</button>
+                                <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(50)">50%</button>
+                                <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(75)">75%</button>
+                                <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(100)">100%</button>
+                            </div>
+                            <small id="percentHelperText" style="display: none; color: var(--np-faint);">Auto-calculated from subtasks</small>
                         </div>
-                        <div class="percent-quick-toolbar" id="percentQuickToolbar" role="group" aria-label="Quick-set completion percentage">
-                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(0)">0%</button>
-                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(25)">25%</button>
-                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(50)">50%</button>
-                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(75)">75%</button>
-                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(100)">100%</button>
-                        </div>
-                        <small id="percentHelperText" style="display: none; color: var(--np-faint);">Auto-calculated from subtasks</small>
-                    </div>
 
-                    <div class="form-grid-3col">
-                        <div class="form-group">
-                            <label for="taskEffortCompleted">Effort Completed</label>
-                            <div style="display: flex; gap: 5px; align-items: center;">
-                                <input type="number" id="taskEffortCompleted" placeholder="0" min="0" step="0.5"
-                                       style="flex: 1; min-width: 6ch;" oninput="updateEffortTotal()">
-                                <select id="taskEffortCompletedUnit" style="width: 3ch; min-width: 3ch; flex: none;" onchange="updateEffortTotal()">
-                                    <option value="h">h</option>
-                                    <option value="d">d</option>
-                                </select>
+                        <div class="form-grid-3col">
+                            <div class="form-group">
+                                <label for="taskEffortCompleted">Effort Completed</label>
+                                <div style="display: flex; gap: 5px; align-items: center;">
+                                    <input type="number" id="taskEffortCompleted" placeholder="0" min="0" step="0.5"
+                                           style="flex: 1; min-width: 6ch;" oninput="updateEffortTotal()">
+                                    <select id="taskEffortCompletedUnit" class="effort-unit-select" onchange="updateEffortTotal()">
+                                        <option value="h">h</option>
+                                        <option value="d">d</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="taskEffortRemaining">Effort Remaining</label>
+                                <div style="display: flex; gap: 5px; align-items: center;">
+                                    <input type="number" id="taskEffortRemaining" placeholder="0" min="0" step="0.5"
+                                           style="flex: 1; min-width: 6ch;" oninput="updateEffortTotal()">
+                                    <select id="taskEffortRemainingUnit" class="effort-unit-select" onchange="updateEffortTotal()">
+                                        <option value="h">h</option>
+                                        <option value="d">d</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="taskEffortTotal">Effort Total</label>
+                                <div style="display: flex; gap: 5px; align-items: center;">
+                                    <input type="number" id="taskEffortTotal" placeholder="0" min="0"
+                                           style="flex: 1; min-width: 6ch; background-color: var(--np-sunken); cursor: not-allowed;" readonly>
+                                    <span id="taskEffortTotalUnit" style="width: 3ch; min-width: 3ch; flex: none; text-align: center; padding: 4px;">h</span>
+                                </div>
+                                <small>Auto-calculated (completed + remaining)</small>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="taskEffortRemaining">Effort Remaining</label>
-                            <div style="display: flex; gap: 5px; align-items: center;">
-                                <input type="number" id="taskEffortRemaining" placeholder="0" min="0" step="0.5"
-                                       style="flex: 1; min-width: 6ch;" oninput="updateEffortTotal()">
-                                <select id="taskEffortRemainingUnit" style="width: 3ch; min-width: 3ch; flex: none;" onchange="updateEffortTotal()">
-                                    <option value="h">h</option>
-                                    <option value="d">d</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="taskEffortTotal">Effort Total</label>
-                            <div style="display: flex; gap: 5px; align-items: center;">
-                                <input type="number" id="taskEffortTotal" placeholder="0" min="0"
-                                       style="flex: 1; min-width: 6ch; background-color: var(--np-sunken); cursor: not-allowed;" readonly>
-                                <span id="taskEffortTotalUnit" style="width: 3ch; min-width: 3ch; flex: none; text-align: center; padding: 4px;">h</span>
-                            </div>
-                            <small>Auto-calculated (completed + remaining)</small>
-                        </div>
-                    </div>
 
-                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label for="taskRecurrence">Recurrence</label>
+                            <select id="taskRecurrence" onchange="onRecurrenceFrequencyChange()" aria-label="Recurrence frequency">
+                                <option value="">No recurrence</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                            <div id="recurrenceWeeklyOptions" style="display: none; margin-top: 8px;" aria-label="Weekly recurrence days">
+                                <small style="display: block; margin-bottom: 4px;">Repeat on:</small>
+                                <div class="recurrence-days-grid">
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_mon" value="mon" onchange="saveTask()"> Mon</label>
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_tue" value="tue" onchange="saveTask()"> Tue</label>
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_wed" value="wed" onchange="saveTask()"> Wed</label>
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_thu" value="thu" onchange="saveTask()"> Thu</label>
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_fri" value="fri" onchange="saveTask()"> Fri</label>
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_sat" value="sat" onchange="saveTask()"> Sat</label>
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_sun" value="sun" onchange="saveTask()"> Sun</label>
+                                </div>
+                            </div>
+                            <div id="recurrenceMonthlyOptions" style="display: none; margin-top: 8px;" aria-label="Monthly recurrence options">
+                                <small style="display: block; margin-bottom: 4px;">Repeat on:</small>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <select id="recurrenceWeekOfMonth" onchange="saveTask()" aria-label="Week of month">
+                                        <option value="1st">1st</option>
+                                        <option value="2nd">2nd</option>
+                                        <option value="3rd">3rd</option>
+                                        <option value="4th">4th</option>
+                                        <option value="5th">5th</option>
+                                    </select>
+                                    <select id="recurrenceDayOfWeek" onchange="saveTask()" aria-label="Day of week">
+                                        <option value="mon">Monday</option>
+                                        <option value="tue">Tuesday</option>
+                                        <option value="wed">Wednesday</option>
+                                        <option value="thu">Thursday</option>
+                                        <option value="fri">Friday</option>
+                                        <option value="sat">Saturday</option>
+                                        <option value="sun">Sunday</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <small>e.g. every Monday, or 3rd Thursday of month</small>
+                        </div>
+                    </details>
+
+                    <details class="sheet-section" data-section="task-people" open>
+                        <summary>People</summary>
                         <div class="form-group">
                             <label for="taskResources">Resources</label>
                             <div class="autocomplete-container">
@@ -2629,6 +2553,70 @@ Build
                                 <div id="resourceAutocomplete" class="autocomplete-dropdown"></div>
                             </div>
                             <small>Separate multiple resources with commas</small>
+                        </div>
+                    </details>
+
+                    <details class="sheet-section" data-section="task-dependencies" open>
+                        <summary>Dependencies</summary>
+                        <div class="form-group">
+                            <label>Dependencies</label>
+                            <div id="dependenciesTable" class="dependencies-table">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Task Name</th>
+                                            <th style="width: 80px;">Type</th>
+                                            <th style="width: 100px;">Lag/Lead</th>
+                                            <th style="width: 40px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dependenciesTableBody">
+                                        <!-- Dependency rows will be added here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="dependency-inline-add autocomplete-container" style="position: relative; margin-top: 10px;">
+                                <input type="text" id="addDependencyInput" class="dependency-add-input"
+                                       placeholder="Add dependency" autocomplete="off"
+                                       data-dropdown="addDependencyAutocomplete"
+                                       oninput="handleDependencyInput(this)"
+                                       onkeydown="handleAddDependencyKeydown(event, this)">
+                                <div id="addDependencyAutocomplete" class="autocomplete-dropdown"></div>
+                            </div>
+                            <small style="display: block; margin-top: 5px;">Lag: +2d (wait after), Lead: -1d (start before)</small>
+                        </div>
+                    </details>
+
+                    <details class="sheet-section" data-section="task-subtasks" open>
+                        <summary>Subtasks</summary>
+                        <div class="form-group">
+                            <label>Sub Tasks</label>
+                            <div id="subtasksList" class="subtasks-list">
+                                <!-- Subtasks will be populated here -->
+                            </div>
+                            <a href="javascript:void(0)" class="add-item-link" onclick="addNewSubtask()" style="margin-top: 10px; display: inline-block;">
+                                <span class="add-icon">+</span> Add Sub Task
+                            </a>
+                            <small style="display: block; margin-top: 5px;">Child tasks that belong to this task</small>
+                        </div>
+                    </details>
+
+                    <details class="sheet-section" data-section="task-notes" open>
+                        <summary>Notes</summary>
+                        <div class="form-grid-2col">
+                            <div class="form-group">
+                                <label for="taskPriority">Priority</label>
+                                <select id="taskPriority" onchange="saveTask()">
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium (!)</option>
+                                    <option value="Important">Important (!!)</option>
+                                    <option value="Urgent">Urgent (!!!)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="taskBucket">Bucket</label>
+                                <input type="text" id="taskBucket" placeholder="e.g. Project Management" oninput="saveTaskDebounced()">
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -2642,125 +2630,25 @@ Build
                             </div>
                             <small>Tags/labels for categorization</small>
                         </div>
-                    </div>
 
-                    <div class="form-group">
-                        <label for="taskRecurrence">Recurrence</label>
-                        <select id="taskRecurrence" onchange="onRecurrenceFrequencyChange()" aria-label="Recurrence frequency">
-                            <option value="">No recurrence</option>
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
-                        </select>
-                        <div id="recurrenceWeeklyOptions" style="display: none; margin-top: 8px;" aria-label="Weekly recurrence days">
-                            <small style="display: block; margin-bottom: 4px;">Repeat on:</small>
-                            <div class="recurrence-days-grid">
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_mon" value="mon" onchange="saveTask()"> Mon</label>
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_tue" value="tue" onchange="saveTask()"> Tue</label>
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_wed" value="wed" onchange="saveTask()"> Wed</label>
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_thu" value="thu" onchange="saveTask()"> Thu</label>
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_fri" value="fri" onchange="saveTask()"> Fri</label>
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_sat" value="sat" onchange="saveTask()"> Sat</label>
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_sun" value="sun" onchange="saveTask()"> Sun</label>
-                            </div>
-                        </div>
-                        <div id="recurrenceMonthlyOptions" style="display: none; margin-top: 8px;" aria-label="Monthly recurrence options">
-                            <small style="display: block; margin-bottom: 4px;">Repeat on:</small>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <select id="recurrenceWeekOfMonth" onchange="saveTask()" aria-label="Week of month">
-                                    <option value="1st">1st</option>
-                                    <option value="2nd">2nd</option>
-                                    <option value="3rd">3rd</option>
-                                    <option value="4th">4th</option>
-                                    <option value="5th">5th</option>
-                                </select>
-                                <select id="recurrenceDayOfWeek" onchange="saveTask()" aria-label="Day of week">
-                                    <option value="mon">Monday</option>
-                                    <option value="tue">Tuesday</option>
-                                    <option value="wed">Wednesday</option>
-                                    <option value="thu">Thursday</option>
-                                    <option value="fri">Friday</option>
-                                    <option value="sat">Saturday</option>
-                                    <option value="sun">Sunday</option>
-                                </select>
-                            </div>
-                        </div>
-                        <small>e.g. every Monday, or 3rd Thursday of month</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Dependencies</label>
-                        <div id="dependenciesTable" class="dependencies-table">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Task Name</th>
-                                        <th style="width: 80px;">Type</th>
-                                        <th style="width: 100px;">Lag/Lead</th>
-                                        <th style="width: 40px;"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="dependenciesTableBody">
-                                    <!-- Dependency rows will be added here -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="dependency-inline-add autocomplete-container" style="position: relative; margin-top: 10px;">
-                            <input type="text" id="addDependencyInput" class="dependency-add-input"
-                                   placeholder="Add dependency" autocomplete="off"
-                                   data-dropdown="addDependencyAutocomplete"
-                                   oninput="handleDependencyInput(this)"
-                                   onkeydown="handleAddDependencyKeydown(event, this)">
-                            <div id="addDependencyAutocomplete" class="autocomplete-dropdown"></div>
-                        </div>
-                        <small style="display: block; margin-top: 5px;">Lag: +2d (wait after), Lead: -1d (start before)</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Sub Tasks</label>
-                        <div id="subtasksList" class="subtasks-list">
-                            <!-- Subtasks will be populated here -->
-                        </div>
-                        <a href="javascript:void(0)" class="add-item-link" onclick="addNewSubtask()" style="margin-top: 10px; display: inline-block;">
-                            <span class="add-icon">+</span> Add Sub Task
-                        </a>
-                        <small style="display: block; margin-top: 5px;">Child tasks that belong to this task</small>
-                    </div>
-
-                    <div class="form-grid-2col">
                         <div class="form-group">
-                            <label for="taskPriority">Priority</label>
-                            <select id="taskPriority" onchange="saveTask()">
-                                <option value="Low">Low</option>
-                                <option value="Medium">Medium (!)</option>
-                                <option value="Important">Important (!!)</option>
-                                <option value="Urgent">Urgent (!!!)</option>
-                            </select>
+                            <label for="taskComment">Comment</label>
+                            <textarea id="taskComment" placeholder="Add notes or comments" oninput="saveTaskDebounced()"></textarea>
                         </div>
-                        <div class="form-group">
-                            <label for="taskBucket">Bucket</label>
-                            <input type="text" id="taskBucket" placeholder="e.g. Project Management" oninput="saveTaskDebounced()">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="taskComment">Comment</label>
-                        <textarea id="taskComment" placeholder="Add notes or comments" oninput="saveTaskDebounced()"></textarea>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-primary" onclick="closeTaskForm()">Done</button>
-                        <button type="button" class="btn-danger" onclick="deleteTask()">Delete Task</button>
-                    </div>
+                    </details>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-primary" onclick="closeTaskForm()">Done</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Product Details Form Section -->
-        <div id="productFormSection" class="detail-pane-section">
-            <np-panel-header id="productFormPanelHeader" variant="accent" editable title="Product Details">
+        <np-detail-sheet id="productFormSection" class="detail-pane-section" close-action="closeProductForm">
+            <np-panel-header slot="header" id="productFormPanelHeader" variant="accent" editable title="Product Details">
                 <button class="task-form-inspect-btn" slot="actions" onclick="switchProductToTaskForm()" title="Open task details" aria-label="Switch to task details">&#128203; Task Details</button>
+                <!-- In the ⋯ menu (#1383): it converts the product back to a regular task. -->
+                <button type="button" slot="overflow" data-destructive onclick="removeDeliverable()">Remove deliverable status</button>
             </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
@@ -2867,22 +2755,19 @@ Build
                         </div>
                         <small>Auto-calculated from child task completion</small>
                     </div>
-
-                    <hr style="margin: 20px 0; border-color: var(--border-color);">
-                    <button type="button" class="btn btn-sm" onclick="removeDeliverable()" style="color: var(--np-danger-ink); border: 1px solid var(--np-danger-ink); background: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">
-                        Remove Deliverable Status
-                    </button>
-                    <small style="display: block; margin-top: 6px; color: var(--text-secondary);">Converts this back to a regular task</small>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-primary" onclick="closeProductForm()">Done</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- RAID Item Form Section -->
-        <div id="raidFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="raidFormTitle">New RAID Item</h2>
-                <np-close-button onclick="closeRaidForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="raidFormSection" class="detail-pane-section" close-action="closeRaidForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="raidFormTitle">New RAID Item</h2>
+                <button type="button" slot="overflow" id="raidDeleteButtonRow" data-destructive onclick="confirmDeleteRaidItem()" aria-label="Delete this RAID item" style="display: none;">&#128465; Delete Item</button>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="raidItemId">
@@ -2987,27 +2872,20 @@ Build
                             </div>
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeRaidForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
-
-                    <div id="raidDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
-                        <button type="button" class="btn-danger" onclick="confirmDeleteRaidItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this RAID item">
-                            &#128465; Delete Item
-                        </button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeRaidForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Benefits Item Form Section -->
-        <div id="benefitsFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="benefitsFormTitle">New Benefit Item</h2>
-                <np-close-button onclick="closeBenefitForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="benefitsFormSection" class="detail-pane-section" close-action="closeBenefitForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="benefitsFormTitle">New Benefit Item</h2>
+                <button type="button" slot="overflow" id="benefitDeleteButtonRow" data-destructive onclick="deleteBenefitItem()" aria-label="Delete this benefit item" style="display: none;">&#128465; Delete Item</button>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="benefitItemId">
@@ -3089,27 +2967,20 @@ Build
                         <label for="benefitContribution">Contribution % <small style="opacity:0.7">(to linked objective)</small></label>
                         <input type="number" id="benefitContribution" class="form-control" min="0" max="100" value="0" placeholder="0-100">
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeBenefitForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveBenefitItemFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
-
-                    <div id="benefitDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
-                        <button type="button" class="btn-danger" onclick="deleteBenefitItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this benefit item">
-                            &#128465; Delete Item
-                        </button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeBenefitForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveBenefitItemFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Comms Item Form Section -->
-        <div id="commsFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="commsFormTitle">New Comms Item</h2>
-                <np-close-button onclick="closeCommsForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="commsFormSection" class="detail-pane-section" close-action="closeCommsForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="commsFormTitle">New Comms Item</h2>
+                <button type="button" slot="overflow" id="commsDeleteButtonRow" data-destructive onclick="confirmDeleteCommsItem()" aria-label="Delete this comms item" style="display: none;">&#128465; Delete Item</button>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="commsItemId">
@@ -3161,27 +3032,20 @@ Build
                             </select>
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeCommsForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveCommsItemFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
-
-                    <div id="commsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
-                        <button type="button" class="btn-danger" onclick="confirmDeleteCommsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this comms item">
-                            &#128465; Delete Item
-                        </button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeCommsForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveCommsItemFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Lessons Learned Item Form Section (issue #598) -->
-        <div id="lessonsFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="lessonsFormTitle">New Lesson Learned</h2>
-                <np-close-button onclick="closeLessonsForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="lessonsFormSection" class="detail-pane-section" close-action="closeLessonsForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="lessonsFormTitle">New Lesson Learned</h2>
+                <button type="button" slot="overflow" id="lessonsDeleteButtonRow" data-destructive onclick="confirmDeleteLessonsItem()" aria-label="Delete this lesson" style="display: none;">&#128465; Delete Lesson</button>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="lessonsItemId">
@@ -3268,27 +3132,20 @@ Build
                         <label for="lessonsItemRecommendations">Recommendations</label>
                         <textarea id="lessonsItemRecommendations" class="form-control" rows="2" placeholder="What should the next project team do? What change should be adopted?"></textarea>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeLessonsForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveLessonsItemFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
-
-                    <div id="lessonsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
-                        <button type="button" class="btn-danger" onclick="confirmDeleteLessonsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this lesson">
-                            &#128465; Delete Lesson
-                        </button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeLessonsForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveLessonsItemFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Budget Item Form Section -->
-        <div id="budgetFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="budgetFormTitle">New Budget Item</h2>
-                <np-close-button onclick="closeBudgetForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="budgetFormSection" class="detail-pane-section" close-action="closeBudgetForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="budgetFormTitle">New Budget Item</h2>
+                <button type="button" slot="overflow" id="budgetDeleteButtonRow" data-destructive onclick="confirmDeleteBudgetItem()" aria-label="Delete this budget item" style="display: none;">&#128465; Delete Item</button>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="budgetItemId">
@@ -3361,27 +3218,19 @@ Build
                             <input type="date" id="budgetItemDateReceived" class="form-control">
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeBudgetForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveBudgetItemFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
-
-                    <div id="budgetDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
-                        <button type="button" class="btn-danger" onclick="confirmDeleteBudgetItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this budget item">
-                            &#128465; Delete Item
-                        </button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeBudgetForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveBudgetItemFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Stakeholder Form Section -->
-        <div id="stakeholderFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="stakeholderFormTitle">New Stakeholder</h2>
-                <np-close-button onclick="closeStakeholderForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="stakeholderFormSection" class="detail-pane-section" close-action="closeStakeholderForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="stakeholderFormTitle">New Stakeholder</h2>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="stakeholderItemId">
@@ -3418,21 +3267,19 @@ Build
                             </select>
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeStakeholderForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveStakeholderFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeStakeholderForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveStakeholderFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Action Form Section -->
-        <div id="actionFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="actionFormTitle">New Action</h2>
-                <np-close-button onclick="closeActionForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="actionFormSection" class="detail-pane-section" close-action="closeActionForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="actionFormTitle">New Action</h2>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="actionItemId">
@@ -3479,21 +3326,19 @@ Build
                             <input type="date" id="actionItemTargetDate" class="form-control">
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeActionForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveActionFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeActionForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveActionFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Highlight Form Section -->
-        <div id="highlightFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="highlightFormTitle">New Highlight</h2>
-                <np-close-button onclick="closeHighlightForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="highlightFormSection" class="detail-pane-section" close-action="closeHighlightForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="highlightFormTitle">New Highlight</h2>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="highlightItemIndex" value="">
@@ -3516,20 +3361,19 @@ Build
                         <textarea id="highlightContent" class="form-control" placeholder="- Completed phase 1 ahead of schedule&#10;- **Key risk** mitigated with workaround" rows="8"></textarea>
                         <small>Supports bullet lists, bold, italic, strikethrough, headings (h1-h3), horizontal rules, and numbered lists.</small>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeHighlightForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveHighlightFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeHighlightForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveHighlightFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Project Details Section -->
-        <div id="projectDetailsSection" class="detail-pane-section">
-            <div class="modal-header">
+        <np-detail-sheet id="projectDetailsSection" class="detail-pane-section" close-action="closeProjectDetailsForm">
+            <div class="modal-header" slot="header">
                 <input type="text" id="projectTitle" class="modal-header-title" placeholder="Project Title" style="flex: 1; background: transparent; border: none; font-size: 20px; font-weight: 600; outline: none; padding: 0;" oninput="autoSaveProjectDetails()">
-                <np-close-button onclick="closeProjectDetailsForm()"></np-close-button>
+                <np-close-button></np-close-button>
             </div>
             <div class="modal-body">
                 <form id="projectDetailsForm">
@@ -3617,19 +3461,18 @@ Build
                             <small>Format: @shortname, firstname lastname, role, email</small>
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-primary" onclick="saveProjectDetails()">Done</button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-primary" onclick="saveProjectDetails()">Done</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Settings Section -->
-        <div id="settingsSection" class="detail-pane-section">
-            <div class="modal-header">
+        <np-detail-sheet id="settingsSection" class="detail-pane-section" close-action="closeSettingsPanel">
+            <div class="modal-header" slot="header">
                 <h2 style="margin: 0;"><i class="bi bi-gear" aria-hidden="true"></i> Project Settings</h2>
-                <np-close-button onclick="closeSettingsPanel()"></np-close-button>
+                <np-close-button></np-close-button>
             </div>
             <div class="modal-body">
                 <div class="settings-tabs" role="tablist" aria-label="Settings tabs">
@@ -3637,6 +3480,7 @@ Build
                     <button class="settings-tab-btn" data-tab="board" onclick="switchSettingsTab('board')" role="tab" aria-selected="false">Board</button>
                     <button class="settings-tab-btn" data-tab="timeline" onclick="switchSettingsTab('timeline')" role="tab" aria-selected="false">Timeline</button>
                     <button class="settings-tab-btn" data-tab="theme" onclick="switchSettingsTab('theme')" role="tab" aria-selected="false">Theme</button>
+                    <button class="settings-tab-btn" data-tab="layout" onclick="switchSettingsTab('layout')" role="tab" aria-selected="false">Layout</button>
                     <button class="settings-tab-btn" data-tab="ai" onclick="switchSettingsTab('ai')" role="tab" aria-selected="false">AI</button>
                     <button class="settings-tab-btn" data-tab="storage" onclick="switchSettingsTab('storage')" role="tab" aria-selected="false">Storage</button>
                     <button class="settings-tab-btn" data-tab="sync" onclick="switchSettingsTab('sync')" role="tab" aria-selected="false">Sync</button>
@@ -3740,6 +3584,32 @@ Build
                     <small>Theme preference is saved per project in the plan front matter</small>
                 </div>
 
+                <!-- Layout Tab (#1379): which screen layout to use. Kept in this
+                     browser only (layout-mode.js), never in the plan: it is a
+                     fact about the screen, not about the project. -->
+                <div id="settingsTab-layout" class="settings-tab-content" role="tabpanel">
+                    <h3>Layout</h3>
+                    <div class="settings-theme-options" role="radiogroup" aria-label="Layout">
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsLayout" value="auto" onchange="setLayoutMode(this.value)">
+                            <span><i class="bi bi-aspect-ratio" aria-hidden="true"></i> Auto</span>
+                        </label>
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsLayout" value="phone" onchange="setLayoutMode(this.value)">
+                            <span><i class="bi bi-phone" aria-hidden="true"></i> Phone</span>
+                        </label>
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsLayout" value="tablet" onchange="setLayoutMode(this.value)">
+                            <span><i class="bi bi-tablet" aria-hidden="true"></i> Tablet</span>
+                        </label>
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsLayout" value="desktop" onchange="setLayoutMode(this.value)">
+                            <span><i class="bi bi-display" aria-hidden="true"></i> Desktop</span>
+                        </label>
+                    </div>
+                    <small>Auto picks a layout from the screen width. Saved in this browser only, not in the plan.</small>
+                </div>
+
                 <!-- AI Tab -->
                 <div id="settingsTab-ai" class="settings-tab-content" role="tabpanel">
                     <h3>AI Provider</h3>
@@ -3774,13 +3644,13 @@ Build
                     <div id="syncSettingsList" class="sync-settings-list"></div>
                 </div>
             </div>
-        </div>
+        </np-detail-sheet>
 
         <!-- Version History Section -->
-        <div id="versionHistorySection" class="detail-pane-section">
-            <div class="modal-header">
+        <np-detail-sheet id="versionHistorySection" class="detail-pane-section" close-action="closeVersionHistoryPanel">
+            <div class="modal-header" slot="header">
                 <h2 style="margin: 0;"><i class="bi bi-clock-history" aria-hidden="true"></i> Version History</h2>
-                <np-close-button onclick="closeVersionHistoryPanel()"></np-close-button>
+                <np-close-button></np-close-button>
             </div>
             <div class="modal-body">
                 <div class="vh-controls">
@@ -3799,13 +3669,13 @@ Build
                 </div>
                 <div id="versionHistoryList" class="vh-list"></div>
             </div>
-        </div>
+        </np-detail-sheet>
 
         <!-- Conditional Formatting Section -->
-        <div id="conditionalFormattingSection" class="detail-pane-section">
-            <div class="modal-header">
+        <np-detail-sheet id="conditionalFormattingSection" class="detail-pane-section">
+            <div class="modal-header" slot="header">
                 <h2 style="margin: 0;">Conditional Formatting</h2>
-                <np-close-button onclick="closeDetailPane()"></np-close-button>
+                <np-close-button></np-close-button>
             </div>
             <div class="modal-body">
                 <div id="cfRulesContainer">
@@ -3837,11 +3707,11 @@ Build
                     </div>
                 </div>
             </div>
-        </div>
+        </np-detail-sheet>
 
         <!-- Task Inspector Section -->
-        <div id="taskInspectorSection" class="detail-pane-section">
-            <np-panel-header id="inspectorPanelHeader" variant="accent" title="Task Inspector">
+        <np-detail-sheet id="taskInspectorSection" class="detail-pane-section" close-action="closeTaskInspector">
+            <np-panel-header slot="header" id="inspectorPanelHeader" variant="accent" title="Task Inspector">
                 <button class="task-form-inspect-btn" slot="actions" onclick="editFromInspector()" title="Edit task" aria-label="Edit task">&#9998; Edit</button>
             </np-panel-header>
             <div class="modal-body" id="inspectorBody">
@@ -3849,14 +3719,13 @@ Build
                     <p>Select a task to inspect its details, dependencies, and schedule health.</p>
                 </div>
             </div>
-        </div>
+        </np-detail-sheet>
 
         <!-- Resource Form Section -->
-        <div id="resourceFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 style="margin: 0;">Add/Edit Resource</h2>
-                <np-close-button onclick="closeResourceForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="resourceFormSection" class="detail-pane-section" close-action="dismissResourceForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title">Add/Edit Resource</h2>
+            </np-panel-header>
             <div class="modal-body">
                 <form id="resourceForm">
                     <div class="form-group">
@@ -3909,13 +3778,12 @@ Build
                             <!-- Populated by JS -->
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-primary" onclick="saveResource()">Done</button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-primary" onclick="saveResource()">Done</button>
+            </div>
+        </np-detail-sheet>
 
     </div>
 
@@ -4151,6 +4019,12 @@ Build
     <script src="/static/noodlesheet.js?v={{ v }}"></script>
     <script src="/static/back-matter-markers.js?v={{ v }}"></script>
     <script src="/static/state.js?v={{ v }}"></script>
+    <!-- Long-press, swipe and drag for a finger (#1385, #1386): no
+         dependencies, and early, so any script that wires a gesture as it
+         loads finds it. Then the long-press registry for right-click menus. -->
+    <script src="/static/touch-gestures.js?v={{ v }}"></script>
+    <script src="/static/touch-parity.js?v={{ v }}"></script>
+    <script src="/static/view-catalogue.js?v={{ v }}"></script>
     <script src="/static/status-bar.js?v={{ v }}"></script>
     <script src="/static/theme.js?v={{ v }}"></script>
     <script src="/static/settings.js?v={{ v }}"></script>
@@ -4181,12 +4055,18 @@ Build
     <script src="/static/views-timeline.js?v={{ v }}"></script>
     <script src="/static/views-tables.js?v={{ v }}"></script>
     <script src="/static/script.js?v={{ v }}"></script>
+    <script src="/static/editor-visibility.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
     <script src="/static/notepad.js?v={{ v }}"></script>
     <script src="/static/local-file-access.js?v={{ v }}"></script>
     <script src="/static/project-store.js?v={{ v }}"></script>
     <script src="/static/programme-data-store.js?v={{ v }}"></script>
     <script src="/static/project-storage.js?v={{ v }}"></script>
+    <!-- Which summaries are collapsed, per project: the Gantt's and the plan
+         list's (#1384). Then the plan list itself, the Tasks view on a phone. -->
+    <script src="/static/summary-collapse.js?v={{ v }}"></script>
+    <script src="/static/plan-list.js?v={{ v }}"></script>
+    <script src="/static/calendar-agenda.js?v={{ v }}"></script>
     <script src="/static/version-history.js?v={{ v }}"></script>
     <script src="/static/portfolio.js?v={{ v }}"></script>
     <script src="/static/multi-plan-loader.js?v={{ v }}"></script>
@@ -4235,6 +4115,8 @@ Build
     <script src="/static/user-profile.js?v={{ v }}"></script>
     <script src="/static/collab-session.js?v={{ v }}"></script>
     <script src="/static/ribbon.js?v={{ v }}"></script>
+    <script src="/static/phone-shell.js?v={{ v }}"></script>
+    <script src="/static/phone-commands.js?v={{ v }}"></script>
     <script src="/static/date-detect.js?v={{ v }}"></script>
     <script src="/static/smart-date-tags.js?v={{ v }}"></script>
 
@@ -4251,6 +4133,21 @@ Build
          script and cannot import it, so it arrives as globalThis.NoodleNoteMarkup
          -- see that file's own note on the ordering. -->
     <script type="module" src="/static/components/note/note-markup.js?v={{ v }}"></script>
+    <!-- <np-note> itself: the plan list's cards (#1384) are stacked notes. -->
+    <script type="module" src="/static/components/note/np-note.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/quick-add/np-quick-add.js?v={{ v }}"></script>
+    <!-- Wide tables become stacks of cards on a phone (#1387). -->
+    <script type="module" src="/static/components/responsive-table/np-responsive-table.js?v={{ v }}"></script>
+    <!-- The phone shell's components (#1380, #1382). -->
+    <script type="module" src="/static/components/app-bar/np-app-bar.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/view-chips/np-view-chips.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/nav-drawer/np-nav-drawer.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/action-sheet/np-action-sheet.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/fab/np-fab.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/notice/np-notice.js?v={{ v }}"></script>
+    <!-- Every detail-pane form's shell (#1383). -->
+    <script type="module" src="/static/components/detail-sheet/np-detail-sheet.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/qr-code/np-qr-code.js?v={{ v }}"></script>
 
     {% include "_user_profile_dialog.html" %}
 
@@ -4279,6 +4176,12 @@ Build
                         <label for="collabSessionUrl">Join page (share with your team)</label>
                         <input type="text" id="collabSessionUrl" readonly onclick="this.select()">
                     </div>
+                    <!-- #1389: the join page and the code in one QR code, for a
+                         phone's camera. collab-session.js sets its value. -->
+                    <figure class="collab-session-qr">
+                        <np-qr-code id="collabSessionQr" label="QR code: scan it with a phone's camera to join this session" hidden></np-qr-code>
+                        <figcaption>Or scan this with a phone's camera to join.</figcaption>
+                    </figure>
                     <!-- #966: host presence panel -- populated by renderCollabPresence()
                          in collab-session.js from `{"type":"presence",...}` server pushes. -->
                     <div id="collabPresencePanel" style="display:none;">

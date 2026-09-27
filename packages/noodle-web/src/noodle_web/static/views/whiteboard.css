@@ -2288,6 +2288,19 @@ body.wb-note-drag-active * {
     cursor: grab;
 }
 
+/* The grip is what a finger drags an item by (#1386), so it is finger-sized
+   and the browser leaves the drag to the page. */
+@media (pointer: coarse) {
+    .wb-parking-lot-item-handle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: var(--np-touch-target);
+        min-height: var(--np-touch-target);
+        touch-action: none;
+    }
+}
+
 .wb-parking-lot-item-text {
     grid-area: text;
     min-width: 0;
@@ -3145,6 +3158,30 @@ body.wb-linking * {
 
 .wb-quick-edit-field textarea {
     resize: vertical;
+}
+
+/* #1389: on a phone, a card across the top of the screen (see
+   wbPlaceQuickTaskEditor()), with fields that do not zoom the page on focus
+   and 44px targets. */
+.wb-quick-edit.wb-quick-edit-phone {
+    top: calc(var(--np-space-16) + env(safe-area-inset-top, 0px));
+    left: calc(var(--np-space-16) + env(safe-area-inset-left, 0px));
+    right: calc(var(--np-space-16) + env(safe-area-inset-right, 0px));
+    width: auto;
+    max-height: calc(100dvh - var(--np-space-32) - env(safe-area-inset-top, 0px));
+    padding: var(--np-space-16);
+    border-radius: var(--np-radius-card);
+    font-size: var(--np-text-100);
+}
+
+.wb-quick-edit-phone .wb-quick-edit-field input,
+.wb-quick-edit-phone .wb-quick-edit-field textarea {
+    min-height: var(--np-touch-target);
+    font-size: var(--np-touch-field-text);
+}
+
+.wb-quick-edit-phone .wb-quick-edit-actions np-button {
+    min-height: var(--np-touch-target);
 }
 
 .wb-quick-edit-field input:focus-visible,

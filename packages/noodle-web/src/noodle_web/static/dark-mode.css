@@ -24,24 +24,9 @@ body {
 }
 
 /* Sub-navigation bars */
-.plan-subnav {
-    background: var(--np-subnav-bg);
-    border-bottom-color: var(--np-border);
-}
 
-.plan-subnav-btn {
-    color: var(--np-text-secondary);
-}
 
-.plan-subnav-btn:hover {
-    background: var(--np-subnav-hover);
-    color: var(--np-text);
-}
 
-.plan-subnav-btn.active {
-    background: var(--np-accent);
-    color: var(--np-on-accent);
-}
 
 /* Navigation dropdown menus */
 .nav-menu {

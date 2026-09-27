@@ -205,7 +205,7 @@ async function renderPortfolioRisks() {
 
         // Table
         html += '<div class="portfolio-risks-table-wrapper">' +
-            '<table class="portfolio-risks-table">' +
+            '<np-responsive-table priorities=\'{"Title":"primary","Status":"1","Score":"2","Project":"3"}\'><table class="portfolio-risks-table">' +
             '<thead>' +
             '<tr>' +
             '<th onclick="sortPortfolioRisks(\'project\')">Project <span class="sort-indicator"></span></th>' +
@@ -226,7 +226,7 @@ async function renderPortfolioRisks() {
         // so a green item with no row could never be shown
         html += buildRisksTableRows(allItems);
 
-        html += '</tbody></table></div>';
+        html += '</tbody></table></np-responsive-table></div>';
 
         container.innerHTML = html;
         filterPortfolioRisks();

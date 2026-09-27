@@ -1839,6 +1839,33 @@ input[type="text"]:focus-visible {
     visibility: visible;
 }
 
+/* Two fingers pinch the chart's zoom (views-gantt.js, #1386): the browser
+   keeps one-finger panning and leaves the pinch to the page. */
+.gantt-chart-side {
+    touch-action: pan-x pan-y;
+}
+
+/* A finger has no hover, so on a touch screen the handle is always there,
+   finger-sized, and drags by pointer (task-row-actions.js, #1385): the
+   browser must not take the drag for a scroll. */
+@media (pointer: coarse) {
+    .task-drag-cell {
+        min-width: var(--np-touch-target);
+        max-width: var(--np-touch-target);
+    }
+
+    .task-drag-handle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        visibility: visible;
+        min-width: var(--np-touch-target);
+        min-height: var(--np-touch-target);
+        font-size: var(--np-text-100);
+        touch-action: none;
+    }
+}
+
 /* Drag-in-progress visual feedback */
 .gantt-info-table tbody tr.dragging,
 .tasks-table tbody tr.dragging {

@@ -35,7 +35,11 @@ export const SCOPES = [
 
 export const QUICK_ACTIONS = [
     { icon: 'save', label: 'Save' },
-    { icon: 'refresh', label: 'Undo' },
+    { icon: 'undo', label: 'Undo' },
+    // #1382: Redo had no button anywhere -- editor-undo.js looked for a
+    // #redoBtn the page never had -- so without a keyboard it could not be
+    // reached at all.
+    { icon: 'redo', label: 'Redo' },
     { icon: 'add', label: 'New task' },
     { icon: 'print', label: 'Print' },
     // Kept in the always-visible title bar (not tucked into a tab), matching
@@ -354,6 +358,35 @@ export const CONTEXT_FOR_VIEW = {
     mindmap: 'whiteboard',
     portfolio: 'portfolio',
 };
+
+/**
+ * view id -> the view's main create action, for the phone's floating "+"
+ * button (#1382). `command` is a [scopeId, label] pair that ribbon.js's
+ * resolveAction() resolves exactly as it would for a ribbon button, so the
+ * "+" runs the same code as the ribbon command it mirrors;
+ * tests/test_ribbon_action_coverage.mjs checks each one resolves. `label` is
+ * what the button is called.
+ */
+export const CREATE_FOR_VIEW = {
+    'project-report': { label: 'New task', command: ['home', 'New Task'] },
+    tasks: { label: 'New task', command: ['home', 'New Task'] },
+    notepad: { label: 'New task', command: ['home', 'New Task'] },
+    kanban: { label: 'New card', command: ['home', 'New Task'] },
+    calendar: { label: 'New task today', command: ['calendar', 'New Task'] },
+    raid: { label: 'New RAID item', command: ['raid', 'New Risk'] },
+    actions: { label: 'New action', command: ['actions', 'New Action'] },
+    highlights: { label: 'New highlight', command: ['highlights', 'New Highlight'] },
+    stakeholders: { label: 'New stakeholder', command: ['stakeholders', 'Add Stakeholder'] },
+    comms: { label: 'New comms item', command: ['comms', 'New Comms Item'] },
+    lessons: { label: 'New lesson', command: ['lessons', 'New Lesson'] },
+    budget: { label: 'New budget line', command: ['budget', 'New Budget Line'] },
+    benefits: { label: 'New benefit', command: ['benefits', 'New Benefit'] },
+    resources: { label: 'New resource', command: ['resources', 'Add Resource'] },
+};
+
+export function createActionFor(view) {
+    return CREATE_FOR_VIEW[view] || null;
+}
 
 export function contextualTabFor(view) {
     const id = CONTEXT_FOR_VIEW[view];

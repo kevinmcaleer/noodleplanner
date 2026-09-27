@@ -1,7 +1,7 @@
 {
   "name": "noodleplanner",
   "private": true,
-  "description": "Front-end tooling for NoodlePlanner. The app has no bundler: the libraries the browser loads (mppwriter, jspdf, docx, DejaVu Sans Mono, exceljs, jszip, pptxgenjs) are vendored into static/vendor/<lib> by the `npm run vendor:<lib>` scripts.",
+  "description": "Front-end tooling for NoodlePlanner. The app has no bundler: the libraries the browser loads (mppwriter, jspdf, docx, DejaVu Sans Mono, exceljs, jszip, pptxgenjs, qrcode-generator) are vendored into static/vendor/<lib> by the `npm run vendor:<lib>` scripts.",
   "license": "MIT",
   "engines": {
     "node": ">=24"
@@ -14,7 +14,8 @@
     "vendor:exceljs": "node scripts/vendor-exceljs.mjs",
     "vendor:jszip": "node scripts/vendor-jszip.mjs",
     "vendor:pptxgenjs": "node scripts/vendor-pptxgenjs.mjs",
-    "vendor": "npm run vendor:mppwriter && npm run vendor:jspdf && npm run vendor:docx && npm run vendor:dejavu && npm run vendor:exceljs && npm run vendor:jszip && npm run vendor:pptxgenjs",
+    "vendor:qrcode": "node scripts/vendor-qrcode.mjs",
+    "vendor": "npm run vendor:mppwriter && npm run vendor:jspdf && npm run vendor:docx && npm run vendor:dejavu && npm run vendor:exceljs && npm run vendor:jszip && npm run vendor:pptxgenjs && npm run vendor:qrcode",
     "audit:tokens": "node scripts/token-audit.mjs",
     "design:tokens": "node scripts/design-tokens.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
@@ -46,6 +47,7 @@
     "mppwriter": "0.4.0",
     "pdfjs-dist": "6.3.289",
     "pptxgenjs": "4.0.1",
+    "qrcode-generator": "2.0.4",
     "storybook": "10.6.0",
     "storybook-addon-pseudo-states": "10.6.0",
     "vite": "^8.0.0"

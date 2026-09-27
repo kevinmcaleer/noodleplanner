@@ -171,7 +171,8 @@ async function renderPortfolioActions() {
 
         // Table
         html += '<div class="portfolio-actions-table-wrapper">' +
-            '<table class="portfolio-actions-table">' +
+            // Cards on a phone (#1387): the action, then its status, date and project.
+            '<np-responsive-table priorities=\'{"Action":"primary","Status":"1","Target Date":"2","Project":"3"}\'><table class="portfolio-actions-table">' +
             '<thead>' +
             '<tr>' +
             '<th onclick="sortPortfolioActions(\'project\')">Project <span class="sort-indicator"></span></th>' +
@@ -186,7 +187,7 @@ async function renderPortfolioActions() {
 
         html += buildActionsTableRows(actions, today);
 
-        html += '</tbody></table></div>';
+        html += '</tbody></table></np-responsive-table></div>';
 
         container.innerHTML = html;
 

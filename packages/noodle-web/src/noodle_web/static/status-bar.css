@@ -7,13 +7,19 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 36px;
+    /* 36px of bar, plus the home indicator's inset on a notched phone or in
+       the installed app (#1378; viewport-fit=cover in index.html). The inset
+       is 0 everywhere else. */
+    height: calc(36px + env(safe-area-inset-bottom, 0px));
     min-height: 36px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     background: var(--np-bg);
     border-top: 1px solid var(--np-border);
     display: flex;
     align-items: center;
-    padding: 0 var(--np-space-12);
+    padding-top: 0;
+    padding-left: calc(var(--np-space-12) + env(safe-area-inset-left, 0px));
+    padding-right: calc(var(--np-space-12) + env(safe-area-inset-right, 0px));
     gap: var(--np-space-12);
     z-index: 1050;
     font-size: 0.85em;
@@ -219,13 +225,17 @@
    and the app gives up the same width so nothing sits underneath it -- the
    whiteboard's parking lot and structure panels stay in view, as they do
    beside the joiner page's chat. collab-session.js's syncCollabChatDock()
-   keeps body.collab-chat-docked in step with the panel. */
+   keeps body.collab-chat-docked in step with the panel.
+   The app gives it up as width, not margin: the container carries
+   Bootstrap's m-0, which is margin: 0 !important, so a margin-right here
+   loses whenever Bootstrap loads -- that is, everywhere but the UI suite,
+   which blocks the CDN (#1349). */
 body {
     --collab-chat-dock-width: min(400px, 100vw);
 }
 
 body.collab-chat-docked > .container-fluid {
-    margin-right: var(--collab-chat-dock-width);
+    width: calc(100% - var(--collab-chat-dock-width));
 }
 
 .collab-chat-panel.expanded {
@@ -243,7 +253,7 @@ body.collab-chat-docked > .container-fluid {
 /* No room to share on a phone: docked falls back to covering the plan. */
 @media (max-width: 720px) {
     body.collab-chat-docked > .container-fluid {
-        margin-right: 0;
+        width: 100%;
     }
 }
 
@@ -373,9 +383,11 @@ body.collab-chat-docked > .container-fluid {
     text-decoration: underline;
 }
 
-/* Ensure main content doesn't hide behind status bar */
+/* Ensure main content doesn't hide behind status bar. At <=768px the bar
+   wraps to two or three rows, so status-bar.js measures it and publishes
+   --status-bar-height; the fallback is the one-row desktop bar. */
 body {
-    padding-bottom: 36px;
+    padding-bottom: var(--status-bar-height, calc(36px + env(safe-area-inset-bottom, 0px)));
 }
 
 /* ========================================
@@ -387,6 +399,7 @@ body {
         min-height: 44px;
         flex-wrap: wrap;
         padding: var(--np-space-4) var(--np-space-8);
+        padding-bottom: calc(var(--np-space-4) + env(safe-area-inset-bottom, 0px));
         gap: var(--np-space-4);
     }
 

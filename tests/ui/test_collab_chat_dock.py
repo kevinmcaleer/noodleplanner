@@ -46,6 +46,25 @@ def test_the_parking_lot_stays_in_view_while_docked(host):
     assert lot["x"] + lot["width"] <= chat["x"] + 1, (lot, chat)
 
 
+def test_docking_survives_bootstraps_important_margin(host):
+    # The app shell is <div class="container-fluid m-0 p-0">, and Bootstrap's
+    # .m-0 is margin: 0 !important. This suite blocks the CDN Bootstrap comes
+    # from, so without this the rule never applies here -- which is how a dock
+    # that gave up its width as margin passed, and covered the parking lot
+    # for every real user (#1349).
+    host_page, _ = host
+    host_page.add_style_tag(content=".m-0 { margin: 0 !important; }")
+    open_chat(host_page)
+    host_page.click("#collabChatDockBtn")
+    host_page.evaluate("() => wbOpenParkingLotPanel()")
+    host_page.wait_for_selector("#wbParkingLotPanel.open")
+    host_page.wait_for_timeout(400)
+    chat = box(host_page, "#collabChatPanel")
+    for selector in ("#whiteboardContainer", "#wbParkingLotPanel"):
+        el = box(host_page, selector)
+        assert el["x"] + el["width"] <= chat["x"] + 1, (selector, el, chat)
+
+
 def test_undocking_or_closing_gives_the_width_back(host):
     host_page, _ = host
     width_before = box(host_page, "#whiteboardContainer")["width"]

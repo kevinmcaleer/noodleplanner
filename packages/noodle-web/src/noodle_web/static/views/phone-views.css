@@ -1,0 +1,210 @@
+/* ========================================
+   Views on a phone (#1387, epic #1376)
+
+   What a phone-first view does differently at data-layout="phone", beyond
+   the shell (phone-shell.css) and the stacked tables
+   (components/responsive-table/): the calendar's agenda, the dashboard's one
+   column, and the notice on a view that is best on a larger screen.
+   ======================================== */
+
+/* ── The calendar's agenda ───────────────────────────────────────────── */
+
+.calendar-mode-chips {
+    flex: 0 0 auto;
+    margin: calc(var(--np-space-16) * -1) calc(var(--np-space-16) * -1) var(--np-space-12);
+}
+
+/* In the agenda, the month's own header and grid give way to it. */
+#calendar-view[data-calendar-mode="agenda"] .calendar-header,
+#calendar-view[data-calendar-mode="agenda"] .calendar-grid-wrapper {
+    display: none;
+}
+
+.calendar-agenda {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.calendar-agenda[hidden] {
+    display: none;
+}
+
+.calendar-agenda-day {
+    margin-bottom: var(--np-space-16);
+}
+
+.calendar-agenda-heading {
+    margin: 0 0 var(--np-space-8);
+    color: var(--np-muted);
+    font-family: var(--np-font-ui);
+    font-size: var(--np-text-90);
+    font-weight: var(--np-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.calendar-agenda-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--np-space-8);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.calendar-agenda-open {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--np-space-2) var(--np-space-12);
+    width: 100%;
+    min-height: var(--np-touch-target);
+    padding: var(--np-space-8) var(--np-space-12);
+    border: 1px solid var(--np-border);
+    border-radius: var(--np-radius-card);
+    background: var(--np-surface);
+    color: var(--np-ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.calendar-agenda-open:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: var(--np-focus-ring-offset);
+}
+
+.calendar-agenda-name {
+    font-weight: var(--np-weight-medium);
+    overflow-wrap: anywhere;
+}
+
+.calendar-agenda-item-done .calendar-agenda-name {
+    color: var(--np-muted);
+    text-decoration: line-through;
+}
+
+.calendar-agenda-kind {
+    padding: 0 var(--np-space-8);
+    border-radius: var(--np-radius-pill);
+    background: var(--np-sunken);
+    color: var(--np-ink);
+    font-size: var(--np-text-85);
+    white-space: nowrap;
+}
+
+.calendar-agenda-kind-due {
+    background: var(--np-accent-tint);
+    color: var(--np-accent-ink);
+}
+
+.calendar-agenda-who {
+    grid-column: 1 / -1;
+    color: var(--np-muted);
+    font-size: var(--np-text-85);
+}
+
+.calendar-agenda-empty {
+    margin: 0 0 var(--np-space-8);
+    color: var(--np-muted);
+}
+
+/* ── The dashboard in one column ─────────────────────────────────────── */
+
+/* On a phone the dashboard is one column, in the order someone checks it
+   there: the plan's RAG and status (the header), the next milestones, what
+   is up next or overdue, the open risks -- then the rest. The two grids
+   step aside (display: contents) so their cells can be ordered with the
+   header and the timeline row. */
+[data-layout="phone"] #project-report-view .project-report-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--np-space-16);
+    padding: var(--np-space-16);
+}
+
+[data-layout="phone"] #project-report-view .quad-grid {
+    display: contents;
+}
+
+[data-layout="phone"] #project-report-view .project-report-header {
+    order: 0;
+    margin-bottom: 0;
+}
+
+[data-layout="phone"] #project-report-view .quad-cell:has(#reportMilestonesTable) { order: 1; }
+[data-layout="phone"] #project-report-view .quad-cell:has(#reportUpNextTable) { order: 2; }
+[data-layout="phone"] #project-report-view .quad-cell:has(#reportRaidTable) { order: 3; }
+[data-layout="phone"] #project-report-view .quad-cell:has(#reportActionsTable) { order: 4; }
+[data-layout="phone"] #project-report-view .quad-cell:has(#reportHighlightContent) { order: 5; }
+[data-layout="phone"] #project-report-view #reportBudgetWidget { order: 6; }
+[data-layout="phone"] #project-report-view .timeline-donut-row { order: 7; flex-direction: column; margin-bottom: 0; }
+[data-layout="phone"] #project-report-view .project-report-content > :not(.project-report-header):not(.quad-grid):not(.timeline-donut-row) { order: 8; }
+
+[data-layout="phone"] #project-report-view .quad-cell {
+    min-width: 0;
+}
+
+/* A RAG cell paints itself in its status's colour (components.css's
+   .milestones-table .rag-*). On a card it is a pill that says the status,
+   with no "RAG" label inside the colour. */
+np-responsive-table[stacked] tbody td:is(.rag-green, .rag-amber, .rag-red, .rag-blue) {
+    padding: 0 var(--np-space-8);
+    border-radius: var(--np-radius-pill);
+}
+
+np-responsive-table[stacked] tbody td:is(.rag-green, .rag-amber, .rag-red, .rag-blue)::before {
+    content: none;
+}
+
+/* "Copy table as text" sits over a table's top-right corner, which on a
+   phone is a card's -- and a phone's table is cards, not a table to copy. */
+[data-layout="phone"] .copy-image-btn {
+    display: none;
+}
+
+/* ── The logs' toolbars ──────────────────────────────────────────────── */
+
+/* The Actions toolbar -- Add, then three filters in a row -- was 582px wide
+   and took its view with it (a flex item grows to its content): wrapped, the
+   filters take a line each and the cards below fit the screen. */
+[data-layout="phone"] .actions-container {
+    min-width: 0;
+    padding: var(--np-space-16);
+}
+
+[data-layout="phone"] .actions-toolbar {
+    flex-wrap: wrap;
+    padding: var(--np-space-12);
+}
+
+[data-layout="phone"] .actions-toolbar-separator {
+    display: none;
+}
+
+[data-layout="phone"] .actions-toolbar select {
+    min-height: var(--np-touch-target);
+}
+
+/* ── "Best on a larger screen" ───────────────────────────────────────── */
+
+/* The notice (<np-notice>, phone-shell.js) floats over the foot of a view
+   that is best on a larger screen, clear of the home indicator -- and, when
+   the view has a "+" (np-fab, 56px), above it. It is a phone control. */
+.phone-notice {
+    position: fixed;
+    left: calc(var(--np-space-16) + env(safe-area-inset-left, 0px));
+    right: calc(var(--np-space-16) + env(safe-area-inset-right, 0px));
+    bottom: calc(var(--np-space-16) + env(safe-area-inset-bottom, 0px));
+    z-index: 1030;
+}
+
+#phoneFab:not([hidden]) ~ .phone-notice {
+    bottom: calc(var(--np-space-16) + 56px + var(--np-space-12) + env(safe-area-inset-bottom, 0px));
+}
+
+:root:not([data-layout="phone"]) .phone-notice {
+    display: none;
+}

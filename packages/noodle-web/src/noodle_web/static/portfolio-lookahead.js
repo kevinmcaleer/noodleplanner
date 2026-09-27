@@ -372,7 +372,7 @@ async function renderPortfolioLookAhead() {
             html += '<div class="portfolio-lookahead-section" id="portfolioOverdueSection">' +
                 '<h3 class="portfolio-lookahead-section-title overdue">Overdue Tasks (' + overdue.length + ')</h3>' +
                 '<div class="portfolio-lookahead-table-wrapper">' +
-                '<table class="portfolio-lookahead-table">' +
+                '<np-responsive-table priorities=\'{"Task":"primary","Due Date":"1","Days Late":"2","Project":"3"}\'><table class="portfolio-lookahead-table">' +
                 '<thead>' +
                 '<tr>' +
                 '<th onclick="sortPortfolioLookAhead(\'project\', \'overdue\')">Project <span class="sort-indicator"></span></th>' +
@@ -388,7 +388,7 @@ async function renderPortfolioLookAhead() {
 
             html += buildOverdueRows(overdue);
 
-            html += '</tbody></table></div></div>';
+            html += '</tbody></table></np-responsive-table></div></div>';
         }
 
         // Upcoming section
@@ -396,7 +396,7 @@ async function renderPortfolioLookAhead() {
             html += '<div class="portfolio-lookahead-section" id="portfolioUpcomingSection">' +
                 '<h3 class="portfolio-lookahead-section-title upcoming">Upcoming Tasks (Next 2 Weeks)</h3>' +
                 '<div class="portfolio-lookahead-table-wrapper">' +
-                '<table class="portfolio-lookahead-table">' +
+                '<np-responsive-table priorities=\'{"Task":"primary","Due Date":"1","Status":"2","Project":"3"}\'><table class="portfolio-lookahead-table">' +
                 '<thead>' +
                 '<tr>' +
                 '<th onclick="sortPortfolioLookAhead(\'project\', \'upcoming\')">Project <span class="sort-indicator"></span></th>' +
@@ -413,7 +413,7 @@ async function renderPortfolioLookAhead() {
 
             html += buildUpcomingRows(upcoming);
 
-            html += '</tbody></table></div></div>';
+            html += '</tbody></table></np-responsive-table></div></div>';
         }
 
         // Empty state if no tasks at all

@@ -14,10 +14,12 @@ Starting a Session
 
 1. Open the project you want to work on.
 2. Choose **Planning session** from the ribbon.
-3. NoodlePlanner shows a **six-digit code** and the **join page**
-   (``https://<your NoodlePlanner>/join``).
+3. NoodlePlanner shows a **six-digit code**, the **join page**
+   (``https://<your NoodlePlanner>/join``) and a **QR code**.
 4. Tell your team — out loud on a call, in chat, however you normally
-   would: "go to …/join and enter 482913".
+   would: "go to …/join and enter 482913". Anyone in the room can instead
+   point their phone's camera at the QR code: it opens the join page with
+   the code already filled in.
 
 The session is live from that moment. You stay in your normal editor; the
 plan on screen is the one everybody is editing.
@@ -65,6 +67,11 @@ on the right of the board, which they can hide and bring back with **Chat**
 at the top of the page; a count on that button shows messages that arrived
 while it was hidden.
 
+On a phone, a joiner sees the plan as cards, one per top-level task, and
+can open them, tick tasks off and change a task's duration, % complete or
+comment. The whiteboard itself is a tap away, under **Canvas**. See
+:doc:`use-noodleplanner-on-a-phone`.
+
 **Leave session** takes a joiner back to the join form. You see them leave
 from your participant list, and they can rejoin with the same code.
 
@@ -72,6 +79,12 @@ Joiners have a profile circle too, at the right of the bar across the top
 of the join page. It opens the same **Your profile** form, starting from
 the name they joined as. Once they have saved a profile in that browser,
 the join page fills in their name for them next time.
+
+.. figure:: /_static/img/how-to/ps-01-joiner-board.png
+   :alt: The joiner page: the host's whiteboard filling the window, with the session chat on the right
+   :width: 100%
+
+   What a joiner sees: your board, and the session chat beside it.
 
 What Everyone Can Edit
 ------------------------
@@ -153,6 +166,12 @@ right: the plan moves over to make room, so the chat never covers the
 board or its panels. Joiners have the same chat in a panel to the right of
 the board.
 
+.. figure:: /_static/img/how-to/ps-03-docked-chat.png
+   :alt: The session chat docked in a column on the right, with the whiteboard and its parking lot beside it
+   :width: 100%
+
+   Docked, the chat sits beside the plan rather than over it.
+
 Messages appear as chat bubbles, each with the sender's initials beside
 it and their name and the time above it; your own sit on the right.
 
@@ -184,6 +203,12 @@ Seeing and Removing Participants
 While anyone is in the session, their initials appear in the title bar,
 next to the **Planning session** button. Hover over one to see who it is
 and whether they are active, or select it to open the session chat.
+
+.. figure:: /_static/img/how-to/ps-02-participant-chips.png
+   :alt: Two overlapping initials chips in the title bar, one showing a card with the name, Active, and Open session chat
+   :width: 100%
+
+   Who is in the session, in the title bar. Hover over a chip for the card.
 
 The session panel lists everyone who has joined and whether they are
 currently active. **Remove** disconnects one person without affecting the

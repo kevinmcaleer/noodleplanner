@@ -643,7 +643,7 @@ function wbCloseQuickTaskEditor(restoreFocus) {
     const { form, returnFocus } = wbQuickEditState;
     wbQuickEditState = null;
     if (form.parentNode) form.remove();
-    document.removeEventListener('mousedown', wbQuickEditOutsideClick, true);
+    document.removeEventListener('pointerdown', wbQuickEditOutsideClick, true);
     if (restoreFocus && returnFocus && document.contains(returnFocus)) returnFocus.focus();
 }
 
@@ -794,7 +794,7 @@ function wbOpenQuickTaskEditor(taskName) {
     wbQuickEditState = { form, returnFocus };
     setTimeout(() => {
         if (wbQuickEditState && wbQuickEditState.form === form) {
-            document.addEventListener('mousedown', wbQuickEditOutsideClick, true);
+            document.addEventListener('pointerdown', wbQuickEditOutsideClick, true);
         }
     }, 0);
     (durationInput || percentInput).focus();
@@ -804,6 +804,14 @@ function wbOpenQuickTaskEditor(taskName) {
 /** Beside `anchor`, kept inside the board's safe band -- the placement
  * rule wbOpenSmartMenu() uses for the note's own popups. */
 function wbPlaceQuickTaskEditor(form, anchor) {
+    // #1389: on a phone there is no room beside a note, and in the board's
+    // Cards the note is not on screen at all. The editor is a card across
+    // the top of the screen instead (views/whiteboard.css), clear of the
+    // keyboard its fields bring up from the bottom.
+    if (document.documentElement.dataset.layout === 'phone') {
+        form.classList.add('wb-quick-edit-phone');
+        return;
+    }
     const edgeGap = 8;
     const bounds = (typeof wbNoteMenuSafeBounds === 'function')
         ? wbNoteMenuSafeBounds(edgeGap)

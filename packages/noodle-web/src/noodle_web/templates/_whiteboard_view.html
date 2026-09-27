@@ -7,6 +7,12 @@
     tab navigation. -#}
 <!-- Whiteboard View -->
 <div id="whiteboard-view" class="output-tab-content{% if wb_active %} active{% endif %}">
+    <!-- On a phone (#1384) the board is offered as cards -- the plan list, one
+         stacked note per summary task -- beside the canvas. Both are shown and
+         filled by plan-list.js, and hidden everywhere else. Outside .wb-content,
+         which the board's floating toolbar is positioned against. -->
+    <np-view-chips id="whiteboardModeChips" class="wb-mode-chips" label="Show the whiteboard as" active="cards" hidden></np-view-chips>
+    <div id="whiteboardCards" class="plan-list" role="region" aria-label="Whiteboard as cards" hidden></div>
     <div class="wb-content">
         <div class="wb-toolbar" id="whiteboardToolbar" role="toolbar" aria-label="Whiteboard view controls">
             <div class="wb-toolbar-group">

@@ -23,6 +23,7 @@
     right: 0;
     width: 100%;
     height: calc(100% - 36px);
+    height: calc(100dvh - 36px - env(safe-area-inset-bottom, 0px));
     background: var(--np-surface);
     z-index: 1025;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
@@ -35,6 +36,12 @@
 
 .ai-chat-panel.open {
     transform: translateX(0);
+}
+
+/* No shadow while it rests off-screen: it bled back in as a strip down the
+   right edge of every screen (#1378). */
+.ai-chat-panel:not(.open) {
+    box-shadow: none;
 }
 
 /* Desktop: constrained width */

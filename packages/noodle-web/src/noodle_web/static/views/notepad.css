@@ -35,6 +35,51 @@
     color: var(--np-text-secondary);
 }
 
+/* The keyboard half of the hint, for a keyboard (#1385). */
+@media (pointer: coarse) {
+    .notepad-hint-keys {
+        display: none;
+    }
+}
+
+.notepad-shift-group {
+    display: flex;
+    flex-shrink: 0;
+    gap: var(--np-space-4);
+    margin-left: auto;
+}
+
+.notepad-shift-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: 1px solid var(--np-border);
+    border-radius: var(--np-radius-control);
+    background: var(--np-surface);
+    color: var(--np-text);
+    cursor: pointer;
+}
+
+.notepad-shift-btn:hover {
+    background: var(--np-bg-hover);
+    border-color: var(--np-accent);
+}
+
+.notepad-shift-btn:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: var(--np-focus-ring-offset);
+}
+
+@media (pointer: coarse) {
+    .notepad-shift-btn {
+        min-width: var(--np-touch-target);
+        min-height: var(--np-touch-target);
+    }
+}
+
 .notepad-kanban-btn {
     flex-shrink: 0;
     padding: var(--np-space-8) var(--np-space-16);

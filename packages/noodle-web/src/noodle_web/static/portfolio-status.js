@@ -375,7 +375,7 @@ async function renderPortfolioStatus() {
             '</div>';
 
         html += '<div class="portfolio-status-table-wrapper">' +
-            '<table class="portfolio-status-table">' +
+            '<np-responsive-table priorities=\'{"Project":"primary","RAG":"1","Progress":"2","Status":"3"}\'><table class="portfolio-status-table">' +
             '<thead>' +
             '<tr>' +
             '<th onclick="sortPortfolioStatus(\'name\')">Project <span class="sort-indicator"></span></th>' +
@@ -423,7 +423,7 @@ async function renderPortfolioStatus() {
                 '</tr>';
         });
 
-        html += '</tbody></table></div>';
+        html += '</tbody></table></np-responsive-table></div>';
 
         container.innerHTML = html;
 

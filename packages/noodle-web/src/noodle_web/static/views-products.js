@@ -3663,7 +3663,7 @@ function closeProductForm() {
     currentProductLineNumber = null;
 }
 
-document.getElementById('productFormPanelHeader')?.addEventListener('close', closeProductForm);
+// The header's × is routed by its <np-detail-sheet> (close-action, #1383).
 
 function saveProductForm() {
     if (!currentProductTask || currentProductLineNumber === null) return;

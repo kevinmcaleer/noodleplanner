@@ -60,7 +60,8 @@ let ganttMaxDate = null;
 // The zoom (#787): the one number the chart is drawn from. Starts on the
 // Days detent, which is what the zoom control shows before any render.
 let ganttPixelsPerDay = 28;
-let collapsedSummaryTasks = new Set();
+// Which summaries the Gantt shows collapsed is NoodleSummaryCollapse's
+// (summary-collapse.js), per project and shared with the plan list (#1384).
 
 // Task form state
 let currentTask = null;

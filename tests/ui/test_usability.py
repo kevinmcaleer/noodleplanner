@@ -787,10 +787,16 @@ class TestTouchInteractions:
         page.set_viewport_size({"width": 375, "height": 667})
         open_app(page, app_server)
 
-        min_height = page.eval_on_selector(
-            ".plan-subnav-btn", "el => parseFloat(getComputedStyle(el).minHeight)"
+        # At phone width the view chips under the app bar (#1380) replaced the
+        # old .plan-subnav buttons as the shared, always-present control.
+        page.wait_for_function(
+            "() => document.getElementById('phoneViewChips')?.shadowRoot?.querySelector('button')"
         )
-        assert min_height >= 44
+        heights = page.evaluate(
+            """() => [...document.getElementById('phoneViewChips').shadowRoot.querySelectorAll('button')]
+                .map(b => b.getBoundingClientRect().height)"""
+        )
+        assert heights and min(heights) >= 44
 
         result = page.evaluate(
             """() => {

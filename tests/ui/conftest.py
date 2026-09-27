@@ -134,8 +134,9 @@ def browser():
         instance.close()
 
 
-def _new_page(browser, block_external, timeout_ms):
-    context = browser.new_context(viewport={"width": 1280, "height": 900})
+def _new_page(browser, block_external, timeout_ms, layout=None, **context_args):
+    context_args.setdefault("viewport", {"width": 1280, "height": 900})
+    context = browser.new_context(**context_args)
     if block_external:
         for pattern in EXTERNAL_ORIGINS:
             context.route(pattern, lambda route: route.abort())
@@ -145,6 +146,13 @@ def _new_page(browser, block_external, timeout_ms):
     context.add_init_script(
         "document.cookie = 'tourCompleted=true; path=/; max-age=31536000';"
     )
+    if layout:
+        # Settings -> Layout's override (static/layout-mode.js), set before
+        # the page's first script runs so the first paint is already that
+        # layout -- the same thing a user who picked it once would get.
+        context.add_init_script(
+            f"try {{ localStorage.setItem('np-layout', {layout!r}); }} catch (_) {{}}"
+        )
     page = context.new_page()
     page.set_default_timeout(timeout_ms)
     page.set_default_navigation_timeout(timeout_ms)
@@ -193,3 +201,57 @@ def online_page(browser):
     context, pg = _new_page(browser, block_external=False, timeout_ms=30_000)
     yield pg
     context.close()
+
+
+# Touch devices (#1379, epic #1376). Each is the size the epic's review
+# measured, with touch emulation on: `has_touch` makes `(pointer: coarse)` and
+# `(hover: none)` match -- which headless Chromium's plain resize does not --
+# and `is_mobile` honours the viewport meta tag the way a phone does.
+#
+# `layout` forces Settings -> Layout's override rather than trusting the
+# width, for a test about one layout's behaviour on another's screen; leave it
+# None to get what the width implies. `device_page(name, layout=...)` builds
+# one inside a test that needs a combination the fixtures below do not cover.
+DEVICES = {
+    "phone": {"viewport": {"width": 390, "height": 844}},
+    "tablet_portrait": {"viewport": {"width": 768, "height": 1024}},
+    "tablet_ipad_air": {"viewport": {"width": 820, "height": 1180}},
+    "tablet_landscape": {"viewport": {"width": 1024, "height": 768}},
+}
+TOUCH = {"has_touch": True, "is_mobile": True, "device_scale_factor": 1}
+
+
+@pytest.fixture
+def device_page(browser):
+    """A factory: `device_page("phone", layout="phone")` -> an isolated page."""
+    contexts = []
+
+    def make(name, layout=None, timeout_ms=5_000):
+        context, pg = _new_page(
+            browser, block_external=True, timeout_ms=timeout_ms, layout=layout,
+            **{**TOUCH, **DEVICES[name]},
+        )
+        contexts.append(context)
+        return pg
+
+    yield make
+    for context in contexts:
+        context.close()
+
+
+@pytest.fixture
+def phone(device_page):
+    """A 390x844 touch phone (iPhone 12-15)."""
+    return device_page("phone")
+
+
+@pytest.fixture
+def tablet_portrait(device_page):
+    """A 768x1024 touch tablet in portrait (iPad)."""
+    return device_page("tablet_portrait")
+
+
+@pytest.fixture
+def tablet_landscape(device_page):
+    """A 1024x768 touch tablet in landscape (iPad)."""
+    return device_page("tablet_landscape")

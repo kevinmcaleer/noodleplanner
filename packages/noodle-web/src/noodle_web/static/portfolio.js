@@ -13,6 +13,9 @@ function initPortfolio() {
     switchPortfolioView(lastView || 'projects');
 }
 
+/** The portfolio sub-view last shown (#1380), read by phone-shell.js. */
+let currentPortfolioSubview = 'projects';
+
 /**
  * Switch between portfolio views
  */
@@ -61,6 +64,12 @@ function switchPortfolioView(viewName) {
             selectedView.style.display = 'block';
         }
     }
+
+    // The phone's drawer marks the current portfolio view (#1380). These are
+    // sub-views inside one router view, so the router's viewchange does not
+    // cover them.
+    currentPortfolioSubview = viewName;
+    document.dispatchEvent(new CustomEvent('portfolioviewchange', { detail: { view: viewName } }));
 
     // Update sub-nav buttons
     document.querySelectorAll('.portfolio-subnav-btn').forEach(btn => {

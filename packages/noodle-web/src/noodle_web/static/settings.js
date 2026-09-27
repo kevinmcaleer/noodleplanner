@@ -336,8 +336,22 @@ function populateSettingsPanelFromState() {
     const radio = document.querySelector(`input[name="settingsTheme"][value="${theme}"]`);
     if (radio) radio.checked = true;
 
+    // Layout (#1379) is per browser, from layout-mode.js, not front matter.
+    const layout = (window.NoodleLayout && window.NoodleLayout.getOverride()) || 'auto';
+    const layoutRadio = document.querySelector(`input[name="settingsLayout"][value="${layout}"]`);
+    if (layoutRadio) layoutRadio.checked = true;
+
     // Activate the first tab by default
     switchSettingsTab('gantt');
+}
+
+/**
+ * Settings -> Layout (#1379). Deliberately not routed through
+ * onSettingChanged(), which writes the plan's front matter: the layout is a
+ * fact about this screen, kept in this browser by layout-mode.js.
+ */
+function setLayoutMode(value) {
+    if (window.NoodleLayout) window.NoodleLayout.setOverride(value);
 }
 
 function setChecked(id, val) {

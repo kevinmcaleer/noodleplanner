@@ -319,6 +319,12 @@ Send an Idea to the Parking Lot
 
 Not every note is ready to become a task yet. For a "good idea, not now" — something worth keeping but not worth cluttering the board or the plan with — open the note's **More** menu and choose **Send to parking lot**, or drag the note's header straight onto the open parking lot panel (see below) and drop it there. While you hold it over the panel, the note is drawn on top of the panel and a dotted outline at the end of the list shows where it will land.
 
+.. figure:: /_static/img/how-to/wb-05-parking-lot-drag.png
+   :alt: A note held over the parking lot panel, drawn on top of it, with a dotted outline in the list where it will land
+   :width: 100%
+
+   Dragging a note to the parking lot.
+
 Unlike **Remove from board**, this genuinely takes the idea out of the working plan: the task (and any subtasks it has) is deleted from the outline, and the whiteboard row goes with it, but the note's own text and appearance — its title, its comment if it had one, its colour, and (for a checklist note) every item and its completion state — is kept as a new entry in the parking lot rather than thrown away. There is no confirmation prompt and it is one ordinary undo step, the same as every other board action.
 
 Click **Parking Lot** on the ribbon's **Whiteboard** tab to slide the panel out from the board's right edge — a second click slides it back in. It lists everything sent there, each row showing the parked text and the date it was parked, with two actions per row: **Restore** rebuilds the note (and, for a checklist, every item on it) back onto the board, and **Remove** deletes the entry for good once you are sure you do not need it. Dragging a row out of the panel and dropping it on the board restores it at the exact spot you dropped it, rather than wherever free space happens to be, and dragging one row onto another reorders the list. The board stays interactive while the panel is open — it is a panel alongside your work, not a dialog blocking it.
