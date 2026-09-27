@@ -623,6 +623,20 @@ const NavigationController = (() => {
         previousView = currentView;
         currentView = viewName;
         registry[viewName].activate();
+        announce();
+    }
+
+    /**
+     * Tell whoever is interested that the current view changed (#1380): a
+     * `viewchange` event on document, with `detail: { view, previous }`,
+     * once the new view's activate() has run. The ribbon learns the same
+     * thing by wrapping every activate() (ribbon.js's wrapViewActivations);
+     * the phone's app bar, chips and drawer listen for this instead.
+     */
+    function announce() {
+        document.dispatchEvent(new CustomEvent('viewchange', {
+            detail: { view: currentView, previous: previousView },
+        }));
     }
 
     /**
@@ -656,6 +670,7 @@ const NavigationController = (() => {
             previousView = currentView;
             currentView = viewName;
             registry[viewName].activate();
+            announce();
 
             // Phase 2: fade in new view
             const incoming = getActiveTabContent();

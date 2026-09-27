@@ -1,0 +1,55 @@
+/* ========================================
+   Phone shell (#1380, epic #1376)
+
+   With <html data-layout="phone"> (layout-mode.js) the ribbon and the fixed
+   status bar give way to the app bar and view chips (phone-shell.js). On a
+   390x844 phone those two took 475px -- the ribbon 347px, the status bar
+   128px -- and left the view 43px of the first screen. The app bar and the
+   chips are 108px together, and stay at the top while the view scrolls.
+
+   Layout is switched on the data attribute rather than a media query, so
+   Settings -> Layout's override reaches it too. Nothing here applies on a
+   tablet or a desktop.
+   ======================================== */
+
+.phone-shell {
+    display: none;
+}
+
+[data-layout="phone"] .phone-shell {
+    display: block;
+    position: sticky;
+    top: 0;
+    /* Above the views' own sticky headers; below the detail pane and its
+       backdrop (components.css, 1055+), the drawer and the sheets. */
+    z-index: 1040;
+}
+
+[data-layout="phone"] #ribbonShell,
+[data-layout="phone"] .status-bar {
+    display: none;
+}
+
+/* The status bar is gone, so there is nothing to reserve. status-bar.js
+   publishes its height as 0 when it is hidden; this is the same answer
+   before the first measurement lands. */
+[data-layout="phone"] body {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* The plan's RAG dot beside its name: the status bar's own dot, moved. */
+.phone-rag-dot[hidden] {
+    display: none;
+}
+
+/* The bell carries the status bar bell's badge (.status-bar-history-btn),
+   which is its own dot in the corner. */
+.phone-shell .phone-bell {
+    position: relative;
+}
+
+/* responsive.css pads a bare `header` for the old page header; the shell is
+   edge to edge. */
+.phone-shell {
+    padding: 0;
+}

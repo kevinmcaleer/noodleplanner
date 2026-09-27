@@ -7,11 +7,6 @@
         max-width: 50%;
     }
 
-    .plan-subnav-btn {
-        padding: var(--np-space-4) var(--np-space-8);
-        font-size: 0.85em;
-    }
-
     .gantt-table-side {
         width: 280px;
     }
@@ -21,11 +16,6 @@
 @media (min-width: 1025px) {
     .gantt-table-side {
         width: 400px;
-    }
-
-    .plan-subnav-btn {
-        padding: var(--np-space-4) var(--np-space-12);
-        font-size: 0.85em;
     }
 }
 
@@ -108,21 +98,7 @@
         min-height: 50vh;
     }
 
-    .plan-subnav {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        padding: var(--np-space-4) var(--np-space-8);
-    }
 
-    .plan-subnav::-webkit-scrollbar {
-        display: none;
-    }
-
-    .plan-subnav-btn {
-        padding: var(--np-space-4) var(--np-space-8);
-        font-size: 0.8em;
-    }
 
     /* Hide the vertical splitter on mobile, show a horizontal toggle instead */
     .editor-splitter {
@@ -326,11 +302,6 @@
 
     .quad-add-btn {
         min-width: 44px;
-        min-height: 44px;
-        padding: var(--np-space-8) var(--np-space-12);
-    }
-
-    .plan-subnav-btn {
         min-height: 44px;
         padding: var(--np-space-8) var(--np-space-12);
     }

@@ -1710,6 +1710,10 @@ function initRibbon() {
         wireGanttCheckboxSync();
     });
 
+    // A phone hides the ribbon (phone-shell.css, #1380), and a hidden ribbon
+    // measures nothing: redraw it when the layout brings it back.
+    document.addEventListener('layoutchange', () => refreshRibbon());
+
     let resizeTimer = null;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);

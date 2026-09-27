@@ -230,8 +230,10 @@ test('both reports are registered views with ribbon and nav entries', () => {
     for (const id of ['assignments-view', 'slippage-view', 'assignmentsGroups', 'slippageReport', 'slippageEmpty']) {
         assert.ok(html.includes(`id="${id}"`), id);
     }
-    assert.match(html, /data-view="assignments"/);
-    assert.match(html, /data-view="slippage"/);
+    // The drawer (#1380) names each routed view; the old #planSubnav is gone.
+    const catalogue = readFileSync(new URL('view-catalogue.js', STATIC), 'utf8');
+    assert.match(catalogue, /assignments: \{ label: 'By Assignment'/);
+    assert.match(catalogue, /slippage: \{ label: 'Slippage'/);
     assert.match(html, /\/static\/plan-reports\.js/);
     assert.match(html, /\/static\/views-reports\.js/);
 });

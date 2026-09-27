@@ -5915,8 +5915,7 @@ tr:hover .task-context-btn,
 /* ========================================
    Accessibility: focus-visible outlines
    ======================================== */
-.nav-menu-item:focus-visible,
-.plan-subnav-btn:focus-visible {
+.nav-menu-item:focus-visible {
     outline: 2px solid var(--np-accent);
     outline-offset: -2px;
     border-radius: 4px;

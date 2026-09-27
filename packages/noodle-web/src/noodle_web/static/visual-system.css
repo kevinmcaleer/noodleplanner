@@ -803,7 +803,6 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
     .ai-chat-bubble.user,
     .ai-chat-setup-btn,
     .ai-chat-setup-btn:hover,
-    .plan-subnav-btn.active,
     .resources-table thead,
     [data-theme="dark"] .btn-outline-primary:hover,
     [data-theme="dark"] .task-row-add-btn:hover,
