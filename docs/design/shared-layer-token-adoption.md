@@ -51,6 +51,53 @@ taken after slice 1 and again after slice 6, so it covers 2-5 cumulatively.
 Final state against the base, both themes: 1,553,842 element-states compared,
 none differ outside the two noise sources above.
 
-**Totals.** raw-colour findings: `components.css` 268 -> 267, `dark-mode.css`
-139 -> 136, all files 715 -> 711. 50 declarations deleted from
+**Totals after moves 1-3.** raw-colour findings: `components.css` 268 -> 267,
+`dark-mode.css` 139 -> 136, all files 715 -> 711. 50 declarations deleted from
 `dark-mode.css`, 20 of its rules removed whole.
+
+## Move 4: colours that never paint
+
+visual-system.css's `:root body .x` layer restyled the ribbon, the calendar,
+the table heads and the rest on top of the old rules and left those rules in
+place, still carrying colours nobody can see. Move 4 deletes a colour
+declaration only on a **static** proof that it never wins, not because it was
+never seen on a captured screen: for every selector of its rule and every
+longhand it sets, another declaration
+
+- beats it in the cascade: `!important` over normal, higher specificity, or
+  equal specificity and later on *every* page that loads the file
+  (`collab_join.html` loads a shorter list in a different order);
+- is unconditional, or under the same `@media`;
+- matches every element it matches, in every state: the winner's subject
+  compound is a subset of the loser's (`.x` covers `.x:hover`;
+  `:is(thead, th)` covers `th`), its ancestors are implied in order by the
+  loser's, and `:root body` counts as always true only for a subject named by a
+  class the app never puts on `<html>`/`<body>`.
+
+`node scripts/adopt-exact-colour-tokens.mjs --dry-run --verbose` prints the
+winner behind each one. Where only a border shorthand's *colour* loses (the
+winner sets `border-color`, the width and style still paint), just the literal
+is dropped: `1px solid #d8e1e5` becomes `1px solid`, and the colour longhand,
+now `currentColor`, loses to the same winner.
+
+One test changed with it: `tests/test_dark_mode.py` asserted that
+`[data-theme="dark"] .ribbon-titlebar` exists in dark-mode.css. That rule was
+one of the dead ones (`:root body .ribbon-titlebar` outranks it with a surface
+token that swaps by itself), so the test now asserts the token instead.
+
+**Proof.** Before = the branch after slice 6, after = all of move 4. Screens,
+84 x 2 themes: identical apart from the version stamp and the Templates
+modal's corner anti-aliasing. Computed style, re-run with transitions and
+animations disabled so forced states read settled values: two captures of the
+same CSS now differ in nothing but the confetti, and before vs after is
+1,554,380 element-states compared, **0 differ** -- including the 43 touched
+selectors (29 had elements on the page at the time) in `:hover`, `:focus`,
+`:focus-visible`, `:active` and `:focus-within`.
+
+| # | Slice | Changes | Screens (2 x 84) | Computed style | raw-colour |
+|---|---|---|---|---|---|
+| 7 | Move 4: ribbon | 24: 19 declarations deleted, 5 border shorthands lose their colour; 9 rules removed whole | identical | identical | 711 -> 687 |
+| 8 | Move 4: tables, calendar, badges, detail pane, NoodleSheet selection | 27: 24 deleted, 3 border shorthands lose their colour; 9 rules removed whole | identical | identical | 687 -> 663 |
+
+**Totals after move 4.** raw-colour findings: `components.css` 267 -> 231,
+`dark-mode.css` 136 -> 124, all files 711 -> 663.

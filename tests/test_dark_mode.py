@@ -187,20 +187,28 @@ class TestDarkModeCSSTokens:
         css = response.text
         assert '[data-theme="dark"]' in css
 
-    def test_dark_mode_css_has_ribbon_titlebar_override(self, client):
+    def test_ribbon_titlebar_is_themed(self, client):
         """The old nav bar's standalone .theme-toggle-btn/.theme-menu (with
-        their own dark-mode overrides here, and a 44x44px touch target) were
+        their own dark-mode overrides, and a 44x44px touch target) were
         removed in the #909 ribbon-parity follow-up -- the theme controls
         (Dark Mode / System Theme) now live as ordinary, denser ribbon
         buttons (View > Window group), same as every other ribbon control,
-        rather than as an isolated thumb-friendly toggle. What still needs a
-        dark-mode override is the title bar they (and the search box) render
+        rather than as an isolated thumb-friendly toggle. What still has to
+        follow the theme is the title bar they (and the search box) render
         inside of.
+
+        That used to be a `[data-theme="dark"] .ribbon-titlebar` override in
+        dark-mode.css. visual-system.css's `:root body .ribbon-titlebar` gives
+        it a surface token that swaps with the theme by itself, and outranks
+        the override, which was deleted as dead in #1323. So the check is on
+        the token, not on the override.
         """
-        response = client.get("/static/dark-mode.css")
+        response = client.get("/static/visual-system.css")
         assert response.status_code == 200
-        css = response.text
-        assert '[data-theme="dark"] .ribbon-titlebar' in css
+        assert re.search(
+            r":root body \.ribbon-titlebar\s*\{[^}]*background:\s*var\(--np-(surface|paper)[\w-]*\)",
+            response.text,
+        ), "the ribbon title bar's background should be a theme-swapping surface token"
 
     def test_focus_ring_is_tokenised_and_applied(self, client):
         """The focus indicator comes from a token, not a hardcoded hue.

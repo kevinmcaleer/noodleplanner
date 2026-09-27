@@ -2279,26 +2279,12 @@ body {
    tokens throughout (its light mode is also mostly literal hex, not
    tokens, for the same reason: this is a high-fidelity port of a fixed
    design, not a token-driven component). */
-[data-theme="dark"] .ribbon-titlebar {
-    background: #0d1b22;
-}
-
-[data-theme="dark"] .ribbon-tabstrip {
-    background: #14252e;
-    border-bottom-color: #233a45;
-}
-
 [data-theme="dark"] .ribbon-tab-btn {
     color: #8fa8b3;
 }
 
 [data-theme="dark"] .ribbon-tab-btn:hover {
     color: #d3e2e8;
-}
-
-[data-theme="dark"] .ribbon-tab-btn.active {
-    color: #d3e2e8;
-    border-bottom-color: #37b0dc;
 }
 
 [data-theme="dark"] .ribbon-tab-btn.contextual {
@@ -2309,21 +2295,8 @@ body {
     color: #d3e2e8;
 }
 
-[data-theme="dark"] .ribbon-file-btn {
-    background: #8f1717;
-}
-
 [data-theme="dark"] .ribbon-file-menu {
     background: #0d1b22;
-}
-
-[data-theme="dark"] .ribbon-body {
-    background: #1b2f39;
-    border-bottom-color: #233a45;
-}
-
-[data-theme="dark"] .ribbon-group {
-    border-right-color: #233a45;
 }
 
 [data-theme="dark"] .ribbon-lg-btn,
@@ -2367,10 +2340,6 @@ body {
 }
 
 /* -- Simple density (#955) -- */
-[data-theme="dark"] .ribbon-simple-group {
-    border-right-color: #233a45;
-}
-
 [data-theme="dark"] .ribbon-simple-btn {
     color: #d3e2e8;
 }

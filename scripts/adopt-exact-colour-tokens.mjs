@@ -15,7 +15,7 @@
  * #1322's decision, not this script's. So this only makes substitutions that
  * are exact in both themes -- no nearest match, no perceptual threshold.
  * adopt-neutral-colours.mjs accepts 1.1:1 and adopt-shadow-tokens.mjs changes
- * dark mode on purpose; this does neither. There are three moves:
+ * dark mode on purpose; this does neither. There are four moves:
  *
  * 1. **A light literal becomes a token** when the token's light value is the
  *    literal, exactly, after normalising hex case, shorthand and rgb(). The
@@ -49,6 +49,34 @@
  *    element: its subject compound shares a class or id with ours, or has no
  *    class or id at all (so could be anything). That is conservative -- it
  *    refuses some deletions that are in fact safe -- and on purpose.
+ *
+ * 4. **A colour literal that never paints is deleted.** visual-system.css's
+ *    `:root body .x` layer restyled the ribbon, the calendar, the table heads
+ *    and more on top of the old rules, and left those rules in place, still
+ *    carrying colours no one can see. A declaration is dead when, for each
+ *    selector of its rule and each longhand it sets, some other declaration
+ *    always beats it:
+ *      - it wins the cascade outright: !important against a normal one, or
+ *        higher specificity, or equal specificity and later -- where "later"
+ *        must hold on every page that loads the file (collab_join.html loads a
+ *        shorter list, in a different order), so the winner's file has to be
+ *        on all of them in the same relative order;
+ *      - it is unconditional, or under the same @media as the loser;
+ *      - its selector matches every element the loser's matches, in every
+ *        state: its subject compound is a subset of the loser's (so `.x`
+ *        covers `.x:hover`, `:is(thead, th)` covers `th`), and each of its
+ *        ancestor compounds is implied, in order, by one of the loser's. The
+ *        `:root body` prefix counts as always true for anything named by a
+ *        class or id the app never puts on <html> or <body> (ROOT_CLASSES).
+ *    Deleting what never wins changes nothing, in any state, on any page.
+ *    "Matches nothing on any screen we captured" is not evidence and is not
+ *    used: a view nobody opened is still a view.
+ *
+ *    A border or outline *shorthand* is a special case: often only its colour
+ *    loses (visual-system.css sets `border-color`), while its width and style
+ *    still paint. Then just the literal is dropped -- `1px solid #d8e1e5`
+ *    becomes `1px solid` -- and the colour longhand, now currentColor, still
+ *    loses to the same winner.
  *
  * ## Which token, when several share a value
  *
@@ -87,7 +115,8 @@
  *   node scripts/adopt-exact-colour-tokens.mjs --changed            the selectors a run would touch, to
  *                                                                   point a before/after capture at
  *   node scripts/adopt-exact-colour-tokens.mjs --only <regex>       limit to selectors matching
- *   node scripts/adopt-exact-colour-tokens.mjs --moves 1,2,3        limit to some moves
+ *   node scripts/adopt-exact-colour-tokens.mjs --moves 1,2,3,4      limit to some moves
+ *   node scripts/adopt-exact-colour-tokens.mjs --dry-run --verbose  also the winner behind each move 4
  */
 
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
@@ -107,7 +136,7 @@ const report = args.includes('--report')
 const listChanged = args.includes('--changed')
 const verbose = args.includes('--verbose')
 const only = args.includes('--only') ? new RegExp(args[args.indexOf('--only') + 1]) : null
-const moves = new Set((args.includes('--moves') ? args[args.indexOf('--moves') + 1] : '1,2,3').split(',').map(Number))
+const moves = new Set((args.includes('--moves') ? args[args.indexOf('--moves') + 1] : '1,2,3,4').split(',').map(Number))
 const linked = [...readFileSync(INDEX, 'utf8').matchAll(/href="\/static\/([^"?]+\.css)/g)].map((m) => m[1])
 
 // --- Colours ---------------------------------------------------------------
@@ -489,7 +518,7 @@ const addEdit = (file, start, end, text) => {
 	if (!edits.has(file)) edits.set(file, [])
 	edits.get(file).push({ start, end, text })
 }
-const counts = { move1: 0, move2: 0, move3: 0, rulesEmptied: 0 }
+const counts = { move1: 0, move2: 0, move3: 0, move4: 0, rulesEmptied: 0 }
 const log = []
 const leftovers = [] // { file, dark, prop, lit, sel, why }
 
@@ -639,6 +668,212 @@ if (moves.has(3)) {
 	}
 }
 
+// Move 4: delete colour literals that never paint, because another rule
+// always beats them. See "Move 4" in the header for what counts as proof.
+
+// Every page that loads a target file, and the order it loads things in. A
+// winner has to be loaded -- in the same relative order -- on all of them.
+const TEMPLATES_DIR = join(ROOT, 'packages/noodle-web/src/noodle_web/templates')
+const pageSheets = readdirSync(TEMPLATES_DIR).filter((n) => n.endsWith('.html'))
+	.map((n) => [...readFileSync(join(TEMPLATES_DIR, n), 'utf8').matchAll(/href="\/static\/([^"?]+\.css)/g)].map((m) => m[1]))
+	.filter((list) => list.some((x) => TARGETS.has(x)))
+function winnerFileOk(winner, target) {
+	return pageSheets.every((list) => {
+		const t = list.indexOf(target)
+		if (t === -1) return true
+		const w = list.indexOf(winner)
+		if (w === -1) return false
+		return Math.sign(w - t) === Math.sign(linked.indexOf(winner) - linked.indexOf(target))
+	})
+}
+
+// Classes the app puts on <html> or <body>. `:root body .x` only reaches `.x`
+// below <body>, so a subject that could be <body> itself is not covered by it.
+const ROOT_CLASSES = new Set(['.backstage-fullscreen', '.detail-pane-open', '.gantt-dragging', '.markdown-view',
+	'.modal-open', '.no-animations', '.wb-linking', '.wb-row-drag-active', '.collab-chat-docked', '.is-joined',
+	'.wb-note-drag-active', '.collab-join', '.gallery-body'])
+
+/** A selector as compounds, subject last: [{ comb, tag, simples, pe }], or null if not understood. */
+function compounds(sel) {
+	const parts = []
+	let depth = 0
+	let cur = ''
+	for (const c of sel.trim()) {
+		if (c === '(' || c === '[') depth++
+		if (c === ')' || c === ']') depth--
+		if (/\s/.test(c) && depth === 0) { if (cur) parts.push(cur); cur = ''; continue }
+		cur += c
+	}
+	if (cur) parts.push(cur)
+	const out = []
+	let comb = ' '
+	for (const p of parts) {
+		if (/^[>+~]$/.test(p)) { comb = p; continue }
+		const c = { comb: out.length ? comb : null, tag: '*', simples: [], pe: '' }
+		let rest = p
+		const tag = /^([a-zA-Z][\w-]*|\*)/.exec(rest)
+		if (tag) { c.tag = tag[1].toLowerCase(); rest = rest.slice(tag[1].length) }
+		const re = /^(::?[\w-]+(\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\))?|\.[\w-]+|#[\w-]+|\[[^\]]*\])/
+		while (rest) {
+			const m = re.exec(rest)
+			if (!m) return null
+			const tok = m[1]
+			rest = rest.slice(tok.length)
+			if (tok.startsWith('::') || /^:(before|after|placeholder)$/.test(tok)) c.pe = tok.replace(/^::?/, '::')
+			else c.simples.push(tok.replace(/\s+/g, ' ').replace(/'/g, '"'))
+		}
+		out.push(c)
+		comb = ' '
+	}
+	return out
+}
+
+/** Does compound `t` match every element that compound `s` matches, in every state? */
+function compoundCovers(t, s) {
+	if (t.pe !== s.pe) return false
+	if (t.tag !== '*' && t.tag !== s.tag) return false
+	return t.simples.every((x) => {
+		if (s.simples.includes(x)) return true
+		// :is()/:where() is satisfied when one alternative is a single compound `s` implies.
+		const m = /^:(is|where)\((.*)\)$/.exec(x)
+		if (!m) return false
+		return splitSelectors(m[2]).some((alt) => {
+			const a = compounds(alt)
+			return a && a.length === 1 && compoundCovers(a[0], { ...s, pe: a[0].pe })
+		})
+	})
+}
+
+const isRootCompound = (c) => !c.pe && ((c.tag === '*' && c.simples.length === 1 && c.simples[0] === ':root') ||
+	(['html', 'body'].includes(c.tag) && !c.simples.length))
+
+/** Does selector `t` match every element selector `s` matches, in every state? */
+function selectorCovers(t, s) {
+	const T = compounds(t)
+	const S = compounds(s)
+	if (!T || !S) return false
+	if (!compoundCovers(T.at(-1), S.at(-1))) return false
+	// The compounds S guarantees are ancestors: left over descendant/child combinators.
+	const sAnc = []
+	for (let i = S.length - 1; i > 0; i--) {
+		if (!/^[ >]$/.test(S[i].comb)) break
+		sAnc.unshift(S[i - 1])
+	}
+	let usesRoot = false
+	let j = sAnc.length - 1
+	for (let i = T.length - 2; i >= 0; i--) {
+		if (T[i + 1].comb !== ' ') return false // only descendant combinators are provable here
+		if (isRootCompound(T[i])) { usesRoot = true; continue }
+		while (j >= 0 && !compoundCovers(T[i], sAnc[j])) j--
+		if (j < 0) return false
+		j--
+	}
+	if (usesRoot) {
+		// `:root body X` needs X to be strictly inside <body>: a subject or an
+		// ancestor named by a class or id the app never puts on <html>/<body>.
+		const subj = S.at(-1)
+		if (['html', 'body'].includes(subj.tag)) return false
+		const inside = [subj, ...sAnc.slice(1)].some((c) => c.simples.some((x) => /^[.#]/.test(x) && !ROOT_CLASSES.has(x)))
+		if (!inside) return false
+	}
+	return true
+}
+
+/** The longhands a declaration sets, for deciding whether a winner covers all of them. */
+function longhands(prop) {
+	const sides = ['top', 'right', 'bottom', 'left']
+	const box = (parts) => sides.flatMap((sd) => parts.map((p) => `border-${sd}-${p}`))
+	if (prop === 'border') return box(['width', 'style', 'color'])
+	if (/^border-(color|width|style)$/.test(prop)) return box([prop.slice(7)])
+	let m = /^border-(top|right|bottom|left)$/.exec(prop)
+	if (m) return ['width', 'style', 'color'].map((p) => `border-${m[1]}-${p}`)
+	if (prop === 'background') return ['background-color', 'background-image', 'background-position', 'background-size',
+		'background-repeat', 'background-attachment', 'background-origin', 'background-clip']
+	if (prop === 'outline') return ['outline-color', 'outline-style', 'outline-width']
+	return [prop]
+}
+
+if (moves.has(4)) {
+	const byLonghand = new Map()
+	for (const e of all) {
+		for (const lh of longhands(e.prop)) {
+			if (!byLonghand.has(lh)) byLonghand.set(lh, [])
+			byLonghand.get(lh).push(e)
+		}
+	}
+	for (const f of files) {
+		if (!TARGETS.has(f.rel)) continue
+		for (const r of f.rules) {
+			if (only && !only.test(r.prelude)) continue
+			const sels = splitSelectors(r.prelude)
+			for (const d of r.decls) {
+				if (d.prop.startsWith('--') || newValue.has(d) || deletions.get(r)?.decls.has(d)) continue
+				if (!familyOf(d.prop)) continue
+				const masked = d.value.replace(/var\((?:[^()]|\([^()]*\))*\)/g, (m) => ' '.repeat(m.length))
+				if (![...masked.matchAll(LITERAL_RE)].some((m) => norm(m[0]))) continue
+				const proof = []
+				const winnerFor = (sel, lh) => {
+					const me = all.find((e) => e.decl === d && e.sel === sel)
+					return (byLonghand.get(lh) ?? []).find((e) => {
+						if (e.decl === d) return false
+						if (e.rule.at && e.rule.at !== r.at) return false // conditional: not always in force
+						if (d.important && !e.decl.important) return false
+						if (!winnerFileOk(e.file, f.rel)) return false
+						if (deletions.get(e.rule)?.decls.has(e.decl)) return false // going too
+						const c = cmpSpec(e.spec, me.spec)
+						const wins = (e.decl.important && !d.important) || c > 0 || (c === 0 && e.seq > me.seq)
+						return wins && selectorCovers(e.sel, sel)
+					})
+				}
+				const covered = (lhs) => sels.every((sel) => lhs.every((lh) => {
+					const w = winnerFor(sel, lh)
+					if (w) proof.push(`${lh} <- ${w.sel} { ${w.prop}: ${(newValue.get(w.decl) ?? w.decl.value).slice(0, 40)} } (${w.file})`)
+					return !!w
+				}))
+				// A border/outline shorthand whose *colour* always loses, while its
+				// width and style still paint: drop just the colour from it. The
+				// colour longhand then resets to currentColor, which also loses.
+				const colourLonghands = longhands(d.prop).filter((lh) => lh.endsWith('-color'))
+				if (/^(border(-(top|right|bottom|left))?|outline)$/.test(d.prop) && colourLonghands.length &&
+					!covered(longhands(d.prop)) && (proof.length = 0, covered(colourLonghands))) {
+					const stripped = d.value.replace(LITERAL_RE, (m) => (norm(m) ? '' : m)).replace(/\s+/g, ' ').trim()
+					if (stripped && !/^(none|0|hidden)$/.test(stripped)) {
+						newValue.set(d, stripped)
+						counts.move4++
+						log.push(`4  ${f.rel.padEnd(15)} ${d.prop}: ${d.value} -> ${stripped}   ${r.prelude.replace(/\s+/g, ' ').slice(0, 70)}`)
+						if (verbose) for (const p of new Set(proof)) log.push(`       ${p}`)
+					}
+					continue
+				}
+				proof.length = 0
+				const dead = sels.every((sel) => {
+					const me = all.find((e) => e.decl === d && e.sel === sel)
+					return longhands(d.prop).every((lh) => {
+						const w = (byLonghand.get(lh) ?? []).find((e) => {
+							if (e.decl === d) return false
+							if (e.rule.at && e.rule.at !== r.at) return false // conditional: not always in force
+							if (d.important && !e.decl.important) return false
+							if (!winnerFileOk(e.file, f.rel)) return false
+							if (deletions.get(e.rule)?.decls.has(e.decl)) return false // going too
+							const c = cmpSpec(e.spec, me.spec)
+							const wins = (e.decl.important && !d.important) || c > 0 || (c === 0 && e.seq > me.seq)
+							return wins && selectorCovers(e.sel, sel)
+						})
+						if (w) proof.push(`${lh} <- ${w.sel} { ${w.prop}: ${(newValue.get(w.decl) ?? w.decl.value).slice(0, 40)} } (${w.file})`)
+						return !!w
+					})
+				})
+				if (!dead) continue
+				if (!deletions.has(r)) deletions.set(r, { file: f.rel, decls: new Set() })
+				deletions.get(r).decls.add(d)
+				counts.move4++
+				log.push(`4  ${f.rel.padEnd(15)} delete ${d.prop}: ${d.value}   ${r.prelude.replace(/\s+/g, ' ').slice(0, 70)}`)
+				if (verbose) for (const p of new Set(proof)) log.push(`       ${p}`)
+			}
+		}
+	}
+}
+
 // Leftover dark literals that move 3 deletes are not left over.
 const deletedDecls = new Set([...deletions.values()].flatMap((x) => [...x.decls]))
 
@@ -700,5 +935,7 @@ if (report) {
 if (verbose || dryRun) for (const l of log) console.log(l)
 console.log(`\nmove 1 (light literal -> token): ${counts.move1}`)
 console.log(`move 2 (dark literal -> token):  ${counts.move2}`)
-console.log(`move 3 (dark declaration deleted): ${counts.move3}, ${counts.rulesEmptied} rule(s) removed entirely`)
+console.log(`move 3 (dark declaration deleted): ${counts.move3}`)
+console.log(`move 4 (overridden everywhere: deleted, or colour dropped from a border shorthand): ${counts.move4}`)
+console.log(`${counts.rulesEmptied} rule(s) removed entirely`)
 console.log(dryRun ? '\n(dry run: nothing written)' : '')
