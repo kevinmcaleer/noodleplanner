@@ -28,10 +28,16 @@ export. To change, add or remove a token:
 
 1. Change it in Penpot. A token's description is the comment the generator
    writes above it, so put the reasoning there.
-2. Export the token sets (Tokens → Export, multiple files) over
-   `docs/design/tokens/`.
-3. Run `npm run design:tokens`, then the contrast check, and commit the JSON
-   and the CSS together.
+2. Pull it into the repository. Run the **Design tokens** workflow from the
+   Actions tab: it fetches the tokens, regenerates the CSS and opens a pull
+   request if anything changed. Locally, `PENPOT_ACCESS_TOKEN=… npm run
+   design:pull` does the same without opening the PR. Exporting the token sets by hand (Tokens → Export, multiple
+   files) over `docs/design/tokens/` and running `npm run design:tokens` still
+   works too. [`token-pull.md`](token-pull.md) covers all three routes.
+3. Run the contrast check, and commit the JSON and the CSS together.
+
+Never add a token to the JSON without adding it in Penpot too. The next pull
+would report it as **REMOVED**, because Penpot is where the pull reads from.
 
 Never edit the generated block, and never redeclare one of its tokens elsewhere
 in the file to override it. `npm run design:tokens -- --check` fails on both,

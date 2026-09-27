@@ -1,0 +1,76 @@
+# Pull the design tokens out of Penpot and open a pull request if they changed
+# (#1319). Run it from the Actions tab after a design change in Penpot.
+#
+# `npm run design:pull` fetches the NoodlePlanner design file's token library
+# over Penpot's RPC API, writes docs/design/tokens/ and regenerates the token
+# block of visual-system.css. docs/design/token-pull.md explains the route and
+# what the pull keeps from the committed files.
+#
+# A pull with no design change leaves the tree clean, and create-pull-request
+# opens nothing for a clean tree. A second run while the first pull request is
+# still open updates that pull request instead of opening another.
+#
+# Secrets:
+#   PENPOT_ACCESS_TOKEN   a Penpot personal access token (Your account ->
+#                         Access tokens) for an account that can read the file.
+#   DESIGN_PULL_PR_TOKEN  optional. A pull request opened with the workflow's
+#                         own GITHUB_TOKEN does not start other workflows, so
+#                         its CI has to be started by hand; a fine-grained token
+#                         with contents and pull-requests write on this
+#                         repository avoids that.
+name: Design tokens
+
+on:
+  workflow_dispatch:
+    inputs:
+      file_id:
+        description: Penpot file id (defaults to the NoodlePlanner design file)
+        required: false
+
+# Only what opening a pull request needs: push a branch, open the PR.
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: design-tokens
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    name: Pull tokens from Penpot
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      # The script and the generator use nothing but Node's standard library,
+      # so there is no `npm ci` here.
+      - name: Pull
+        env:
+          PENPOT_ACCESS_TOKEN: ${{ secrets.PENPOT_ACCESS_TOKEN }}
+          PENPOT_FILE_ID: ${{ inputs.file_id }}
+        run: node scripts/design-pull.mjs --summary "$RUNNER_TEMP/design-pull.md"
+
+      - name: Check the pulled tokens
+        run: |
+          node scripts/design-tokens.mjs --check
+          node scripts/check-contrast.mjs
+
+      - name: Open a pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.DESIGN_PULL_PR_TOKEN || github.token }}
+          branch: design/penpot-tokens
+          delete-branch: true
+          add-paths: |
+            docs/design/tokens/
+            packages/noodle-web/src/noodle_web/static/visual-system.css
+          commit-message: Pull design tokens from Penpot
+          title: Pull design tokens from Penpot
+          body-path: ${{ runner.temp }}/design-pull.md
+          labels: "area: design-system-ui"
