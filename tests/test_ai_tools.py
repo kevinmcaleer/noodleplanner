@@ -229,6 +229,29 @@ class TestTasks:
         assert "Construction" in result
         assert "renamed" in msg
 
+    def test_update_task_rename_updates_successors(self):
+        plan = ("Design 3d\n"
+                "Build 2d [depends design:SS +2d, Other]\n"
+                "Other 1d\n"
+                "  Test 1d [depends Build, Design -1d]\n"
+                "Ship 1d [depends Designer, $design]\n")
+        result, msg = execute_tool("update_task", plan,
+                                   {"name": "Design", "new_name": "UX design"})
+        assert result == ("UX design 3d\n"
+                          "Build 2d [depends UX design:SS +2d, Other]\n"
+                          "Other 1d\n"
+                          "  Test 1d [depends Build, UX design -1d]\n"
+                          "Ship 1d [depends Designer, $design]\n")
+        assert "2 dependencies updated" in msg
+
+    def test_update_task_rename_leaves_back_matter_alone(self):
+        plan = ("Design 3d\nBuild 2d [depends Design]\n"
+                "---parking lot---\n[depends Design]\n")
+        result, _ = execute_tool("update_task", plan,
+                                 {"name": "Design", "new_name": "UX"})
+        assert result == ("UX 3d\nBuild 2d [depends UX]\n"
+                          "---parking lot---\n[depends Design]\n")
+
     def test_update_task_not_found(self):
         result, msg = execute_tool("update_task", SAMPLE_PLAN,
                                    {"name": "FakeTask", "duration": "1d"})
@@ -558,6 +581,13 @@ class TestMilestoneDates:
                                     "date": "2026-07-01"})
         assert "not found" not in msg
         assert _changed_lines(plan, result) == ['Launch 0d 2026-07-01']
+
+    def test_update_milestone_rename_updates_successors(self):
+        plan = "Build 2d\nGo Live 0d 2026-06-01\nHandover 1d [depends Go Live]\n"
+        result, msg = execute_tool("update_milestone", plan,
+                                   {"name": "Go Live", "new_name": "Launch"})
+        assert result == "Build 2d\nLaunch 0d 2026-06-01\nHandover 1d [depends Launch]\n"
+        assert "1 dependency updated" in msg
 
     def test_update_milestone_date_appended_when_absent(self):
         plan = SAMPLE_PLAN.replace("  Deployment 1d @AL $release_v1\n",
