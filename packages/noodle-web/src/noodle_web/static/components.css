@@ -1058,7 +1058,7 @@
 }
 
 .report-highlight-card.clickable:hover {
-    background-color: rgba(0, 0, 0, 0.06);
+    background-color: var(--np-sunken);
 }
 
 .report-highlight-meta {
@@ -1128,7 +1128,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.4);
+    background: color-mix(in srgb, var(--np-shade) 40%, transparent);
     /* Above the status bar (status-bar.css, z-index 1050), not below it
        (#1378). The pane is aria-modal, and at <=768px the status bar wraps to
        80-128px, so under it the pane's own Done / Delete buttons sat beneath
@@ -1304,11 +1304,11 @@ body.detail-pane-open .modal-overlay {
 }
 
 .detail-pane-title:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: color-mix(in srgb, var(--np-on-fill) 10%, transparent);
 }
 
 .detail-pane-title:focus {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: color-mix(in srgb, var(--np-on-fill) 20%, transparent);
 }
 
 .detail-pane-section .modal-body {
@@ -1604,7 +1604,7 @@ tr:hover .task-context-btn,
 }
 
 .task-context-btn:hover {
-    background: rgba(16, 139, 185, 0.1);
+    background: var(--np-sunken);
     opacity: 1;
 }
 
@@ -1908,11 +1908,11 @@ tr:hover .task-context-btn,
 }
 
 .modal-header h2:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--np-sunken);
 }
 
 .modal-header h2:focus {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: var(--np-selected);
 }
 
 .modal-body {
@@ -2202,7 +2202,7 @@ tr:hover .task-context-btn,
 }
 
 .percent-progress-clickable:hover {
-    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.35);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--np-success) 35%, transparent);
 }
 
 .percent-progress-clickable.percent-control-disabled {
@@ -2562,7 +2562,7 @@ tr:hover .task-context-btn,
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.7);
+    background: color-mix(in srgb, var(--np-shade) 70%, transparent);
     z-index: 10000;
     display: none;
 }
@@ -2575,8 +2575,8 @@ tr:hover .task-context-btn,
     position: absolute;
     border: 3px solid var(--np-accent);
     border-radius: 8px;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7),
-                0 0 20px rgba(16, 139, 185, 0.8);
+    box-shadow: 0 0 0 9999px color-mix(in srgb, var(--np-shade) 70%, transparent),
+                0 0 20px color-mix(in srgb, var(--np-accent) 80%, transparent);
     transition: all 0.4s ease;
     pointer-events: none;
     z-index: 10001;
@@ -2586,7 +2586,7 @@ tr:hover .task-context-btn,
     position: absolute;
     background: var(--np-surface);
     border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 32px var(--np-shadow-tint-strong);
     max-width: 400px;
     min-width: 300px;
     z-index: 10002;
@@ -2996,7 +2996,7 @@ tr:hover .task-context-btn,
 .fix-it-btn:hover {
     background: var(--np-accent-hover);
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 4px var(--np-shadow-tint);
 }
 
 .fix-it-btn:active {
@@ -3648,7 +3648,7 @@ tr:hover .task-context-btn,
     border: 1px solid var(--np-border);
     border-radius: 8px;
     padding: var(--np-space-16) var(--np-space-20);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px var(--np-shadow);
 }
 
 .highlight-card-header {
@@ -3923,7 +3923,7 @@ tr:hover .task-context-btn,
 }
 
 .user-stats .stat {
-    background: rgba(255, 255, 255, 0.2);
+    background: color-mix(in srgb, var(--np-on-fill) 20%, transparent);
     padding: var(--np-space-4) var(--np-space-12);
     border-radius: 4px;
 }
@@ -4183,7 +4183,7 @@ tr:hover .task-context-btn,
 
 .template-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 10px 30px var(--np-shadow-tint);
     border-color: var(--np-accent);
 }
 
@@ -5805,7 +5805,7 @@ tr:hover .task-context-btn,
 .shortcuts-modal {
     background: var(--np-modal-bg);
     border-radius: 10px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--np-elevation-4);
     max-width: 540px;
     width: 100%;
     max-height: 80vh;
@@ -6107,7 +6107,7 @@ tr:hover .task-context-btn,
     background: var(--np-accent-hover);
     border-color: var(--np-accent-hover);
     color: var(--np-on-accent);
-    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.35);
+    box-shadow: inset 0 1px 4px color-mix(in srgb, var(--np-shade) 35%, transparent);
 }
 
 .budget-view-toggle:focus-visible {
@@ -6704,7 +6704,6 @@ tr:hover .task-context-btn,
     }
 }
 
-/* Dark mode */
 /* ── Completion Sparkline ── */
 .completion-sparkline-container {
     display: flex;
@@ -6932,7 +6931,7 @@ tr:hover .task-context-btn,
     inset: 0;
     z-index: 3000;
     pointer-events: none;
-    background: rgba(16, 139, 185, 0.1);
+    background: color-mix(in srgb, var(--np-accent) 10%, transparent);
     align-items: center;
     justify-content: center;
 }
@@ -6949,7 +6948,7 @@ tr:hover .task-context-btn,
     background: var(--np-bg);
     color: var(--np-text);
     text-align: center;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 10px 30px var(--np-shadow-tint);
 }
 
 #windowDropOverlay .window-drop-panel h2 {
@@ -6967,7 +6966,7 @@ tr:hover .task-context-btn,
 .storage-settings small { display: block; margin: 0.5rem 0; opacity: 0.8; }
 .storage-settings-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.75rem 0 0.25rem; }
 .storage-settings-actions button { min-height: 44px; }
-.storage-settings-legacy { margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid rgba(128, 128, 128, 0.3); }
+.storage-settings-legacy { margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid var(--np-border); }
 .storage-settings-legacy h4 { margin: 0 0 0.25rem; font-size: 0.95rem; }
 .storage-settings-warning { color: var(--np-danger-ink); font-weight: 600; }
 

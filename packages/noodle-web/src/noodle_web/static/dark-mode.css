@@ -172,7 +172,7 @@ body {
 [data-theme="dark"] select:focus,
 [data-theme="dark"] textarea:not(.editor-textarea):focus {
     border-color: var(--np-accent);
-    box-shadow: 0 0 0 2px rgba(123, 143, 240, 0.25);
+    box-shadow: var(--np-focus-ring);
 }
 
 /* Detail pane */
@@ -415,7 +415,6 @@ body {
 [data-theme="dark"] .tour-popup {
     color: var(--np-text);
     border-color: var(--np-border);
-    box-shadow: 0 4px 20px var(--np-shadow-strong);
 }
 
 /* Templates modal cards */
@@ -569,7 +568,7 @@ body {
 }
 
 [data-theme="dark"] .gantt-weekend {
-    background: rgba(255, 255, 255, 0.03);
+    background: color-mix(in srgb, var(--np-on-fill) 3%, transparent);
 }
 
 [data-theme="dark"] .gantt-month {
@@ -859,8 +858,6 @@ body {
     color: var(--np-text);
 }
 
-/* Completion % quick-set toolbar + click-to-complete progress bar
-   (task details form) */
 /* Theme colour picker popup */
 [data-theme="dark"] .theme-colour-picker {
     border-color: var(--np-border);
@@ -1381,7 +1378,7 @@ body {
 }
 
 [data-theme="dark"] .ns-cell.ns-in-range {
-    background: rgba(123, 143, 240, 0.15);
+    background: color-mix(in srgb, var(--np-info) 15%, transparent);
 }
 
 [data-theme="dark"] .ns-table tbody tr:hover .ns-cell:not(.ns-selected):not(.ns-editing) {
@@ -1494,7 +1491,7 @@ body {
 }
 
 [data-theme="dark"] .portfolio-subnav-btn:hover {
-    background: rgba(123, 143, 240, 0.1);
+    background: color-mix(in srgb, var(--np-accent) 10%, transparent);
 }
 
 [data-theme="dark"] .portfolio-subnav-btn.active {
@@ -2021,10 +2018,6 @@ body {
     color: var(--np-danger-ink);
 }
 
-/* ── Highlight body truncation (dark) ── */
-/* ── Completion Sparkline (dark) ── */
-/* ── Stalled Badge (dark) ── */
-/* ── Delivery Forecast (dark) ── */
 /* ── Portfolio Benefits Map (dark) ───────────────────────────────────── */
 
 [data-theme="dark"] .portfolio-benefits-map-section {
@@ -2127,22 +2120,22 @@ body {
 [data-theme="dark"] .wb-outline-btn:hover,
 [data-theme="dark"] .wb-outline-btn:focus-visible,
 [data-theme="dark"] .wb-outline-chevron:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: color-mix(in srgb, var(--np-ink) 15%, transparent);
 }
 
 /* The row-matched and search-focus tints are mixed for a white panel; at
    dark-mode luminance they read as almost nothing, so lift them. */
 [data-theme="dark"] .wb-outline-row.matched {
-    background: rgba(16, 139, 185, 0.26);
+    background: color-mix(in srgb, var(--np-info) 26%, transparent);
 }
 
 [data-theme="dark"] .wb-outline-search-input:focus {
-    box-shadow: 0 0 0 2px rgba(16, 139, 185, 0.4);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--np-info) 40%, transparent);
 }
 
 [data-theme="dark"] .wb-note-menu-delete:hover,
 [data-theme="dark"] .wb-note-menu-delete:focus-visible {
-    background: rgba(214, 69, 69, 0.22);
+    background: color-mix(in srgb, var(--np-danger) 22%, transparent);
 }
 
 /* The "found it" flash ring, and the cut button's hover mark, both assume
@@ -2152,13 +2145,10 @@ body {
 }
 
 @keyframes wbNoteFlashDark {
-    0%, 100% { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
-    30%      { box-shadow: 0 0 0 5px rgba(77, 182, 226, 0.6), 0 6px 18px rgba(0, 0, 0, 0.6); }
+    0%, 100% { box-shadow: 0 2px 6px var(--np-shadow-strong); }
+    30%      { box-shadow: 0 0 0 5px color-mix(in srgb, var(--np-info) 60%, transparent), 0 6px 18px color-mix(in srgb, var(--np-shade) 60%, transparent); }
 }
 
 [data-theme="dark"] .wb-noodle-cut:hover .wb-noodle-cut-mark {
     stroke: var(--np-paper);
 }
-
-/* The transient message inverts (dark text on light) in light mode; in
-   dark mode that inversion would make it the brightest thing on screen. */
