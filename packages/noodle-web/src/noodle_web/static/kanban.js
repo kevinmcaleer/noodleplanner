@@ -481,8 +481,7 @@ class KanbanBoard {
                 this.phases.push(currentPhase);
                 this.phaseLineNumbers.set(currentPhase, lineNum);
                 if (this.planModel) {
-                    this.phaseNodes.set(currentPhase,
-                        this.planModel.tasks.find(node => this.planModel.lineNumber(node) === lineNum) || null);
+                    this.phaseNodes.set(currentPhase, this.planModel.taskAtLine(lineNum));
                 }
                 continue;
             }
@@ -500,8 +499,7 @@ class KanbanBoard {
                     this.phases.push(currentPhase);
                     this.phaseLineNumbers.set(currentPhase, lineNum);
                     if (this.planModel) {
-                        this.phaseNodes.set(currentPhase,
-                            this.planModel.tasks.find(node => this.planModel.lineNumber(node) === lineNum) || null);
+                        this.phaseNodes.set(currentPhase, this.planModel.taskAtLine(lineNum));
                     }
                     continue;
                 }
@@ -517,7 +515,7 @@ class KanbanBoard {
                 task.indent = indent;
                 task.originalLine = line;
                 task.planNode = this.planModel
-                    ? this.planModel.tasks.find(node => this.planModel.lineNumber(node) === lineNum) || null
+                    ? this.planModel.taskAtLine(lineNum)
                     : null;
 
                 // Parse resources into array and normalize to lowercase
@@ -1249,11 +1247,15 @@ class KanbanBoard {
 
             const crumbEl = document.createElement('span');
             crumbEl.className = 'breadcrumb-item';
-            crumbEl.innerHTML = `<a href="#">${crumb.name}</a>`;
-            crumbEl.querySelector('a').addEventListener('click', (e) => {
+            // The name is plan text: set it as text, never as markup
+            const crumbLink = document.createElement('a');
+            crumbLink.href = '#';
+            crumbLink.textContent = crumb.name;
+            crumbLink.addEventListener('click', (e) => {
                 e.preventDefault();
                 this.navigateUp(index);
             });
+            crumbEl.appendChild(crumbLink);
             breadcrumbContainer.appendChild(crumbEl);
         });
 
@@ -2502,19 +2504,19 @@ class KanbanBoard {
         if (this.viewMode === 'phase') {
             if (typeof NoodlePlanModel === 'undefined') return false;
             const model = NoodlePlanModel.modelForEditor(editor);
-            const taskNode = model.tasks.find(node => model.lineNumber(node) === taskLineNumber);
+            const taskNode = model.taskAtLine(taskLineNumber);
             const sourceColumn = this.columns.find(column =>
                 column.tasks.some(columnTask => columnTask.lineNumber === taskLineNumber)
             );
             const lastColumn = this.columns[this.columns.length - 1];
             const anchor = lastColumn?.summaryLineNumber
-                ? model.tasks.find(node => model.lineNumber(node) === lastColumn.summaryLineNumber)
+                ? model.taskAtLine(lastColumn.summaryLineNumber)
                 : null;
             if (!taskNode) return false;
             const indent = anchor ? anchor.indent : (this.currentParentTask?.indent || 0);
             const phaseNode = model.insertTaskAfter(anchor, indent, name);
             const sourceSummaryNode = sourceColumn?.summaryLineNumber
-                ? model.tasks.find(node => model.lineNumber(node) === sourceColumn.summaryLineNumber)
+                ? model.taskAtLine(sourceColumn.summaryLineNumber)
                 : null;
             if (!model.moveAsChild(taskNode, phaseNode, true)) return false;
             if (sourceSummaryNode && sourceSummaryNode.children.length === 0) {

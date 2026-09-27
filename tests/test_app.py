@@ -545,6 +545,188 @@ class TestMultipleExports:
         # ZIP files start with PK
         assert response.content[:2] == b'PK'
 
+    def test_zip_includes_requested_msproject_file(self, client, sample_plan):
+        """MS Project in a multi-format export used to be dropped silently:
+        /render never passed the flag on and export_zip had no such option."""
+        import io
+        import zipfile
+        response = client.post(
+            "/render",
+            json={
+                "plan_text": sample_plan,
+                "project_name": "Demo",
+                "export_csv": True,
+                "export_msproject": True,
+            }
+        )
+        assert response.status_code == 200
+        with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+            assert sorted(zf.namelist()) == ["Demo.csv", "Demo.txt", "Demo.xml"]
+            assert b"<Project" in zf.read("Demo.xml")
+
+
+class TestSearchEndpoint:
+    """/api/search over a plan's tasks and back-matter sections."""
+
+    PLAN = """---
+title: Search Demo
+---
+Phase 1
+  Kick-off 1d @alice
+
+---comms---
+| ID | Activity   | Audience       | Content       | Frequency | Channel    | Owner | Status |
+|----|------------|----------------|---------------|-----------|------------|-------|--------|
+| 1  | Town hall  | all staff      | Weekly status | Weekly    | Wiki       | Alice | Active |
+| 2  | Newsletter | Varsity alumni | Monthly       | Monthly   |            | Bob   | Active |
+| 3  | Stand-up   |                | Daily         | Daily     | video call | Cara  | Active |
+"""
+
+    def _search(self, client, query):
+        response = client.post("/api/search", json={"plan_text": self.PLAN, "query": query})
+        assert response.status_code == 200
+        return response.json()["results"]
+
+    def test_finds_task(self, client):
+        results = self._search(client, "kick")
+        assert [(r["type"], r["title"]) for r in results] == [("task", "Kick-off")]
+
+    def test_comms_snippet_keeps_audience_and_channel_whole(self, client):
+        # The snippet was built with .strip(" via"), which strips those
+        # *characters* from both ends: "all staff via Wiki" came back as
+        # "ll staff via Wik".
+        snippets = {r["ref"]["id"]: r["snippet"] for r in self._search(client, "weekly")}
+        assert snippets == {1: "all staff via Wiki"}
+
+    def test_comms_snippet_without_channel_or_audience(self, client):
+        snippets = {r["ref"]["id"]: r["snippet"] for r in self._search(client, "ly")}
+        assert snippets[2] == "Varsity alumni"
+        assert snippets[3] == "video call"
+
+    def test_empty_query_returns_nothing(self, client):
+        response = client.post("/api/search", json={"plan_text": self.PLAN, "query": "  "})
+        assert response.json() == {"query": "", "results": []}
+
+
+def _utf8_filename(disposition):
+    """The filename* (RFC 6266 / 5987) a Content-Disposition carries."""
+    from urllib.parse import unquote
+    match = re.search(r"filename\*=UTF-8''([^;\s]+)", disposition)
+    assert match, disposition
+    return unquote(match.group(1))
+
+
+class TestNonAsciiDownloadFilenames:
+    """Starlette encodes response headers as latin-1, so a Cyrillic or
+    em-dash project title in a raw ``filename="..."`` made every download
+    of that project a 500."""
+
+    CYRILLIC_PLAN = "---\ntitle: Проект Альфа\n---\nPhase 1\n  Task 1 3d\n"
+
+    def test_helper_gives_ascii_fallback_and_utf8_name(self):
+        from noodle_web.app import content_disposition
+        header = content_disposition('Проект "Альфа" — Q3.csv')
+        header.encode("latin-1")  # what Starlette does with it
+        assert header.isascii()
+        assert header.startswith('attachment; filename="')
+        fallback = re.search(r'filename="([^"]*)"', header).group(1)
+        assert fallback.endswith(".csv")
+        assert '"' not in fallback and "\\" not in fallback
+        assert _utf8_filename(header) == 'Проект "Альфа" — Q3.csv'
+
+    def test_helper_leaves_plain_names_readable(self):
+        from noodle_web.app import content_disposition
+        header = content_disposition("My Project v2.xlsx")
+        assert 'filename="My Project v2.xlsx"' in header
+        assert _utf8_filename(header) == "My Project v2.xlsx"
+
+    def test_helper_strips_header_injection(self):
+        from noodle_web.app import content_disposition
+        header = content_disposition('evil\r\nSet-Cookie: x=1.csv')
+        assert "\r" not in header and "\n" not in header
+
+    def test_cyrillic_title_single_export(self, client):
+        response = client.post("/render", json={
+            "plan_text": self.CYRILLIC_PLAN, "export_csv": True,
+        })
+        assert response.status_code == 200
+        assert _utf8_filename(response.headers["content-disposition"]) == "Проект Альфа.csv"
+
+    def test_cyrillic_title_zip_export(self, client):
+        response = client.post("/render", json={
+            "plan_text": self.CYRILLIC_PLAN, "export_csv": True, "export_excel": True,
+        })
+        assert response.status_code == 200
+        assert _utf8_filename(response.headers["content-disposition"]) == "Проект Альфа-exports.zip"
+
+    def test_em_dash_project_name_raid_export(self, client):
+        response = client.post("/api/raid/export-excel", json={
+            "items": [], "project_name": "Launch — Q3",
+        })
+        assert response.status_code == 200
+        assert _utf8_filename(response.headers["content-disposition"]) == "Launch — Q3-raid.xlsx"
+
+    def test_cyrillic_comms_docx_export(self, client):
+        response = client.post("/api/comms/export-docx", json={
+            "items": [], "project_name": "Проект",
+        })
+        assert response.status_code == 200
+        assert _utf8_filename(response.headers["content-disposition"]) == \
+            "Проект - Communications Plan.docx"
+
+
+class TestEventLoopStaysResponsive:
+    """Every route was ``async def`` but called the synchronous core, so a
+    slow export ran on the event loop itself: on the single-worker Pi one
+    PowerPoint export (~10s there) froze collab relaying, AI token streaming
+    and every other request until it finished."""
+
+    def test_health_answers_while_an_export_is_running(self, monkeypatch, sample_plan):
+        import asyncio
+        import threading
+        import time
+
+        import httpx
+        from noodle_web import plan_service as plan_service_module
+
+        started, finished = threading.Event(), threading.Event()
+        real_export = plan_service_module.export_to_csv
+
+        def slow_export(*args, **kwargs):
+            started.set()
+            time.sleep(0.5)
+            try:
+                return real_export(*args, **kwargs)
+            finally:
+                finished.set()
+
+        monkeypatch.setattr(plan_service_module, "export_to_csv", slow_export)
+
+        async def scenario():
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+                export = asyncio.create_task(ac.post("/render", json={
+                    "plan_text": sample_plan, "export_csv": True,
+                }))
+                # Wait, without blocking the loop, for the export to start.
+                for _ in range(500):
+                    if started.is_set():
+                        break
+                    await asyncio.sleep(0.01)
+                t0 = time.perf_counter()
+                health = await ac.get("/health")
+                elapsed = time.perf_counter() - t0
+                # Were we served while the export was still going? On a
+                # blocked loop, the wait above only ends once it has finished.
+                overlapped = not finished.is_set()
+                return health.status_code, elapsed, overlapped, (await export).status_code
+
+        health_status, elapsed, overlapped, export_status = asyncio.run(scenario())
+        assert export_status == 200
+        assert health_status == 200
+        assert overlapped, "the export blocked the event loop until it finished"
+        assert elapsed < 0.25
+
 
 class TestStaticFiles:
     """Test suite for static file serving."""

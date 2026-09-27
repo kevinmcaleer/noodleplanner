@@ -25,6 +25,24 @@ def _as_date(value):
     return value.date() if hasattr(value, 'date') else value
 
 
+class _NormalizedHolidays(frozenset):
+    """A holiday set already reduced to plain `date`s by
+    ``_normalize_calendar_or_holidays``.
+
+    Normalizing is O(number of holidays), and it used to happen on every
+    date_math call -- several per task, plus once more when
+    ``add_working_days`` handed the raw set on to ``get_next_working_day``.
+    With a few thousand holiday dates that turned a 2,000-task schedule from
+    hundredths of a second into seconds. Marking the normalized set with its
+    own type lets a caller normalize once and pass the result to every
+    call, each of which then recognises it and skips the work.
+    """
+    __slots__ = ()
+
+
+_NO_HOLIDAYS = _NormalizedHolidays()
+
+
 def _normalize_calendar_or_holidays(holidays):
     """Prepare the ``holidays`` argument once per call for repeated checks.
 
@@ -34,13 +52,14 @@ def _normalize_calendar_or_holidays(holidays):
     ``noodle_core.calendar_model`` doesn't have to be importable from here)
     whose own week pattern decides instead of the hardcoded Mon-Fri
     assumption. A calendar is returned as-is; a plain iterable is
-    normalized to a `date`-only set once, rather than on every day checked.
+    normalized to a `date`-only set once, rather than on every day checked,
+    and a set this function already normalized is returned as-is too.
     """
     if holidays is None:
-        return frozenset()
-    if hasattr(holidays, 'is_working_day'):
+        return _NO_HOLIDAYS
+    if isinstance(holidays, _NormalizedHolidays) or hasattr(holidays, 'is_working_day'):
         return holidays
-    return {_as_date(h) for h in holidays}
+    return _NormalizedHolidays(_as_date(h) for h in holidays)
 
 
 def _is_working_day(current_date, normalized):
@@ -51,6 +70,40 @@ def _is_working_day(current_date, normalized):
     is_weekend = current_date.weekday() >= 5  # Saturday=5, Sunday=6
     is_holiday = _as_date(current_date) in normalized
     return not is_weekend and not is_holiday
+
+
+def is_working_day(day, holidays=None):
+    """Whether *day* is a working day.
+
+    Use this rather than ``get_next_working_day(day, holidays) == day``,
+    which answers the same question by searching ahead from every
+    non-working day -- and raises if it runs out of search first.
+
+    Args:
+        day: The date (or datetime) to check
+        holidays: Set of holiday dates to skip, or a Calendar (optional)
+    """
+    return _is_working_day(day, _normalize_calendar_or_holidays(holidays))
+
+
+def _max_days_to_next_working_day(normalized):
+    """How far ``get_next_working_day`` may search before giving up.
+
+    A flat year used to be the cap, so a plan with a longer shutdown -- an
+    18-month site closure, say -- raised instead of scheduling past it.
+    The search can only fail for a calendar with no working weekdays at all;
+    otherwise every rotation of ``week_pattern`` has a working day, and each
+    exception date can knock out at most one of them, so a working day is
+    always found within 7 * weeks-in-rotation * (exceptions + 1) days. The
+    year stays as the floor so short searches are unchanged.
+    """
+    if hasattr(normalized, 'is_working_day'):
+        exceptions = len(getattr(normalized, 'exceptions', ()) or ())
+        weeks = len(getattr(normalized, 'week_pattern', ()) or ()) or 1
+    else:
+        exceptions = len(normalized)
+        weeks = 1
+    return max(366, 7 * weeks * (exceptions + 1))
 
 
 def get_next_working_day(date, holidays=None):
@@ -69,7 +122,7 @@ def get_next_working_day(date, holidays=None):
     normalized = _normalize_calendar_or_holidays(holidays)
 
     current_date = date
-    max_iterations = 366
+    max_iterations = _max_days_to_next_working_day(normalized)
     for _ in range(max_iterations):
         if _is_working_day(current_date, normalized):
             return current_date
@@ -133,8 +186,9 @@ def add_working_days(start_date, num_days, holidays=None):
         return current_date
 
     # Handle positive days (going forward)
-    # Ensure we start from a working day
-    current_date = get_next_working_day(start_date, holidays)
+    # Ensure we start from a working day (passing the set normalized above,
+    # not the raw one, so it isn't normalized a second time)
+    current_date = get_next_working_day(start_date, normalized)
     days_added = 1  # Start day counts as day 1
 
     # Add remaining days

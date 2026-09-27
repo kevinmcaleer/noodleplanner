@@ -53,34 +53,14 @@
 /** Spaces per outline level, matching the rest of the app's plan text. */
 const WB_INDENT_UNIT = '  ';
 
-/**
- * Markers that end the task-outline region. Same list (and same purpose)
- * as script.js's getAllTaskNames() section tracking -- anything at or
- * after the first of these is back matter, never a task line.
- *
- * ``---parking lot---`` (issue #1110): missing here until now was a real
- * bug, just one this file's own authoring functions never happened to
- * trigger before -- every one of them only ever ran against a plan with
- * no ``---parking lot---`` section yet (that section holds only content
- * these functions have already *removed* from the outline). #1110's
- * "Restore to board" is the first caller that appends/re-parents a task
- * while a ``---parking lot---`` section is actually present -- without
- * this marker, wbOutlineRegion() wouldn't stop before it, and the
- * restored task/children would be spliced in *after* the marker: outline
- * authoring text the scheduler would never read as tasks at all.
- */
-const WB_BACK_MATTER_MARKERS = [
-    '---highlights---',
-    '---end-highlights---',
-    '---budget---',
-    '---benefits---',
-    '---raid log---',
-    '---comms---',
-    '---lessons learned---',
-    '---baseline---',
-    '---whiteboard---',
-    '---parking lot---',
-];
+// The markers that end the task-outline region -- anything at or after the
+// first of them is back matter, never a task line -- are the canonical
+// NP_BACK_MATTER_MARKERS (back-matter-markers.js, loaded ahead of this
+// file), tested with npIsBackMatterMarker() in wbOutlineRegion() below.
+// This file used to keep its own copy of that list; it lacked
+// ``---parking lot---`` until #1110 and ``---estimates---`` after that,
+// and a marker missing here lets the outline run on into that section, so
+// wbAppendTopLevelTask() and friends spliced tasks into its table.
 
 /** Fallback name for a brand-new post-it, before the user types one. */
 const WB_NEW_NOTE_BASE_NAME = 'New idea';
@@ -166,7 +146,7 @@ function wbOutlineRegion(lines) {
 
     let end = all.length;
     for (let i = start; i < all.length; i++) {
-        if (WB_BACK_MATTER_MARKERS.includes(String(all[i]).trim())) { end = i; break; }
+        if (npIsBackMatterMarker(all[i])) { end = i; break; }
     }
 
     // A bare `---` just before the back matter is the separator

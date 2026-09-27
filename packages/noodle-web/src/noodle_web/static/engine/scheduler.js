@@ -42,12 +42,15 @@ const DURATION_AT = /\d+[dwmy]/;
 const PERCENT_AT = /\b(\d{1,3})%/;
 const PERCENT_STRIP = /\s*\b\d{1,3}%/g;
 
-/** Whether a line carries metadata, and so is a leaf rather than a heading. */
+/** Whether a line carries metadata, and so is a leaf rather than a heading.
+ *
+ * Any calendar date counts. This used to test for the literal substrings
+ * "2024-", "2025-" and "2026-", so from 2027 a line whose only metadata was a
+ * date lost it into the task's name and dependencies on it stopped resolving. */
 function hasDetails(stripped) {
   return (
     stripped.includes("@") || stripped.includes("%") || stripped.includes("!") ||
-    stripped.includes("#") || stripped.includes("2025-") || stripped.includes("2024-") ||
-    stripped.includes("2026-") || HAS_DURATION.test(stripped) ||
+    stripped.includes("#") || DATE_ANY.test(stripped) || HAS_DURATION.test(stripped) ||
     stripped.includes('"') || stripped.includes("'") ||
     HAS_DELIVERABLE.test(stripped) || stripped.includes("[")
   );

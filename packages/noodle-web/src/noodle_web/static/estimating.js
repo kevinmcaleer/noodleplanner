@@ -26,16 +26,14 @@
     const Tokenizer = typeof TaskLineTokenizer !== 'undefined' ? TaskLineTokenizer :
         (typeof require === 'function' ? require('./task-tokenizer.js') : null);
 
+    // Where a back-matter section ends: at whichever other marker follows it
+    // (back-matter-markers.js). Estimates is canonically the last section,
+    // so nothing needs to follow it, but stay defensive in case hand-edited
+    // text puts something after it anyway.
+    const sectionEnd = typeof npBackMatterSectionEnd === 'function' ? npBackMatterSectionEnd :
+        (typeof require === 'function' ? require('./back-matter-markers.js').npBackMatterSectionEnd : null);
+
     const ESTIMATES_START = '---estimates---';
-    // Every other back-matter marker, for boundary scanning -- mirrors
-    // format_converter.py's ALL_SECTION_MARKERS (estimates is canonically
-    // the last section, so nothing needs to follow it, but stay defensive
-    // in case hand-edited text puts something after it anyway).
-    const OTHER_MARKERS = [
-        '---highlights---', '---end-highlights---', '---budget---', '---benefits---',
-        '---raid log---', '---comms---', '---lessons learned---', '---baseline---',
-        '---whiteboard---', '---parking lot---',
-    ];
 
     // Default t-shirt size -> duration-in-days mapping (#1053's alternative
     // input mode for sprint-estimated plans, per #766). No per-project
@@ -69,11 +67,7 @@
         if (startIdx === -1) return '';
         const afterStart = startIdx + ESTIMATES_START.length;
 
-        let endIdx = planText.length;
-        for (const marker of OTHER_MARKERS) {
-            const mIdx = planText.indexOf(marker, afterStart);
-            if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-        }
+        const endIdx = sectionEnd(planText, afterStart, [ESTIMATES_START]);
         return planText.substring(afterStart, endIdx).trim();
     }
 
@@ -176,11 +170,7 @@
         let after = '';
         if (startIdx !== -1) {
             const afterStart = startIdx + ESTIMATES_START.length;
-            let endIdx = planText.length;
-            for (const marker of OTHER_MARKERS) {
-                const mIdx = planText.indexOf(marker, afterStart);
-                if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
-            }
+            const endIdx = sectionEnd(planText, afterStart, [ESTIMATES_START]);
             before = planText.substring(0, startIdx);
             after = planText.substring(endIdx);
         }

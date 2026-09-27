@@ -812,3 +812,26 @@ test('a stale rendered card resolves to its model node after the plan gains an e
     assert.match(editor.value, /Other 0%/);
   }
 });
+
+test('parse() of a 1000-task plan finds every card and phase node in one walk', () => {
+  const { board, editor } = buildBoard('phase');
+  const lines = [];
+  for (let phase = 0; phase < 50; phase++) {
+    lines.push(`Phase ${phase}`);
+    for (let task = 0; task < 20; task++) lines.push(`  Task ${phase}.${task} 2d 10%`);
+  }
+
+  const started = performance.now();
+  loadPlan(board, editor, lines.join('\n'));
+  const elapsed = performance.now() - started;
+
+  assert.equal(board.tasks.length, 1000);
+  for (const task of board.tasks) {
+    assert.equal(task.planNode.name, task.name);
+    assert.equal(board.planModel.lineNumber(task.planNode), task.lineNumber);
+  }
+  assert.equal(board.phaseNodes.get('Phase 49').name, 'Phase 49');
+  // parse() runs on every edit while the board is open; finding each line's
+  // node with tasks.find(lineNumber(...)) made this take seconds
+  assert.ok(elapsed < 1000, `parse took ${elapsed.toFixed(0)}ms`);
+});

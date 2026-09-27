@@ -115,6 +115,23 @@ _rate_limit_store: dict[str, list[float]] = defaultdict(list)
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "100"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))  # seconds
 
+# When each store below was last swept by _evict_stale_ips().
+_last_sweep = {"http": 0.0, "join": 0.0}
+
+
+def _evict_stale_ips(store: dict[str, list[float]], window_start: float) -> None:
+    """Drop every IP whose timestamps have all left the window.
+
+    An IP's list is otherwise only pruned when that same IP is seen again,
+    so every client that ever made a request kept a key for the life of the
+    process: memory that only grew. Timestamps are appended in order, so
+    the last one is the newest.
+    """
+    stale = [ip for ip, stamps in store.items()
+             if not stamps or stamps[-1] <= window_start]
+    for ip in stale:
+        del store[ip]
+
 
 def _extract_client_ip(headers, client) -> str:
     """Shared IP-extraction logic for both HTTP requests and WebSockets --
@@ -153,6 +170,11 @@ def _is_rate_limited(ip: str) -> tuple[bool, int]:
     now = time.time()
     window_start = now - RATE_LIMIT_WINDOW
 
+    # The sweep walks every key, so it runs at most once per window.
+    if now - _last_sweep["http"] >= RATE_LIMIT_WINDOW:
+        _evict_stale_ips(_rate_limit_store, window_start)
+        _last_sweep["http"] = now
+
     # Prune old entries
     _rate_limit_store[ip] = [
         ts for ts in _rate_limit_store[ip] if ts > window_start
@@ -170,6 +192,7 @@ def _is_rate_limited(ip: str) -> tuple[bool, int]:
 def reset_rate_limit_store() -> None:
     """Clear the rate limit store. Useful for testing."""
     _rate_limit_store.clear()
+    _last_sweep["http"] = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +224,10 @@ def is_join_rate_limited(ip: str) -> tuple[bool, int]:
     """
     now = time.time()
     window_start = now - JOIN_RATE_LIMIT_WINDOW
+
+    if now - _last_sweep["join"] >= JOIN_RATE_LIMIT_WINDOW:
+        _evict_stale_ips(_join_rate_limit_store, window_start)
+        _last_sweep["join"] = now
 
     _join_rate_limit_store[ip] = [
         ts for ts in _join_rate_limit_store[ip] if ts > window_start
@@ -239,11 +266,14 @@ def forgive_join_attempt(ip: str) -> None:
     attempts = _join_rate_limit_store.get(ip)
     if attempts:
         attempts.pop()
+        if not attempts:
+            del _join_rate_limit_store[ip]
 
 
 def reset_join_rate_limit_store() -> None:
     """Clear the join-attempt rate limit store. Useful for testing."""
     _join_rate_limit_store.clear()
+    _last_sweep["join"] = 0.0
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

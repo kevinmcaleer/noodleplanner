@@ -491,6 +491,7 @@ class PlanService:
         csv: bool = False,
         ppt: bool = False,
         pdf: bool = False,
+        msproject: bool = False,
     ) -> ExportResult:
         """Export a plan to multiple formats bundled in a ZIP file.
 
@@ -501,6 +502,7 @@ class PlanService:
             csv: Include CSV export.
             ppt: Include PowerPoint timeline export.
             pdf: Include PDF export.
+            msproject: Include MS Project XML export.
 
         Returns:
             ExportResult with ZIP bytes.
@@ -565,6 +567,14 @@ class PlanService:
                     suffix=".pdf",
                 )
                 zf.writestr(f"{filename_stem}.pdf", content)
+
+            # MS Project was once missing here entirely, so asking for it
+            # alongside another format silently left it out of the ZIP.
+            if msproject:
+                result = self._export_msproject(
+                    converted, plan_text, resolved_name, filename_stem
+                )
+                zf.writestr(result.filename, result.content)
 
         zip_buffer.seek(0)
         return ExportResult(
