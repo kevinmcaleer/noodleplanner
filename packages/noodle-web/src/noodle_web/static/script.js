@@ -3805,8 +3805,10 @@ function updateTaskNameFromTitle() {
     const taskSection = document.getElementById('taskFormSection');
     if (taskSection && !taskSection.classList.contains('active')) return;
 
+    // A task name is one line of the plan: a line break reaching it would
+    // split the task's line in two.
     const titleEl = document.getElementById('taskFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
-    const title = (titleEl ? titleEl.innerText : '').trim();
+    const title = (titleEl ? titleEl.innerText : '').replace(/\s+/g, ' ').trim();
     document.getElementById('taskName').value = title;
     saveTask();
 }
@@ -5496,7 +5498,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Global keyboard shortcuts
     document.addEventListener('keydown', function(e) {
         // Skip shortcuts when typing in text inputs, textareas, or contenteditable elements
-        if (isTypingInInput(e.target)) {
+        if (isTypingInInput(keyEventTarget(e))) {
             return;
         }
 
@@ -16163,6 +16165,17 @@ function shortcutLetter(e) {
 }
 
 /**
+ * The element a key event came from. One from inside a shadow root -- the
+ * task form's editable title in <np-panel-header>, <np-quick-add>'s input --
+ * reaches a document listener as `e.target` = the shadow host, which is not
+ * itself editable, so typing there would look like typing nowhere.
+ */
+function keyEventTarget(e) {
+    const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
+    return path[0] || e.target;
+}
+
+/**
  * Check if the user is currently typing in a text input, textarea, or
  * contenteditable element. Keyboard shortcuts should not fire in these cases.
  */
@@ -16189,8 +16202,9 @@ function isTypingInInput(element) {
 
 document.addEventListener('keydown', function(e) {
     // Don't trigger shortcuts when typing in inputs/textareas
-    const tag = (e.target.tagName || '').toLowerCase();
-    const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+    const target = keyEventTarget(e);
+    const tag = (target.tagName || '').toLowerCase();
+    const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
 
     // '?' key opens shortcuts modal (only from non-input contexts)
     if (e.key === '?' && !isEditable) {

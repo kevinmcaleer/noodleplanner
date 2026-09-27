@@ -45,6 +45,10 @@
  *   - `titlechange` (bubbles, composed, detail: { value }) — only fires
  *     when `editable` is set; the contenteditable title was edited, mirroring
  *     the `oninput` handler on today's `.detail-pane-title`.
+ *
+ * An editable title is a single line: Enter (or a soft keyboard's return)
+ * ends the edit by blurring the title rather than inserting a line break, and
+ * pasted text arrives as plain text with its line breaks collapsed to spaces.
  */
 
 const NARROW = 560;
@@ -425,6 +429,26 @@ export class NpPanelHeader extends HTMLElement {
     el.setAttribute('part', 'title');
     if (editable) {
       el.setAttribute('contenteditable', 'true');
+      // A title is one line of text: Enter finishes the edit instead of
+      // starting a second line, and a paste comes in as plain text on one line.
+      el.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return;
+        event.preventDefault();
+        el.blur();
+      });
+      // A soft keyboard's return can arrive with no usable keydown (Android
+      // reports "Unidentified"), so the line break is refused here as well.
+      el.addEventListener('beforeinput', (event) => {
+        if (event.inputType !== 'insertParagraph' && event.inputType !== 'insertLineBreak') return;
+        event.preventDefault();
+        el.blur();
+      });
+      // Where insertText is refused, the browser's own paste goes ahead.
+      el.addEventListener('paste', (event) => {
+        const text = event.clipboardData && event.clipboardData.getData('text/plain');
+        if (!text) return;
+        if (document.execCommand('insertText', false, text.replace(/\s+/g, ' '))) event.preventDefault();
+      });
       el.addEventListener('input', () => {
         this.dispatchEvent(
           new CustomEvent('titlechange', {
