@@ -84,6 +84,10 @@ Save downloads the plan as ``<plan name>_plan_v<version>.md`` each time,
 wherever your browser puts downloads. To update a file you keep
 elsewhere, replace it with the download.
 
+On a phone, **Save or share a copy** sends the same file to the phone's
+share sheet instead, so you can put it in Files, iCloud Drive or Google
+Drive, or send it on. See :doc:`use-noodleplanner-on-a-phone`.
+
 **File › Open…** still opens a ``.md`` file, but the browser can't write
 back to it, so Save goes on downloading copies.
 

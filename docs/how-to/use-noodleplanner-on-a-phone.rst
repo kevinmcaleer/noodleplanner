@@ -43,8 +43,19 @@ which works better on a larger screen.
 **Open the plan file.** Save the plan to a file you can reach from your
 phone, such as one in iCloud Drive or Google Drive, and open it with
 **File** ▸ **Open** on the phone. The plan is then kept in the phone's
-browser. Changes you make on the phone come back as a downloaded file, so
-you copy them back yourself.
+browser.
+
+To get your changes back off the phone, tap **Save or share a copy**. It
+is in three places: at the top of the **⋯** sheet (as **Share**), in the
+menu's **Plan** group, and under **File**. It opens your phone's share
+sheet with the plan as a ``.md`` file, the same file **Save** would write.
+From there you can save it to Files, iCloud Drive or Google Drive, or send
+it by Mail, Messages or AirDrop, then open it on your computer. Close the
+share sheet without choosing anything and nothing changes.
+
+Some phone browsers can't share a plan file. There the same button says
+**Download a copy** (**Download** in the **⋯** sheet), and the plan
+downloads to the phone's Downloads folder instead.
 
 Finding Your Way Around
 -----------------------
@@ -61,8 +72,8 @@ Finding Your Way Around
 - The plan's name and its RAG dot. Tap the name to switch to another plan.
 - **Search** finds tasks, and **the bell** shows the plan's messages.
 - **⋯** opens every command for the current view, the same ones the ribbon
-  has, each with a line explaining what it does. **Undo** and **Redo** are
-  at the top of the list.
+  has, each with a line explaining what it does. **Undo**, **Redo** and
+  **Share** are at the top of the list.
 
 **The view chips** under it are one tap away from the views made for a
 phone: Dashboard, Tasks, Outline, Board, Calendar and RAID Log. Swipe the

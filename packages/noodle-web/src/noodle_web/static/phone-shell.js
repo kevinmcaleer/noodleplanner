@@ -160,12 +160,16 @@
         const markdown = registry.markdown
             ? [{ id: 'cmd:markdown', label: 'Markdown', icon: 'doc', note: 'Edit the plan text', current: here === 'markdown' }]
             : [];
+        // #1395: the phone's way to get a plan back off it -- the share
+        // sheet, or a download where the browser has none for files.
+        const share = sharePlanCopyLabels();
         sections.push({
             id: 'more',
             label: 'Plan',
             items: markdown.concat([
                 { id: 'cmd:details', label: 'Project details', icon: 'project-report' },
                 { id: 'cmd:history', label: 'Version history', icon: 'clock' },
+                { id: 'cmd:share', label: share.label, icon: share.icon, note: share.note },
                 {
                     id: 'cmd:messages', label: 'Messages', icon: 'warn',
                     badge: messages.actionable ? '!' : '',
@@ -190,6 +194,7 @@
         markdown: () => switchToView('markdown'),
         details: () => { if (typeof toggleProjectDetails === 'function') toggleProjectDetails(); },
         history: () => { if (typeof toggleVersionHistoryPanel === 'function') toggleVersionHistoryPanel(); },
+        share: () => sharePlanCopy(),
         messages: () => { if (typeof openStatusLogFullscreen === 'function') openStatusLogFullscreen(); },
         file: () => switchToView('backstage'),
         settings: () => { if (typeof openSettingsPanel === 'function') openSettingsPanel(); },
