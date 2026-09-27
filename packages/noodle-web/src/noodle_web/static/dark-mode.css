@@ -1440,14 +1440,6 @@ body {
     background: linear-gradient(180deg, #2a3a5a 0%, #1a2e4a 100%);
 }
 
-[data-theme="dark"] .ns-col-letter {
-    color: var(--np-text-muted);
-}
-
-[data-theme="dark"] .ns-col-name {
-    color: var(--np-text);
-}
-
 [data-theme="dark"] .budget-sheet-col-filter {
     background: var(--np-input-bg);
     color: var(--np-text);
@@ -1483,10 +1475,6 @@ body {
 
 [data-theme="dark"] .ns-cell.ns-in-range {
     background: rgba(123, 143, 240, 0.15);
-}
-
-[data-theme="dark"] .ns-table tbody tr:nth-child(even) .ns-cell:not(.ns-selected) {
-    background: var(--np-table-stripe);
 }
 
 [data-theme="dark"] .ns-table tbody tr:hover .ns-cell:not(.ns-selected):not(.ns-editing) {
@@ -1549,9 +1537,7 @@ body {
 }
 
 [data-theme="dark"] .ns-context-menu {
-    background: var(--np-surface);
     border-color: var(--np-border);
-    box-shadow: 0 4px 12px var(--np-shadow-strong);
 }
 
 [data-theme="dark"] .ns-ctx-item {
