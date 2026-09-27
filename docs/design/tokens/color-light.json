@@ -537,5 +537,15 @@
   "editor-tip-text": {
     "$value": "#D4CCBF",
     "$type": "color"
+  },
+  "on-fill": {
+    "$value": "#ffffff",
+    "$type": "color",
+    "$description": "Text and icons on a coloured fill -- a status badge, a filled button, a\nbar -- which stay white in both themes because the fill does not flip\n(#1323). Distinct from --np-on-success, which is white in light and dark\nin dark because dark --np-sage is light. Single-valued, like the hues.\nWhite at an alpha (a divider on a coloured header) is\ncolor-mix(in srgb, var(--np-on-fill) N%, transparent), not a literal."
+  },
+  "shade": {
+    "$value": "#000000",
+    "$type": "color",
+    "$description": "Pure black, the base for scrims and one-off shadows built with\ncolor-mix(in srgb, var(--np-shade) N%, transparent) (#1323). Single-\nvalued on purpose: --np-shadow and --np-overlay already darken as a set\nin dark mode; this is for the places that must not."
   }
 }
