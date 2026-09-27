@@ -2,12 +2,13 @@ import './np-panel-header.js';
 
 const PanelHeader = {
   title: 'Components/PanelHeader',
-  render: ({ title, subtitle, variant, editable, actions }) => {
+  render: ({ title, subtitle, variant, editable, actions, overflow, back }) => {
     const el = document.createElement('np-panel-header');
     el.setAttribute('title', title);
     if (subtitle) el.setAttribute('subtitle', subtitle);
     if (variant && variant !== 'accent') el.setAttribute('variant', variant);
     if (editable) el.setAttribute('editable', '');
+    if (back) el.setAttribute('back', '');
     (actions ? actions.split(',').map((a) => a.trim()).filter(Boolean) : []).forEach((label) => {
       const btn = document.createElement('button');
       btn.slot = 'actions';
@@ -15,6 +16,14 @@ const PanelHeader = {
       btn.style.cssText =
         'background:none;border:1px solid currentColor;border-radius:4px;color:inherit;' +
         'padding:4px 10px;font-size:0.85em;cursor:pointer;';
+      el.appendChild(btn);
+    });
+    (overflow ? overflow.split(',').map((a) => a.trim()).filter(Boolean) : []).forEach((label) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.slot = 'overflow';
+      if (/delete/i.test(label)) btn.setAttribute('data-destructive', '');
+      btn.textContent = label;
       el.appendChild(btn);
     });
     el.addEventListener('close', () => console.log('np-panel-header: close'));
@@ -27,6 +36,8 @@ const PanelHeader = {
     variant: { control: { type: 'select' }, options: ['accent', 'neutral'] },
     editable: { control: 'boolean' },
     actions: { control: 'text' },
+    overflow: { control: 'text' },
+    back: { control: 'boolean' },
   },
   args: {
     title: 'Task Name',
@@ -34,6 +45,8 @@ const PanelHeader = {
     variant: 'accent',
     editable: false,
     actions: '',
+    overflow: '',
+    back: false,
   },
   parameters: {
     docs: {
@@ -118,9 +131,30 @@ export const OnAPhone = {
     docs: {
       description: {
         story:
-          'Below 560px of its own width the title takes the first row beside the close button, ' +
-          'and the actions wrap to a row of their own (#1378). At 390px the title used to share ' +
-          'its row with both actions and broke mid-word.',
+          'Below 560px of its own width the title keeps its row and the actions join the ⋯ ' +
+          'menu, with anything in the `overflow` slot (#1378, #1383). At 390px the title used to ' +
+          'share its row with both actions and broke mid-word.',
+      },
+    },
+  },
+};
+
+export const BackWithOverflow = {
+  name: 'Full screen: ← Back and the ⋯ menu',
+  args: {
+    title: 'Edit RAID Item',
+    variant: 'neutral',
+    back: true,
+    overflow: 'Delete item',
+  },
+  render: (args, context) => OnAPhone.render(args, context),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'In a full-screen `<np-detail-sheet>` (a phone, an upright tablet) the close button is ' +
+          '← Back and leads the row. Buttons in the `overflow` slot only ever appear in the ⋯ menu; ' +
+          '`data-destructive` marks one red.',
       },
     },
   },

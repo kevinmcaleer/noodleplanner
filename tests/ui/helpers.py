@@ -38,7 +38,13 @@ def click_scope(page, scope):
     honest: the pane alone cannot distinguish "arrived" from "has not left
     yet" when the destination is where you started.
     """
-    page.click(f'.ribbon-scope-btn[data-scope="{scope}"]')
+    if page.evaluate("() => document.documentElement.dataset.layout") == "phone":
+        # A phone (or a window under 768px) has no ribbon: the scope switch
+        # is in the navigation drawer (#1380).
+        page.evaluate("() => document.getElementById('phoneAppBar').menuButton.click()")
+        page.click(f'#phoneNavDrawer button[data-id="scope:{scope}"]')
+    else:
+        page.click(f'.ribbon-scope-btn[data-scope="{scope}"]')
     page.wait_for_function("() => !NavigationController.isTransitioning()")
     page.wait_for_selector(f"{SCOPE_PANE[scope]}.active")
 

@@ -2340,108 +2340,158 @@ Build
     <div id="detailPane" class="detail-pane" role="dialog" aria-modal="true" aria-label="Detail pane">
 
         <!-- Task Form Section -->
-        <div id="taskFormSection" class="detail-pane-section">
-            <np-panel-header id="taskFormPanelHeader" variant="accent" editable title="Task Name">
+        <np-detail-sheet id="taskFormSection" class="detail-pane-section" close-action="closeTaskForm">
+            <np-panel-header slot="header" id="taskFormPanelHeader" variant="accent" editable title="Task Name">
                 <button class="task-form-inspect-btn" slot="actions" onclick="openTaskInspectorFromForm()" title="Inspect task" aria-label="Open task inspector">&#128269; Inspect</button>
                 <button class="task-form-inspect-btn" slot="actions" id="taskDeliverableBtn" onclick="toggleTaskDeliverable()" title="Product details" style="display: none;">&#128230; Product</button>
+                <button type="button" slot="overflow" data-destructive onclick="deleteTask()">Delete task</button>
             </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="taskName">
 
-                    <div class="form-grid-2col">
-                        <div class="form-group">
-                            <label for="taskDuration">Duration (days)</label>
-                            <input type="number" id="taskDuration" placeholder="e.g., 5, 10" min="0" oninput="onDurationChange()">
-                            <small>Edit duration or use dates below</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label>RAG Status</label>
-                            <div id="ragDisplay" style="padding: 8px; border-radius: 4px; font-weight: bold; text-align: center; margin-bottom: 5px;">
-                                -
+                    <details class="sheet-section" data-section="task-schedule" data-primary open>
+                        <summary>Schedule</summary>
+                        <div class="form-grid-2col">
+                            <div class="form-group">
+                                <label for="taskDuration">Duration (days)</label>
+                                <input type="number" id="taskDuration" placeholder="e.g., 5, 10" min="0" oninput="onDurationChange()">
+                                <small>Edit duration or use dates below</small>
                             </div>
-                            <small id="ragReasoning" style="display: block; color: var(--np-faint);">-</small>
-                        </div>
-                    </div>
 
-                    <div class="form-grid-3col">
+                            <div class="form-group">
+                                <label>RAG Status</label>
+                                <div id="ragDisplay" style="padding: 8px; border-radius: 4px; font-weight: bold; text-align: center; margin-bottom: 5px;">
+                                    -
+                                </div>
+                                <small id="ragReasoning" style="display: block; color: var(--np-faint);">-</small>
+                            </div>
+                        </div>
+
+                        <div class="form-grid-3col">
+                            <div class="form-group">
+                                <label for="taskStartDate">Start Date</label>
+                                <input type="date" id="taskStartDate" class="form-control" onchange="onDateChange('start')">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="taskFinishDate">Finish Date</label>
+                                <input type="date" id="taskFinishDate" class="form-control" onchange="onDateChange('finish')">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="taskDeadline">Deadline</label>
+                                <input type="date" id="taskDeadline" class="form-control" onchange="onDeadlineChange()">
+                            </div>
+                        </div>
+
                         <div class="form-group">
-                            <label for="taskStartDate">Start Date</label>
-                            <input type="date" id="taskStartDate" class="form-control" onchange="onDateChange('start')">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="taskFinishDate">Finish Date</label>
-                            <input type="date" id="taskFinishDate" class="form-control" onchange="onDateChange('finish')">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="taskDeadline">Deadline</label>
-                            <input type="date" id="taskDeadline" class="form-control" onchange="onDeadlineChange()">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="taskPercent">Completion %</label>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <input type="number" id="taskPercent" min="0" max="100" placeholder="0-100"
-                                   style="width: 80px; flex-shrink: 0;"
-                                   oninput="saveTask(); updateRagDisplay(); updateProgressBar()">
-                            <div class="progress percent-progress-clickable" id="taskProgressBarWrapper" style="flex: 1; height: 25px;"
-                                 title="Click to mark 100% complete" onclick="setTaskPercentQuick(100)">
-                                <div id="progressBar" class="progress-bar progress-bar-striped bg-success"
-                                     role="progressbar" style="width: 0%; transition: width 0.3s ease;"
-                                     aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-                                    <span id="progressText"></span>
+                            <label for="taskPercent">Completion %</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="number" id="taskPercent" min="0" max="100" placeholder="0-100"
+                                       style="width: 80px; flex-shrink: 0;"
+                                       oninput="saveTask(); updateRagDisplay(); updateProgressBar()">
+                                <div class="progress percent-progress-clickable" id="taskProgressBarWrapper" style="flex: 1; height: 25px;"
+                                     title="Click to mark 100% complete" onclick="setTaskPercentQuick(100)">
+                                    <div id="progressBar" class="progress-bar progress-bar-striped bg-success"
+                                         role="progressbar" style="width: 0%; transition: width 0.3s ease;"
+                                         aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                        <span id="progressText"></span>
+                                    </div>
                                 </div>
                             </div>
+                            <div class="percent-quick-toolbar" id="percentQuickToolbar" role="group" aria-label="Quick-set completion percentage">
+                                <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(0)">0%</button>
+                                <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(25)">25%</button>
+                                <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(50)">50%</button>
+                                <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(75)">75%</button>
+                                <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(100)">100%</button>
+                            </div>
+                            <small id="percentHelperText" style="display: none; color: var(--np-faint);">Auto-calculated from subtasks</small>
                         </div>
-                        <div class="percent-quick-toolbar" id="percentQuickToolbar" role="group" aria-label="Quick-set completion percentage">
-                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(0)">0%</button>
-                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(25)">25%</button>
-                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(50)">50%</button>
-                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(75)">75%</button>
-                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(100)">100%</button>
-                        </div>
-                        <small id="percentHelperText" style="display: none; color: var(--np-faint);">Auto-calculated from subtasks</small>
-                    </div>
 
-                    <div class="form-grid-3col">
-                        <div class="form-group">
-                            <label for="taskEffortCompleted">Effort Completed</label>
-                            <div style="display: flex; gap: 5px; align-items: center;">
-                                <input type="number" id="taskEffortCompleted" placeholder="0" min="0" step="0.5"
-                                       style="flex: 1; min-width: 6ch;" oninput="updateEffortTotal()">
-                                <select id="taskEffortCompletedUnit" style="width: 3ch; min-width: 3ch; flex: none;" onchange="updateEffortTotal()">
-                                    <option value="h">h</option>
-                                    <option value="d">d</option>
-                                </select>
+                        <div class="form-grid-3col">
+                            <div class="form-group">
+                                <label for="taskEffortCompleted">Effort Completed</label>
+                                <div style="display: flex; gap: 5px; align-items: center;">
+                                    <input type="number" id="taskEffortCompleted" placeholder="0" min="0" step="0.5"
+                                           style="flex: 1; min-width: 6ch;" oninput="updateEffortTotal()">
+                                    <select id="taskEffortCompletedUnit" class="effort-unit-select" onchange="updateEffortTotal()">
+                                        <option value="h">h</option>
+                                        <option value="d">d</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="taskEffortRemaining">Effort Remaining</label>
+                                <div style="display: flex; gap: 5px; align-items: center;">
+                                    <input type="number" id="taskEffortRemaining" placeholder="0" min="0" step="0.5"
+                                           style="flex: 1; min-width: 6ch;" oninput="updateEffortTotal()">
+                                    <select id="taskEffortRemainingUnit" class="effort-unit-select" onchange="updateEffortTotal()">
+                                        <option value="h">h</option>
+                                        <option value="d">d</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="taskEffortTotal">Effort Total</label>
+                                <div style="display: flex; gap: 5px; align-items: center;">
+                                    <input type="number" id="taskEffortTotal" placeholder="0" min="0"
+                                           style="flex: 1; min-width: 6ch; background-color: var(--np-sunken); cursor: not-allowed;" readonly>
+                                    <span id="taskEffortTotalUnit" style="width: 3ch; min-width: 3ch; flex: none; text-align: center; padding: 4px;">h</span>
+                                </div>
+                                <small>Auto-calculated (completed + remaining)</small>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="taskEffortRemaining">Effort Remaining</label>
-                            <div style="display: flex; gap: 5px; align-items: center;">
-                                <input type="number" id="taskEffortRemaining" placeholder="0" min="0" step="0.5"
-                                       style="flex: 1; min-width: 6ch;" oninput="updateEffortTotal()">
-                                <select id="taskEffortRemainingUnit" style="width: 3ch; min-width: 3ch; flex: none;" onchange="updateEffortTotal()">
-                                    <option value="h">h</option>
-                                    <option value="d">d</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="taskEffortTotal">Effort Total</label>
-                            <div style="display: flex; gap: 5px; align-items: center;">
-                                <input type="number" id="taskEffortTotal" placeholder="0" min="0"
-                                       style="flex: 1; min-width: 6ch; background-color: var(--np-sunken); cursor: not-allowed;" readonly>
-                                <span id="taskEffortTotalUnit" style="width: 3ch; min-width: 3ch; flex: none; text-align: center; padding: 4px;">h</span>
-                            </div>
-                            <small>Auto-calculated (completed + remaining)</small>
-                        </div>
-                    </div>
 
-                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label for="taskRecurrence">Recurrence</label>
+                            <select id="taskRecurrence" onchange="onRecurrenceFrequencyChange()" aria-label="Recurrence frequency">
+                                <option value="">No recurrence</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                            <div id="recurrenceWeeklyOptions" style="display: none; margin-top: 8px;" aria-label="Weekly recurrence days">
+                                <small style="display: block; margin-bottom: 4px;">Repeat on:</small>
+                                <div class="recurrence-days-grid">
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_mon" value="mon" onchange="saveTask()"> Mon</label>
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_tue" value="tue" onchange="saveTask()"> Tue</label>
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_wed" value="wed" onchange="saveTask()"> Wed</label>
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_thu" value="thu" onchange="saveTask()"> Thu</label>
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_fri" value="fri" onchange="saveTask()"> Fri</label>
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_sat" value="sat" onchange="saveTask()"> Sat</label>
+                                    <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_sun" value="sun" onchange="saveTask()"> Sun</label>
+                                </div>
+                            </div>
+                            <div id="recurrenceMonthlyOptions" style="display: none; margin-top: 8px;" aria-label="Monthly recurrence options">
+                                <small style="display: block; margin-bottom: 4px;">Repeat on:</small>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <select id="recurrenceWeekOfMonth" onchange="saveTask()" aria-label="Week of month">
+                                        <option value="1st">1st</option>
+                                        <option value="2nd">2nd</option>
+                                        <option value="3rd">3rd</option>
+                                        <option value="4th">4th</option>
+                                        <option value="5th">5th</option>
+                                    </select>
+                                    <select id="recurrenceDayOfWeek" onchange="saveTask()" aria-label="Day of week">
+                                        <option value="mon">Monday</option>
+                                        <option value="tue">Tuesday</option>
+                                        <option value="wed">Wednesday</option>
+                                        <option value="thu">Thursday</option>
+                                        <option value="fri">Friday</option>
+                                        <option value="sat">Saturday</option>
+                                        <option value="sun">Sunday</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <small>e.g. every Monday, or 3rd Thursday of month</small>
+                        </div>
+                    </details>
+
+                    <details class="sheet-section" data-section="task-people" open>
+                        <summary>People</summary>
                         <div class="form-group">
                             <label for="taskResources">Resources</label>
                             <div class="autocomplete-container">
@@ -2452,6 +2502,70 @@ Build
                                 <div id="resourceAutocomplete" class="autocomplete-dropdown"></div>
                             </div>
                             <small>Separate multiple resources with commas</small>
+                        </div>
+                    </details>
+
+                    <details class="sheet-section" data-section="task-dependencies" open>
+                        <summary>Dependencies</summary>
+                        <div class="form-group">
+                            <label>Dependencies</label>
+                            <div id="dependenciesTable" class="dependencies-table">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Task Name</th>
+                                            <th style="width: 80px;">Type</th>
+                                            <th style="width: 100px;">Lag/Lead</th>
+                                            <th style="width: 40px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dependenciesTableBody">
+                                        <!-- Dependency rows will be added here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="dependency-inline-add autocomplete-container" style="position: relative; margin-top: 10px;">
+                                <input type="text" id="addDependencyInput" class="dependency-add-input"
+                                       placeholder="Add dependency" autocomplete="off"
+                                       data-dropdown="addDependencyAutocomplete"
+                                       oninput="handleDependencyInput(this)"
+                                       onkeydown="handleAddDependencyKeydown(event, this)">
+                                <div id="addDependencyAutocomplete" class="autocomplete-dropdown"></div>
+                            </div>
+                            <small style="display: block; margin-top: 5px;">Lag: +2d (wait after), Lead: -1d (start before)</small>
+                        </div>
+                    </details>
+
+                    <details class="sheet-section" data-section="task-subtasks" open>
+                        <summary>Subtasks</summary>
+                        <div class="form-group">
+                            <label>Sub Tasks</label>
+                            <div id="subtasksList" class="subtasks-list">
+                                <!-- Subtasks will be populated here -->
+                            </div>
+                            <a href="javascript:void(0)" class="add-item-link" onclick="addNewSubtask()" style="margin-top: 10px; display: inline-block;">
+                                <span class="add-icon">+</span> Add Sub Task
+                            </a>
+                            <small style="display: block; margin-top: 5px;">Child tasks that belong to this task</small>
+                        </div>
+                    </details>
+
+                    <details class="sheet-section" data-section="task-notes" open>
+                        <summary>Notes</summary>
+                        <div class="form-grid-2col">
+                            <div class="form-group">
+                                <label for="taskPriority">Priority</label>
+                                <select id="taskPriority" onchange="saveTask()">
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium (!)</option>
+                                    <option value="Important">Important (!!)</option>
+                                    <option value="Urgent">Urgent (!!!)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="taskBucket">Bucket</label>
+                                <input type="text" id="taskBucket" placeholder="e.g. Project Management" oninput="saveTaskDebounced()">
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -2465,125 +2579,25 @@ Build
                             </div>
                             <small>Tags/labels for categorization</small>
                         </div>
-                    </div>
 
-                    <div class="form-group">
-                        <label for="taskRecurrence">Recurrence</label>
-                        <select id="taskRecurrence" onchange="onRecurrenceFrequencyChange()" aria-label="Recurrence frequency">
-                            <option value="">No recurrence</option>
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
-                        </select>
-                        <div id="recurrenceWeeklyOptions" style="display: none; margin-top: 8px;" aria-label="Weekly recurrence days">
-                            <small style="display: block; margin-bottom: 4px;">Repeat on:</small>
-                            <div class="recurrence-days-grid">
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_mon" value="mon" onchange="saveTask()"> Mon</label>
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_tue" value="tue" onchange="saveTask()"> Tue</label>
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_wed" value="wed" onchange="saveTask()"> Wed</label>
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_thu" value="thu" onchange="saveTask()"> Thu</label>
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_fri" value="fri" onchange="saveTask()"> Fri</label>
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_sat" value="sat" onchange="saveTask()"> Sat</label>
-                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_sun" value="sun" onchange="saveTask()"> Sun</label>
-                            </div>
-                        </div>
-                        <div id="recurrenceMonthlyOptions" style="display: none; margin-top: 8px;" aria-label="Monthly recurrence options">
-                            <small style="display: block; margin-bottom: 4px;">Repeat on:</small>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <select id="recurrenceWeekOfMonth" onchange="saveTask()" aria-label="Week of month">
-                                    <option value="1st">1st</option>
-                                    <option value="2nd">2nd</option>
-                                    <option value="3rd">3rd</option>
-                                    <option value="4th">4th</option>
-                                    <option value="5th">5th</option>
-                                </select>
-                                <select id="recurrenceDayOfWeek" onchange="saveTask()" aria-label="Day of week">
-                                    <option value="mon">Monday</option>
-                                    <option value="tue">Tuesday</option>
-                                    <option value="wed">Wednesday</option>
-                                    <option value="thu">Thursday</option>
-                                    <option value="fri">Friday</option>
-                                    <option value="sat">Saturday</option>
-                                    <option value="sun">Sunday</option>
-                                </select>
-                            </div>
-                        </div>
-                        <small>e.g. every Monday, or 3rd Thursday of month</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Dependencies</label>
-                        <div id="dependenciesTable" class="dependencies-table">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Task Name</th>
-                                        <th style="width: 80px;">Type</th>
-                                        <th style="width: 100px;">Lag/Lead</th>
-                                        <th style="width: 40px;"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="dependenciesTableBody">
-                                    <!-- Dependency rows will be added here -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="dependency-inline-add autocomplete-container" style="position: relative; margin-top: 10px;">
-                            <input type="text" id="addDependencyInput" class="dependency-add-input"
-                                   placeholder="Add dependency" autocomplete="off"
-                                   data-dropdown="addDependencyAutocomplete"
-                                   oninput="handleDependencyInput(this)"
-                                   onkeydown="handleAddDependencyKeydown(event, this)">
-                            <div id="addDependencyAutocomplete" class="autocomplete-dropdown"></div>
-                        </div>
-                        <small style="display: block; margin-top: 5px;">Lag: +2d (wait after), Lead: -1d (start before)</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Sub Tasks</label>
-                        <div id="subtasksList" class="subtasks-list">
-                            <!-- Subtasks will be populated here -->
-                        </div>
-                        <a href="javascript:void(0)" class="add-item-link" onclick="addNewSubtask()" style="margin-top: 10px; display: inline-block;">
-                            <span class="add-icon">+</span> Add Sub Task
-                        </a>
-                        <small style="display: block; margin-top: 5px;">Child tasks that belong to this task</small>
-                    </div>
-
-                    <div class="form-grid-2col">
                         <div class="form-group">
-                            <label for="taskPriority">Priority</label>
-                            <select id="taskPriority" onchange="saveTask()">
-                                <option value="Low">Low</option>
-                                <option value="Medium">Medium (!)</option>
-                                <option value="Important">Important (!!)</option>
-                                <option value="Urgent">Urgent (!!!)</option>
-                            </select>
+                            <label for="taskComment">Comment</label>
+                            <textarea id="taskComment" placeholder="Add notes or comments" oninput="saveTaskDebounced()"></textarea>
                         </div>
-                        <div class="form-group">
-                            <label for="taskBucket">Bucket</label>
-                            <input type="text" id="taskBucket" placeholder="e.g. Project Management" oninput="saveTaskDebounced()">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="taskComment">Comment</label>
-                        <textarea id="taskComment" placeholder="Add notes or comments" oninput="saveTaskDebounced()"></textarea>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-primary" onclick="closeTaskForm()">Done</button>
-                        <button type="button" class="btn-danger" onclick="deleteTask()">Delete Task</button>
-                    </div>
+                    </details>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-primary" onclick="closeTaskForm()">Done</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Product Details Form Section -->
-        <div id="productFormSection" class="detail-pane-section">
-            <np-panel-header id="productFormPanelHeader" variant="accent" editable title="Product Details">
+        <np-detail-sheet id="productFormSection" class="detail-pane-section" close-action="closeProductForm">
+            <np-panel-header slot="header" id="productFormPanelHeader" variant="accent" editable title="Product Details">
                 <button class="task-form-inspect-btn" slot="actions" onclick="switchProductToTaskForm()" title="Open task details" aria-label="Switch to task details">&#128203; Task Details</button>
+                <!-- In the ⋯ menu (#1383): it converts the product back to a regular task. -->
+                <button type="button" slot="overflow" data-destructive onclick="removeDeliverable()">Remove deliverable status</button>
             </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
@@ -2690,22 +2704,19 @@ Build
                         </div>
                         <small>Auto-calculated from child task completion</small>
                     </div>
-
-                    <hr style="margin: 20px 0; border-color: var(--border-color);">
-                    <button type="button" class="btn btn-sm" onclick="removeDeliverable()" style="color: var(--np-danger-ink); border: 1px solid var(--np-danger-ink); background: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">
-                        Remove Deliverable Status
-                    </button>
-                    <small style="display: block; margin-top: 6px; color: var(--text-secondary);">Converts this back to a regular task</small>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-primary" onclick="closeProductForm()">Done</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- RAID Item Form Section -->
-        <div id="raidFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="raidFormTitle">New RAID Item</h2>
-                <np-close-button onclick="closeRaidForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="raidFormSection" class="detail-pane-section" close-action="closeRaidForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="raidFormTitle">New RAID Item</h2>
+                <button type="button" slot="overflow" id="raidDeleteButtonRow" data-destructive onclick="confirmDeleteRaidItem()" aria-label="Delete this RAID item" style="display: none;">&#128465; Delete Item</button>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="raidItemId">
@@ -2810,27 +2821,20 @@ Build
                             </div>
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeRaidForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
-
-                    <div id="raidDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
-                        <button type="button" class="btn-danger" onclick="confirmDeleteRaidItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this RAID item">
-                            &#128465; Delete Item
-                        </button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeRaidForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Benefits Item Form Section -->
-        <div id="benefitsFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="benefitsFormTitle">New Benefit Item</h2>
-                <np-close-button onclick="closeBenefitForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="benefitsFormSection" class="detail-pane-section" close-action="closeBenefitForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="benefitsFormTitle">New Benefit Item</h2>
+                <button type="button" slot="overflow" id="benefitDeleteButtonRow" data-destructive onclick="deleteBenefitItem()" aria-label="Delete this benefit item" style="display: none;">&#128465; Delete Item</button>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="benefitItemId">
@@ -2912,27 +2916,20 @@ Build
                         <label for="benefitContribution">Contribution % <small style="opacity:0.7">(to linked objective)</small></label>
                         <input type="number" id="benefitContribution" class="form-control" min="0" max="100" value="0" placeholder="0-100">
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeBenefitForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveBenefitItemFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
-
-                    <div id="benefitDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
-                        <button type="button" class="btn-danger" onclick="deleteBenefitItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this benefit item">
-                            &#128465; Delete Item
-                        </button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeBenefitForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveBenefitItemFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Comms Item Form Section -->
-        <div id="commsFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="commsFormTitle">New Comms Item</h2>
-                <np-close-button onclick="closeCommsForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="commsFormSection" class="detail-pane-section" close-action="closeCommsForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="commsFormTitle">New Comms Item</h2>
+                <button type="button" slot="overflow" id="commsDeleteButtonRow" data-destructive onclick="confirmDeleteCommsItem()" aria-label="Delete this comms item" style="display: none;">&#128465; Delete Item</button>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="commsItemId">
@@ -2984,27 +2981,20 @@ Build
                             </select>
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeCommsForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveCommsItemFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
-
-                    <div id="commsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
-                        <button type="button" class="btn-danger" onclick="confirmDeleteCommsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this comms item">
-                            &#128465; Delete Item
-                        </button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeCommsForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveCommsItemFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Lessons Learned Item Form Section (issue #598) -->
-        <div id="lessonsFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="lessonsFormTitle">New Lesson Learned</h2>
-                <np-close-button onclick="closeLessonsForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="lessonsFormSection" class="detail-pane-section" close-action="closeLessonsForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="lessonsFormTitle">New Lesson Learned</h2>
+                <button type="button" slot="overflow" id="lessonsDeleteButtonRow" data-destructive onclick="confirmDeleteLessonsItem()" aria-label="Delete this lesson" style="display: none;">&#128465; Delete Lesson</button>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="lessonsItemId">
@@ -3091,27 +3081,20 @@ Build
                         <label for="lessonsItemRecommendations">Recommendations</label>
                         <textarea id="lessonsItemRecommendations" class="form-control" rows="2" placeholder="What should the next project team do? What change should be adopted?"></textarea>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeLessonsForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveLessonsItemFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
-
-                    <div id="lessonsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
-                        <button type="button" class="btn-danger" onclick="confirmDeleteLessonsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this lesson">
-                            &#128465; Delete Lesson
-                        </button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeLessonsForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveLessonsItemFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Budget Item Form Section -->
-        <div id="budgetFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="budgetFormTitle">New Budget Item</h2>
-                <np-close-button onclick="closeBudgetForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="budgetFormSection" class="detail-pane-section" close-action="closeBudgetForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="budgetFormTitle">New Budget Item</h2>
+                <button type="button" slot="overflow" id="budgetDeleteButtonRow" data-destructive onclick="confirmDeleteBudgetItem()" aria-label="Delete this budget item" style="display: none;">&#128465; Delete Item</button>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="budgetItemId">
@@ -3184,27 +3167,19 @@ Build
                             <input type="date" id="budgetItemDateReceived" class="form-control">
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeBudgetForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveBudgetItemFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
-
-                    <div id="budgetDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--np-border);">
-                        <button type="button" class="btn-danger" onclick="confirmDeleteBudgetItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this budget item">
-                            &#128465; Delete Item
-                        </button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeBudgetForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveBudgetItemFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Stakeholder Form Section -->
-        <div id="stakeholderFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="stakeholderFormTitle">New Stakeholder</h2>
-                <np-close-button onclick="closeStakeholderForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="stakeholderFormSection" class="detail-pane-section" close-action="closeStakeholderForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="stakeholderFormTitle">New Stakeholder</h2>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="stakeholderItemId">
@@ -3241,21 +3216,19 @@ Build
                             </select>
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeStakeholderForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveStakeholderFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeStakeholderForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveStakeholderFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Action Form Section -->
-        <div id="actionFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="actionFormTitle">New Action</h2>
-                <np-close-button onclick="closeActionForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="actionFormSection" class="detail-pane-section" close-action="closeActionForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="actionFormTitle">New Action</h2>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="actionItemId">
@@ -3302,21 +3275,19 @@ Build
                             <input type="date" id="actionItemTargetDate" class="form-control">
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeActionForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveActionFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeActionForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveActionFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Highlight Form Section -->
-        <div id="highlightFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 id="highlightFormTitle">New Highlight</h2>
-                <np-close-button onclick="closeHighlightForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="highlightFormSection" class="detail-pane-section" close-action="closeHighlightForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title" id="highlightFormTitle">New Highlight</h2>
+            </np-panel-header>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="highlightItemIndex" value="">
@@ -3339,20 +3310,19 @@ Build
                         <textarea id="highlightContent" class="form-control" placeholder="- Completed phase 1 ahead of schedule&#10;- **Key risk** mitigated with workaround" rows="8"></textarea>
                         <small>Supports bullet lists, bold, italic, strikethrough, headings (h1-h3), horizontal rules, and numbered lists.</small>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeHighlightForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveHighlightFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-secondary" onclick="closeHighlightForm()" style="padding: 8px 20px;">Cancel</button>
+                <button type="button" class="btn-primary" onclick="saveHighlightFromForm()" style="padding: 8px 20px;">Save</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Project Details Section -->
-        <div id="projectDetailsSection" class="detail-pane-section">
-            <div class="modal-header">
+        <np-detail-sheet id="projectDetailsSection" class="detail-pane-section" close-action="closeProjectDetailsForm">
+            <div class="modal-header" slot="header">
                 <input type="text" id="projectTitle" class="modal-header-title" placeholder="Project Title" style="flex: 1; background: transparent; border: none; font-size: 20px; font-weight: 600; outline: none; padding: 0;" oninput="autoSaveProjectDetails()">
-                <np-close-button onclick="closeProjectDetailsForm()"></np-close-button>
+                <np-close-button></np-close-button>
             </div>
             <div class="modal-body">
                 <form id="projectDetailsForm">
@@ -3440,19 +3410,18 @@ Build
                             <small>Format: @shortname, firstname lastname, role, email</small>
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-primary" onclick="saveProjectDetails()">Done</button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-primary" onclick="saveProjectDetails()">Done</button>
+            </div>
+        </np-detail-sheet>
 
         <!-- Settings Section -->
-        <div id="settingsSection" class="detail-pane-section">
-            <div class="modal-header">
+        <np-detail-sheet id="settingsSection" class="detail-pane-section" close-action="closeSettingsPanel">
+            <div class="modal-header" slot="header">
                 <h2 style="margin: 0;"><i class="bi bi-gear" aria-hidden="true"></i> Project Settings</h2>
-                <np-close-button onclick="closeSettingsPanel()"></np-close-button>
+                <np-close-button></np-close-button>
             </div>
             <div class="modal-body">
                 <div class="settings-tabs" role="tablist" aria-label="Settings tabs">
@@ -3624,13 +3593,13 @@ Build
                     <div id="syncSettingsList" class="sync-settings-list"></div>
                 </div>
             </div>
-        </div>
+        </np-detail-sheet>
 
         <!-- Version History Section -->
-        <div id="versionHistorySection" class="detail-pane-section">
-            <div class="modal-header">
+        <np-detail-sheet id="versionHistorySection" class="detail-pane-section" close-action="closeVersionHistoryPanel">
+            <div class="modal-header" slot="header">
                 <h2 style="margin: 0;"><i class="bi bi-clock-history" aria-hidden="true"></i> Version History</h2>
-                <np-close-button onclick="closeVersionHistoryPanel()"></np-close-button>
+                <np-close-button></np-close-button>
             </div>
             <div class="modal-body">
                 <div class="vh-controls">
@@ -3649,13 +3618,13 @@ Build
                 </div>
                 <div id="versionHistoryList" class="vh-list"></div>
             </div>
-        </div>
+        </np-detail-sheet>
 
         <!-- Conditional Formatting Section -->
-        <div id="conditionalFormattingSection" class="detail-pane-section">
-            <div class="modal-header">
+        <np-detail-sheet id="conditionalFormattingSection" class="detail-pane-section">
+            <div class="modal-header" slot="header">
                 <h2 style="margin: 0;">Conditional Formatting</h2>
-                <np-close-button onclick="closeDetailPane()"></np-close-button>
+                <np-close-button></np-close-button>
             </div>
             <div class="modal-body">
                 <div id="cfRulesContainer">
@@ -3687,11 +3656,11 @@ Build
                     </div>
                 </div>
             </div>
-        </div>
+        </np-detail-sheet>
 
         <!-- Task Inspector Section -->
-        <div id="taskInspectorSection" class="detail-pane-section">
-            <np-panel-header id="inspectorPanelHeader" variant="accent" title="Task Inspector">
+        <np-detail-sheet id="taskInspectorSection" class="detail-pane-section" close-action="closeTaskInspector">
+            <np-panel-header slot="header" id="inspectorPanelHeader" variant="accent" title="Task Inspector">
                 <button class="task-form-inspect-btn" slot="actions" onclick="editFromInspector()" title="Edit task" aria-label="Edit task">&#9998; Edit</button>
             </np-panel-header>
             <div class="modal-body" id="inspectorBody">
@@ -3699,14 +3668,13 @@ Build
                     <p>Select a task to inspect its details, dependencies, and schedule health.</p>
                 </div>
             </div>
-        </div>
+        </np-detail-sheet>
 
         <!-- Resource Form Section -->
-        <div id="resourceFormSection" class="detail-pane-section">
-            <div class="modal-header">
-                <h2 style="margin: 0;">Add/Edit Resource</h2>
-                <np-close-button onclick="closeResourceForm()"></np-close-button>
-            </div>
+        <np-detail-sheet id="resourceFormSection" class="detail-pane-section" close-action="dismissResourceForm">
+            <np-panel-header slot="header" variant="neutral">
+                <h2 slot="title">Add/Edit Resource</h2>
+            </np-panel-header>
             <div class="modal-body">
                 <form id="resourceForm">
                     <div class="form-group">
@@ -3759,13 +3727,12 @@ Build
                             <!-- Populated by JS -->
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-primary" onclick="saveResource()">Done</button>
-                    </div>
                 </form>
             </div>
-        </div>
+            <div class="form-actions" slot="footer">
+                <button type="button" class="btn-primary" onclick="saveResource()">Done</button>
+            </div>
+        </np-detail-sheet>
 
     </div>
 
@@ -4110,6 +4077,8 @@ Build
     <script type="module" src="/static/components/nav-drawer/np-nav-drawer.js?v={{ v }}"></script>
     <script type="module" src="/static/components/action-sheet/np-action-sheet.js?v={{ v }}"></script>
     <script type="module" src="/static/components/fab/np-fab.js?v={{ v }}"></script>
+    <!-- Every detail-pane form's shell (#1383). -->
+    <script type="module" src="/static/components/detail-sheet/np-detail-sheet.js?v={{ v }}"></script>
 
     {% include "_user_profile_dialog.html" %}
 

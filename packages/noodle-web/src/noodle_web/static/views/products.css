@@ -622,6 +622,16 @@
     border-color: var(--np-border) !important;
 }
 
+/* A touch screen: 16px, or iOS zooms the page when a field is focused. */
+@media (pointer: coarse) {
+    #productFormSection input[type="text"].form-control,
+    #productFormSection textarea.form-control,
+    #productFormSection .product-deps-input,
+    .product-comp-add input {
+        font-size: var(--np-touch-field-text);
+    }
+}
+
 .product-comp-add input::placeholder {
     color: var(--np-text-muted);
     font-style: italic;

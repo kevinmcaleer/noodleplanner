@@ -1171,8 +1171,6 @@
     top: 0;
     right: 0;
     width: min(600px, 90vw);
-    height: 100vh;
-    height: 100dvh;
     background: var(--np-surface);
     z-index: 1056;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
@@ -1189,6 +1187,93 @@
 
 .detail-pane.open {
     transform: translateX(0);
+}
+
+/* The detail pane by layout (#1383): the shell for every <np-detail-sheet>.
+   Full screen and sliding up on a phone; full screen on a tablet held
+   upright; a 600px sheet on the right in landscape (the width below already
+   gives that at 1024px); today's side pane on a desktop. Its height leaves
+   room for the on-screen keyboard, whose height np-detail-sheet.js publishes
+   as --keyboard-inset, so the footer is never under the keys. */
+.detail-pane {
+    height: calc(100vh - var(--keyboard-inset, 0px));
+    height: calc(100dvh - var(--keyboard-inset, 0px));
+}
+
+[data-layout="phone"] .detail-pane {
+    width: 100%;
+    transform: translateY(100%);
+}
+
+[data-layout="phone"] .detail-pane.open {
+    transform: translateY(0);
+}
+
+@media (orientation: portrait) {
+    [data-layout="tablet"] .detail-pane {
+        width: 100%;
+    }
+}
+
+/* A sheet's footer holds its main action, side by side, at every width
+   (the <=768px rule below stacks a form's actions for the old in-body row). */
+np-detail-sheet > .form-actions[slot="footer"] {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin: 0;
+}
+
+np-detail-sheet > .form-actions[slot="footer"] > button {
+    min-height: var(--np-touch-target);
+}
+
+/* Collapsible groups of fields in a sheet (#1383): Schedule, People,
+   Dependencies, Subtasks and Notes on the task form. np-detail-sheet.js
+   remembers which were left open. */
+.sheet-section {
+    border-bottom: 1px solid var(--np-hairline);
+    margin: 0 calc(var(--np-space-20) * -1);
+    padding: 0 var(--np-space-20);
+}
+
+.sheet-section > summary {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-8);
+    min-height: var(--np-touch-target);
+    margin: 0 calc(var(--np-space-20) * -1);
+    padding: 0 var(--np-space-20);
+    font-family: var(--np-font-ui);
+    font-weight: var(--np-weight-semibold);
+    color: var(--np-ink);
+    cursor: pointer;
+    list-style: none;
+}
+
+.sheet-section > summary::-webkit-details-marker {
+    display: none;
+}
+
+.sheet-section > summary::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform var(--np-anim-duration-fast) var(--np-anim-easing);
+}
+
+.sheet-section[open] > summary::before {
+    transform: rotate(45deg);
+}
+
+.sheet-section > summary:hover {
+    background: var(--np-sunken);
+}
+
+.sheet-section[open] {
+    padding-bottom: var(--np-space-8);
 }
 
 /* A closed pane rests just off the right edge, and its 20px shadow blurred
@@ -2192,6 +2277,41 @@ tr:hover .task-context-btn,
     display: flex;
     gap: var(--np-space-8);
     margin-top: var(--np-space-8);
+}
+
+/* The task form's effort units (h / d): were an inline width of 3ch.
+   `.form-group` in the selector outranks `.form-group select`'s 100%. */
+.form-group .effort-unit-select {
+    width: 3ch;
+    min-width: 3ch;
+    flex: none;
+}
+
+/* Touch targets in the task form (#1383): the completion presets, the effort
+   units and the add links were 22-28px. */
+@media (pointer: coarse) {
+    .percent-quick-btn,
+    .add-item-link {
+        min-height: var(--np-touch-target);
+    }
+
+    /* Every field and button in a sheet is a 44px target: the dependency
+       table's inline fields and remove button, the product form's compact
+       inputs and type buttons, the resource form's narrow cells. */
+    np-detail-sheet :is(
+        input:not([type="hidden"], [type="checkbox"], [type="radio"], [type="range"]),
+        select,
+        button:not(.sheet-section > summary)
+    ) {
+        min-height: var(--np-touch-target);
+        min-width: var(--np-touch-target);
+    }
+
+    .form-group .effort-unit-select {
+        width: auto;
+        min-width: var(--np-touch-target);
+        min-height: var(--np-touch-target);
+    }
 }
 
 .percent-quick-btn {

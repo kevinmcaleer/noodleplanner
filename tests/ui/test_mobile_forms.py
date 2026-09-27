@@ -67,8 +67,9 @@ def _open(pg, app_server, name):
     opener, section = FORMS[name]
     pg.evaluate(opener)
     pg.wait_for_selector(f"{section}.active")
+    # Slid fully in: from the right on a tablet, up from the bottom on a phone.
     pg.wait_for_function("() => { const r = document.getElementById('detailPane').getBoundingClientRect();"
-                         " return Math.abs(r.right - innerWidth) < 1; }")
+                         " return Math.abs(r.right - innerWidth) < 1 && Math.abs(r.top) < 1; }")
     return section
 
 
@@ -108,19 +109,20 @@ def test_the_task_form_title_has_its_own_row_on_a_phone(phone, app_server):
             const root = host.shadowRoot;
             const title = root.querySelector('.title');
             const close = root.querySelector('.close-btn').getBoundingClientRect();
-            const actions = root.querySelector('.actions').getBoundingClientRect();
+            const more = root.querySelector('.more');
             const t = title.getBoundingClientRect();
             const line = parseFloat(getComputedStyle(title).lineHeight) ||
                          parseFloat(getComputedStyle(title).fontSize) * 1.3;
             return { titleWidth: t.width, titleHeight: t.height, line,
-                     titleBottom: t.bottom, actionsTop: actions.top,
+                     actionsShown: getComputedStyle(root.querySelector('.actions')).display !== 'none',
+                     moreShown: !more.hidden,
                      closeW: close.width, closeH: close.height, hostWidth: host.getBoundingClientRect().width };
         }"""
     )
-    # The title takes the row, beside only the close button...
+    # The title takes the row, beside only ⋯ and the close button: the
+    # secondary actions (Inspect, Make Deliverable) are in the ⋯ menu (#1383)...
     assert header["titleWidth"] > header["hostWidth"] * 0.6
-    # ...the actions wrap underneath it...
-    assert header["actionsTop"] >= header["titleBottom"] - 1
+    assert not header["actionsShown"] and header["moreShown"]
     # ..."Research" is on one line, not broken mid-word...
     assert header["titleHeight"] < header["line"] * 1.9
     # ...and the close button is a touch target.

@@ -385,9 +385,12 @@ function openDetailPane(sectionId) {
     // Hide all sections
     pane.querySelectorAll('.detail-pane-section').forEach(s => s.classList.remove('active'));
 
-    // Show the requested section
+    // Show the requested section. An <np-detail-sheet> (#1383) first puts
+    // its collapsible sections and its header in the state this screen wants.
     const section = document.getElementById(sectionId);
     if (section) {
+        if (typeof section.applySections === 'function') section.applySections();
+        if (typeof section._syncPresentation === 'function') section._syncPresentation();
         section.classList.add('active');
     }
 
@@ -413,6 +416,21 @@ function closeDetailPane() {
         pane.querySelectorAll('.detail-pane-section').forEach(s => s.classList.remove('active'));
         closeDetailPaneTimer = null;
     }, 300);
+}
+
+/**
+ * Dismiss the detail pane the way its open section closes itself (#1383): an
+ * Escape, a tap on the backdrop or the phone's back. Every section is an
+ * <np-detail-sheet> that knows its own close handler (`close-action`), so
+ * each form's clean-up runs however it is dismissed. This replaced a switch
+ * that named seven of the sections, one of them twice, and sent the rest
+ * straight to closeDetailPane() past their own close functions.
+ */
+function requestCloseDetailPane() {
+    const pane = document.getElementById('detailPane');
+    const section = pane && pane.querySelector('.detail-pane-section.active');
+    if (section && typeof section.requestClose === 'function') section.requestClose();
+    else closeDetailPane();
 }
 
 /**
@@ -4333,7 +4351,7 @@ function closeTaskForm() {
     currentTaskLineNumber = null;
 }
 
-document.getElementById('taskFormPanelHeader')?.addEventListener('close', closeTaskForm);
+// The header's × is routed by its <np-detail-sheet> (close-action, #1383).
 
 /**
  * Delete the currently open task from the plan.
@@ -6167,24 +6185,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (detailOverlay) {
         detailOverlay.addEventListener('click', function() {
             if (isDetailPaneOpen()) {
-                // Determine which section is active and call its close function
-                const pane = document.getElementById('detailPane');
-                const activeSection = pane.querySelector('.detail-pane-section.active');
-                if (activeSection) {
-                    switch (activeSection.id) {
-                        case 'taskFormSection': closeTaskForm(); break;
-                        case 'raidFormSection': closeRaidForm(); break;
-                        case 'benefitsFormSection': closeBenefitForm(); break;
-                        case 'highlightFormSection': closeHighlightForm(); break;
-                        case 'benefitsFormSection': closeBenefitForm(); break;
-                        case 'projectDetailsSection': closeProjectDetailsForm(); break;
-                        case 'resourceFormSection': saveResource(); break;
-                        case 'taskInspectorSection': closeTaskInspector(); break;
-                        default: closeDetailPane();
-                    }
-                } else {
-                    closeDetailPane();
-                }
+                requestCloseDetailPane();
             }
         });
     }
@@ -6215,23 +6216,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // If detail pane is open, close the active section
             if (isDetailPaneOpen()) {
-                const pane = document.getElementById('detailPane');
-                const activeSection = pane.querySelector('.detail-pane-section.active');
-                if (activeSection) {
-                    switch (activeSection.id) {
-                        case 'taskFormSection': closeTaskForm(); break;
-                        case 'raidFormSection': closeRaidForm(); break;
-                        case 'benefitsFormSection': closeBenefitForm(); break;
-                        case 'highlightFormSection': closeHighlightForm(); break;
-                        case 'benefitsFormSection': closeBenefitForm(); break;
-                        case 'projectDetailsSection': closeProjectDetailsForm(); break;
-                        case 'resourceFormSection': saveResource(); break;
-                        case 'taskInspectorSection': closeTaskInspector(); break;
-                        default: closeDetailPane();
-                    }
-                } else {
-                    closeDetailPane();
-                }
+                requestCloseDetailPane();
             }
         }
     });
@@ -6563,6 +6548,22 @@ function populateResourceAssignedTasks(shortname) {
             <span class="product-comp-pct">${pct}%</span>
         </div>`;
     }).join('');
+}
+
+/**
+ * Dismiss the resource form -- Escape, a backdrop tap, its ← or × (#1383).
+ * Keeps what was typed (the form autosaves once shortname and full name are
+ * filled in, so a pending autosave is flushed now) but, unlike Done, does not
+ * insist on them: dismissing an empty new-resource form used to raise the
+ * "Shortname and Full Name are required" alert and leave the pane open.
+ */
+function dismissResourceForm() {
+    if (resourceDebounceTimer) {
+        clearTimeout(resourceDebounceTimer);
+        resourceDebounceTimer = null;
+        saveResourceInternal(false);
+    }
+    closeResourceForm();
 }
 
 function closeResourceForm() {
@@ -16086,7 +16087,7 @@ function closeTaskInspector() {
     closeDetailPane();
 }
 
-document.getElementById('inspectorPanelHeader')?.addEventListener('close', closeTaskInspector);
+// The header's × is routed by its <np-detail-sheet> (close-action, #1383).
 
 function showInspectorEmpty(message) {
     const body = document.getElementById('inspectorBody');
