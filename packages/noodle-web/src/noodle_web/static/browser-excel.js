@@ -1,3 +1,5 @@
+import { addSyncSheet } from './workbook-sync.js';
+
 // ExcelJS is vendored, not fetched from a CDN: the app is installable as a
 // PWA and must export offline, its service worker only caches same-origin
 // /static/, and the deployment is self-hosted behind a tunnel (issue #790).
@@ -972,6 +974,9 @@ export async function createPlanWorkbook(parseResult, options = {}) {
     addCommsSheet(workbook, parseResult.comms_items || []);
     addLessonsSheet(workbook, parseResult.lessons_items || []);
     addDeliverablesSheet(workbook, parseResult);
+    // Hidden: what this file was written with, so a later sync of it can
+    // tell an edit made in Excel from one made in the plan (#1138).
+    addSyncSheet(workbook, parseResult.tasks || []);
     return workbook;
 }
 
@@ -1035,8 +1040,12 @@ export async function exportPlanExcelInBrowser(parseResult, options = {}) {
         buffer = await workbook.xlsx.writeBuffer();
     }
 
-    downloadBlob(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
-    return { filename, workbook, worker, elapsedMs: elapsedSince(started) };
+    // download: false is the project workbook sync (#1138), which writes
+    // the bytes through a linked file handle instead.
+    if (options.download !== false) {
+        downloadBlob(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
+    }
+    return { filename, workbook, worker, buffer, elapsedMs: elapsedSince(started) };
 }
 
 export function buildTaskCsv(parseResult) {
@@ -1147,6 +1156,11 @@ async function loadWorkbookInput(input, options = {}) {
     }
     await workbook.xlsx.load(bytes);
     return workbook;
+}
+
+/** A workbook file (File, ArrayBuffer or bytes) as an ExcelJS Workbook. */
+export async function loadPlanWorkbook(input, options = {}) {
+    return loadWorkbookInput(input, options);
 }
 
 export async function importRaidExcelInBrowser(input, options = {}) {

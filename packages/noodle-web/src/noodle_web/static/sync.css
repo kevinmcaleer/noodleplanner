@@ -1,0 +1,56 @@
+/* Front-of-house Sync (#1139) and the project workbook sync review (#1138).
+ *
+ * The rows reuse Settings > Sync's .sync-target-* rules and the review
+ * reuses the RAID review's .raid-sync-* rules, so this file holds only what
+ * those two dialogs add: their width, footer and intro, the per-target scope
+ * note, and the ribbon button's running state. */
+
+.sync-dialog {
+    max-width: 760px;
+}
+
+.sync-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--np-space-8);
+    padding: var(--np-space-16) var(--np-space-20);
+    border-top: 1px solid var(--np-border);
+}
+
+.sync-hub-intro {
+    margin: 0 0 var(--np-space-16);
+    color: var(--np-body);
+    line-height: var(--np-leading-snug);
+}
+
+.sync-hub-list {
+    margin-top: 0;
+}
+
+/* What each target carries both ways, and what is only exported (#1138):
+   two of the targets are Excel workbooks, and which is which matters. */
+.sync-target-info small.sync-target-scope {
+    color: var(--np-muted);
+    font-size: var(--np-text-85);
+}
+
+.sync-target-status-running {
+    font-weight: var(--np-weight-semibold);
+}
+
+/* A sync in progress on the Report ribbon's button (sync-hub.js sets the
+   attribute on every render). The spinning green circle itself is #941;
+   this is the minimum that shows the button is busy. */
+[data-label="Sync"][data-sync-state="running"] svg {
+    animation: np-sync-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-label="Sync"][data-sync-state="running"] svg {
+        animation: none;
+    }
+}
+
+@keyframes np-sync-spin {
+    to { transform: rotate(360deg); }
+}

@@ -97,6 +97,11 @@ a different device or browser starts fresh, so the first sync there treats
 every differing row as a conflict rather than assuming either side is
 correct.
 
+The RAID workbook is one of three sync targets. The **Sync** button on the
+Report ribbon syncs every linked target at once. See
+:doc:`sync-your-plan-with-files`. The whole-plan workbook from **Report ›
+Share › Excel** is a separate target, and its RAID Log sheet is export-only.
+
 Save to Markdown
 -----------------
 
