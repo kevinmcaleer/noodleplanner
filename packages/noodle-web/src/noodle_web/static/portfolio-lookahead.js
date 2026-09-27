@@ -185,7 +185,7 @@ function buildOverdueRows(tasks) {
             'data-project-id="' + escapeHtml(task.projectId) + '" ' +
             'data-task-name="' + escapeHtml(task.taskName) + '" ' +
             'data-status="' + escapeHtml(task.status) + '" ' +
-            'onclick="openPortfolioLookAheadTask(\'' + escapeHtml(task.projectId) + '\', \'' + escapeHtml(task.taskName).replace(/'/g, "\\'") + '\')">' +
+            'onclick="openPortfolioLookAheadTask(\'' + escapeHtml(task.projectId) + '\', \'' + escapeJsAttr(task.taskName) + '\')">' +
             '<td class="lookahead-project-name">' + escapeHtml(task.projectName) + '</td>' +
             '<td class="lookahead-task-name">' + escapeHtml(task.taskName) + '</td>' +
             '<td>' + formatLookAheadDate(task.finish || task.start) + '</td>' +
@@ -209,7 +209,7 @@ function buildUpcomingRows(tasks) {
             'data-project-id="' + escapeHtml(task.projectId) + '" ' +
             'data-task-name="' + escapeHtml(task.taskName) + '" ' +
             'data-status="' + escapeHtml(task.status) + '" ' +
-            'onclick="openPortfolioLookAheadTask(\'' + escapeHtml(task.projectId) + '\', \'' + escapeHtml(task.taskName).replace(/'/g, "\\'") + '\')">' +
+            'onclick="openPortfolioLookAheadTask(\'' + escapeHtml(task.projectId) + '\', \'' + escapeJsAttr(task.taskName) + '\')">' +
             '<td class="lookahead-project-name">' + escapeHtml(task.projectName) + '</td>' +
             '<td class="lookahead-task-name">' + escapeHtml(task.taskName) + '</td>' +
             '<td>' + formatLookAheadDate(task.start) + '</td>' +

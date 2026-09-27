@@ -74,18 +74,9 @@ function extractTasksFromPlanText(planText) {
         body = body.substring(fmMatch[0].length);
     }
 
-    // Stop at special sections
-    const sectionMarkers = [
-        '---highlights---', '---budget---', '---benefits---',
-        '---raid log---', '---comms---', '---lessons learned---', '---baseline---',
-        '---whiteboard---'
-    ];
-    let endIdx = body.length;
-    for (const marker of sectionMarkers) {
-        const idx = body.indexOf(marker);
-        if (idx !== -1 && idx < endIdx) endIdx = idx;
-    }
-    body = body.substring(0, endIdx);
+    // Stop at the back matter -- every section, estimates included, whose
+    // `| Build | 2d | 4d |` rows otherwise pass for task lines below
+    body = body.substring(0, npBackMatterSectionEnd(body, 0));
 
     const lines = body.split('\n');
 

@@ -742,6 +742,9 @@ function renderGanttRows() {
     const cpToggle = document.getElementById('ganttShowCriticalPath');
     const showCriticalPath = cpToggle && cpToggle.checked;
 
+    // For the Predecessors column: once per render, not once per row
+    const nameToId = buildTaskNameToIdMap(ganttTasks);
+
     ganttTasks.forEach((task, index) => {
         // Skip hidden tasks (children of collapsed summary tasks)
         const isHidden = hiddenIndices.has(index);
@@ -920,7 +923,6 @@ function renderGanttRows() {
         const predCell = document.createElement('td');
         predCell.classList.add('editable');
         predCell.dataset.field = 'predecessors';
-        const nameToId = buildTaskNameToIdMap(ganttTasks);
         const predText = formatPredecessors(task, nameToId);
         predCell.textContent = predText || '-';
         setupGanttEditableCell(predCell, () => makeEditable(predCell, task, index));
@@ -1059,7 +1061,6 @@ function renderGanttRows() {
             renderDeadlineMarker(barRow, task);
         }
 
-        ganttInfoBody.appendChild(infoRow);
         ganttBody.appendChild(barRow);
     });
 

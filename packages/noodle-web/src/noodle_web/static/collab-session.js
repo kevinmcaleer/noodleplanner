@@ -763,10 +763,26 @@ async function applyCollabReplacement(joinerId, nextText, rejectionType) {
         await sendCollabJsonTo(joinerId, { type: rejectionType, reason: 'invalid' });
         return false;
     }
-    if (nextText === editor.value) return true;
+    if (nextText === editor.value) {
+        // Nothing to write, but the sender is still owed an answer: a joiner
+        // holds every later edit until it sees this one come back in a
+        // snapshot (or bounce), so returning silently left it stuck. The
+        // host already holds text the joiners were never sent for this
+        // revision, so move the revision on and send everyone the plan.
+        collabPlanRev++;
+        await broadcastCollabPlan(null, null, null);
+        // No render follows to fit the host's own board for a Tidy.
+        if (typeof wbRunPendingLayoutFit === 'function') wbRunPendingLayoutFit();
+        return true;
+    }
 
     editor.value = nextText;
     collabVisibilityText = nextText;
+    // The revision names the editor's text from the moment it is written,
+    // not once the render below has finished: anything that reads the two
+    // in between -- a snapshot for a joiner who has just connected, the
+    // next replacement's staleness check -- must see them agree.
+    collabPlanRev++;
     collabApplyingRemoteOp = true;
     try {
         editor.dispatchEvent(new Event('input', { bubbles: true }));
@@ -780,7 +796,6 @@ async function applyCollabReplacement(joinerId, nextText, rejectionType) {
             collabLog('(applied an edit but could not re-render the plan)');
         }
     }
-    collabPlanRev++;
     scheduleCollabAutosave();
     await broadcastCollabPlan(null, null, null);
     return true;
@@ -1025,6 +1040,9 @@ async function applyCollabPlanOp(joinerId, op) {
 
     editor.value = nextText;
     collabVisibilityText = nextText;
+    // Bumped with the write, not after the render -- see
+    // applyCollabReplacement().
+    collabPlanRev++;
     // The same event a human typing would raise, so the kanban editor
     // mirror, line numbers and autosave all stay in step -- a joiner's edit
     // must be indistinguishable from the host's own. The guard stops that
@@ -1045,7 +1063,6 @@ async function applyCollabPlanOp(joinerId, op) {
         }
     }
 
-    collabPlanRev++;
     // #968: this is an *incoming* contribution the host would otherwise
     // have no record of outside the next real save -- see
     // collab-autosave.js's module docstring.
@@ -1082,6 +1099,9 @@ async function applyCollabBackmatterOp(joinerId, op) {
     }
 
     editor.value = result.text;
+    // Bumped with the write, not after the render -- see
+    // applyCollabReplacement().
+    collabPlanRev++;
     collabApplyingRemoteOp = true;
     try {
         editor.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1096,7 +1116,6 @@ async function applyCollabBackmatterOp(joinerId, op) {
         }
     }
 
-    collabPlanRev++;
     // #968: same crash-recovery discipline as applyCollabPlanOp -- a RAID
     // row a joiner just added or edited is exactly the kind of incoming
     // contribution the host would otherwise have no record of outside the
@@ -1153,6 +1172,26 @@ function scheduleCollabPlanBroadcast() {
         broadcastCollabPlan(null, null)
             .then(() => recordCollabActivity(collabHostName(), 'updated the plan'));
     }, 250);
+}
+
+/** Incoming socket messages, handled strictly one at a time in arrival
+ * order. handleCollabMessage() awaits -- decryption, module loads, the
+ * renderPlan() after an applied edit -- and each socket message used to
+ * start it without waiting for the previous one. Two joiners replacing the
+ * plan at the same revision then both passed the revision check before
+ * either had finished: the second overwrote the first, and the first
+ * joiner never got its snapshot or a stale rejection, so it stopped
+ * sending edits for the rest of the session. One at a time, the second
+ * sees the first's revision and bounces as stale, as intended. */
+let collabInbox = Promise.resolve();
+function receiveCollabMessage(raw) {
+    collabInbox = collabInbox
+        .then(() => handleCollabMessage(raw))
+        .catch((error) => {
+            // One bad message must not stop the ones queued behind it.
+            console.error('Planning session: could not handle a message', error);
+        });
+    return collabInbox;
 }
 
 async function handleCollabMessage(raw) {
@@ -1311,6 +1350,15 @@ async function handleCollabMessage(raw) {
     collabLog('(received an unrecognized message -- ignored)');
 }
 
+/** Planning sessions are end-to-end encrypted with the Web Crypto API
+ * (collab-crypto.js), which browsers only provide in a secure context:
+ * HTTPS, or localhost. Opened over plain HTTP on a LAN address,
+ * `crypto.subtle` is undefined and the key setup throws -- after the
+ * server has already been asked for a session and its code shown. */
+function collabCryptoAvailable() {
+    return !!(window.isSecureContext && globalThis.crypto && globalThis.crypto.subtle);
+}
+
 async function startCollabSession() {
     const overlay = document.getElementById('collabSessionOverlay');
     const status = document.getElementById('collabSessionStatus');
@@ -1323,9 +1371,18 @@ async function startCollabSession() {
         showCollabSessionModal();
         return;
     }
+    if (!collabCryptoAvailable()) {
+        overlay.classList.add('active');
+        details.style.display = 'none';
+        status.textContent = 'Planning sessions are encrypted, and this browser only allows that over a '
+            + 'secure connection. Open NoodlePlanner over HTTPS (or on this computer as localhost) to start one.';
+        if (typeof showToast === 'function') showToast('Planning sessions need an HTTPS connection', 'error');
+        return;
+    }
     collabSessionStarting = true;
     collabSessionKeys.clear();
     collabJoinerNames.clear();
+    collabInbox = Promise.resolve();
     collabPlanRev = 0;
     collabFitPending = false;
     resetCollabChat();
@@ -1386,6 +1443,17 @@ async function startCollabSession() {
         collabSocket = new WebSocket(
             `${protocol}//${window.location.host}/ws/session/${info.session_id}?token=${encodeURIComponent(info.host_token)}`
         );
+    } catch (error) {
+        // The code above is already on screen as "Session live" -- take it
+        // back rather than advertise a session nobody can join.
+        console.error('Planning session: could not set up the encryption keys', error);
+        collabSessionStarting = false;
+        details.style.display = 'none';
+        setCollabChatActive(false);
+        status.textContent = 'Could not start a session. Please try again.';
+        if (typeof showToast === 'function') showToast('Could not start planning session', 'error');
+        refreshCollabRibbon();
+        return;
     } finally {
         // From here the socket itself says whether the session is live.
         collabSessionStarting = false;
@@ -1404,7 +1472,7 @@ async function startCollabSession() {
     });
 
     collabSocket.addEventListener('message', (event) => {
-        handleCollabMessage(event.data);
+        receiveCollabMessage(event.data);
     });
 
     collabSocket.addEventListener('close', (event) => {

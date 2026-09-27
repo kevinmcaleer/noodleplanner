@@ -238,6 +238,26 @@ class TestRateLimiting:
             limited, _ = _is_rate_limited("10.0.0.2")
             assert limited
 
+    def test_ips_gone_quiet_are_evicted(self, monkeypatch):
+        """Every IP ever seen used to keep its key forever -- an IP's list
+        was only pruned when that same IP came back -- so the store grew
+        with every distinct client for the life of the process."""
+        from noodle_web import security
+
+        clock = [1_000_000.0]
+        monkeypatch.setattr(security.time, "time", lambda: clock[0])
+        security.reset_rate_limit_store()
+
+        for i in range(50):
+            security._is_rate_limited(f"10.0.0.{i}")
+        clock[0] += security.RATE_LIMIT_WINDOW / 2
+        security._is_rate_limited("10.0.1.1")  # still in the window later
+        assert len(security._rate_limit_store) == 51
+
+        clock[0] += security.RATE_LIMIT_WINDOW / 2 + 1
+        security._is_rate_limited("10.0.2.2")
+        assert set(security._rate_limit_store) == {"10.0.1.1", "10.0.2.2"}
+
 
 class TestJoinRateLimiting:
     """Unit tests for #965's collab-session join-attempt rate limiter.
@@ -359,6 +379,28 @@ class TestJoinRateLimiting:
         from noodle_web.security import forgive_join_attempt
 
         forgive_join_attempt("198.51.100.1")  # never seen; must not raise
+
+    def test_forgiving_the_only_attempt_drops_the_key(self):
+        from noodle_web import security
+
+        security.is_join_rate_limited("10.0.0.7")
+        security.forgive_join_attempt("10.0.0.7")
+        assert "10.0.0.7" not in security._join_rate_limit_store
+
+    def test_ips_gone_quiet_are_evicted(self, monkeypatch):
+        from noodle_web import security
+
+        clock = [1_000_000.0]
+        monkeypatch.setattr(security.time, "time", lambda: clock[0])
+        security.reset_join_rate_limit_store()
+
+        for i in range(20):
+            security.is_join_rate_limited(f"10.0.0.{i}")
+        assert len(security._join_rate_limit_store) == 20
+
+        clock[0] += security.JOIN_RATE_LIMIT_WINDOW + 1
+        security.is_join_rate_limited("10.0.9.9")
+        assert set(security._join_rate_limit_store) == {"10.0.9.9"}
 
     def test_join_and_general_rate_limits_are_independent_stores(self):
         """A join attempt must not consume the general per-IP HTTP request

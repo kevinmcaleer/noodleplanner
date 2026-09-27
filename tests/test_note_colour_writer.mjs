@@ -25,6 +25,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import vm from 'node:vm';
+import backMatter from '../packages/noodle-web/src/noodle_web/static/back-matter-markers.js';
 
 const repo = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 const staticDir = join(repo, 'packages', 'noodle-web', 'src', 'noodle_web', 'static');
@@ -47,6 +48,9 @@ function liftFunctions(sandbox, file, names) {
 // whole file, since these are simple string literals -- same convention
 // as test_whiteboard_backmatter.mjs.
 const sandbox = {
+  // The canonical back-matter marker list and section-boundary helpers,
+  // from back-matter-markers.js (loaded before state.js in index.html).
+  ...backMatter,
   console,
   HIGHLIGHTS_START: '---highlights---',
   HIGHLIGHTS_END: '---end-highlights---',

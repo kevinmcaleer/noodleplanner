@@ -742,6 +742,17 @@ class TestDurationValidation:
 
 # ---------- TestDependencyChain ----------
 
+def _schedule_markdown(md):
+    """Schedule imported markdown as the app would; returns name -> task."""
+    from noodle_core import (
+        convert_plan_format_to_standard,
+        natural_language_to_yaml,
+        schedule_tasks,
+    )
+    data = natural_language_to_yaml(convert_plan_format_to_standard(md), "Project")
+    return {t["name"]: t for t in schedule_tasks(data["Project"])}
+
+
 class TestDependencyChain:
     """Tests for intelligent dependency chain behavior."""
 
@@ -765,7 +776,7 @@ class TestDependencyChain:
         # First task should have start date
         assert "start:2025-01-06" in md
         # Second 1d task should use * dependency chain
-        assert "* " in md or "*\n" in md
+        assert "  *Task B\n" in md
 
     def test_subsequent_1d_tasks_use_dependency_chain(self):
         """Subsequent 1d tasks without deps should use * for chaining."""
@@ -786,11 +797,19 @@ class TestDependencyChain:
         })
         md = result["markdown"]
         lines = md.strip().split("\n")
-        # Task B and C should have * dependency chain
+        # Task B and C should have * dependency chain -- a *leading* star,
+        # the only place the parser honours it. It used to be appended
+        # (`Task B *`), which imported the chain as parallel tasks.
         task_b_line = [l for l in lines if "Task B" in l][0]
         task_c_line = [l for l in lines if "Task C" in l][0]
-        assert "* " in task_b_line or task_b_line.strip().endswith("*")
-        assert "* " in task_c_line or task_c_line.strip().endswith("*")
+        assert task_b_line.strip().startswith("*")
+        assert task_c_line.strip().startswith("*")
+
+        tasks = _schedule_markdown(md)
+        assert set(tasks) >= {"Task A", "Task B", "Task C"}  # no "Task B *"
+        assert tasks["Task A"]["start"] == datetime(2025, 1, 6)
+        assert tasks["Task B"]["start"] == tasks["Task A"]["finish"] == datetime(2025, 1, 7)
+        assert tasks["Task C"]["start"] == tasks["Task B"]["finish"] == datetime(2025, 1, 8)
 
     def test_non_1d_task_keeps_start_date(self):
         """Tasks with duration != 1d should keep their start date."""
@@ -836,7 +855,11 @@ class TestDependencyChain:
         assert "start:2025-01-06" in md
         lines = md.strip().split("\n")
         task_b_line = [l for l in lines if "Task B" in l][0]
-        assert "*" in task_b_line
+        assert task_b_line.strip().startswith("*")
+
+        tasks = _schedule_markdown(md)
+        assert tasks["Task B"]["start"] == tasks["Task A"]["finish"]
+        assert tasks["Task C"]["start"] == tasks["Task B"]["finish"]
 
 
 # ---------- TestFinishDateValidation ----------

@@ -48,7 +48,7 @@ export function parseNoodleText(text: string, projectName: string = 'Project'): 
       stripped.includes('%') ||
       stripped.includes('!') ||
       stripped.includes('#') ||
-      /202[4-6]-/.test(stripped) || // Date patterns
+      /\d{4}-\d{2}-\d{2}/.test(stripped) || // Any calendar date, not just 2024-2026
       hasDuration ||
       hasQuotes;
 

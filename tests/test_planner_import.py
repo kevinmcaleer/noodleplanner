@@ -505,6 +505,37 @@ class TestConvertPlannerToMarkdown:
         assert "@alice" in md
         assert "@bob" in md
 
+    @pytest.mark.parametrize("outline_level", [True, False])
+    def test_one_day_chain_imports_as_a_sequential_chain(self, outline_level):
+        """Consecutive 1-day tasks are written as a `*` chain, and the star
+        must lead the line: it used to trail the name (`Task B *`), so the
+        chain imported as parallel tasks named "Task B *"."""
+        from noodle_core import (
+            convert_plan_format_to_standard,
+            natural_language_to_yaml,
+            schedule_tasks,
+        )
+        rows = [
+            [2, "Task A", "1 day", datetime(2025, 1, 6), datetime(2025, 1, 6), "", "Alice", 0.0, 2],
+            [3, "Task B", "1 day", datetime(2025, 1, 7), datetime(2025, 1, 7), "", "Alice", 0.0, 2],
+            [4, "Task C", "1 day", datetime(2025, 1, 8), datetime(2025, 1, 8), "", "", 0.0, 2],
+        ]
+        if outline_level:
+            rows.insert(0, [1, "Phase 1", "3 days", datetime(2025, 1, 6), datetime(2025, 1, 8), "", "", 0.0, 1])
+            data = _make_planner_xlsx_bytes(task_rows=rows)
+        else:
+            columns = ["ID", "Task Name", "Duration", "Start", "Finish", "Predecessors", "Resource Names"]
+            data = _make_planner_xlsx_bytes(task_columns=columns, task_rows=[r[:7] for r in rows])
+        md = convert_planner_to_markdown(data, "test.xlsx")["markdown"]
+        assert "  *Task B @alice\n" in md
+        assert "  *Task C\n" in md
+
+        project = natural_language_to_yaml(convert_plan_format_to_standard(md), "Project")["Project"]
+        tasks = {t["name"]: t for t in schedule_tasks(project)}
+        assert tasks["Task A"]["start"] == datetime(2025, 1, 6)
+        assert tasks["Task B"]["start"] == tasks["Task A"]["finish"] == datetime(2025, 1, 7)
+        assert tasks["Task C"]["start"] == tasks["Task B"]["finish"] == datetime(2025, 1, 8)
+
 
 # ---------- New-format Planner export (2025+) ----------
 
