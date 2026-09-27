@@ -365,13 +365,17 @@ new way. RAG is one dot on `--np-success` / `--np-warning` /
 script.js's `ragStatusToColour()`.
 
 **Status: wired into the task form's Subtasks, Dependencies and its
-add-dependency picker, and the product form's Activities.** The picker
-offers compact `picker` rows -- ID, dates, status, people -- ranked by
-names that start with what was typed, without the task itself or its
-existing predecessors, capped at 50 with a count of the rest. The other
-lists the survey found -- task peek, the inspector's dependencies, the
-resource form's assigned tasks, the report tables -- are still their own
-markup.
+add-dependency picker, the product form's Activities, and the whiteboard's
+task peek.** The picker offers compact `picker` rows -- ID, dates, status,
+people -- and opens on a click in the empty box with every task the form's
+task could depend on: never itself, its own phases or subtasks, or anything
+already waiting on it (with that task's subtasks), since each would be a
+loop the engine rejects. Typed matches rank names that start with the query
+first; the list caps at 50 with a count of the rest. The peek's rows are
+compact list rows whose children carry a `count` and an always-shown
+`open` action that drills in. The other lists the survey found -- the
+inspector's dependencies, the resource form's assigned tasks, the report
+tables -- are still their own markup.
 
 ### Composed forms
 

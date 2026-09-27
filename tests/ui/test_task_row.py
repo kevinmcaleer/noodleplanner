@@ -426,3 +426,46 @@ def test_a_long_match_list_is_capped(page, app_server):
     picker = _picker(page)
     assert len(picker["options"]) == 50
     assert picker["more"] and picker["more"].startswith("10 more")
+
+
+def test_clicking_the_empty_box_lists_every_task_it_could_depend_on(loaded):
+    _open_task(loaded, "Backend")
+    loaded.locator("#addDependencyInput").click()
+    names = [o["name"] for o in _picker(loaded)["options"]]
+    # Every leaf task in the plan -- phases were never dependency targets
+    # here (getAllTaskNames) -- ...
+    assert names, "an empty box, clicked, offers the whole plan"
+    assert {"Research", "Styles", "Scripts", "Draft", "Review"} <= set(names)
+    # Never itself, nor its own phases -- depending on those is a loop.
+    assert "Backend" not in names
+    assert "Build" not in names and "Release" not in names
+
+
+def test_the_picker_leaves_out_anything_that_would_make_a_loop(loaded):
+    """Build waits on Research, so Research may not wait on Build -- nor on
+    Build's subtasks, which wait with their phase."""
+    _open_task(loaded, "Research")
+    loaded.locator("#addDependencyInput").click()
+    names = [o["name"] for o in _picker(loaded)["options"]]
+    for looped in ("Research", "Release", "Build", "Frontend", "Styles", "Scripts", "Backend"):
+        assert looped not in names, (looped, names)
+    assert names == ["Draft", "Review"]
+
+
+def test_typing_a_looping_name_is_refused(loaded):
+    _open_task(loaded, "Research")
+    before = _line(loaded, "Research")
+    box = loaded.locator("#addDependencyInput")
+    box.fill("Build")
+    box.press("Enter")
+    assert loaded.locator("#dependenciesList np-task-row").count() == 0
+    assert _line(loaded, "Research") == before
+
+
+def test_arrow_down_opens_a_closed_picker(loaded):
+    _open_task(loaded, "Backend")
+    box = loaded.locator("#addDependencyInput")
+    box.focus()
+    assert not _picker(loaded)["shown"]
+    box.press("ArrowDown")
+    assert _picker(loaded)["shown"]
