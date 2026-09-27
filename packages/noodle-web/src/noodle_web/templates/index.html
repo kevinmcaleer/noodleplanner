@@ -2560,21 +2560,10 @@ Build
                         <summary>Dependencies</summary>
                         <div class="form-group">
                             <label>Dependencies</label>
-                            <div id="dependenciesTable" class="dependencies-table">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>Task Name</th>
-                                            <th style="width: 80px;">Type</th>
-                                            <th style="width: 100px;">Lag/Lead</th>
-                                            <th style="width: 40px;"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="dependenciesTableBody">
-                                        <!-- Dependency rows will be added here -->
-                                    </tbody>
-                                </table>
-                            </div>
+                            <!-- One <np-task-row type="relation"> per predecessor
+                                 (addDependencyRow in script.js). -->
+                            <div id="dependenciesList" class="task-row-list"
+                                 data-empty="No dependencies. Add one below."></div>
                             <div class="dependency-inline-add autocomplete-container" style="position: relative; margin-top: 10px;">
                                 <input type="text" id="addDependencyInput" class="dependency-add-input"
                                        placeholder="Add dependency" autocomplete="off"
@@ -2583,7 +2572,7 @@ Build
                                        onkeydown="handleAddDependencyKeydown(event, this)">
                                 <div id="addDependencyAutocomplete" class="autocomplete-dropdown"></div>
                             </div>
-                            <small style="display: block; margin-top: 5px;">Lag: +2d (wait after), Lead: -1d (start before)</small>
+                            <small style="display: block; margin-top: 5px;">Click a dependency's type to change it or add a lag: +2d (wait after), lead: -1d (start before)</small>
                         </div>
                     </details>
 
@@ -2591,9 +2580,9 @@ Build
                         <summary>Subtasks</summary>
                         <div class="form-group">
                             <label>Sub Tasks</label>
-                            <div id="subtasksList" class="subtasks-list">
-                                <!-- Subtasks will be populated here -->
-                            </div>
+                            <!-- One <np-task-row> per descendant (populateSubtasks in script.js). -->
+                            <div id="subtasksList" class="task-row-list subtasks-list"
+                                 data-empty="No sub tasks"></div>
                             <a href="javascript:void(0)" class="add-item-link" onclick="addNewSubtask()" style="margin-top: 10px; display: inline-block;">
                                 <span class="add-icon">+</span> Add Sub Task
                             </a>
@@ -4127,6 +4116,9 @@ Build
     <script type="module" src="/static/components/button/np-button.js?v={{ v }}"></script>
     <script type="module" src="/static/components/checkbox/np-checkbox.js?v={{ v }}"></script>
     <script type="module" src="/static/components/resource-stack/np-resource-stack.js?v={{ v }}"></script>
+    <!-- One row per task in the task form's Subtasks and Dependencies and the
+         product form's Activities (Penpot "Task row"). -->
+    <script type="module" src="/static/components/task-row/np-task-row.js?v={{ v }}"></script>
     <!-- The whiteboard note's markup (#1249). Not a custom element: it is the
          builder <np-note> and whiteboard-notes.js both make the note from, so
          Storybook and the board cannot drift. whiteboard-notes.js is a classic

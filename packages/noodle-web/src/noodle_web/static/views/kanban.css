@@ -650,10 +650,6 @@
     color: white;
 }
 
-.subtask-item .mini-piechart {
-    margin-right: var(--np-space-12);
-}
-
 /* Card Controls Row (checkbox + move dropdown + up/down buttons) */
 .kanban-card-controls-row {
     display: flex;

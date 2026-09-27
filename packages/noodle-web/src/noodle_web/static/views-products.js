@@ -3402,25 +3402,52 @@ function openProductForm(task) {
         childProdsEl.innerHTML = html;
     }
 
-    // Activities (child tasks — non-deliverable leaf tasks)
+    // Activities (child tasks — non-deliverable leaf tasks): one compact
+    // <np-task-row> each, the same row the task form's Subtasks use.
     const compEl = document.getElementById('productComposition');
     if (compEl) {
         const activities = pbsGetActivities(task, pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []));
-        let html = activities.map(a => {
-            const pct = parseFloat(a.percent) || 0;
-            const name = (a.description || a.name || '').replace(/</g, '&lt;');
-            const safeName = escapeJsAttr(a.name || '');
-            return `<div class="product-comp-item">
-                <span class="product-comp-name">${name}</span>
-                <span class="product-comp-pct">${pct}%</span>
-                <div class="product-comp-actions">
-                    <np-button icon-only variant="neutral" size="small" onclick="event.stopPropagation(); openTaskFormByName('${safeName}')" title="Edit" label="Edit"><span slot="icon">&#9998;</span></np-button>
-                    <np-button icon-only variant="danger" size="small" onclick="event.stopPropagation(); productDeleteActivity('${safeName}')" title="Remove" label="Remove"><span slot="icon">&#10005;</span></np-button>
-                </div>
-            </div>`;
-        }).join('');
-        html += `<div class="product-comp-add"><input type="text" placeholder="Add activity..." onkeydown="if(event.key==='Enter'){productAddActivity(this.value);this.value='';event.preventDefault();}"></div>`;
-        compEl.innerHTML = html;
+        const editor = document.getElementById('planEditor');
+        const resourceMap = editor && typeof parseResourceMappings === 'function' ? parseResourceMappings(editor.value) : {};
+        let resourceDetails = {};
+        if (editor && typeof parseResourceDetails === 'function') {
+            try { resourceDetails = parseResourceDetails(editor.value); } catch { /* front matter is optional */ }
+        }
+        const list = document.createElement('div');
+        list.className = 'task-row-list';
+        list.dataset.empty = 'No activities yet';
+        for (const a of activities) {
+            const row = document.createElement('np-task-row');
+            row.className = 'product-activity-row';
+            row.setAttribute('density', 'compact');
+            row.setAttribute('name', a.description || a.name || '');
+            row.setAttribute('percent', String(parseFloat(a.percent) || 0));
+            const dates = typeof formatTaskRowDates === 'function' ? formatTaskRowDates(a.start, a.finish) : '';
+            if (dates) row.setAttribute('meta', dates);
+            if (a.rag) row.setAttribute('rag', a.rag);
+            if (typeof taskRowResourceNames === 'function') {
+                row.setAttribute('resources', taskRowResourceNames(a.resources, resourceMap));
+            }
+            row.details = resourceDetails;
+            row.setAttribute('action', 'remove');
+            row.addEventListener('task-open', () => openTaskFormByName(a.name));
+            row.addEventListener('task-toggle', (e) => {
+                if (e.detail.checked && typeof spawnConfetti === 'function') spawnConfetti(row.checkbox);
+                productSetActivityPercent(a.name, e.detail.checked ? '100%' : '0%');
+            });
+            row.addEventListener('task-action', (e) => {
+                if (e.detail.kind === 'remove') productDeleteActivity(a.name);
+            });
+            row.addEventListener('resource-open', (e) => {
+                const shortname = e.detail && e.detail.shortname;
+                if (shortname && typeof openResourceForm === 'function') openResourceForm(shortname);
+            });
+            list.appendChild(row);
+        }
+        const add = document.createElement('div');
+        add.className = 'product-comp-add';
+        add.innerHTML = `<input type="text" placeholder="Add activity..." onkeydown="if(event.key==='Enter'){productAddActivity(this.value);this.value='';event.preventDefault();}">`;
+        compEl.replaceChildren(list, add);
     }
 
     // Mini flow diagram — inputs → [this] → outputs
@@ -4000,6 +4027,21 @@ function productAddActivity(name) {
     }
 
     lines.splice(insertAt, 0, `${childIndent}*${name.trim()}`);
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    productFormRefresh();
+}
+
+/** Tick or untick an activity from the product form: its own line's
+ * percent, the same edit a subtask's checkbox makes in the task form. */
+function productSetActivityPercent(taskName, percent) {
+    const editor = document.getElementById('planEditor');
+    if (!editor || !taskName || typeof updatePercentInLine !== 'function') return;
+    const lineNumber = findTaskLineNumber({ name: taskName });
+    if (!(lineNumber > 0)) return;
+    const lines = editor.value.split('\n');
+    lines[lineNumber - 1] = updatePercentInLine(lines[lineNumber - 1], percent);
     editor.value = lines.join('\n');
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     editor.dispatchEvent(new Event('input'));
