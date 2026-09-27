@@ -901,6 +901,10 @@ const FILE_ACTIONS = {
     'New plan': () => showCreateProjectDialog(),
     'Open…': () => openLocalPlanFile(),
     Save: () => downloadMarkdown(),
+    // #1406: Backstage-only, and only where Save can write to a file on
+    // disk (backstage.js hides both elsewhere, where Save downloads).
+    'Save As…': () => savePlanAs(),
+    'Download a copy': () => downloadPlanCopy(),
     'Import from Excel / MS Project': () => openFormatMenu(IMPORT_FORMATS, 'Import'),
     'Export…': () => openFormatMenu(EXPORT_FORMATS, 'Export'),
     Templates: () => openTemplatesModal(),

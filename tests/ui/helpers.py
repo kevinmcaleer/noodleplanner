@@ -189,3 +189,61 @@ def actionable_console_errors(page):
             continue
         out.append(message)
     return out
+
+
+# ── Files on disk ────────────────────────────────────────────────────────
+#
+# The File System Access API's pickers are OS dialogs, so tests stub them to
+# hand back files from the origin private file system instead: real
+# FileSystemFileHandles that can be written through and stored in IndexedDB.
+
+
+def opfs_write(page, name, text):
+    """Create or overwrite `name` in the origin private file system."""
+    page.evaluate(
+        """async ([name, text]) => {
+            const root = await navigator.storage.getDirectory();
+            const handle = await root.getFileHandle(name, { create: true });
+            const writable = await handle.createWritable();
+            await writable.write(text);
+            await writable.close();
+        }""",
+        [name, text],
+    )
+
+
+def opfs_read(page, name):
+    """The text of `name` in the origin private file system."""
+    return page.evaluate(
+        """async (name) => {
+            const root = await navigator.storage.getDirectory();
+            const handle = await root.getFileHandle(name);
+            return (await handle.getFile()).text();
+        }""",
+        name,
+    )
+
+
+def wait_for_opfs_text(page, name, fragment):
+    """Wait until `name` exists and contains `fragment`. A read that overlaps
+    the app's own write throws NotReadableError; that just means "not yet"."""
+    page.wait_for_function(
+        """async ([name, fragment]) => {
+            try {
+                const root = await navigator.storage.getDirectory();
+                const file = await (await root.getFileHandle(name)).getFile();
+                return (await file.text()).includes(fragment);
+            } catch (error) {
+                return false;
+            }
+        }""",
+        arg=[name, fragment],
+    )
+
+
+def wait_for_link_status(page, text):
+    """Wait for the status bar's linked-file indicator to read `text`."""
+    page.wait_for_function(
+        "text => document.getElementById('localFileLinkStatus').textContent === text",
+        arg=text,
+    )

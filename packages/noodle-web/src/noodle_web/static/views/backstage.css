@@ -82,6 +82,11 @@ body.backstage-fullscreen {
     transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
+/* #1406: Save As… and Download a copy, where Save cannot write to disk. */
+.backstage-rail-btn[hidden] {
+    display: none;
+}
+
 .backstage-rail-btn svg.icon {
     flex: 0 0 auto;
     color: var(--np-accent);
