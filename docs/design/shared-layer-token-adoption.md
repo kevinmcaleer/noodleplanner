@@ -101,3 +101,17 @@ selectors (29 had elements on the page at the time) in `:hover`, `:focus`,
 
 **Totals after move 4.** raw-colour findings: `components.css` 267 -> 231,
 `dark-mode.css` 136 -> 124, all files 711 -> 663.
+
+## Phase 3: recolouring the rest
+
+The palette decision (#1322) is made: the Bootstrap/Material/Tailwind
+literals move onto the warm tokens, and this time a visible change is
+allowed. Penpot added two single-valued tokens for it, `--np-on-fill` (white
+on a coloured fill, both themes) and `--np-shade` (black, the base for
+`color-mix()` scrims and shadows that must not flip). Each slice was captured
+before and after, 84 screens x 2 themes, and every changed screen was looked
+at.
+
+| # | Slice | Screens changed | What changed, and why |
+|---|---|---|---|
+| 9 | Ribbon | 82 light, 0 dark | The ribbon's old dark-blue title-bar palette (`#a9c7d4`, `#e3f2fd`, `rgba(2,20,28,…)` …) and the `--np-dark-blue`/`--np-blue` it used become the warm neutrals visual-system.css's ribbon layer already paints with, so the two layers now agree and the 60-line dark ribbon block in dark-mode.css is deleted. Visible: the Project/Programme/Portfolio scope track now shows as a `--np-sunken` pill, and the title-bar separator as a `--np-border` hairline, where both had been white-on-light and invisible. Popover shadows are `--np-floating-shadow`. Dark is unchanged because visual-system.css already won there. |

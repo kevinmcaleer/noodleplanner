@@ -7273,7 +7273,7 @@ tr:hover .task-context-btn,
     gap: var(--np-space-12);
     height: 38px;
     padding: 0 var(--np-space-12);
-    background: var(--np-dark-blue);
+    background: var(--np-surface-alt);
     z-index: 5;
 }
 
@@ -7290,7 +7290,7 @@ tr:hover .task-context-btn,
     gap: var(--np-space-2);
     padding: var(--np-space-2);
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--np-sunken);
 }
 
 .ribbon-scope-btn {
@@ -7307,7 +7307,7 @@ tr:hover .task-context-btn,
     line-height: 1;
     font-family: inherit;
     background: transparent;
-    color: #a9c7d4;
+    color: var(--np-body);
 }
 
 .ribbon-scope-btn svg {
@@ -7319,13 +7319,13 @@ tr:hover .task-context-btn,
 }
 
 .ribbon-scope-btn.active {
-    background: var(--np-blue);
+    background: var(--np-selected);
 }
 
 .ribbon-titlebar-sep {
     width: 1px;
     height: 20px;
-    background: rgba(255,255,255,0.2);
+    background: var(--np-border);
     flex-shrink: 0;
 }
 
@@ -7342,7 +7342,7 @@ tr:hover .task-context-btn,
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    color: var(--np-dark-blue-subtle);
+    color: var(--np-body);
 }
 
 .ribbon-quick-btn svg {
@@ -7354,8 +7354,8 @@ tr:hover .task-context-btn,
 }
 
 .ribbon-quick-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: #fff;
+    background: var(--np-sunken);
+    color: var(--np-ink);
 }
 
 .ribbon-doc-title {
@@ -7367,7 +7367,7 @@ tr:hover .task-context-btn,
     font-size: 11.5px;
     line-height: 1;
     font-family: inherit;
-    color: #a9c7d4;
+    color: var(--np-body);
     margin-left: var(--np-space-4);
     white-space: nowrap;
     overflow: hidden;
@@ -7381,7 +7381,7 @@ tr:hover .task-context-btn,
 
 .ribbon-breadcrumb-rung {
     font: inherit;
-    color: #a9c7d4;
+    color: var(--np-body);
     background: transparent;
     border: none;
     padding: 0;
@@ -7391,7 +7391,7 @@ tr:hover .task-context-btn,
 }
 
 button.ribbon-breadcrumb-rung:hover {
-    color: #ffffff;
+    color: var(--np-ink);
     text-decoration: underline;
 }
 
@@ -7410,8 +7410,8 @@ button.ribbon-breadcrumb-rung:hover {
     height: 23px;
     padding: 0 var(--np-space-12);
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.15);
-    color: var(--np-dark-blue-subtle);
+    background: var(--np-paper);
+    color: var(--np-faint);
     font-size: 11px;
     white-space: nowrap;
     max-width: 240px;
@@ -7438,7 +7438,7 @@ button.ribbon-breadcrumb-rung:hover {
 }
 
 .ribbon-search-input::placeholder {
-    color: var(--np-dark-blue-subtle);
+    color: var(--np-faint);
 }
 
 .ribbon-search-input::-webkit-search-cancel-button {
@@ -7577,7 +7577,7 @@ button.ribbon-breadcrumb-rung:hover {
     padding: 0 var(--np-space-12);
     border: none;
     border-radius: 4px;
-    background: var(--np-red);
+    background: var(--np-accent);
     font-weight: 600;
     font-size: 12px;
     line-height: 1;
@@ -7596,26 +7596,26 @@ button.ribbon-breadcrumb-rung:hover {
     font-size: 13px;
     line-height: 1;
     font-family: inherit;
-    color: #4a626d;
+    color: var(--np-body);
 }
 
 .ribbon-tab-btn:hover {
-    color: var(--np-dark-blue);
+    color: var(--np-ink);
 }
 
 .ribbon-tab-btn.active {
-    border-bottom-color: var(--np-blue);
-    color: var(--np-dark-blue);
+    border-bottom-color: var(--np-accent);
+    color: var(--np-ink);
 }
 
 .ribbon-tab-btn.contextual {
     margin-left: var(--np-space-16);
-    color: #2c4a56;
+    color: var(--np-body);
     animation: ribbonCtxIn 0.22s ease both;
 }
 
 .ribbon-tab-btn.contextual.active {
-    color: var(--np-dark-blue);
+    color: var(--np-ink);
 }
 
 @keyframes ribbonCtxIn {
@@ -7633,9 +7633,9 @@ button.ribbon-breadcrumb-rung:hover {
     left: 8px;
     width: 290px;
     padding: var(--np-space-8);
-    background: var(--np-dark-blue);
+    background: var(--np-surface);
     border-radius: 0 6px 6px 6px;
-    box-shadow: 0 14px 34px rgba(2, 20, 28, 0.35);
+    box-shadow: var(--np-floating-shadow);
     animation: ribbonCtxIn 0.16s ease both;
     z-index: 6;
 }
@@ -7650,7 +7650,7 @@ button.ribbon-breadcrumb-rung:hover {
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    color: #e4eef2;
+    color: var(--np-ink);
     font-weight: 400;
     font-size: 12px;
     line-height: 1;
@@ -7659,7 +7659,7 @@ button.ribbon-breadcrumb-rung:hover {
 }
 
 .ribbon-file-menu-item:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--np-sunken);
 }
 
 .ribbon-file-menu-item svg {
@@ -7733,7 +7733,7 @@ button.ribbon-breadcrumb-rung:hover {
     border: 1px solid transparent;
     border-radius: 4px;
     cursor: pointer;
-    color: var(--np-dark-blue);
+    color: var(--np-body);
     font-weight: 400;
     font-size: 11px;
     line-height: 1.2;
@@ -7767,7 +7767,7 @@ button.ribbon-breadcrumb-rung:hover {
     border: 1px solid transparent;
     border-radius: 4px;
     cursor: pointer;
-    color: #20404d;
+    color: var(--np-body);
     font-weight: 400;
     font-size: 11.5px;
     line-height: 1;
@@ -7786,8 +7786,8 @@ button.ribbon-breadcrumb-rung:hover {
 
 .ribbon-lg-btn:hover:not(:disabled),
 .ribbon-sm-btn:hover:not(:disabled) {
-    background: #e3f2fd;
-    border-color: #b6dced;
+    background: var(--np-sunken);
+    border-color: var(--np-border-strong);
 }
 
 .ribbon-lg-btn:disabled,
@@ -7798,7 +7798,7 @@ button.ribbon-breadcrumb-rung:hover {
 
 .ribbon-caret {
     font-size: 8px;
-    color: #6b7b83;
+    color: var(--np-faint);
 }
 
 .ribbon-group-caption {
@@ -7816,7 +7816,7 @@ button.ribbon-breadcrumb-rung:hover {
 
 .ribbon-launcher {
     font-size: 9px;
-    color: #8fa8b3;
+    color: var(--np-faint);
     cursor: pointer;
 }
 
@@ -7829,7 +7829,7 @@ button.ribbon-breadcrumb-rung:hover {
     width: 74px;
     padding: var(--np-space-8) var(--np-space-4) var(--np-space-4);
     margin-left: auto;
-    border-left: 1px solid rgba(2, 56, 77, 0.13);
+    border-left: 1px solid var(--np-border);
     flex-shrink: 0;
 }
 
@@ -7841,10 +7841,10 @@ button.ribbon-breadcrumb-rung:hover {
     width: 66px;
     padding: var(--np-space-4) var(--np-space-4);
     background: transparent;
-    border: 1px solid #cfdde3;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     cursor: pointer;
-    color: var(--np-dark-blue);
+    color: var(--np-body);
     font-weight: 400;
     font-size: 11px;
     line-height: 1.2;
@@ -7852,8 +7852,8 @@ button.ribbon-breadcrumb-rung:hover {
 }
 
 .ribbon-more-btn:hover {
-    background: #e3f2fd;
-    border-color: #b6dced;
+    background: var(--np-sunken);
+    border-color: var(--np-border-strong);
 }
 
 .ribbon-more-chevron {
@@ -7878,9 +7878,9 @@ button.ribbon-breadcrumb-rung:hover {
     overflow-y: auto;
     padding: var(--np-space-8);
     background: var(--np-surface);
-    border: 1px solid #d8e1e5;
+    border: 1px solid var(--np-border);
     border-radius: 6px;
-    box-shadow: 0 14px 34px rgba(2, 20, 28, 0.2);
+    box-shadow: var(--np-floating-shadow);
     z-index: 7;
     animation: ribbonCtxIn 0.16s ease both;
 }
@@ -7946,7 +7946,7 @@ button.ribbon-breadcrumb-rung:hover {
     border: 1px solid transparent;
     border-radius: 4px;
     cursor: pointer;
-    color: var(--np-dark-blue);
+    color: var(--np-body);
     font-weight: 400;
     font-size: 11.5px;
     line-height: 1;
@@ -7965,8 +7965,8 @@ button.ribbon-breadcrumb-rung:hover {
 }
 
 .ribbon-simple-btn:hover:not(:disabled) {
-    background: #e3f2fd;
-    border-color: #b6dced;
+    background: var(--np-sunken);
+    border-color: var(--np-border-strong);
 }
 
 .ribbon-simple-btn:disabled {
@@ -8020,15 +8020,15 @@ button.ribbon-breadcrumb-rung:hover {
     white-space: nowrap;
     cursor: pointer;
     background: transparent;
-    border: 1px solid #cfdde3;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
-    color: var(--np-dark-blue);
+    color: var(--np-body);
     flex-shrink: 0;
 }
 
 .ribbon-simple-group-trigger:hover {
-    background: #e3f2fd;
-    border-color: #b6dced;
+    background: var(--np-sunken);
+    border-color: var(--np-border-strong);
 }
 
 /* The `display: flex` above would otherwise beat the `hidden` attribute
@@ -8062,9 +8062,9 @@ button.ribbon-breadcrumb-rung:hover {
     min-width: 160px;
     padding: var(--np-space-4);
     background: var(--np-surface);
-    border: 1px solid #d8e1e5;
+    border: 1px solid var(--np-border);
     border-radius: 6px;
-    box-shadow: 0 14px 34px rgba(2, 20, 28, 0.2);
+    box-shadow: var(--np-floating-shadow);
     z-index: 7;
     animation: ribbonCtxIn 0.16s ease both;
 }
@@ -8100,12 +8100,12 @@ button.ribbon-breadcrumb-rung:hover {
     background: transparent;
     border: none;
     cursor: pointer;
-    color: #6b7b83;
+    color: var(--np-body);
 }
 
 .ribbon-display-toggle-btn:hover,
 .ribbon-display-toggle-btn:focus-visible {
-    color: var(--np-dark-blue);
+    color: var(--np-ink);
 }
 
 /* Positioned via inline style (right/top) set by ribbon.js's
@@ -8117,9 +8117,9 @@ button.ribbon-breadcrumb-rung:hover {
     width: 160px;
     padding: var(--np-space-4);
     background: var(--np-surface);
-    border: 1px solid #d8e1e5;
+    border: 1px solid var(--np-border);
     border-radius: 6px;
-    box-shadow: 0 14px 34px rgba(2, 20, 28, 0.2);
+    box-shadow: var(--np-floating-shadow);
     z-index: 7;
     animation: ribbonCtxIn 0.16s ease both;
 }
@@ -8134,7 +8134,7 @@ button.ribbon-breadcrumb-rung:hover {
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    color: var(--np-dark-blue);
+    color: var(--np-body);
     font-weight: 400;
     font-size: 11.5px;
     line-height: 1;
@@ -8144,7 +8144,7 @@ button.ribbon-breadcrumb-rung:hover {
 }
 
 .ribbon-display-menu-item:hover {
-    background: #e3f2fd;
+    background: var(--np-sunken);
 }
 
 .ribbon-display-menu-item.selected {
