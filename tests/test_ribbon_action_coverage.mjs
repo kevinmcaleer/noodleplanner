@@ -33,7 +33,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import {
-  TABS, CONTEXTUAL_TABS, PORTFOLIO_TABS, PROGRAMME_TABS,
+  TABS, CONTEXTUAL_TABS, PORTFOLIO_TABS, PROGRAMME_TABS, CREATE_FOR_VIEW,
 } from "../packages/noodle-web/src/noodle_web/static/ribbon-ia.js";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
@@ -263,4 +263,19 @@ test("applying a highlight preset also reveals the editor panel (#1111)", () => 
   assert.ok(runLine, "no HIGHLIGHT_PRESETS run() callback found");
   assert.match(runLine[0], /applyPreset\(preset\)/);
   assert.match(runLine[0], /revealEditorPanel\(\)/, "picking a preset doesn't reveal the editor panel");
+});
+
+test("every phone \"+\" create action (#1382) resolves to a real function, not a stub", () => {
+  // CREATE_FOR_VIEW's commands go through resolveAction() like a ribbon
+  // button, so each must be wired: scoped ("scope:Label") or generic.
+  const scopedBlock = ribbonSrc.match(/function scopedAction[\s\S]*?const table = \{([\s\S]*?)\n {4}\};/)[1];
+  const scoped = new Set(topLevelKeys(scopedBlock));
+  const labelActionsBlock = ribbonSrc.match(/const LABEL_ACTIONS = \{([\s\S]*?)\n\};/)[1];
+  const generic = new Set(topLevelKeys(labelActionsBlock));
+  const missing = [];
+  for (const [view, { command: [scopeId, label] }] of Object.entries(CREATE_FOR_VIEW)) {
+    if (!scoped.has(`${scopeId}:${label}`) && !generic.has(label)) missing.push(`${view}: ${scopeId}:${label}`);
+    assert.ok(!DELIBERATE_STUBS.has(label) || scoped.has(`${scopeId}:${label}`), `${view}'s create action is a stub`);
+  }
+  assert.deepEqual(missing, []);
 });

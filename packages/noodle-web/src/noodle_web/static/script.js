@@ -11130,12 +11130,7 @@ function addCalendarTask(dateStr) {
     if (!editor) return;
 
     const taskName = `New Task ${dateStr}`;
-    const taskLine = `  ${taskName} ${dateStr} ${dateStr}`;
-
-    const text = editor.value;
-    const newText = text.endsWith('\n') ? text + taskLine + '\n' : text + '\n' + taskLine + '\n';
-    editor.value = newText;
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    appendPlanTask(`${taskName} ${dateStr} ${dateStr}`);
     setTimeout(() => renderText(), 10);
 }
 
@@ -17196,36 +17191,45 @@ function openRaidFormWithType(type) {
  * Add a new task line to the plan editor and open the task form for editing.
  * Appends a placeholder task line at the end of the editor content.
  */
-function addNewTaskViaShortcut() {
+/**
+ * Add a task line to the plan and return its (1-based) editor line number,
+ * or -1 (#1382). Through PlanModel, not by appending text: a plan with back
+ * matter (---raid---, ---whiteboard--- ...) ends in that back matter, and a
+ * task line appended after it landed inside the RAID log. The new task goes
+ * where the append meant it to -- the last child of the last top-level task,
+ * or a top-level task in a plan with none -- as one undo step.
+ */
+function appendPlanTask(content) {
     const editor = document.getElementById('planEditor');
-    if (!editor) return;
+    if (!editor || typeof NoodlePlanModel === 'undefined') return -1;
+    const undo = typeof EditorUndoManager !== 'undefined' ? EditorUndoManager : null;
+    if (undo) undo.captureImmediate(editor.value);
+    const model = NoodlePlanModel.modelForEditor(editor);
+    const last = model.roots[model.roots.length - 1] || null;
+    const node = model.insertTaskAfter(last, last ? last.indent + 2 : 0, content);
+    NoodlePlanModel.commitToEditor(editor, model);
+    if (undo) undo.captureImmediate(editor.value);
+    return model.lineNumber(node);
+}
 
-    const taskLine = '  New Task 1d';
-    const text = editor.value;
-    const newText = text.endsWith('\n') ? text + taskLine + '\n' : text + '\n' + taskLine + '\n';
-    editor.value = newText;
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
+function addNewTaskViaShortcut() {
+    const lineNumber = appendPlanTask('New Task 1d');
+    if (lineNumber < 1) return;
 
-    // Find the line number of the newly added task and open the task form
-    const lines = editor.value.split('\n');
-    for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].trim() === 'New Task 1d') {
-            openTaskForm(i + 1);
-            // Focus and select the title so the user can start typing immediately
-            setTimeout(() => {
-                const titleEl = document.getElementById('taskFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
-                if (titleEl) {
-                    titleEl.focus();
-                    const sel = window.getSelection();
-                    const range = document.createRange();
-                    range.selectNodeContents(titleEl);
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-                }
-            }, 150);
-            return;
+    // Open the task form on it, with the title selected so the user can start
+    // typing immediately.
+    openTaskForm(lineNumber);
+    setTimeout(() => {
+        const titleEl = document.getElementById('taskFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
+        if (titleEl) {
+            titleEl.focus();
+            const sel = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(titleEl);
+            sel.removeAllRanges();
+            sel.addRange(range);
         }
-    }
+    }, 150);
 }
 
 

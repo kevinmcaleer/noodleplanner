@@ -420,6 +420,19 @@ function scopedAction(scopeId, label) {
         // the default; Realisation is the only reason this button existed).
         'track:Realisation': () => { switchToView('benefits'); if (typeof benSwitchView === 'function') benSwitchView('tracking'); },
         'lessons:New Lesson': () => addLessonsItem(),
+        // The phone's "+" button's create actions (#1382, CREATE_FOR_VIEW in
+        // ribbon-ia.js) that had no ribbon command of their own: each view's
+        // own "Add" function, the one its empty state and toolbar call.
+        'calendar:New Task': () => {
+            const today = new Date();
+            const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            addCalendarTask(iso);
+        },
+        'actions:New Action': () => addAction(),
+        'highlights:New Highlight': () => addHighlight(),
+        'comms:New Comms Item': () => addCommsItem(),
+        'budget:New Budget Line': () => openBudgetForm(),
+        'benefits:New Benefit': () => addBenefitItem(),
         'stakeholders:Add Stakeholder': () => addStakeholderRow(),
         'stakeholders:Comms Plan': switchView('comms'),
         'resources:Add Resource': () => openResourceForm(),
@@ -667,6 +680,63 @@ function runAction(scopeId, label, anchorEl = null) {
 }
 
 // ---------------------------------------------------------------------------
+// The ribbon's commands as a list (#1382)
+//
+// On a phone the ribbon is hidden and its commands open from the app bar's ⋯
+// as a bottom sheet (phone-commands.js, <np-action-sheet>). The sheet is not a
+// second copy of the commands: it is this, built from the same ribbon-ia.js
+// tabs, resolved by the same resolveAction(), pressed by the same
+// isButtonActive() and run by the same runAction() -- so a command added to
+// the ribbon is on the phone too, in the same state.
+// ---------------------------------------------------------------------------
+
+/** The current view's commands, contextual tab first, then the scope's tabs:
+ * `[{ id, label, items: [{ scopeId, label, icon, help, disabled, active,
+ * href }] }]`. */
+async function ribbonCommandSections() {
+    const ia = await loadIA();
+    const live = getLiveState();
+    const scope = ribbonPinnedTabId() ? ribbonState.scope : ia.scopeForView(live.view);
+    const ctx = currentContextTab(ia, live);
+    const tabs = [...(ctx ? [ctx] : []), ...ia.tabsForScope(scope)];
+    return tabs.map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+        items: tab.groups.flatMap(flattenGroupButtons).map(([icon, label, flag]) => {
+            const href = linkHrefFor(flag);
+            const help = LABEL_HELP[label] || '';
+            if (href) return { scopeId: tab.id, label, icon, href, help: help || 'Opens in a new tab', disabled: false, active: false };
+            const action = resolveAction(tab.id, label);
+            return {
+                scopeId: tab.id,
+                label,
+                icon,
+                help: action ? help : "Not available yet",
+                disabled: !action,
+                active: isButtonActive(tab.id, label, live),
+            };
+        }),
+    }));
+}
+
+/** Run one of ribbonCommandSections()'s commands, exactly as its ribbon
+ * button would. */
+function runRibbonCommand(scopeId, label) {
+    runAction(scopeId, label, null);
+}
+
+/** The current view's main create action, for the phone's "+" (#1382):
+ * `{ label, run }`, or null for a view with none. */
+async function ribbonCreateCommand(view) {
+    const ia = await loadIA();
+    const create = ia.createActionFor ? ia.createActionFor(view) : null;
+    if (!create) return null;
+    const [scopeId, label] = create.command;
+    const action = resolveAction(scopeId, label);
+    return action ? { label: create.label, run: () => runAction(scopeId, label, null) } : null;
+}
+
+// ---------------------------------------------------------------------------
 // Small popovers: caret format-choice menus (Import/Export) render as a
 // `.ribbon-file-menu` -- a name kept from #972 retiring the File dropdown
 // that originally introduced the look; only that one caller remains.
@@ -683,6 +753,12 @@ let ribbonActionAnchor = null;
 
 function openFormatMenu(formats, label, anchorEl = ribbonActionAnchor) {
     closePopovers();
+    // A phone has no ribbon to hang the menu off (#1382): the same choices
+    // open as a sheet instead (phone-commands.js).
+    if (document.documentElement.dataset.layout === 'phone' && window.NoodlePhoneCommands) {
+        window.NoodlePhoneCommands.openChoices(label, formats);
+        return;
+    }
     const shell = document.querySelector('.ribbon-shell');
     if (!shell) return;
     const menu = document.createElement('div');
@@ -726,7 +802,7 @@ function renderTitleBar(ia, live) {
     }).join('');
 
     const quickActions = ia.QUICK_ACTIONS.map((q) => {
-        const disabled = q.label === 'Undo' && !live.canUndo;
+        const disabled = (q.label === 'Undo' && !live.canUndo) || (q.label === 'Redo' && !live.canRedo);
         // data-quick stays the action's id; only what the user reads changes.
         const title = (q.label === 'Start planning session' && live.collabSessionLive) ? 'Show planning session' : q.label;
         return `<button type="button" class="ribbon-quick-btn" data-quick="${q.label}" title="${title}" aria-label="${title}" ${disabled ? 'disabled' : ''}>
@@ -1461,6 +1537,7 @@ function wireEvents(shell) {
             const label = quickBtn.dataset.quick;
             if (label === 'Save') downloadMarkdown();
             else if (label === 'Undo') EditorUndoManager.undo();
+            else if (label === 'Redo') EditorUndoManager.redo();
             else if (label === 'New task') addNewTaskViaShortcut();
             else if (label === 'Print') window.print();
             else if (label === 'AI Chat') { if (typeof onAIButtonClick === 'function') onAIButtonClick(); }
@@ -1682,6 +1759,9 @@ function wrapUndoRedoRefresh() {
         original.apply(EditorUndoManager, args);
         const undoBtn = document.querySelector('.ribbon-quick-btn[data-quick="Undo"]');
         if (undoBtn) undoBtn.disabled = !EditorUndoManager.canUndo();
+        const redoBtn = document.querySelector('.ribbon-quick-btn[data-quick="Redo"]');
+        if (redoBtn) redoBtn.disabled = !EditorUndoManager.canRedo();
+        document.dispatchEvent(new CustomEvent('undostatechange'));
     };
     EditorUndoManager.__ribbonWrapped = true;
 }

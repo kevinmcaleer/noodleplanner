@@ -181,6 +181,8 @@
     </header>
     <np-nav-drawer id="phoneNavDrawer"></np-nav-drawer>
     <np-action-sheet id="phoneSheet"></np-action-sheet>
+    <!-- The current view's create action (#1382, phone-commands.js). -->
+    <np-fab id="phoneFab" hidden></np-fab>
 
     <div class="container-fluid m-0 p-0">
         <div class="content" id="main-content" role="main">
@@ -4085,6 +4087,7 @@ Build
     <script src="/static/collab-session.js?v={{ v }}"></script>
     <script src="/static/ribbon.js?v={{ v }}"></script>
     <script src="/static/phone-shell.js?v={{ v }}"></script>
+    <script src="/static/phone-commands.js?v={{ v }}"></script>
     <script src="/static/date-detect.js?v={{ v }}"></script>
     <script src="/static/smart-date-tags.js?v={{ v }}"></script>
 
@@ -4106,6 +4109,7 @@ Build
     <script type="module" src="/static/components/view-chips/np-view-chips.js?v={{ v }}"></script>
     <script type="module" src="/static/components/nav-drawer/np-nav-drawer.js?v={{ v }}"></script>
     <script type="module" src="/static/components/action-sheet/np-action-sheet.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/fab/np-fab.js?v={{ v }}"></script>
 
     {% include "_user_profile_dialog.html" %}
 

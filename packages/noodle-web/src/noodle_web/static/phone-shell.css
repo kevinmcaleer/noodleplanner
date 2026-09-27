@@ -86,3 +86,9 @@
 [data-layout="phone"] body.markdown-view .output-panel {
     display: none;
 }
+
+/* The "+" is a phone control (#1382); phone-commands.js also hides it on a
+   view with nothing to create. */
+:root:not([data-layout="phone"]) #phoneFab {
+    display: none;
+}
