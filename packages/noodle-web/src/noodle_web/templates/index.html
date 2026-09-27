@@ -118,6 +118,7 @@
     <link rel="stylesheet" href="/static/views/cards.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/plan-wizard.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/whiteboard.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/plan-list.css?v={{ v }}">
     <link rel="stylesheet" href="/static/task-peek.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/timeline.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/portfolio.css?v={{ v }}">
@@ -730,6 +731,10 @@ Press Enter to render..."></textarea>
                                         </tbody>
                                     </table>
                                 </div>
+                                <!-- The plan list (#1384): the Tasks view on a phone, one
+                                     <np-note stacked> card per summary task. Filled by
+                                     plan-list.js from updateTasksTable(). -->
+                                <div id="planList" class="plan-list" role="region" aria-label="Plan" hidden></div>
                             </div>
                         </div>
 
@@ -4005,6 +4010,10 @@ Build
     <script src="/static/project-store.js?v={{ v }}"></script>
     <script src="/static/programme-data-store.js?v={{ v }}"></script>
     <script src="/static/project-storage.js?v={{ v }}"></script>
+    <!-- Which summaries are collapsed, per project: the Gantt's and the plan
+         list's (#1384). Then the plan list itself, the Tasks view on a phone. -->
+    <script src="/static/summary-collapse.js?v={{ v }}"></script>
+    <script src="/static/plan-list.js?v={{ v }}"></script>
     <script src="/static/version-history.js?v={{ v }}"></script>
     <script src="/static/portfolio.js?v={{ v }}"></script>
     <script src="/static/multi-plan-loader.js?v={{ v }}"></script>
@@ -4071,6 +4080,8 @@ Build
          script and cannot import it, so it arrives as globalThis.NoodleNoteMarkup
          -- see that file's own note on the ordering. -->
     <script type="module" src="/static/components/note/note-markup.js?v={{ v }}"></script>
+    <!-- <np-note> itself: the plan list's cards (#1384) are stacked notes. -->
+    <script type="module" src="/static/components/note/np-note.js?v={{ v }}"></script>
     <!-- The phone shell's components (#1380, #1382). -->
     <script type="module" src="/static/components/app-bar/np-app-bar.js?v={{ v }}"></script>
     <script type="module" src="/static/components/view-chips/np-view-chips.js?v={{ v }}"></script>

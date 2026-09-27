@@ -69,6 +69,33 @@
  * `rows` mirrors the child view-models `wbBuildNoteViewModel()` builds:
  * `{ name, complete, hasChildren, childCount, resources, deliverable,
  *    planningType, languageHint, date, depTarget }`.
+ *
+ * ## Stacked (#1384, epic #1376)
+ *
+ * `stacked` lays the note out as a card in a column rather than a post-it on
+ * a canvas: full width, as tall as its rows, and opening and closing instead
+ * of resizing. It is the plan list on a phone (plan-list.js) -- the Tasks view
+ * there, and the whiteboard's "Cards". The canvas's gestures (the link and
+ * dependency handles, the planning hint, the scissors, the resize grip) are
+ * not drawn; what is added comes from the shared builder too
+ * (buildStackedParts() in note-markup.js):
+ *
+ *   - a chevron in the header, and `collapsed` to close the card to its
+ *     header and summary line;
+ *   - the summary line, from the `summary` property:
+ *     `{ percent, start, finish, rag, ragColour, resources, total, done }`
+ *     (start and finish as display text);
+ *   - on each row, `finish` (display text), `depth` (rows under a nested
+ *     summary are indented), `readOnly` (a summary's box reports its
+ *     children and cannot be ticked) and, on a summary row, `collapsed`.
+ *
+ * Events, each with the row's own model object as `detail.row`:
+ *   - `expandedchange` `{ expanded }` -- the header was tapped.
+ *   - `rowactivate` -- a row was tapped (or its name activated by keyboard).
+ *   - `rowcomplete` `{ row, complete }` -- a row's box was ticked or cleared.
+ *   - `rowtoggle` `{ row, collapsed }` -- a summary row's badge was tapped.
+ *
+ * The "Add task…" row is left out of a stacked note unless it is `addable`.
  */
 
 // The row's checkbox is a component of its own (#1245); importing it here
@@ -155,12 +182,14 @@ export class NpNote extends HTMLElement {
             'width', 'height',
             'freeform', 'thought', 'title-only', 'selected', 'flash', 'park-armed',
             'parking', 'link-target', 'link-target-invalid', 'editing',
+            'stacked', 'collapsed', 'addable',
         ];
     }
 
     constructor() {
         super();
         this._rows = [];
+        this._summary = {};
         this._built = false;
     }
 
@@ -173,6 +202,11 @@ export class NpNote extends HTMLElement {
         if (name === 'rows' && value) {
             try { this._rows = JSON.parse(value); } catch { this._rows = []; }
         }
+        // A stacked note has parts a board note has not, so it is rebuilt.
+        if (name === 'stacked' && this._built && (value === null) === !!this._refs.expandBtn) {
+            this._built = false;
+            this._build();
+        }
         if (this._built) this._render();
     }
 
@@ -183,6 +217,10 @@ export class NpNote extends HTMLElement {
      * stacks' hover profile cards; the app fills it from front matter. */
     get details() { return this._details; }
     set details(value) { this._details = value || {}; if (this._built) this._render(); }
+
+    /** A stacked note's summary line -- see "Stacked" above. */
+    get summary() { return this._summary; }
+    set summary(value) { this._summary = value || {}; if (this._built) this._render(); }
 
 
     /** The task name, as `.wb-note`'s `data-wb-task` carries it. */
@@ -211,7 +249,7 @@ export class NpNote extends HTMLElement {
         // exists to close. The note has no `...` button of its own any more:
         // its actions live in the board's floating object toolbar
         // (whiteboard-object-toolbar.js), which is not part of the note.
-        const { card, rails } = buildNoteCard();
+        const { card, rails, refs } = buildNoteCard({ stacked: this.hasAttribute('stacked') });
         // Beside the card, not inside it -- the card and its body both clip
         // horizontally, so a rail drawn within either never leaves the note.
         // The host is the positioning context; `_render()` keeps it relative.
@@ -231,8 +269,43 @@ export class NpNote extends HTMLElement {
             btn.addEventListener('pointerleave', () => this._hideRails());
         }
 
+        if (refs.expandBtn) this._wireStacked(card, refs);
+
         this._refs = refs;
         this._built = true;
+    }
+
+    /** A stacked note's taps, reported as events -- see "Stacked" above. */
+    _wireStacked(card, refs) {
+        const rowOf = (target) => {
+            const row = target.closest && target.closest('.wb-note-row');
+            return row && card.contains(row) ? this._rows[Number(row.dataset.rowIndex)] : null;
+        };
+        const emit = (type, detail) => this.dispatchEvent(new CustomEvent(type, { bubbles: true, detail }));
+
+        refs.header.addEventListener('click', () => {
+            const expanded = this.hasAttribute('collapsed');
+            this.toggleAttribute('collapsed', !expanded);
+            emit('expandedchange', { expanded });
+        });
+        card.addEventListener('change', (e) => {
+            const row = e.target.closest && e.target.closest('np-checkbox') ? rowOf(e.target) : null;
+            if (row) emit('rowcomplete', { row, complete: !!(e.detail && e.detail.checked) });
+        });
+        refs.body.addEventListener('click', (e) => {
+            const row = rowOf(e.target);
+            if (!row || e.target.closest('np-checkbox, np-resource-stack')) return;
+            if (e.target.closest('.wb-note-count-badge')) emit('rowtoggle', { row, collapsed: !row.collapsed });
+            else emit('rowactivate', { row });
+        });
+        refs.body.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            if (!e.target.matches || !e.target.matches('.wb-note-row-name')) return;
+            const row = rowOf(e.target);
+            if (!row) return;
+            e.preventDefault();
+            emit('rowactivate', { row });
+        });
     }
 
     // ── Render ──────────────────────────────────────────────────────────
@@ -247,10 +320,12 @@ export class NpNote extends HTMLElement {
         // Sizing: the host is the note box. On the board wbUpdateNoteNode()
         // clamps width/height into the min/default; the same clamp here so a
         // story cannot preview a note narrower than one can actually be.
+        // A stacked note is as wide as its column and as tall as its rows.
+        const stacked = this.hasAttribute('stacked');
         const width = Math.max(WB_NOTE_MIN_WIDTH, Number(this.getAttribute('width')) || WB_NOTE_DEFAULT_WIDTH);
         const height = Math.max(WB_NOTE_MIN_HEIGHT, Number(this.getAttribute('height')) || WB_NOTE_DEFAULT_HEIGHT);
-        this.style.width = `${width}px`;
-        this.style.height = `${height}px`;
+        this.style.width = stacked ? '' : `${width}px`;
+        this.style.height = stacked ? '' : `${height}px`;
         // The rails are absolutely positioned against the host.
         this.style.position = 'relative';
 
@@ -284,7 +359,7 @@ export class NpNote extends HTMLElement {
         this.classList.toggle('wb-note-parking', this.hasAttribute('parking'));
 
         r.title.textContent = task;
-        r.title.title = thought
+        r.title.title = stacked ? task : thought
             ? `${task} — a text note, not a task. Double-click to rename`
             : `${task} (double-click to rename)`;
         r.title.classList.toggle('editing', this.hasAttribute('editing'));
@@ -302,8 +377,37 @@ export class NpNote extends HTMLElement {
         r.parentCaption.textContent = parent ? `under ${parent}` : '';
         r.parentCaption.style.display = parent ? '' : 'none';
 
+        r.card.classList.toggle('wb-note-stacked', stacked);
+        r.card.classList.toggle('wb-note-collapsed', stacked && this.hasAttribute('collapsed'));
+        if (r.expandBtn) this._renderStacked(task);
+
         this._renderBody(freeform, thought);
         this._renderFooter(freeform);
+    }
+
+    _renderStacked(task) {
+        const r = this._refs;
+        const collapsed = this.hasAttribute('collapsed');
+        if (!r.body.id) r.body.id = `np-note-body-${++NpNote._uid}`;
+        r.expandBtn.setAttribute('aria-controls', r.body.id);
+        r.expandBtn.setAttribute('aria-expanded', String(!collapsed));
+        r.expandBtn.setAttribute('aria-label', `${collapsed ? 'Show' : 'Hide'} the tasks in ${task}`);
+
+        const s = this._summary || {};
+        const pct = Math.max(0, Math.min(100, Math.round(Number(s.percent) || 0)));
+        r.ringFill.setAttribute('stroke-dasharray', `${pct} 100`);
+        r.percent.textContent = `${pct}%`;
+        r.dates.textContent = s.start || s.finish ? `${s.start || '?'} → ${s.finish || '?'}` : '';
+        r.dates.hidden = !r.dates.textContent;
+        r.rag.textContent = s.rag || '';
+        r.rag.dataset.rag = s.ragColour || '';
+        r.rag.hidden = !s.rag;
+        const people = s.resources || [];
+        r.people.names = people;
+        if (this._details) r.people.details = this._details;
+        r.people.hidden = !people.length;
+        const total = Number(s.total) || 0;
+        r.count.textContent = `${total} ${total === 1 ? 'task' : 'tasks'} · ${Number(s.done) || 0} done`;
     }
 
     _renderBody(freeform, thought) {
@@ -357,7 +461,7 @@ export class NpNote extends HTMLElement {
             children.push(empty);
         } else {
             children.push(...this._rows.flatMap((row, i) =>
-                this._buildRow(row, i < this._rows.length - 1)));
+                this._buildRow(row, i < this._rows.length - 1, i)));
         }
 
         // Same per-note people-slot reservation the board makes, so a story
@@ -369,8 +473,9 @@ export class NpNote extends HTMLElement {
         const stack = chips ? chips * 20 - (chips - 1) * 5 : 0;
         r.card.style.setProperty('--wb-row-people', `${Math.max(stack, 20)}px`);
 
-        // Always present (#1104), on every render, free-form branch included.
-        children.push(this._buildAddRow());
+        // Always present on the board (#1104), on every render, free-form
+        // branch included; a stacked note only when it is `addable`.
+        if (!this.hasAttribute('stacked') || this.hasAttribute('addable')) children.push(this._buildAddRow());
         r.body.replaceChildren(...children);
     }
 
@@ -384,8 +489,9 @@ export class NpNote extends HTMLElement {
      * *between* the checkbox and the name, so the name's start position moves
      * row to row.
      */
-    _buildRow(vm, splittable) {
+    _buildRow(vm, splittable, index) {
         const name = vm.name || '';
+        const stacked = this.hasAttribute('stacked');
 
         // Same builder the board uses (#1249). The story's arg shape and the
         // board's view model are different objects, so each side resolves its
@@ -398,11 +504,14 @@ export class NpNote extends HTMLElement {
             hasChildren: vm.hasChildren,
             childCount: vm.childCount,
             deliverable: vm.deliverable,
-            date: vm.date ? {
+            date: vm.date && !stacked ? {
                 text: vm.date,
                 label: `Attach the detected date ${vm.date} to ${name}`,
             } : null,
-            coach: (vm.languageHint || vm.planningType) ? {
+            finish: vm.finish && stacked ? { text: vm.finish, label: `Finishes ${vm.finish}` } : null,
+            readOnly: !!vm.readOnly,
+            collapsed: stacked && vm.hasChildren ? !!vm.collapsed : undefined,
+            coach: !stacked && (vm.languageHint || vm.planningType) ? {
                 glyph: vm.planningType === 'product' ? 'P'
                     : vm.planningType === 'activity' ? 'A' : '\u2726',
                 suspected: !!vm.languageHint && !vm.planningType,
@@ -410,11 +519,20 @@ export class NpNote extends HTMLElement {
                     ? `Planning hint for ${name}: this is a ${vm.planningType}`
                     : `Planning hint for ${name}: this wording may describe an activity`,
             } : null,
-            depHandle: true,
-            scissors: splittable ? {
+            depHandle: !stacked,
+            scissors: splittable && !stacked ? {
                 label: `Split note after ${name}`,
             } : null,
         });
+        row.dataset.rowIndex = String(index);
+        if (stacked) {
+            // Tapping the row opens the task; the name is the control a
+            // keyboard or a screen reader reaches for that.
+            row.style.setProperty('--wb-row-depth', String(vm.depth || 0));
+            refs.name.setAttribute('role', 'button');
+            refs.name.setAttribute('tabindex', '0');
+            refs.name.setAttribute('aria-label', `Open ${name}`);
+        }
 
         // One control, never two -- the chips open the assign menu themselves,
         // so a "+" beside them is a second button for the same job. Mirrors
@@ -433,7 +551,7 @@ export class NpNote extends HTMLElement {
             stack.names = resources;
             if (this._details) stack.details = this._details;
             refs.peopleSlot.appendChild(stack);
-        } else {
+        } else if (!stacked) {
             refs.peopleSlot.appendChild(refs.assignBtn);
         }
 
@@ -502,4 +620,10 @@ export class NpNote extends HTMLElement {
         // arbitrary string.
         r.progress.textContent = freeform || !total ? '' : `${done} / ${total}`;
     }
+}
+
+NpNote._uid = 0;
+
+if (!customElements.get('np-note')) {
+    customElements.define('np-note', NpNote);
 }

@@ -65,6 +65,8 @@ export default {
         'link-target': { control: 'boolean' },
         'link-target-invalid': { control: 'boolean' },
         editing: { control: 'boolean' },
+        stacked: { control: 'boolean' },
+        collapsed: { control: 'boolean' },
     },
     args: {
         task: 'Launch checklist',
@@ -271,4 +273,60 @@ export const EveryPaletteColour = {
         }
         return strip;
     },
+};
+
+// ── Stacked (#1384) ────────────────────────────────────────────────────────
+
+const STACKED_ROWS = [
+    { name: 'Research', complete: true, resources: ['Alex'], finish: '8 Jan', depth: 0 },
+    {
+        name: 'Wireframes', hasChildren: true, childCount: 2, indeterminate: true,
+        readOnly: true, collapsed: false, finish: '15 Jan', depth: 0,
+    },
+    { name: 'Sketches', complete: true, resources: ['Sam', 'Alex'], finish: '12 Jan', depth: 1 },
+    { name: 'Review the wireframes with the whole steering group', complete: false, resources: ['Jo'], finish: '15 Jan', depth: 1 },
+    { name: 'Sign-off', complete: false, finish: '20 Jan', depth: 0 },
+];
+
+const STACKED_SUMMARY = {
+    percent: 50, start: '6 Jan', finish: '20 Jan', rag: 'On track', ragColour: 'green',
+    resources: ['Alex', 'Sam', 'Jo'], total: 4, done: 2,
+};
+
+// A stacked note is a card in a column, so it is judged at a phone's width.
+const inAColumn = (story) => {
+    const column = document.createElement('div');
+    column.style.cssText = 'width:390px;max-width:100%;display:flex;flex-direction:column;gap:12px;';
+    column.appendChild(story());
+    return column;
+};
+
+const mountStacked = (args) => {
+    const note = mount(args);
+    note.summary = STACKED_SUMMARY;
+    note.addEventListener('rowactivate', (e) => console.log('np-note: rowactivate', e.detail.row.name));
+    note.addEventListener('rowcomplete', (e) => console.log('np-note: rowcomplete', e.detail.row.name, e.detail.complete));
+    note.addEventListener('rowtoggle', (e) => console.log('np-note: rowtoggle', e.detail.row.name, e.detail.collapsed));
+    note.addEventListener('expandedchange', (e) => console.log('np-note: expandedchange', e.detail.expanded));
+    return note;
+};
+
+/**
+ * The plan list on a phone (#1384): one card per summary task, opened to its
+ * checklist. Tap the header to close it to its summary line; tap a row to
+ * open the task; a nested summary's count opens and closes the rows under it.
+ */
+export const Stacked = {
+    name: 'Stacked (the plan list)',
+    render: mountStacked,
+    decorators: [inAColumn],
+    args: { task: 'Design', colour: '', stacked: true, rows: STACKED_ROWS },
+};
+
+/** Closed: the high-level view a phone opens on. */
+export const StackedCollapsed = {
+    name: 'Stacked, collapsed',
+    render: mountStacked,
+    decorators: [inAColumn],
+    args: { task: 'Design', colour: '', stacked: true, collapsed: true, rows: STACKED_ROWS },
 };

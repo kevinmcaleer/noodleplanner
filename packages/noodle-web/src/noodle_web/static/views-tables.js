@@ -1871,6 +1871,9 @@ function updateTasksTable(tasks) {
         content.style.display = 'flex';
     }
 
+    // On a phone the view is the plan list's cards instead (#1384).
+    if (typeof NoodlePlanList !== 'undefined') NoodlePlanList.renderTasksView(tasks);
+
     const tbody = document.getElementById('tasksTableBody');
     if (!tbody) return;
 

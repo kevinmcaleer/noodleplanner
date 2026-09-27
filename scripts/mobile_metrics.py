@@ -105,7 +105,9 @@ MEASURE_VIEW_JS = r"""() => {
     };
 
     // --- Chrome: what is fixed to the top and bottom of the screen.
-    const TOP_CHROME = ['#ribbonShell', 'np-app-bar', 'np-view-chips'];
+    // The phone shell's view chips, not any <np-view-chips>: a view's own
+    // switch (the whiteboard's Cards / Canvas, #1384) is the view's.
+    const TOP_CHROME = ['#ribbonShell', 'np-app-bar', '#phoneViewChips'];
     const BOTTOM_CHROME = ['.status-bar'];
     let top = 0, bottom = 0;
     for (const sel of TOP_CHROME) {

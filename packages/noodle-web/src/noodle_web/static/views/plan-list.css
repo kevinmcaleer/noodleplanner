@@ -1,0 +1,294 @@
+/* ========================================
+   The plan list (#1384, epic #1376)
+
+   The plan as a column of stacked notes -- <np-note stacked>, built by
+   plan-list.js -- for the Tasks view on a phone and the whiteboard's Cards.
+   One card per top-level summary task, collapsed to its summary line or
+   opened to its checklist, and an "Ungrouped" card for top-level tasks that
+   have no summary.
+
+   The note's own look -- its ink ladder, the checklist row's three zones,
+   <np-checkbox> -- is views/whiteboard.css's, and nothing here restates it.
+   This file lays the note out as a card in a column, sizes it for a finger,
+   and styles the parts only a stacked note has (the chevron and the summary
+   line, from buildStackedParts() in components/note/note-markup.js).
+   ======================================== */
+
+.plan-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--np-space-12);
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+    /* The bottom padding keeps the last card clear of the "+" button. */
+    padding: var(--np-space-12) var(--np-space-16) var(--np-space-64);
+    box-sizing: border-box;
+}
+
+.plan-list[hidden] {
+    display: none;
+}
+
+/* The Tasks view on a phone: the list instead of the table, the timeline and
+   the view's own heading (the app bar and the view chips already say where
+   you are). The list scrolls; the page does not. */
+[data-layout="phone"] #tasks-view,
+[data-layout="phone"] #tasks-view .tasks-content {
+    padding: 0;
+}
+
+[data-layout="phone"] #tasks-view .embedded-timeline-section,
+[data-layout="phone"] #tasks-view .tasks-toolbar,
+[data-layout="phone"] #tasks-view .tasks-table-wrapper {
+    display: none;
+}
+
+[data-layout="phone"] #tasks-view .plan-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.plan-list-empty {
+    padding: var(--np-space-32) var(--np-space-16);
+    color: var(--np-muted);
+    text-align: center;
+}
+
+np-note[stacked] {
+    display: block;
+    width: 100%;
+}
+
+/* ── The card ─────────────────────────────────────────────────────────── */
+
+/* A card in a list sits on the page, not on a board: the surface with a
+   hairline, where a board note is a solid block of its colour. */
+.wb-note-card.wb-note-stacked {
+    --wb-note-accent: var(--np-surface);
+    --wb-note-text: var(--np-ink);
+    height: auto;
+    border-color: var(--np-border);
+    border-radius: var(--np-radius-card);
+    box-shadow: var(--np-elevation-1);
+    font-size: var(--np-text-100);
+}
+
+/* The header opens and closes the card, and a list has to scroll from any
+   point a finger lands on -- the board's header is a drag handle instead. */
+.wb-note-stacked .wb-note-header {
+    min-height: var(--np-touch-target);
+    padding: var(--np-space-4) var(--np-space-4) 0 var(--np-space-12);
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.wb-note-stacked .wb-note-title {
+    font-size: var(--np-text-110);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* The canvas's rails and the footer's count have nothing to add in a list:
+   the summary line carries the count. (The header's gestures are not drawn
+   at all -- buildNoteCard({ stacked }).) */
+.wb-note-stacked ~ .wb-note-rails,
+.wb-note-stacked .wb-note-footer {
+    display: none;
+}
+
+.wb-note-expand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-width: var(--np-touch-target);
+    min-height: var(--np-touch-target);
+    padding: 0;
+    border: none;
+    border-radius: var(--np-radius-control);
+    background: transparent;
+    color: var(--wb-note-text);
+    cursor: pointer;
+}
+
+.wb-note-expand svg {
+    transition: transform var(--np-anim-duration-fast) var(--np-anim-easing);
+}
+
+.wb-note-collapsed .wb-note-expand svg {
+    transform: rotate(-90deg);
+}
+
+.wb-note-expand:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: calc(var(--np-focus-ring-width) * -1);
+}
+
+/* ── The summary line ─────────────────────────────────────────────────── */
+
+.wb-note-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--np-space-4) var(--np-space-12);
+    padding: 0 var(--np-space-12) var(--np-space-12);
+    color: var(--wb-note-ink-muted);
+    font-size: var(--np-text-90);
+}
+
+.wb-note-meta [hidden] {
+    display: none;
+}
+
+.wb-note-meta-ring {
+    display: inline-flex;
+    margin-right: calc(var(--np-space-8) * -1);
+}
+
+.wb-note-ring-track {
+    stroke: var(--np-sunken);
+}
+
+.wb-note-ring-fill {
+    stroke: var(--np-success);
+}
+
+.wb-note-meta-percent {
+    color: var(--wb-note-text);
+    font-weight: var(--np-weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+
+.wb-note-meta-rag {
+    padding: 0 var(--np-space-8);
+    border-radius: var(--np-radius-pill);
+    background: var(--np-sunken);
+    color: var(--np-ink);
+}
+
+.wb-note-meta-rag[data-rag="red"] {
+    background: var(--np-danger-tint);
+    color: var(--np-danger-ink);
+}
+
+.wb-note-meta-rag[data-rag="amber"] {
+    background: var(--np-accent-tint);
+    color: var(--np-accent-ink);
+}
+
+.wb-note-meta-rag[data-rag="green"] {
+    background: var(--np-sage-tint);
+    color: var(--np-sage-ink);
+}
+
+.wb-note-meta-rag[data-rag="blue"],
+.wb-note-meta-rag[data-rag="complete"] {
+    background: var(--np-info-tint);
+    color: var(--np-info-ink);
+}
+
+.wb-note-meta-count {
+    margin-left: auto;
+}
+
+/* ── The checklist ────────────────────────────────────────────────────── */
+
+.wb-note-collapsed .wb-note-body {
+    display: none;
+}
+
+.wb-note-stacked .wb-note-body {
+    overflow: visible;
+    padding: 0 var(--np-space-4) var(--np-space-8);
+    border-top: 1px solid var(--np-hairline);
+}
+
+.wb-note-stacked .wb-note-row {
+    --np-checkbox-target: var(--np-touch-target);
+    --np-checkbox-size-dense: 20px;
+    --wb-row-people: auto;
+    min-height: var(--np-touch-target);
+    padding: 0 var(--np-space-4) 0 calc(var(--wb-row-depth, 0) * var(--np-space-16));
+    cursor: pointer;
+}
+
+.wb-note-stacked .wb-note-row[data-wb-row-summary="true"] .wb-note-row-name {
+    font-weight: var(--np-weight-semibold);
+}
+
+/* The name is the row's control for a keyboard and a screen reader, so it
+   takes the row's full height as well as its slack width. */
+.wb-note-stacked .wb-note-row-name {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    min-height: var(--np-touch-target);
+    font-size: var(--np-text-100);
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.wb-note-stacked .wb-note-row-name:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: var(--np-space-2);
+    border-radius: var(--np-radius-xs);
+}
+
+.wb-note-row-finish {
+    color: var(--wb-note-ink-muted);
+    font-size: var(--np-text-85);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* The badge opens and closes the rows under a nested summary here: a
+   finger-sized control, drawn as the count and a chevron. */
+.wb-note-stacked .wb-note-count-badge {
+    min-width: var(--np-touch-target);
+    height: auto;
+    min-height: var(--np-touch-target);
+    border: none;
+    background: transparent;
+    font-size: var(--np-text-85);
+}
+
+.wb-note-stacked .wb-note-row-slot-deliv:empty {
+    display: none;
+}
+
+.wb-note-stacked .wb-note-empty {
+    font-size: var(--np-text-90);
+}
+
+/* ── The whiteboard as cards, on a phone ──────────────────────────────── */
+
+/* The Cards / Canvas switch (an <np-view-chips>) heads the view; in Cards
+   the board -- toolbar, canvas and panels -- gives way to the list.
+   plan-list.js sets data-wb-mode, and only ever to "cards" on a phone. */
+#whiteboard-view[data-wb-mode="cards"] > .wb-content {
+    display: none;
+}
+
+/* Under the switch, the board takes what is left rather than 100%. */
+[data-layout="phone"] #whiteboard-view > .wb-content {
+    height: auto;
+}
+
+[data-layout="phone"] #whiteboard-view .plan-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.wb-mode-chips {
+    flex: 0 0 auto;
+}

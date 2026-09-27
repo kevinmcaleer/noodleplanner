@@ -15,7 +15,9 @@
  *
  * Property `views`: [{ id, label }]. Attribute `active`: the current view's
  * id, or none. The active chip is marked `aria-current="page"` and scrolled
- * into view when it changes.
+ * into view when it changes. Attribute `label`: the strip's accessible name,
+ * "Views" by default -- the whiteboard's Cards / Canvas switch on a phone
+ * (#1384) is the same strip under another name.
  *
  * Events (bubbling, composed): `select` with `{ id }`.
  */
@@ -73,7 +75,7 @@ TEMPLATE.innerHTML = `
 
 export class NpViewChips extends HTMLElement {
   static get observedAttributes() {
-    return ['active'];
+    return ['active', 'label'];
   }
 
   constructor() {
@@ -98,7 +100,10 @@ export class NpViewChips extends HTMLElement {
     this._render();
   }
 
-  attributeChangedCallback() { this._markActive(); }
+  attributeChangedCallback(name) {
+    if (name === 'label') this._nav.setAttribute('aria-label', this.getAttribute('label') || 'Views');
+    else this._markActive();
+  }
 
   get views() { return this._views; }
   set views(value) {

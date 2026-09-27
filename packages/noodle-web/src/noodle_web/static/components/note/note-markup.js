@@ -131,7 +131,7 @@ export function scissorsGlyph(size) {
  * The header's child order is load bearing; the comment on the append run
  * below and the one on `.wb-note-header` in `views/whiteboard.css` say why.
  */
-export function buildNoteCard() {
+export function buildNoteCard({ stacked = false } = {}) {
     const card = el('div', 'wb-note-card');
     const header = el('div', 'wb-note-header');
 
@@ -210,7 +210,10 @@ export function buildNoteCard() {
     // W - 10], and the midpoint W/2 can only fall there when W <= 2 * (10 + w),
     // which is 64px for the 22px handle and 80px for the 30px coarse-pointer
     // one -- both below WB_NOTE_MIN_WIDTH.
-    header.append(title, coachBtn, linkHandle);
+    // A stacked note (#1384) is a card in a list, not on a canvas: the
+    // header's gestures have nothing to act on, so they are not drawn.
+    if (!stacked) header.append(title, coachBtn, linkHandle);
+    else header.append(title);
 
     const parentCaption = el('div', 'wb-note-parent');
     const body = el('div', 'wb-note-body');
@@ -231,7 +234,16 @@ export function buildNoteCard() {
 
     const resizeHandle = el('div', 'wb-note-resize-handle', { 'aria-hidden': 'true' });
 
-    card.append(header, parentCaption, body, footer, resizeHandle);
+    card.append(header, parentCaption, body, footer);
+    if (!stacked) card.appendChild(resizeHandle);
+
+    // The stacked note's own parts (#1384), after the header's other controls:
+    // the board never asks for them.
+    const stackedParts = stacked ? buildStackedParts() : null;
+    if (stackedParts) {
+        header.appendChild(stackedParts.expandBtn);
+        header.after(stackedParts.meta);
+    }
 
     // ── The rails ──────────────────────────────────────────────────────
     //
@@ -284,6 +296,61 @@ export function buildNoteCard() {
             card, header, title, coachBtn,
             linkHandle, parentCaption, body, footer, progress, moreBtn,
             resizeHandle, rails, railHint, railDep,
+            ...(stackedParts ? stackedParts.refs : {}),
+        },
+    };
+}
+
+/**
+ * The parts only a *stacked* note has (#1384, epic #1376): the plan as a
+ * column of cards on a phone -- the Tasks view there, and the whiteboard's
+ * "Cards" -- rather than notes placed on a canvas.
+ *
+ *   expandBtn  a chevron closing the header's row: a stacked note opens and
+ *              closes to show or hide its checklist, where a board note is
+ *              resized instead.
+ *   meta       the summary line under the header: a progress ring and its
+ *              percent, start -> finish, the RAG status, the people working
+ *              on the note's tasks, and "N tasks · M done". What a collapsed
+ *              card shows instead of its rows.
+ *
+ * Returns `{ expandBtn, meta, refs }`. `refs` holds the parts the caller
+ * fills: ringFill (an SVG circle whose dash is the percent), percent, dates,
+ * rag, people (an <np-resource-stack>) and count.
+ */
+export function buildStackedParts() {
+    const expandBtn = el('button', 'wb-note-expand', {
+        type: 'button',
+        'aria-expanded': 'false',
+    });
+    expandBtn.innerHTML =
+        '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" ' +
+        'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M4 6l4 4 4-4"/></svg>';
+
+    const meta = el('div', 'wb-note-meta');
+    // A ring rather than a bar: it sits on the line beside the dates at the
+    // size of a glyph. pathLength="100" makes the dash the percent itself.
+    const ring = el('span', 'wb-note-meta-ring', { 'aria-hidden': 'true' });
+    ring.innerHTML =
+        '<svg viewBox="0 0 20 20" width="20" height="20">' +
+        '<circle class="wb-note-ring-track" cx="10" cy="10" r="8" fill="none" stroke-width="3"/>' +
+        '<circle class="wb-note-ring-fill" cx="10" cy="10" r="8" fill="none" stroke-width="3" ' +
+        'pathLength="100" stroke-dasharray="0 100" transform="rotate(-90 10 10)"/></svg>';
+    const percent = el('span', 'wb-note-meta-percent');
+    const dates = el('span', 'wb-note-meta-dates');
+    const rag = el('span', 'wb-note-meta-rag');
+    const people = el('np-resource-stack', 'wb-note-meta-people', { max: '4' });
+    const count = el('span', 'wb-note-meta-count');
+    meta.append(ring, percent, dates, rag, people, count);
+
+    return {
+        expandBtn,
+        meta,
+        refs: {
+            expandBtn, meta, ring,
+            ringFill: ring.querySelector('.wb-note-ring-fill'),
+            percent, dates, rag, people, count,
         },
     };
 }
@@ -313,7 +380,11 @@ export function buildNoteCard() {
  *     date: { text, label } | null,
  *     coach: { glyph, label, suspected } | null,
  *     depHandle: boolean,
- *     scissors: { label } | null }
+ *     scissors: { label } | null,
+ *     finish: { text, label } | null,  // a stacked note's finish date (#1384)
+ *     readOnly: boolean,               // the checkbox reports, it cannot be ticked
+ *     collapsed: boolean | undefined } // a stacked summary row: its badge opens
+ *                                      // and closes the rows under it
  *
  * `scissors` is the cut *after* this row (issue #874). It is a sibling of
  * the row, not a child of it: the cut sits in the gap between two checklist
@@ -359,6 +430,7 @@ export function buildChecklistRow(model) {
     if (partial) checkbox.setAttribute('progress', String(pct));
     if (model.complete) checkbox.setAttribute('checked', '');
     if (model.indeterminate && model.hasChildren) checkbox.setAttribute('indeterminate', '');
+    if (model.readOnly) checkbox.setAttribute('disabled', '');
     row.appendChild(checkbox);
 
     // ── Name zone ──────────────────────────────────────────────────────
@@ -384,15 +456,30 @@ export function buildChecklistRow(model) {
         content.appendChild(dateBtn);
     }
 
+    let finish = null;
+    if (model.finish) {
+        finish = el('span', 'wb-note-row-finish', { title: model.finish.label });
+        finish.textContent = model.finish.text;
+        content.appendChild(finish);
+    }
+
     let countBadge = null;
     if (model.hasChildren) {
-        countBadge = el('button', 'wb-note-count-badge', {
+        const toggles = typeof model.collapsed === 'boolean';
+        const count = model.childCount || 0;
+        // On the board the badge peeks the subtasks in a popover; in a stacked
+        // note it opens and closes them in place, like the Gantt's triangle.
+        countBadge = el('button', 'wb-note-count-badge', toggles ? {
+            type: 'button',
+            'aria-expanded': String(!model.collapsed),
+            'aria-label': `${model.collapsed ? 'Show' : 'Hide'} the ${count} subtasks of ${name}`,
+        } : {
             type: 'button',
             'aria-haspopup': 'dialog',
             'aria-expanded': 'false',
-            'aria-label': `${name} has ${model.childCount || 0} subtasks. Peek subtasks.`,
+            'aria-label': `${name} has ${count} subtasks. Peek subtasks.`,
         });
-        countBadge.textContent = `${model.childCount || 0} ▾`;
+        countBadge.textContent = `${count} ${toggles && model.collapsed ? '▸' : '▾'}`;
         content.appendChild(countBadge);
         row.classList.add('wb-note-row-drillable');
     }
@@ -480,7 +567,7 @@ export function buildChecklistRow(model) {
         row,
         cut,
         refs: {
-            row, checkbox, name: label, content, dateBtn, countBadge,
+            row, checkbox, name: label, content, dateBtn, finish, countBadge,
             gutter, delivSlot, peopleSlot, assignBtn, cut, scissors,
         },
     };
@@ -536,6 +623,6 @@ if (typeof globalThis !== 'undefined') {
     globalThis.NoodleNoteMarkup = {
         XHTML_NS, ROW_AVATAR_CAP, el, noodleGlyph, scissorsGlyph,
         pinGlyph, unpinGlyph,
-        buildNoteCard, buildChecklistRow, buildAddRow,
+        buildNoteCard, buildStackedParts, buildChecklistRow, buildAddRow,
     };
 }

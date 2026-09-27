@@ -99,22 +99,15 @@ def test_the_drawer_offers_the_markdown_view(phone, app_server):
 
 
 def test_editing_in_tasks_with_the_editor_hidden_survives_a_reload(phone, app_server):
+    """On a phone the Tasks view is the plan list (#1384): tick a row."""
     open_app(phone, app_server)
     load_plan(phone, PLAN, with_project="Tasks on a phone")
     _switch(phone, "tasks")
     assert not phone.evaluate(EDITOR_SHOWN)
-    phone.evaluate(
-        """() => {
-            const row = [...document.querySelectorAll('#tasksTableBody tr')].find(r => r.textContent.includes('Research'));
-            const cell = [...row.querySelectorAll('td')].find(td => td.textContent.trim().startsWith('Research'));
-            cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-        }"""
-    )
-    field = phone.locator("#tasksTableBody input:focus, #tasksTableBody input").first
-    field.fill("Research interviews")
-    field.press("Enter")
-    phone.wait_for_function("() => document.getElementById('planEditor').value.includes('Research interviews')")
-    assert "Research interviews" in _persisted(phone, "Research interviews")
+    phone.wait_for_selector('#planList .wb-note-row[data-wb-row-task="Research"]')
+    phone.locator('#planList .wb-note-row[data-wb-row-task="Research"] np-checkbox').tap()
+    phone.wait_for_function("() => /Research[^\\n]*100%/.test(document.getElementById('planEditor').value)")
+    assert "100%" in [line for line in _persisted(phone, "100%").splitlines() if "Research" in line][0]
 
 
 def test_completing_a_card_on_the_board_with_the_editor_hidden_survives_a_reload(phone, app_server):

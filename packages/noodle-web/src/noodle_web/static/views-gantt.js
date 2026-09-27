@@ -635,6 +635,21 @@ function renderGanttHeaders() {
     });
 }
 
+/**
+ * Whether `task`'s rows are folded away. NoodleSummaryCollapse keeps it per
+ * project, across a reload, and the plan list's cards read the same answer
+ * (#1384); on the Gantt a summary is open until someone closes it.
+ */
+function ganttSummaryCollapsed(task) {
+    return typeof NoodleSummaryCollapse !== 'undefined' && NoodleSummaryCollapse.isCollapsed(task.name, false);
+}
+
+// A summary opened or closed anywhere -- here, or as a card on a phone --
+// redraws the rows.
+document.addEventListener('summarycollapsechange', () => {
+    if (ganttTasks && ganttTasks.length) renderGanttRows();
+});
+
 function renderGanttRows() {
     const ganttInfoBody = document.getElementById('ganttInfoBody');
     const ganttBody = document.getElementById('ganttBody');
@@ -657,7 +672,7 @@ function renderGanttRows() {
     const hiddenIndices = new Set();
     for (let i = 0; i < ganttTasks.length; i++) {
         const task = ganttTasks[i];
-        if (task.is_summary && collapsedSummaryTasks.has(task.id)) {
+        if (task.is_summary && ganttSummaryCollapsed(task)) {
             // Hide all descendants: tasks after this one with a higher level,
             // until we hit a task at the same or lower level
             for (let j = i + 1; j < ganttTasks.length; j++) {
@@ -729,19 +744,15 @@ function renderGanttRows() {
         if (task.is_summary) {
             const triangle = document.createElement('span');
             triangle.className = 'gantt-disclosure-triangle';
-            const isCollapsed = collapsedSummaryTasks.has(task.id);
+            const isCollapsed = ganttSummaryCollapsed(task);
             triangle.textContent = isCollapsed ? '\u25B6' : '\u25BC';
             if (isCollapsed) {
                 triangle.classList.add('collapsed');
             }
             triangle.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (collapsedSummaryTasks.has(task.id)) {
-                    collapsedSummaryTasks.delete(task.id);
-                } else {
-                    collapsedSummaryTasks.add(task.id);
-                }
-                renderGanttRows();
+                // The store's change event redraws the rows.
+                if (typeof NoodleSummaryCollapse !== 'undefined') NoodleSummaryCollapse.toggle(task.name, false);
             });
             ganttNameSpan.style.fontWeight = '600';
             ganttNameSpan.appendChild(document.createTextNode(indent));

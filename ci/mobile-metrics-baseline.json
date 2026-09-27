@@ -211,7 +211,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 13,
-          "view_share": 31,
+          "view_share": 36,
           "view_top": 376
         },
         "portfolio-lessons": {
@@ -324,7 +324,7 @@
         },
         "tasks": {
           "chrome_px": 110,
-          "hover_only": 60,
+          "hover_only": 0,
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 0,
@@ -362,8 +362,8 @@
           "chrome_px": 110,
           "hover_only": 0,
           "small_fields": 0,
-          "targets_24": 30,
-          "targets_44": 38,
+          "targets_24": 0,
+          "targets_44": 0,
           "view_share": 87,
           "view_top": 110
         }
@@ -949,7 +949,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 13,
-          "view_share": 25,
+          "view_share": 29,
           "view_top": 287
         },
         "portfolio-lessons": {

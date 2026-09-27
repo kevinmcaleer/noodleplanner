@@ -1952,6 +1952,8 @@ function updateWhiteboardView(result, planText) {
     wbLastPlanText = planText || '';
     wbLastThoughts = (typeof wbParseThoughts === 'function') ? wbParseThoughts(wbLastPlanText) : [];
     wbRenderNotes();
+    // On a phone the board can be shown as cards instead (#1384).
+    if (typeof NoodlePlanList !== 'undefined') NoodlePlanList.renderWhiteboardCards(wbLastTasks);
 }
 
 /** Get-or-create the single <g> that holds all note foreignObjects. It is

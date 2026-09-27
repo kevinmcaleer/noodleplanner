@@ -43,3 +43,21 @@ export default ViewChips;
 
 export const OnTasks = {};
 export const ScrolledToRaid = { args: { active: 'raid' } };
+
+/** The same strip as the whiteboard's Cards / Canvas switch on a phone (#1384). */
+export const WhiteboardMode = {
+  name: 'As a mode switch (whiteboard)',
+  render: ({ active }) => {
+    const frame = document.createElement('div');
+    frame.style.cssText = 'width: 390px; border: 1px solid var(--np-border);';
+    const chips = document.createElement('np-view-chips');
+    chips.setAttribute('label', 'Show the whiteboard as');
+    chips.views = [{ id: 'cards', label: 'Cards' }, { id: 'canvas', label: 'Canvas' }];
+    chips.setAttribute('active', active || 'cards');
+    chips.addEventListener('select', (e) => chips.setAttribute('active', e.detail.id));
+    frame.appendChild(chips);
+    return frame;
+  },
+  args: { active: 'cards' },
+  argTypes: { active: { control: { type: 'select' }, options: ['cards', 'canvas'] } },
+};
