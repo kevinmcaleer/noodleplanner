@@ -577,11 +577,6 @@ body {
     color: var(--np-accent);
 }
 
-[data-theme="dark"] .gantt-month.gantt-today {
-    background-color: #1a3a28;
-    color: #50c878;
-}
-
 /* Summary task rows - better contrast */
 [data-theme="dark"] .gantt-info-table tr.gantt-phase-row {
     background: var(--np-summary-row);
@@ -590,7 +585,7 @@ body {
 
 /* Completed task bars - dimmer green */
 [data-theme="dark"] .gantt-task-bar {
-    background: #2d8f4e;
+    background: var(--np-green);
 }
 
 /* Hover highlight on task rows - subtle */
@@ -747,24 +742,19 @@ body {
 }
 
 /* Kanban card metadata badges */
-[data-theme="dark"] .kanban-meta-duration {
-    background: #1a2e4a;
-    color: #6db3f0;
-}
-
 [data-theme="dark"] .kanban-meta-progress {
     background: var(--np-surface-alt);
     color: var(--np-text-secondary);
 }
 
 [data-theme="dark"] .kanban-meta-progress.progress-complete {
-    background: #1a3a28;
-    color: #50c878;
+    background: var(--np-success-tint);
+    color: var(--np-success-ink);
 }
 
 [data-theme="dark"] .kanban-meta-progress.progress-in-progress {
-    background: #3a3020;
-    color: #e0a020;
+    background: var(--np-warning-tint);
+    color: var(--np-warning-ink);
 }
 
 [data-theme="dark"] .kanban-meta-progress.progress-not-started {
@@ -781,14 +771,9 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .label-dependency {
-    background: #1a2e4a;
-    color: #6db3f0;
-}
-
 [data-theme="dark"] .label-tag {
-    background: #2e1a40;
-    color: #b080d0;
+    background: color-mix(in srgb, var(--np-purple) 16%, var(--np-surface));
+    color: color-mix(in srgb, var(--np-purple) 60%, var(--np-ink));
 }
 
 /* Kanban card resource avatars dark border */
@@ -1047,11 +1032,6 @@ body {
 
 [data-theme="dark"] .highlight-date {
     color: var(--np-text);
-}
-
-[data-theme="dark"] .highlight-author {
-    background: #1a2e4a;
-    color: #6db3f0;
 }
 
 [data-theme="dark"] .highlight-body h1,
@@ -1920,15 +1900,15 @@ body {
 
 /* ---- Message boxes ---- */
 [data-theme="dark"] .kanban-message-success {
-    background: #1a3a28;
-    color: #50c878;
-    border-color: #2a5a3a;
+    background: var(--np-success-tint);
+    color: var(--np-success-ink);
+    border-color: var(--np-success);
 }
 
 [data-theme="dark"] .kanban-message-info {
-    background: #1a2e4a;
-    color: #6db3f0;
-    border-color: #2a3a5a;
+    background: var(--np-info-tint);
+    color: var(--np-info-ink);
+    border-color: var(--np-info);
 }
 
 /* ---- Progress bar dark mode ---- */
@@ -2040,17 +2020,19 @@ body {
 
 /* ---- Version History panel (dark) ---- */
 [data-theme="dark"] .version-readonly-banner {
-    background: #b71c1c;
-    border-color: #d32f2f;
+    background: var(--np-danger-tint);
+    border-color: var(--np-danger);
+    color: var(--np-danger-ink);
 }
 
 [data-theme="dark"] .version-readonly-banner .btn-sm {
-    border-color: rgba(255,255,255,0.5);
+    border-color: color-mix(in srgb, var(--np-danger-ink) 50%, transparent);
+    color: var(--np-danger-ink);
 }
 
 [data-theme="dark"] .version-readonly-banner .btn-sm:hover {
-    background: rgba(255,255,255,0.15);
-    color: #fff;
+    background: color-mix(in srgb, var(--np-danger-ink) 15%, transparent);
+    color: var(--np-danger-ink);
 }
 
 [data-theme="dark"] .widget-shortcut {
@@ -2085,28 +2067,7 @@ body {
 }
 
 /* ── Stalled Badge (dark) ── */
-[data-theme="dark"] .stalled-badge {
-    background: #b8860b;
-    color: #fff;
-}
-
 /* ── Delivery Forecast (dark) ── */
-[data-theme="dark"] .forecast-on-track {
-    color: #4caf50;
-}
-
-[data-theme="dark"] .forecast-at-risk {
-    color: #e55;
-}
-
-[data-theme="dark"] .forecast-no-forecast {
-    color: #777;
-}
-
-[data-theme="dark"] .forecast-complete {
-    color: #4caf50;
-}
-
 /* ── Portfolio Benefits Map (dark) ───────────────────────────────────── */
 
 [data-theme="dark"] .portfolio-benefits-map-section {

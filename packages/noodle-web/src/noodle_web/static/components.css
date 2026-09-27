@@ -86,24 +86,24 @@
 }
 
 .milestones-table .rag-red {
-    background: #ff6b6b;
-    color: white;
+    background: var(--np-danger-tint);
+    color: var(--np-danger-ink);
     text-align: center;
     font-weight: 600;
     border-radius: 4px;
 }
 
 .milestones-table .rag-amber {
-    background: #ffd93d;
-    color: var(--np-ink);
+    background: var(--np-warning-tint);
+    color: var(--np-warning-ink);
     text-align: center;
     font-weight: 600;
     border-radius: 4px;
 }
 
 .milestones-table .rag-green {
-    background: #51cf66;
-    color: white;
+    background: var(--np-success-tint);
+    color: var(--np-success-ink);
     text-align: center;
     font-weight: 600;
     border-radius: 4px;
@@ -1385,29 +1385,29 @@ body.detail-pane-open {
 }
 
 .inspector-rag-banner.rag-green {
-    background: #e8f5e9;
-    border-left: 5px solid #4caf50;
+    background: var(--np-success-tint);
+    border-left: 5px solid var(--np-success);
 }
 
 .inspector-rag-banner.rag-amber {
-    background: #fff3e0;
-    border-left: 5px solid #ff9800;
+    background: var(--np-warning-tint);
+    border-left: 5px solid var(--np-warning);
 }
 
 .inspector-rag-banner.rag-red {
-    background: #ffebee;
-    border-left: 5px solid #f44336;
+    background: var(--np-danger-tint);
+    border-left: 5px solid var(--np-danger);
 }
 
 .inspector-rag-banner.rag-blue {
-    background: #e3f2fd;
-    border-left: 5px solid #1976d2;
-    color: #111;
+    background: var(--np-info-tint);
+    border-left: 5px solid var(--np-info);
+    color: var(--np-ink);
 }
 
 .inspector-rag-banner.rag-none {
     background: var(--np-surface-alt);
-    border-left: 5px solid #999;
+    border-left: 5px solid var(--np-border-control);
 }
 
 .inspector-rag-dot {
@@ -1418,11 +1418,11 @@ body.detail-pane-open {
     margin-top: var(--np-space-2);
 }
 
-.inspector-rag-dot.rag-green { background: #4caf50; }
-.inspector-rag-dot.rag-amber { background: #ff9800; }
-.inspector-rag-dot.rag-red { background: #f44336; }
-.inspector-rag-dot.rag-none { background: #999; }
-.inspector-rag-dot.rag-complete, .inspector-rag-dot.rag-blue { background: #1976d2; }
+.inspector-rag-dot.rag-green { background: var(--np-green); }
+.inspector-rag-dot.rag-amber { background: var(--np-orange); }
+.inspector-rag-dot.rag-red { background: var(--np-red); }
+.inspector-rag-dot.rag-none { background: var(--np-border-control); }
+.inspector-rag-dot.rag-complete, .inspector-rag-dot.rag-blue { background: var(--np-info); }
 
 .inspector-rag-text {
     flex: 1;
@@ -1508,11 +1508,11 @@ body.detail-pane-open {
 
 .inspector-dep-badge.non-driving {
     background: var(--np-surface-alt);
-    color: #777;
+    color: var(--np-muted);
 }
 
 .inspector-hint {
-    background: #fff9e6;
+    background: var(--np-warning-tint);
     border-left: 4px solid var(--np-warning);
     padding: var(--np-space-12) var(--np-space-16);
     margin-top: var(--np-space-12);
@@ -1548,8 +1548,8 @@ body.detail-pane-open {
 }
 
 .inspector-progress-bar-fill.green { background: var(--np-success); }
-.inspector-progress-bar-fill.amber { background: #ff9800; }
-.inspector-progress-bar-fill.red { background: #f44336; }
+.inspector-progress-bar-fill.amber { background: var(--np-warning); }
+.inspector-progress-bar-fill.red { background: var(--np-danger); }
 
 .inspector-open-task-btn {
     display: inline-block;
@@ -1565,7 +1565,7 @@ body.detail-pane-open {
 }
 
 .inspector-open-task-btn:hover {
-    background: #0d7aa3;
+    background: var(--np-accent-hover);
 }
 
 /* Task name cell layout */
@@ -1844,7 +1844,7 @@ tr:hover .task-context-btn,
 }
 
 #cfRulesTable .cf-delete-btn:hover {
-    color: #a71d2a;
+    color: var(--np-danger-hover);
 }
 
 .cf-colour-picker {
@@ -2330,7 +2330,7 @@ tr:hover .task-context-btn,
 }
 
 .subtask-resource-remove {
-    color: #cc3333;
+    color: var(--np-danger);
     font-size: 1.1em;
     font-weight: bold;
     cursor: pointer;
@@ -2339,7 +2339,7 @@ tr:hover .task-context-btn,
 }
 
 .subtask-resource-remove:hover {
-    color: #ff0000;
+    color: var(--np-danger-hover);
 }
 
 .subtask-resource-picker-empty {
@@ -2362,7 +2362,7 @@ tr:hover .task-context-btn,
 }
 
 .add-item-link:hover {
-    color: #0d7096;
+    color: var(--np-accent-hover);
     text-decoration: none;
 }
 
@@ -2681,7 +2681,7 @@ tr:hover .task-context-btn,
 }
 
 .drill-down-btn:hover {
-    background: #0d7096;
+    background: var(--np-accent-hover);
 }
 
 .drill-down-btn:active {
@@ -2937,11 +2937,11 @@ tr:hover .task-context-btn,
 }
 
 .analysis-warning {
-    border-left-color: #ff9800;
+    border-left-color: var(--np-warning);
 }
 
 .analysis-info {
-    border-left-color: #2196f3;
+    border-left-color: var(--np-info);
 }
 
 .analysis-suggestion {
@@ -2994,7 +2994,7 @@ tr:hover .task-context-btn,
 }
 
 .fix-it-btn:hover {
-    background: #0d7096;
+    background: var(--np-accent-hover);
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -3072,11 +3072,11 @@ tr:hover .task-context-btn,
 }
 
 .qa-check-card.qa-info {
-    border-left-color: #2196f3;
+    border-left-color: var(--np-info);
 }
 
 .qa-check-card.qa-issue {
-    border-left-color: #ff5722;
+    border-left-color: var(--np-danger);
 }
 
 .qa-check-card.qa-issue-ok {
@@ -3102,7 +3102,7 @@ tr:hover .task-context-btn,
 }
 
 .qa-check-card.qa-issue .qa-check-count {
-    color: #d32f2f;
+    color: var(--np-danger);
 }
 
 .qa-check-card.qa-issue-ok .qa-check-count {
@@ -3308,11 +3308,11 @@ tr:hover .task-context-btn,
     white-space: nowrap;
 }
 
-.raid-type-risk { background: #ffe0e0; color: var(--np-danger); }
+.raid-type-risk { background: var(--np-danger-tint); color: var(--np-danger-ink); }
 .raid-type-action { background: var(--np-info-tint); color: var(--np-info-ink); }
-.raid-type-issue { background: #fff3bf; color: var(--np-warning); }
-.raid-type-decision { background: #d3f9d8; color: var(--np-success); }
-.raid-type-dependency { background: #f3e5f5; color: #7b1fa2; }
+.raid-type-issue { background: var(--np-warning-tint); color: var(--np-warning-ink); }
+.raid-type-decision { background: var(--np-success-tint); color: var(--np-success-ink); }
+.raid-type-dependency { background: color-mix(in srgb, var(--np-purple) 16%, var(--np-surface)); color: color-mix(in srgb, var(--np-purple) 60%, var(--np-ink)); }
 
 /* Status badges */
 .raid-status-badge {
@@ -3327,7 +3327,7 @@ tr:hover .task-context-btn,
 
 .raid-status-open { background: var(--np-success-tint); color: var(--np-success-ink); }
 .raid-status-closed { background: var(--np-border); color: var(--np-body); }
-.raid-status-transferred { background: #d0ebff; color: #004085; }
+.raid-status-transferred { background: var(--np-info-tint); color: var(--np-info-ink); }
 
 /* Escalation badges (issue #736) */
 .raid-escalation-badge {
@@ -3341,13 +3341,13 @@ tr:hover .task-context-btn,
     white-space: nowrap;
 }
 
-.raid-escalation-programme { background: #fff3bf; color: var(--np-warning); }
-.raid-escalation-board { background: #ffe0e0; color: var(--np-danger); }
+.raid-escalation-programme { background: var(--np-warning-tint); color: var(--np-warning-ink); }
+.raid-escalation-board { background: var(--np-danger-tint); color: var(--np-danger-ink); }
 
 /* Lessons learned impact badges (issue #598) */
 .lesson-impact-positive { background: var(--np-success-tint); color: var(--np-success-ink); }
-.lesson-impact-change { background: #fff3bf; color: #b07b00; }
-.lesson-impact-mixed { background: #e8eaf6; color: #4a4a8c; }
+.lesson-impact-change { background: var(--np-warning-tint); color: var(--np-warning-ink); }
+.lesson-impact-mixed { background: color-mix(in srgb, var(--np-purple) 16%, var(--np-surface)); color: color-mix(in srgb, var(--np-purple) 60%, var(--np-ink)); }
 
 /* Score coloring */
 .raid-score {
@@ -3359,9 +3359,9 @@ tr:hover .task-context-btn,
     min-width: 30px;
 }
 
-.raid-score-low { background: #d3f9d8; color: var(--np-success); }
-.raid-score-medium { background: #fff3bf; color: var(--np-warning); }
-.raid-score-high { background: #ffe0e0; color: var(--np-danger); }
+.raid-score-low { background: var(--np-success-tint); color: var(--np-success-ink); }
+.raid-score-medium { background: var(--np-warning-tint); color: var(--np-warning-ink); }
+.raid-score-high { background: var(--np-danger-tint); color: var(--np-danger-ink); }
 
 
 /* RAID form modal - reuses existing modal-overlay pattern */
@@ -3375,9 +3375,9 @@ tr:hover .task-context-btn,
     transition: all 0.3s;
 }
 
-.raid-score-display.score-low { background: #d3f9d8; color: var(--np-success); border-color: var(--np-success); }
-.raid-score-display.score-medium { background: #fff3bf; color: var(--np-warning); border-color: var(--np-warning); }
-.raid-score-display.score-high { background: #ffe0e0; color: var(--np-danger); border-color: var(--np-danger); }
+.raid-score-display.score-low { background: var(--np-success-tint); color: var(--np-success-ink); border-color: var(--np-success); }
+.raid-score-display.score-medium { background: var(--np-warning-tint); color: var(--np-warning-ink); border-color: var(--np-warning); }
+.raid-score-display.score-high { background: var(--np-danger-tint); color: var(--np-danger-ink); border-color: var(--np-danger); }
 
 /* RAID table responsive */
 @media (max-width: 768px) {
@@ -3499,7 +3499,7 @@ tr:hover .task-context-btn,
 }
 
 .wizard-step.completed {
-    color: #4B9C4C;
+    color: var(--np-success-ink);
 }
 
 .wizard-step-number {
@@ -3521,8 +3521,8 @@ tr:hover .task-context-btn,
 }
 
 .wizard-step.completed .wizard-step-number {
-    background: #4B9C4C;
-    color: white;
+    background: var(--np-success);
+    color: var(--np-on-success);
 }
 
 .wizard-step-connector {
@@ -4463,15 +4463,15 @@ tr:hover .task-context-btn,
 }
 
 .priority-dot-urgent {
-    background-color: #ef4444;
+    background-color: var(--np-red);
 }
 
 .priority-dot-important {
-    background-color: #dd6b20;
+    background-color: var(--np-orange);
 }
 
 .priority-dot-medium {
-    background-color: #38a169;
+    background-color: var(--np-green);
 }
 
 
@@ -4705,7 +4705,7 @@ tr:hover .task-context-btn,
 }
 
 .calendar-add-btn:hover {
-    background: #0d7aa3;
+    background: var(--np-accent-hover);
 }
 
 /* Calendar slide animations */
@@ -4897,13 +4897,13 @@ tr:hover .task-context-btn,
 }
 
 .actions-priority-high {
-    background: #ffebee;
-    color: var(--np-danger);
+    background: var(--np-danger-tint);
+    color: var(--np-danger-ink);
 }
 
 .actions-priority-medium {
-    background: #fff3e0;
-    color: var(--np-warning);
+    background: var(--np-warning-tint);
+    color: var(--np-warning-ink);
 }
 
 .actions-priority-low {
@@ -5292,8 +5292,8 @@ tr:hover .task-context-btn,
 }
 
 #mindmap-view .mindmap-placeholder .mindmap-toolbar-btn:hover {
-    background: #0d7aa3;
-    border-color: #0d7aa3;
+    background: var(--np-accent-hover);
+    border-color: var(--np-accent-hover);
 }
 
 /* Mind map branch colour picker — toolbar controls */
@@ -5605,7 +5605,7 @@ tr:hover .task-context-btn,
 
 .benefit-link-tag-remove:hover {
     opacity: 1;
-    color: #EF4444;
+    color: var(--np-danger);
 }
 
 /* Benefits view toggle buttons */
@@ -5636,7 +5636,7 @@ tr:hover .task-context-btn,
 }
 
 .ben-view-btn--active:hover {
-    background: #0d7aa3 !important;
+    background: var(--np-accent-hover) !important;
 }
 
 /* Benefits tracking table container */
@@ -5729,28 +5729,28 @@ tr:hover .task-context-btn,
 }
 
 .ben-status-badge--not-started {
-    background: #f3f4f6;
-    color: #6b7280;
+    background: var(--np-sunken);
+    color: var(--np-muted);
 }
 
 .ben-status-badge--in-progress {
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: var(--np-info-tint);
+    color: var(--np-info-ink);
 }
 
 .ben-status-badge--achieved {
-    background: #dcfce7;
-    color: #16a34a;
+    background: var(--np-success-tint);
+    color: var(--np-success-ink);
 }
 
 .ben-status-badge--partially-achieved {
-    background: #fff3bf;
-    color: #e67700;
+    background: var(--np-warning-tint);
+    color: var(--np-warning-ink);
 }
 
 .ben-status-badge--not-achieved {
-    background: #ffe0e0;
-    color: #d32f2f;
+    background: var(--np-danger-tint);
+    color: var(--np-danger-ink);
 }
 
 /* Hide add button labels on small screens */
@@ -6026,8 +6026,8 @@ tr:hover .task-context-btn,
 }
 
 .stakeholder-level-low {
-    background: #fff3e0;
-    color: #e65100;
+    background: var(--np-warning-tint);
+    color: var(--np-warning-ink);
 }
 
 @media (max-width: 900px) {
@@ -6245,18 +6245,18 @@ tr:hover .task-context-btn,
 }
 
 .budget-type-capex {
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: var(--np-info-tint);
+    color: var(--np-info-ink);
 }
 
 .budget-type-opex {
-    background: #fff3bf;
-    color: #92400e;
+    background: var(--np-warning-tint);
+    color: var(--np-warning-ink);
 }
 
 .budget-type-one-off {
-    background: #d1fae5;
-    color: #065f46;
+    background: var(--np-success-tint);
+    color: var(--np-success-ink);
 }
 
 .budget-category-badge {
@@ -6375,15 +6375,15 @@ tr:hover .task-context-btn,
 }
 
 .budget-widget-value.budget-under {
-    color: #059669;
+    color: var(--np-success-ink);
 }
 
 .budget-widget-value.budget-warn {
-    color: #e67700;
+    color: var(--np-warning-ink);
 }
 
 .budget-widget-value.budget-over {
-    color: #d32f2f;
+    color: var(--np-danger-ink);
 }
 
 .budget-widget-bar-wrapper {
@@ -6397,15 +6397,15 @@ tr:hover .task-context-btn,
     height: 100%;
     border-radius: 4px;
     transition: width 0.5s ease, background 0.3s ease;
-    background: #059669;
+    background: var(--np-success);
 }
 
 .budget-widget-bar.budget-warn {
-    background: #e67700;
+    background: var(--np-warning);
 }
 
 .budget-widget-bar.budget-over {
-    background: #d32f2f;
+    background: var(--np-danger);
 }
 
 /* Responsive budget layout */
@@ -6780,8 +6780,8 @@ tr:hover .task-context-btn,
     letter-spacing: 0.5px;
     padding: 1px var(--np-space-8);
     border-radius: 8px;
-    background: #f0ad4e;
-    color: #fff;
+    background: var(--np-warning-tint);
+    color: var(--np-warning-ink);
     margin-left: var(--np-space-8);
     vertical-align: middle;
     cursor: default;
@@ -6789,13 +6789,13 @@ tr:hover .task-context-btn,
 
 /* ── Delivery Forecast ── */
 .forecast-on-track {
-    color: #2ca02c;
+    color: var(--np-success-ink);
     font-weight: 500;
     font-size: 13px;
 }
 
 .forecast-at-risk {
-    color: #d32f2f;
+    color: var(--np-danger-ink);
     font-weight: 600;
     font-size: 13px;
 }
@@ -6807,7 +6807,7 @@ tr:hover .task-context-btn,
 }
 
 .forecast-complete {
-    color: #2ca02c;
+    color: var(--np-success-ink);
     font-size: 13px;
 }
 
@@ -7007,7 +7007,7 @@ tr:hover .task-context-btn,
 .storage-settings-actions button { min-height: 44px; }
 .storage-settings-legacy { margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid rgba(128, 128, 128, 0.3); }
 .storage-settings-legacy h4 { margin: 0 0 0.25rem; font-size: 0.95rem; }
-.storage-settings-warning { color: #b42318; font-weight: 600; }
+.storage-settings-warning { color: var(--np-danger-ink); font-weight: 600; }
 
 /* RAID Excel sync review (issue #761) */
 .raid-sync-list {
@@ -7052,12 +7052,12 @@ tr:hover .task-context-btn,
     letter-spacing: 0.03em;
     white-space: nowrap;
 }
-.raid-sync-kind-badge.raid-sync-kind-conflict { background: #ffe0e0; color: var(--np-danger); }
+.raid-sync-kind-badge.raid-sync-kind-conflict { background: var(--np-danger-tint); color: var(--np-danger-ink); }
 .raid-sync-kind-badge.raid-sync-kind-added,
-.msp-sync-kind-badge.msp-sync-kind-added { background: #d3f9d8; color: var(--np-success); }
+.msp-sync-kind-badge.msp-sync-kind-added { background: var(--np-success-tint); color: var(--np-success-ink); }
 .raid-sync-kind-badge.raid-sync-kind-updated,
-.msp-sync-kind-badge.msp-sync-kind-updated { background: #d0ebff; color: var(--np-info); }
-.raid-sync-kind-badge.raid-sync-kind-removed { background: #fff3bf; color: var(--np-warning); }
+.msp-sync-kind-badge.msp-sync-kind-updated { background: var(--np-info-tint); color: var(--np-info-ink); }
+.raid-sync-kind-badge.raid-sync-kind-removed { background: var(--np-warning-tint); color: var(--np-warning-ink); }
 
 .raid-sync-entry-body {
     flex: 1;
@@ -7196,7 +7196,7 @@ tr:hover .task-context-btn,
 .msp-sync-entry.msp-sync-kind-added { border-left: 4px solid var(--np-success); }
 .msp-sync-entry.msp-sync-kind-updated { border-left: 4px solid var(--np-info); }
 
-.msp-sync-kind-badge.msp-sync-kind-removed { background: #ffe0e0; color: var(--np-danger); }
+.msp-sync-kind-badge.msp-sync-kind-removed { background: var(--np-danger-tint); color: var(--np-danger-ink); }
 
 .msp-sync-entry-body {
     flex: 1;
@@ -8425,14 +8425,14 @@ button.ribbon-breadcrumb-rung:hover {
     padding: var(--np-space-2) var(--np-space-12);
     font-size: 0.85em;
     background: transparent;
-    color: #b02a37;
+    color: var(--np-danger);
     border: 1px solid currentColor;
     border-radius: 4px;
 }
 
 .collab-presence-row button:hover {
-    background: #b02a37;
-    color: #fff;
+    background: var(--np-danger-tint);
+    color: var(--np-danger-ink);
     transform: none;
 }
 
