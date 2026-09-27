@@ -27,7 +27,9 @@ Editor Shortcuts
    * - Shortcut
      - Action
    * - ``Ctrl+S`` / ``Cmd+S``
-     - Save plan as a Markdown file
+     - Save the plan as a Markdown file: to its file on disk in Chrome and
+       Edge, asking where the first time, or as a download elsewhere (see
+       :doc:`../how-to/save-your-plan-to-a-file`)
    * - ``Ctrl+Z`` / ``Cmd+Z``
      - Undo last change
    * - ``Ctrl+Shift+Z`` / ``Cmd+Shift+Z`` or ``Ctrl+Y`` / ``Cmd+Y``

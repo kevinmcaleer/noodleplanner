@@ -10,7 +10,8 @@
  *
  * Two paths, chosen purely by feature detection (never user-agent sniffing):
  *
- *  - File System Access API (Chromium/Edge): showOpenFilePicker() returns a
+ *  - File System Access API (Chromium/Edge): showOpenFilePicker(), or
+ *    showSaveFilePicker() for a plan that has no file yet (#1406), returns a
  *    FileSystemFileHandle, which link() retains here. Reading/writing a
  *    linked target goes straight through the handle via getFile()/
  *    createWritable() — no dialog, no re-prompt.
@@ -69,6 +70,14 @@
     }
 
     const DEFAULT_TARGET = 'plan';
+
+    // The open and save dialogs for a plan file: the same `id`, so each
+    // starts in the folder the other last used, and the same file type.
+    const PLAN_PICKER_ID = 'noodleplanner-plan';
+    const PLAN_FILE_TYPES = [{
+        description: 'NoodlePlanner plan (Markdown)',
+        accept: { 'text/markdown': ['.md'] },
+    }];
 
     // projectId -> Map<targetKey, { handle: FileSystemFileHandle, name: string }>
     const linkedFiles = new Map();
@@ -189,11 +198,8 @@
         let handles;
         try {
             handles = await window.showOpenFilePicker({
-                id: 'noodleplanner-plan',
-                types: [{
-                    description: 'NoodlePlanner plan (Markdown)',
-                    accept: { 'text/markdown': ['.md'] },
-                }],
+                id: PLAN_PICKER_ID,
+                types: PLAN_FILE_TYPES,
                 excludeAcceptAllOption: false,
                 multiple: false,
             });
@@ -205,6 +211,38 @@
         const file = await handle.getFile();
         const text = await file.text();
         return { handle: handle, name: file.name, text: text };
+    }
+
+    /**
+     * Ask where to save a plan with the native save dialog, and link the
+     * chosen file to `projectId` as its plan file (issue #1406) — the first
+     * Save of a plan that has no file yet, and Save As. `suggestedName` is
+     * the name the dialog starts with. Resolves to { handle, name } on
+     * success, or null if the user cancelled (AbortError). Throws on any
+     * other failure, e.g. no user gesture. Returns null immediately,
+     * without prompting, when the API is unsupported.
+     *
+     * Writes nothing: the caller saves through saveToLinkedFile(), which
+     * needs no further prompt, since the save dialog grants write access to
+     * the file it returns. Shares the open dialog's `id`, so both start in
+     * the folder the user last used for a plan.
+     */
+    async function pickSaveFile(projectId, suggestedName) {
+        if (!isSupported()) return null;
+        let handle;
+        try {
+            handle = await window.showSaveFilePicker({
+                id: PLAN_PICKER_ID,
+                suggestedName: suggestedName,
+                types: PLAN_FILE_TYPES,
+                excludeAcceptAllOption: false,
+            });
+        } catch (error) {
+            if (error && error.name === 'AbortError') return null; // user cancelled
+            throw error;
+        }
+        link(projectId, handle, handle.name);
+        return { handle: handle, name: handle.name };
     }
 
     /**
@@ -568,6 +606,7 @@
         link: link,
         unlink: unlink,
         pickAndReadFile: pickAndReadFile,
+        pickSaveFile: pickSaveFile,
         pickAndLinkFile: pickAndLinkFile,
         requestWritePermission: requestWritePermission,
         readLinkedFile: readLinkedFile,
