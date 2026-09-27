@@ -898,7 +898,7 @@ class TestKeyboardShortcuts:
         response = client.get("/static/script.js")
         js_content = response.text
         assert "Global keyboard shortcuts" in js_content
-        assert "isTypingInInput(e.target)" in js_content
+        assert "isTypingInInput(keyEventTarget(e))" in js_content
 
     def test_script_shortcuts_check_alt_key(self, client):
         """Test that Alt-based shortcuts check for the Alt modifier."""

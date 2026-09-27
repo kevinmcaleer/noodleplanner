@@ -3918,7 +3918,7 @@ function updateProductNameFromTitle() {
     const titleEl = document.getElementById('productFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
     const inputEl = document.getElementById('productTitle');
     if (titleEl && inputEl) {
-        inputEl.value = titleEl.innerText.trim();
+        inputEl.value = titleEl.innerText.replace(/\s+/g, ' ').trim();
         saveProductForm();
     }
 }
