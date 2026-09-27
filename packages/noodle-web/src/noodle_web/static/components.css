@@ -77,12 +77,7 @@
 }
 
 .milestones-table tbody tr.summary-task {
-    background: #e8eaf6;
     font-weight: 600;
-}
-
-.milestones-table tbody tr.summary-task:hover {
-    background: #dde0f3;
 }
 
 .milestones-table .task-name {
@@ -522,14 +517,14 @@
     padding: var(--np-space-12) var(--np-space-8);
     font-size: 0.95em;
     font-weight: 700;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    border-bottom: 1px solid;
 }
 
 .timesheet-table th.timesheet-day-header {
     padding: var(--np-space-8) var(--np-space-4);
     font-size: 0.9em;
     min-width: 32px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    border-bottom: 1px solid;
 }
 
 .timesheet-table th.timesheet-weekday-header {
@@ -547,15 +542,6 @@
     left: 0;
     background: var(--np-accent-gradient);
     z-index: 11;
-}
-
-.timesheet-table th.timesheet-weekend {
-    background: rgba(0, 0, 0, 0.15);
-}
-
-.timesheet-table th.timesheet-day-header.timesheet-weekend,
-.timesheet-table th.timesheet-weekday-header.timesheet-weekend {
-    background: rgba(0, 0, 0, 0.15);
 }
 
 .timesheet-table td {
@@ -622,15 +608,6 @@
 .timesheet-holiday {
     background: #fff3e0 !important;
     border-left: 3px solid #ff9800;
-}
-
-.timesheet-table th.timesheet-holiday {
-    background: rgba(255, 152, 0, 0.3);
-}
-
-.timesheet-table th.timesheet-day-header.timesheet-holiday,
-.timesheet-table th.timesheet-weekday-header.timesheet-holiday {
-    background: rgba(255, 152, 0, 0.3);
 }
 
 .timesheet-title {
@@ -1043,17 +1020,14 @@
 }
 
 .report-rag-badge.rag-red {
-    background: #ff6b6b;
     color: white;
 }
 
 .report-rag-badge.rag-amber {
-    background: #ffd93d;
     color: var(--np-ink);
 }
 
 .report-rag-badge.rag-green {
-    background: #51cf66;
     color: white;
 }
 
@@ -1173,7 +1147,6 @@
     width: min(600px, 90vw);
     background: var(--np-surface);
     z-index: 1056;
-    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
     transform: translateX(100%);
     transition: transform 0.3s ease;
     display: flex;
@@ -2384,7 +2357,6 @@ tr:hover .task-context-btn,
 }
 
 .btn-secondary:hover {
-    background: #5a6268;
     transform: translateY(-2px);
 }
 
@@ -3050,7 +3022,7 @@ tr:hover .task-context-btn,
     background: var(--np-surface);
     border-radius: 8px;
     padding: var(--np-space-16);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px var(--np-shadow);
     border-left: 4px solid var(--np-border-strong);
     display: flex;
     flex-direction: column;
@@ -3751,12 +3723,10 @@ tr:hover .task-context-btn,
 
 .lookahead-section-title.overdue {
     background: var(--np-danger-gradient);
-    color: #fff;
 }
 
 .lookahead-section-title.upcoming {
     background: var(--np-info-gradient);
-    color: #fff;
 }
 
 .lookahead-table-wrapper {
@@ -4534,8 +4504,7 @@ tr:hover .task-context-btn,
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 1px;
-    background: #444;
-    border: 1px solid #444;
+    border: 1px solid;
     border-radius: 6px;
     overflow: hidden;
     position: relative;
@@ -4544,7 +4513,6 @@ tr:hover .task-context-btn,
 }
 
 .calendar-day-header {
-    background: #3a3a3a;
     color: var(--np-muted);
     text-align: center;
     padding: var(--np-space-8) var(--np-space-4);
@@ -4555,7 +4523,6 @@ tr:hover .task-context-btn,
 }
 
 .calendar-day-cell {
-    background: #2a2a2a;
     min-height: 100px;
     padding: var(--np-space-4) var(--np-space-8);
     position: relative;
@@ -4563,17 +4530,11 @@ tr:hover .task-context-btn,
     transition: background 0.15s;
 }
 
-.calendar-day-cell:hover {
-    background: #333;
-}
-
 .calendar-day-cell.calendar-other-month {
-    background: #2a2a2a;
     opacity: 0.5;
 }
 
 .calendar-day-cell.calendar-today {
-    background: #1a3a4a;
     border: 2px solid var(--np-accent);
 }
 
@@ -4585,7 +4546,6 @@ tr:hover .task-context-btn,
 }
 
 .calendar-today .calendar-day-number {
-    color: #4fc3f7;
     font-weight: 700;
 }
 
@@ -6712,14 +6672,6 @@ tr:hover .task-context-btn,
     background: #1e1e2e;
 }
 
-[data-theme="dark"] .portfolio-benefits-table thead {
-    background: #2a2a3e;
-}
-
-[data-theme="dark"] .portfolio-benefits-table th {
-    color: #a0a0b0;
-}
-
 [data-theme="dark"] .portfolio-benefits-table th:hover {
     background: #2a2a3e;
 }
@@ -7281,7 +7233,6 @@ tr:hover .task-context-btn,
     height: 38px;
     padding: 0 var(--np-space-12);
     background: var(--np-dark-blue);
-    color: #fff;
     z-index: 5;
 }
 
@@ -7328,7 +7279,6 @@ tr:hover .task-context-btn,
 
 .ribbon-scope-btn.active {
     background: var(--np-blue);
-    color: #fff;
 }
 
 .ribbon-titlebar-sep {
@@ -7385,7 +7335,6 @@ tr:hover .task-context-btn,
 /* Breadcrumb rungs (#953): Portfolio › <Programme> › <Project>, rendered
  * into .ribbon-doc-title by ribbon.js's renderBreadcrumb(). */
 .ribbon-breadcrumb-sep {
-    color: #6f8894;
     flex-shrink: 0;
 }
 
@@ -7403,10 +7352,6 @@ tr:hover .task-context-btn,
 button.ribbon-breadcrumb-rung:hover {
     color: #ffffff;
     text-decoration: underline;
-}
-
-.ribbon-breadcrumb-rung.active {
-    color: #ffffff;
 }
 
 .ribbon-titlebar-spacer {
@@ -7446,7 +7391,6 @@ button.ribbon-breadcrumb-rung:hover {
     min-width: 0;
     border: none;
     background: transparent;
-    color: #fff;
     font-size: 11px;
     line-height: 1;
     font-family: inherit;
@@ -7578,7 +7522,7 @@ button.ribbon-breadcrumb-rung:hover {
     height: 34px;
     padding: 0 var(--np-space-8);
     background: var(--np-paper);
-    border-bottom: 1px solid #d8e1e5;
+    border-bottom: 1px solid;
     z-index: 4;
 }
 
@@ -7593,16 +7537,11 @@ button.ribbon-breadcrumb-rung:hover {
     border: none;
     border-radius: 4px;
     background: var(--np-red);
-    color: #fff;
     font-weight: 600;
     font-size: 12px;
     line-height: 1;
     font-family: inherit;
     cursor: pointer;
-}
-
-.ribbon-file-btn:hover {
-    background: #a81919;
 }
 
 .ribbon-tab-btn {
@@ -7702,7 +7641,7 @@ button.ribbon-breadcrumb-rung:hover {
     height: 98px;
     padding: 0 var(--np-space-8);
     background: var(--np-surface);
-    border-bottom: 1px solid #d8e1e5;
+    border-bottom: 1px solid;
     overflow: hidden;
 }
 
@@ -7711,7 +7650,7 @@ button.ribbon-breadcrumb-rung:hover {
     flex-direction: column;
     justify-content: space-between;
     padding: 0 var(--np-space-2);
-    border-right: 1px solid rgba(2, 56, 77, 0.13);
+    border-right: 1px solid;
     flex-shrink: 0;
 }
 
@@ -7832,7 +7771,6 @@ button.ribbon-breadcrumb-rung:hover {
     line-height: 1;
     font-family: inherit;
     letter-spacing: 0.04em;
-    color: #6b7b83;
 }
 
 .ribbon-launcher {
@@ -7887,7 +7825,6 @@ button.ribbon-breadcrumb-rung:hover {
     font-size: 10px;
     line-height: 1;
     font-family: inherit;
-    color: #6b7b83;
     text-align: center;
 }
 
@@ -7909,7 +7846,7 @@ button.ribbon-breadcrumb-rung:hover {
 
 .ribbon-more-popover .ribbon-group {
     border-right: none;
-    border-bottom: 1px solid rgba(2, 56, 77, 0.13);
+    border-bottom: 1px solid;
     padding: var(--np-space-8) 0;
 }
 
@@ -7939,7 +7876,7 @@ button.ribbon-breadcrumb-rung:hover {
     align-items: center;
     gap: var(--np-space-2);
     padding: 0 var(--np-space-8);
-    border-right: 1px solid rgba(2, 56, 77, 0.13);
+    border-right: 1px solid;
     flex-shrink: 0;
 }
 

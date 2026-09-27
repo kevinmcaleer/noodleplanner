@@ -86,6 +86,13 @@ async function loadProjectIntoEditor(projectId) {
     // reference the correct project
     setCurrentProjectId(projectId);
 
+    // Read back any file on disk this project was linked to before a reload,
+    // so Save keeps writing to it (#1407). Not awaited: it only reads
+    // IndexedDB and never prompts, and Save waits for it if it has to.
+    if (typeof restoreLocalFileLinks === 'function') {
+        restoreLocalFileLinks(projectId);
+    }
+
     // Clear RAID log entries and highlights before loading new plan
     if (typeof clearPlanTrackingData === 'function') {
         clearPlanTrackingData();
