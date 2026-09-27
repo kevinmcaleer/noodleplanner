@@ -118,6 +118,47 @@ Two things that are *not* mechanical, both of which bit during the first three:
   `execute_script("arguments[0].click()")`; the equivalent here is
   `locator.dispatch_event("click")`. Playwright does not lift that constraint.
 
+## Phones and tablets (#1379)
+
+`page` is a 1280x900 desktop with a mouse. For anything about touch, take one
+of the device fixtures in `conftest.py` instead. Each turns on touch emulation
+(`has_touch` and `is_mobile`), which is what makes `(pointer: coarse)` and
+`(hover: none)` match -- a plain `set_viewport_size()` does not:
+
+| Fixture | Size | `data-layout` |
+|---|---|---|
+| `phone` | 390x844 | `phone` |
+| `tablet_portrait` | 768x1024 | `tablet` |
+| `tablet_landscape` | 1024x768 | `tablet` |
+
+`device_page(name, layout=...)` builds one inside a test, for another size
+(`tablet_ipad_air`, 820x1180) or to force Settings -> Layout's override
+(`layout="desktop"` on a tablet, say) rather than trusting the width. Behaviour
+keys off `document.documentElement.dataset.layout` (`static/layout-mode.js`), so
+that is what a test should force, not the width.
+
+### The mobile metrics ratchet
+
+`test_mobile_metrics.py` walks all 39 views on the phone and both tablets and
+records, per view: how much of the first screen shows the view itself, the
+chrome's height, targets under 44px and under 24px, text fields under 16px (iOS
+zooms into those), and controls only a `:hover` reveals. It also opens the
+task, RAID and resource forms and counts action buttons something fixed is
+covering. `scripts/mobile_metrics.py`'s docstring defines each number.
+
+It fails only when a number is **worse** than `ci/mobile-metrics-baseline.json`,
+like the design lint's ratchet. When a change makes one better, the test says
+so; lower the baseline in the same PR so the gain is held:
+
+```bash
+uv run python scripts/mobile_metrics.py                          # report against the baseline
+uv run python scripts/mobile_metrics.py --device phone --only tasks,raid --json
+uv run python scripts/mobile_metrics.py --write-baseline         # re-record it (~1 minute)
+```
+
+The walk starts its own server, and honours `NOODLE_PW_CHROME` like the suite.
+The baseline is committed, so a number going up shows in the diff.
+
 ## The network, deliberately
 
 `page` blocks all external origins. One test — "are the approved typefaces

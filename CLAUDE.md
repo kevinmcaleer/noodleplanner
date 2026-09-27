@@ -141,6 +141,22 @@ Run the fast suite constantly; run the browser suites before pushing
 anything that touches the UI, and remember a green `uv run pytest` alone has
 not exercised the browser.
 
+### Phones and tablets
+
+Behaviour that differs by device keys off `<html data-layout="phone|tablet|desktop">`
+(`static/layout-mode.js`), never off a width in JS. For a browser test on a touch
+device, use the `phone`, `tablet_portrait` or `tablet_landscape` fixtures (or
+`device_page(name, layout=...)`), not `page.set_viewport_size()`, which leaves the
+pointer fine. `tests/ui/test_mobile_metrics.py` is a ratchet over every view on
+those devices against `ci/mobile-metrics-baseline.json`; when a change improves a
+number, lower the baseline in the same PR:
+
+```bash
+uv run python scripts/mobile_metrics.py --write-baseline
+```
+
+`tests/ui/README.md` has the details.
+
 ## UI and design system
 
 The design tokens are declared in

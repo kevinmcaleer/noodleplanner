@@ -143,6 +143,9 @@
         if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
     })();
     </script>
+    <!-- Layout mode (#1379): sets <html data-layout="phone|tablet|desktop">
+         before the body renders, so the first paint is already the right layout. -->
+    <script src="/static/layout-mode.js?v={{ v }}"></script>
     <link rel="stylesheet" href="/static/animations.css?v={{ v }}">
     <link rel="stylesheet" href="/static/responsive.css?v={{ v }}">
     <link rel="stylesheet" href="/static/noodlesheet.css?v={{ v }}">
@@ -3637,6 +3640,7 @@ Build
                     <button class="settings-tab-btn" data-tab="board" onclick="switchSettingsTab('board')" role="tab" aria-selected="false">Board</button>
                     <button class="settings-tab-btn" data-tab="timeline" onclick="switchSettingsTab('timeline')" role="tab" aria-selected="false">Timeline</button>
                     <button class="settings-tab-btn" data-tab="theme" onclick="switchSettingsTab('theme')" role="tab" aria-selected="false">Theme</button>
+                    <button class="settings-tab-btn" data-tab="layout" onclick="switchSettingsTab('layout')" role="tab" aria-selected="false">Layout</button>
                     <button class="settings-tab-btn" data-tab="ai" onclick="switchSettingsTab('ai')" role="tab" aria-selected="false">AI</button>
                     <button class="settings-tab-btn" data-tab="storage" onclick="switchSettingsTab('storage')" role="tab" aria-selected="false">Storage</button>
                     <button class="settings-tab-btn" data-tab="sync" onclick="switchSettingsTab('sync')" role="tab" aria-selected="false">Sync</button>
@@ -3738,6 +3742,32 @@ Build
                         </label>
                     </div>
                     <small>Theme preference is saved per project in the plan front matter</small>
+                </div>
+
+                <!-- Layout Tab (#1379): which screen layout to use. Kept in this
+                     browser only (layout-mode.js), never in the plan: it is a
+                     fact about the screen, not about the project. -->
+                <div id="settingsTab-layout" class="settings-tab-content" role="tabpanel">
+                    <h3>Layout</h3>
+                    <div class="settings-theme-options" role="radiogroup" aria-label="Layout">
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsLayout" value="auto" onchange="setLayoutMode(this.value)">
+                            <span><i class="bi bi-aspect-ratio" aria-hidden="true"></i> Auto</span>
+                        </label>
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsLayout" value="phone" onchange="setLayoutMode(this.value)">
+                            <span><i class="bi bi-phone" aria-hidden="true"></i> Phone</span>
+                        </label>
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsLayout" value="tablet" onchange="setLayoutMode(this.value)">
+                            <span><i class="bi bi-tablet" aria-hidden="true"></i> Tablet</span>
+                        </label>
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsLayout" value="desktop" onchange="setLayoutMode(this.value)">
+                            <span><i class="bi bi-display" aria-hidden="true"></i> Desktop</span>
+                        </label>
+                    </div>
+                    <small>Auto picks a layout from the screen width. Saved in this browser only, not in the plan.</small>
                 </div>
 
                 <!-- AI Tab -->
