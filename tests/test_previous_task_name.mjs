@@ -77,6 +77,16 @@ test('explicit dependencies follow the implicit one', () => {
   assert.equal(parse(2).dependencies, 'A, X, Y');
 });
 
+test('a [depends] naming the * predecessor again is not listed twice', () => {
+  const { parse } = load('A 1d\n* B 1d [depends A, X]');
+  assert.equal(parse(2).dependencies, 'A, X');
+});
+
+test('the duplicate is dropped whatever its case, type or lag, and the * wins', () => {
+  const { parse } = load('Design 1d\n* +2d Build 1d [depends design:SS +1d, X:FF]');
+  assert.equal(parse(2).dependencies, 'Design +2d, X:FF');
+});
+
 test('summary tasks, blank lines, headings and dividers are skipped', () => {
   const plan = 'Phase 1\n  Design 3d\n\n# heading\n=== divider ===\nPhase 2\n  * Build 2d';
   const { parse } = load(plan);

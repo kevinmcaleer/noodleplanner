@@ -4867,8 +4867,17 @@ function parseTaskLine(line, lineNum) {
         if (editor) {
             const previousTaskName = getPreviousTaskName(editor.value.split('\n'), lineNum);
             if (previousTaskName) {
+                // The * already makes the previous task a predecessor, so a
+                // [depends] entry naming it again is dropped rather than
+                // listed twice -- and saveTask() then writes the line back
+                // without it. The * wins: the scheduler applies it and
+                // ignores [depends] on a sequential task.
+                const previous = previousTaskName.toLowerCase();
+                const others = values.dependencies.filter(dep =>
+                    dep.replace(/\s+[+\-]\d*[dwmy]?$/i, '').replace(/:(FS|SS|FF|SF)$/i, '')
+                        .trim().toLowerCase() !== previous);
                 task.dependencies = [values.starLagLead ? `${previousTaskName} ${values.starLagLead}` : previousTaskName,
-                    ...values.dependencies].join(', ');
+                    ...others].join(', ');
             }
         }
     }
