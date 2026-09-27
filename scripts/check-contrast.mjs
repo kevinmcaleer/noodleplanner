@@ -228,6 +228,15 @@ const PAIRINGS = [
 		],
 	),
 
+	// #1323. A completed plan-wizard step's number is text on a filled
+	// success disc, so 4.5:1 -- stricter than the checkbox tick above.
+	{ fg: '--np-on-success', bg: '--np-success', min: 4.5, what: 'number on a completed wizard step' },
+	// Purple has no themed tint/ink pair, so the RAID dependency badge, the
+	// kanban tag and the "mixed" lesson impact derive one with color-mix():
+	// the hue over the card surface for the fill, the hue into ink for the
+	// text. Both ends flip with the theme, so both themes are scored.
+	{ fg: 'mix(--np-purple 60, --np-ink)', bg: 'mix(--np-purple 16, --np-surface)', min: 4.5, what: 'text on a purple tag' },
+
 	{ fg: '--np-danger', bg: '--np-paper', min: 3, what: 'filled danger against the page' },
 	{ fg: '--np-success', bg: '--np-paper', min: 3, what: 'filled success against the page' },
 	{ fg: '--np-info', bg: '--np-paper', min: 3, what: 'filled info against the page' },
@@ -256,13 +265,28 @@ const PAIRINGS = [
 	{ fg: '--np-focus-ring-color', bg: '--np-sunken', min: 3, what: 'focus ring against a sunken surface' },
 ]
 
+// A pairing side is a token, or `mix(--a N, --b)` for what the stylesheets
+// write as `color-mix(in srgb, var(--a) N%, var(--b))` -- how a hue with no
+// themed tint/ink of its own (purple, say) gets one that flips with the
+// theme (#1323). Mixed in sRGB, as that color-mix() is.
+function sideValue(map, side) {
+	const m = /^mix\((--[\w-]+)\s+(\d+(?:\.\d+)?),\s*(--[\w-]+)\)$/.exec(side)
+	if (!m) return map[side]
+	const a = parseColour(map[m[1]] ?? '')
+	const b = parseColour(map[m[3]] ?? '')
+	if (!a || !b) return undefined
+	const t = parseFloat(m[2]) / 100
+	const ch = (k) => Math.round(a[k] * t + b[k] * (1 - t))
+	return `rgb(${ch('r')}, ${ch('g')}, ${ch('b')})`
+}
+
 const tokens = readTokens()
 const results = []
 for (const theme of ['light', 'dark']) {
 	const map = tokens[theme]
 	for (const p of PAIRINGS) {
-		const fgValue = map[p.fg]
-		const bgValue = map[p.bg]
+		const fgValue = sideValue(map, p.fg)
+		const bgValue = sideValue(map, p.bg)
 		if (fgValue === undefined || bgValue === undefined) {
 			results.push({ theme, ...p, status: 'missing', detail: `${fgValue === undefined ? p.fg : p.bg} is not defined` })
 			continue
