@@ -72,11 +72,17 @@
     const DEFAULT_TARGET = 'plan';
 
     // The open and save dialogs for a plan file: the same `id`, so each
-    // starts in the folder the other last used, and the same file type.
+    // starts in the folder the other last used. Save writes Markdown; Open
+    // also lists `.txt`, which is how a phone whose browser won't share a
+    // `.md` file shares the plan (sharePlanCopy() in script.js).
     const PLAN_PICKER_ID = 'noodleplanner-plan';
     const PLAN_FILE_TYPES = [{
         description: 'NoodlePlanner plan (Markdown)',
         accept: { 'text/markdown': ['.md'] },
+    }];
+    const PLAN_OPEN_TYPES = [{
+        description: 'NoodlePlanner plan (Markdown or text)',
+        accept: { 'text/markdown': ['.md'], 'text/plain': ['.txt'] },
     }];
 
     // projectId -> Map<targetKey, { handle: FileSystemFileHandle, name: string }>
@@ -182,14 +188,16 @@
     }
 
     /**
-     * Open a .md file from disk via the native picker. Resolves to
-     * { handle, name, text } on success, or null if the user cancelled the
-     * picker (AbortError). Throws on any other failure. Returns null
-     * immediately, without prompting, when the API is unsupported.
+     * Open a .md (or .txt) plan file from disk via the native picker.
+     * Resolves to { handle, name, text } on success, or null if the user
+     * cancelled the picker (AbortError). Throws on any other failure.
+     * Returns null immediately, without prompting, when the API is
+     * unsupported.
      *
      * Does not touch project storage or link() itself — the caller decides
-     * what project (if any) this becomes. Kept exactly as #767 shipped it —
-     * see pickAndLinkFile() below for the more general form #761's sync
+     * what project (if any) this becomes. Kept as #767 shipped it, except
+     * that it also lists .txt (#1395's share fallback) — see
+     * pickAndLinkFile() below for the more general form #761's sync
      * targets use, which links immediately since their project already
      * exists at pick time.
      */
@@ -199,7 +207,7 @@
         try {
             handles = await window.showOpenFilePicker({
                 id: PLAN_PICKER_ID,
-                types: PLAN_FILE_TYPES,
+                types: PLAN_OPEN_TYPES,
                 excludeAcceptAllOption: false,
                 multiple: false,
             });

@@ -140,10 +140,13 @@ async function main() {
         const app = makeApp({ showSaveFilePicker: async () => ({}) });
         const original = '---\nversion: 3.2\n---\nTask one @alex 2d\n  *Subtask @jamie 1d\n';
         const handle = makeFakeHandle('roadmap.md', original);
-        app.window.showOpenFilePicker = async () => [handle];
+        let openOptions = null;
+        app.window.showOpenFilePicker = async (opts) => { openOptions = opts; return [handle]; };
 
         const picked = await app.LocalFileAccess.pickAndReadFile();
         assertTrue(!!picked, 'pickAndReadFile() resolves with a result');
+        assertEqual(openOptions.types[0].accept, { 'text/markdown': ['.md'], 'text/plain': ['.txt'] },
+            'the open dialog lists .txt as well as .md: a phone that cannot share .md shares the plan as .txt (#1395)');
         assertEqual(picked.name, 'roadmap.md', 'the picked file name is returned');
         assertEqual(picked.text, original, 'the picked file text is byte-identical to the source (no rewriting)');
         assertTrue(picked.handle === handle, 'the raw handle is returned so the caller can link() it');

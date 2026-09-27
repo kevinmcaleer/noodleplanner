@@ -10,6 +10,8 @@ offer "Save or share a copy":
 - where the browser can share a file, it opens the share sheet with the
   plan as the .md file Save writes: the same name and, but for the
   timestamp, the same text;
+- where it can share a .txt file but not a .md one, as Chrome on Android
+  does, it shares the same text as a .txt file;
 - cancelling the sheet changes nothing: no toast, no download, no version
   bump;
 - where the browser can't share a file, the action says "Download a copy"
@@ -22,6 +24,7 @@ Usage:
     uv run pytest tests/ui/test_phone_share.py -q
 """
 
+import json
 import re
 
 import pytest
@@ -43,15 +46,18 @@ Build
   UI 4d
 """
 
-# A share sheet that records what it was given, and that the user cancels
-# when `window.__cancelShare` is set.
-STUB_SHARE = """
+# A share sheet that takes files with the given extensions, records what it
+# was given, and that the user cancels when `window.__cancelShare` is set.
+def _share_stub(extensions):
+    return """
 (() => {
+    const shareable = %s;
     window.__shareCalls = 0;
     window.__shared = [];
     Object.defineProperty(navigator, 'canShare', {
         configurable: true,
-        value: (data) => !!(data && Array.isArray(data.files) && data.files.length),
+        value: (data) => !!(data && Array.isArray(data.files) && data.files.length &&
+            data.files.every((file) => shareable.includes(file.name.split('.').pop()))),
     });
     Object.defineProperty(navigator, 'share', {
         configurable: true,
@@ -63,12 +69,14 @@ STUB_SHARE = """
         },
     });
 })();
-"""
+""" % json.dumps(list(extensions))
 
 
-def _open(pg, app_server, share=True):
-    if share:
-        pg.context.add_init_script(STUB_SHARE)
+def _open(pg, app_server, share=("md", "txt")):
+    """Load PLAN. `share` lists the file extensions the share sheet takes;
+    None leaves headless Chromium's own none-at-all."""
+    if share is not None:
+        pg.context.add_init_script(_share_stub(share))
     open_app(pg, app_server)
     load_plan(pg, PLAN, with_project=PROJECT)
 
@@ -155,7 +163,7 @@ def test_cancelling_the_share_sheet_changes_nothing(phone, app_server):
 
 
 def test_without_a_share_sheet_it_says_download_and_downloads(phone, app_server):
-    _open(phone, app_server, share=False)
+    _open(phone, app_server, share=None)
 
     _open_sheet(phone)
     assert phone.locator("#phoneSheet .tool[data-id='share']").inner_text().strip() == "Download"
@@ -180,3 +188,31 @@ def test_a_desktop_s_file_has_no_save_a_copy(page, app_server):
     page.evaluate("() => switchToView('backstage')")
     page.wait_for_selector(".backstage-rail-btn[data-backstage-action='Save']", state="visible")
     assert page.is_hidden(".backstage-rail-btn[data-backstage-action='Save a copy']")
+
+
+def test_where_md_can_t_be_shared_it_shares_a_txt_file(phone, app_server):
+    # Chrome on Android shares only a short list of file types, without Markdown.
+    _open(phone, app_server, share=("txt",))
+    expected = phone.evaluate("text => nextSavedPlanText(text)", _editor(phone))
+
+    _open_sheet(phone)
+    share = phone.locator("#phoneSheet .tool[data-id='share']")
+    assert share.inner_text().strip() == "Share", "it still offers the share sheet"
+    share.tap()
+
+    shared = _shared(phone, 1)
+    assert shared["name"] == "office_move_plan_v1.1.txt"
+    assert shared["type"] == "text/plain"
+    assert _without_last_saved(shared["text"]) == _without_last_saved(expected), "the same text Save writes"
+
+
+def test_where_neither_kind_can_be_shared_it_downloads(phone, app_server):
+    _open(phone, app_server, share=())
+
+    _open_file(phone)
+    rail = phone.locator(".backstage-rail-btn[data-backstage-action='Save a copy']")
+    assert rail.inner_text().strip() == "Download a copy"
+    with phone.expect_download() as download:
+        rail.tap()
+    assert download.value.suggested_filename == "office_move_plan_v1.1.md"
+    assert phone.evaluate("() => window.__shareCalls") == 0, "the share sheet was never asked"
