@@ -90,13 +90,37 @@ export function normaliseDurationWords(body) {
 /**
  * Front matter as the server returns it: simple `key: value` pairs, with
  * list-valued keys collected. Values are kept as written.
+ *
+ * The one nested block is `settings:` (settings.js), whose indented
+ * `key: value` children become `settings: { … }` with `true` and `false` as
+ * booleans, as plan_service.parse_front_matter() returns them. Read as a list
+ * it came back as `settings: []`, with its keys loose at the top level, so no
+ * project setting reached applySettingsFromFrontMatter() (#1409).
  */
 export function parseFrontMatter(planText) {
   const out = {};
   let currentList = null;
+  let settings = null;
 
   for (const raw of frontMatterText(planText).split("\n")) {
     if (!raw.trim()) continue;
+
+    if (settings) {
+      const child = /^ {2}\s*([^:\s][^:]*):\s*(.*)$/.exec(raw);
+      if (child) {
+        const value = child[2].trim();
+        const lower = value.toLowerCase();
+        settings[child[1].trim()] = lower === "true" ? true : lower === "false" ? false : value;
+        continue;
+      }
+      settings = null;
+    }
+    if (raw.trim().toLowerCase() === "settings:") {
+      settings = {};
+      out.settings = settings;
+      currentList = null;
+      continue;
+    }
 
     if (raw.trimStart().startsWith("- ")) {
       if (currentList) out[currentList].push(raw.trim().slice(2).trim());

@@ -3613,6 +3613,26 @@ Build
                         </label>
                     </div>
                     <small>Auto picks a layout from the screen width. Saved in this browser only, not in the plan.</small>
+
+                    <!-- #1409: how the detail forms open by default. Unlike the
+                         layout above, this is the project's, kept in the plan's
+                         front matter as settings: detail_peek. -->
+                    <h3>Open forms as</h3>
+                    <div class="settings-theme-options" role="radiogroup" aria-label="Open forms as">
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsDetailPeek" value="side" onchange="onSettingChanged('detail_peek')">
+                            <span><i class="bi bi-layout-sidebar-reverse" aria-hidden="true"></i> Side peek</span>
+                        </label>
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsDetailPeek" value="center" onchange="onSettingChanged('detail_peek')">
+                            <span><i class="bi bi-window" aria-hidden="true"></i> Center peek</span>
+                        </label>
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsDetailPeek" value="full" onchange="onSettingChanged('detail_peek')">
+                            <span><i class="bi bi-window-fullscreen" aria-hidden="true"></i> Full page</span>
+                        </label>
+                    </div>
+                    <small>The default for this project, saved in the plan front matter. The switch at the top left of a form changes it until the page is reloaded. A phone always opens a form as a full page.</small>
                 </div>
 
                 <!-- AI Tab -->

@@ -41,8 +41,26 @@
  *
  * #detailPane takes the layout (components.css, [data-layout]): full screen
  * sliding up on a phone, full screen on a portrait tablet, a 600px sheet on
- * the right in landscape and today's side pane on a desktop. When it is full
- * screen, the header's × becomes ← Back.
+ * the right in landscape and today's side pane on a desktop -- all of that is
+ * the side peek; see below for the other two. When it is full screen, the
+ * header's × becomes ← Back.
+ *
+ * ## Side peek, centre peek and full page (#1409)
+ *
+ * Like a Notion page, a form opens as a side peek (the pane on the right), a
+ * centre peek (a dialog in the middle of the window) or a full page. A short
+ * bar above the header holds an <np-peek-switch> at its top left to change
+ * it. The mode in use is, in order:
+ *
+ *   1. the one picked on a switch since the page loaded (every sheet's
+ *      switch follows it);
+ *   2. the project's default, Settings -> Layout, kept in the front matter as
+ *      `settings: detail_peek:` -- settings.js calls setDefaultPeekMode();
+ *   3. a side peek.
+ *
+ * A phone always shows the full page, so it has no switch. The mode is
+ * published as `data-peek-mode` on #detailPane, which components.css lays
+ * out; `detailpeekchange` is raised on `document` when it changes.
  *
  * ## Sections
  *
@@ -62,8 +80,47 @@
  */
 
 import { upgradeProperty, watchKeyboard } from '../overlay/overlay-kit.js';
+import { normalisePeek } from '../peek-switch/np-peek-switch.js';
 
 const SECTIONS_KEY = 'noodleplanner:sheet-sections';
+
+// The peek mode shared by every sheet: the project's default and the one
+// picked on a switch since the page loaded, which wins until the default
+// itself changes.
+const peek = { fallback: 'side', picked: null };
+
+/** The mode forms open in on this screen: a phone is always a full page. */
+export function peekMode() {
+  if (layout() === 'phone') return 'full';
+  return peek.picked || peek.fallback;
+}
+
+function announcePeek() {
+  document.dispatchEvent(new CustomEvent('detailpeekchange', { detail: { mode: peekMode() } }));
+}
+
+/** Pick a mode for the forms from now on (a sheet's switch). */
+export function setPeekMode(mode) {
+  const value = normalisePeek(mode);
+  if (!value || value === peek.picked) return;
+  peek.picked = value;
+  announcePeek();
+}
+
+/** The project's default (settings.js, from the front matter). A new default
+ * replaces whatever was picked on a switch; the same one again does not. */
+export function setDefaultPeekMode(mode) {
+  const value = normalisePeek(mode) || 'side';
+  if (value === peek.fallback) return;
+  peek.fallback = value;
+  peek.picked = null;
+  announcePeek();
+}
+
+// settings.js is a classic script that can run before this module has loaded:
+// it leaves the default on window for this to pick up.
+window.NoodlePeek = { peekMode, setPeekMode, setDefaultPeekMode };
+if (window.__npDetailPeekDefault) setDefaultPeekMode(window.__npDetailPeekDefault);
 
 const TEMPLATE = document.createElement('template');
 TEMPLATE.innerHTML = `
@@ -87,7 +144,17 @@ TEMPLATE.innerHTML = `
     }
     .footer.empty { display: none; }
     ::slotted([slot="header"]) { flex: 0 0 auto; }
+    .peekbar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      padding: var(--np-space-4, 4px) var(--np-space-12, 12px);
+      background: var(--np-surface, #fffdf9);
+      border-bottom: 1px solid var(--np-hairline, #ece6db);
+    }
+    :host([data-peek-locked]) .peekbar { display: none; }
   </style>
+  <div class="peekbar" part="peekbar"><np-peek-switch></np-peek-switch></div>
   <slot name="header"></slot>
   <div class="body" part="body"><slot></slot></div>
   <div class="footer" part="footer"><slot name="footer"></slot></div>
@@ -114,11 +181,13 @@ function layout() {
   return document.documentElement.dataset.layout || 'desktop';
 }
 
-/** Full screen: a phone, or a tablet held upright. */
+/** Full screen: a phone, or a tablet held upright unless it is a centre
+ * peek. A full page on a desktop keeps its ×: there is room to say so. */
 function isFullScreen() {
   const mode = layout();
   if (mode === 'phone') return true;
-  return mode === 'tablet' && !!(window.matchMedia && window.matchMedia('(orientation: portrait)').matches);
+  return mode === 'tablet' && peekMode() !== 'center'
+    && !!(window.matchMedia && window.matchMedia('(orientation: portrait)').matches);
 }
 
 export class NpDetailSheet extends HTMLElement {
@@ -127,7 +196,13 @@ export class NpDetailSheet extends HTMLElement {
     const root = this.attachShadow({ mode: 'open' });
     root.appendChild(TEMPLATE.content.cloneNode(true));
     this._footer = root.querySelector('.footer');
+    this._peekSwitch = root.querySelector('np-peek-switch');
     this._onClose = null;
+
+    this._peekSwitch.addEventListener('peekchange', (event) => {
+      event.stopPropagation();
+      setPeekMode(event.detail.value);
+    });
 
     const footerSlot = root.querySelector('slot[name="footer"]');
     const syncFooter = () => this._footer.classList.toggle('empty', footerSlot.assignedElements().length === 0);
@@ -155,6 +230,7 @@ export class NpDetailSheet extends HTMLElement {
     upgradeProperty(this, 'onClose');
     watchKeyboard();
     document.addEventListener('layoutchange', this._onLayout);
+    document.addEventListener('detailpeekchange', this._onLayout);
     if (window.matchMedia && !this._portrait) {
       this._portrait = window.matchMedia('(orientation: portrait)');
       this._portrait.addEventListener?.('change', this._onLayout);
@@ -164,6 +240,7 @@ export class NpDetailSheet extends HTMLElement {
 
   disconnectedCallback() {
     document.removeEventListener('layoutchange', this._onLayout);
+    document.removeEventListener('detailpeekchange', this._onLayout);
   }
 
   /** The form's close handler; takes precedence over `close-action`. */
@@ -207,6 +284,12 @@ export class NpDetailSheet extends HTMLElement {
   }
 
   _syncPresentation() {
+    const mode = peekMode();
+    this._peekSwitch.value = mode;
+    this.toggleAttribute('data-peek-locked', layout() === 'phone');
+    // The pane is laid out by its mode (components.css).
+    const pane = this.closest('.detail-pane');
+    if (pane) pane.dataset.peekMode = mode;
     const header = this.header;
     if (header && header.tagName === 'NP-PANEL-HEADER') header.toggleAttribute('back', isFullScreen());
   }

@@ -235,12 +235,7 @@ body {
 }
 
 /* Kanban board */
-[data-theme="dark"] .kanban-board {
-    background: var(--np-bg-alt);
-}
-
 [data-theme="dark"] .kanban-column {
-    background: var(--np-surface);
     border-color: var(--np-border);
 }
 
@@ -418,7 +413,6 @@ body {
 
 /* Tour popup */
 [data-theme="dark"] .tour-popup {
-    background: var(--np-surface);
     color: var(--np-text);
     border-color: var(--np-border);
     box-shadow: 0 4px 20px var(--np-shadow-strong);
@@ -426,9 +420,7 @@ body {
 
 /* Templates modal cards */
 [data-theme="dark"] .template-card {
-    background: var(--np-surface);
     border-color: var(--np-border);
-    color: var(--np-text);
 }
 
 /* Keyboard shortcut modal */
@@ -549,12 +541,10 @@ body {
 
 /* ---- Gantt Chart / Tasks View ---- */
 [data-theme="dark"] .gantt-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
 [data-theme="dark"] .tasks-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -698,7 +688,6 @@ body {
 }
 
 [data-theme="dark"] .kanban-column {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -881,7 +870,6 @@ body {
 
 /* Piechart popup */
 [data-theme="dark"] .piechart-popup {
-    background: var(--np-surface);
     box-shadow: 0 4px 12px var(--np-shadow-strong);
 }
 
@@ -900,7 +888,6 @@ body {
 
 /* Theme colour picker popup */
 [data-theme="dark"] .theme-colour-picker {
-    background: var(--np-surface);
     border-color: var(--np-border);
     box-shadow: 0 4px 12px var(--np-shadow-strong);
 }
@@ -924,10 +911,6 @@ body {
     color: #ffffff;
 }
 
-[data-theme="dark"] .milestone-date {
-    color: var(--np-text-secondary);
-}
-
 [data-theme="dark"] .timeline-line {
     background: #ffffff;
 }
@@ -943,14 +926,6 @@ body {
 
 [data-theme="dark"] .timeline-connector {
     background: var(--np-text-muted);
-}
-
-[data-theme="dark"] .timeline-date-label {
-    color: var(--np-text-secondary);
-}
-
-[data-theme="dark"] .timeline-scale-label {
-    color: var(--np-text-secondary);
 }
 
 /* Timeline options - checkboxes and titles */
@@ -997,13 +972,11 @@ body {
 }
 
 [data-theme="dark"] .stakeholder-grid-wrapper {
-    background: var(--np-surface);
     border-color: var(--np-border);
 }
 
 /* ---- RAID Log ---- */
 [data-theme="dark"] .raid-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 8px var(--np-shadow);
 }
 
@@ -1043,7 +1016,6 @@ body {
 
 /* ---- Project Actions Tracker ---- */
 [data-theme="dark"] .actions-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 8px var(--np-shadow);
 }
 
@@ -1085,10 +1057,6 @@ body {
 [data-theme="dark"] .highlight-author {
     background: #1a2e4a;
     color: #6db3f0;
-}
-
-[data-theme="dark"] .highlight-body {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .highlight-body h1,
@@ -1168,7 +1136,6 @@ body {
 }
 
 [data-theme="dark"] .qa-check-card {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -1182,7 +1149,6 @@ body {
 
 /* ---- Budget Page ---- */
 [data-theme="dark"] .budget-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 8px var(--np-shadow);
 }
 
@@ -1287,7 +1253,6 @@ body {
 
 /* ---- Timesheet Table Page ---- */
 [data-theme="dark"] .timesheet-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -1471,18 +1436,6 @@ body {
     border-bottom-color: var(--np-border);
 }
 
-[data-theme="dark"] .ns-col-header.ns-selected-col {
-    background: linear-gradient(180deg, #2a3a5a 0%, #1a2e4a 100%);
-}
-
-[data-theme="dark"] .ns-col-letter {
-    color: var(--np-text-muted);
-}
-
-[data-theme="dark"] .ns-col-name {
-    color: var(--np-text);
-}
-
 [data-theme="dark"] .budget-sheet-col-filter {
     background: var(--np-input-bg);
     color: var(--np-text);
@@ -1497,7 +1450,6 @@ body {
 }
 
 [data-theme="dark"] .ns-row-num.ns-selected-row {
-    background: linear-gradient(90deg, #2a3a5a 0%, #1a2e4a 100%);
     color: var(--np-text);
 }
 
@@ -1518,10 +1470,6 @@ body {
 
 [data-theme="dark"] .ns-cell.ns-in-range {
     background: rgba(123, 143, 240, 0.15);
-}
-
-[data-theme="dark"] .ns-table tbody tr:nth-child(even) .ns-cell:not(.ns-selected) {
-    background: var(--np-table-stripe);
 }
 
 [data-theme="dark"] .ns-table tbody tr:hover .ns-cell:not(.ns-selected):not(.ns-editing) {
@@ -1584,9 +1532,7 @@ body {
 }
 
 [data-theme="dark"] .ns-context-menu {
-    background: var(--np-surface);
     border-color: var(--np-border);
-    box-shadow: 0 4px 12px var(--np-shadow-strong);
 }
 
 [data-theme="dark"] .ns-ctx-item {
@@ -1627,12 +1573,7 @@ body {
 }
 
 /* ---- Portfolio Pages ---- */
-[data-theme="dark"] .portfolio-container {
-    background: var(--np-bg);
-}
-
 [data-theme="dark"] .portfolio-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -1679,7 +1620,6 @@ body {
 
 /* Portfolio project cards */
 [data-theme="dark"] .portfolio-project-card {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -1712,12 +1652,7 @@ body {
 
 /* Portfolio Status View */
 [data-theme="dark"] .portfolio-status-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-status-header h2 {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .portfolio-status-filters label {
@@ -1767,12 +1702,7 @@ body {
 
 /* Portfolio Resources View */
 [data-theme="dark"] .portfolio-resources-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-resources-header h2 {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .summary-label {
@@ -1780,7 +1710,6 @@ body {
 }
 
 [data-theme="dark"] .portfolio-resources-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -1816,12 +1745,7 @@ body {
 
 /* Portfolio Timeline View */
 [data-theme="dark"] .portfolio-timeline-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-timeline-header h2 {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .timeline-controls label {
@@ -1835,16 +1759,11 @@ body {
 }
 
 [data-theme="dark"] .portfolio-timeline-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
 [data-theme="dark"] .portfolio-timeline-container .timeline-scale {
     border-bottom-color: var(--np-border);
-}
-
-[data-theme="dark"] .timeline-project-label {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .timeline-scale-item {
@@ -1878,12 +1797,7 @@ body {
 
 /* Portfolio Actions View */
 [data-theme="dark"] .portfolio-actions-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-actions-header h2 {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .portfolio-actions-filters label {
@@ -1924,12 +1838,7 @@ body {
 
 /* Portfolio Risks View */
 [data-theme="dark"] .portfolio-risks-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-risks-header h2 {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .portfolio-risks-filters label {
@@ -1978,12 +1887,7 @@ body {
 
 /* Resource details modal in dark mode */
 [data-theme="dark"] .resource-details-content {
-    background: var(--np-surface);
     box-shadow: 0 4px 12px var(--np-shadow-strong);
-    color: var(--np-text);
-}
-
-[data-theme="dark"] #resourceDetailsBody h2 {
     color: var(--np-text);
 }
 
@@ -2017,10 +1921,6 @@ body {
 }
 
 /* ---- Welcome screen ---- */
-[data-theme="dark"] .welcome-screen h2 {
-    color: var(--np-text);
-}
-
 [data-theme="dark"] .welcome-screen p {
     color: var(--np-text-secondary);
 }
@@ -2072,11 +1972,6 @@ body {
     background: var(--np-bg-hover);
 }
 
-/* ---- Kanban splitter ---- */
-[data-theme="dark"] .kanban-splitter {
-    background: var(--np-splitter-bg);
-}
-
 /* ---- Message boxes ---- */
 [data-theme="dark"] .kanban-message-success {
     background: #1a3a28;
@@ -2097,12 +1992,7 @@ body {
 
 /* Portfolio Look-ahead View */
 [data-theme="dark"] .portfolio-lookahead-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-lookahead-header h2 {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .portfolio-lookahead-filters label {
@@ -2116,7 +2006,6 @@ body {
 }
 
 [data-theme="dark"] .portfolio-lookahead-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -2215,7 +2104,6 @@ body {
 [data-theme="dark"] .version-readonly-banner {
     background: #b71c1c;
     border-color: #d32f2f;
-    color: #fff;
 }
 
 [data-theme="dark"] .version-readonly-banner .btn-sm {
@@ -2225,10 +2113,6 @@ body {
 [data-theme="dark"] .version-readonly-banner .btn-sm:hover {
     background: rgba(255,255,255,0.15);
     color: #fff;
-}
-
-[data-theme="dark"] .version-readonly::after {
-    background: rgba(211, 47, 47, 0.1);
 }
 
 [data-theme="dark"] .widget-shortcut {
@@ -2289,7 +2173,7 @@ body {
 
 [data-theme="dark"] .portfolio-benefits-map-section {
     background: #1e1e1e;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 1px 3px var(--np-shadow);
 }
 
 [data-theme="dark"] .portfolio-benefits-map-section h3 {
@@ -2390,26 +2274,12 @@ body {
    tokens throughout (its light mode is also mostly literal hex, not
    tokens, for the same reason: this is a high-fidelity port of a fixed
    design, not a token-driven component). */
-[data-theme="dark"] .ribbon-titlebar {
-    background: #0d1b22;
-}
-
-[data-theme="dark"] .ribbon-tabstrip {
-    background: #14252e;
-    border-bottom-color: #233a45;
-}
-
 [data-theme="dark"] .ribbon-tab-btn {
     color: #8fa8b3;
 }
 
 [data-theme="dark"] .ribbon-tab-btn:hover {
     color: #d3e2e8;
-}
-
-[data-theme="dark"] .ribbon-tab-btn.active {
-    color: #d3e2e8;
-    border-bottom-color: #37b0dc;
 }
 
 [data-theme="dark"] .ribbon-tab-btn.contextual {
@@ -2420,21 +2290,8 @@ body {
     color: #d3e2e8;
 }
 
-[data-theme="dark"] .ribbon-file-btn {
-    background: #8f1717;
-}
-
 [data-theme="dark"] .ribbon-file-menu {
     background: #0d1b22;
-}
-
-[data-theme="dark"] .ribbon-body {
-    background: #1b2f39;
-    border-bottom-color: #233a45;
-}
-
-[data-theme="dark"] .ribbon-group {
-    border-right-color: #233a45;
 }
 
 [data-theme="dark"] .ribbon-lg-btn,
@@ -2478,10 +2335,6 @@ body {
 }
 
 /* -- Simple density (#955) -- */
-[data-theme="dark"] .ribbon-simple-group {
-    border-right-color: #233a45;
-}
-
 [data-theme="dark"] .ribbon-simple-btn {
     color: #d3e2e8;
 }

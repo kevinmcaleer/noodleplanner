@@ -37,6 +37,10 @@ export const GALLERY = [
             { name: 'Link (inline)', html: '<button class="link-button">Clear filter</button>' },
             { name: 'Primary, disabled', html: '<button class="btn-primary" disabled>Save plan</button>' },
             { name: 'Secondary, disabled', html: '<button class="btn-secondary" disabled>Cancel</button>' },
+            {
+                name: 'np-peek-switch: open a form as a side peek, centre peek or full page (#1409)',
+                html: '<np-peek-switch value="center"></np-peek-switch>',
+            },
         ],
         issues: [
             '.btn-primary and .btn-secondary both carry flex: 1, so they stretch in any ' +
