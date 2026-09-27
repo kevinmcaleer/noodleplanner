@@ -78,11 +78,13 @@
     // currently 'granted'. Cleared as soon as permission is (re-)granted.
     const needsRelinkMap = new Map();
 
-    // projectIds already restored from IndexedDB this page session, so
-    // repeated calls (e.g. opening the Settings panel more than once) don't
-    // keep re-reading the database. restoreLinks() itself stays safe to call
-    // more than once directly if a caller wants a fresh permission check.
-    const restoredProjects = new Set();
+    // projectId -> the Promise of its one restore from IndexedDB this page
+    // session, so repeated calls (e.g. opening the Settings panel more than
+    // once) don't keep re-reading the database, and a caller that arrives
+    // while the read is still running waits for it rather than finding
+    // nothing linked. restoreLinks() itself stays safe to call more than
+    // once directly if a caller wants a fresh permission check.
+    const restoredProjects = new Map();
 
     function targetsFor(projectId, create) {
         let m = linkedFiles.get(projectId);
@@ -259,8 +261,9 @@
      * Query (never silently escalate to a prompt) the current permission
      * for a handle, upgrading it via requestPermission() only if the caller
      * is inside a user gesture — callers decide that by whether they call
-     * this at all versus just checking needsRelinking(). Throws if
-     * permission isn't (or can't be) granted.
+     * this at all versus just checking needsRelinking(). Throws a
+     * NotAllowedError if permission isn't (or can't be) granted, so callers
+     * can tell a refusal from a missing file with isPermissionError().
      */
     async function ensurePermission(handle, mode) {
         if (typeof handle.queryPermission !== 'function') return true; // older/partial implementations
@@ -269,9 +272,21 @@
             permission = await handle.requestPermission({ mode: mode });
         }
         if (permission !== 'granted') {
-            throw new Error('Permission (' + mode + ') was not granted');
+            const error = new Error('Permission (' + mode + ') was not granted');
+            error.name = 'NotAllowedError';
+            throw error;
         }
         return true;
+    }
+
+    /**
+     * True when `error` means "not allowed to touch this file right now"
+     * rather than "the file is gone": a refused or revoked permission
+     * (NotAllowedError), or requestPermission() called without a user
+     * gesture (SecurityError). The handle is still good for a later click.
+     */
+    function isPermissionError(error) {
+        return !!error && (error.name === 'NotAllowedError' || error.name === 'SecurityError');
     }
 
     /**
@@ -314,7 +329,7 @@
             const content = readAs === 'arraybuffer' ? await file.arrayBuffer() : await file.text();
             return { name: file.name, content: content };
         } catch (error) {
-            if (error && error.name === 'NotAllowedError') {
+            if (isPermissionError(error)) {
                 // Permission problem, not a missing/moved file — keep the
                 // handle, just flag it.
                 markNeedsRelink(projectId, targetKey);
@@ -350,7 +365,7 @@
             clearNeedsRelink(projectId, targetKey);
             return { ok: true, filename: entry.name };
         } catch (error) {
-            if (error && error.name === 'NotAllowedError') {
+            if (isPermissionError(error)) {
                 markNeedsRelink(projectId, targetKey);
             } else {
                 unlink(projectId, targetKey);
@@ -361,26 +376,17 @@
 
     /**
      * Write `content` back to the file linked to `projectId` under the
-     * default ('plan') target — verbatim, no dialog. Kept exactly as #767
-     * shipped it (drops the link on ANY failure, not just non-permission
-     * ones) since the main plan file's Save button already has a
-     * download-fallback path that doesn't distinguish failure kinds; #761's
-     * sync targets use the more nuanced writeLinkedFile() above instead.
+     * default ('plan') target — verbatim, no dialog. The Save button's
+     * entry point; same results as writeLinkedFile().
+     *
+     * #767 shipped this dropping the link on ANY failure. Once links
+     * survived a reload that became the wrong call (#1407): after a reload
+     * the browser often asks for write permission again, and dismissing
+     * that one prompt deleted the link from IndexedDB for good. A refusal
+     * now keeps the handle and flags it, so the next Save asks again.
      */
     async function saveToLinkedFile(projectId, content) {
-        const m = linkedFiles.get(projectId);
-        const entry = m && m.get(DEFAULT_TARGET);
-        if (!entry) return null;
-        try {
-            await ensurePermission(entry.handle, 'readwrite');
-            const writable = await entry.handle.createWritable();
-            await writable.write(content);
-            await writable.close();
-            return { ok: true, filename: entry.name };
-        } catch (error) {
-            unlink(projectId, DEFAULT_TARGET);
-            return { ok: false, error: error, filename: entry.name };
-        }
+        return writeLinkedFile(projectId, DEFAULT_TARGET, content);
     }
 
     // -------------------------------------------------------------------
@@ -537,11 +543,20 @@
         return restored;
     }
 
-    /** restoreLinks(), but memoized per projectId for the page session. */
-    async function ensureRestored(projectId) {
-        if (!projectId || restoredProjects.has(projectId)) return;
-        restoredProjects.add(projectId);
-        await restoreLinks(projectId);
+    /**
+     * restoreLinks(), but memoized per projectId for the page session.
+     * Every call for a project resolves when its one restore has finished,
+     * including calls made while it is still reading IndexedDB (#1407: a
+     * Save clicked just after page load must see the restored link).
+     */
+    function ensureRestored(projectId) {
+        if (!projectId) return Promise.resolve();
+        if (!restoredProjects.has(projectId)) {
+            restoredProjects.set(projectId, restoreLinks(projectId).then(function () {}, function (error) {
+                console.warn('Failed to restore linked files:', error);
+            }));
+        }
+        return restoredProjects.get(projectId);
     }
 
     const api = {

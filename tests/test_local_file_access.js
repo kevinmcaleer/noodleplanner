@@ -21,8 +21,10 @@
  *      guarantee holds at this layer (script.js is responsible for the
  *      version/last_saved bumps that are the app's only allowed edits;
  *      this module must not add any of its own).
- *   5. a write failure (permission revoked, file gone) drops the link and
- *      is reported to the caller instead of failing silently.
+ *   5. a write failure because the file is gone drops the link and is
+ *      reported to the caller instead of failing silently. A refused
+ *      permission is reported too, but keeps the link, so the next Save
+ *      can ask again (issue #1407).
  *   6. a project with no linked file gets `null` from saveToLinkedFile, so
  *      script.js knows to fall back to the download flow.
  *   7. cancelling the picker (AbortError) resolves to null, not a thrown
@@ -178,7 +180,9 @@ async function main() {
 
     {
         const app = makeApp({});
-        const handle = makeFakeHandle('flaky.md', 'original text', { failCreateWritable: 'NotAllowedError' });
+        // A plain Error, as for a file that was moved or deleted -- not a
+        // permission problem, so there is no handle worth keeping.
+        const handle = makeFakeHandle('flaky.md', 'original text', { failCreateWritable: 'file was moved' });
         app.LocalFileAccess.link('project-x', handle, 'flaky.md');
 
         const result = await app.LocalFileAccess.saveToLinkedFile('project-x', 'new text');
@@ -189,17 +193,48 @@ async function main() {
             'the link is dropped after a failed write, so the next save does not silently keep failing against a dead handle');
     }
 
-    // --- 5b. a permission that cannot be (re-)granted also fails cleanly ------
+    // --- 5b. a refused permission fails cleanly but keeps the link (#1407) ----
 
     {
-        const app = makeApp({});
+        const app = makeApp({ showOpenFilePicker: async () => [], showSaveFilePicker: async () => ({}) });
         const handle = makeFakeHandle('locked.md', 'text', { permissionState: 'denied' });
         app.LocalFileAccess.link('project-y', handle, 'locked.md');
 
         const result = await app.LocalFileAccess.saveToLinkedFile('project-y', 'new text');
         assertTrue(result && result.ok === false, 'a denied permission resolves with ok: false');
+        assertTrue(result.needsRelink === true, 'the result says the file needs permission again, so Save can say so');
+        assertEqual(result.filename, 'locked.md', 'the result still reports the filename');
         assertEqual(handle.writes.length, 0, 'no write was attempted once permission was denied');
-        assertTrue(app.LocalFileAccess.isLinked('project-y') === false, 'the link is dropped');
+        assertTrue(app.LocalFileAccess.isLinked('project-y') === true,
+            'the link is kept: one refused prompt must not forget the file');
+        assertEqual(app.LocalFileAccess.getLinkStatus('project-y'), 'needs-relink',
+            'the status says the link needs permission again');
+
+        // The user allows it on the next Save: the SAME handle is written,
+        // with no picker, and the link is healthy again.
+        handle.permissionState = 'granted';
+        const retry = await app.LocalFileAccess.saveToLinkedFile('project-y', 'new text');
+        assertTrue(retry && retry.ok === true, 'the next Save succeeds once permission is granted');
+        assertEqual(handle.writes, ['new text'], 'it wrote through the same handle');
+        assertEqual(app.LocalFileAccess.getLinkStatus('project-y'), 'linked', 'and the status is back to linked');
+    }
+
+    // --- 5c. asking for permission outside a user gesture keeps the link too --
+
+    {
+        const app = makeApp({});
+        const handle = makeFakeHandle('gesture.md', 'text', { permissionState: 'prompt' });
+        handle.requestPermission = async function () {
+            const e = new Error('User activation is required to request permissions.');
+            e.name = 'SecurityError';
+            throw e;
+        };
+        app.LocalFileAccess.link('project-g', handle, 'gesture.md');
+
+        const result = await app.LocalFileAccess.saveToLinkedFile('project-g', 'new text');
+        assertTrue(result && result.ok === false, 'a SecurityError from requestPermission() resolves with ok: false');
+        assertTrue(result.needsRelink === true, 'and is treated as a permission problem, not a missing file');
+        assertTrue(app.LocalFileAccess.isLinked('project-g') === true, 'the link is kept');
     }
 
     // --- 6. an unlinked project falls through cleanly --------------------------
