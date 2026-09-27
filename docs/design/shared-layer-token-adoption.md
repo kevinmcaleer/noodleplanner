@@ -44,3 +44,13 @@ A slice passes when nothing else differs.
 | 3 | Timeline and milestone labels | 3 dark rules deleted whole (`.milestone-date`, `.timeline-date-label`, `.timeline-scale-label`) | identical (plus 6 px of subpixel text AA in the *light* editor on project-report, which a dark-only change cannot reach) | identical (final-state capture) | 713 -> 713 |
 | 4 | NoodleSheet | 5 dark declarations deleted (3 whole rules): column letter/name, even-row stripe, context menu background and shadow | identical | identical (final-state capture) | 713 -> 713 |
 | 5 | Portfolio | 19 dark declarations deleted (8 whole rules): container, header, project card, and the Status/Resources/Timeline/Actions/Risks/Look-ahead section headers, their `h2`s and table wrappers, `.timeline-project-label` | identical | identical (final-state capture) | 713 -> 713 |
+| 6 | Version read-only banner | 2 dark declarations deleted (1 whole rule) that repeated status-bar.css's literals: the banner's `color: #fff`, the overlay tint `rgba(211, 47, 47, 0.1)` | identical | identical | 713 -> 711 |
+
+Slices 2-5 were screen-captured on their own; the computed-style capture was
+taken after slice 1 and again after slice 6, so it covers 2-5 cumulatively.
+Final state against the base, both themes: 1,553,842 element-states compared,
+none differ outside the two noise sources above.
+
+**Totals.** raw-colour findings: `components.css` 268 -> 267, `dark-mode.css`
+139 -> 136, all files 715 -> 711. 50 declarations deleted from
+`dark-mode.css`, 20 of its rules removed whole.

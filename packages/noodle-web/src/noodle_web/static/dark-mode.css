@@ -2109,7 +2109,6 @@ body {
 [data-theme="dark"] .version-readonly-banner {
     background: #b71c1c;
     border-color: #d32f2f;
-    color: #fff;
 }
 
 [data-theme="dark"] .version-readonly-banner .btn-sm {
@@ -2119,10 +2118,6 @@ body {
 [data-theme="dark"] .version-readonly-banner .btn-sm:hover {
     background: rgba(255,255,255,0.15);
     color: #fff;
-}
-
-[data-theme="dark"] .version-readonly::after {
-    background: rgba(211, 47, 47, 0.1);
 }
 
 [data-theme="dark"] .widget-shortcut {
