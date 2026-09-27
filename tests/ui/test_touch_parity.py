@@ -312,6 +312,12 @@ def test_the_parking_lot_reorders_by_touch(tablet_landscape, app_server):
     _view(pg, "whiteboard")
     pg.evaluate("() => wbOpenParkingLotPanel()")
     pg.wait_for_selector("#wbParkingLotList .wb-parking-lot-item")
+    # The panel slides in from the board's edge: drag once it has landed, or
+    # on a slow runner the grip is still off-screen when the drag is measured.
+    pg.wait_for_function(
+        "() => { const p = document.getElementById('wbParkingLotPanel');"
+        " return !!p && p.getAnimations({ subtree: true }).every(a => a.playState !== 'running'); }"
+    )
     handle = pg.locator("#wbParkingLotList .wb-parking-lot-item-handle").first.bounding_box()
     assert round(handle["width"]) >= 44 and round(handle["height"]) >= 44
     _drag(pg, "#wbParkingLotList .wb-parking-lot-item:nth-child(2) .wb-parking-lot-item-handle",

@@ -330,6 +330,9 @@
         // focus back to the element that opened it, but that circle has
         // usually been redrawn since, so focus goes to its replacement --
         // after a tick, so the ribbon's own redraw on Esc has landed.
+        // Esc raises `cancel` there and then, but `close` a task later: save
+        // on the first, so the profile is stored by the time the key is up.
+        dialog.addEventListener('cancel', flushAutosave);
         dialog.addEventListener('close', () => {
             flushAutosave();
             const slotId = openerSlotId;
