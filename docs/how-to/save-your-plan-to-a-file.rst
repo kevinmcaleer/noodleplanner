@@ -41,7 +41,9 @@ Each Save adds one to the plan's ``version`` in its front matter (1.1,
 1.2, …) and records the time in ``last_saved``.
 
 A plan you open with **File › Open…** (**Ctrl+O**) is linked to its file
-in the same way, so Save writes back to the file you opened.
+in the same way, so Save writes back to the file you opened. Open takes a
+``.txt`` copy of a plan too, as a phone shares one when it won't share a
+``.md`` file.
 
 Save to a different file
 ------------------------

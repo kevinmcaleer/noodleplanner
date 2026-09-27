@@ -2105,19 +2105,36 @@ function planDownloadFileName(text) {
 }
 
 /**
- * Whether this browser can hand a plan file to the device's share sheet
- * (issue #1395): phones mostly can, desktops mostly can't. Feature
- * detection on a sample `.md` file, never the user agent, since a browser
- * may share some kinds of file and not others.
+ * The plan as a File the device's share sheet will take (issue #1395), or
+ * null if it will take neither kind. `name` is the `.md` name Save would
+ * download. A browser may share some kinds of file and not others --
+ * Chromium keeps a short allowlist of shareable types, which may leave
+ * Markdown out -- so where `.md` is refused this offers the same text as a
+ * `.txt` file, which NoodlePlanner opens as readily. Feature detection
+ * throughout, never the user agent.
  */
-function canSharePlanFile() {
+function shareablePlanFile(text, name) {
     if (typeof navigator === 'undefined' || typeof navigator.share !== 'function' ||
-        typeof navigator.canShare !== 'function' || typeof File !== 'function') return false;
-    try {
-        return navigator.canShare({ files: [new File([''], 'plan.md', { type: 'text/markdown' })] });
-    } catch (error) {
-        return false;
+        typeof navigator.canShare !== 'function' || typeof File !== 'function') return null;
+    const base = name.replace(/\.md$/i, '');
+    const candidates = [
+        new File([text], base + '.md', { type: 'text/markdown' }),
+        new File([text], base + '.txt', { type: 'text/plain' }),
+    ];
+    for (const file of candidates) {
+        try {
+            if (navigator.canShare({ files: [file] })) return file;
+        } catch (error) {
+            // Refused outright: try the next kind.
+        }
     }
+    return null;
+}
+
+/** Whether this browser can hand a plan to the device's share sheet at all
+ * (issue #1395): phones mostly can, desktops mostly can't. */
+function canSharePlanFile() {
+    return !!shareablePlanFile('', 'plan.md');
 }
 
 /**
@@ -2137,7 +2154,8 @@ function sharePlanCopyLabels() {
  * from where it can go to Files, iCloud Drive or Google Drive, or by Mail,
  * Messages or AirDrop. A phone has no File System Access API, so this is
  * its way to get a plan back off the phone. The file is the one Save
- * writes: the same name and the same bytes, with the version bumped.
+ * writes: the same name and the same bytes, with the version bumped --
+ * as a `.txt` file where the browser won't share a `.md` one.
  *
  * The bump is only kept once the share goes through, so cancelling the
  * sheet leaves the plan as it was, with no toast and no download. Where
@@ -2150,16 +2168,16 @@ async function sharePlanCopy() {
         showMessage(messageTarget, 'error', 'Nothing to save - editor is empty');
         return;
     }
-    if (!canSharePlanFile()) {
-        await downloadMarkdown('download');
-        return;
-    }
 
     // Built and shared before any await: the share sheet needs the tap's
     // user activation.
     const text = nextSavedPlanText(editor.value);
-    const name = planDownloadFileName(text);
-    const file = new File([text], name, { type: 'text/markdown' });
+    const file = shareablePlanFile(text, planDownloadFileName(text));
+    if (!file) {
+        await downloadMarkdown('download');
+        return;
+    }
+    const name = file.name;
     try {
         await navigator.share({ files: [file], title: name });
     } catch (error) {
@@ -2243,7 +2261,7 @@ async function openLocalPlanFile() {
     if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
 
     const boardView = isBoardViewActive();
-    const projectName = picked.name.replace(/\.(md|markdown)$/i, '');
+    const projectName = picked.name.replace(/\.(md|markdown|txt)$/i, '');
     const project = createProject(projectName);
     saveProject(project.id, { planText: picked.text });
     setCurrentProjectId(project.id);
