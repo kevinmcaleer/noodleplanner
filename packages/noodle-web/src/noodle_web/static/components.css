@@ -1491,53 +1491,6 @@ body.detail-pane-open {
     font-weight: 500;
 }
 
-.inspector-dep-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.inspector-dep-item {
-    padding: var(--np-space-8) var(--np-space-12);
-    border-bottom: 1px solid var(--np-hairline);
-    display: flex;
-    align-items: center;
-    gap: var(--np-space-12);
-    font-size: 0.9em;
-}
-
-.inspector-dep-item:last-child {
-    border-bottom: none;
-}
-
-.inspector-dep-name {
-    font-weight: 600;
-    color: var(--np-ink);
-}
-
-.inspector-dep-date {
-    color: var(--np-body);
-    font-size: 0.85em;
-}
-
-.inspector-dep-badge {
-    display: inline-block;
-    padding: var(--np-space-2) var(--np-space-8);
-    border-radius: 10px;
-    font-size: 0.8em;
-    font-weight: 600;
-}
-
-.inspector-dep-badge.driving {
-    background: var(--np-info-tint);
-    color: var(--np-info-ink);
-}
-
-.inspector-dep-badge.non-driving {
-    background: var(--np-surface-alt);
-    color: #777;
-}
-
 .inspector-hint {
     background: #fff9e6;
     border-left: 4px solid var(--np-warning);

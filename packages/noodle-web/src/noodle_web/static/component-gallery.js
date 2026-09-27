@@ -516,6 +516,7 @@ export const GALLERY = [
                 html:
                     '<div style="width:100%;display:flex;flex-direction:column;gap:2px;">' +
                     '<np-task-row type="relation" task-id="14" name="Sign off design" relation="FS" lag="+2d" meta="3 Sep" rag="Behind schedule" action="remove"></np-task-row>' +
+                    '<np-task-row type="relation" readonly driving task-id="12" name="Order hardware" relation="FS" meta="finishes 30 Sep" rag="On track"></np-task-row>' +
                     '<np-task-row type="relation" task-id="9" name="Agree budget" relation="SS" meta="1 Sep" rag="On track" action="remove" editing></np-task-row>' +
                     '</div>',
             },

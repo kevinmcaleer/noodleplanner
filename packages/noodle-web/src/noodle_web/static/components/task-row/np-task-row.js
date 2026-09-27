@@ -31,6 +31,8 @@
  *
  *   list      subtasks, activities: completion, name, dates, RAG, people.
  *   relation  a dependency: ID, name, a type + lag pill ("FS +2d"), date.
+ *             `driving` marks the predecessor that sets the start: the
+ *             pill takes the accent and reads "Driving · FS +2d".
  *             Clicking the pill (or setting `editing`) turns it into a type
  *             select and a lag input. Completion is shown, not taken.
  *   picker    an autocomplete option: ID and dates tell similar names
@@ -663,8 +665,12 @@ export class NpTaskRow extends HTMLElement {
         const lag = this.getAttribute('lag') || '';
         const isRelation = type === 'relation';
         e.pill.hidden = !isRelation || editing;
-        e.pill.textContent = lag ? `${relation} ${lag}` : relation;
-        const relLabel = `Dependency ${relation}${lag ? ` ${lag}` : ''}`;
+        // The driving predecessor says so in words, not only in the accent
+        // fill, so the cue survives any theme and a screen reader.
+        const driving = this.hasAttribute('driving');
+        const relText = lag ? `${relation} ${lag}` : relation;
+        e.pill.textContent = driving ? `Driving · ${relText}` : relText;
+        const relLabel = `${driving ? 'Driving dependency' : 'Dependency'} ${relation}${lag ? ` ${lag}` : ''}`;
         e.pill.title = this.hasAttribute('readonly') ? '' : 'Change the dependency type or lag';
         e.pill.setAttribute('aria-label', this.hasAttribute('readonly') ? relLabel : `${relLabel}. Edit`);
         e.relType.hidden = !isRelation || !editing;

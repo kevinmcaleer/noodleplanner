@@ -95,6 +95,12 @@ export const Relation = {
         meta: '3 Sep', rag: 'Behind schedule', action: 'remove', resources: 'Jo Lee', assignable: false },
 };
 export const RelationEditing = { args: { ...Relation.args, editing: true } };
+/** The task inspector's rows: read-only, and the predecessor that sets the
+ * start says "Driving" in the accent pill. */
+export const RelationDriving = {
+    args: { ...Relation.args, readonly: true, driving: true, action: '', meta: 'finishes 30 Sep' },
+    argTypes: { driving: { control: 'boolean' } },
+};
 export const Picker = {
     args: { type: 'picker', density: 'compact', 'task-id': '27', name: 'Order hardware',
         meta: '12 – 16 Sep', rag: 'On track', resources: 'Sam Smith', assignable: false, action: '', selected: true },

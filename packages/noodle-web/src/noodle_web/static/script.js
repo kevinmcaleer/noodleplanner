@@ -15933,12 +15933,12 @@ function getInspectorDependencies(task, taskMap, lines) {
 
     // Helper to strip dependency type and lag/lead from an entry to get the task name and type
     function extractDepInfo(entry) {
-        const lagLeadMatch = entry.match(/^(.+?)\s+[+\-]\d+[dwmy]$/);
+        const lagLeadMatch = entry.match(/^(.+?)\s+([+\-]\d+[dwmy])$/);
         let corePart = lagLeadMatch ? lagLeadMatch[1].trim() : entry;
         const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
         const name = typeMatch ? typeMatch[1].trim() : corePart;
         const depType = typeMatch ? typeMatch[2].toUpperCase() : 'FS';
-        return { name, depType };
+        return { name, depType, lag: lagLeadMatch ? lagLeadMatch[2] : '' };
     }
 
     // First pass: find the latest effective date (the driving dependency)
@@ -15961,7 +15961,7 @@ function getInspectorDependencies(task, taskMap, lines) {
 
     // Second pass: build details and mark the driving dependency
     for (const depEntry of depEntries) {
-        const { name: depName, depType } = extractDepInfo(depEntry);
+        const { name: depName, depType, lag } = extractDepInfo(depEntry);
         const depTask = taskMap.get(depName);
         const refDate = depTask
             ? ((depType === 'SS' || depType === 'SF') ? depTask.startDate : depTask.finishDate)
@@ -15970,11 +15970,14 @@ function getInspectorDependencies(task, taskMap, lines) {
         const detail = {
             name: depName,
             depType: depType,
+            lag: lag,
             refDate: refDate || null,
             finishDate: depTask ? (depTask.finishDate || null) : null,
             isDriving: false,
             lineNumber: null,
-            rag: null
+            rag: null,
+            percent: depTask ? (parseInt(depTask.percent) || 0) : 0,
+            resources: depTask ? (depTask.resources || '') : ''
         };
 
         if (depTask) {
@@ -16061,6 +16064,43 @@ function formatInspectorDate(dateStr) {
     } catch {
         return dateStr;
     }
+}
+
+/**
+ * The inspector's dependency list: one read-only <np-task-row type="relation">
+ * per predecessor (Penpot "Task row"), the same row the task form's
+ * Dependencies use. The driving one says so; a name re-opens the inspector
+ * on that predecessor, as the old link did.
+ */
+function renderInspectorDependencies(list, depDetails) {
+    if (!list) return;
+    const editor = document.getElementById('planEditor');
+    const resourceMap = editor ? parseResourceMappings(editor.value) : {};
+    const byName = new Map((lastRenderedTasks || []).map(t => [t.name, t]));
+    const rows = depDetails.map(dep => {
+        const row = document.createElement('np-task-row');
+        row.className = 'inspector-dep-row';
+        row.setAttribute('type', 'relation');
+        row.setAttribute('readonly', '');
+        row.setAttribute('name', dep.name);
+        row.setAttribute('relation', dep.depType);
+        if (dep.lag) row.setAttribute('lag', dep.lag);
+        if (dep.isDriving) row.setAttribute('driving', '');
+        row.setAttribute('percent', String(dep.percent || 0));
+        const rendered = byName.get(dep.name);
+        if (rendered && rendered.id != null) row.setAttribute('task-id', String(rendered.id));
+        const verb = dep.depType === 'SS' || dep.depType === 'SF' ? 'starts' : 'finishes';
+        const refDate = dep.refDate || dep.finishDate;
+        if (refDate) row.setAttribute('meta', `${verb} ${formatInspectorDate(refDate)}`);
+        if (dep.rag) row.setAttribute('rag', dep.rag);
+        const people = taskRowResourceNames(dep.resources, resourceMap);
+        if (people) row.setAttribute('resources', people);
+        if (dep.lineNumber) {
+            row.addEventListener('task-open', () => openTaskInspectorByName(dep.name));
+        }
+        return row;
+    });
+    list.replaceChildren(...rows);
 }
 
 /**
@@ -16153,31 +16193,9 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     if (depDetails.length === 0) {
         html += '    <div class="inspector-no-deps">This task has no dependencies. Its start date is set directly or defaults to today.</div>';
     } else {
-        html += '    <ul class="inspector-dep-list">';
-        for (const dep of depDetails) {
-            html += '      <li class="inspector-dep-item">';
-            html += '        <span class="inspector-dep-badge ' + (dep.isDriving ? 'driving' : 'non-driving') + '">';
-            html += dep.isDriving ? 'DRIVING' : 'predecessor';
-            html += '        </span>';
-            html += '        <span class="inspector-dep-name">';
-            if (dep.lineNumber) {
-                html += '<a href="#" onclick="openTaskInspectorByName(\'' + escapeJsAttr(dep.name) + '\'); return false;" style="color: inherit; text-decoration: underline dotted;">';
-                html += escapeHtml(dep.name);
-                html += '</a>';
-            } else {
-                html += escapeHtml(dep.name);
-            }
-            html += '        </span>';
-            const depTypeLabel = dep.depType === 'SS' ? 'starts' : dep.depType === 'SF' ? 'starts' : dep.depType === 'FF' ? 'finishes' : 'finishes';
-            const depRefDate = dep.refDate || dep.finishDate;
-            html += '        <span class="inspector-dep-date">' + depTypeLabel + ' ' + formatInspectorDate(depRefDate) + '</span>';
-            if (dep.rag) {
-                const depRagCol = ragStatusToColour(dep.rag);
-                html += '        <span class="inspector-rag-dot' + (depRagCol ? ' rag-' + depRagCol : '') + '" style="width:10px; height:10px;" title="' + escapeHtml(dep.rag) + '"></span>';
-            }
-            html += '      </li>';
-        }
-        html += '    </ul>';
+        // Filled with <np-task-row type="relation"> rows below, once the
+        // body is in the page (renderInspectorDependencies).
+        html += '    <div id="inspectorDepList" class="task-row-list"></div>';
 
         // Explain the driving dependency
         const drivingDep = depDetails.find(d => d.isDriving);
@@ -16243,6 +16261,7 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     // Edit button is now in the inspector header — no inline button needed
 
     body.innerHTML = html;
+    renderInspectorDependencies(document.getElementById('inspectorDepList'), depDetails);
 
     const estimateBtn = document.getElementById('inspectorEstimateBtn');
     if (estimateBtn && typeof EstimatingTool !== 'undefined') {

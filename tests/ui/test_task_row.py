@@ -469,3 +469,89 @@ def test_arrow_down_opens_a_closed_picker(loaded):
     assert not _picker(loaded)["shown"]
     box.press("ArrowDown")
     assert _picker(loaded)["shown"]
+
+
+# ── Task inspector ──────────────────────────────────────────────────────
+
+INSPECTOR_PLAN = """---
+title: Inspector rows
+Resources:
+  - @sam: Sam Smith, Developer
+---
+
+Release
+  Research @sam 2d
+  Design 5d
+  Build 3d [depends Research, Design:SS +1d]
+"""
+
+
+def _open_inspector(page, name):
+    page.evaluate("name => openTaskInspectorByName(name)", name)
+    page.wait_for_selector("#taskInspectorSection.active")
+    page.wait_for_function(
+        "name => document.getElementById('inspectorPanelHeader').getAttribute('title') === name",
+        arg=name,
+    )
+
+
+def _inspector_rows(page):
+    return page.evaluate(
+        """() => [...document.querySelectorAll('#inspectorDepList np-task-row')].map(r => ({
+            name: r.getAttribute('name'),
+            type: r.getAttribute('type'),
+            readonly: r.hasAttribute('readonly'),
+            driving: r.hasAttribute('driving'),
+            pill: r.shadowRoot.querySelector('.pill').textContent,
+            meta: r.getAttribute('meta'),
+            resources: r.getAttribute('resources'),
+        }))"""
+    )
+
+
+@pytest.fixture
+def inspecting(page, app_server):
+    open_app(page, app_server)
+    load_plan(page, INSPECTOR_PLAN)
+    return page
+
+
+def test_the_inspector_lists_dependencies_as_read_only_relation_rows(inspecting):
+    _open_inspector(inspecting, "Build")
+    rows = {r["name"]: r for r in _inspector_rows(inspecting)}
+    assert set(rows) == {"Research", "Design"}
+    for row in rows.values():
+        assert row["type"] == "relation" and row["readonly"], row
+    # The lag the old list dropped is on the pill now.
+    assert rows["Design"]["pill"] == "SS +1d"
+    assert rows["Design"]["meta"].startswith("starts ")
+    assert rows["Research"]["meta"].startswith("finishes ")
+    assert rows["Research"]["resources"] == "Sam Smith"
+
+
+def test_the_driving_dependency_says_so_in_words(inspecting):
+    _open_inspector(inspecting, "Build")
+    rows = {r["name"]: r for r in _inspector_rows(inspecting)}
+    assert rows["Research"]["driving"] and rows["Research"]["pill"] == "Driving · FS"
+    assert not rows["Design"]["driving"]
+
+
+def test_a_read_only_pill_does_not_edit(inspecting):
+    _open_inspector(inspecting, "Build")
+    row = inspecting.locator("#inspectorDepList np-task-row[name='Design']")
+    row.locator("button.pill").click()
+    assert row.get_attribute("editing") is None
+
+
+def test_a_dependency_name_re_opens_the_inspector_on_it(inspecting):
+    _open_inspector(inspecting, "Build")
+    inspecting.locator("#inspectorDepList np-task-row[name='Research'] button.name").click()
+    inspecting.wait_for_function(
+        "() => document.getElementById('inspectorPanelHeader').getAttribute('title') === 'Research'"
+    )
+
+
+def test_no_dependencies_says_so(inspecting):
+    _open_inspector(inspecting, "Research")
+    assert inspecting.locator("#inspectorDepList").count() == 0
+    assert "no dependencies" in inspecting.locator("#inspectorBody .inspector-no-deps").inner_text()

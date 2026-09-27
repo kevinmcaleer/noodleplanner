@@ -735,7 +735,7 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
     :root body .modal-header, :root body .modal-body { padding: 16px; }
 }
 :root body .ribbon-display-toggle-btn .ribbon-caret { font-size: 12px; color: var(--np-faint); }
-:root body :is(.highlight-date, .inspector-dep-date, .deliverable-dates) { font-family: var(--np-font-data); font-size: 12px; }
+:root body :is(.highlight-date, .deliverable-dates) { font-family: var(--np-font-data); font-size: 12px; }
 :root body .templates-header { background: var(--np-surface-alt); color: var(--np-ink); }
 :root body .templates-hero h1 { font-family: var(--np-font-heading); font-weight: 300; }
 /* Keep navigation and quick commands reachable when the body is compact. */
