@@ -310,6 +310,12 @@ def test_rows_are_touch_targets_on_a_phone(phone, app_server):
     load_plan(phone, PLAN)
     _open_task(phone, "Build")
     phone.evaluate("() => document.querySelectorAll('#taskFormSection details').forEach(d => d.open = true)")
+    # Measure once the pane has slid in: mid-transition its translateY is
+    # fractional, and a transformed 44px row can measure 43.9999px.
+    phone.evaluate(
+        """() => Promise.all(document.getElementById('detailPane').getAnimations({ subtree: true })
+            .map(a => a.finished.catch(() => {})))"""
+    )
     found = phone.evaluate(
         """() => [...document.querySelectorAll('#subtasksList np-task-row, #dependenciesList np-task-row')]
             .map(r => {
