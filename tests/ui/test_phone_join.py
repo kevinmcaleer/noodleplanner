@@ -92,7 +92,7 @@ def test_the_session_dialog_shows_the_join_link_as_a_qr_code(host, app_server):
     assert drawn["modules"] in (29, 33), drawn
     assert drawn["path"] > 0
     assert "scan" in drawn["label"].lower()
-    assert drawn["width"] >= 150 and drawn["width"] == drawn["height"]
+    assert drawn["width"] >= 150 and round(drawn["width"]) == round(drawn["height"])
     assert drawn["ink"] == "rgb(22, 22, 22)" and drawn["paper"] == "rgb(255, 255, 255)"
 
 

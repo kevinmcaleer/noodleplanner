@@ -132,6 +132,19 @@ np-responsive-table[stacked] tbody tr.np-rt-open td[data-priority="detail"]::bef
     color: var(--np-muted);
 }
 
+/* A cell of controls -- an Actions column's Edit and Delete -- puts them in
+   a row after its label, rather than one per cell of the label/value grid. */
+np-responsive-table[stacked] tbody tr.np-rt-open td[data-priority="detail"]:has(> :is(button, np-button, a)) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+np-responsive-table[stacked] tbody tr.np-rt-open td[data-priority="detail"]:has(> :is(button, np-button, a))::before {
+    flex: 0 0 calc(34% - var(--np-space-8));
+    min-width: 96px;
+}
+
 np-responsive-table[stacked] tbody tr.np-rt-open td[data-priority="detail"]:empty::after {
     content: '—';
     color: var(--np-muted);

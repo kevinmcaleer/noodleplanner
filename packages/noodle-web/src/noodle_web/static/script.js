@@ -16760,6 +16760,13 @@ function renderActionsTable() {
                     '<np-button icon-only variant="primary" size="medium" title="Edit" label="Edit" onclick="openActionForm(' + item.id + ')"><span slot="icon">✏️</span></np-button>' +
                     '<np-button icon-only variant="danger" size="medium" title="Delete" label="Delete" onclick="deleteAction(' + item.id + ')"><span slot="icon">🗑️</span></np-button>' +
                 '</td>';
+            // On a phone the row is a card (#1387): tapping it opens the
+            // action, as a RAID card does. A wide table keeps its Edit button.
+            row.addEventListener('click', (e) => {
+                if (document.documentElement.dataset.layout !== 'phone') return;
+                if (e.target.closest('button, np-button, a, input, select, textarea')) return;
+                openActionForm(item.id);
+            });
             tbody.appendChild(row);
         });
 
@@ -16846,7 +16853,7 @@ function updateReportActions() {
         return;
     }
 
-    table.style.display = 'table';
+    table.style.display = '';
     emptyState.style.display = 'none';
 
     openActions.forEach(action => {

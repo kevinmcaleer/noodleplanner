@@ -104,10 +104,13 @@ jobs:
     # files cost ~135.7s under Selenium and ~43.5s here; see tests/ui/README.md
     # for where the difference comes from and what is left to port.
     #
-    # No CI_RUNS_ON guard, unlike `usability`: at well under a minute it is not
-    # what drains the allowance, and a gating job has to run wherever the gate
-    # applies.
-    timeout-minutes: 10
+    # No CI_RUNS_ON guard, unlike `usability`: a gating job has to run
+    # wherever the gate applies.
+    #
+    # 25 minutes, over ci/run.sh's 1500s deadline for the job: the suite has
+    # grown to ~800 tests and ~9 minutes, and the old 10 was a budget it was
+    # about to outgrow rather than a backstop against a hang.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup

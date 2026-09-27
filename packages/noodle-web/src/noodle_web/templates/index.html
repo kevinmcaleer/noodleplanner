@@ -351,6 +351,7 @@ Press Enter to render..."></textarea>
                                         </div>
                                         <div class="milestones-table-wrapper" style="position: relative;">
                                             <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
+                                            <np-responsive-table priorities='{"Milestone": "primary", "Date": "1", "RAG": "2"}'>
                                             <table class="milestones-table quad-table" id="reportMilestonesTable" aria-label="Milestones">
                                                 <thead>
                                                     <tr>
@@ -363,6 +364,7 @@ Press Enter to render..."></textarea>
                                                     <!-- Milestone rows populated by JavaScript -->
                                                 </tbody>
                                             </table>
+                                            </np-responsive-table>
                                             <p class="quad-empty-state" id="reportMilestonesEmpty" style="display: none;">No upcoming milestones.</p>
                                         </div>
                                     </div>
@@ -375,6 +377,7 @@ Press Enter to render..."></textarea>
                                         </div>
                                         <div class="up-next-table-wrapper" style="position: relative;">
                                             <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
+                                            <np-responsive-table priorities='{"Task": "primary", "Finish": "1", "RAG": "2"}'>
                                             <table class="milestones-table quad-table" id="reportUpNextTable" aria-label="Up next tasks">
                                                 <thead>
                                                     <tr>
@@ -388,6 +391,7 @@ Press Enter to render..."></textarea>
                                                     <!-- Up Next rows populated by JavaScript -->
                                                 </tbody>
                                             </table>
+                                            </np-responsive-table>
                                             <p class="quad-empty-state" id="reportUpNextEmpty" style="display: none;">No upcoming tasks in the next 2 weeks.</p>
                                         </div>
                                     </div>
@@ -410,6 +414,7 @@ Press Enter to render..."></textarea>
                                             <span class="quad-header-actions"><span class="widget-shortcut" onclick="switchToView('raid')" title="Open RAID Log"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span><button class="quad-add-btn" onclick="openRaidForm()" title="Add new risk or issue">+</button></span>
                                         </div>
                                         <div class="raid-table-wrapper">
+                                            <np-responsive-table priorities='{"Title": "primary", "Type": "1", "Score": "2"}'>
                                             <table class="milestones-table quad-table" id="reportRaidTable" aria-label="Risks and issues">
                                                 <thead>
                                                     <tr>
@@ -422,6 +427,7 @@ Press Enter to render..."></textarea>
                                                     <!-- RAID rows populated by JavaScript -->
                                                 </tbody>
                                             </table>
+                                            </np-responsive-table>
                                             <p class="quad-empty-state" id="reportRaidEmpty" style="display: none;">No open risks or issues.</p>
                                         </div>
                                     </div>
@@ -473,6 +479,7 @@ Press Enter to render..."></textarea>
                                     </div>
                                     <div class="actions-table-wrapper" style="position: relative;">
                                         <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
+                                        <np-responsive-table priorities='{"Title": "primary", "Target Date": "1", "Owner": "2", "Priority": "3"}'>
                                         <table class="milestones-table quad-table" id="reportActionsTable" aria-label="Actions summary">
                                             <thead>
                                                 <tr>
@@ -486,6 +493,7 @@ Press Enter to render..."></textarea>
                                                 <!-- Actions rows populated by JavaScript -->
                                             </tbody>
                                         </table>
+                                        </np-responsive-table>
                                         <p class="quad-empty-state" id="reportActionsEmpty" style="display: none;">No open actions.</p>
                                     </div>
                                 </div>

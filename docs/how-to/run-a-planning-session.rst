@@ -14,10 +14,12 @@ Starting a Session
 
 1. Open the project you want to work on.
 2. Choose **Planning session** from the ribbon.
-3. NoodlePlanner shows a **six-digit code** and the **join page**
-   (``https://<your NoodlePlanner>/join``).
+3. NoodlePlanner shows a **six-digit code**, the **join page**
+   (``https://<your NoodlePlanner>/join``) and a **QR code**.
 4. Tell your team — out loud on a call, in chat, however you normally
-   would: "go to …/join and enter 482913".
+   would: "go to …/join and enter 482913". Anyone in the room can instead
+   point their phone's camera at the QR code: it opens the join page with
+   the code already filled in.
 
 The session is live from that moment. You stay in your normal editor; the
 plan on screen is the one everybody is editing.
@@ -64,6 +66,11 @@ tab, including **Key**, which explains the solid and dashed lines. The session c
 on the right of the board, which they can hide and bring back with **Chat**
 at the top of the page; a count on that button shows messages that arrived
 while it was hidden.
+
+On a phone, a joiner sees the plan as cards, one per top-level task, and
+can open them, tick tasks off and change a task's duration, % complete or
+comment. The whiteboard itself is a tap away, under **Canvas**. See
+:doc:`use-noodleplanner-on-a-phone`.
 
 **Leave session** takes a joiner back to the join form. You see them leave
 from your participant list, and they can rejoin with the same code.

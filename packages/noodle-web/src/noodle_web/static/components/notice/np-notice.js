@@ -21,7 +21,11 @@
 const TEMPLATE = document.createElement('template');
 TEMPLATE.innerHTML = `
   <style>
-    :host {
+    /* The box is an inner element, not :host: the page's own rules outrank
+       :host, and base.css resets every element's padding. */
+    :host { display: block; }
+    :host([hidden]) { display: none; }
+    .notice {
       display: flex;
       align-items: center;
       gap: var(--np-space-8, 8px);
@@ -34,7 +38,6 @@ TEMPLATE.innerHTML = `
       font-family: var(--np-font-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
       font-size: var(--np-text-90, 0.9em);
     }
-    :host([hidden]) { display: none; }
     .message { flex: 1 1 auto; min-width: 0; }
     button {
       flex: 0 0 auto;
@@ -64,9 +67,11 @@ TEMPLATE.innerHTML = `
     .close:hover { background: var(--np-sunken, #efe9de); color: var(--np-ink, #23201c); }
     button:focus-visible { outline: none; box-shadow: var(--np-focus-ring); }
   </style>
-  <span class="message" part="message" role="status"><slot></slot></span>
-  <button type="button" class="action" part="action" hidden></button>
-  <button type="button" class="close" part="close" aria-label="Dismiss">&times;</button>
+  <div class="notice" part="notice">
+    <span class="message" part="message" role="status"><slot></slot></span>
+    <button type="button" class="action" part="action" hidden></button>
+    <button type="button" class="close" part="close" aria-label="Dismiss">&times;</button>
+  </div>
 `;
 
 export class NpNotice extends HTMLElement {

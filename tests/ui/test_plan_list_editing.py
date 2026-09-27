@@ -145,6 +145,24 @@ def test_quick_add_with_no_open_card_goes_to_ungrouped(phone, app_server):
     )
 
 
+def test_quick_add_is_padded_clear_of_the_screen_s_edges(phone, app_server):
+    """Inside its shadow root, where base.css's padding reset cannot reach it
+    (a page rule outranks :host): with it on the host, the field ran to the
+    screen's edge and the home indicator's inset was dropped."""
+    open_app(phone, app_server)
+    load_plan(phone, PLAN)
+    _tasks(phone)
+    padding = phone.evaluate(
+        """() => {
+            const cs = getComputedStyle(document.getElementById('planQuickAdd').shadowRoot.querySelector('form'));
+            return [cs.paddingLeft, cs.paddingRight, cs.paddingBottom];
+        }"""
+    )
+    assert padding == ["12px", "12px", "8px"]
+    box = phone.locator("#planQuickAdd input").bounding_box()
+    assert box["x"] >= 12
+
+
 def test_quick_add_stays_above_the_keyboard(phone, app_server):
     open_app(phone, app_server)
     load_plan(phone, PLAN)

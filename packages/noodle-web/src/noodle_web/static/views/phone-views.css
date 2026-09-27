@@ -147,6 +147,24 @@
     min-width: 0;
 }
 
+/* A RAG cell paints itself in its status's colour (components.css's
+   .milestones-table .rag-*). On a card it is a pill that says the status,
+   with no "RAG" label inside the colour. */
+np-responsive-table[stacked] tbody td:is(.rag-green, .rag-amber, .rag-red, .rag-blue) {
+    padding: 0 var(--np-space-8);
+    border-radius: var(--np-radius-pill);
+}
+
+np-responsive-table[stacked] tbody td:is(.rag-green, .rag-amber, .rag-red, .rag-blue)::before {
+    content: none;
+}
+
+/* "Copy table as text" sits over a table's top-right corner, which on a
+   phone is a card's -- and a phone's table is cards, not a table to copy. */
+[data-layout="phone"] .copy-image-btn {
+    display: none;
+}
+
 /* ── The logs' toolbars ──────────────────────────────────────────────── */
 
 /* The Actions toolbar -- Add, then three filters in a row -- was 582px wide

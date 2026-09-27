@@ -40,19 +40,20 @@ TEMPLATE.innerHTML = `
       background: var(--np-surface, #fffdf9);
       color: var(--np-ink, #23201c);
       border-bottom: 1px solid var(--np-border, #e3ddd3);
-      padding-top: env(safe-area-inset-top, 0px);
-      padding-left: env(safe-area-inset-left, 0px);
-      padding-right: env(safe-area-inset-right, 0px);
     }
     :host([hidden]) { display: none; }
 
+    /* Clear of the notch and the rounded corners: the bar's own padding,
+       not :host's -- the page's rules outrank :host, and base.css resets
+       every element's padding. The 56px is the bar below the inset. */
     .bar {
       display: flex;
       align-items: center;
       gap: var(--np-space-4, 4px);
       height: 56px;
-      padding: 0 var(--np-space-4, 4px);
-      box-sizing: border-box;
+      padding: env(safe-area-inset-top, 0px) calc(var(--np-space-4, 4px) + env(safe-area-inset-right, 0px))
+        0 calc(var(--np-space-4, 4px) + env(safe-area-inset-left, 0px));
+      box-sizing: content-box;
     }
 
     button {

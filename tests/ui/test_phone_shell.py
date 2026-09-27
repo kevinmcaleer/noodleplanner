@@ -202,6 +202,13 @@ def test_the_app_bar_pads_itself_below_the_notch(phone, app_server):
         ".map(s => s.textContent).join('')"
     )
     assert "env(safe-area-inset-top" in css
+    # On an element the page's reset cannot reach: base.css zeroes every
+    # element's padding, and a page rule outranks :host, so padding on the
+    # host itself was silently dropped.
+    padding = phone.evaluate(
+        "() => getComputedStyle(document.getElementById('phoneAppBar').shadowRoot.querySelector('.bar')).paddingLeft"
+    )
+    assert padding == "4px"
 
 
 def test_the_title_opens_the_plan_switcher(phone, app_server):

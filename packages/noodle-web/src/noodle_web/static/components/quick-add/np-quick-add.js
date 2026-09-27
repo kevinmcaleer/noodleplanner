@@ -42,16 +42,20 @@ TEMPLATE.innerHTML = `
       font-family: var(--np-font-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
       background: var(--np-surface, #fffdf9);
       border-top: 1px solid var(--np-border, #e3ddd3);
-      padding: var(--np-space-8, 8px) var(--np-space-12, 12px);
-      padding-bottom: calc(var(--np-space-8, 8px) + env(safe-area-inset-bottom, 0px));
     }
     :host([hidden]) { display: none; }
 
+    /* The padding -- the home indicator's too -- is the form's, not :host's:
+       the page's rules outrank :host, and base.css resets every element's
+       padding. */
     form {
       display: flex;
       flex-direction: column;
       gap: var(--np-space-8, 8px);
       margin: 0;
+      padding: var(--np-space-8, 8px) calc(var(--np-space-12, 12px) + env(safe-area-inset-right, 0px))
+        calc(var(--np-space-8, 8px) + env(safe-area-inset-bottom, 0px))
+        calc(var(--np-space-12, 12px) + env(safe-area-inset-left, 0px));
     }
     .row {
       display: flex;

@@ -162,17 +162,22 @@ def test_no_phone_view_scrolls_sideways(phone, app_server):
     assert found == {}
 
 
-def test_tapping_a_raid_card_opens_the_item(phone, app_server):
+@pytest.mark.parametrize(
+    "view,table,title,section,field",
+    [
+        ("raid", "#raidTable", "Supplier slips on the June delivery", "#raidFormSection", "raidItemTitle"),
+        ("actions", "#actionsTable", "Chase the supplier for dates", "#actionFormSection", "actionItemTitle"),
+    ],
+)
+def test_tapping_a_card_opens_the_item(phone, app_server, view, table, title, section, field):
     open_app(phone, app_server)
     load_plan(phone, PLAN)
     _raid(phone)
-    _view(phone, "raid")
-    row = phone.locator("#raidTable tbody tr", has_text="Supplier slips")
+    _view(phone, view)
+    row = phone.locator(f"{table} tbody tr", has_text=title)
     row.locator('td[data-priority="primary"]').tap(position={"x": 20, "y": 10})
-    phone.wait_for_selector("#raidFormSection.active")
-    assert phone.evaluate("() => document.getElementById('raidItemTitle').value") == (
-        "Supplier slips on the June delivery"
-    )
+    phone.wait_for_selector(f"{section}.active")
+    assert phone.evaluate("f => document.getElementById(f).value", field) == title
 
 
 def test_the_milestones_are_cards_whose_header_is_rebuilt(phone, app_server):
@@ -297,6 +302,10 @@ def test_a_larger_screen_view_says_so_and_points_at_the_nearest(phone, app_serve
     phone.wait_for_function("() => !document.getElementById('phoneNotice').hidden")
     assert _notice(phone).inner_text().startswith("Gantt is best on a larger screen.")
     assert _notice(phone).get_attribute("action") == "Open Tasks"
+    # Padded inside its shadow root: base.css's reset outranks :host.
+    assert phone.evaluate(
+        "() => getComputedStyle(document.getElementById('phoneNotice').shadowRoot.querySelector('.notice')).paddingLeft"
+    ) == "16px"
     box = _notice(phone).bounding_box()
     assert box["y"] + box["height"] <= phone.viewport_size["height"]
     assert box["x"] >= 0 and box["x"] + box["width"] <= phone.viewport_size["width"]
