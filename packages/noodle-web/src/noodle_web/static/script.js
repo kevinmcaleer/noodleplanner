@@ -68,12 +68,15 @@ function setLastSavedInFrontMatter(text) {
     return `---\nlast_saved: ${timestamp}\n---\n${text}`;
 }
 
-function incrementPlanVersion(editor) {
-    const text = editor.value;
+/** `text` as a save writes it: the next `version` and a fresh `last_saved`. */
+function nextSavedPlanText(text) {
     const currentVersion = getVersionFromFrontMatter(text) || '1.0';
     const newVersion = incrementVersion(currentVersion);
-    let updated = setVersionInFrontMatter(text, newVersion);
-    updated = setLastSavedInFrontMatter(updated);
+    return setLastSavedInFrontMatter(setVersionInFrontMatter(text, newVersion));
+}
+
+function incrementPlanVersion(editor) {
+    const updated = nextSavedPlanText(editor.value);
     editor.value = updated;
     return updated;
 }
@@ -2029,13 +2032,8 @@ async function downloadMarkdown(mode) {
 
     // Increment version in front matter before saving — same for both the
     // disk-linked path and the download fallback.
-    const versionedContent = incrementPlanVersion(editor);
-
-    // Persist the version bump to project storage and sync editors
-    const kanbanEditor = document.getElementById('kanbanPlanEditor');
-    if (kanbanEditor) kanbanEditor.value = versionedContent;
-    if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    const versionedContent = nextSavedPlanText(editor.value);
+    commitSavedPlanText(editor, versionedContent);
 
     if (canLink && !downloadInstead && LocalFileAccess.isLinked(currentProjectId)) {
         const result = await LocalFileAccess.saveToLinkedFile(currentProjectId, versionedContent);
@@ -2067,18 +2065,7 @@ async function downloadMarkdown(mode) {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-
-    // Use project name + version for filename, falling back to timestamp
-    const currentProject = typeof getCurrentProject === 'function' ? getCurrentProject() : null;
-    const version = getVersionFromFrontMatter(versionedContent);
-    if (currentProject && currentProject.name) {
-        const safeName = currentProject.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        a.download = version ? `${safeName}_plan_v${version}.md` : `${safeName}.md`;
-    } else {
-        const now = new Date();
-        const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-').replace('T', '_');
-        a.download = `plan_${timestamp}.md`;
-    }
+    a.download = planDownloadFileName(versionedContent);
 
     // Trigger download
     document.body.appendChild(a);
@@ -2091,6 +2078,101 @@ async function downloadMarkdown(mode) {
     const fallbackNote = (typeof LocalFileAccess !== 'undefined' && !LocalFileAccess.isSupported())
         ? ' — replace the file on disk yourself' : '';
     showMessage(messageTarget, 'success', 'Markdown file downloaded!' + fallbackNote);
+}
+
+/** Put a saved plan's text in the editors and project storage: what every
+ * save does once it has bumped the version. */
+function commitSavedPlanText(editor, text) {
+    editor.value = text;
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    if (kanbanEditor) kanbanEditor.value = text;
+    if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/** A downloaded or shared copy's name: the project's name and the plan's
+ * version, falling back to a timestamp for a plan with no project. */
+function planDownloadFileName(text) {
+    const currentProject = typeof getCurrentProject === 'function' ? getCurrentProject() : null;
+    const version = getVersionFromFrontMatter(text);
+    if (currentProject && currentProject.name) {
+        const safeName = currentProject.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        return version ? `${safeName}_plan_v${version}.md` : `${safeName}.md`;
+    }
+    const now = new Date();
+    const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-').replace('T', '_');
+    return `plan_${timestamp}.md`;
+}
+
+/**
+ * Whether this browser can hand a plan file to the device's share sheet
+ * (issue #1395): phones mostly can, desktops mostly can't. Feature
+ * detection on a sample `.md` file, never the user agent, since a browser
+ * may share some kinds of file and not others.
+ */
+function canSharePlanFile() {
+    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function' ||
+        typeof navigator.canShare !== 'function' || typeof File !== 'function') return false;
+    try {
+        return navigator.canShare({ files: [new File([''], 'plan.md', { type: 'text/markdown' })] });
+    } catch (error) {
+        return false;
+    }
+}
+
+/**
+ * How the phone's Save a copy action (issue #1395) is labelled where it
+ * appears: the share sheet where the browser has one for files, a download
+ * where it has not, and the label says which. `short` is for the ⋯ sheet's
+ * toolbar, where there is room for a word.
+ */
+function sharePlanCopyLabels() {
+    return canSharePlanFile()
+        ? { label: 'Save or share a copy', short: 'Share', note: 'To Files, Mail, Messages and more', icon: 'upload' }
+        : { label: 'Download a copy', short: 'Download', note: 'Saves a .md file to Downloads', icon: 'download' };
+}
+
+/**
+ * Save a copy of the plan through the device's share sheet (issue #1395),
+ * from where it can go to Files, iCloud Drive or Google Drive, or by Mail,
+ * Messages or AirDrop. A phone has no File System Access API, so this is
+ * its way to get a plan back off the phone. The file is the one Save
+ * writes: the same name and the same bytes, with the version bumped.
+ *
+ * The bump is only kept once the share goes through, so cancelling the
+ * sheet leaves the plan as it was, with no toast and no download. Where
+ * the browser can't share a plan file, this downloads it instead.
+ */
+async function sharePlanCopy() {
+    const editor = getActiveEditor();
+    const messageTarget = isBoardViewActive() ? 'kanban' : 'editor';
+    if (!editor.value.trim()) {
+        showMessage(messageTarget, 'error', 'Nothing to save - editor is empty');
+        return;
+    }
+    if (!canSharePlanFile()) {
+        await downloadMarkdown('download');
+        return;
+    }
+
+    // Built and shared before any await: the share sheet needs the tap's
+    // user activation.
+    const text = nextSavedPlanText(editor.value);
+    const name = planDownloadFileName(text);
+    const file = new File([text], name, { type: 'text/markdown' });
+    try {
+        await navigator.share({ files: [file], title: name });
+    } catch (error) {
+        if (error && error.name === 'AbortError') return; // the user closed the sheet
+        console.error('Could not share the plan:', error);
+        if (typeof showToast === 'function') {
+            showToast('Could not open the share sheet — downloading a copy instead', 'error');
+        }
+        await downloadMarkdown('download');
+        return;
+    }
+    commitSavedPlanText(editor, text);
+    showMessage(messageTarget, 'success', 'Shared ' + name);
 }
 
 /** File ▸ Save As… (issue #1406): save the plan to a newly chosen file,

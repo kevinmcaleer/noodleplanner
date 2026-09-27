@@ -374,8 +374,8 @@ export const GALLERY = [
                     '<svg width="100" height="100" viewBox="0 0 100 100" class="donut-chart-svg">' +
                     '<path d="M 50 5 A 45 45 0 1 1 18.18 81.82 L 29.49 70.51 A 29 29 0 1 0 50 21 Z" fill="#90EE90" class="donut-arc"></path>' +
                     '<path d="M 18.18 81.82 A 45 45 0 0 1 50 5 L 50 21 A 29 29 0 0 0 29.49 70.51 Z" fill="#D3D3D3" class="donut-arc"></path>' +
-                    '<text x="50" y="47" text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="700" fill="#333" class="donut-center-text">24</text>' +
-                    '<text x="50" y="60" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#888" class="donut-center-text">tasks</text>' +
+                    '<text x="50" y="47" text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="700" class="donut-center-text donut-center-total">24</text>' +
+                    '<text x="50" y="60" text-anchor="middle" dominant-baseline="central" font-size="7" class="donut-center-text donut-center-label">tasks</text>' +
                     '</svg>' +
                     '<div class="donut-chart-legend">' +
                     '<div class="donut-legend-item"><span class="donut-legend-swatch complete"></span><span class="donut-legend-count">15</span><span>Complete</span></div>' +

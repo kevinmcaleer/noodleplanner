@@ -2118,6 +2118,12 @@ Build
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-download"/></svg>
                             Download a copy
                         </button>
+                        <!-- #1395: phones only. Its icon and label say whether it
+                             opens the share sheet or downloads; see backstage.js. -->
+                        <button type="button" class="backstage-rail-btn" data-backstage-action="Save a copy" data-phone-only hidden>
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-upload"/></svg>
+                            <span data-share-label>Save or share a copy</span>
+                        </button>
                         <button type="button" class="backstage-rail-btn" data-backstage-action="Import from Excel / MS Project">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-upload"/></svg>
                             Import

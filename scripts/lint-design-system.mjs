@@ -151,6 +151,19 @@ const ALLOW = [
 		match: ({ file, selector }) => file.endsWith('base.css') && /:root|\[data-theme/.test(selector),
 	},
 	{
+		// A legend or key for colours a script paints. The task-completion
+		// donut's arcs are filled by views-tables.js (#90EE90 / #D3D3D3), and
+		// the benefits map's node types by BEN_COLOURS in benefits.js and
+		// portfolio-benefits.js; the legend swatch and the "add <type>" button
+		// stripe exist to say which colour is which, so they have to be the
+		// same literal the SVG gets. Tokenising one side alone would make the
+		// key lie. They move to tokens together with those scripts, not before.
+		why: 'key to a script-drawn palette',
+		rules: ['raw-colour'],
+		match: ({ file, selector }) => file.endsWith('components.css') &&
+			/^\.donut-legend-swatch\.(complete|incomplete)$|^\.benefits-add-btn--(enabler|change|benefit|disbenefit|objective)$/.test(selector.trim()),
+	},
+	{
 		// The canonical layer is where colour literals are supposed to live.
 		why: 'canonical token layer',
 		rules: ['raw-colour'],
@@ -162,19 +175,6 @@ const ALLOW = [
 		why: 'RAG / traffic-light encoding',
 		rules: ['raw-colour'],
 		match: ({ selector }) => /\b(rag|status)-(red|amber|green)\b|\.rag-badge|\.status-badge/.test(selector),
-	},
-	{
-		// .task-form-inspect-btn and .detail-pane-header's close button sit on
-		// the accent-gold background, which is the one surface that does not
-		// flip with the theme (#1194) -- so their border/hover tints are
-		// var(--np-on-accent)'s own RGB at reduced alpha, not a token. Using a
-		// themed token here (e.g. --np-shadow-tint, which is a different
-		// colour entirely in dark theme) would detune the effect exactly when
-		// the header does not need it to change.
-		why: 'fixed on-accent tint',
-		rules: ['raw-colour'],
-		match: ({ file, selector }) =>
-			file.endsWith('components.css') && /^\.task-form-inspect-btn(:hover)?$/.test(selector.trim()),
 	},
 ]
 

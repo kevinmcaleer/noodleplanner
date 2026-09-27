@@ -172,7 +172,7 @@ body {
 [data-theme="dark"] select:focus,
 [data-theme="dark"] textarea:not(.editor-textarea):focus {
     border-color: var(--np-accent);
-    box-shadow: 0 0 0 2px rgba(123, 143, 240, 0.25);
+    box-shadow: var(--np-focus-ring);
 }
 
 /* Detail pane */
@@ -415,7 +415,6 @@ body {
 [data-theme="dark"] .tour-popup {
     color: var(--np-text);
     border-color: var(--np-border);
-    box-shadow: 0 4px 20px var(--np-shadow-strong);
 }
 
 /* Templates modal cards */
@@ -569,17 +568,12 @@ body {
 }
 
 [data-theme="dark"] .gantt-weekend {
-    background: rgba(255, 255, 255, 0.03);
+    background: color-mix(in srgb, var(--np-on-fill) 3%, transparent);
 }
 
 [data-theme="dark"] .gantt-month {
     border-right-color: var(--np-border);
     color: var(--np-accent);
-}
-
-[data-theme="dark"] .gantt-month.gantt-today {
-    background-color: #1a3a28;
-    color: #50c878;
 }
 
 /* Summary task rows - better contrast */
@@ -590,7 +584,7 @@ body {
 
 /* Completed task bars - dimmer green */
 [data-theme="dark"] .gantt-task-bar {
-    background: #2d8f4e;
+    background: var(--np-green);
 }
 
 /* Hover highlight on task rows - subtle */
@@ -631,10 +625,6 @@ body {
 
 [data-theme="dark"] .task-row-add-btn:hover {
     color: var(--np-surface);
-}
-
-[data-theme="dark"] .task-drag-handle {
-    color: #6c757d;
 }
 
 [data-theme="dark"] .task-drag-handle:hover {
@@ -747,24 +737,19 @@ body {
 }
 
 /* Kanban card metadata badges */
-[data-theme="dark"] .kanban-meta-duration {
-    background: #1a2e4a;
-    color: #6db3f0;
-}
-
 [data-theme="dark"] .kanban-meta-progress {
     background: var(--np-surface-alt);
     color: var(--np-text-secondary);
 }
 
 [data-theme="dark"] .kanban-meta-progress.progress-complete {
-    background: #1a3a28;
-    color: #50c878;
+    background: var(--np-success-tint);
+    color: var(--np-success-ink);
 }
 
 [data-theme="dark"] .kanban-meta-progress.progress-in-progress {
-    background: #3a3020;
-    color: #e0a020;
+    background: var(--np-warning-tint);
+    color: var(--np-warning-ink);
 }
 
 [data-theme="dark"] .kanban-meta-progress.progress-not-started {
@@ -781,14 +766,9 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .label-dependency {
-    background: #1a2e4a;
-    color: #6db3f0;
-}
-
 [data-theme="dark"] .label-tag {
-    background: #2e1a40;
-    color: #b080d0;
+    background: color-mix(in srgb, var(--np-purple) 16%, var(--np-surface));
+    color: color-mix(in srgb, var(--np-purple) 60%, var(--np-ink));
 }
 
 /* Kanban card resource avatars dark border */
@@ -878,14 +858,6 @@ body {
     color: var(--np-text);
 }
 
-/* Completion % quick-set toolbar + click-to-complete progress bar
-   (task details form) */
-[data-theme="dark"] .percent-quick-btn {
-    background: var(--np-surface-alt);
-    border-color: var(--np-border);
-    color: var(--np-text);
-}
-
 /* Theme colour picker popup */
 [data-theme="dark"] .theme-colour-picker {
     border-color: var(--np-border);
@@ -907,21 +879,17 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .milestone-name {
-    color: #ffffff;
-}
-
 [data-theme="dark"] .timeline-line {
-    background: #ffffff;
+    background: var(--np-ink);
 }
 
 [data-theme="dark"] .timeline-line::before,
 [data-theme="dark"] .timeline-line::after {
-    background: #ffffff;
+    background: var(--np-ink);
 }
 
 [data-theme="dark"] .timeline-diamond {
-    background: #ffffff;
+    background: var(--np-ink);
 }
 
 [data-theme="dark"] .timeline-connector {
@@ -939,17 +907,17 @@ body {
 
 /* Minimal timeline line in dark */
 [data-theme="dark"] .minimal-timeline-mode .timeline-line {
-    background: #ffffff;
+    background: var(--np-ink);
 }
 
 [data-theme="dark"] .minimal-timeline-mode .timeline-line::before,
 [data-theme="dark"] .minimal-timeline-mode .timeline-line::after {
-    background: #ffffff;
+    background: var(--np-ink);
 }
 
 /* Dashboard report timeline */
 [data-theme="dark"] .report-dashboard-timeline line[stroke="#bbb"] {
-    stroke: #666;
+    stroke: var(--np-border-strong);
 }
 
 [data-theme="dark"] .report-timeline-date-label {
@@ -987,11 +955,6 @@ body {
 
 [data-theme="dark"] .raid-table tbody tr:nth-child(even) {
     background: var(--np-table-stripe);
-}
-
-[data-theme="dark"] .raid-table tbody tr:hover,
-[data-theme="dark"] .raid-table tbody tr:nth-child(even):hover {
-    background: var(--np-table-hover);
 }
 
 [data-theme="dark"] .raid-container {
@@ -1052,11 +1015,6 @@ body {
 
 [data-theme="dark"] .highlight-date {
     color: var(--np-text);
-}
-
-[data-theme="dark"] .highlight-author {
-    background: #1a2e4a;
-    color: #6db3f0;
 }
 
 [data-theme="dark"] .highlight-body h1,
@@ -1148,11 +1106,6 @@ body {
     background: var(--np-table-stripe);
 }
 
-[data-theme="dark"] .budget-table tbody tr:hover,
-[data-theme="dark"] .budget-table tbody tr:nth-child(even):hover {
-    background: var(--np-table-hover);
-}
-
 [data-theme="dark"] .budget-table tfoot td {
     background: var(--np-summary-row);
     color: var(--np-text);
@@ -1226,14 +1179,6 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .resources-table .totals-row {
-    background: var(--np-summary-row);
-}
-
-[data-theme="dark"] .resources-table .totals-row:hover {
-    background: var(--np-summary-row-hover);
-}
-
 [data-theme="dark"] .resources-scope-label {
     color: var(--np-text-muted);
 }
@@ -1267,30 +1212,6 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .timesheet-hours-none {
-    color: var(--np-text-muted);
-}
-
-[data-theme="dark"] .timesheet-hours-low {
-    background: #1a3a28;
-    color: #50c878;
-}
-
-[data-theme="dark"] .timesheet-hours-normal {
-    background: #3a3020;
-    color: #e0a020;
-}
-
-[data-theme="dark"] .timesheet-hours-high {
-    background: #3a2020;
-    color: #e06060;
-}
-
-[data-theme="dark"] .timesheet-holiday {
-    background: #3a3020 !important;
-    border-left-color: #e0a020;
-}
-
 /* ---- Workload Page ---- */
 [data-theme="dark"] .workload-content {
     color: var(--np-text);
@@ -1313,10 +1234,6 @@ body {
     background: var(--np-input-bg);
     color: var(--np-text);
     border-color: var(--np-input-border);
-}
-
-[data-theme="dark"] .resource-sheet-group-header {
-    background: var(--np-summary-row);
 }
 
 [data-theme="dark"] .resource-sheet-group-name {
@@ -1349,16 +1266,8 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .resource-sheet-timeline-cell {
-    border-right-color: var(--np-border-light);
-}
-
 [data-theme="dark"] .resource-sheet-timeline-cell.resource-sheet-weekend {
     background: var(--np-surface-alt);
-}
-
-[data-theme="dark"] .resource-sheet-timeline-cell.resource-sheet-holiday {
-    background: #3a3020;
 }
 
 /* ---- NoodleSheet (EVM spreadsheet, etc.) ---- */
@@ -1456,7 +1365,7 @@ body {
 }
 
 [data-theme="dark"] .ns-cell.ns-in-range {
-    background: rgba(123, 143, 240, 0.15);
+    background: color-mix(in srgb, var(--np-info) 15%, transparent);
 }
 
 [data-theme="dark"] .ns-table tbody tr:hover .ns-cell:not(.ns-selected):not(.ns-editing) {
@@ -1464,7 +1373,7 @@ body {
 }
 
 [data-theme="dark"] .ns-table tbody tr:nth-child(even) .ns-row-num {
-    background: linear-gradient(90deg, var(--np-surface) 0%, #252545 100%);
+    background: linear-gradient(90deg, var(--np-surface) 0%, var(--np-surface-alt) 100%);
 }
 
 [data-theme="dark"] .ns-cell-editor {
@@ -1569,7 +1478,7 @@ body {
 }
 
 [data-theme="dark"] .portfolio-subnav-btn:hover {
-    background: rgba(123, 143, 240, 0.1);
+    background: color-mix(in srgb, var(--np-accent) 10%, transparent);
 }
 
 [data-theme="dark"] .portfolio-subnav-btn.active {
@@ -1961,15 +1870,15 @@ body {
 
 /* ---- Message boxes ---- */
 [data-theme="dark"] .kanban-message-success {
-    background: #1a3a28;
-    color: #50c878;
-    border-color: #2a5a3a;
+    background: var(--np-success-tint);
+    color: var(--np-success-ink);
+    border-color: var(--np-success);
 }
 
 [data-theme="dark"] .kanban-message-info {
-    background: #1a2e4a;
-    color: #6db3f0;
-    border-color: #2a3a5a;
+    background: var(--np-info-tint);
+    color: var(--np-info-ink);
+    border-color: var(--np-info);
 }
 
 /* ---- Progress bar dark mode ---- */
@@ -2016,9 +1925,9 @@ body {
     --mm-placeholder-heading: #ddd;
 }
 
-[data-theme="dark"] .ben-connection { stroke: #9CA3AF;
+[data-theme="dark"] .ben-connection { stroke: var(--np-faint);
 }
-[data-theme="dark"] .ben-arrow { fill: #9CA3AF;
+[data-theme="dark"] .ben-arrow { fill: var(--np-faint);
 }
 
 [data-theme="dark"] .ben-tracking-table {
@@ -2034,14 +1943,6 @@ body {
 [data-theme="dark"] .ben-tracking-table td {
     color: var(--np-text);
     border-bottom-color: var(--np-border);
-}
-
-[data-theme="dark"] .ben-tracking-table td.ben-cell-editable:hover {
-    background: var(--np-bg-hover);
-}
-
-[data-theme="dark"] .ben-tracking-table td.ben-cell-editable:focus-within {
-    background: var(--np-bg-hover);
 }
 
 [data-theme="dark"] .ben-tracking-table .ben-cell-input {
@@ -2063,137 +1964,64 @@ body {
 
 /* ---- Version History panel (dark) ---- */
 [data-theme="dark"] .version-readonly-banner {
-    background: #b71c1c;
-    border-color: #d32f2f;
+    background: var(--np-danger-tint);
+    border-color: var(--np-danger);
+    color: var(--np-danger-ink);
 }
 
 [data-theme="dark"] .version-readonly-banner .btn-sm {
-    border-color: rgba(255,255,255,0.5);
+    border-color: color-mix(in srgb, var(--np-danger-ink) 50%, transparent);
+    color: var(--np-danger-ink);
 }
 
 [data-theme="dark"] .version-readonly-banner .btn-sm:hover {
-    background: rgba(255,255,255,0.15);
-    color: #fff;
-}
-
-[data-theme="dark"] .widget-shortcut {
-    background: #2a2a3e;
-    border-color: #444;
-    color: #888;
-}
-
-[data-theme="dark"] .widget-shortcut:hover {
-    background: #333350;
-    border-color: #666;
-    color: #ccc;
-}
-
-/* ── Highlight body truncation (dark) ── */
-[data-theme="dark"] .report-highlight-body::after {
-    background: linear-gradient(to right, transparent, #1e1e2e 40%);
-    color: #666;
-}
-
-/* ── Completion Sparkline (dark) ── */
-[data-theme="dark"] .completion-sparkline-container {
-    color: #aaa;
-}
-
-[data-theme="dark"] .sparkline-label {
-    color: #888;
-}
-
-[data-theme="dark"] .sparkline-value {
-    color: #e0e0e0;
-}
-
-/* ── Stalled Badge (dark) ── */
-[data-theme="dark"] .stalled-badge {
-    background: #b8860b;
-    color: #fff;
-}
-
-/* ── Delivery Forecast (dark) ── */
-[data-theme="dark"] .forecast-on-track {
-    color: #4caf50;
-}
-
-[data-theme="dark"] .forecast-at-risk {
-    color: #e55;
-}
-
-[data-theme="dark"] .forecast-no-forecast {
-    color: #777;
-}
-
-[data-theme="dark"] .forecast-complete {
-    color: #4caf50;
+    background: color-mix(in srgb, var(--np-danger-ink) 15%, transparent);
+    color: var(--np-danger-ink);
 }
 
 /* ── Portfolio Benefits Map (dark) ───────────────────────────────────── */
 
 [data-theme="dark"] .portfolio-benefits-map-section {
-    background: #1e1e1e;
     box-shadow: 0 1px 3px var(--np-shadow);
 }
 
-[data-theme="dark"] .portfolio-benefits-map-section h3 {
-    color: #e0e0e0;
-}
-
-[data-theme="dark"] .portfolio-benefits-map-container {
-    border-color: #444;
-    background: #2a2a2a;
-}
-
 [data-theme="dark"] .pbm-column-labels text {
-    fill: #999 !important;
+    fill: var(--np-muted) !important;
 }
 
 [data-theme="dark"] .pbm-connection {
-    stroke: #666;
+    stroke: var(--np-border-strong);
 }
 
 [data-theme="dark"] .pbm-arrow {
-    fill: #666;
+    fill: var(--np-border-strong);
 }
 
 [data-theme="dark"] .pbm-node--change .pbm-shape {
-    fill: #3a3a3a;
+    fill: var(--np-sunken);
 }
 
 [data-theme="dark"] .pbm-node--change text {
-    fill: #e0e0e0;
+    fill: var(--np-ink);
 }
 
 /* ── Whiteboard (dark) — issue #845 ──────────────────────────────────── */
 
 [data-theme="dark"] .wb-toolbar-btn {
-    background: #2a2a2a;
-    border-color: #444;
-    color: #ccc;
+    border-color: var(--np-border-strong);
 }
 
 [data-theme="dark"] .wb-toolbar-btn:hover:not(:disabled) {
-    background: #3a3a3a;
     border-color: var(--np-blue);
-    color: #fff;
-}
-
-[data-theme="dark"] .wb-zoom-label {
-    color: #999;
-}
-
-[data-theme="dark"] .wb-toolbar-hint {
-    color: #777;
+    color: var(--np-ink);
 }
 
 [data-theme="dark"] .wb-canvas-wrapper {
-    background: #1e1e1e;
+    background: var(--np-paper);
 }
 
 [data-theme="dark"] .wb-grid-dot {
-    fill: #3a3a3a;
+    fill: var(--np-sunken);
 }
 
 /* ── Whiteboard notes (dark) — issue #846 ────────────────────────────────
@@ -2218,10 +2046,6 @@ body {
    light-mode rule's var(--np-text) is too close to most swatch
    colours to read as a highlight against a dark page). */
 
-[data-theme="dark"] .wb-note-menu-swatch.selected {
-    border-color: #ffffff;
-}
-
 /* ── Board membership (dark) — issue #847 ────────────────────────────────
    The "Add note" toolbar button reuses .wb-toolbar-btn (already themed
    above); the note menu's "Remove from board" item, the empty state, and
@@ -2229,119 +2053,6 @@ body {
    (including var(--np-overlay) for the picker's backdrop, same token
    .modal-overlay already uses) -- no colour is hardcoded for light mode,
    so nothing here needs a dark-specific override. */
-
-/* ── Ribbon (design handoff "Ribbon Toolbar option 2a", #833 follow-up) ──
-   The design specifies its own dark palette rather than reusing --np-*
-   tokens throughout (its light mode is also mostly literal hex, not
-   tokens, for the same reason: this is a high-fidelity port of a fixed
-   design, not a token-driven component). */
-[data-theme="dark"] .ribbon-tab-btn {
-    color: #8fa8b3;
-}
-
-[data-theme="dark"] .ribbon-tab-btn:hover {
-    color: #d3e2e8;
-}
-
-[data-theme="dark"] .ribbon-tab-btn.contextual {
-    color: #8fa8b3;
-}
-
-[data-theme="dark"] .ribbon-tab-btn.contextual.active {
-    color: #d3e2e8;
-}
-
-[data-theme="dark"] .ribbon-file-menu {
-    background: #0d1b22;
-}
-
-[data-theme="dark"] .ribbon-lg-btn,
-[data-theme="dark"] .ribbon-sm-btn,
-[data-theme="dark"] .ribbon-more-btn {
-    color: #d3e2e8;
-}
-
-[data-theme="dark"] .ribbon-lg-btn:hover:not(:disabled),
-[data-theme="dark"] .ribbon-sm-btn:hover:not(:disabled),
-[data-theme="dark"] .ribbon-more-btn:hover {
-    background: rgba(16, 139, 185, 0.22);
-    border-color: #2f5f74;
-}
-
-[data-theme="dark"] .ribbon-more-btn {
-    border-color: #2f5f74;
-}
-
-[data-theme="dark"] .ribbon-caret,
-[data-theme="dark"] .ribbon-group-caption,
-[data-theme="dark"] .ribbon-more-caption {
-    color: #8fa8b3;
-}
-
-[data-theme="dark"] .ribbon-launcher {
-    color: #6f8894;
-}
-
-[data-theme="dark"] .ribbon-more {
-    border-left-color: #233a45;
-}
-
-[data-theme="dark"] .ribbon-more-popover {
-    background: #1b2f39;
-    border-color: #233a45;
-}
-
-[data-theme="dark"] .ribbon-more-popover .ribbon-group {
-    border-bottom-color: #233a45;
-}
-
-/* -- Simple density (#955) -- */
-[data-theme="dark"] .ribbon-simple-btn {
-    color: #d3e2e8;
-}
-
-[data-theme="dark"] .ribbon-simple-btn:hover:not(:disabled) {
-    background: rgba(16, 139, 185, 0.22);
-    border-color: #2f5f74;
-}
-
-/* -- #1026: per-group dropdown trigger + flyout -- */
-[data-theme="dark"] .ribbon-simple-group-trigger {
-    color: #d3e2e8;
-    border-color: #2f5f74;
-}
-
-[data-theme="dark"] .ribbon-simple-group-trigger:hover {
-    background: rgba(16, 139, 185, 0.22);
-}
-
-[data-theme="dark"] .ribbon-simple-group-popover {
-    background: #1b2f39;
-    border-color: #233a45;
-}
-
-/* -- #1027: ribbon display selector -- */
-[data-theme="dark"] .ribbon-display-toggle-btn {
-    color: #8fa8b3;
-}
-
-[data-theme="dark"] .ribbon-display-toggle-btn:hover,
-[data-theme="dark"] .ribbon-display-toggle-btn:focus-visible {
-    color: #d3e2e8;
-}
-
-[data-theme="dark"] .ribbon-display-menu {
-    background: #1b2f39;
-    border-color: #233a45;
-}
-
-[data-theme="dark"] .ribbon-display-menu-item {
-    color: #d3e2e8;
-}
-
-[data-theme="dark"] .ribbon-display-menu-item:hover {
-    background: rgba(16, 139, 185, 0.22);
-}
 
 /* Backstage view (#943, #944) -- mostly var(--np-*)-driven (see
    views/backstage.css) so it inherits the dark tokens above already; these
@@ -2370,22 +2081,22 @@ body {
 [data-theme="dark"] .wb-outline-btn:hover,
 [data-theme="dark"] .wb-outline-btn:focus-visible,
 [data-theme="dark"] .wb-outline-chevron:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: color-mix(in srgb, var(--np-ink) 15%, transparent);
 }
 
 /* The row-matched and search-focus tints are mixed for a white panel; at
    dark-mode luminance they read as almost nothing, so lift them. */
 [data-theme="dark"] .wb-outline-row.matched {
-    background: rgba(16, 139, 185, 0.26);
+    background: color-mix(in srgb, var(--np-info) 26%, transparent);
 }
 
 [data-theme="dark"] .wb-outline-search-input:focus {
-    box-shadow: 0 0 0 2px rgba(16, 139, 185, 0.4);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--np-info) 40%, transparent);
 }
 
 [data-theme="dark"] .wb-note-menu-delete:hover,
 [data-theme="dark"] .wb-note-menu-delete:focus-visible {
-    background: rgba(214, 69, 69, 0.22);
+    background: color-mix(in srgb, var(--np-danger) 22%, transparent);
 }
 
 /* The "found it" flash ring, and the cut button's hover mark, both assume
@@ -2395,17 +2106,10 @@ body {
 }
 
 @keyframes wbNoteFlashDark {
-    0%, 100% { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
-    30%      { box-shadow: 0 0 0 5px rgba(77, 182, 226, 0.6), 0 6px 18px rgba(0, 0, 0, 0.6); }
+    0%, 100% { box-shadow: 0 2px 6px var(--np-shadow-strong); }
+    30%      { box-shadow: 0 0 0 5px color-mix(in srgb, var(--np-info) 60%, transparent), 0 6px 18px color-mix(in srgb, var(--np-shade) 60%, transparent); }
 }
 
 [data-theme="dark"] .wb-noodle-cut:hover .wb-noodle-cut-mark {
-    stroke: #1e1e1e;
-}
-
-/* The transient message inverts (dark text on light) in light mode; in
-   dark mode that inversion would make it the brightest thing on screen. */
-[data-theme="dark"] .wb-noodle-message {
-    background: #e8e8e8;
-    color: #1e1e1e;
+    stroke: var(--np-paper);
 }
