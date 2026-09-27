@@ -80,6 +80,12 @@ of the join page. It opens the same **Your profile** form, starting from
 the name they joined as. Once they have saved a profile in that browser,
 the join page fills in their name for them next time.
 
+.. figure:: /_static/img/how-to/ps-01-joiner-board.png
+   :alt: The joiner page: the host's whiteboard filling the window, with the session chat on the right
+   :width: 100%
+
+   What a joiner sees: your board, and the session chat beside it.
+
 What Everyone Can Edit
 ------------------------
 
@@ -160,6 +166,12 @@ right: the plan moves over to make room, so the chat never covers the
 board or its panels. Joiners have the same chat in a panel to the right of
 the board.
 
+.. figure:: /_static/img/how-to/ps-03-docked-chat.png
+   :alt: The session chat docked in a column on the right, with the whiteboard and its parking lot beside it
+   :width: 100%
+
+   Docked, the chat sits beside the plan rather than over it.
+
 Messages appear as chat bubbles, each with the sender's initials beside
 it and their name and the time above it; your own sit on the right.
 
@@ -191,6 +203,12 @@ Seeing and Removing Participants
 While anyone is in the session, their initials appear in the title bar,
 next to the **Planning session** button. Hover over one to see who it is
 and whether they are active, or select it to open the session chat.
+
+.. figure:: /_static/img/how-to/ps-02-participant-chips.png
+   :alt: Two overlapping initials chips in the title bar, one showing a card with the name, Active, and Open session chat
+   :width: 100%
+
+   Who is in the session, in the title bar. Hover over a chip for the card.
 
 The session panel lists everyone who has joined and whether they are
 currently active. **Remove** disconnects one person without affecting the
