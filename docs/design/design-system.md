@@ -394,6 +394,16 @@ for RAG and `<np-resource-stack>` for people -- the Milestones view, Tasks
 by Assignment, Slippage, Programme Dependencies and the levelling
 suggestions. None of them paints RAG in hex any more.
 
+**The task grid.** The Tasks view and the Gantt's task list share one
+16-column grid -- in-cell editing, drag handles, a right-click menu, 40px
+rows the Gantt's bars line up with -- so it stays a grid and takes the row's
+parts too: `<np-checkbox>` filled to the percent in place of the hand-built
+pie (a click ticks, a press and hold sets a percent,
+`createTaskCompletionBox()` in editor-sync.js), `<np-rag>` for RAG, and
+`<np-resource-stack>` for Resources, which a double-click still edits as
+text (`fillTaskGridPeople()` in views-tables.js). An allocation such as
+`sam[50%]` is the cell's tooltip; an inherited assignment says so.
+
 ### Composed forms
 
 Storybook renders components at every level of the hierarchy, not just small

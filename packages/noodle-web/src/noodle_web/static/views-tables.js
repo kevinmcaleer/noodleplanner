@@ -1735,6 +1735,65 @@ function updateTimesheet(tasks, frontMatter = {}) {
 
 // Store tasks and project name for timeline re-rendering
 
+/**
+ * The task grid's cells that are the task row's parts (Penpot "Task row"),
+ * shared by the Tasks view (updateTasksTable) and the Gantt's task list
+ * (renderGanttRows in views-gantt.js), which draw the same 40px grid.
+ * Completion is createTaskCompletionBox() in editor-sync.js.
+ */
+
+/** The front matter's resource details, for a people chip's profile card. */
+function taskGridResourceDetails() {
+    const editor = document.getElementById('planEditor');
+    if (!editor || typeof parseResourceDetails !== 'function') return {};
+    try { return parseResourceDetails(editor.value); } catch { return {}; }
+}
+
+/**
+ * The Resources cell: the task row's stack of people chips, for the names
+ * the engine's "sam[50%], Jo Lee" stands for. The raw assignment, with any
+ * allocation, is the cell's tooltip; an assignment inherited from the phase
+ * says so. Double-click still edits the text (makeEditable).
+ */
+function fillTaskGridPeople(cell, task, details) {
+    cell.replaceChildren();
+    const raw = task.resources || '';
+    const names = typeof taskRowResourceNames === 'function'
+        ? taskRowResourceNames(raw, typeof globalResourceMap !== 'undefined' ? globalResourceMap : {}) : raw;
+    if (!names) {
+        cell.textContent = '-';
+    } else {
+        const stack = document.createElement('np-resource-stack');
+        stack.setAttribute('names', names);
+        stack.setAttribute('max', '3');
+        stack.details = details || taskGridResourceDetails();
+        cell.appendChild(stack);
+    }
+    const notes = [];
+    if (task.inherited_resource) {
+        notes.push('Inherited from parent summary task');
+        const hint = document.createElement('span');
+        hint.className = 'task-grid-inherited';
+        hint.textContent = 'inherited';
+        cell.appendChild(hint);
+    }
+    if (raw.includes('[')) notes.push(raw);
+    if (notes.length) cell.title = notes.join(': '); else cell.removeAttribute('title');
+}
+
+/** The RAG cell: the task row's dot, named by the status, or "-". */
+function fillTaskGridRag(cell, task) {
+    cell.replaceChildren();
+    if (!task.rag) {
+        cell.textContent = '-';
+        return;
+    }
+    const dot = document.createElement('np-rag');
+    dot.setAttribute('status', task.rag);
+    if ((parseFloat(task.percent) || 0) >= 100) dot.setAttribute('done', '');
+    cell.appendChild(dot);
+}
+
 function updateTasksTable(tasks) {
     const placeholder = document.querySelector('#tasks-view .placeholder-view');
     const content = document.querySelector('#tasks-view .tasks-content');
@@ -1755,6 +1814,7 @@ function updateTasksTable(tasks) {
     if (!tasks || tasks.length === 0) return;
 
     const nameToId = buildTaskNameToIdMap(tasks);
+    const resourceDetails = taskGridResourceDetails();
 
     tasks.forEach((task, index) => {
         const cfStyle = !task.is_summary ? getConditionalFormatting(task) : null;
@@ -1767,16 +1827,15 @@ function updateTasksTable(tasks) {
             row.style.color = cfStyle.color;
         }
 
-        // Done piechart
+        // Completion: the task row's box (editor-sync.js)
         const doneCell = document.createElement('td');
         doneCell.classList.add('gantt-done-cell');
         if (!task.is_summary) {
             const percent = parseFloat(task.percent) || 0;
-            const piechart = createMiniPiechart(percent, (newPercent) => {
+            doneCell.appendChild(createTaskCompletionBox(percent, (newPercent) => {
                 task.percent = newPercent;
                 syncGanttPercentToEditor(task, index);
-            });
-            doneCell.appendChild(piechart);
+            }, task.name));
         }
         row.appendChild(doneCell);
 
@@ -1828,15 +1887,11 @@ function updateTasksTable(tasks) {
         setupGanttEditableCell(finishCell, () => makeEditable(finishCell, task, index));
         row.appendChild(finishCell);
 
-        // Resources
+        // Resources: the task row's people chips
         const resourcesCell = document.createElement('td');
-        resourcesCell.classList.add('editable');
+        resourcesCell.classList.add('editable', 'task-grid-people');
         resourcesCell.dataset.field = 'resources';
-        resourcesCell.textContent = task.resources || '-';
-        if (task.inherited_resource) {
-            resourcesCell.style.fontStyle = 'italic';
-            resourcesCell.title = 'Inherited from parent summary task';
-        }
+        fillTaskGridPeople(resourcesCell, task, resourceDetails);
         setupGanttEditableCell(resourcesCell, () => makeEditable(resourcesCell, task, index));
         row.appendChild(resourcesCell);
 
@@ -1864,18 +1919,10 @@ function updateTasksTable(tasks) {
         }
         row.appendChild(effortCell);
 
-        // RAG
+        // RAG: the task row's dot
         const ragCell = document.createElement('td');
         ragCell.classList.add('gantt-rag-cell');
-        if (task.rag) {
-            const printRagColour = ragStatusToColour(task.rag);
-            const ragDot = document.createElement('span');
-            ragDot.className = 'gantt-rag-dot' + (printRagColour ? ' rag-' + printRagColour : '');
-            ragDot.title = task.rag;
-            ragCell.appendChild(ragDot);
-        } else {
-            ragCell.textContent = '-';
-        }
+        fillTaskGridRag(ragCell, task);
         row.appendChild(ragCell);
 
         // Float (total float / slack)
@@ -1997,7 +2044,11 @@ function makeEditable(cell, task, taskIndex) {
 
     input.style.width = '100%';
 
+    // The Resources cell holds people chips, not text: put them back.
     const originalContent = cell.textContent;
+    const restore = field === 'resources'
+        ? () => fillTaskGridPeople(cell, task)
+        : () => { cell.textContent = originalContent; };
     cell.textContent = '';
     cell.appendChild(input);
     input.focus();
@@ -2022,7 +2073,7 @@ function makeEditable(cell, task, taskIndex) {
                     syncGanttDurationToEditor(task, taskIndex);
                     cell.textContent = `${durationValue}d`;
                 } else {
-                    cell.textContent = originalContent;
+                    restore();
                 }
             } else if (field === 'start') {
                 // Validate date format (YYYY-MM-DD)
@@ -2032,7 +2083,7 @@ function makeEditable(cell, task, taskIndex) {
                     syncGanttStartDateToEditor(task, taskIndex);
                     cell.textContent = newValue;
                 } else {
-                    cell.textContent = originalContent;
+                    restore();
                 }
             } else if (field === 'finish') {
                 // Validate date format (YYYY-MM-DD)
@@ -2042,7 +2093,7 @@ function makeEditable(cell, task, taskIndex) {
                     syncGanttFinishDateToEditor(task, taskIndex);
                     cell.textContent = newValue;
                 } else {
-                    cell.textContent = originalContent;
+                    restore();
                 }
             } else if (field === 'percent') {
                 // Parse percent (remove '%' suffix if present)
@@ -2053,7 +2104,7 @@ function makeEditable(cell, task, taskIndex) {
                     syncGanttPercentToEditor(task, taskIndex);
                     cell.textContent = `${percentValue}%`;
                 } else {
-                    cell.textContent = originalContent;
+                    restore();
                 }
             } else if (field === 'predecessors') {
                 // Parse the predecessors string back to depends / lag_lead
@@ -2061,14 +2112,14 @@ function makeEditable(cell, task, taskIndex) {
                 const parsed = parsePredecessorsString(newValue, _idToName);
                 if (parsed === null) {
                     alert('Invalid predecessors format. Use e.g. "3FS" or "3FS+2d, 5FS".');
-                    cell.textContent = originalContent;
+                    restore();
                 } else {
                     // Check for loops before accepting
                     const _nameToId2 = buildTaskNameToIdMap(ganttTasks);
                     const proposedIds = parsed.depends.map(n => _nameToId2[n.toLowerCase()]).filter(id => id !== undefined);
                     if (wouldCreateLoop(task.id, proposedIds, ganttTasks)) {
                         alert('Cannot set these predecessors — it would create a circular dependency.');
-                        cell.textContent = originalContent;
+                        restore();
                     } else {
                         task.depends = parsed.depends;
                         task.lag_lead = parsed.lag_lead;
@@ -2094,6 +2145,8 @@ function makeEditable(cell, task, taskIndex) {
                 if (field === 'name') {
                     renderGanttRows();
                     return;
+                } else if (field === 'resources') {
+                    fillTaskGridPeople(cell, task);
                 } else {
                     cell.textContent = newValue || '-';
                 }
@@ -2104,7 +2157,7 @@ function makeEditable(cell, task, taskIndex) {
                 renderGanttRows();
                 return;
             }
-            cell.textContent = originalContent;
+            restore();
         }
     };
 
@@ -2118,7 +2171,7 @@ function makeEditable(cell, task, taskIndex) {
                 renderGanttRows();
                 return;
             }
-            cell.textContent = originalContent;
+            restore();
         }
     });
 }
