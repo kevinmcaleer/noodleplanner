@@ -161,11 +161,12 @@ def test_a_linked_workbook_syncs_reviews_and_writes_back(page, app_server):
     assert entries.first.locator(".raid-sync-kind-badge").inner_text().lower() == "updated"
 
     review.locator("np-button[variant=primary]").click()
-    page.wait_for_function("() => window.__written && window.__written.key === 'project-excel'")
+    # The run ends only once the write-back and its front-matter stamp are
+    # both done, so wait for that rather than for the write alone.
+    page.wait_for_function("() => window.__written && window.__written.key === 'project-excel' && !isSyncRunning()")
     editor = plan_text(page)
     assert "  Review 2d 100%" in editor
     assert "workbook_file: Office move.xlsx" in editor
-    page.wait_for_function("() => !isSyncRunning()")
     assert page.locator('button[data-label="Sync"][data-sync-state="running"]').count() == 0
 
 
