@@ -28,6 +28,14 @@ if (start < 0 || end < 0) throw new Error('highlightSyntax not found in editor.j
 
 const context = vm.createContext({ window: {}, sectionFoldingController: null });
 vm.runInContext(tokenizerSource + '\nglobalThis.TaskLineTokenizer = TaskLineTokenizer;', context);
+// highlightSyntax() leans on top-level helpers elsewhere in editor.js (#746's
+// isEditorSeparatorLine); load whichever of them this editor.js defines.
+for (const helper of ['isEditorSeparatorLine']) {
+    const at = editorSource.indexOf('function ' + helper + '(');
+    if (at < 0) continue;
+    const close = editorSource.indexOf('\n}\n', at);
+    vm.runInContext(editorSource.slice(at, close + 2), context);
+}
 vm.runInContext(editorSource.slice(start, end) + '\nglobalThis.highlightSyntax = highlightSyntax;', context);
 
 let failures = 0;
