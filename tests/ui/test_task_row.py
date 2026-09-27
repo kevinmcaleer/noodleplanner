@@ -165,6 +165,22 @@ def test_add_sub_task_is_a_row_being_edited(loaded):
     assert "Testing" in [r["name"] for r in _rows(loaded, "subtasksList")]
 
 
+def test_typing_a_sub_task_name_is_not_a_page_shortcut(loaded):
+    """The name input is inside the row's shadow root. "gg"/"gl" switch views
+    and "?" opens the shortcuts dialog unless the page can see the key came
+    from a field -- keyEventTarget() (#1405) is what lets it."""
+    _open_task(loaded, "Build")
+    loaded.locator("#taskFormSection .add-item-link").click()
+    field = loaded.locator("#subtasksList np-task-row[editing] input.name-input")
+    field.press_sequentially("Suggest egg glue?")
+    assert field.input_value() == "Suggest egg glue?"
+    assert loaded.locator("#taskFormSection.active").count() == 1
+    field.press("Enter")
+    loaded.wait_for_function(
+        "() => document.getElementById('planEditor').value.includes('Suggest egg glue?')"
+    )
+
+
 def test_escape_abandons_a_new_sub_task(loaded):
     _open_task(loaded, "Build")
     before = plan_text(loaded)
