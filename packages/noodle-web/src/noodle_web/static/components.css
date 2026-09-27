@@ -266,7 +266,7 @@
 
 .copy-image-btn:hover {
     background: var(--np-selected);
-    border-color: #999;
+    border-color: var(--np-border-control);
     color: var(--np-body);
 }
 
@@ -939,7 +939,7 @@
 
 .widget-shortcut:hover {
     background: var(--np-selected);
-    border-color: #999;
+    border-color: var(--np-border-control);
     color: var(--np-body);
 }
 
@@ -958,7 +958,7 @@
 
 .quad-add-btn:hover {
     background: var(--np-selected);
-    border-color: #999;
+    border-color: var(--np-border-control);
     color: var(--np-body);
 }
 
@@ -2263,7 +2263,7 @@ tr:hover .task-context-btn,
     cursor: pointer;
     font-size: 0.8em;
     font-weight: 600;
-    color: #333;
+    color: var(--np-body);
     padding: var(--np-space-4) 0;
     transition: background 0.15s, color 0.15s;
 }
@@ -3466,7 +3466,7 @@ tr:hover .task-context-btn,
     outline: none;
     resize: vertical;
     background: var(--np-surface);
-    color: #d4d4d4;
+    color: var(--np-ink);
     box-sizing: border-box;
 }
 
@@ -3858,7 +3858,7 @@ tr:hover .task-context-btn,
 }
 
 .user-filter select:hover {
-    border-color: #999;
+    border-color: var(--np-border-control);
 }
 
 /* #1118: banner shown when the Overallocation button has filtered the
@@ -4507,9 +4507,9 @@ tr:hover .task-context-btn,
 }
 
 .calendar-nav-btn {
-    background: #3a3a3a;
-    color: #e0e0e0;
-    border: 1px solid #555;
+    background: var(--np-surface);
+    color: var(--np-body);
+    border: 1px solid var(--np-border-strong);
     border-radius: 4px;
     padding: var(--np-space-4) var(--np-space-12);
     cursor: pointer;
@@ -4519,7 +4519,7 @@ tr:hover .task-context-btn,
 }
 
 .calendar-nav-btn:hover {
-    background: #505050;
+    background: var(--np-sunken);
 }
 
 .calendar-today-btn {
@@ -4530,7 +4530,7 @@ tr:hover .task-context-btn,
 .calendar-title {
     margin: 0;
     font-size: 1.3em;
-    color: #e0e0e0;
+    color: var(--np-ink);
     font-weight: 600;
 }
 
@@ -4602,14 +4602,14 @@ tr:hover .task-context-btn,
     gap: var(--np-space-4);
     padding: var(--np-space-2) var(--np-space-4);
     border-radius: 4px;
-    background: #3a4a5a;
+    background: var(--np-sunken);
     cursor: default;
     overflow: hidden;
     min-height: 20px;
 }
 
 .calendar-task-item.calendar-task-complete {
-    background: #2d4a2d;
+    background: var(--np-success-tint);
 }
 
 .calendar-task-tick {
@@ -4621,7 +4621,7 @@ tr:hover .task-context-btn,
 
 .calendar-task-name {
     font-size: 0.7em;
-    color: #ddd;
+    color: var(--np-ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4631,7 +4631,7 @@ tr:hover .task-context-btn,
 
 .calendar-task-name:hover {
     text-decoration: underline;
-    color: #4fc3f7;
+    color: var(--np-accent-ink);
 }
 
 .calendar-more-btn {
@@ -4646,7 +4646,7 @@ tr:hover .task-context-btn,
 }
 
 .calendar-more-btn:hover {
-    color: #4fc3f7;
+    color: var(--np-accent-ink);
 }
 
 .calendar-hidden-tasks {
@@ -5074,7 +5074,7 @@ tr:hover .task-context-btn,
 .mindmap-toolbar-group + .mindmap-toolbar-group {
     margin-left: var(--np-space-4);
     padding-left: var(--np-space-8);
-    border-left: 1px solid #444;
+    border-left: 1px solid var(--mm-btn-border);
 }
 
 .mindmap-toolbar-btn {
@@ -5243,7 +5243,7 @@ tr:hover .task-context-btn,
 }
 
 .mm-collapse-btn:hover path:first-of-type {
-    fill: #bbb !important;
+    fill: var(--mm-btn-text) !important;
 }
 
 /* Elastic animation on the root group */
@@ -5302,7 +5302,7 @@ tr:hover .task-context-btn,
     align-items: center;
     gap: var(--np-space-8);
     padding: 0 var(--np-space-8);
-    border-left: 1px solid #444;
+    border-left: 1px solid var(--mm-btn-border);
     margin-left: var(--np-space-4);
 }
 
@@ -5317,15 +5317,15 @@ tr:hover .task-context-btn,
     width: 28px;
     height: 28px;
     border-radius: 6px;
-    border: 2px solid #555;
+    border: 2px solid var(--mm-btn-border);
     cursor: pointer;
     transition: border-color 0.15s, transform 0.1s;
-    background: #4A90D9;
+    background: var(--np-blue);
     padding: 0;
 }
 
 .mm-colour-swatch-btn:hover {
-    border-color: #fff;
+    border-color: var(--mm-btn-hover-text);
     transform: scale(1.1);
 }
 
@@ -5334,10 +5334,10 @@ tr:hover .task-context-btn,
     position: fixed;
     z-index: 10000;
     background: var(--np-surface-alt);
-    border: 1px solid #555;
+    border: 1px solid var(--np-border);
     border-radius: 8px;
     padding: var(--np-space-12);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    box-shadow: var(--np-floating-shadow);
     max-width: 280px;
 }
 
@@ -5370,11 +5370,11 @@ tr:hover .task-context-btn,
 
 .mm-colour-swatch-option:hover {
     transform: scale(1.2);
-    border-color: #888;
+    border-color: var(--np-border-control);
 }
 
 .mm-colour-swatch-option.selected {
-    border-color: #fff;
+    border-color: var(--np-surface-alt);
     box-shadow: 0 0 0 2px var(--np-accent);
 }
 
@@ -5383,18 +5383,18 @@ tr:hover .task-context-btn,
     width: 100%;
     margin-top: var(--np-space-12);
     padding: var(--np-space-8) var(--np-space-12);
-    border: 1px solid #555;
+    border: 1px solid var(--np-border-strong);
     border-radius: 6px;
     background: var(--np-sunken);
-    color: #ccc;
+    color: var(--np-body);
     font-size: 13px;
     cursor: pointer;
     transition: background 0.15s;
 }
 
 .mm-colour-clear-btn:hover {
-    background: #444;
-    color: #fff;
+    background: var(--np-selected);
+    color: var(--np-ink);
 }
 
 @media (max-width: 768px) {
@@ -6154,7 +6154,7 @@ tr:hover .task-context-btn,
     padding: 1px 2px;
     font-size: 10px;
     font-weight: 400;
-    border: 1px solid #a0a0a0;
+    border: 1px solid var(--np-border-control);
     border-radius: 4px;
     background: var(--np-surface);
     color: var(--np-ink);
@@ -6625,7 +6625,7 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-benefits-table tbody tr:hover {
-    background: var(--np-paper);
+    background: var(--np-table-hover);
 }
 
 .portfolio-benefits-table tbody tr:last-child td {
@@ -6634,7 +6634,7 @@ tr:hover .task-context-btn,
 
 .benefits-project-name {
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--np-ink);
     white-space: nowrap;
 }
 
@@ -6671,7 +6671,7 @@ tr:hover .task-context-btn,
 .portfolio-benefits-consistency h3 {
     margin: 0 0 var(--np-space-12) 0;
     font-size: 1.1em;
-    color: #2c3e50;
+    color: var(--np-ink);
 }
 
 .consistency-ok {
@@ -6705,44 +6705,6 @@ tr:hover .task-context-btn,
 }
 
 /* Dark mode */
-[data-theme="dark"] .portfolio-benefits-header {
-    background: #1e1e2e;
-}
-
-[data-theme="dark"] .portfolio-benefits-table-wrapper {
-    background: #1e1e2e;
-}
-
-[data-theme="dark"] .portfolio-benefits-table th:hover {
-    background: #2a2a3e;
-}
-
-[data-theme="dark"] .portfolio-benefits-table td {
-    border-bottom-color: #2a2a3e;
-}
-
-[data-theme="dark"] .portfolio-benefits-table tbody tr:hover {
-    background: #2a2a3e;
-}
-
-[data-theme="dark"] .benefits-project-name {
-    color: #e0e0e0;
-}
-
-[data-theme="dark"] .portfolio-benefits-consistency {
-    background: #1e1e2e;
-}
-
-[data-theme="dark"] .portfolio-benefits-consistency h3 {
-    color: #e0e0e0;
-}
-
-[data-theme="dark"] .portfolio-benefits-filters select {
-    background: #2a2a3e;
-    border-color: #444;
-    color: #e0e0e0;
-}
-
 /* ── Completion Sparkline ── */
 .completion-sparkline-container {
     display: flex;

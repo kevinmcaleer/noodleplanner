@@ -628,10 +628,6 @@ body {
     color: var(--np-surface);
 }
 
-[data-theme="dark"] .task-drag-handle {
-    color: #6c757d;
-}
-
 [data-theme="dark"] .task-drag-handle:hover {
     color: var(--np-accent);
 }
@@ -865,12 +861,6 @@ body {
 
 /* Completion % quick-set toolbar + click-to-complete progress bar
    (task details form) */
-[data-theme="dark"] .percent-quick-btn {
-    background: var(--np-surface-alt);
-    border-color: var(--np-border);
-    color: var(--np-text);
-}
-
 /* Theme colour picker popup */
 [data-theme="dark"] .theme-colour-picker {
     border-color: var(--np-border);
@@ -892,21 +882,17 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .milestone-name {
-    color: #ffffff;
-}
-
 [data-theme="dark"] .timeline-line {
-    background: #ffffff;
+    background: var(--np-ink);
 }
 
 [data-theme="dark"] .timeline-line::before,
 [data-theme="dark"] .timeline-line::after {
-    background: #ffffff;
+    background: var(--np-ink);
 }
 
 [data-theme="dark"] .timeline-diamond {
-    background: #ffffff;
+    background: var(--np-ink);
 }
 
 [data-theme="dark"] .timeline-connector {
@@ -924,17 +910,17 @@ body {
 
 /* Minimal timeline line in dark */
 [data-theme="dark"] .minimal-timeline-mode .timeline-line {
-    background: #ffffff;
+    background: var(--np-ink);
 }
 
 [data-theme="dark"] .minimal-timeline-mode .timeline-line::before,
 [data-theme="dark"] .minimal-timeline-mode .timeline-line::after {
-    background: #ffffff;
+    background: var(--np-ink);
 }
 
 /* Dashboard report timeline */
 [data-theme="dark"] .report-dashboard-timeline line[stroke="#bbb"] {
-    stroke: #666;
+    stroke: var(--np-border-strong);
 }
 
 [data-theme="dark"] .report-timeline-date-label {
@@ -1403,7 +1389,7 @@ body {
 }
 
 [data-theme="dark"] .ns-table tbody tr:nth-child(even) .ns-row-num {
-    background: linear-gradient(90deg, var(--np-surface) 0%, #252545 100%);
+    background: linear-gradient(90deg, var(--np-surface) 0%, var(--np-surface-alt) 100%);
 }
 
 [data-theme="dark"] .ns-cell-editor {
@@ -1981,9 +1967,9 @@ body {
     --mm-placeholder-heading: #ddd;
 }
 
-[data-theme="dark"] .ben-connection { stroke: #9CA3AF;
+[data-theme="dark"] .ben-connection { stroke: var(--np-faint);
 }
-[data-theme="dark"] .ben-arrow { fill: #9CA3AF;
+[data-theme="dark"] .ben-arrow { fill: var(--np-faint);
 }
 
 [data-theme="dark"] .ben-tracking-table {
@@ -2035,103 +2021,53 @@ body {
     color: var(--np-danger-ink);
 }
 
-[data-theme="dark"] .widget-shortcut {
-    background: #2a2a3e;
-    border-color: #444;
-    color: #888;
-}
-
-[data-theme="dark"] .widget-shortcut:hover {
-    background: #333350;
-    border-color: #666;
-    color: #ccc;
-}
-
 /* ── Highlight body truncation (dark) ── */
-[data-theme="dark"] .report-highlight-body::after {
-    background: linear-gradient(to right, transparent, #1e1e2e 40%);
-    color: #666;
-}
-
 /* ── Completion Sparkline (dark) ── */
-[data-theme="dark"] .completion-sparkline-container {
-    color: #aaa;
-}
-
-[data-theme="dark"] .sparkline-label {
-    color: #888;
-}
-
-[data-theme="dark"] .sparkline-value {
-    color: #e0e0e0;
-}
-
 /* ── Stalled Badge (dark) ── */
 /* ── Delivery Forecast (dark) ── */
 /* ── Portfolio Benefits Map (dark) ───────────────────────────────────── */
 
 [data-theme="dark"] .portfolio-benefits-map-section {
-    background: #1e1e1e;
     box-shadow: 0 1px 3px var(--np-shadow);
 }
 
-[data-theme="dark"] .portfolio-benefits-map-section h3 {
-    color: #e0e0e0;
-}
-
-[data-theme="dark"] .portfolio-benefits-map-container {
-    border-color: #444;
-    background: #2a2a2a;
-}
-
 [data-theme="dark"] .pbm-column-labels text {
-    fill: #999 !important;
+    fill: var(--np-muted) !important;
 }
 
 [data-theme="dark"] .pbm-connection {
-    stroke: #666;
+    stroke: var(--np-border-strong);
 }
 
 [data-theme="dark"] .pbm-arrow {
-    fill: #666;
+    fill: var(--np-border-strong);
 }
 
 [data-theme="dark"] .pbm-node--change .pbm-shape {
-    fill: #3a3a3a;
+    fill: var(--np-sunken);
 }
 
 [data-theme="dark"] .pbm-node--change text {
-    fill: #e0e0e0;
+    fill: var(--np-ink);
 }
 
 /* ── Whiteboard (dark) — issue #845 ──────────────────────────────────── */
 
 [data-theme="dark"] .wb-toolbar-btn {
-    background: #2a2a2a;
-    border-color: #444;
-    color: #ccc;
+    border-color: var(--np-border-strong);
 }
 
 [data-theme="dark"] .wb-toolbar-btn:hover:not(:disabled) {
-    background: #3a3a3a;
     border-color: var(--np-blue);
-    color: #fff;
-}
-
-[data-theme="dark"] .wb-zoom-label {
-    color: #999;
-}
-
-[data-theme="dark"] .wb-toolbar-hint {
-    color: #777;
+    color: var(--np-ink);
 }
 
 [data-theme="dark"] .wb-canvas-wrapper {
-    background: #1e1e1e;
+    background: var(--np-paper);
 }
 
 [data-theme="dark"] .wb-grid-dot {
-    fill: #3a3a3a;
+    fill: var(--np-sunken);
 }
 
 /* ── Whiteboard notes (dark) — issue #846 ────────────────────────────────
@@ -2155,10 +2091,6 @@ body {
    swatch border, which needs an explicit light colour in dark mode (the
    light-mode rule's var(--np-text) is too close to most swatch
    colours to read as a highlight against a dark page). */
-
-[data-theme="dark"] .wb-note-menu-swatch.selected {
-    border-color: #ffffff;
-}
 
 /* ── Board membership (dark) — issue #847 ────────────────────────────────
    The "Add note" toolbar button reuses .wb-toolbar-btn (already themed
@@ -2225,12 +2157,8 @@ body {
 }
 
 [data-theme="dark"] .wb-noodle-cut:hover .wb-noodle-cut-mark {
-    stroke: #1e1e1e;
+    stroke: var(--np-paper);
 }
 
 /* The transient message inverts (dark text on light) in light mode; in
    dark mode that inversion would make it the brightest thing on screen. */
-[data-theme="dark"] .wb-noodle-message {
-    background: #e8e8e8;
-    color: #1e1e1e;
-}
