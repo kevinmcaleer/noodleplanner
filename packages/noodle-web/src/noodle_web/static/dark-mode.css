@@ -1578,12 +1578,7 @@ body {
 }
 
 /* ---- Portfolio Pages ---- */
-[data-theme="dark"] .portfolio-container {
-    background: var(--np-bg);
-}
-
 [data-theme="dark"] .portfolio-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -1630,7 +1625,6 @@ body {
 
 /* Portfolio project cards */
 [data-theme="dark"] .portfolio-project-card {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -1663,12 +1657,7 @@ body {
 
 /* Portfolio Status View */
 [data-theme="dark"] .portfolio-status-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-status-header h2 {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .portfolio-status-filters label {
@@ -1718,12 +1707,7 @@ body {
 
 /* Portfolio Resources View */
 [data-theme="dark"] .portfolio-resources-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-resources-header h2 {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .summary-label {
@@ -1731,7 +1715,6 @@ body {
 }
 
 [data-theme="dark"] .portfolio-resources-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -1767,12 +1750,7 @@ body {
 
 /* Portfolio Timeline View */
 [data-theme="dark"] .portfolio-timeline-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-timeline-header h2 {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .timeline-controls label {
@@ -1786,16 +1764,11 @@ body {
 }
 
 [data-theme="dark"] .portfolio-timeline-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
 [data-theme="dark"] .portfolio-timeline-container .timeline-scale {
     border-bottom-color: var(--np-border);
-}
-
-[data-theme="dark"] .timeline-project-label {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .timeline-scale-item {
@@ -1829,12 +1802,7 @@ body {
 
 /* Portfolio Actions View */
 [data-theme="dark"] .portfolio-actions-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-actions-header h2 {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .portfolio-actions-filters label {
@@ -1875,12 +1843,7 @@ body {
 
 /* Portfolio Risks View */
 [data-theme="dark"] .portfolio-risks-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-risks-header h2 {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .portfolio-risks-filters label {
@@ -2034,12 +1997,7 @@ body {
 
 /* Portfolio Look-ahead View */
 [data-theme="dark"] .portfolio-lookahead-header {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-lookahead-header h2 {
-    color: var(--np-text);
 }
 
 [data-theme="dark"] .portfolio-lookahead-filters label {
@@ -2053,7 +2011,6 @@ body {
 }
 
 [data-theme="dark"] .portfolio-lookahead-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
