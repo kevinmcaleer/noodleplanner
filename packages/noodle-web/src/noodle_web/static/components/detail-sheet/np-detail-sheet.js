@@ -54,14 +54,14 @@
  *
  * ## The on-screen keyboard
  *
- * `visualViewport` is watched while the module is loaded: the height the
- * keyboard takes is published as `--keyboard-inset` on <html>, which the pane
- * subtracts from its own height, so the header, the field being typed in and
- * the footer stay above the keyboard; the focused field is scrolled into view
- * when the keyboard appears.
+ * overlay-kit.js's watchKeyboard() publishes the height the keyboard takes as
+ * `--keyboard-inset` on <html>, which the pane subtracts from its own height,
+ * so the header, the field being typed in and the footer stay above the
+ * keyboard; the focused field is scrolled into view when the keyboard
+ * appears.
  */
 
-import { upgradeProperty } from '../overlay/overlay-kit.js';
+import { upgradeProperty, watchKeyboard } from '../overlay/overlay-kit.js';
 
 const SECTIONS_KEY = 'noodleplanner:sheet-sections';
 
@@ -119,32 +119,6 @@ function isFullScreen() {
   const mode = layout();
   if (mode === 'phone') return true;
   return mode === 'tablet' && !!(window.matchMedia && window.matchMedia('(orientation: portrait)').matches);
-}
-
-// ---------------------------------------------------------------------------
-// The on-screen keyboard, once for every sheet.
-// ---------------------------------------------------------------------------
-let keyboardWatched = false;
-function watchKeyboard() {
-  if (keyboardWatched || typeof window === 'undefined' || !window.visualViewport) return;
-  keyboardWatched = true;
-  const vv = window.visualViewport;
-  let last = 0;
-  const update = () => {
-    const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-    document.documentElement.style.setProperty('--keyboard-inset', inset + 'px');
-    // The keyboard just came up: keep the field being typed in on screen.
-    if (inset > last) {
-      const active = document.activeElement;
-      if (active && active.closest && active.closest('np-detail-sheet')) {
-        requestAnimationFrame(() => active.scrollIntoView({ block: 'center' }));
-      }
-    }
-    last = inset;
-  };
-  vv.addEventListener('resize', update);
-  vv.addEventListener('scroll', update);
-  update();
 }
 
 export class NpDetailSheet extends HTMLElement {

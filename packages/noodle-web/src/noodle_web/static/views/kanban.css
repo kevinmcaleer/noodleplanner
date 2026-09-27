@@ -892,10 +892,18 @@
         justify-content: center;
     }
 
+    /* Stacked, the columns run down the page, so the board scrolls down
+       rather than across -- it used to clip every column after the first. */
     .kanban-board {
         flex-direction: column;
         gap: var(--np-space-16);
         padding: var(--np-space-16);
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+
+    .kanban-board > * {
+        flex-shrink: 0;
     }
 
     .kanban-column {

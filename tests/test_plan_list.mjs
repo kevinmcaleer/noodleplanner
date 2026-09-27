@@ -41,6 +41,8 @@ function load({ projectId = 'p1', storage = memoryStorage() } = {}) {
     sandbox.getCurrentProjectId = () => sandbox.projectId;
     sandbox.projectId = projectId;
     vm.createContext(sandbox);
+    vm.runInContext(read('task-tokenizer.js'), sandbox);
+    vm.runInContext(read('plan-model.js'), sandbox);
     vm.runInContext(read('summary-collapse.js'), sandbox);
     vm.runInContext(read('plan-list.js'), sandbox);
     return { sandbox, storage, events, list: sandbox.NoodlePlanList, collapse: sandbox.NoodleSummaryCollapse };
@@ -170,4 +172,56 @@ test('setting what is already stored changes nothing', () => {
     assert.equal(events.length, 1);
     assert.equal(collapse.toggle('Design', false), false);
     assert.equal(collapse.isCollapsed('Design', true), false);
+});
+
+const QUICK_ADD = [
+    'Design review @alex 2d 2026-10-02',
+    'Ship it 50% !!! @sam @jo 3w',
+    'Buy milk',
+    'Pay 2026-01-02 2026-01-09 !',
+    'Draft "with a note" {Backlog} #docs 1d',
+];
+
+test('quick-add reads a line exactly as the tokenizer does (#1385)', () => {
+    const { list, sandbox } = load();
+    const tokenizer = vm.runInContext('TaskLineTokenizer', sandbox);
+    for (const text of QUICK_ADD) {
+        const v = tokenizer.metadata(text).values;
+        assert.deepEqual(plain(list.parseQuickAdd(text)), plain({
+            name: v.name, resources: v.resources, duration: v.duration, startDate: v.startDate,
+            finishDate: v.finishDate, percent: v.percent, priority: v.priority,
+        }), text);
+    }
+});
+
+test('a quick-added line, inserted through PlanModel, parses back the same', () => {
+    const { list, sandbox } = load();
+    for (const text of QUICK_ADD) {
+        const model = sandbox.NoodlePlanModel.PlanModel.parse('Design\n  Research 2d\n');
+        const node = model.insertTaskAfter(model.roots[0], 2, text);
+        const reparsed = sandbox.NoodlePlanModel.PlanModel.parse(model.serialize());
+        const task = reparsed.tasks[reparsed.tasks.length - 1];
+        assert.equal(task.name, node.name, text);
+        const parsed = list.parseQuickAdd(text);
+        assert.equal(task.metadata.name, parsed.name, text);
+        assert.deepEqual(plain(task.metadata.resources), plain(parsed.resources), text);
+        assert.equal(task.metadata.duration, parsed.duration, text);
+        assert.equal(task.metadata.startDate, parsed.startDate, text);
+        assert.equal(task.metadata.priority, parsed.priority, text);
+    }
+});
+
+test('the quick-add chips name what was recognised, in order', () => {
+    const { list } = load();
+    const chips = list.quickAddChips('Design review @alex 2d 2026-10-02 2026-10-09 !! 50%');
+    assert.deepEqual(plain(chips.map((c) => [c.kind, c.kindLabel, c.label])), [
+        ['name', 'Task', 'Design review'],
+        ['resource', 'Who', '@alex'],
+        ['duration', 'Takes', '2d'],
+        ['date', 'Starts', '2 Oct'],
+        ['date', 'Finishes', '9 Oct'],
+        ['priority', 'Priority', 'Important'],
+        ['percent', 'Done', '50%'],
+    ]);
+    assert.deepEqual(plain(list.quickAddChips('')), []);
 });

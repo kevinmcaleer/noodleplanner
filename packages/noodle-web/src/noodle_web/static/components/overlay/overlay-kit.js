@@ -165,3 +165,32 @@ export function upgradeProperty(el, name) {
         el[name] = value;
     }
 }
+
+/**
+ * Publish the on-screen keyboard's height as `--keyboard-inset` on <html>
+ * (#1383, #1385), from `visualViewport`, once however many callers ask. A
+ * layout that gives way to it -- the detail pane's height, the plan list's
+ * quick-add -- stays above the keys. When the keyboard comes up over a field
+ * in a detail sheet, the field is scrolled into view.
+ */
+let keyboardWatched = false;
+export function watchKeyboard() {
+    if (keyboardWatched || typeof window === 'undefined' || !window.visualViewport) return;
+    keyboardWatched = true;
+    const vv = window.visualViewport;
+    let last = 0;
+    const update = () => {
+        const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+        document.documentElement.style.setProperty('--keyboard-inset', inset + 'px');
+        if (inset > last) {
+            const active = document.activeElement;
+            if (active && active.closest && active.closest('np-detail-sheet')) {
+                requestAnimationFrame(() => active.scrollIntoView({ block: 'center' }));
+            }
+        }
+        last = inset;
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+}

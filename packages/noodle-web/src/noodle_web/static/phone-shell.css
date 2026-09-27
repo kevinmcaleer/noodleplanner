@@ -54,6 +54,25 @@
     padding: 0;
 }
 
+/* Below the shell the app takes what is left of the screen, not a whole
+   screen more (#1385): it was 100% of the body under a 110px shell, so every
+   view ran 110px off the bottom and the page scrolled to reach it -- a view's
+   own footer, like the plan list's quick-add, sat under the fold. Each view
+   scrolls inside itself instead. */
+[data-layout="phone"] body > .container-fluid {
+    height: calc(100vh - var(--phone-shell-height, 110px));
+    height: calc(100dvh - var(--phone-shell-height, 110px));
+    overflow: hidden;
+}
+
+/* responsive.css gives the editor layout a whole screen of its own at
+   <=768px (min-height: 100vh), which is what pushed every view under the
+   fold; on a phone it fills the space above instead. */
+[data-layout="phone"] .editor-layout {
+    height: 100%;
+    min-height: 0;
+}
+
 /* ========================================
    The markdown editor on a phone (#1381)
 

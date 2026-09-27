@@ -92,8 +92,15 @@
  * Events, each with the row's own model object as `detail.row`:
  *   - `expandedchange` `{ expanded }` -- the header was tapped.
  *   - `rowactivate` -- a row was tapped (or its name activated by keyboard).
- *   - `rowcomplete` `{ row, complete }` -- a row's box was ticked or cleared.
+ *   - `rowcomplete` `{ row, complete }` -- a row's box was ticked or cleared,
+ *     or the row was swiped right (#1385).
  *   - `rowtoggle` `{ row, collapsed }` -- a summary row's badge was tapped.
+ *   - `rowmenu` `{ row, opener }` -- the row's ⋯ was tapped, or the row was
+ *     swiped left or long-pressed (#1385). Only when the note is `editable`,
+ *     which also gives each row its ⋯.
+ *   - `rowmove` `{ row, target, after }` -- the row was dragged by its ⋯
+ *     and dropped before (or `after`) `target`, a row of this note or of
+ *     another stacked note.
  *
  * The "Add task…" row is left out of a stacked note unless it is `addable`.
  */
@@ -102,6 +109,10 @@
 // means a story only has to load np-note.
 import '../checkbox/np-checkbox.js';
 import '../resource-stack/np-resource-stack.js';
+// Long-press, swipe and drag for a stacked note's rows (#1385). A classic
+// script the app also loads; imported for its side effect, it defines
+// globalThis.NoodleTouch once.
+import '../../touch-gestures.js';
 // The note's markup, shared with the board's own builders (#1249) -- see that
 // file's header for why it is a separate module rather than living here.
 import {
@@ -182,7 +193,7 @@ export class NpNote extends HTMLElement {
             'width', 'height',
             'freeform', 'thought', 'title-only', 'selected', 'flash', 'park-armed',
             'parking', 'link-target', 'link-target-invalid', 'editing',
-            'stacked', 'collapsed', 'addable',
+            'stacked', 'collapsed', 'addable', 'editable',
         ];
     }
 
@@ -296,6 +307,7 @@ export class NpNote extends HTMLElement {
             const row = rowOf(e.target);
             if (!row || e.target.closest('np-checkbox, np-resource-stack')) return;
             if (e.target.closest('.wb-note-count-badge')) emit('rowtoggle', { row, collapsed: !row.collapsed });
+            else if (e.target.closest('.wb-note-row-menu')) emit('rowmenu', { row, opener: e.target.closest('.wb-note-row-menu') });
             else emit('rowactivate', { row });
         });
         refs.body.addEventListener('keydown', (e) => {
@@ -305,6 +317,89 @@ export class NpNote extends HTMLElement {
             if (!row) return;
             e.preventDefault();
             emit('rowactivate', { row });
+        });
+
+        // A finger's row actions (#1385), for an `editable` note: swipe right
+        // to complete, swipe left or long-press for the row's menu. The row
+        // slides with the finger; a mostly vertical move is the list's scroll.
+        const touch = globalThis.NoodleTouch;
+        if (!touch) return;
+        const menuFor = (rowEl) => {
+            const row = rowEl && this._rows[Number(rowEl.dataset.rowIndex)];
+            if (row && this.hasAttribute('editable')) {
+                emit('rowmenu', { row, opener: rowEl.querySelector('.wb-note-row-menu') || rowEl });
+            }
+        };
+        touch.onSwipe(refs.body, {
+            move: ({ target, dx }) => {
+                if (!this.hasAttribute('editable')) return;
+                const reach = Math.max(-96, Math.min(96, dx));
+                target.style.transform = `translateX(${reach}px)`;
+                target.dataset.swipe = reach > 0 ? 'complete' : 'menu';
+            },
+            end: ({ target }) => {
+                target.style.transform = '';
+                delete target.dataset.swipe;
+            },
+            right: ({ target }) => {
+                const row = this._rows[Number(target.dataset.rowIndex)];
+                if (row && !row.readOnly && this.hasAttribute('editable')) {
+                    emit('rowcomplete', { row, complete: !row.complete });
+                }
+            },
+            left: ({ target }) => menuFor(target),
+        }, { selector: '.wb-note-row', ignore: '.wb-note-row-menu' });
+        touch.onLongPress(refs.body, ({ target }) => menuFor(target), {
+            selector: '.wb-note-row', ignore: '.wb-note-row-menu',
+        });
+    }
+
+    /** Drag a stacked row by its ⋯ (#1385): a finger has no HTML5 drag. */
+    _wireRowDrag(rowEl, handle) {
+        const touch = globalThis.NoodleTouch;
+        if (!touch) return;
+        let over = null;
+        const clearOver = () => {
+            if (over) over.classList.remove('wb-note-row-drop-before', 'wb-note-row-drop-after');
+            over = null;
+        };
+        const targetAt = (point) => {
+            const hit = point.over && point.over.closest ? point.over.closest('np-note[stacked] .wb-note-row') : null;
+            return hit && hit !== rowEl ? hit : null;
+        };
+        const after = (target, point) => {
+            const r = target.getBoundingClientRect();
+            return point.clientY >= r.top + r.height / 2;
+        };
+        touch.dragByPointer(handle, {
+            start: () => rowEl.classList.add('wb-note-row-dragging'),
+            move: (point) => {
+                const target = targetAt(point);
+                if (target !== over) clearOver();
+                over = target;
+                if (!over) return;
+                const below = after(over, point);
+                over.classList.toggle('wb-note-row-drop-before', !below);
+                over.classList.toggle('wb-note-row-drop-after', below);
+            },
+            drop: (point) => {
+                rowEl.classList.remove('wb-note-row-dragging');
+                const target = targetAt(point);
+                clearOver();
+                if (!target) return;
+                const note = target.closest('np-note');
+                const row = this._rows[Number(rowEl.dataset.rowIndex)];
+                const targetRow = note && note.rows[Number(target.dataset.rowIndex)];
+                if (!row || !targetRow) return;
+                this.dispatchEvent(new CustomEvent('rowmove', {
+                    bubbles: true,
+                    detail: { row, target: targetRow, after: after(target, point) },
+                }));
+            },
+            cancel: () => {
+                rowEl.classList.remove('wb-note-row-dragging');
+                clearOver();
+            },
         });
     }
 
@@ -511,6 +606,7 @@ export class NpNote extends HTMLElement {
             finish: vm.finish && stacked ? { text: vm.finish, label: `Finishes ${vm.finish}` } : null,
             readOnly: !!vm.readOnly,
             collapsed: stacked && vm.hasChildren ? !!vm.collapsed : undefined,
+            menu: stacked && this.hasAttribute('editable') ? { label: `Actions for ${name}` } : null,
             coach: !stacked && (vm.languageHint || vm.planningType) ? {
                 glyph: vm.planningType === 'product' ? 'P'
                     : vm.planningType === 'activity' ? 'A' : '\u2726',
@@ -532,6 +628,7 @@ export class NpNote extends HTMLElement {
             refs.name.setAttribute('role', 'button');
             refs.name.setAttribute('tabindex', '0');
             refs.name.setAttribute('aria-label', `Open ${name}`);
+            if (refs.menuBtn) this._wireRowDrag(row, refs.menuBtn);
         }
 
         // One control, never two -- the chips open the assign menu themselves,

@@ -130,6 +130,9 @@
         createCommand = (isPhone() && view && typeof ribbonCreateCommand === 'function')
             ? await ribbonCreateCommand(view)
             : null;
+        // The Tasks view on a phone adds with its quick-add field (#1385),
+        // which the button would sit on top of.
+        if (view === 'tasks' && document.getElementById('planQuickAdd')) createCommand = null;
         fab.hidden = !createCommand;
         if (createCommand) fab.setAttribute('label', createCommand.label);
     }

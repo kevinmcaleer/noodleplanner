@@ -22,7 +22,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 2,
-          "view_share": 44,
+          "view_share": 87,
           "view_top": 110
         },
         "analysis": {
@@ -49,7 +49,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 3,
-          "view_share": 70,
+          "view_share": 87,
           "view_top": 110
         },
         "calendar": {
@@ -67,7 +67,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 2,
-          "view_share": 59,
+          "view_share": 87,
           "view_top": 110
         },
         "deliverables": {
@@ -108,7 +108,7 @@
         },
         "gantt": {
           "chrome_px": 110,
-          "hover_only": 60,
+          "hover_only": 45,
           "small_fields": 0,
           "targets_24": 1,
           "targets_44": 3,
@@ -193,7 +193,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 13,
-          "view_share": 18,
+          "view_share": 51,
           "view_top": 376
         },
         "portfolio-benefits": {
@@ -202,7 +202,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 13,
-          "view_share": 18,
+          "view_share": 51,
           "view_top": 376
         },
         "portfolio-dependencies": {
@@ -211,7 +211,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 13,
-          "view_share": 36,
+          "view_share": 51,
           "view_top": 376
         },
         "portfolio-lessons": {
@@ -220,7 +220,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 16,
-          "view_share": 52,
+          "view_share": 51,
           "view_top": 376
         },
         "portfolio-lookahead": {
@@ -229,7 +229,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 13,
-          "view_share": 18,
+          "view_share": 51,
           "view_top": 376
         },
         "portfolio-resources": {
@@ -238,7 +238,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 13,
-          "view_share": 18,
+          "view_share": 51,
           "view_top": 376
         },
         "portfolio-risks": {
@@ -247,7 +247,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 13,
-          "view_share": 18,
+          "view_share": 51,
           "view_top": 376
         },
         "portfolio-status": {
@@ -256,7 +256,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 13,
-          "view_share": 18,
+          "view_share": 51,
           "view_top": 376
         },
         "portfolio-timeline": {
@@ -265,7 +265,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 13,
-          "view_share": 18,
+          "view_share": 51,
           "view_top": 376
         },
         "product-flow": {
@@ -292,7 +292,7 @@
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 2,
-          "view_share": 66,
+          "view_share": 87,
           "view_top": 110
         },
         "resource-sheet": {
@@ -327,7 +327,7 @@
           "hover_only": 0,
           "small_fields": 0,
           "targets_24": 0,
-          "targets_44": 0,
+          "targets_44": 6,
           "view_share": 87,
           "view_top": 110
         },
@@ -477,7 +477,7 @@
         },
         "gantt": {
           "chrome_px": 129,
-          "hover_only": 60,
+          "hover_only": 45,
           "small_fields": 0,
           "targets_24": 1,
           "targets_44": 25,
@@ -693,7 +693,7 @@
         },
         "tasks": {
           "chrome_px": 129,
-          "hover_only": 60,
+          "hover_only": 45,
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 22,
@@ -846,7 +846,7 @@
         },
         "gantt": {
           "chrome_px": 173,
-          "hover_only": 60,
+          "hover_only": 45,
           "small_fields": 0,
           "targets_24": 1,
           "targets_44": 21,
@@ -1062,7 +1062,7 @@
         },
         "tasks": {
           "chrome_px": 173,
-          "hover_only": 60,
+          "hover_only": 45,
           "small_fields": 0,
           "targets_24": 0,
           "targets_44": 18,

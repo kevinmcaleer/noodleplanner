@@ -735,6 +735,9 @@ Press Enter to render..."></textarea>
                                      <np-note stacked> card per summary task. Filled by
                                      plan-list.js from updateTasksTable(). -->
                                 <div id="planList" class="plan-list" role="region" aria-label="Plan" hidden></div>
+                                <!-- Quick-add (#1385): a task line, in the plan's grammar,
+                                     into the open card. Shown with the plan list. -->
+                                <np-quick-add id="planQuickAdd" class="plan-quick-add" hidden></np-quick-add>
                             </div>
                         </div>
 
@@ -4013,6 +4016,8 @@ Build
     <!-- Which summaries are collapsed, per project: the Gantt's and the plan
          list's (#1384). Then the plan list itself, the Tasks view on a phone. -->
     <script src="/static/summary-collapse.js?v={{ v }}"></script>
+    <!-- Long-press, swipe and drag for a finger (#1385, #1386). -->
+    <script src="/static/touch-gestures.js?v={{ v }}"></script>
     <script src="/static/plan-list.js?v={{ v }}"></script>
     <script src="/static/version-history.js?v={{ v }}"></script>
     <script src="/static/portfolio.js?v={{ v }}"></script>
@@ -4082,6 +4087,7 @@ Build
     <script type="module" src="/static/components/note/note-markup.js?v={{ v }}"></script>
     <!-- <np-note> itself: the plan list's cards (#1384) are stacked notes. -->
     <script type="module" src="/static/components/note/np-note.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/quick-add/np-quick-add.js?v={{ v }}"></script>
     <!-- The phone shell's components (#1380, #1382). -->
     <script type="module" src="/static/components/app-bar/np-app-bar.js?v={{ v }}"></script>
     <script type="module" src="/static/components/view-chips/np-view-chips.js?v={{ v }}"></script>

@@ -4,7 +4,8 @@
   ribbon-ia.js -- the contextual tab first, then the scope's tabs -- with the
   ribbon's own disabled and pressed states.
 * A command that opens a menu on the ribbon opens its choices as a sheet.
-* Every phone-first view has a "+" that runs its create action.
+* Every phone-first view has a "+" that runs its create action -- the Tasks
+  view's is its quick-add field (#1385).
 * Undo and Redo work by touch, on a phone and on a tablet.
 * Every target is 44px or more, and the sheet traps focus and closes on
   Escape, a backdrop tap and a swipe down.
@@ -117,7 +118,6 @@ def test_a_ribbon_menu_opens_as_a_second_sheet(phone, app_server):
 
 FAB_CASES = {
     "project-report": "() => document.getElementById('taskFormSection').classList.contains('active')",
-    "tasks": "() => document.getElementById('taskFormSection').classList.contains('active')",
     "notepad": "() => document.getElementById('taskFormSection').classList.contains('active')",
     "kanban": "() => document.getElementById('taskFormSection').classList.contains('active')",
     "calendar": "() => /New Task \\d{4}-\\d{2}-\\d{2}/.test(document.getElementById('planEditor').value)",
@@ -137,10 +137,18 @@ def test_every_phone_first_view_has_a_plus_that_creates(phone, app_server, view)
     phone.wait_for_function(FAB_CASES[view])
 
 
+def test_the_tasks_view_adds_with_its_quick_add_not_a_plus(phone, app_server):
+    open_app(phone, app_server)
+    load_plan(phone, PLAN)
+    _switch(phone, "tasks")
+    phone.wait_for_function("() => document.getElementById('phoneFab').hidden")
+    assert phone.locator("#planQuickAdd").is_visible()
+
+
 def test_a_new_task_lands_in_the_plan_not_its_back_matter(phone, app_server):
     open_app(phone, app_server)
     load_plan(phone, PLAN + "\n---raid---\n| ID | Type | Title |\n|---|---|---|\n| R1 | risk | Late |\n")
-    _switch(phone, "tasks")
+    _switch(phone, "notepad")
     phone.locator("#phoneFab").tap()
     phone.wait_for_function("() => document.getElementById('planEditor').value.includes('New Task 1d')")
     text = phone.evaluate("() => document.getElementById('planEditor').value")
@@ -158,7 +166,7 @@ def test_views_without_a_create_action_have_no_plus(phone, app_server):
 def test_undo_and_redo_by_touch_on_a_phone(phone, app_server):
     open_app(phone, app_server)
     load_plan(phone, PLAN)
-    _switch(phone, "tasks")
+    _switch(phone, "notepad")
     phone.locator("#phoneFab").tap()
     phone.wait_for_function("() => document.getElementById('planEditor').value.includes('New Task 1d')")
     phone.evaluate("() => closeDetailPane()")

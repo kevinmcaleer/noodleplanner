@@ -383,8 +383,9 @@ export function buildStackedParts() {
  *     scissors: { label } | null,
  *     finish: { text, label } | null,  // a stacked note's finish date (#1384)
  *     readOnly: boolean,               // the checkbox reports, it cannot be ticked
- *     collapsed: boolean | undefined } // a stacked summary row: its badge opens
+ *     collapsed: boolean | undefined,  // a stacked summary row: its badge opens
  *                                      // and closes the rows under it
+ *     menu: { label } | null }         // a stacked row's ⋯: its actions (#1385)
  *
  * `scissors` is the cut *after* this row (issue #874). It is a sibling of
  * the row, not a child of it: the cut sits in the gap between two checklist
@@ -540,6 +541,23 @@ export function buildChecklistRow(model) {
         'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
         '<path d="M6 2v8M2 6h8"/></svg>';
 
+    // A stacked row's ⋯ (#1385): Indent, Outdent, Move, Duplicate, Delete.
+    // Last in the gutter, where a thumb finds it; a finger also drags the row
+    // by it. The board has none -- its row's actions are on the note's menu.
+    let menuBtn = null;
+    if (model.menu) {
+        menuBtn = el('button', 'wb-note-row-menu', {
+            type: 'button',
+            'aria-haspopup': 'menu',
+            'aria-label': model.menu.label,
+            title: model.menu.label,
+        });
+        menuBtn.innerHTML =
+            '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">' +
+            '<circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>';
+        gutter.appendChild(menuBtn);
+    }
+
     // No dep slot either, for the same reason. Leaf rows only -- a summary row
     // is never a dependency endpoint, so it shows the count badge instead and
     // never both -- and the flag says so here so the rail does not have to
@@ -568,7 +586,7 @@ export function buildChecklistRow(model) {
         cut,
         refs: {
             row, checkbox, name: label, content, dateBtn, finish, countBadge,
-            gutter, delivSlot, peopleSlot, assignBtn, cut, scissors,
+            gutter, delivSlot, peopleSlot, assignBtn, menuBtn, cut, scissors,
         },
     };
 }

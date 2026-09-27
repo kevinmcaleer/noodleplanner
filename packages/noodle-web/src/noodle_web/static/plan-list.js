@@ -30,6 +30,20 @@
  * at once, the way a whiteboard note's checkbox does. Tapping a row opens the
  * task's detail sheet (#1383).
  *
+ * ## Editing (#1385)
+ *
+ * On the Tasks view the list is `editable`:
+ *
+ *   - A quick-add field (<np-quick-add>) at its foot takes a task line in the
+ *     plan's grammar -- "Design review @alex 2d 2026-10-02" -- previews what
+ *     the tokenizer recognised, and inserts the line as it was typed, through
+ *     PlanModel, as the last task of the open card (or at the end of the
+ *     plan, for Ungrouped).
+ *   - A row's menu -- its ⋯, a swipe left, a long-press -- offers Indent,
+ *     Outdent, Move up, Move down, Duplicate and Delete; a swipe right ticks
+ *     it; dragging it by its ⋯ moves it. Each is one PlanModel edit and one
+ *     undo step.
+ *
  * ## Collapse
  *
  * Which cards (and nested summaries) are open is NoodleSummaryCollapse's
@@ -227,34 +241,229 @@
         return false;
     }
 
-    /** Mark `task` complete (100%) or not (0%) on its own line, as one undo step. */
-    function setComplete(task, index, complete) {
+    /**
+     * One edit to the plan: `edit(model)` changes the editor's PlanModel and
+     * returns whether it did. Committed as one undo step, then rendered at
+     * once rather than after the editor's 1s debounce, so every view agrees.
+     */
+    function applyEdit(edit) {
         const editor = typeof document !== 'undefined' ? document.getElementById('planEditor') : null;
-        if (!editor || !root.NoodlePlanModel || typeof root.updatePercentInLine !== 'function') return false;
+        if (!editor || !root.NoodlePlanModel) return false;
         const model = root.NoodlePlanModel.modelForEditor(editor);
-        const node = nodeFor(model, task, index);
-        if (!node) return false;
+        const before = editor.value;
         // A top-level const in editor-undo.js: a global binding, not a
         // property of the global object.
         const undo = typeof EditorUndoManager !== 'undefined' ? EditorUndoManager : null;
-        if (undo) undo.captureImmediate(editor.value);
-        const changed = model.updateLine(node, (line) =>
-            root.updatePercentInLine(line, complete ? '100%' : '0%', node.indentText, node.name));
+        let changed = false;
+        try {
+            changed = !!edit(model);
+        } finally {
+            // An edit that gave up part-way may have touched the cached
+            // model; the text is the truth, so parse it afresh next time.
+            if (!changed) editor._noodlePlanModel = null;
+        }
         if (!changed) return false;
+        if (undo) undo.captureImmediate(before);
         root.NoodlePlanModel.commitToEditor(editor, model);
         if (undo) undo.captureImmediate(editor.value);
-        // Render now rather than after the editor's 1s debounce, so the tick
-        // and every view agree at once.
         if (typeof editor._cancelPendingRender === 'function') editor._cancelPendingRender();
         if (typeof root.renderText === 'function') {
             Promise.resolve(root.renderText()).catch((error) => console.error('Plan list render failed:', error));
         }
-        return true;
+        return editor.value !== before;
+    }
+
+    /** Mark `task` complete (100%) or not (0%) on its own line, as one undo step. */
+    function setComplete(task, index, complete) {
+        if (typeof root.updatePercentInLine !== 'function') return false;
+        return applyEdit((model) => {
+            const node = nodeFor(model, task, index);
+            return !!node && model.updateLine(node, (line) =>
+                root.updatePercentInLine(line, complete ? '100%' : '0%', node.indentText, node.name));
+        });
+    }
+
+    // ── Quick-add ───────────────────────────────────────────────────────
+
+    function tokenizer() {
+        return typeof TaskLineTokenizer !== 'undefined' ? TaskLineTokenizer : null;
+    }
+
+    /**
+     * What a quick-add line sets, as the editor would read it: the plan's own
+     * tokenizer, the one PlanModel parses every line with.
+     */
+    function parseQuickAdd(text) {
+        const t = tokenizer();
+        const line = String(text || '');
+        if (!t) return { name: line.trim() };
+        const v = t.metadata(line).values;
+        return {
+            name: v.name,
+            resources: v.resources,
+            duration: v.duration,
+            startDate: v.startDate,
+            finishDate: v.finishDate,
+            percent: v.percent,
+            priority: v.priority,
+        };
+    }
+
+    const CHIP_KINDS = {
+        resource: 'Who', duration: 'Takes', percent: 'Done', label: 'Label', deadline: 'Deadline',
+        comment: 'Note', bucket: 'Bucket', dependency: 'After', effort: 'Effort', product: 'Deliverable',
+        recurrence: 'Repeats',
+    };
+
+    /** The chips <np-quick-add> shows: what the tokenizer recognised, in order. */
+    function quickAddChips(text) {
+        const t = tokenizer();
+        if (!t) return [];
+        const { tokens, values } = t.metadata(String(text || ''));
+        const chips = [];
+        if (values.name) chips.push({ kind: 'name', kindLabel: 'Task', label: values.name });
+        let dates = 0;
+        for (const token of tokens) {
+            if (token.type === 'date') {
+                chips.push({ kind: 'date', kindLabel: dates++ ? 'Finishes' : 'Starts', label: shortDate(token.text) });
+            } else if (token.type === 'priority') {
+                chips.push({ kind: 'priority', kindLabel: 'Priority', label: values.priority });
+            } else if (CHIP_KINDS[token.type]) {
+                chips.push({ kind: token.type, kindLabel: CHIP_KINDS[token.type], label: token.text });
+            }
+        }
+        return chips;
+    }
+
+    /**
+     * Add `text` -- a task line, as typed -- as the last task of `card`, or at
+     * the end of the plan when `card` is Ungrouped or none.
+     */
+    function addTask(text, card) {
+        const line = String(text || '').replace(/[\r\n]+/g, ' ').trim();
+        if (!line) return false;
+        return applyEdit((model) => {
+            if (card && card.summary) {
+                const parent = nodeFor(model, card.summary, card.index);
+                if (!parent) return false;
+                return !!model.insertTaskAfter(parent, parent.indent + 2, line);
+            }
+            const last = model.roots[model.roots.length - 1] || null;
+            return !!model.insertTaskAfter(last, 0, line);
+        });
+    }
+
+    // ── The row menu ────────────────────────────────────────────────────
+
+    const ROW_ACTIONS = [
+        { id: 'indent', label: 'Indent', help: 'Make it a subtask of the task above', icon: 'indent' },
+        { id: 'outdent', label: 'Outdent', help: 'Move it out from under its summary', icon: 'outdent' },
+        { id: 'move-up', label: 'Move up', icon: 'sort' },
+        { id: 'move-down', label: 'Move down', icon: 'sort' },
+        { id: 'duplicate', label: 'Duplicate', help: 'A copy, with its subtasks, just below', icon: 'doc' },
+        { id: 'delete', label: 'Delete', icon: 'delete', destructive: true },
+    ];
+
+    function siblingsOf(model, node) {
+        return node.parent ? node.parent.children : model.roots;
+    }
+
+    /** Which row actions `node` allows. */
+    function rowActionState(model, node) {
+        const siblings = siblingsOf(model, node);
+        const i = siblings.indexOf(node);
+        return {
+            indent: i > 0,
+            outdent: !!node.parent,
+            'move-up': i > 0,
+            'move-down': i >= 0 && i < siblings.length - 1,
+            duplicate: true,
+            // A summary's tasks go first, as they would in the editor.
+            delete: !node.children.length,
+        };
+    }
+
+    function copyName(model, name) {
+        const taken = new Set(model.tasks.map((task) => task.name));
+        let candidate = `${name} (copy)`;
+        for (let n = 2; taken.has(candidate); n++) candidate = `${name} (copy ${n})`;
+        return candidate;
+    }
+
+    /** Run row action `id` on `task`, as one undo step. */
+    function runRowAction(id, task, index) {
+        return applyEdit((model) => {
+            const node = nodeFor(model, task, index);
+            if (!node || !rowActionState(model, node)[id]) return false;
+            const siblings = siblingsOf(model, node);
+            const i = siblings.indexOf(node);
+            switch (id) {
+                // Structural, not textual: the row becomes the last subtask
+                // of the one above, and an outdented row lands just after its
+                // summary -- the rows around it stay where they were.
+                case 'indent': return model.moveAsChild(node, siblings[i - 1], true);
+                case 'outdent': return model.moveAfter(node, node.parent);
+                case 'move-up': return model.moveBefore(node, siblings[i - 1]);
+                case 'move-down': return model.moveAfter(node, siblings[i + 1]);
+                case 'duplicate': {
+                    const lines = model.cardTextFor(node).split('\n');
+                    lines[0] = lines[0].replace(node.name, copyName(model, node.name));
+                    return model.insertCardAfter(node, node.indent, lines.join('\n')).length > 0;
+                }
+                case 'delete': return model.removeTask(node);
+                default: return false;
+            }
+        });
+    }
+
+    /** Move `task` before (or `after`) `target`, as one undo step. */
+    function moveTask(task, index, target, targetIndex, after) {
+        return applyEdit((model) => {
+            const node = nodeFor(model, task, index);
+            const anchor = nodeFor(model, target, targetIndex);
+            if (!node || !anchor || node === anchor) return false;
+            return after ? model.moveAfter(node, anchor) : model.moveBefore(node, anchor);
+        });
+    }
+
+    let rowSheet = null;
+    let rowSheetTask = null;
+
+    function openRowMenu(row, opener) {
+        const editor = document.getElementById('planEditor');
+        if (!editor || !root.NoodlePlanModel) return;
+        const model = root.NoodlePlanModel.modelForEditor(editor);
+        const node = nodeFor(model, row.task, row.taskIndex);
+        if (!node) return;
+        if (!rowSheet) {
+            rowSheet = document.createElement('np-action-sheet');
+            rowSheet.id = 'planListSheet';
+            document.body.appendChild(rowSheet);
+            rowSheet.addEventListener('select', (event) => {
+                const target = rowSheetTask;
+                rowSheet.close();
+                if (target) runRowAction(event.detail.id, target.task, target.taskIndex);
+            });
+        }
+        rowSheetTask = row;
+        const allowed = rowActionState(model, node);
+        rowSheet.heading = row.name;
+        rowSheet.label = `Actions for ${row.name}`;
+        rowSheet.toolbar = [];
+        rowSheet.sections = [{
+            id: 'row',
+            items: ROW_ACTIONS.map((action) => ({ ...action, disabled: !allowed[action.id] })),
+        }];
+        rowSheet.open(opener);
     }
 
     // ── Rendering ───────────────────────────────────────────────────────
 
     const mounts = new Map();
+
+    // The card quick-add adds to: the one most recently opened, while it is
+    // still open (#1385).
+    let quickAddTarget = null;
 
     function rowModel(row) {
         const task = row.task;
@@ -320,7 +529,11 @@
         };
         note.rows = visibleRows(card, rowCollapsed).map(rowModel);
 
-        note.addEventListener('expandedchange', (event) => setCollapsed(card.key, !event.detail.expanded));
+        if (options.editable) note.setAttribute('editable', '');
+        note.addEventListener('expandedchange', (event) => {
+            if (event.detail.expanded) quickAddTarget = card.key;
+            setCollapsed(card.key, !event.detail.expanded);
+        });
         note.addEventListener('rowtoggle', (event) => setCollapsed(event.detail.row.name, event.detail.collapsed));
         note.addEventListener('rowactivate', (event) => {
             const { task, taskIndex } = event.detail.row;
@@ -329,6 +542,11 @@
         note.addEventListener('rowcomplete', (event) => {
             const { task, taskIndex } = event.detail.row;
             (options.onComplete || setComplete)(task, taskIndex, event.detail.complete);
+        });
+        note.addEventListener('rowmenu', (event) => openRowMenu(event.detail.row, event.detail.opener));
+        note.addEventListener('rowmove', (event) => {
+            const { row, target, after } = event.detail;
+            moveTask(row.task, row.taskIndex, target.task, target.taskIndex, after);
         });
         return note;
     }
@@ -345,6 +563,7 @@
         mounts.set(container, { tasks, options: opts });
         const focus = describeFocus(container);
         const cards = groups(tasks);
+        container._planListCards = cards;
         if (!cards.length) {
             const empty = document.createElement('p');
             empty.className = 'plan-list-empty';
@@ -364,6 +583,35 @@
         return !!(root.NoodleLayout && root.NoodleLayout.isPhone());
     }
 
+    /** The open card quick-add adds to, or null for Ungrouped. */
+    function quickAddCard(cards) {
+        const open = (cards || []).filter((card) => !cardCollapsed(card, cards.length === 1));
+        const chosen = open.find((card) => card.key === quickAddTarget) || open.find((card) => card.summary);
+        return chosen && chosen.summary ? chosen : null;
+    }
+
+    function syncQuickAdd() {
+        const field = document.getElementById('planQuickAdd');
+        const list = document.getElementById('planList');
+        if (!field || !list) return;
+        field.hidden = list.hidden;
+        if (field.hidden) return;
+        const card = quickAddCard(list._planListCards);
+        field.setAttribute('placeholder', card ? `Add a task to ${card.name}…` : 'Add a task…');
+        field.setAttribute('label', card ? `Add a task to ${card.name}` : 'Add a task to the plan');
+    }
+
+    function wireQuickAdd() {
+        const field = document.getElementById('planQuickAdd');
+        if (!field || field._planListWired) return;
+        field._planListWired = true;
+        field.preview = quickAddChips;
+        field.addEventListener('quickadd', (event) => {
+            const list = document.getElementById('planList');
+            if (!addTask(event.detail.text, quickAddCard(list && list._planListCards))) event.preventDefault();
+        });
+    }
+
     /** Called by updateTasksTable() with the tasks it drew. */
     function renderTasksView(tasks) {
         lastTasks = tasks || [];
@@ -371,8 +619,13 @@
         if (!list) return;
         const phone = isPhone();
         list.hidden = !phone;
-        if (phone) render(list, lastTasks);
-        else mounts.delete(list);
+        if (phone) {
+            wireQuickAdd();
+            render(list, lastTasks, { editable: true });
+        } else {
+            mounts.delete(list);
+        }
+        syncQuickAdd();
     }
 
     // ── The whiteboard's Cards on a phone ───────────────────────────────
@@ -444,6 +697,7 @@
                 if (container.isConnected) render(container, tasks, options);
                 else mounts.delete(container);
             }
+            syncQuickAdd();
         });
         document.addEventListener('layoutchange', () => {
             if (document.getElementById('planList')) renderTasksView(lastTasks);
@@ -464,5 +718,9 @@
         setWhiteboardMode,
         openTask,
         setComplete,
+        parseQuickAdd,
+        quickAddChips,
+        addTask,
+        runRowAction,
     };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
