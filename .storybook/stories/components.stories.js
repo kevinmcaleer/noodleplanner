@@ -23,6 +23,8 @@ import '../../packages/noodle-web/src/noodle_web/static/components/notice/np-not
 import '../../packages/noodle-web/src/noodle_web/static/components/qr-code/np-qr-code.js'
 import '../../packages/noodle-web/src/noodle_web/static/components/quick-add/np-quick-add.js'
 import '../../packages/noodle-web/src/noodle_web/static/components/responsive-table/np-responsive-table.js'
+// The Buttons section's <np-peek-switch> (#1409).
+import '../../packages/noodle-web/src/noodle_web/static/components/peek-switch/np-peek-switch.js'
 // The Tasks section's <np-task-row> variants.
 import '../../packages/noodle-web/src/noodle_web/static/components/task-row/np-task-row.js'
 
