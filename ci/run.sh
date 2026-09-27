@@ -103,10 +103,10 @@ JOBS_ARG=""
 # 30-minute ceiling would mean a deadlocked `python` job holding a push open for
 # half an hour, which is the problem, not the fix.
 #
-# `ui` is the exception to "under a minute": the Playwright suite is ~800 tests
-# and ran 512s of its old 600s deadline on main, so the mobile epic's browser
-# tests (#1376) tipped it over mid-run. 1500s puts the backstop back at about
-# three times the runtime.
+# `ui` is the exception to "under a minute": the Playwright suite is ~810 tests.
+# It ran 512s of its old 600s deadline on main, the mobile epic's browser tests
+# (#1376) took it to ~780s and over the deadline mid-run, and 1500s leaves it
+# about twice its runtime.
 declare -A JOB_TIMEOUT=(
   [python]=600 [js]=600 [conformance]=900 [roundtrip]=900 [ui]=1500 [storybook]=600 [usability]=2100
 )

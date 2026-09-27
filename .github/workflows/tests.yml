@@ -108,8 +108,8 @@ jobs:
     # wherever the gate applies.
     #
     # 25 minutes, over ci/run.sh's 1500s deadline for the job: the suite has
-    # grown to ~800 tests and ~9 minutes, and the old 10 was a budget it was
-    # about to outgrow rather than a backstop against a hang.
+    # grown to ~810 tests and ~13 minutes, past the old 10, which had become a
+    # budget rather than a backstop against a hang.
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
