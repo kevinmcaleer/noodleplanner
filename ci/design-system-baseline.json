@@ -46,15 +46,6 @@
         "color: #e8a0a0": 1,
         "color: #fff": 1
       },
-      "packages/noodle-web/src/noodle_web/static/components.css": {
-        "background-color: #90EE90": 1,
-        "background-color: #D3D3D3": 1,
-        "border-left: 3px solid #22C55E !important": 1,
-        "border-left: 3px solid #3B82F6 !important": 1,
-        "border-left: 3px solid #6B7280 !important": 1,
-        "border-left: 3px solid #EAB308 !important": 1,
-        "border-left: 3px solid #EF4444 !important": 1
-      },
       "packages/noodle-web/src/noodle_web/static/front-matter-panel.css": {
         "background-color: #1e1e1e": 1,
         "background-color: #333": 1,

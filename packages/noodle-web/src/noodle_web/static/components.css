@@ -1634,10 +1634,10 @@ tr:hover .task-context-btn,
 /* Task form inspect button */
 .task-form-inspect-btn {
     background: none;
-    /* Sits on the header's accent-gold background: on-accent ink (rgba, not
-       var(--np-on-accent) itself) tinted for a border/hover, not text on
-       white -- white text/border measured 1.87:1 on marigold, far below AA. */
-    border: 1px solid rgba(35, 32, 28, 0.35);
+    /* Sits on the header's accent-gold background: on-accent ink mixed to an
+       alpha for the border/hover, not white -- white text/border measured
+       1.87:1 on marigold, far below AA. */
+    border: 1px solid color-mix(in srgb, var(--np-on-accent) 35%, transparent);
     color: var(--np-on-accent);
     cursor: pointer;
     font-size: 0.85em;
@@ -1657,8 +1657,8 @@ tr:hover .task-context-btn,
 }
 
 .task-form-inspect-btn:hover {
-    background: rgba(35, 32, 28, 0.1);
-    border-color: rgba(35, 32, 28, 0.6);
+    background: color-mix(in srgb, var(--np-on-accent) 10%, transparent);
+    border-color: color-mix(in srgb, var(--np-on-accent) 60%, transparent);
 }
 
 .task-form-inspect-btn:focus-visible {
