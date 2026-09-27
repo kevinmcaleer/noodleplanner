@@ -35,7 +35,9 @@
  *             select and a lag input. Completion is shown, not taken.
  *   picker    an autocomplete option: ID and dates tell similar names
  *             apart; `selected` is the keyboard-active option. Completion
- *             is shown, not taken.
+ *             and people are shown, not taken -- a click anywhere on the
+ *             row is the host's to treat as picking it (the task form's
+ *             add-dependency box does).
  *
  * `readonly` makes any row display-only: the checkbox and the pill stop
  * taking input.
@@ -119,6 +121,7 @@ TEMPLATE.innerHTML = `
     }
     .row:hover { background: var(--np-bg-hover); }
     :host([selected]) .row { background: var(--np-selected); }
+    :host([type="picker"]) .row { cursor: pointer; }
     :host([editing]) .row { background: var(--np-surface); }
 
     [hidden] { display: none !important; }
@@ -663,6 +666,9 @@ export class NpTaskRow extends HTMLElement {
             .split(',').map((n) => n.trim()).filter(Boolean);
         const showPeople = this.hasAttribute('resources') || this.hasAttribute('assignable');
         e.people.hidden = !showPeople || type === 'outline';
+        // A picker row is one option: its chips are part of what it says, not
+        // controls of their own, so a click on them picks the row.
+        e.people.inert = type === 'picker';
         if (names.join(',') !== e.stack.names.join(',')) e.stack.names = names;
         e.stack.hidden = names.length === 0;
         e.assign.hidden = names.length > 0 || !this.hasAttribute('assignable');
