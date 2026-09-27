@@ -500,6 +500,33 @@ export const GALLERY = [
                     '<td class="gantt-float-cell gantt-critical-float">0d</td></tr>' +
                     '</tbody></table></div>',
             },
+            // <np-task-row>: the one row for a task in a list -- subtasks,
+            // dependencies, a product's activities, pickers, outlines.
+            {
+                name: 'Task row — list',
+                html:
+                    '<div style="width:100%;display:flex;flex-direction:column;gap:2px;">' +
+                    '<np-task-row name="Draft stakeholder brief" meta="1 Sep – 3 Sep" percent="100" rag="Complete" resources="Sam Smith" assignable collapsible></np-task-row>' +
+                    '<np-task-row name="Procurement" meta="8 Sep – 30 Sep" summary indeterminate collapsible rag="Behind schedule" resources="Sam Smith, Jo Lee, Alex Ray, Kim Ito"></np-task-row>' +
+                    '<np-task-row name="Raise purchase order" meta="8 Sep – 12 Sep" percent="40" depth="1" rag="On track" assignable collapsible action="menu"></np-task-row>' +
+                    '</div>',
+            },
+            {
+                name: 'Task row — relation',
+                html:
+                    '<div style="width:100%;display:flex;flex-direction:column;gap:2px;">' +
+                    '<np-task-row type="relation" task-id="14" name="Sign off design" relation="FS" lag="+2d" meta="3 Sep" rag="Behind schedule" action="remove"></np-task-row>' +
+                    '<np-task-row type="relation" task-id="9" name="Agree budget" relation="SS" meta="1 Sep" rag="On track" action="remove" editing></np-task-row>' +
+                    '</div>',
+            },
+            {
+                name: 'Task row — picker, compact',
+                html:
+                    '<div role="listbox" style="width:100%;display:flex;flex-direction:column;">' +
+                    '<np-task-row type="picker" density="compact" task-id="27" name="Order hardware" meta="12 – 16 Sep" rag="On track" resources="Sam Smith" selected></np-task-row>' +
+                    '<np-task-row type="picker" density="compact" task-id="28" name="Order hardware (spares)" meta="2 – 6 Oct" rag="On track" resources="Jo Lee"></np-task-row>' +
+                    '</div>',
+            },
         ],
     },
     {

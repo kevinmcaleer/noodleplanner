@@ -332,12 +332,6 @@
     .wizard-step-connector {
         width: 20px;
     }
-
-    /* Dependencies table scroll */
-    .dependencies-table {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
 }
 
 /* ========================================

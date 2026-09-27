@@ -3316,16 +3316,16 @@ function populateSubtasks(parentLineNumber, lines) {
     const subtasksList = document.getElementById('subtasksList');
     if (!subtasksList) return;
 
-    subtasksList.innerHTML = '';
+    subtasksList.replaceChildren();
 
     // Every descendant of this task, at any depth (issue #979: the list
     // previously only included direct children, so grandchildren and
     // deeper descendants silently went missing here).
     const subtasks = getTaskDescendants(parentLineNumber, lines);
 
-    // Display subtasks
+    // Display subtasks. An empty list says so through its own data-empty
+    // text (.task-row-list:empty in components.css).
     if (subtasks.length === 0) {
-        subtasksList.innerHTML = '<div style="padding: 10px; color: var(--np-faint); text-align: center;">No sub tasks</div>';
         // Enable percent input for non-summary tasks
         const percentInput = document.getElementById('taskPercent');
         const helperText = document.getElementById('percentHelperText');
@@ -3342,99 +3342,86 @@ function populateSubtasks(parentLineNumber, lines) {
         return subtasks;
     }
 
-    // Get resource mappings for displaying full names and initials
+    // Resource mappings, for full names on the people slot and its profile card.
     const editor = document.getElementById('planEditor');
     const resourceMap = editor ? parseResourceMappings(editor.value) : {};
+    let resourceDetails = {};
+    if (editor && typeof parseResourceDetails === 'function') {
+        try { resourceDetails = parseResourceDetails(editor.value); } catch { /* front matter is optional */ }
+    }
 
-    subtasks.forEach(subtask => {
-        const item = document.createElement('div');
-        item.className = 'subtask-item';
-        // Indent grandchildren and deeper descendants so the flat list still
-        // reads as a hierarchy; direct children (depth 1) sit flush left,
-        // matching the pre-existing layout for plans with no nesting.
-        if (subtask.depth > 1) {
-            item.style.marginLeft = ((subtask.depth - 1) * 18) + 'px';
-        }
+    // One <np-task-row> per descendant (Penpot "Task row", type list).
+    subtasks.forEach((subtask, index) => {
+        const row = document.createElement('np-task-row');
+        row.className = 'subtask-row';
+        row.dataset.lineNumber = String(subtask.lineNumber);
+        row.setAttribute('name', subtask.name);
+        // Grandchildren and deeper sit one --np-space-16 step in per level;
+        // direct children sit flush, as they did before nesting was shown.
+        if (subtask.depth > 1) row.setAttribute('depth', String(subtask.depth - 1));
 
         const subtaskPercent = parseInt(subtask.percent) || 0;
-        const piechart = createMiniPiechart(subtaskPercent, (newPercent) => {
-            toggleSubtaskCompletion(subtask.lineNumber, newPercent);
-        });
+        row.setAttribute('percent', String(subtaskPercent));
 
-        const label = document.createElement('span');
-        label.className = 'subtask-label';
-        label.textContent = subtask.name;
-        label.addEventListener('click', () => {
-            // Navigate directly to the subtask's details
-            openTaskForm(subtask.lineNumber);
-        });
+        // A summary reports its direct children: mixed when some but not all
+        // of them are done -- ticks, not the averaged percent (np-checkbox).
+        const children = [];
+        for (let j = index + 1; j < subtasks.length && subtasks[j].depth > subtask.depth; j++) {
+            if (subtasks[j].depth === subtask.depth + 1) children.push(subtasks[j]);
+        }
+        if (children.length) {
+            row.setAttribute('summary', '');
+            const done = children.filter(c => (parseInt(c.percent) || 0) >= 100).length;
+            if (done > 0 && done < children.length) row.setAttribute('indeterminate', '');
+        }
 
-        // Right-side container for dates and resources
-        const rightSection = document.createElement('div');
-        rightSection.className = 'subtask-right-section';
-
-        // Date display - use backend calculated dates if subtask has no explicit dates
+        // Dates and status: the line's own dates, else the engine's.
+        const backendSubtask = (lastRenderedTasks || []).find(bt => bt.name === subtask.name);
         let displayStartDate = subtask.startDate;
         let displayFinishDate = subtask.finishDate;
-        if (!displayStartDate || !displayFinishDate) {
-            const backendSubtask = lastRenderedTasks.find(bt => bt.name === subtask.name);
-            if (backendSubtask) {
-                if (!displayStartDate && backendSubtask.start) displayStartDate = backendSubtask.start;
-                if (!displayFinishDate && backendSubtask.finish) displayFinishDate = backendSubtask.finish;
-            }
+        if (backendSubtask) {
+            if (!displayStartDate && backendSubtask.start) displayStartDate = backendSubtask.start;
+            if (!displayFinishDate && backendSubtask.finish) displayFinishDate = backendSubtask.finish;
         }
-        if (displayStartDate || displayFinishDate) {
-            const dateSpan = document.createElement('span');
-            dateSpan.className = 'subtask-dates';
-            const startStr = displayStartDate ? formatSubtaskDate(displayStartDate) : '';
-            const finishStr = displayFinishDate ? formatSubtaskDate(displayFinishDate) : '';
-            if (startStr && finishStr) {
-                dateSpan.textContent = `${startStr} – ${finishStr}`;
-            } else if (startStr) {
-                dateSpan.textContent = startStr;
-            } else {
-                dateSpan.textContent = finishStr;
-            }
-            rightSection.appendChild(dateSpan);
-        }
+        const dateText = formatTaskRowDates(displayStartDate, displayFinishDate);
+        if (dateText) row.setAttribute('meta', dateText);
+        if (backendSubtask && backendSubtask.rag) row.setAttribute('rag', backendSubtask.rag);
 
-        // Resource avatars
-        const resourceContainer = document.createElement('div');
-        resourceContainer.className = 'subtask-resources';
+        // People: full names from front matter; clicking the slot (a chip or
+        // the dashed "+" when nobody is assigned) opens the assign picker.
         const resourceList = subtask.resources
             ? subtask.resources.split(',').map(r => r.trim()).filter(r => r)
             : [];
+        row.setAttribute('resources', resourceList
+            .map(shortname => resourceMap[shortname.toLowerCase()] || shortname).join(', '));
+        row.setAttribute('assignable', '');
+        row.details = resourceDetails;
 
-        if (resourceList.length > 0) {
-            resourceList.forEach(shortname => {
-                const fullName = resourceMap[shortname.toLowerCase()] || shortname;
-                const avatar = document.createElement('div');
-                avatar.className = 'subtask-resource-avatar';
-                avatar.title = fullName;
-                avatar.textContent = getResourceInitials(fullName);
-                resourceContainer.appendChild(avatar);
-            });
-        } else {
-            // Empty circle for unassigned
-            const emptyAvatar = document.createElement('div');
-            emptyAvatar.className = 'subtask-resource-avatar subtask-resource-unassigned';
-            emptyAvatar.title = 'Assign a resource';
-            resourceContainer.appendChild(emptyAvatar);
+        row.addEventListener('task-open', () => openTaskForm(subtask.lineNumber));
+        row.addEventListener('task-toggle', (e) => {
+            if (e.detail.checked && typeof spawnConfetti === 'function') spawnConfetti(row.checkbox);
+            toggleSubtaskCompletion(subtask.lineNumber, e.detail.checked ? '100%' : '0%');
+        });
+        row.addEventListener('task-assign', (e) => {
+            // Don't reopen if the picker is already showing
+            if (document.querySelector('.subtask-resource-picker')) return;
+            showSubtaskResourcePicker(e.detail.anchor, subtask, resourceMap);
+        });
+        row.addEventListener('resource-open', (e) => {
+            const shortname = e.detail && e.detail.shortname;
+            if (shortname && typeof openResourceForm === 'function') openResourceForm(shortname);
+        });
+        // Press and hold the box for 0/25/50/75/100%, as the mini pie chart
+        // this replaces offered (#1386's one long-press).
+        if (!children.length && typeof NoodleTouch !== 'undefined' && typeof showPiechartPopup === 'function') {
+            NoodleTouch.onLongPress(row.checkbox, () => {
+                showPiechartPopup(row.checkbox, subtaskPercent, (newPercent) => {
+                    toggleSubtaskCompletion(subtask.lineNumber, newPercent + '%');
+                });
+            }, { pointerTypes: ['mouse', 'touch', 'pen'] });
         }
 
-        // Click handler for resource assignment
-        resourceContainer.addEventListener('click', (e) => {
-            e.stopPropagation();
-            // Don't reopen if picker is already showing
-            if (document.querySelector('.subtask-resource-picker')) return;
-            showSubtaskResourcePicker(resourceContainer, subtask, resourceMap);
-        });
-
-        rightSection.appendChild(resourceContainer);
-        item.appendChild(piechart);
-        item.appendChild(label);
-        item.appendChild(rightSection);
-        subtasksList.appendChild(item);
+        subtasksList.appendChild(row);
     });
 
     // Only auto-calculate percent for actual summary tasks (confirmed by backend)
@@ -3476,14 +3463,20 @@ function populateSubtasks(parentLineNumber, lines) {
     return subtasks;
 }
 
-function getResourceInitials(name) {
-    const words = name.trim().split(/\s+/);
-    if (words.length >= 2) {
-        return (words[0][0] + words[words.length - 1][0]).toUpperCase();
-    } else if (words.length === 1 && words[0].length >= 2) {
-        return words[0].substring(0, 2).toUpperCase();
-    }
-    return name.substring(0, 1).toUpperCase();
+/** A task's resources -- a list, or the engine's "sam, jo" string -- as the
+ * full names a task row's `resources` attribute takes. */
+function taskRowResourceNames(resources, resourceMap = {}) {
+    const shortnames = Array.isArray(resources) ? resources
+        : String(resources || '').split(',').map(r => r.trim().replace(/^@/, '')).filter(Boolean);
+    return shortnames.map(sn => resourceMap[String(sn).toLowerCase()] || sn).join(', ');
+}
+
+/** "3 Sep 26 – 9 Sep 26", or whichever end exists: a task row's `meta`. */
+function formatTaskRowDates(start, finish) {
+    const startStr = start ? formatSubtaskDate(start) : '';
+    const finishStr = finish ? formatSubtaskDate(finish) : '';
+    if (startStr && finishStr) return `${startStr} – ${finishStr}`;
+    return startStr || finishStr;
 }
 
 function formatSubtaskDate(dateStr) {
@@ -3661,35 +3654,19 @@ function addNewSubtask() {
     const subtasksList = document.getElementById('subtasksList');
     if (!subtasksList) return;
 
-    // Create new editable subtask item
-    const item = document.createElement('div');
-    item.className = 'subtask-item subtask-item-editing';
+    // The new subtask is a task row in its editing state: the name is an
+    // input, Enter or leaving it commits, Escape abandons.
+    const row = document.createElement('np-task-row');
+    row.className = 'subtask-row';
+    row.setAttribute('editing', '');
+    row.setAttribute('readonly', '');
+    row.setAttribute('placeholder', 'Enter subtask name...');
 
-    const piechartPlaceholder = document.createElement('div');
-    piechartPlaceholder.className = 'mini-piechart';
-    piechartPlaceholder.style.setProperty('--percent', '0%');
-    piechartPlaceholder.style.background = 'conic-gradient(#28a745 0% 0%, #e0e0e0 0% 100%)';
-    piechartPlaceholder.style.pointerEvents = 'none';
-    piechartPlaceholder.style.opacity = '0.5';
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'subtask-input';
-    input.placeholder = 'Enter subtask name...';
-    input.style.flex = '1';
-    input.style.border = '1px solid #108bb9';
-    input.style.borderRadius = '3px';
-    input.style.padding = '4px 8px';
-    input.style.outline = 'none';
-
-    // Handle save on Enter or blur
     let saved = false;
-    const saveSubtask = () => {
+    const saveSubtask = (taskName) => {
         if (saved) return;
-
-        const taskName = input.value.trim();
         if (!taskName) {
-            item.remove();
+            row.remove();
             return;
         }
 
@@ -3742,30 +3719,11 @@ function addNewSubtask() {
         populateSubtasks(currentTaskLineNumber, editor.value.split('\n'));
     };
 
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            saveSubtask();
-        } else if (e.key === 'Escape') {
-            item.remove();
-        }
-    });
+    row.addEventListener('name-commit', (e) => saveSubtask(e.detail.value));
+    row.addEventListener('name-cancel', () => row.remove());
 
-    input.addEventListener('blur', () => {
-        saveSubtask();
-    });
-
-    item.appendChild(piechartPlaceholder);
-    item.appendChild(input);
-
-    // Remove "No sub tasks" message if present
-    const noTasksMsg = subtasksList.querySelector('div[style*="text-align: center"]');
-    if (noTasksMsg) {
-        noTasksMsg.remove();
-    }
-
-    subtasksList.appendChild(item);
-    input.focus();
+    subtasksList.appendChild(row);
+    row.focusEditor();
 }
 
 // Called when date fields change - recalculate duration
@@ -4154,43 +4112,51 @@ function deleteTask() {
 }
 
 /**
- * Add a new row to the dependencies table
+ * Add a dependency to the task form's list: one <np-task-row type="relation">
+ * (Penpot "Task row"). Clicking the name opens the predecessor, clicking the
+ * "FS +2d" pill edits the type and lag, and the hover-revealed ✕ removes it.
  */
 function addDependencyRow(taskName = '', depType = 'FS', lagLead = '') {
-    const tbody = document.getElementById('dependenciesTableBody');
-    const row = document.createElement('tr');
+    const list = document.getElementById('dependenciesList');
+    if (!list) return null;
+    const row = document.createElement('np-task-row');
+    row.className = 'dependency-row';
+    row.setAttribute('type', 'relation');
+    row.setAttribute('name', taskName);
+    row.setAttribute('relation', (depType || 'FS').toUpperCase());
+    if (lagLead) row.setAttribute('lag', lagLead);
+    row.setAttribute('action', 'remove');
 
-    // Create unique ID for this dropdown
-    const dropdownId = 'depAutocomplete_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    // What the predecessor is doing, from the engine: its ID, status,
+    // progress, and the date this link hangs off -- its finish for FS/FF,
+    // its start for SS/SF.
+    const predecessor = (lastRenderedTasks || []).find(t => t.name === taskName);
+    const editor = document.getElementById('planEditor');
+    const describe = () => {
+        if (!predecessor) return;
+        if (predecessor.id != null) row.setAttribute('task-id', String(predecessor.id));
+        row.setAttribute('percent', String(parseInt(predecessor.percent) || 0));
+        if (predecessor.rag) row.setAttribute('rag', predecessor.rag);
+        const people = taskRowResourceNames(predecessor.resources,
+            editor ? parseResourceMappings(editor.value) : {});
+        if (people) row.setAttribute('resources', people);
+        const type = row.getAttribute('relation');
+        const date = type === 'SS' || type === 'SF' ? predecessor.start : predecessor.finish;
+        if (date) row.setAttribute('meta', formatSubtaskDate(date));
+        else row.removeAttribute('meta');
+    };
+    describe();
 
-    row.innerHTML = `
-        <td>
-            <div class="autocomplete-container" style="position: relative;">
-                <input type="text" class="dependency-task-name" placeholder="Task name" value="${taskName}"
-                       oninput="handleDependencyInput(this)"
-                       onkeydown="handleDependencyKeydown(event, this)"
-                       autocomplete="off"
-                       data-dropdown="${dropdownId}">
-                <div id="${dropdownId}" class="autocomplete-dropdown"></div>
-            </div>
-        </td>
-        <td>
-            <select class="dependency-type" onchange="saveTask()">
-                <option value="FS"${depType === 'FS' ? ' selected' : ''}>FS</option>
-                <option value="SS"${depType === 'SS' ? ' selected' : ''}>SS</option>
-                <option value="FF"${depType === 'FF' ? ' selected' : ''}>FF</option>
-                <option value="SF"${depType === 'SF' ? ' selected' : ''}>SF</option>
-            </select>
-        </td>
-        <td>
-            <input type="text" class="dependency-lag-lead" placeholder="e.g., +2d, -1w" value="${lagLead}" oninput="saveTask()">
-        </td>
-        <td>
-            <button type="button" class="remove-dependency-btn" onclick="removeDependencyRow(this)">×</button>
-        </td>
-    `;
+    row.addEventListener('task-open', () => openTaskFormByName(taskName));
+    row.addEventListener('relation-change', () => { describe(); saveTask(); });
+    row.addEventListener('task-action', (e) => {
+        if (e.detail.kind !== 'remove') return;
+        row.remove();
+        saveTask(); // Update the editor after removing a dependency
+    });
 
-    tbody.appendChild(row);
+    list.appendChild(row);
+    return row;
 }
 
 /** Commit the task named in the dependency add box on Enter. */
@@ -4223,20 +4189,12 @@ function handleAddDependencyKeydown(event, input) {
 }
 
 /**
- * Remove a dependency row from the table
- */
-function removeDependencyRow(button) {
-    const row = button.closest('tr');
-    row.remove();
-    saveTask(); // Update the editor after removing a dependency
-}
-
-/**
  * Populate dependencies table from task data
  */
 function populateDependenciesTable(dependenciesStr) {
-    const tbody = document.getElementById('dependenciesTableBody');
-    tbody.innerHTML = ''; // Clear existing rows
+    const list = document.getElementById('dependenciesList');
+    if (!list) return;
+    list.replaceChildren(); // Clear existing rows
 
     if (!dependenciesStr || !dependenciesStr.trim()) {
         return;
@@ -4267,11 +4225,6 @@ function populateDependenciesTable(dependenciesStr) {
 
         addDependencyRow(taskName, depType, lagLead);
     });
-
-    // If no dependencies, show empty state
-    if (deps.length === 0) {
-        tbody.innerHTML = '';
-    }
 }
 
 /**
@@ -4279,14 +4232,13 @@ function populateDependenciesTable(dependenciesStr) {
  * Returns format like "Task1, Task2 +2d, Task3 -1w"
  */
 function collectDependenciesFromTable() {
-    const rows = document.querySelectorAll('#dependenciesTableBody tr');
+    const rows = document.querySelectorAll('#dependenciesList np-task-row');
     const deps = [];
 
     rows.forEach(row => {
-        const taskName = row.querySelector('.dependency-task-name').value.trim();
-        const depTypeSelect = row.querySelector('.dependency-type');
-        const depType = depTypeSelect ? depTypeSelect.value : 'FS';
-        const lagLead = row.querySelector('.dependency-lag-lead').value.trim();
+        const taskName = (row.getAttribute('name') || '').trim();
+        const depType = (row.getAttribute('relation') || 'FS').toUpperCase();
+        const lagLead = (row.getAttribute('lag') || '').trim();
 
         if (taskName) {
             // Only include type suffix if not the default (FS)
@@ -5621,8 +5573,8 @@ document.addEventListener('DOMContentLoaded', function() {
             autocompleteSelectedIndex = -1;
         }
 
-        // Handle dependency table autocomplete dropdowns
-        const depInputs = document.querySelectorAll('.dependency-task-name');
+        // Handle the add-dependency autocomplete dropdown
+        const depInputs = document.querySelectorAll('.dependency-add-input');
         depInputs.forEach(input => {
             const dropdownId = input.getAttribute('data-dropdown');
             if (dropdownId) {

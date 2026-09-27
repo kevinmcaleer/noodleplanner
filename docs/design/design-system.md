@@ -338,6 +338,37 @@ band 3 of `standardisation-backlog.md` for why that migration is a design
 decision, not a mechanical refactor. `Icon button` (33 screens) has no
 dedicated variant yet and is the gap to close next within this component.
 
+### Task row
+
+**Designed in Penpot first** (02 · Components → "Task row", with its parts
+in "Task row parts" and the lists it replaces in "Task row — in use"), then
+built as `<np-task-row>` (`static/components/task-row/`).
+
+A survey found about twenty-five places that list tasks one per row, and no
+two agreed: completion drawn five ways (mini pie chart, `<np-checkbox>`, a
+native checkbox, "NN%" text, nothing), RAG five ways across three hex
+palettes, assignees three ways. The row fixes one anatomy -- drag handle,
+disclosure, completion, ID, name, details, RAG, people, action -- and a
+`type` picks which slots show:
+
+- **list** — subtasks, a product's activities.
+- **relation** — a dependency: an "FS +2d" pill that edits type and lag.
+- **picker** — an autocomplete option; ID and dates tell similar names apart.
+- **outline** — writing a plan: name and estimate.
+
+`density="compact"` is 32px, the default 40px, and every row is
+`--np-touch-target` tall under a coarse pointer. Completion is
+`<np-checkbox>` and people are `<np-resource-stack>`, so neither is drawn a
+new way. RAG is one dot on `--np-success` / `--np-warning` /
+`--np-danger` / `--np-info`, mapped from the engine's status by
+`task-row/rag.js`, which `tests/test_np_task_row.mjs` holds to
+script.js's `ragStatusToColour()`.
+
+**Status: wired into the task form's Subtasks and Dependencies and the
+product form's Activities.** The other lists the survey found -- the
+dependency picker, task peek, the inspector's dependencies, the resource
+form's assigned tasks, the report tables -- are still their own markup.
+
 ### Composed forms
 
 Storybook renders components at every level of the hierarchy, not just small

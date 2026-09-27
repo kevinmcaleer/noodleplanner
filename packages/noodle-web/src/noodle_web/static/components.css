@@ -2168,63 +2168,21 @@ tr:hover .task-context-btn,
     line-height: 1.5;
 }
 
-/* Dependencies table in task form */
-.dependencies-table {
-    border: 2px solid var(--np-border);
-    border-radius: 4px;
-    overflow: visible;
+/* .task-row-list: the task form's Subtasks and Dependencies and the product
+   form's Activities -- a stack of <np-task-row>s. The rows bring their own
+   hover and spacing; the list only says so when it is empty. */
+.task-row-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--np-space-2);
 }
 
-.dependencies-table table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.dependencies-table th {
-    background: var(--np-paper);
-    padding: var(--np-space-12);
-    text-align: left;
-    font-weight: 600;
-    border-bottom: 2px solid var(--np-border);
-}
-
-.dependencies-table td {
-    padding: var(--np-space-4) var(--np-space-12);
-    border-bottom: 1px solid var(--np-border);
-}
-
-.dependencies-table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-.dependencies-table input[type="text"],
-.dependencies-table input[type="number"] {
-    width: 100%;
-    padding: var(--np-space-8);
-    border: 1px solid var(--np-border);
-    border-radius: 4px;
-}
-
-.dependencies-table .remove-dependency-btn {
-    background: var(--np-danger);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: var(--np-space-8) var(--np-space-12);
-    cursor: pointer;
-    font-size: 0.9em;
-}
-
-.dependencies-table .remove-dependency-btn:hover {
-    background: #c82333;
-}
-
-.dependencies-table tbody:empty::after {
-    content: 'No dependencies. Add one below.';
+.task-row-list:empty::after {
+    content: attr(data-empty);
     display: block;
-    padding: var(--np-space-20);
-    text-align: center;
+    padding: var(--np-space-8);
     color: var(--np-faint);
+    font-size: var(--np-text-85);
     font-style: italic;
 }
 
@@ -2350,120 +2308,10 @@ tr:hover .task-context-btn,
 
 /* Subtasks list in task form */
 .subtasks-list {
-    border: 2px solid var(--np-border);
-    border-radius: 4px;
-    padding: var(--np-space-12);
     max-height: 300px;
     overflow-y: auto;
-    background: var(--np-paper);
 }
 
-.subtask-item {
-    display: flex;
-    align-items: center;
-    padding: var(--np-space-8) var(--np-space-12);
-    background: var(--np-surface);
-    border: 1px solid var(--np-border);
-    border-radius: 4px;
-    margin-bottom: var(--np-space-8);
-    transition: background 0.2s;
-}
-
-.subtask-item:last-child {
-    margin-bottom: 0;
-}
-
-.subtask-item:hover {
-    background: var(--np-surface-alt);
-}
-
-.subtask-checkbox.round-checkbox {
-    margin-right: var(--np-space-12);
-}
-
-.subtask-label {
-    flex: 1;
-    cursor: pointer;
-    user-select: none;
-    font-size: 0.95em;
-    color: var(--np-ink);
-    display: flex;
-    align-items: center;
-    gap: var(--np-space-8);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-}
-
-.subtask-label:hover {
-    color: var(--np-accent);
-}
-
-.subtask-percent {
-    display: inline-block;
-    background: #fff3e0;
-    color: #e65100;
-    padding: var(--np-space-2) var(--np-space-8);
-    border-radius: 4px;
-    font-size: 0.85em;
-    font-weight: 600;
-}
-
-/* Subtask right section: dates and resource avatars */
-.subtask-right-section {
-    display: flex;
-    align-items: center;
-    gap: var(--np-space-8);
-    flex-shrink: 0;
-    margin-left: auto;
-}
-
-.subtask-dates {
-    font-size: 0.8em;
-    color: var(--np-muted);
-    white-space: nowrap;
-}
-
-.subtask-resources {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    position: relative;
-    cursor: pointer;
-}
-
-.subtask-resource-avatar {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--np-info-gradient);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    font-weight: bold;
-    margin-left: -4px;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-.subtask-resource-avatar:first-child {
-    margin-left: 0;
-}
-
-.subtask-resource-unassigned {
-    background: transparent;
-    border: 2px dashed var(--np-border-strong);
-    color: transparent;
-}
-
-.subtask-resource-unassigned:hover {
-    border-color: var(--np-accent);
-}
-
-/* Subtask resource picker dropdown */
 .subtask-resource-picker {
     background: var(--np-surface);
     border: 1px solid var(--np-border);
@@ -8839,16 +8687,6 @@ button.ribbon-breadcrumb-rung:hover {
     font-style: italic;
 }
 
-/* Dependency-type select inside the dependencies table. */
-.dependencies-table select.dependency-type {
-    width: 100%;
-    padding: var(--np-space-8);
-    border: 1px solid var(--np-border-control);
-    border-radius: var(--np-radius-sm);
-    background: var(--np-surface);
-    color: var(--np-ink);
-    font-size: var(--np-text-85);
-}
 /* Analysis actions section. */
 .analysis-actions {
     max-width: 900px;

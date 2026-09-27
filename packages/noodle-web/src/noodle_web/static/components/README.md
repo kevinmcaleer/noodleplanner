@@ -80,6 +80,12 @@ extraction pattern rather than a migration. To use one:
 <np-close-button></np-close-button>
 <np-close-button size="small" label="Dismiss"></np-close-button>
 <np-close-button flat></np-close-button>
+
+<script type="module" src="/static/components/task-row/np-task-row.js"></script>
+<np-task-row name="Draft brief" meta="3 Sep – 9 Sep" percent="40"
+             rag="On track" resources="Sam Smith" assignable></np-task-row>
+<np-task-row type="relation" task-id="14" name="Sign off design"
+             relation="FS" lag="+2d" meta="3 Sep" action="remove"></np-task-row>
 ```
 
 `<np-board>` composes `<np-card>` internally for each column's cards, the
@@ -104,6 +110,11 @@ one component with a `variant="text"` / `variant="card"` tier and
 optional icon/heading/actions slots — not the welcome screen or
 `.placeholder-view` family, which are a deliberately separate kind of
 "nothing here" (see design-system.md §6).
+`<np-task-row>` is one row per task in a list -- the task form's Subtasks
+and Dependencies and the product form's Activities use it -- composing
+`<np-checkbox>` and `<np-resource-stack>` and reporting every gesture as an
+event (`task-open`, `task-toggle`, `task-action`, `task-assign`,
+`name-commit`, `relation-change`) rather than reaching into script.js.
 `<np-close-button>` is one real `<button>` for every dismiss control in
 the app (`.close-btn`, `.task-peek-close-btn`, `.wb-add-note-close`,
 `.estimate-popup-close`, `.card-popup-close`, `.ai-chat-header-btn`),
