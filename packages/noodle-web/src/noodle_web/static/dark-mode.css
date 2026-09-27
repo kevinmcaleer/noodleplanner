@@ -1436,10 +1436,6 @@ body {
     border-bottom-color: var(--np-border);
 }
 
-[data-theme="dark"] .ns-col-header.ns-selected-col {
-    background: linear-gradient(180deg, #2a3a5a 0%, #1a2e4a 100%);
-}
-
 [data-theme="dark"] .budget-sheet-col-filter {
     background: var(--np-input-bg);
     color: var(--np-text);
@@ -1454,7 +1450,6 @@ body {
 }
 
 [data-theme="dark"] .ns-row-num.ns-selected-row {
-    background: linear-gradient(90deg, #2a3a5a 0%, #1a2e4a 100%);
     color: var(--np-text);
 }
 
