@@ -911,10 +911,6 @@ body {
     color: #ffffff;
 }
 
-[data-theme="dark"] .milestone-date {
-    color: var(--np-text-secondary);
-}
-
 [data-theme="dark"] .timeline-line {
     background: #ffffff;
 }
@@ -930,14 +926,6 @@ body {
 
 [data-theme="dark"] .timeline-connector {
     background: var(--np-text-muted);
-}
-
-[data-theme="dark"] .timeline-date-label {
-    color: var(--np-text-secondary);
-}
-
-[data-theme="dark"] .timeline-scale-label {
-    color: var(--np-text-secondary);
 }
 
 /* Timeline options - checkboxes and titles */

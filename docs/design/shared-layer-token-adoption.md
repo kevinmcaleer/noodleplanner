@@ -41,3 +41,4 @@ A slice passes when nothing else differs.
 |---|---|---|---|---|---|
 | 1 | Panels, cards and popups | 1 light literal and 1 dark literal to `--np-shadow`; 10 dark declarations deleted (3 whole rules) | identical | identical | 715 -> 713 |
 | 2 | View wrappers and boards | 11 dark declarations deleted (2 whole rules): Kanban board/column/splitter, Gantt, Tasks, stakeholder grid, RAID, Actions, Budget and Timesheet wrappers | identical | identical (final-state capture) | 713 -> 713 |
+| 3 | Timeline and milestone labels | 3 dark rules deleted whole (`.milestone-date`, `.timeline-date-label`, `.timeline-scale-label`) | identical (plus 6 px of subpixel text AA in the *light* editor on project-report, which a dark-only change cannot reach) | identical (final-state capture) | 713 -> 713 |
