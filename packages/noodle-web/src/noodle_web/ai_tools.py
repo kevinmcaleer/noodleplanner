@@ -296,6 +296,54 @@ def _set_token(rest: str, is_token, new_token: str,
     return rest[:start] + new_token + rest[end:]
 
 
+_DEPENDS_BLOCK = re.compile(r'(\[depends\s*:?\s*)([^\]]*)(\])', re.IGNORECASE)
+# One [depends] entry: the name, then an optional :FS/:SS/:FF/:SF type and
+# an optional lag, as plan-model.js's parseDependencySpec reads it.
+_DEPENDS_ENTRY = re.compile(
+    r'^(\s*)(.+?)((?::(?:FS|SS|FF|SF))?(?:\s+[+-]\d+[dwmy])?\s*)$', re.IGNORECASE)
+
+
+def _rename_in_dependants(lines: list[str], start: int, end: int,
+                          old_name: str, new_name: str) -> int:
+    """Rewrite every ``[depends]`` entry in ``lines[start:end]`` that names
+    *old_name* to name *new_name*, keeping its type and lag, as
+    ``PlanModel.rename`` does in the browser. Names match without regard to
+    case, as the scheduler resolves them; ``$deliverable`` entries never
+    match. Returns how many entries were rewritten.
+    """
+    wanted = ' '.join(old_name.split()).lower()
+    count = 0
+
+    def entry(spec: str) -> str:
+        nonlocal count
+        m = _DEPENDS_ENTRY.match(spec)
+        if not m or ' '.join(m.group(2).split()).lower() != wanted:
+            return spec
+        count += 1
+        return m.group(1) + new_name + m.group(3)
+
+    def block(m: re.Match) -> str:
+        return m.group(1) + ','.join(entry(s) for s in m.group(2).split(',')) + m.group(3)
+
+    for i in range(start, end):
+        if '[' in lines[i]:
+            lines[i] = _DEPENDS_BLOCK.sub(block, lines[i])
+    return count
+
+
+def _carry_rename(plan_text: str, lines: list[str], old_name: str,
+                  new_name: str) -> list[str]:
+    """Carry a task's rename into its successors' ``[depends]`` entries in
+    *lines* (the split *plan_text*), returning the change note, if any."""
+    if new_name == old_name:
+        return []
+    _, start, end = _get_task_area(plan_text)
+    count = _rename_in_dependants(lines, start, end, old_name, new_name)
+    if not count:
+        return []
+    return [f"{count} dependenc{'y' if count == 1 else 'ies'} updated"]
+
+
 def _get_parent_indent(plan_text: str, parent_name: str) -> int | None:
     """Return the indentation level of a parent task (in spaces)."""
     idx = _find_task_line(plan_text, parent_name)
@@ -827,6 +875,7 @@ def _update_task(plan_text: str, name: str, new_name: str | None = None,
     changes = []
     if new_name:
         changes.append(f"renamed to '{new_name}'")
+        changes.extend(_carry_rename(plan_text, lines, old_name, new_name))
     if duration:
         changes.append(f"duration={duration}")
     if resource:
@@ -1514,6 +1563,7 @@ def _update_milestone(plan_text: str, name: str,
     changes = []
     if new_name:
         changes.append(f"renamed to '{new_name}'")
+        changes.extend(_carry_rename(plan_text, lines, old_name, new_name))
     if date:
         changes.append(f"date={date}")
     return '\n'.join(lines), f"Updated milestone '{name}': {', '.join(changes)}."
