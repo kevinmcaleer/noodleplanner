@@ -364,10 +364,14 @@ new way. RAG is one dot on `--np-success` / `--np-warning` /
 `task-row/rag.js`, which `tests/test_np_task_row.mjs` holds to
 script.js's `ragStatusToColour()`.
 
-**Status: wired into the task form's Subtasks and Dependencies and the
-product form's Activities.** The other lists the survey found -- the
-dependency picker, task peek, the inspector's dependencies, the resource
-form's assigned tasks, the report tables -- are still their own markup.
+**Status: wired into the task form's Subtasks, Dependencies and its
+add-dependency picker, and the product form's Activities.** The picker
+offers compact `picker` rows -- ID, dates, status, people -- ranked by
+names that start with what was typed, without the task itself or its
+existing predecessors, capped at 50 with a count of the rest. The other
+lists the survey found -- task peek, the inspector's dependencies, the
+resource form's assigned tasks, the report tables -- are still their own
+markup.
 
 ### Composed forms
 

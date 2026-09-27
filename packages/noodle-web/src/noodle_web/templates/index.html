@@ -2568,10 +2568,14 @@ Build
                             <div class="dependency-inline-add autocomplete-container" style="position: relative; margin-top: 10px;">
                                 <input type="text" id="addDependencyInput" class="dependency-add-input"
                                        placeholder="Add dependency" autocomplete="off"
+                                       role="combobox" aria-autocomplete="list" aria-expanded="false"
+                                       aria-controls="addDependencyAutocomplete"
                                        data-dropdown="addDependencyAutocomplete"
                                        oninput="handleDependencyInput(this)"
                                        onkeydown="handleAddDependencyKeydown(event, this)">
-                                <div id="addDependencyAutocomplete" class="autocomplete-dropdown"></div>
+                                <!-- One <np-task-row type="picker"> per match (renderDependencyPicker in script.js). -->
+                                <div id="addDependencyAutocomplete" class="autocomplete-dropdown task-picker-dropdown"
+                                     role="listbox" aria-label="Tasks to depend on"></div>
                             </div>
                             <small style="display: block; margin-top: 5px;">Click a dependency's type to change it or add a lag: +2d (wait after), lead: -1d (start before)</small>
                         </div>
