@@ -24,6 +24,13 @@
  *     so, and give each target a button that asks for its file, one click
  *     each (a file dialog needs its own click).
  *
+ * Once everything is linked the button never shows the dialog again, so it
+ * cannot be how a plan synced with one file goes on to link a second, or
+ * swaps a linked file for another. openSyncFiles() opens the dialog in
+ * 'manage' mode for that, whatever state the targets are in: the Report
+ * ribbon's Sync Files button, and Settings > Storage and Settings > Sync,
+ * all open it.
+ *
  * While a run is going, the button shows it (data-sync-state="running",
  * aria-busy) and a second press opens the dialog on the progress rather than
  * starting another run. When it ends, a toast says what happened to each
@@ -103,6 +110,16 @@ function syncHubMode(states, supported) {
     return null;
 }
 
+/** The dialog for linking, changing and unlinking the files, whatever state
+ *  they are in: the way back to it once everything is linked. */
+async function openSyncFiles() {
+    if (syncRun.running) {
+        openSyncHub('running');
+        return;
+    }
+    openSyncHub('manage', await syncTargetStates());
+}
+
 /** The Report ribbon's Sync button. Runs from the click. */
 async function runFrontOfHouseSync() {
     if (syncRun.running) {
@@ -133,7 +150,7 @@ function overlayIsOpen(id) {
  * the review is applied or cancelled, so reviews never stack on top of one
  * another.
  */
-async function runSyncTargets(defs) {
+async function runSyncTargets(defs, options) {
     if (syncRun.running || !defs.length) return;
     syncRun.running = true;
     syncRun.queue = defs.slice();
@@ -147,7 +164,7 @@ async function runSyncTargets(defs) {
         renderSyncHubIfOpen();
         const reported = new Promise((resolve) => syncRun.waiters.set(def.targetKey, resolve));
         try {
-            await def.syncAction();
+            await def.syncAction(options);
         } catch (error) {
             console.error('Sync of ' + def.label + ' failed:', error);
             reportSyncOutcome(def.targetKey, 'error', error.message);
@@ -206,6 +223,7 @@ const SYNC_HUB_INTRO = {
     setup: 'Sync keeps this plan and the files other people work in the same. Nothing is linked yet: link a file below, and from then on this button reads the changes made in it, lets you review them, and writes the plan back out.',
     manual: 'This browser can’t remember a file between syncs, so Sync can’t be one click here: choose the file each time, and the updated copy downloads rather than overwriting it. Chrome and Edge can link a file once and sync it in one click.',
     attention: 'Some linked files need your permission again before this browser can read them. Re-link them below, then sync. Files that are ready sync as they are.',
+    manage: 'The files this plan syncs with. Link another file, change a linked file for a different one, or unlink one. Sync reads the changes made in each linked file, lets you review them, and writes the plan back out.',
     running: 'Syncing…',
 };
 
@@ -238,6 +256,8 @@ async function renderSyncHub(states) {
         if (mode === 'setup' || mode === 'manual') {
             buttons.push(['sync', supported ? 'Link existing file…' : 'Choose file…', 'secondary']);
             if (def.createAction && supported) buttons.push(['create', def.createLabel || 'Create…', 'neutral']);
+        } else if (mode === 'manage') {
+            buttons.push(...manageButtons(s, def, supported));
         } else if (mode === 'attention') {
             if (s.status === 'needs-relink') buttons.push(['relink', 'Re-link', 'primary']);
             else if (s.status === 'unlinked' && s.file) buttons.push(['sync', 'Link and sync…', 'secondary']);
@@ -256,7 +276,7 @@ async function renderSyncHub(states) {
 
     const ready = list.filter((s) => s.configured && s.status === 'linked');
     let footerHtml = '<np-button variant="neutral" data-sync-hub-action="settings">Sync settings</np-button>';
-    if (mode === 'attention') {
+    if (mode === 'attention' || (mode === 'manage' && ready.length)) {
         footerHtml += '<np-button variant="primary" data-sync-hub-action="run"' + (ready.length ? '' : ' disabled') + '>' +
             (ready.length ? 'Sync ' + ready.length + ' ready file' + (ready.length === 1 ? '' : 's') : 'Nothing ready to sync') + '</np-button>';
     } else {
@@ -267,6 +287,25 @@ async function renderSyncHub(states) {
     const handle = (el, action, s) => el.addEventListener('click', () => syncHubAction(action, s, list));
     body.querySelectorAll('[data-sync-hub-action]').forEach((el) => handle(el, el.dataset.syncHubAction, list[Number(el.dataset.syncHubIdx)]));
     footer.querySelectorAll('[data-sync-hub-action]').forEach((el) => handle(el, el.dataset.syncHubAction, null));
+}
+
+/** A target's buttons in 'manage' mode: link it if it isn't, change or
+ *  unlink it if it is. */
+function manageButtons(s, def, supported) {
+    const buttons = [];
+    if (!supported) {
+        buttons.push(['sync', 'Choose file…', 'secondary']);
+    } else if (!s.configured) {
+        buttons.push(['sync', 'Link existing file…', 'secondary']);
+        if (def.createAction) buttons.push(['create', def.createLabel || 'Create…', 'neutral']);
+    } else if (s.status === 'unlinked') {
+        buttons.push(['sync', 'Link and sync…', 'secondary']);
+    } else {
+        if (s.status === 'needs-relink') buttons.push(['relink', 'Re-link', 'primary']);
+        buttons.push(['change', 'Change file…', 'secondary']);
+    }
+    if (s.configured) buttons.push(['unlink', 'Unlink', 'neutral']);
+    return buttons;
 }
 
 async function syncHubAction(action, s, list) {
@@ -287,6 +326,18 @@ async function syncHubAction(action, s, list) {
     }
     if (action === 'create') {
         await s.def.createAction();
+        renderSyncHub();
+        return;
+    }
+    if (action === 'change') {
+        // Straight to the file picker, even though a file is linked: it
+        // needs this click's activation, so nothing may be awaited first.
+        closeSyncHub();
+        await runSyncTargets([s.def], { chooseFile: true });
+        return;
+    }
+    if (action === 'unlink') {
+        if (typeof unlinkSyncTarget === 'function') await unlinkSyncTarget(s.def.key);
         renderSyncHub();
         return;
     }

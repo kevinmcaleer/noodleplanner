@@ -54,3 +54,24 @@
 @keyframes np-sync-spin {
     to { transform: rotate(360deg); }
 }
+
+/* Settings > Storage and Settings > Sync: the way back to the Sync dialog
+   once every link works and the ribbon's Sync no longer shows it. */
+.settings-sync-files {
+    margin-top: var(--np-space-20);
+    padding-top: var(--np-space-12);
+    border-top: 1px solid var(--np-border);
+}
+
+.settings-sync-files h4 {
+    margin: 0 0 var(--np-space-4);
+    font-size: var(--np-text-95);
+}
+
+.settings-sync-files p {
+    margin: 0 0 var(--np-space-12);
+}
+
+.settings-sync-files-actions {
+    margin-top: var(--np-space-12);
+}
