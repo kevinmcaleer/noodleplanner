@@ -4186,9 +4186,11 @@ function handleAddDependencyKeydown(event, input) {
 /** Add `name` as a predecessor of the task in the form, from the add box. */
 function commitDependencyPick(input, name) {
     const self = (document.getElementById('taskName')?.value || '').trim().toLowerCase();
-    if (name.toLowerCase() === self) {
+    if (name.toLowerCase() === self || dependencyLoopNames().has(name.toLowerCase())) {
         if (typeof showMessage === 'function') {
-            showMessage('editor', 'error', 'A task cannot depend on itself');
+            showMessage('editor', 'error', name.toLowerCase() === self
+                ? 'A task cannot depend on itself'
+                : `Depending on "${name}" would make a loop`);
         }
         return;
     }
@@ -5119,21 +5121,101 @@ function dependencyListNames() {
 }
 
 /**
+ * Lower-cased names the task in the form cannot depend on without making a
+ * loop -- the kinds the engine reports (scheduling_engine.py):
+ *
+ * - itself;
+ * - its own phases above it and subtasks below it, whose dates roll up
+ *   from, or into, its own (a "hierarchy dependency conflict");
+ * - anything that already waits on it, directly or through other tasks --
+ *   including the subtasks of anything that does, which wait with their
+ *   phase -- since it would then be waiting on its own successor.
+ */
+function dependencyLoopNames() {
+    const loop = new Set();
+    const self = (document.getElementById('taskName')?.value || '').trim().toLowerCase();
+    if (self) loop.add(self);
+
+    // The plan's hierarchy, by lower-cased name.
+    const nodesByName = new Map();
+    let selfNode = null;
+    const editor = document.getElementById('planEditor');
+    if (editor && typeof NoodlePlanModel !== 'undefined') {
+        const model = NoodlePlanModel.modelForEditor(editor);
+        for (const node of model.tasks) {
+            const key = String(node.name).toLowerCase();
+            if (!nodesByName.has(key)) nodesByName.set(key, []);
+            nodesByName.get(key).push(node);
+        }
+        if (currentTaskLineNumber) selfNode = model.taskAtLine(currentTaskLineNumber);
+    }
+    const descendants = (node, into) => node.children.forEach(child => {
+        into.push(String(child.name).toLowerCase());
+        descendants(child, into);
+    });
+
+    if (selfNode) {
+        loop.add(String(selfNode.name).toLowerCase());
+        for (let up = selfNode.parent; up; up = up.parent) loop.add(String(up.name).toLowerCase());
+        const below = [];
+        descendants(selfNode, below);
+        below.forEach(name => loop.add(name));
+    }
+
+    // Successors, transitively, from the engine's own reading of [depends],
+    // each bringing its subtasks with it.
+    const waitingOn = new Map();
+    for (const task of lastRenderedTasks || []) {
+        for (const dep of task.depends || []) {
+            const key = String(dep).toLowerCase();
+            if (!waitingOn.has(key)) waitingOn.set(key, []);
+            waitingOn.get(key).push(String(task.name).toLowerCase());
+        }
+    }
+    const seen = new Set();
+    const queue = self ? [self] : [];
+    while (queue.length) {
+        const name = queue.shift();
+        if (seen.has(name)) continue;
+        seen.add(name);
+        for (const successor of waitingOn.get(name) || []) {
+            const reached = [successor];
+            for (const node of nodesByName.get(successor) || []) descendants(node, reached);
+            for (const next of reached) {
+                loop.add(next);
+                queue.push(next);
+            }
+        }
+    }
+    return loop;
+}
+
+/**
  * The tasks the add box offers for `query`: every task whose name contains
- * it, less the task being edited and the ones it already depends on. Names
- * that start with the query come first; each group keeps plan order.
+ * it, less the ones it already depends on and any that would make a loop
+ * (dependencyLoopNames). An empty query offers them all, in plan order;
+ * otherwise names that start with the query come first, each group in plan
+ * order.
  */
 function dependencyPickerMatches(query) {
     const q = String(query || '').trim().toLowerCase();
-    if (!q) return [];
-    const self = (document.getElementById('taskName')?.value || '').trim().toLowerCase();
-    const taken = dependencyListNames();
+    const excluded = dependencyLoopNames();
+    for (const name of dependencyListNames()) excluded.add(name);
     const names = [...new Set(getAllTaskNames())].filter(name => {
         const lower = name.toLowerCase();
-        return lower.includes(q) && lower !== self && !taken.has(lower);
+        return lower.includes(q) && !excluded.has(lower);
     });
+    if (!q) return names;
     const starts = names.filter(name => name.toLowerCase().startsWith(q));
     return starts.concat(names.filter(name => !name.toLowerCase().startsWith(q)));
+}
+
+/** A click in the add box opens the picker -- with every task it could
+ * depend on when the box is empty -- unless it is already open. */
+function openDependencyPicker(input) {
+    const dropdown = document.getElementById(input.getAttribute('data-dropdown'));
+    if (dropdown && dropdown.style.display === 'block') return;
+    handleDependencyInput(input);
 }
 
 function handleDependencyInput(input) {
@@ -5207,7 +5289,15 @@ function hideDependencyPicker(input) {
 
 function handleDependencyKeydown(event, input) {
     const dropdown = document.getElementById(input.getAttribute('data-dropdown'));
-    if (!dropdown || dropdown.style.display !== 'block') return;
+    if (!dropdown) return;
+    // ArrowDown on a closed box opens it, the combobox convention.
+    if (dropdown.style.display !== 'block') {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            handleDependencyInput(input);
+        }
+        return;
+    }
 
     const options = [...dropdown.querySelectorAll('np-task-row')];
     if (options.length === 0) return;

@@ -43,6 +43,11 @@
  * taking input.
  *   outline   writing a plan: name and an estimate, no people or RAG.
  *
+ * A summary can carry a `count` ("3", "2/5") in a small pill, and any row
+ * an `action` of menu, remove or open (`action-label` renames it for
+ * assistive technology and the tooltip). Menu and remove are revealed on
+ * hover; open is always shown, because it is the way in.
+ *
  * `density="compact"` is the 32px row for dropdowns and dense panels; the
  * default is 40px. Under a coarse pointer every row is at least
  * --np-touch-target tall.
@@ -131,6 +136,9 @@ TEMPLATE.innerHTML = `
       opacity: 0;
       transition: opacity 0.12s ease;
     }
+    /* "open" goes somewhere rather than doing something to the row, so it is
+       a way in that has to be findable, not a hover affordance. */
+    .action[data-kind="open"] { opacity: 1; }
     .row:hover .handle, .row:hover .action,
     .row:focus-within .handle, .row:focus-within .action,
     :host([selected]) .handle, :host([selected]) .action,
@@ -253,6 +261,24 @@ TEMPLATE.innerHTML = `
       color: var(--np-accent-ink);
     }
 
+    /* A summary's child count ("3", "2/5"): what it holds, before it is
+       opened. Read-only; the trailing action is what opens it. */
+    .count {
+      flex: 0 0 auto;
+      min-width: var(--np-space-16);
+      padding: 0 var(--np-space-4);
+      border: 1px solid var(--np-border);
+      border-radius: var(--np-radius-pill);
+      background: var(--np-surface);
+      color: var(--np-body);
+      font-size: var(--np-text-75);
+      font-weight: var(--np-weight-semibold);
+      font-variant-numeric: tabular-nums;
+      line-height: var(--np-leading-snug);
+      text-align: center;
+      white-space: nowrap;
+    }
+
     .rag {
       flex: 0 0 auto;
       box-sizing: border-box;
@@ -353,6 +379,7 @@ TEMPLATE.innerHTML = `
       ${RELATIONS.map((r) => `<option value="${r}">${r}</option>`).join('')}
     </select>
     <input class="rel-lag" type="text" aria-label="Lag or lead" placeholder="+2d" autocomplete="off" />
+    <span class="count" part="count"></span>
     <span class="meta" part="meta"></span>
     <span class="rag" part="rag" role="img"></span>
     <span class="people" part="people">
@@ -370,7 +397,7 @@ export class NpTaskRow extends HTMLElement {
             'type', 'density', 'name', 'task-id', 'percent', 'summary', 'indeterminate',
             'meta', 'rag', 'rag-label', 'resources', 'assignable', 'relation', 'lag',
             'editing', 'placeholder', 'selected', 'handle', 'action', 'depth',
-            'collapsible', 'collapsed', 'readonly', 'driving',
+            'collapsible', 'collapsed', 'readonly', 'driving', 'count', 'action-label',
         ];
     }
 
@@ -395,6 +422,7 @@ export class NpTaskRow extends HTMLElement {
             pill: $('.pill'),
             relType: $('.rel-type'),
             relLag: $('.rel-lag'),
+            count: $('.count'),
             meta: $('.meta'),
             rag: $('.rag'),
             people: $('.people'),
@@ -647,6 +675,10 @@ export class NpTaskRow extends HTMLElement {
         }
         this._wasEditing = editing;
 
+        const count = this.getAttribute('count') || '';
+        e.count.textContent = count;
+        e.count.hidden = !count;
+
         // Details.
         const meta = this.getAttribute('meta') || '';
         e.meta.textContent = meta;
@@ -680,9 +712,9 @@ export class NpTaskRow extends HTMLElement {
         if (hasAction) {
             e.action.dataset.kind = kind;
             e.action.textContent = ACTION_GLYPHS[kind];
-            const label = `${ACTION_LABELS[kind]} "${name}"`;
-            e.action.setAttribute('aria-label', label);
-            e.action.title = ACTION_LABELS[kind];
+            const custom = this.getAttribute('action-label');
+            e.action.setAttribute('aria-label', custom || `${ACTION_LABELS[kind]} "${name}"`);
+            e.action.title = custom || ACTION_LABELS[kind];
         }
 
         e.hint.hidden = type !== 'picker';

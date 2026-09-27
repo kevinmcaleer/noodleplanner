@@ -247,9 +247,7 @@ class TestPeekPin:
         # to anybody. A grandchild can: Nested stays off the board throughout.
         def sub_b_pin(page):
             peek = self.open_peek(page, "Build", "Nested")
-            peek.locator(".task-peek-row").filter(
-                has=page.get_by_text("Sub B", exact=True)
-            ).locator(".wb-note-count-badge").dispatch_event("click")
+            peek.locator('np-task-row.task-peek-row[name="Sub B"] button.action').dispatch_event("click")
             page.wait_for_function(
                 "() => document.querySelector("
                 "  '#taskPeekPopover .task-peek-title').textContent === 'Sub B'"

@@ -24,12 +24,12 @@
  * wbToggleChildComplete()/wbOpenChildTask() -- a future consumer (a
  * simple-plan-entry view, a live-collaboration joiner interface) can open
  * the exact same popover by building its own {task, children} level and
- * callbacks, without touching this file at all. The one place this file
- * *does* lean on an existing whiteboard convention is cosmetic: peek rows
- * reuse the `.wb-note-avatar` / `.wb-note-count-badge` CSS classes
- * (views/whiteboard.css, #846/#846) so its chips/badge are pixel-identical
- * to a note's own -- see task-peek.css's header comment for the trade-off
- * that creates.
+ * callbacks, without touching this file at all. Each row is an
+ * <np-task-row> (components/task-row/, the Penpot "Task row"): completion
+ * is <np-checkbox>, people are <np-resource-stack>, and a child with
+ * children carries its count and an always-visible "open" action -- the
+ * same row the task form's Subtasks use, rather than a native checkbox and
+ * the whiteboard's own avatar and badge classes borrowed at a smaller size.
  *
  * Breadcrumb: `tpState.levels` is a small stack of {task, children}
  * levels, pushed via tpPushLevel() when the user drills into a child that
@@ -118,25 +118,6 @@ const TP_EDGE_GAP = 8;
  * null while closed.
  */
 let tpState = null;
-
-/** First-plus-last-initial fallback -- delegates to whiteboard-notes.js's
- * real wbGetInitials() when it's loaded (the running app always has it
- * loaded before this file's callers ever invoke it), so avatar initials
- * stay identical between a note's own footer and this popover's rows; the
- * body below exists only so this file works standalone (e.g. a future
- * non-whiteboard consumer, or this file's own isolated unit tests). */
-function tpGetInitials(name) {
-    if (typeof wbGetInitials === 'function') return wbGetInitials(name);
-    const trimmed = String(name || '').trim();
-    if (!trimmed) return '?';
-    const words = trimmed.split(/\s+/);
-    if (words.length >= 2) {
-        return (words[0][0] + words[words.length - 1][0]).toUpperCase();
-    } else if (words.length === 1 && words[0].length >= 2) {
-        return words[0].substring(0, 2).toUpperCase();
-    }
-    return trimmed.substring(0, 1).toUpperCase();
-}
 
 /**
  * Open (or re-root, if a different task's peek was already open) the peek.
@@ -314,7 +295,7 @@ function tpBuildBreadcrumb() {
  * Taken from components/note/note-markup.js through the global the whiteboard
  * already reads it from, so the pin on a peek, on a note header and on an
  * outline row are one drawing. The inline fallback keeps this file standalone
- * -- the same arrangement tpGetInitials() above uses for wbGetInitials().
+ * -- the same fallback arrangement the rest of this file uses for app globals.
  */
 function tpPinGlyph(size) {
     const markup = (typeof globalThis !== 'undefined') ? globalThis.NoodleNoteMarkup : null;
@@ -405,12 +386,14 @@ function tpBuildHeader(level) {
 }
 
 function tpBuildList(level) {
-    const list = document.createElement('ul');
+    const list = document.createElement('div');
     list.className = 'task-peek-list';
+    list.setAttribute('role', 'list');
 
     if (!level.children || !level.children.length) {
-        const empty = document.createElement('li');
+        const empty = document.createElement('div');
         empty.className = 'task-peek-empty';
+        empty.setAttribute('role', 'listitem');
         empty.textContent = 'No subtasks';
         list.appendChild(empty);
         return list;
@@ -420,73 +403,57 @@ function tpBuildList(level) {
     return list;
 }
 
-/** One child row: checkbox, name, assignee chips, and (if it has its own
- * children) a badge that drills the peek one level deeper -- "just task
- * name and assigned to" plus the one extra affordance the epic's own
- * question calls for (a way to keep going deeper without leaving the
- * board). Nothing else is editable from here (renaming/reassigning/
- * re-dating are explicitly out of scope -- see the issue). */
+/** One child row, as an <np-task-row>: completion, name, assignees, and --
+ * if it has its own children -- their count and an "open" action that
+ * drills the peek one level deeper. Clicking a name drills into a child
+ * with children and opens a leaf's task details, the way a name opens its
+ * task in every other task row; clicking the row's blank space drills, as
+ * it always did. Nothing else is editable from here (renaming,
+ * reassigning, re-dating are out of scope -- see issue #850). */
 function tpBuildRow(childVm) {
     const task = childVm.task;
-    const row = document.createElement('li');
+    const row = document.createElement('np-task-row');
     row.className = 'task-peek-row';
+    row.setAttribute('role', 'listitem');
+    row.setAttribute('density', 'compact');
+    row.setAttribute('name', task.name);
+    // `complete` is the view-model's say on done; anything short of it is
+    // the task's own percent, shown as a part-filled box.
+    const percent = childVm.complete ? 100 : Math.min(99, parseFloat(task.percent) || 0);
+    row.setAttribute('percent', String(percent));
+    row.setAttribute('resources', (childVm.resources || []).join(', '));
 
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'task-peek-checkbox';
-    checkbox.checked = !!childVm.complete;
-    checkbox.setAttribute('aria-label', `Mark "${task.name}" as ${childVm.complete ? 'incomplete' : 'complete'}`);
-    checkbox.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const checked = checkbox.checked;
+    row.addEventListener('task-toggle', (e) => {
+        const checked = e.detail.checked;
         // Same "instant confetti, same commit path" treatment a note's own
-        // checkbox gets (see whiteboard-notes.js's wbBuildChildRow()) --
-        // duplicated here (rather than routed through onToggle) because
-        // spawnConfetti() is a general app-wide effect (editor-sync.js),
-        // not whiteboard-specific, so calling it directly here doesn't
-        // create any whiteboard coupling.
-        if (checked && typeof spawnConfetti === 'function') spawnConfetti(checkbox);
+        // checkbox gets (see whiteboard-notes.js's wbBuildChildRow()).
+        // spawnConfetti() is a general app-wide effect (editor-sync.js), so
+        // calling it here creates no whiteboard coupling.
+        if (checked && typeof spawnConfetti === 'function') spawnConfetti(row.checkbox);
         if (tpState && typeof tpState.onToggle === 'function') tpState.onToggle(task, checked);
         childVm.complete = checked;
-        checkbox.setAttribute('aria-label', `Mark "${task.name}" as ${checked ? 'incomplete' : 'complete'}`);
     });
-    row.appendChild(checkbox);
-
-    const name = document.createElement('span');
-    name.className = 'task-peek-row-name';
-    name.textContent = task.name;
-    name.title = task.name;
-    row.appendChild(name);
-
-    const avatars = document.createElement('div');
-    avatars.className = 'task-peek-avatars';
-    (childVm.resources || []).slice(0, 4).forEach(resource => {
-        const avatar = document.createElement('div');
-        avatar.className = 'wb-note-avatar';
-        avatar.title = resource;
-        avatar.textContent = tpGetInitials(resource);
-        avatars.appendChild(avatar);
-    });
-    row.appendChild(avatars);
 
     if (childVm.hasChildren) {
-        const badge = document.createElement('button');
-        badge.type = 'button';
-        badge.className = 'wb-note-count-badge task-peek-count-badge';
-        badge.textContent = `${childVm.childCount} ▾`;
-        badge.setAttribute('aria-label', `${task.name} has ${childVm.childCount} subtasks. Peek subtasks.`);
-        badge.addEventListener('click', (e) => {
+        row.setAttribute('summary', '');
+        row.setAttribute('count', String(childVm.childCount));
+        row.setAttribute('action', 'open');
+        row.setAttribute('action-label', `${task.name} has ${childVm.childCount} subtasks. Peek subtasks.`);
+        row.addEventListener('task-action', (e) => {
             e.stopPropagation();
             tpDrillInto(task.name);
         });
-        row.appendChild(badge);
-
-        row.classList.add('task-peek-row-drillable');
-        // The badge's own click already stopPropagation()s, so this only
-        // ever fires for a click on the row's own name/blank area -- the
-        // issue's "or the todo row itself" affordance, mirrored one level
-        // deeper than the note's own equivalent.
+        row.addEventListener('task-open', () => tpDrillInto(task.name));
+        // The row's controls stop their own clicks, so this only fires for
+        // its blank space -- the issue's "or the todo row itself".
         row.addEventListener('click', () => tpDrillInto(task.name));
+    } else {
+        row.addEventListener('task-open', () => {
+            const onOpenDetails = tpState && tpState.onOpenDetails;
+            // Close first, as the header's "Open task details" does.
+            tpClose();
+            if (typeof onOpenDetails === 'function') onOpenDetails(task);
+        });
     }
 
     return row;

@@ -11,9 +11,6 @@
       "packages/noodle-web/src/noodle_web/static/views/timeline.css": {
         "padding: 250px 0 150px 0 (150px)": 1,
         "padding: 250px 0 150px 0 (250px)": 1
-      },
-      "packages/noodle-web/src/noodle_web/static/views/whiteboard.css": {
-        "margin-left: -5px (-5px)": 1
       }
     },
     "raw-colour": {
