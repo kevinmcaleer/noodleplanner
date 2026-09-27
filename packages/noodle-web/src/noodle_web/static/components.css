@@ -8199,6 +8199,190 @@ button.ribbon-breadcrumb-rung:hover {
     text-align: center;
 }
 
+/* The touch tab picker and search button (#1388) exist only in the touch
+   layout below; everywhere else the tab strip and the search box do. */
+.ribbon-tab-picker,
+.ribbon-search-btn {
+    display: none;
+}
+
+/* ============================================================================
+   The ribbon under a touch pointer (#1388, epic #1376)
+
+   On a tablet the ribbon is the navigation, and every control in it was
+   22-28px: scope pills 22, quick actions ~24, File 24, small buttons 23,
+   Simple-mode buttons 28. With `data-pointer="coarse"` (layout-mode.js) every
+   ribbon control takes --np-touch-target instead.
+
+   Three 44px rows -- title bar, tabs, commands -- would be 132px and more, so
+   a touch device defaults to the Simple ribbon (ribbon.js's
+   resolveDisplayMode), and in Simple mode the tabs fold into one picker at the
+   start of the command row: two rows, about 90px, where the full ribbon was
+   170-207px on the same tablets. The ▼ menu still offers every mode, and a
+   choice made there is kept.
+
+   `:root[data-pointer="coarse"] body` outranks visual-system.css's
+   `:root body` narrow-width rules, which wrap the title bar onto three rows
+   below 900px.
+   ============================================================================ */
+:root[data-pointer="coarse"] body .ribbon-titlebar {
+    height: auto;
+    min-height: var(--np-touch-target);
+    flex-wrap: nowrap;
+    gap: var(--np-space-4);
+    padding: 0 var(--np-space-8);
+}
+
+:root[data-pointer="coarse"] body :is(
+    .ribbon-scope-btn,
+    .ribbon-quick-btn,
+    .ribbon-file-btn,
+    .ribbon-tab-btn,
+    .ribbon-tab-picker,
+    .ribbon-search-btn,
+    .ribbon-breadcrumb-rung,
+    .ribbon-display-toggle-btn,
+    .ribbon-simple-btn,
+    .ribbon-simple-group-trigger,
+    .ribbon-sm-btn,
+    .ribbon-lg-btn,
+    .ribbon-more-btn,
+    .ribbon-display-menu-item,
+    .ribbon-file-menu-item,
+    .ribbon-simple-menu-item
+) {
+    min-width: var(--np-touch-target);
+    min-height: var(--np-touch-target);
+}
+
+:root[data-pointer="coarse"] body :is(.ribbon-scope-btn, .ribbon-quick-btn, .ribbon-search-btn) {
+    justify-content: center;
+    align-items: center;
+    height: var(--np-touch-target);
+}
+
+/* The profile circle is a 24px circle on a desktop; a 44px one here. */
+:root[data-pointer="coarse"] body .ribbon-titlebar .user-profile-circle-empty {
+    width: var(--np-touch-target);
+    height: var(--np-touch-target);
+}
+
+:root[data-pointer="coarse"] body .ribbon-titlebar .user-profile-circle {
+    --np-avatar-size: var(--np-touch-target);
+}
+
+:root[data-pointer="coarse"] body .ribbon-search-wrap {
+    height: var(--np-touch-target);
+}
+
+:root[data-pointer="coarse"] body .ribbon-search-input {
+    align-self: stretch;
+    min-height: var(--np-touch-target);
+}
+
+:root[data-pointer="coarse"] body .ribbon-tabstrip {
+    height: auto;
+    min-height: var(--np-touch-target);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+:root[data-pointer="coarse"] body :is(.ribbon-tab-btn, .ribbon-file-btn) {
+    height: var(--np-touch-target);
+    flex-shrink: 0;
+}
+
+:root[data-pointer="coarse"] body .ribbon-body:not(.ribbon-body-simple) {
+    height: auto;
+    min-height: 98px;
+}
+
+:root[data-pointer="coarse"] body .ribbon-body.ribbon-body-simple {
+    height: auto;
+    min-height: var(--np-touch-target);
+}
+
+/* Room for the 44px targets on a tablet: the mark is decoration, the scope
+   pills keep their icons (and names for screen readers), and below 900px the
+   search box becomes a button to the Search view. */
+@media (max-width: 1024px) {
+    :root[data-pointer="coarse"] body .ribbon-mark {
+        display: none;
+    }
+
+    :root[data-pointer="coarse"] body .ribbon-scope-btn {
+        padding: 0;
+    }
+
+    :root[data-pointer="coarse"] body .ribbon-scope-label {
+        display: none;
+    }
+}
+
+@media (max-width: 900px) {
+    :root[data-pointer="coarse"] body .ribbon-search-wrap {
+        display: none;
+    }
+
+    :root[data-pointer="coarse"] body .ribbon-search-btn svg {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+    }
+
+    :root[data-pointer="coarse"] body .ribbon-search-btn {
+        display: flex;
+        padding: 0;
+        border: none;
+        border-radius: var(--np-radius-sm);
+        background: transparent;
+        color: var(--np-dark-blue-subtle);
+        cursor: pointer;
+    }
+}
+
+/* Simple mode: the tabs fold into the picker, which shares the command row. */
+:root[data-pointer="coarse"] body .ribbon-shell[data-mode="simple"] {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+}
+
+:root[data-pointer="coarse"] body .ribbon-shell[data-mode="simple"] > .ribbon-titlebar {
+    grid-column: 1 / -1;
+}
+
+:root[data-pointer="coarse"] body .ribbon-shell[data-mode="simple"] > .ribbon-tabstrip {
+    overflow: visible;
+    align-items: center;
+    background: var(--np-surface);
+    border-bottom: 1px solid var(--np-border);
+}
+
+:root[data-pointer="coarse"] body .ribbon-shell[data-mode="simple"] > .ribbon-tabstrip > :is(
+    .ribbon-file-btn,
+    .ribbon-tab-btn,
+    .ribbon-tabstrip-spacer
+) {
+    display: none;
+}
+
+:root[data-pointer="coarse"] body .ribbon-shell[data-mode="simple"] .ribbon-tab-picker {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-8);
+    padding: 0 var(--np-space-12);
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-control);
+    background: var(--np-surface);
+    color: var(--np-dark-blue);
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
 /* #966: host presence panel (Planning session modal) -- see
    collab-session.js's renderCollabPresence()/kickCollabJoiner().
    The --np-* tokens are redefined per theme in dark-mode.css, so these

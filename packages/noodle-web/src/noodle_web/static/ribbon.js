@@ -69,6 +69,11 @@ function savePersistedState() {
             // display preference, same category the old fields were -- never
             // written into plan text or front matter.
             displayMode: ribbonState.displayMode,
+            // #1388: whether that mode was picked from the ▼ menu, as
+            // opposed to being the default for the device -- a touch
+            // tablet defaults to Simple, and a choice made there must not
+            // be mistaken for a default later.
+            displayModeChosen: !!ribbonState.displayModeChosen,
         }));
     } catch (error) {
         // localStorage unavailable (private mode, quota) -- state just won't persist.
@@ -85,9 +90,16 @@ function savePersistedState() {
  * ribbon into an unrenderable state).
  */
 function resolveDisplayMode(persisted) {
-    if (persisted.displayMode === 'tabs' || persisted.displayMode === 'simple' || persisted.displayMode === 'full') {
-        return persisted.displayMode;
-    }
+    const valid = persisted.displayMode === 'tabs' || persisted.displayMode === 'simple' || persisted.displayMode === 'full';
+    // #1388: a touch device defaults to the Simple ribbon, whose one row of
+    // commands keeps a 44px-target ribbon near 90px tall where the full one
+    // would be well over 200px. Only the default changes: a mode someone
+    // picked from the ▼ menu is theirs.
+    const root = typeof document !== 'undefined' ? document.documentElement : null;
+    const coarse = !!(root && root.dataset && root.dataset.pointer === 'coarse');
+    if (valid && (persisted.displayModeChosen || !coarse)) return persisted.displayMode;
+    if (coarse && !persisted.displayModeChosen) return 'simple';
+    if (valid) return persisted.displayMode;
     if (persisted.collapsed) return 'tabs';
     if (persisted.density === 'simple') return 'simple';
     return 'full';
@@ -98,6 +110,7 @@ const ribbonState = {
     scope: persisted.scope || 'project',
     activeTab: 'home',
     displayMode: resolveDisplayMode(persisted),
+    displayModeChosen: !!persisted.displayModeChosen,
     morePopoverOpen: false,
     displayMenuOpen: false,
     openGroupTrigger: null,
@@ -745,6 +758,7 @@ async function ribbonCreateCommand(view) {
 function closePopovers() {
     document.querySelectorAll('.ribbon-file-menu, .ribbon-more-popover, .ribbon-display-menu, .ribbon-simple-group-popover').forEach((el) => el.remove());
     ribbonState.morePopoverOpen = false;
+    ribbonState.tabMenuOpen = false;
     ribbonState.displayMenuOpen = false;
     ribbonState.openGroupTrigger = null;
 }
@@ -796,8 +810,8 @@ function icon(name, size, extraStyle) {
 function renderTitleBar(ia, live) {
     const scopePills = ia.SCOPES.map((s) => {
         const active = s.id === ribbonState.scope;
-        return `<button type="button" class="ribbon-scope-btn${active ? ' active' : ''}" data-scope="${s.id}" title="${s.blurb}">
-            ${icon(s.icon, 14)}${s.label}
+        return `<button type="button" class="ribbon-scope-btn${active ? ' active' : ''}" data-scope="${s.id}" title="${s.blurb}" aria-label="${s.label}">
+            ${icon(s.icon, 14)}<span class="ribbon-scope-label">${s.label}</span>
         </button>`;
     }).join('');
 
@@ -868,7 +882,13 @@ function wireCollabPeople(live) {
  * own, DOM-stable input on the very first keystroke rather than trying to
  * keep typing in a node that won't survive the next render. */
 function renderSearchBox() {
+    // A narrow touch tablet (#1388) has no room for the box beside 44px
+    // quick actions: the search button goes straight to the Search view,
+    // as the phone's does. Hidden everywhere else (components.css).
     return `
+        <button type="button" class="ribbon-search-btn" data-action="open-search" aria-label="Search this project" title="Search this project">
+            ${icon('search', 18)}
+        </button>
         <div class="ribbon-search-wrap">
             ${icon('search', 13)}
             <input type="search" class="ribbon-search-input" id="ribbonSearchInput"
@@ -914,12 +934,57 @@ function renderTabStrip(ia, ctxTab) {
             role="tab" aria-selected="${active}" style="border-bottom-color:${ctxTab.accent}">${ctxTab.label}</button>`;
     }
 
+    // #1388: with a touch pointer the Simple ribbon puts its tabs behind one
+    // picker at the start of the command row -- three 44px rows (title, tabs,
+    // commands) would not fit a tablet's 130px budget, two do. Rendered
+    // always, shown only there (components.css).
+    const activeLabel = (ribbonState.activeTab === '__ctx' && ctxTab)
+        ? ctxTab.label
+        : (ia.tabsForScope(ribbonState.scope).find((t) => t.id === ribbonState.activeTab) || {}).label || 'Home';
+    const picker = `<button type="button" class="ribbon-tab-picker" data-action="toggle-tab-menu"
+        aria-haspopup="menu" aria-expanded="${!!ribbonState.tabMenuOpen}" aria-label="Ribbon tab: ${ribbonEscapeHtml(activeLabel)}">
+        <span class="ribbon-tab-picker-label">${ribbonEscapeHtml(activeLabel)}</span><span class="ribbon-caret">▼</span></button>`;
+
     return `
+        ${picker}
         <button type="button" class="ribbon-file-btn" data-action="open-backstage" title="Home" aria-label="Home">File</button>
         ${tabs}${ctxHtml}
         <div class="ribbon-tabstrip-spacer"></div>
         ${renderDisplaySelector()}
     `;
+}
+
+/** The touch tab picker's menu (#1388): File, the scope's tabs and the
+ * view's contextual tab -- what the tab strip holds. */
+async function renderTabMenu() {
+    const shell = document.querySelector('.ribbon-shell');
+    const picker = shell?.querySelector('.ribbon-tab-picker');
+    if (!shell || !picker) return;
+    const ia = await loadIA();
+    const live = getLiveState();
+    const ctxTab = currentContextTab(ia, live);
+    const tabs = [
+        ...ia.tabsForScope(ribbonState.scope).map((t) => ({ id: t.id, label: t.label })),
+        ...(ctxTab ? [{ id: '__ctx', label: ctxTab.label }] : []),
+    ];
+    const menu = document.createElement('div');
+    menu.className = 'ribbon-display-menu ribbon-tab-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Ribbon tabs');
+    menu.innerHTML = `
+        <button type="button" class="ribbon-display-menu-item" data-action="open-backstage" role="menuitem">
+            <span class="ribbon-display-menu-item-check"></span>File</button>
+        ${tabs.map((t) => {
+            const selected = ribbonState.activeTab === t.id;
+            return `<button type="button" class="ribbon-display-menu-item${selected ? ' selected' : ''}" data-tab-choice="${t.id}"
+                role="menuitemradio" aria-checked="${selected}">
+                <span class="ribbon-display-menu-item-check">${selected ? '✓' : ''}</span>${ribbonEscapeHtml(t.label)}</button>`;
+        }).join('')}`;
+    const btnRect = picker.getBoundingClientRect();
+    const shellRect = shell.getBoundingClientRect();
+    menu.style.left = `${Math.round(btnRect.left - shellRect.left)}px`;
+    menu.style.top = `${Math.round(btnRect.bottom - shellRect.top)}px`;
+    shell.appendChild(menu);
 }
 
 /** `'link:<url>'` marks a button as a plain external link rather than a
@@ -1442,6 +1507,9 @@ async function refreshRibbon() {
 
     const collapsed = ribbonState.displayMode === 'tabs';
     shell.classList.toggle('collapsed', collapsed);
+    // For the touch layout's CSS (#1388), which arranges the Simple ribbon's
+    // rows differently from the other two modes.
+    shell.dataset.mode = ribbonState.displayMode;
     if (bodyEl) bodyEl.style.display = collapsed ? 'none' : '';
 
     updateDocTitleAndAvatar();
@@ -1563,6 +1631,30 @@ function wireEvents(shell) {
             return;
         }
 
+        // #1388: the touch tab picker and its menu.
+        if (e.target.closest('[data-action="toggle-tab-menu"]')) {
+            const wasOpen = ribbonState.tabMenuOpen;
+            closePopovers();
+            ribbonState.tabMenuOpen = !wasOpen;
+            refreshRibbon().then(() => {
+                if (ribbonState.tabMenuOpen) requestAnimationFrame(renderTabMenu);
+            });
+            return;
+        }
+        const tabChoice = e.target.closest('[data-tab-choice]');
+        if (tabChoice) {
+            closePopovers();
+            if (tabChoice.dataset.tabChoice !== ribbonState.activeTab) ribbonState.animateTabSwitch = true;
+            ribbonState.activeTab = tabChoice.dataset.tabChoice;
+            refreshRibbon();
+            return;
+        }
+        if (e.target.closest('[data-action="open-search"]')) {
+            switchToView('search');
+            requestAnimationFrame(() => document.getElementById('searchViewInput')?.focus());
+            return;
+        }
+
         // #1027: `toggle-display-menu` opens the combined display selector
         // (renderDisplaySelector(), in the tab strip) -- its menu offers all
         // three modes (Just Tabs/Simple/Full), replacing the old separate
@@ -1609,8 +1701,9 @@ function wireEvents(shell) {
             // which only re-renders the titlebar/tabstrip/body, would leave
             // a stale popover behind.
             closePopovers();
-            if (isValidMode && next !== ribbonState.displayMode) {
+            if (isValidMode) {
                 ribbonState.displayMode = next;
+                ribbonState.displayModeChosen = true;
                 savePersistedState();
             }
             refreshRibbon();
