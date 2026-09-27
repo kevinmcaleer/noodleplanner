@@ -1224,8 +1224,8 @@ function updateReportDonutChart(tasks) {
         totalText.setAttribute('dominant-baseline', 'central');
         totalText.setAttribute('font-size', '16');
         totalText.setAttribute('font-weight', '700');
-        totalText.setAttribute('fill', '#333');
-        totalText.classList.add('donut-center-text');
+        // Coloured by CSS (.donut-center-total), so it follows the theme.
+        totalText.classList.add('donut-center-text', 'donut-center-total');
         totalText.textContent = total;
         svg.appendChild(totalText);
 
@@ -1235,8 +1235,7 @@ function updateReportDonutChart(tasks) {
         totalLabel.setAttribute('text-anchor', 'middle');
         totalLabel.setAttribute('dominant-baseline', 'central');
         totalLabel.setAttribute('font-size', '7');
-        totalLabel.setAttribute('fill', '#888');
-        totalLabel.classList.add('donut-center-text');
+        totalLabel.classList.add('donut-center-text', 'donut-center-label');
         totalLabel.textContent = 'tasks';
         svg.appendChild(totalLabel);
 

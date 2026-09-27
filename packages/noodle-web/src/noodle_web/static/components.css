@@ -830,6 +830,16 @@
     animation: donutTextFadeIn 0.4s ease-out 0.3s both;
 }
 
+/* The count and its label in the donut's hole. The chart script used to paint
+   them #333 and #888, which left the count dark on dark in dark mode. */
+.donut-chart-svg .donut-center-total {
+    fill: var(--np-ink);
+}
+
+.donut-chart-svg .donut-center-label {
+    fill: var(--np-muted);
+}
+
 .donut-chart-legend {
     display: flex;
     flex-direction: column;
