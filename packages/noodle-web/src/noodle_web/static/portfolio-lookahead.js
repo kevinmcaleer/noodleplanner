@@ -1,7 +1,8 @@
 /**
  * Portfolio 2-Week Look-Ahead View
- * Shows overdue and upcoming tasks across all projects in a single table
- * with project-name column, project filter, and status filter.
+ * Shows overdue and upcoming tasks across all projects as two lists of
+ * <np-task-row>s, each row naming its project, with a project filter,
+ * status filter and a "Sort by" control per list.
  * Uses /api/parse data via parseAllProjects() for accurate task data.
  */
 
@@ -156,71 +157,52 @@ function collectLookAheadTasks(parsedProjects) {
 }
 
 /**
- * Format a date for display in the look-ahead tables
+ * One look-ahead task as a read-only <np-task-row>, as markup: tick, name,
+ * the project and dates in the details, the computed status as the RAG dot,
+ * people. The data-* attributes are what filterPortfolioLookAhead() and the
+ * delegated task-open listener read back.
  */
-function formatLookAheadDate(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    if (isNaN(d)) return dateStr;
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+function lookAheadRowHtml(task, details) {
+    const people = task.resources && task.resources !== '-' && typeof taskRowResourceNames === 'function'
+        ? taskRowResourceNames(task.resources) : '';
+    const meta = [task.projectName].concat(details).filter(Boolean).join(' · ');
+    return '<np-task-row role="listitem" readonly class="portfolio-lookahead-row"' +
+        ' data-project="' + escapeHtml(task.projectName) + '"' +
+        ' data-project-id="' + escapeHtml(task.projectId) + '"' +
+        ' data-task-name="' + escapeHtml(task.taskName) + '"' +
+        ' data-status="' + escapeHtml(task.status) + '"' +
+        ' name="' + escapeHtml(task.taskName) + '"' +
+        ' percent="' + (Number(task.percent) || 0) + '"' +
+        ' meta="' + escapeHtml(meta) + '"' +
+        ' rag="' + escapeHtml(task.status) + '"' +
+        (people ? ' resources="' + escapeHtml(people) + '"' : '') +
+        '></np-task-row>';
 }
 
-/**
- * Get status badge HTML for a computed status value
- */
-function getLookAheadStatusBadge(status) {
-    if (!status || status === '-') return '-';
-    const colour = typeof ragStatusToColour === 'function' ? ragStatusToColour(status) : 'green';
-    return '<span class="rag-badge rag-' + colour + '">' + escapeHtml(status.toUpperCase()) + '</span>';
-}
-
-/**
- * Build HTML rows for the overdue tasks table
- */
+/** The overdue list's rows: due date and how late. */
 function buildOverdueRows(tasks) {
-    let html = '';
-    tasks.forEach(task => {
-        html += '<tr class="portfolio-lookahead-row" ' +
-            'data-project="' + escapeHtml(task.projectName) + '" ' +
-            'data-project-id="' + escapeHtml(task.projectId) + '" ' +
-            'data-task-name="' + escapeHtml(task.taskName) + '" ' +
-            'data-status="' + escapeHtml(task.status) + '" ' +
-            'onclick="openPortfolioLookAheadTask(\'' + escapeHtml(task.projectId) + '\', \'' + escapeJsAttr(task.taskName) + '\')">' +
-            '<td class="lookahead-project-name">' + escapeHtml(task.projectName) + '</td>' +
-            '<td class="lookahead-task-name">' + escapeHtml(task.taskName) + '</td>' +
-            '<td>' + formatLookAheadDate(task.finish || task.start) + '</td>' +
-            '<td class="lookahead-days-late">' + task.daysLate + '</td>' +
-            '<td>' + escapeHtml(task.resources) + '</td>' +
-            '<td>' + task.percent + '%</td>' +
-            '<td>' + getLookAheadStatusBadge(task.status) + '</td>' +
-            '</tr>';
-    });
-    return html;
+    return tasks.map(task => lookAheadRowHtml(task, [
+        (task.finish || task.start) ? 'due ' + formatSubtaskDate(task.finish || task.start) : '',
+        task.daysLate + (task.daysLate === 1 ? ' day' : ' days') + ' late',
+    ])).join('');
 }
 
-/**
- * Build HTML rows for the upcoming tasks table
- */
+/** The upcoming list's rows: dates and duration. */
 function buildUpcomingRows(tasks) {
-    let html = '';
-    tasks.forEach(task => {
-        html += '<tr class="portfolio-lookahead-row" ' +
-            'data-project="' + escapeHtml(task.projectName) + '" ' +
-            'data-project-id="' + escapeHtml(task.projectId) + '" ' +
-            'data-task-name="' + escapeHtml(task.taskName) + '" ' +
-            'data-status="' + escapeHtml(task.status) + '" ' +
-            'onclick="openPortfolioLookAheadTask(\'' + escapeHtml(task.projectId) + '\', \'' + escapeJsAttr(task.taskName) + '\')">' +
-            '<td class="lookahead-project-name">' + escapeHtml(task.projectName) + '</td>' +
-            '<td class="lookahead-task-name">' + escapeHtml(task.taskName) + '</td>' +
-            '<td>' + formatLookAheadDate(task.start) + '</td>' +
-            '<td>' + formatLookAheadDate(task.finish) + '</td>' +
-            '<td>' + (task.durationDays ? task.durationDays + 'd' : '-') + '</td>' +
-            '<td>' + escapeHtml(task.resources) + '</td>' +
-            '<td>' + task.percent + '%</td>' +
-            '<td>' + getLookAheadStatusBadge(task.status) + '</td>' +
-            '</tr>';
-    });
-    return html;
+    return tasks.map(task => lookAheadRowHtml(task, [
+        reportRowDates(task.start, task.finish),
+        task.durationDays ? task.durationDays + 'd' : '',
+    ])).join('');
+}
+
+/** A section's "Sort by" control, in place of the old sortable headers. */
+function lookAheadSortHtml(section, options) {
+    const id = 'portfolio' + (section === 'overdue' ? 'Overdue' : 'Upcoming') + 'Sort';
+    return '<div class="portfolio-lookahead-sort">' +
+        '<label for="' + id + '">Sort by</label>' +
+        '<select id="' + id + '" onchange="sortPortfolioLookAhead(this.value, \'' + section + '\')">' +
+        options.map(([value, label]) => '<option value="' + value + '">' + label + '</option>').join('') +
+        '</select></div>';
 }
 
 /**
@@ -319,7 +301,7 @@ async function renderPortfolioLookAhead() {
             '<div class="portfolio-lookahead-summary">' +
             '<div class="lookahead-summary-item">' +
             '<span class="summary-label">Overdue</span>' +
-            '<span class="summary-value" style="color: ' + (overdue.length > 0 ? '#dc3545' : '#28a745') + '">' + overdue.length + '</span>' +
+            '<span class="summary-value" style="color: ' + (overdue.length > 0 ? 'var(--np-danger)' : 'var(--np-success)') + '">' + overdue.length + '</span>' +
             '</div>' +
             '<div class="lookahead-summary-item">' +
             '<span class="summary-label">Upcoming</span>' +
@@ -371,49 +353,28 @@ async function renderPortfolioLookAhead() {
         if (overdue.length > 0) {
             html += '<div class="portfolio-lookahead-section" id="portfolioOverdueSection">' +
                 '<h3 class="portfolio-lookahead-section-title overdue">Overdue Tasks (' + overdue.length + ')</h3>' +
-                '<div class="portfolio-lookahead-table-wrapper">' +
-                '<np-responsive-table priorities=\'{"Task":"primary","Due Date":"1","Days Late":"2","Project":"3"}\'><table class="portfolio-lookahead-table">' +
-                '<thead>' +
-                '<tr>' +
-                '<th onclick="sortPortfolioLookAhead(\'project\', \'overdue\')">Project <span class="sort-indicator"></span></th>' +
-                '<th onclick="sortPortfolioLookAhead(\'taskName\', \'overdue\')">Task <span class="sort-indicator"></span></th>' +
-                '<th onclick="sortPortfolioLookAhead(\'finish\', \'overdue\')">Due Date <span class="sort-indicator"></span></th>' +
-                '<th onclick="sortPortfolioLookAhead(\'daysLate\', \'overdue\')">Days Late <span class="sort-indicator"></span></th>' +
-                '<th>Resources</th>' +
-                '<th onclick="sortPortfolioLookAhead(\'percent\', \'overdue\')">% <span class="sort-indicator"></span></th>' +
-                '<th>Status</th>' +
-                '</tr>' +
-                '</thead>' +
-                '<tbody id="portfolioOverdueTableBody">';
-
-            html += buildOverdueRows(overdue);
-
-            html += '</tbody></table></np-responsive-table></div></div>';
+                '<div class="portfolio-lookahead-list">' +
+                lookAheadSortHtml('overdue', [
+                    ['finish', 'Due date'], ['daysLate:desc', 'Days late'], ['project', 'Project'],
+                    ['taskName', 'Task'], ['percent', '% complete'],
+                ]) +
+                '<div id="portfolioOverdueList" class="task-row-list report-task-list" role="list" aria-label="Overdue tasks">' +
+                buildOverdueRows(overdue) +
+                '</div></div></div>';
         }
 
         // Upcoming section
         if (upcoming.length > 0) {
             html += '<div class="portfolio-lookahead-section" id="portfolioUpcomingSection">' +
                 '<h3 class="portfolio-lookahead-section-title upcoming">Upcoming Tasks (Next 2 Weeks)</h3>' +
-                '<div class="portfolio-lookahead-table-wrapper">' +
-                '<np-responsive-table priorities=\'{"Task":"primary","Due Date":"1","Status":"2","Project":"3"}\'><table class="portfolio-lookahead-table">' +
-                '<thead>' +
-                '<tr>' +
-                '<th onclick="sortPortfolioLookAhead(\'project\', \'upcoming\')">Project <span class="sort-indicator"></span></th>' +
-                '<th onclick="sortPortfolioLookAhead(\'taskName\', \'upcoming\')">Task <span class="sort-indicator"></span></th>' +
-                '<th onclick="sortPortfolioLookAhead(\'start\', \'upcoming\')">Start Date <span class="sort-indicator"></span></th>' +
-                '<th onclick="sortPortfolioLookAhead(\'finish\', \'upcoming\')">Due Date <span class="sort-indicator"></span></th>' +
-                '<th>Duration</th>' +
-                '<th>Resources</th>' +
-                '<th onclick="sortPortfolioLookAhead(\'percent\', \'upcoming\')">% <span class="sort-indicator"></span></th>' +
-                '<th>Status</th>' +
-                '</tr>' +
-                '</thead>' +
-                '<tbody id="portfolioUpcomingTableBody">';
-
-            html += buildUpcomingRows(upcoming);
-
-            html += '</tbody></table></np-responsive-table></div></div>';
+                '<div class="portfolio-lookahead-list">' +
+                lookAheadSortHtml('upcoming', [
+                    ['start', 'Start date'], ['finish', 'Due date'], ['project', 'Project'],
+                    ['taskName', 'Task'], ['percent', '% complete'],
+                ]) +
+                '<div id="portfolioUpcomingList" class="task-row-list report-task-list" role="list" aria-label="Upcoming tasks">' +
+                buildUpcomingRows(upcoming) +
+                '</div></div></div>';
         }
 
         // Empty state if no tasks at all
@@ -424,6 +385,7 @@ async function renderPortfolioLookAhead() {
         }
 
         container.innerHTML = html;
+        wirePortfolioLookAheadRows(container);
 
     } catch (error) {
         console.error('Error rendering portfolio look-ahead:', error);
@@ -453,7 +415,7 @@ function togglePortfolioLookAheadRag(button) {
 }
 
 /**
- * Filter portfolio look-ahead tables by project name and RAG status toggles
+ * Filter portfolio look-ahead lists by project name and RAG status toggles
  */
 function filterPortfolioLookAhead() {
     const projectFilter = document.getElementById('portfolioLookAheadProjectFilter')?.value || 'all';
@@ -470,21 +432,30 @@ function filterPortfolioLookAhead() {
     });
 }
 
+/** A row's name opens its task in its own project. Bound once: the
+ * container outlives every re-render. */
+function wirePortfolioLookAheadRows(container) {
+    if (container.dataset.rowsWired) return;
+    container.dataset.rowsWired = 'true';
+    container.addEventListener('task-open', (event) => {
+        const row = event.target.closest && event.target.closest('.portfolio-lookahead-row');
+        if (row) openPortfolioLookAheadTask(row.dataset.projectId, row.dataset.taskName);
+    });
+}
+
 /**
- * Sort portfolio look-ahead table
+ * Sort one look-ahead list. `key` is a field, with ":desc" for largest
+ * first ("daysLate:desc"): the value of the section's "Sort by" control.
  */
 let portfolioLookAheadSortColumn = 'finish';
 let portfolioLookAheadSortAsc = true;
 let portfolioLookAheadSortSection = 'overdue';
 
-function sortPortfolioLookAhead(column, section) {
-    if (portfolioLookAheadSortColumn === column && portfolioLookAheadSortSection === section) {
-        portfolioLookAheadSortAsc = !portfolioLookAheadSortAsc;
-    } else {
-        portfolioLookAheadSortColumn = column;
-        portfolioLookAheadSortSection = section;
-        portfolioLookAheadSortAsc = true;
-    }
+function sortPortfolioLookAhead(key, section) {
+    const [column, direction] = String(key).split(':');
+    portfolioLookAheadSortColumn = column;
+    portfolioLookAheadSortSection = section;
+    portfolioLookAheadSortAsc = direction !== 'desc';
 
     if (!window.portfolioLookAheadData) return;
 
@@ -529,18 +500,9 @@ function sortPortfolioLookAhead(column, section) {
 
     window.portfolioLookAheadData[section] = data;
 
-    // Re-render the appropriate table body
-    if (section === 'overdue') {
-        const tbody = document.getElementById('portfolioOverdueTableBody');
-        if (tbody) {
-            tbody.innerHTML = buildOverdueRows(data);
-        }
-    } else {
-        const tbody = document.getElementById('portfolioUpcomingTableBody');
-        if (tbody) {
-            tbody.innerHTML = buildUpcomingRows(data);
-        }
-    }
+    // Re-render the section's list
+    const list = document.getElementById(section === 'overdue' ? 'portfolioOverdueList' : 'portfolioUpcomingList');
+    if (list) list.innerHTML = section === 'overdue' ? buildOverdueRows(data) : buildUpcomingRows(data);
 
     // Re-apply filters
     filterPortfolioLookAhead();

@@ -86,6 +86,10 @@ extraction pattern rather than a migration. To use one:
              rag="On track" resources="Sam Smith" assignable></np-task-row>
 <np-task-row type="relation" task-id="14" name="Sign off design"
              relation="FS" lag="+2d" meta="3 Sep" action="remove"></np-task-row>
+
+<script type="module" src="/static/components/rag/np-rag.js"></script>
+<np-rag status="On track"></np-rag>
+<np-rag status="Task overdue" labelled></np-rag>
 ```
 
 `<np-board>` composes `<np-card>` internally for each column's cards, the
@@ -111,10 +115,12 @@ optional icon/heading/actions slots — not the welcome screen or
 `.placeholder-view` family, which are a deliberately separate kind of
 "nothing here" (see design-system.md §6).
 `<np-task-row>` is one row per task in a list -- the task form's Subtasks
-and Dependencies and the product form's Activities use it -- composing
-`<np-checkbox>` and `<np-resource-stack>` and reporting every gesture as an
-event (`task-open`, `task-toggle`, `task-action`, `task-assign`,
-`name-commit`, `relation-change`) rather than reaching into script.js.
+and Dependencies, the product form's Activities and the list-shaped reports
+use it -- composing `<np-checkbox>`, `<np-resource-stack>` and `<np-rag>`
+and reporting every gesture as an event (`task-open`, `task-toggle`,
+`task-action`, `task-assign`, `name-commit`, `relation-change`) rather than
+reaching into script.js. `<np-rag>` is its status dot on its own, which a
+report table's RAG cell uses too.
 `<np-close-button>` is one real `<button>` for every dismiss control in
 the app (`.close-btn`, `.task-peek-close-btn`, `.wb-add-note-close`,
 `.estimate-popup-close`, `.card-popup-close`, `.ai-chat-header-btn`),

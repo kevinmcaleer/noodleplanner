@@ -61,6 +61,20 @@ export const GALLERY = [
             { name: 'RAG red', html: '<span class="rag-badge rag-red">Red</span>' },
             { name: 'RAG amber', html: '<span class="rag-badge rag-amber">Amber</span>' },
             { name: 'RAG green', html: '<span class="rag-badge rag-green">Green</span>' },
+            // <np-rag>: a task's status as one dot on the status tokens -- the
+            // dot a task row shows, and the RAG cell of a report table.
+            {
+                name: 'RAG dot (np-rag)',
+                html:
+                    '<div style="display:flex;flex-wrap:wrap;gap:var(--np-space-12);align-items:center;">' +
+                    '<np-rag status="On track" labelled></np-rag>' +
+                    '<np-rag status="Behind schedule" labelled></np-rag>' +
+                    '<np-rag status="Task overdue" labelled></np-rag>' +
+                    '<np-rag status="Complete" labelled></np-rag>' +
+                    '<np-rag labelled></np-rag>' +
+                    '<np-rag status="amber" label="Waiting on sign-off"></np-rag>' +
+                    '</div>',
+            },
             { name: 'Status', html: '<span class="status-badge">In progress</span>' },
             { name: 'Baseline active', html: '<span class="baseline-active-badge">Active</span>' },
             { name: 'Severity', html: '<span class="action-severity-badge">High</span>' },
@@ -220,7 +234,8 @@ export const GALLERY = [
             'are rendered by JS from live plan data (views-tables.js, script.js), so the markup ' +
             'below is a static snapshot of what that code produces, with app-only onclick wiring ' +
             '(switchToView, addAction, …) left out since there is nothing here for it to call. ' +
-            'RAG colours are raw hex in the app, not tokens -- see the design-system-baseline.',
+            'Milestones and Up Next are lists of read-only `np-task-row`s, their RAG the row\'s token dot; ' +
+            'the project status badge is still a class of its own.',
         variants: [
             {
                 name: 'Header (title, detail pairs, status, divider)',
@@ -377,32 +392,21 @@ export const GALLERY = [
                 name: 'Milestones',
                 html:
                     '<div class="quad-cell"><div class="quad-header"><h3>Milestones</h3></div>' +
-                    '<table class="milestones-table quad-table" aria-label="Milestones">' +
-                    '<thead><tr><th class="col-name">Milestone</th><th class="col-date">Date</th><th class="col-rag">RAG</th></tr></thead>' +
-                    '<tbody>' +
-                    '<tr><td class="task-name col-name">Design sign-off</td><td class="col-date">2026-07-10</td><td class="col-rag rag-green">Green</td></tr>' +
-                    '<tr><td class="task-name col-name">Beta launch</td><td class="col-date">2026-09-30</td><td class="col-rag rag-amber">Amber</td></tr>' +
-                    '<tr><td class="task-name col-name">Go live</td><td class="col-date">2026-11-20</td><td class="col-rag rag-green">Green</td></tr>' +
-                    '</tbody></table></div>',
+                    '<div class="task-row-list report-task-list" role="list" aria-label="Milestones">' +
+                    '<np-task-row role="listitem" readonly density="compact" name="Design sign-off" percent="100" meta="10 Jul 26 · on baseline" rag="Complete"></np-task-row>' +
+                    '<np-task-row role="listitem" readonly density="compact" name="Beta launch" percent="0" meta="30 Sep 26 · +3d vs baseline" rag="Behind schedule"></np-task-row>' +
+                    '<np-task-row role="listitem" readonly density="compact" name="Go live" percent="0" meta="20 Nov 26 · new since baseline" rag="On track"></np-task-row>' +
+                    '</div></div>',
             },
             {
                 name: 'Up Next',
                 html:
                     '<div class="quad-cell"><div class="quad-header"><h3>Up Next</h3></div>' +
-                    '<table class="milestones-table quad-table" aria-label="Up next tasks">' +
-                    '<thead><tr><th class="col-name">Task</th><th class="col-date">Start</th><th class="col-date">Finish</th><th class="col-rag">RAG</th></tr></thead>' +
-                    '<tbody>' +
-                    '<tr class="up-next-row-clickable"><td class="task-name col-name">Finalise API contracts</td>' +
-                    '<td class="col-date">2026-09-15</td><td class="col-date">2026-09-19</td>' +
-                    '<td class="col-rag"><span class="up-next-status rag-red">Task Overdue</span></td></tr>' +
-                    '<tr class="up-next-row-clickable"><td class="task-name col-name">User acceptance testing</td>' +
-                    '<td class="col-date">2026-09-20</td><td class="col-date">2026-09-26</td>' +
-                    '<td class="col-rag"><span class="up-next-status rag-amber">Behind Schedule</span></td></tr>' +
-                    '<tr class="up-next-row-clickable"><td class="task-name col-name">Stakeholder demo' +
-                    '<span class="recurrence-badge">Weekly</span></td>' +
-                    '<td class="col-date">2026-09-28</td><td class="col-date">2026-09-28</td>' +
-                    '<td class="col-rag"><span class="up-next-status rag-green">Not Started</span></td></tr>' +
-                    '</tbody></table></div>',
+                    '<div class="task-row-list report-task-list" role="list" aria-label="Up next tasks">' +
+                    '<np-task-row role="listitem" readonly density="compact" name="Finalise API contracts" percent="40" meta="15 Sep 26 – 19 Sep 26" rag="Task overdue"></np-task-row>' +
+                    '<np-task-row role="listitem" readonly density="compact" name="User acceptance testing" percent="20" meta="20 Sep 26 – 26 Sep 26" rag="Behind schedule"></np-task-row>' +
+                    '<np-task-row role="listitem" readonly density="compact" name="Stakeholder demo" percent="0" meta="Weekly · 28 Sep 26" rag="green" rag-label="Recurring"></np-task-row>' +
+                    '</div></div>',
             },
             {
                 name: 'Latest Highlight',

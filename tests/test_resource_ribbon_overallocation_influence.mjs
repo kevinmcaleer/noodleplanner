@@ -164,6 +164,7 @@ function fakeElement(initial = {}) {
     querySelector() { return null; },
     querySelectorAll() { return []; },
     addEventListener() {},
+    setAttribute(name, value) { this[`@${name}`] = String(value); },
     ...initial,
   };
   Object.defineProperty(el, 'textContent', {
@@ -313,8 +314,9 @@ function makeDisplaySandbox() {
   const sandbox = {
     window: {},
     document: makeDocument(elements),
-    getRAGColor: () => '#ccc',
     openMilestoneTaskForm: () => {},
+    formatTaskRowDates: () => '',
+    reportTaskRow: () => fakeElement(),
   };
   liftFunctions(sandbox, scriptSrc, ['displayUserWorkload']);
   return { sandbox, elements };

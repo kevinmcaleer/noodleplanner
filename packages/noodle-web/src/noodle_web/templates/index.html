@@ -348,53 +348,24 @@ Press Enter to render..."></textarea>
                                     <div class="quad-cell">
                                         <div class="quad-header">
                                             <h3>Milestones</h3>
+                                            <button type="button" class="widget-shortcut" onclick="copyTableAsText(document.getElementById('reportMilestonesTable'), this)" title="Copy milestones as text" aria-label="Copy milestones as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                             <span class="widget-shortcut" onclick="switchToView('milestones')" title="Open Milestones"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span>
                                         </div>
-                                        <div class="milestones-table-wrapper" style="position: relative;">
-                                            <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
-                                            <np-responsive-table priorities='{"Milestone": "primary", "Date": "1", "RAG": "2"}'>
-                                            <table class="milestones-table quad-table" id="reportMilestonesTable" aria-label="Milestones">
-                                                <thead>
-                                                    <tr>
-                                                        <th class="col-name">Milestone</th>
-                                                        <th class="col-date">Date</th>
-                                                        <th class="col-rag">RAG</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="reportMilestonesTableBody">
-                                                    <!-- Milestone rows populated by JavaScript -->
-                                                </tbody>
-                                            </table>
-                                            </np-responsive-table>
-                                            <p class="quad-empty-state" id="reportMilestonesEmpty" style="display: none;">No upcoming milestones.</p>
-                                        </div>
+                                        <!-- One read-only <np-task-row> per milestone (updateReportMilestones in views-tables.js). -->
+                                        <div id="reportMilestonesTable" class="task-row-list report-task-list" role="list"
+                                             aria-label="Milestones" data-empty="No upcoming milestones."></div>
                                     </div>
 
                                     <!-- Top Right: Up Next -->
                                     <div class="quad-cell">
                                         <div class="quad-header">
                                             <h3>Up Next</h3>
+                                            <button type="button" class="widget-shortcut" onclick="copyTableAsText(document.getElementById('reportUpNextTable'), this)" title="Copy up next as text" aria-label="Copy up next as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                             <span class="widget-shortcut" onclick="switchToView('lookahead')" title="Open Look Ahead"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span>
                                         </div>
-                                        <div class="up-next-table-wrapper" style="position: relative;">
-                                            <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
-                                            <np-responsive-table priorities='{"Task": "primary", "Finish": "1", "RAG": "2"}'>
-                                            <table class="milestones-table quad-table" id="reportUpNextTable" aria-label="Up next tasks">
-                                                <thead>
-                                                    <tr>
-                                                        <th class="col-name">Task</th>
-                                                        <th class="col-date">Start</th>
-                                                        <th class="col-date">Finish</th>
-                                                        <th class="col-rag">RAG</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="reportUpNextTableBody">
-                                                    <!-- Up Next rows populated by JavaScript -->
-                                                </tbody>
-                                            </table>
-                                            </np-responsive-table>
-                                            <p class="quad-empty-state" id="reportUpNextEmpty" style="display: none;">No upcoming tasks in the next 2 weeks.</p>
-                                        </div>
+                                        <!-- One read-only <np-task-row> per task (updateReportUpNext in views-tables.js). -->
+                                        <div id="reportUpNextTable" class="task-row-list report-task-list" role="list"
+                                             aria-label="Up next tasks" data-empty="No upcoming tasks in the next 2 weeks."></div>
                                     </div>
 
                                     <!-- Bottom Left: Highlights -->
@@ -918,46 +889,16 @@ Press Enter to render..."></textarea>
                                     <!-- Overdue Tasks Section -->
                                     <div class="lookahead-section" id="overdueSection" style="display: none;">
                                         <h3 class="lookahead-section-title overdue">⚠️ Overdue Tasks</h3>
-                                        <div class="lookahead-table-wrapper">
-                                            <np-responsive-table>
-                                            <table class="lookahead-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th data-priority="primary">Task Name</th>
-                                                        <th data-priority="1">Due Date</th>
-                                                        <th data-priority="2">Days Late</th>
-                                                        <th>Resources</th>
-                                                        <th>%</th>
-                                                        <th data-priority="3">RAG</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="overdueTableBody"></tbody>
-                                            </table>
-                                            </np-responsive-table>
-                                        </div>
+                                        <!-- One read-only <np-task-row> per task (updateLookAhead in script.js). -->
+                                        <div id="lookaheadOverdueList" class="task-row-list report-task-list" role="list"
+                                             aria-label="Overdue tasks"></div>
                                     </div>
 
                                     <!-- Upcoming Tasks Section -->
                                     <div class="lookahead-section" id="upcomingSection" style="display: none;">
                                         <h3 class="lookahead-section-title upcoming">📅 Upcoming Tasks (Next 2 Weeks)</h3>
-                                        <div class="lookahead-table-wrapper">
-                                            <np-responsive-table>
-                                            <table class="lookahead-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th data-priority="primary">Task Name</th>
-                                                        <th>Start Date</th>
-                                                        <th data-priority="1">Due Date</th>
-                                                        <th>Duration</th>
-                                                        <th data-priority="3">Resources</th>
-                                                        <th>%</th>
-                                                        <th data-priority="2">RAG</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="upcomingTableBody"></tbody>
-                                            </table>
-                                            </np-responsive-table>
-                                        </div>
+                                        <div id="lookaheadUpcomingList" class="task-row-list report-task-list" role="list"
+                                             aria-label="Upcoming tasks"></div>
                                     </div>
 
                                     <!-- No Tasks Message -->

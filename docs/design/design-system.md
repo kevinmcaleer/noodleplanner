@@ -359,10 +359,12 @@ disclosure, completion, ID, name, details, RAG, people, action -- and a
 `density="compact"` is 32px, the default 40px, and every row is
 `--np-touch-target` tall under a coarse pointer. Completion is
 `<np-checkbox>` and people are `<np-resource-stack>`, so neither is drawn a
-new way. RAG is one dot on `--np-success` / `--np-warning` /
-`--np-danger` / `--np-info`, mapped from the engine's status by
-`task-row/rag.js`, which `tests/test_np_task_row.mjs` holds to
-script.js's `ragStatusToColour()`.
+new way. RAG is `<np-rag>` (`static/components/rag/`): one dot on
+`--np-success` / `--np-warning` / `--np-danger` / `--np-info`, or a hollow
+ring for no status, mapped from the engine's status by `rag/rag.js`, which
+`tests/test_np_task_row.mjs` holds to script.js's `ragStatusToColour()`.
+With `labelled` it shows the status in words beside the dot, which is how a
+report table's RAG column uses it.
 
 **Status: wired into the task form's Subtasks, Dependencies and its
 add-dependency picker, the product form's Activities, the resource form's
@@ -378,7 +380,19 @@ compact list rows whose children carry a `count` and an always-shown
 the predecessor that sets the start is `driving`, which the pill says in
 words ("Driving · FS") as well as in the accent. The resource form's are
 compact list rows without people chips, which would only repeat the
-resource. The report tables the survey found are still their own markup.
+resource.
+
+**Reports.** A report that is a list of tasks is a list of read-only rows
+(`reportTaskRow()` in script.js): the dashboard's Milestones and Up Next
+(compact), the Look Ahead, the User Workload and the portfolio Look-Ahead.
+Read-only because a report shows the plan rather than edits it -- the box
+shows progress, the dot the status, the name opens the task. Dates, the
+baseline variance, how late a task is and how often it repeats go in the
+details. A report that is genuinely a table keeps its table and uses the
+row's parts in its cells: the box beside the percent, `<np-rag labelled>`
+for RAG and `<np-resource-stack>` for people -- the Milestones view, Tasks
+by Assignment, Slippage, Programme Dependencies and the levelling
+suggestions. None of them paints RAG in hex any more.
 
 ### Composed forms
 
