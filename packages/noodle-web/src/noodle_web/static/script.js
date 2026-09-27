@@ -1974,6 +1974,10 @@ function showMessage(prefix, type, text) {
  * file) this falls back to the original download-a-copy flow, unchanged,
  * and says so explicitly so the user knows they need to replace the file
  * themselves.
+ *
+ * issue #1407: the link outlives a reload. If the browser asks for write
+ * permission again and the user refuses, the link is kept, a copy is
+ * downloaded instead, and the next Save asks again.
  */
 async function downloadMarkdown() {
     const editor = getActiveEditor();
@@ -1996,6 +2000,11 @@ async function downloadMarkdown() {
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
     const currentProjectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (typeof LocalFileAccess !== 'undefined' && currentProjectId && LocalFileAccess.isSupported()) {
+        // loadProjectIntoEditor() starts reading back a link from an earlier
+        // page session; a Save clicked straight after page load waits for it.
+        await LocalFileAccess.ensureRestored(currentProjectId);
+    }
     if (typeof LocalFileAccess !== 'undefined' && currentProjectId && LocalFileAccess.isLinked(currentProjectId)) {
         const result = await LocalFileAccess.saveToLinkedFile(currentProjectId, versionedContent);
         if (result && result.ok) {
@@ -2004,13 +2013,16 @@ async function downloadMarkdown() {
             return;
         }
         if (result && !result.ok) {
-            // The link was dropped by saveToLinkedFile; fall through to the
-            // download fallback below so the edit is not lost, but tell the
-            // user their file on disk was NOT updated.
+            // Fall through to the download fallback below so the edit is not
+            // lost, but tell the user their file on disk was NOT updated. A
+            // refused permission keeps the link (the next Save asks again);
+            // any other failure (file moved or deleted) has dropped it.
             if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator();
             console.error('Could not write to linked file:', result.error);
             if (typeof showToast === 'function') {
-                showToast('Could not save to ' + result.filename + ' — downloading a copy instead', 'error');
+                showToast(result.needsRelink
+                    ? result.filename + ' was not updated: no permission to write to it — downloading a copy instead. Save again to allow it.'
+                    : 'Could not save to ' + result.filename + ' — downloading a copy instead', 'error');
             }
         }
     }
@@ -2137,14 +2149,39 @@ function updateLocalFileStatusIndicator() {
     const el = document.getElementById('localFileLinkStatus');
     if (!el) return;
     const projectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
-    if (typeof LocalFileAccess !== 'undefined' && projectId && LocalFileAccess.isLinked(projectId)) {
-        const name = LocalFileAccess.getLinkedFileName(projectId);
+    const status = typeof LocalFileAccess !== 'undefined' && projectId
+        ? LocalFileAccess.getLinkStatus(projectId) : 'unlinked';
+    const name = status === 'linked' || status === 'needs-relink'
+        ? LocalFileAccess.getLinkedFileName(projectId) : null;
+    if (status === 'linked') {
         el.textContent = '🔗 ' + name;
         el.title = 'Saves write straight back to ' + name + ' on disk — no download, no re-prompt';
+    } else if (status === 'needs-relink') {
+        // #1407: a link restored after a reload, whose write permission the
+        // browser wants to ask for again. The state goes first: the status
+        // bar truncates this at 220px, and a long file name must not push
+        // it out of sight.
+        el.textContent = '🔗 Needs access: ' + name;
+        el.title = 'Linked to ' + name + ' on disk. This browser needs your permission again before it can write to it; Save will ask for it.';
     } else {
         el.textContent = '';
         el.title = '';
     }
+}
+
+/**
+ * Read back the files `projectId` was linked to in an earlier page session
+ * (issue #1407), then refresh the status bar. LocalFileAccess keeps each
+ * link in IndexedDB; without this read when a project loads, Save after a
+ * reload finds no link and downloads a copy instead of writing to the
+ * file. This only checks permission and never prompts: Save asks for it,
+ * from inside the click.
+ */
+async function restoreLocalFileLinks(projectId) {
+    if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported() || !projectId) return;
+    await LocalFileAccess.ensureRestored(projectId);
+    const currentId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (currentId === projectId) updateLocalFileStatusIndicator();
 }
 
 // Task Form Modal Functions
