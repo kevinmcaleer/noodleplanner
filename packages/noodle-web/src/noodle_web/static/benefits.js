@@ -2054,12 +2054,11 @@ function benSyncChangeTaskToEditor(newTitle, oldTitle) {
     const lines = editor.value.split('\n');
 
     if (oldTitle && oldTitle !== newTitle) {
-        // Rename: find existing task line and update it
-        benRenameTaskInLines(lines, oldTitle, newTitle);
-        if (typeof updateDependencyReferences === 'function') {
-            updateDependencyReferences(lines, oldTitle, newTitle);
-        }
-        editor.value = lines.join('\n');
+        // Rename the task through the plan model, which carries the new
+        // name into every [depends] on it (#921)
+        const renamed = NoodlePlanModel.renameTaskInText(editor.value, oldTitle, newTitle);
+        if (renamed === editor.value) return;
+        editor.value = renamed;
         editor.dispatchEvent(new Event('input', { bubbles: true }));
     } else {
         // Create: only if a matching task doesn't already exist
@@ -2068,19 +2067,6 @@ function benSyncChangeTaskToEditor(newTitle, oldTitle) {
             benInsertTaskLine(lines, newTitle);
             editor.value = lines.join('\n');
             editor.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-    }
-}
-
-/**
- * Find a task line matching oldTitle and rename it to newTitle.
- */
-function benRenameTaskInLines(lines, oldTitle, newTitle) {
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].trim() === oldTitle) {
-            const indent = lines[i].match(/^(\s*)/)[1];
-            lines[i] = indent + newTitle;
-            return;
         }
     }
 }

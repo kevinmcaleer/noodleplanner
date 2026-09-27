@@ -4212,9 +4212,8 @@ function wbToggleChildComplete(childTask, checked) {
     const line = lines[lineNumber - 1];
     if (!line) return;
 
-    const indent = (line.match(/^(\s*)/) || ['', ''])[1];
     const newPercent = checked ? '100%' : '0%';
-    lines[lineNumber - 1] = updatePercentInLine(line, newPercent, indent, childTask.name);
+    lines[lineNumber - 1] = updatePercentInLine(line, newPercent);
 
     wbCommitMarkdown(lines.join('\n'));
 }
@@ -7019,9 +7018,9 @@ function wbBeginTitleEdit(entry, options) {
 /**
  * Rename the task behind a note, in one commit: the outline line itself,
  * every `[depends ...]` that referenced the old name, and the note's own
- * whiteboard row. Chains script.js's existing updateDependencyReferences()
- * and renamePlanWhiteboardTask() rather than reimplementing either, so a
- * rename from the board behaves identically to one from the task form.
+ * whiteboard row. wbRenameTaskInPlanText() does all three through the plan
+ * model, so a rename from the board behaves identically to one from the
+ * task form.
  *
  * Refused (with a message, not silently) when another task already has
  * that name: whiteboard rows, dependencies and Theme: colours all key on
@@ -7069,15 +7068,8 @@ function wbRenameNoteTask(oldName, newName) {
         : wbRenameTaskInPlanText(editor.value, oldName, newName);
     if (next === editor.value) return false;
 
-    if (taskName !== oldName) {
-        if (!isThought && typeof updateDependencyReferences === 'function') {
-            const lines = next.split('\n');
-            updateDependencyReferences(lines, oldName, taskName);
-            next = lines.join('\n');
-        }
-        if (typeof renamePlanWhiteboardTask === 'function') {
-            next = renamePlanWhiteboardTask(next, oldName, taskName);
-        }
+    if (isThought && taskName !== oldName && typeof renamePlanWhiteboardTask === 'function') {
+        next = renamePlanWhiteboardTask(next, oldName, taskName);
     }
 
     // The note's DOM is keyed by task name; re-key it now so the in-flight

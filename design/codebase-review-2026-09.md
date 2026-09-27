@@ -192,7 +192,6 @@ Each row is one commit, with a test that fails on `main`.
 | An editor render with no export no longer POSTs `/render`. That call computed a hidden ASCII table, and views waited on it, so edits did not update views offline or on a 429 or 5xx. | perf, reliability | `test_editor_render_offline.mjs` |
 | One global `escapeHtml` in `state.js` that escapes quotes, plus `escapeJsAttr` for `onclick` strings. Three duplicate globals are deleted, and unescaped plan text in the RAID, Kanban breadcrumb and deliverables-matrix markup is escaped. | security | `test_escape_html.mjs` |
 | The Resources-table rename is `startResourceShortnameRename`. The portfolio function of the same name overrode it, so renaming a shortname threw. A test now fails on any duplicate top-level function across the classic scripts. | bug, guard | `test_duplicate_globals.mjs` |
-| Assigning a resource writes `@name` tokens. It overwrote `[depends …]` with `[name]`. | data loss | `test_assign_resource_line.mjs` |
 | `PlanModel.lineIndex()` / `taskAtLine()`: Kanban's parse on a 1,000-task plan went from 4.0 s to 27 ms. | perf | `test_plan_model.mjs`, `test_kanban_board_mutations.mjs` |
 | A `*` task's predecessor is named without re-parsing the chain above it. 401 lines went from 81,002 tokenizer calls to about 800. | perf | `test_previous_task_name.mjs` |
 | Gantt builds its name→id map once per render, not once per row, and the duplicate `appendChild` is removed. | perf | `test_gantt_rows_render.mjs` |
@@ -201,7 +200,7 @@ Each row is one commit, with a test that fails on `main`.
 | The portfolio risk register renders green items, so the RAG filter can show them. | bug | `test_portfolio_risks_filter.mjs` |
 | About 540 lines of dead code are deleted from `script.js`: `class Task`, shadowed autocomplete handlers, and a commented-out legacy parser. | dead code | — |
 | `test:js` runs every `tests/test_*.mjs`. Four test files had never run. | tests | — |
-| One canonical back-matter marker list, `static/back-matter-markers.js`, held to Python's `ALL_SECTION_MARKERS` by a test. The whiteboard, parking lot, RAID, comms, highlights and baseline readers, MS Project sync, collab back-matter ops, estimating, trend report, forecasts, benefits, programme, lessons and mind map all use it. Estimates rows no longer become whiteboard notes or RAID items, and a note drag or an MS Project merge no longer deletes them. | data loss | `test_back_matter_markers.mjs` |
+| One canonical back-matter marker list, `static/back-matter-markers.js`, held to Python's `ALL_SECTION_MARKERS` by a test. The whiteboard, parking lot, RAID, comms, highlights and baseline readers, MS Project sync, collab back-matter ops, estimating, trend report, forecasts, benefits, programme and lessons all use it. Estimates rows no longer become whiteboard notes or RAID items, and a note drag or an MS Project merge no longer deletes them. | data loss | `test_back_matter_markers.mjs` |
 | Collab host and joiner handle messages one at a time. The revision moves with the editor write, a no-op replacement is still answered, and the joiner ignores stale snapshots. Two same-revision edits used to lose one and leave its joiner stuck. | reliability | `test_collab_message_order.mjs` |
 | A planning session over plain HTTP says why it cannot start (no `crypto.subtle`), and a key-setup failure resets the UI instead of showing a dead join code. | reliability | `test_collab_secure_context.mjs` |
 | Whiteboard group drag, pan and zoom do their DOM work once per animation frame, not once per event. Group drag used to re-parse the whole plan on every mousemove. | perf | `test_whiteboard_frame_batching.mjs` |
@@ -217,7 +216,7 @@ All of these were verified by reading the code; the ones marked **bug** were als
 | # | Area | Finding | Where | Suggested fix | Risk |
 |---|---|---|---|---|---|
 | H1 | core | **Bug.** Export formats give different dates for the same plan (theme 3), and MSPDI and `.mpp` assume Mon–Fri for the finish. | `exporters.py` ×5, `mpp_writer.py:92`, `msproject.py:117-138, 442`, `plan_quality.py:253`, `plan_service.py:713` | One `schedule_plan()` for every exporter. Finish is `finish - 1 day`, clamped to start. | medium |
-| H2 | web | **Bug.** Mind-map edits rebuild the whole outline from the tree. They drop dependencies, labels, comments and milestone dates: `Design @alice 3d [depends: Kickoff] !urgent #ux` comes back as `Design @alice 3days 0%`. | `mindmap.js:1823-1908` | Edit only the affected line through `NoodlePlanModel`, as `estimating.js` does. | medium |
+| H2 | web | ~~Mind-map edits rebuild the whole outline and drop dependencies, labels, comments and dates.~~ **Fixed on `main` by #921** since this review: mind-map edits now go through `NoodlePlanModel`. | `mindmap.js` | — | — |
 | H3 | web | **Bug.** The AI front-matter tools rebuild the whole block. That flattens nested maps (`dependencies:`, `settings:`) and writes a second, differently-cased `resources:` key. | `ai_tools.py:66-172` | Edit only the target list's lines, in place. | medium |
 | H4 | web | **Bug.** Anthropic as the provider fails whenever a plan is open. The tool path sends an OpenAI-shaped body (no `max_tokens`, OpenAI tool schema) to `/messages` and reads `choices` back. | `ai_service.py:240-336` | A provider adapter: payload, tool schema, response parser. | medium |
 | H5 | web | The rate limiter trusts the client-controlled first `X-Forwarded-For` hop, so the limit and the collab join-code guard can be bypassed. | `security.py:119-131` | Trust `CF-Connecting-IP`, or the rightmost untrusted hop from a `TRUSTED_PROXIES` setting. | low–medium |
@@ -257,6 +256,11 @@ All of these were verified by reading the code; the ones marked **bug** were als
 
 ### Low
 
+- **Resource reassignment edge cases (since #921).** The Gantt and Tasks "Assign Resource" edit now goes through `updateLineField()` (`editor-sync.js`). That fixed the `[depends]` overwrite this review also found. It still treats two things as resources that aren't:
+  - a quality-role holder: `@kev:P` becomes `@jen:P`
+  - the `@name` inside a portfolio-levelling flag: `[levelled @ann 2026-01-05]` becomes `[levelled 2026-01-05]`, which `portfolio-leveling.js`'s own regex no longer recognises, so the flag can't be cleared
+
+  Fix: have `TaskLineTokenizer` emit levelling flags and quality roles as their own token types.
 - **Search:** comms results read `title` and `purpose`, but comms items have `activity` and `content`. Every comms hit is titled `#id`, and its text is never searched (`app.py` `search_plan`).
 - **Resource parsing:** `@alice, @bob` parses to the resources string `"alice,, bob"`.
 - **Date maths:** a negative `add_working_days` on a calendar with no working days loops forever.
@@ -288,7 +292,7 @@ All of these were verified by reading the code; the ones marked **bug** were als
 
 ## Suggested order for what remains
 
-1. **Stop the remaining data loss:** H2 (mind map), H3 (front-matter tools), H10 (back-matter writers), M6 (`settings:`), M1 (MSPDI notes).
+1. **Stop the remaining data loss:** H3 (front-matter tools), H10 (back-matter writers), M6 (`settings:`), M1 (MSPDI notes).
 2. **One pipeline per language:** H1 (`schedule_plan()`), then M3 and a back-matter splitter.
 3. **Conformance:** H6. Extend the corpus to front matter and `localParse`, then retire the tokenizer, legacy scheduler, Obsidian and iOS copies (theme 1).
 4. **Render pipeline:** `requestRender()` with a sequence guard, and hidden views marked dirty (theme 5).

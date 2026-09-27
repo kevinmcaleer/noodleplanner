@@ -5,7 +5,8 @@
  * refusal, and the outline-panel tree/flatten pair.
  *
  * Runs the real whiteboard-structure.js in a sandbox alongside the real
- * task-tokenizer.js (whose grammar wbTaskNameFromLine() delegates to),
+ * task-tokenizer.js (whose grammar wbTaskNameFromLine() delegates to) and
+ * plan-model.js (which renames go through),
  * same vm-sandbox pattern as tests/test_whiteboard_notes.js. DOM wiring --
  * noodle dragging, the outline panel, the commit path -- is covered by
  * tests/test_whiteboard_structure.py instead.
@@ -41,6 +42,7 @@ vm.createContext(sandbox);
 // The canonical back-matter markers, which index.html loads before either.
 vm.runInContext(read('back-matter-markers.js'), sandbox);
 vm.runInContext(read('task-tokenizer.js'), sandbox);
+vm.runInContext(read('plan-model.js'), sandbox);
 vm.runInContext(read('whiteboard-structure.js'), sandbox);
 
 const {
@@ -307,6 +309,15 @@ assert(renamed.includes('    Wireframes @adam 2d'), 'rename leaves children unto
 assertEqual(wbRenameTaskInPlanText(PLAN, 'Design', 'Design'), PLAN, 'renaming to the same name is a no-op');
 assertEqual(wbRenameTaskInPlanText(PLAN, 'Design', '  '), PLAN, 'renaming to blank is a no-op');
 assertEqual(wbRenameTaskInPlanText(PLAN, 'Nope', 'X'), PLAN, 'renaming an unknown task is a no-op');
+
+// The rename goes through the plan model (#921), so references follow it.
+const DEPENDENT = 'Design @adam 5d\nBuild 3d [depends Design +1d]\n';
+assertEqual(wbRenameTaskInPlanText(DEPENDENT, 'Design', 'Wireframes'),
+    'Wireframes @adam 5d\nBuild 3d [depends Wireframes +1d]\n',
+    'rename rewrites every dependency on the task');
+assertEqual(wbRenameTaskInPlanText(DEPENDENT, 'Design', 'Wireframes 2d'),
+    'Wireframes 2d @adam 5d\nBuild 3d [depends Wireframes +1d]\n',
+    'typed inline tokens land on the line, the dependency takes the parsed name');
 
 // ── Delete ──────────────────────────────────────────────────────────────
 

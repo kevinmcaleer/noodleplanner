@@ -3308,26 +3308,12 @@ function productSetType(type) {
 function productFindLineNumber(taskName, deliverableId) {
     const editor = document.getElementById('planEditor');
     if (!editor || !taskName) return null;
-    const lines = editor.value.split('\n');
-    // First pass: match by both name AND $deliverable (most precise)
-    if (deliverableId) {
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].includes('$' + deliverableId)) {
-                const trimmed = lines[i].trim().replace(/^\*\s*/, '');
-                const nameMatch = trimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[/^]?\$|\s+[@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
-                const lineName = nameMatch ? nameMatch[1].trim() : trimmed.split(/\s+/)[0];
-                if (lineName === taskName) return i;
-            }
-        }
-    }
-    // Fallback: match by name only
-    for (let i = 0; i < lines.length; i++) {
-        const trimmed = lines[i].trim().replace(/^\*\s*/, '');
-        const nameMatch = trimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[/^]?\$|\s+[@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
-        const lineName = nameMatch ? nameMatch[1].trim() : trimmed.split(/\s+/)[0];
-        if (lineName === taskName) return i;
-    }
-    return null;
+    const model = NoodlePlanModel.modelForEditor(editor);
+    // name and $deliverable together first, as a duplicated name can hide
+    // the product behind an earlier task of the same name
+    const task = (deliverableId && model.tasks.find(node =>
+        node.name === taskName && node.deliverable === deliverableId)) || model.findByName(taskName);
+    return task ? model.lineNumber(task) - 1 : null;
 }
 
 function openProductForm(task) {
@@ -3734,21 +3720,19 @@ function saveProductForm() {
     if (newDeps) newLine += ` [depends ${newDeps}]`;
     if (newPurpose) newLine += ` "${newPurpose}"`;
 
-    lines[currentProductLineNumber] = newLine;
+    // Rename through the plan model while the dependency edges still point
+    // at this task, so every [depends] on its name or $identifier follows
+    // (#921); then write the rebuilt line over it.
+    const model = NoodlePlanModel.PlanModel.parse(editor.value);
+    const node = model.tasks.find(task => model.lineNumber(task) === currentProductLineNumber + 1);
+    if (!node) return;
+    const oldId = currentProductTask.deliverable;
+    if (oldId && newId && oldId !== newId) model.renameDeliverable(node, newId);
+    const oldName = currentProductTask.name;
+    if (oldName && newTitle && oldName !== newTitle) model.rename(node, newTitle);
+    model.updateLine(node, () => newLine);
 
-    // Auto-update dependency references if the $identifier was renamed
-    const oldId = currentProductTask ? currentProductTask.deliverable : null;
-    if (oldId && newId && oldId !== newId && typeof updateDeliverableReferences === 'function') {
-        updateDeliverableReferences(lines, oldId, newId);
-    }
-
-    // Auto-update dependency references if the task name was renamed
-    const oldName = currentProductTask ? currentProductTask.name : null;
-    if (oldName && newTitle && oldName !== newTitle && typeof updateDependencyReferences === 'function') {
-        updateDependencyReferences(lines, oldName, newTitle);
-    }
-
-    editor.value = lines.join('\n');
+    editor.value = model.serialize();
 
     // Keep track of the new identifier so subsequent saves can find the line
     if (newId && currentProductTask) {
@@ -4024,21 +4008,21 @@ function productAddActivity(name) {
 
 function productDeleteActivity(taskName) {
     if (!taskName) return;
-    if (!confirm(`Remove activity "${taskName}"?`)) return;
     const editor = document.getElementById('planEditor');
     if (!editor) return;
+    const model = NoodlePlanModel.modelForEditor(editor);
+    const task = model.findByName(taskName);
+    if (!task) return;
+    const under = task.children.length ? ' and the tasks under it' : '';
+    if (!confirm(`Remove activity "${taskName}"${under}?`)) return;
+    productRemoveSubtree(editor, model, task);
+}
 
-    const lines = editor.value.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        const t = lines[i].trim().replace(/^\*\s*/, '');
-        const nm = t.match(/^([^@#!$"{\d\[~][^@#!$"{\[~]*?)(?:\s+[\$@#!"{~\[]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s*$)/);
-        const n = nm ? nm[1].trim() : t.split(/\s+/)[0];
-        if (n === taskName) {
-            lines.splice(i, 1);
-            break;
-        }
-    }
-    editor.value = lines.join('\n');
+/** Take `task`, with everything under it, out of the plan through the model
+ * (#921), rather than splicing out the first line whose text matches. */
+function productRemoveSubtree(editor, model, task) {
+    model.removeSubtree(task);
+    editor.value = model.serialize();
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     editor.dispatchEvent(new Event('input'));
     productFormRefresh();
@@ -4090,19 +4074,12 @@ function productDeleteChild(delivId) {
     const editor = document.getElementById('planEditor');
     if (!editor) return;
 
-    const lines = editor.value.split('\n');
-    const token = '$' + delivId;
-    let lineNum = -1;
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes(token)) { lineNum = i; break; }
-    }
-    if (lineNum < 0) return;
-
-    lines.splice(lineNum, 1);
-    editor.value = lines.join('\n');
-    if (editor._updateLineNumbers) editor._updateLineNumbers();
-    editor.dispatchEvent(new Event('input'));
-    productFormRefresh();
+    // the product's own $id -- a [depends $id] on another line, or a
+    // longer $id that starts with this one, is not it
+    const model = NoodlePlanModel.modelForEditor(editor);
+    const task = model.tasks.find(node => node.deliverable === delivId);
+    if (!task) return;
+    productRemoveSubtree(editor, model, task);
 }
 
 function productAddDep(delivId) {

@@ -2787,46 +2787,6 @@ class KanbanBoard {
     }
 
     /**
-     * Replace the free-text name portion of a task line. TaskLineTokenizer
-     * treats whatever text is left over after removing recognised tokens as
-     * the name, so this re-emits every other token unchanged and places the
-     * new name right after any star/star-lag dependency prefix.
-     */
-    updateNameInTaskLine(line, newName) {
-        const indent = (line.match(/^\s*/) || [''])[0];
-        const tokens = TaskLineTokenizer.tokenize(line);
-        const starTokens = tokens.filter(t => t.type === 'star' || t.type === 'star-lag');
-        const otherTokens = tokens.filter(t => t.type !== 'star' && t.type !== 'star-lag');
-        const starPrefix = starTokens.map(t => t.text).join(' ');
-        const rest = otherTokens.map(t => t.text).join(' ');
-        const trimmedName = newName.trim();
-
-        const parts = [starPrefix, trimmedName, rest].filter(Boolean);
-        return indent + parts.join(' ');
-    }
-
-    /**
-     * Add dependency to task line
-     */
-    addDependencyToTaskLine(line, dependency) {
-        const indent = line.match(/^(\s*)/)[1];
-        const trimmed = line.trim();
-
-        // If line already has a [depends ...] block, add to it
-        const dependsMatch = trimmed.match(/\[depends(?::\s*|\s+)([^\]]+)\]/i);
-        if (dependsMatch) {
-            return line.replace(/\[depends(?::\s*|\s+)([^\]]+)\]/i, `[depends $1, ${dependency}]`);
-        } else {
-            // Add [depends dependency] at the end (before comment if present)
-            if (trimmed.includes('"')) {
-                return line.replace(/"/, `[depends ${dependency}] "`);
-            } else {
-                return line + ` [depends ${dependency}]`;
-            }
-        }
-    }
-
-    /**
      * Replace all labels in task line with a single new label
      */
     replaceLabelsInTaskLine(line, newLabel) {

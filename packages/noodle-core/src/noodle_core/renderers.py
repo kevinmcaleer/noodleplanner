@@ -248,10 +248,16 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
                         header_row[pos + j] = c
                 last_end = pos + len(date_str) - 1
     else:
-        # For week/month/quarter scale
+        # For week/month/quarter scale each column is one period, but a label
+        # is wider than a column. As at day scale, label a column only where
+        # the label clears the previous one by a space, so labels never
+        # overwrite each other (#799). A label that would run off the right
+        # edge is left out rather than cut short, except the first, so even a
+        # chart narrower than one label still shows where it starts.
+        next_free = 0  # First column clear of the last label and its space
         for i in range(chart_width):
             if scale == 'week':
-                date_str = current.strftime('%d %b ').lower()  # e.g., "13 nov "
+                date_str = current.strftime('%d %b').lower()  # e.g., "13 nov"
                 period_days = 7
             elif scale == 'month':
                 date_str = current.strftime('%b')
@@ -261,9 +267,10 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
                 date_str = f"Q{quarter}"
                 period_days = 90
 
-            for j, c in enumerate(date_str):
-                if i + j < chart_width:
+            if i >= next_free and (i == 0 or i + len(date_str) <= chart_width):
+                for j, c in enumerate(date_str[:chart_width - i]):
                     header_row[i + j] = c
+                next_free = i + len(date_str) + 1
 
             current += timedelta(days=period_days)
 

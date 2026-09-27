@@ -233,6 +233,10 @@ test('clearing the mind map keeps a plan whose only back matter is estimates', (
   const editor = { value: TASKS + '\n\n' + ESTIMATES, dispatchEvent() {} };
   const mindmap = {
     ...backMatter,
+    // mindmapClearToEmpty() removes the tasks through the plan model (#921),
+    // which keeps the back matter where it is; this pins that it still does
+    // for an estimates section, the one the old hand-kept list forgot.
+    NoodlePlanModel: require(join(staticDir, 'plan-model.js')),
     mindmapTree: null, mindmapSelectedNode: null, mindmapNodeElements: [], mindmapTasks: [], mindmapGroup: null,
     document: { querySelector: () => null, getElementById: () => editor },
     Event: class { constructor(type) { this.type = type; } },

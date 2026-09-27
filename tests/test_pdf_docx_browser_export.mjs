@@ -32,9 +32,11 @@ import {
   FONT_MISSING_MESSAGE,
   buildPdf,
   buildReportText,
+  dayOf,
   fetchFont,
   fontCoverage,
   pdfFilename,
+  renderResourceSheet,
   substituteUncovered,
 } from "../packages/noodle-web/src/noodle_web/static/pdf-export.js";
 import {
@@ -123,6 +125,65 @@ for (const planPath of CORPUS) {
     }
   });
 }
+
+// --- PDF: the resource sheet's date header at every scale (#799) -------------
+//
+// Past about two months the sheet has a column per week, month or quarter, and
+// its labels used to overwrite each other ("0112...", "SONDJF...", "QQQ...").
+// tests/test_resource_sheet_header.py covers the Python side.
+
+/** The resource sheet for one resource busy from `startIso` for `days`. */
+function sheetFor(startIso, days, width, resource = "kev") {
+  const start = dayOf(startIso);
+  const tasks = [{ name: "Work", start, finish: start + days, durationDays: days, hasDuration: true, resources: resource, summary: false }];
+  return renderResourceSheet(tasks, start, start + days, new Set(), width, {});
+}
+
+/** The chart part of a sheet's header row. */
+function sheetHeader(sheet) {
+  const row = sheet.split("\n")[2];
+  return row.slice(row.indexOf("|", row.indexOf("Hours")) + 1, -1);
+}
+
+test("the resource sheet header is readable at week, month and quarter scale", () => {
+  const cases = [
+    [40, "04 sep    14 sep 21 sep 28 sep 05 oct 12"], // day scale, unchanged
+    [200, "04 sep 23 oct 11 dec 29 jan  "],
+    [1000, "Sep Jan May Aug Dec Apr Aug Dec   "],
+    [3000, "Q3 Q2 Q1 Q4 Q3 Q2 Q1 Q4 Q3 Q2 Q1  "],
+  ];
+  for (const [days, expected] of cases) {
+    assert.equal(sheetHeader(sheetFor("2026-09-04", days, 80)), expected, `${days} days`);
+  }
+  // a chart narrower than one label still shows where it starts
+  assert.equal(sheetHeader(sheetFor("2026-09-04", 21, 40, "a".repeat(40))), "04 ");
+});
+
+test("the resource sheet matches Python's at every scale", { skip: !hasPython }, () => {
+  const cases = [];
+  for (const start of ["2026-09-04", "2027-01-31", "2028-02-29"]) {
+    for (const days of [21, 40, 150, 300, 420, 800, 1200, 1800, 3100, 5000, 8000]) {
+      for (const width of [40, 80, 120]) cases.push([start, days, width]);
+    }
+  }
+  const script = `
+import json, sys
+from datetime import date, datetime, timedelta
+sys.path.insert(0, ${JSON.stringify(`${repo}/packages/noodle-core/src`)})
+from noodle_core.renderers import render_resource_sheet
+out = []
+for start, days, width in json.loads(${JSON.stringify(JSON.stringify(cases))}):
+    s = datetime.combine(date.fromisoformat(start), datetime.min.time())
+    f = s + timedelta(days=days)
+    tasks = [{"description": "Work", "start": s, "finish": f, "duration": timedelta(days=days), "resources": "kev"}]
+    out.append(render_resource_sheet(tasks, s, f, terminal_width=width))
+print(json.dumps(out))
+`;
+  const expected = JSON.parse(execFileSync(python, ["-c", script], { cwd: repo }).toString());
+  cases.forEach(([start, days, width], i) => {
+    assert.equal(sheetFor(start, days, width), expected[i], `${days} days from ${start} at ${width} columns`);
+  });
+});
 
 // --- PDF: the file carries that text, and Unicode survives -------------------
 

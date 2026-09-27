@@ -64,6 +64,16 @@
         return fallbackMetadata(line);
     }
 
+    // A name the line does not hold verbatim -- tokens split it, as in
+    // `Design 2d UI` -- is replaced by keeping every token and dropping the
+    // words between them: the new name, then the tokens in their order.
+    function rebuildAroundName(content, offset, name) {
+        if (typeof TaskLineTokenizer === 'undefined') return content;
+        const tokens = TaskLineTokenizer.tokenize(content)
+            .filter(token => token.start >= offset && token.type !== 'star' && token.type !== 'star-lag');
+        return content.slice(0, offset) + [name, ...tokens.map(token => token.text)].join(' ');
+    }
+
     function parseDependencySpec(spec) {
         let value = spec.trim();
         let lag = '';
@@ -224,8 +234,54 @@
             task.name = String(newName).replace(/[\r\n]+/g, ' ').trim();
             task.metadata.name = task.name;
             task._nameDirty = task.name !== task.originalName;
+            // Written into this line and every line that depends on it now,
+            // not left for serialise(): the next edit re-resolves dependencies
+            // from the text, and would find them still naming the old task.
+            const affected = [task, ...this.successorsOf(task)];
+            const contents = affected.map(node => this._serialiseContent(node));
+            affected.forEach((node, index) => {
+                node.content = contents[index];
+                node.metadata = { ...taskMetadata(node.content), name: node.name };
+            });
+            task.originalName = task.name;
+            task._nameDirty = false;
+            this._resolveDependencies();
             this._renameThemeEntry(oldName, task.name);
             this._renameWhiteboardRows(oldName, task.name);
+            return true;
+        }
+
+        /**
+         * Change a product task's `$identifier`, and every `[depends $id]`
+         * that points at it -- found by walking the task's successor edges,
+         * not by searching the text for the old token.
+         */
+        renameDeliverable(task, newId) {
+            const id = String(newId || '').trim().replace(/^\$/, '');
+            if (!task || !task.deliverable || id === task.deliverable ||
+                !/^[A-Za-z_][A-Za-z0-9_-]*$/.test(id)) return false;
+            const oldToken = '$' + task.deliverable.toLowerCase();
+            for (const dependant of this.successorsOf(task)) {
+                const block = DEPENDS.exec(dependant.content);
+                if (!block) continue;
+                const specs = block[1].split(',').map(spec => {
+                    const { rawName } = parseDependencySpec(spec);
+                    return rawName.toLowerCase() === oldToken ? spec.replace(rawName, '$' + id) : spec;
+                });
+                const start = block.index + block[0].indexOf(block[1]);
+                dependant.content = dependant.content.slice(0, start) + specs.join(',') +
+                    dependant.content.slice(start + block[1].length);
+                for (const edge of dependant.dependencies) {
+                    if (edge.target === task && edge.rawName.startsWith('$')) edge.rawName = '$' + id;
+                }
+            }
+            // the task's own token, outside any [depends] block of its own
+            const outside = task.content.replace(/\[depends\s*:?\s*[^\]]*\]/gi, match => ' '.repeat(match.length));
+            const own = DELIVERABLE.exec(outside);
+            const at = own.index + own[0].length - own[1].length;
+            task.content = task.content.slice(0, at) + id + task.content.slice(at + own[1].length);
+            task.deliverable = id;
+            task.metadata = { ...taskMetadata(task.content), name: task.name };
             return true;
         }
 
@@ -692,6 +748,32 @@
             return true;
         }
 
+        /**
+         * Remove a task together with its whole subtree -- the task form's
+         * Delete. Blank and comment lines inside the subtree go with it, as
+         * they did when this was an indentation scan; those after its last
+         * line are the gap before whatever follows, and stay.  Returns the
+         * number of tasks removed.
+         */
+        removeSubtree(task) {
+            if (!task) return 0;
+            const list = task.parent ? task.parent.children : this.roots;
+            const index = list.indexOf(task);
+            if (index < 0) return 0;
+            const hadFinalEol = this._hasFinalLineEnding();
+            const previous = this._predecessorOf(task);
+            const removed = [];
+            const walk = node => { removed.push(node); node.children.forEach(walk); };
+            walk(task);
+            list.splice(index, 1);
+            const gap = removed[removed.length - 1].trailing;
+            if (gap.length) (previous ? previous.trailing : this.leading).push(...gap);
+            this._refreshTaskOrder();
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._resolveDependencies();
+            return removed.length;
+        }
+
         indentTasks(tasks) {
             const selected = new Set(tasks);
             const roots = tasks.filter(task => {
@@ -792,6 +874,8 @@
                 const oldAt = content.indexOf(task.originalName, offset);
                 if (oldAt >= 0) {
                     content = content.slice(0, oldAt) + task.name + content.slice(oldAt + task.originalName.length);
+                } else {
+                    content = rebuildAroundName(content, offset, task.name);
                 }
             }
             const block = DEPENDS.exec(content);
@@ -898,5 +982,45 @@
         return true;
     }
 
-    return { PlanModel, TaskNode, modelForEditor, commitToEditor };
+    /**
+     * Rename `task` to what was typed for it. `typed` may carry inline
+     * tokens (`Design 3d @kev`, from a board, a form or a mind-map label):
+     * they go onto the line in place of the old name, while every dependency
+     * on the task, its Theme colour and its whiteboard rows take the name
+     * parsed out of it. Returns whether anything changed.
+     */
+    function renameTaskTo(model, task, typed) {
+        const raw = String(typed == null ? '' : typed).replace(/[\r\n]+/g, ' ').trim();
+        if (!model || !task || !raw) return false;
+        const newName = taskMetadata(raw).name || raw;
+        if (newName === task.name && raw === newName) return false;
+
+        if (newName !== task.name) model.rename(task, newName);
+        if (raw !== newName) {
+            model.updateLine(task, line => {
+                const indent = (line.match(/^\s*/) || [''])[0].length;
+                const star = /^\*(?:\s*[+-]\d+[dwmy])?\s*/i.exec(line.slice(indent));
+                const at = line.indexOf(newName, indent + (star ? star[0].length : 0));
+                return at < 0 ? line : line.slice(0, at) + raw + line.slice(at + newName.length);
+            });
+        }
+        return true;
+    }
+
+    /**
+     * renameTaskTo() on plan text, for the task called `oldName` -- the
+     * first definition, matched without regard to case, as dependencies
+     * resolve. Returns the text unchanged when there is no such task or
+     * nothing to rename to.
+     */
+    function renameTaskInText(text, oldName, typed) {
+        const source = String(text == null ? '' : text);
+        const wanted = String(oldName || '').toLowerCase();
+        if (!wanted) return source;
+        const model = PlanModel.parse(source);
+        const task = model.tasks.find(node => node.name.toLowerCase() === wanted);
+        return renameTaskTo(model, task, typed) ? model.serialize() : source;
+    }
+
+    return { PlanModel, TaskNode, modelForEditor, commitToEditor, renameTaskTo, renameTaskInText };
 });
