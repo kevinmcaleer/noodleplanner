@@ -191,7 +191,12 @@ test('browser workbook includes all planned sheets in Python order', async () =>
     now: new Date(2026, 0, 6, 9, 30),
   });
   const reloaded = await reloadWorkbook(workbook);
-  assert.deepEqual(reloaded.worksheets.map((sheet) => sheet.name), [
+  // The visible sheets match the Python exporter; the one hidden sheet is
+  // the project workbook sync's base (#1138), which only the browser writes.
+  const visible = reloaded.worksheets.filter((sheet) => sheet.state === 'visible');
+  const hidden = reloaded.worksheets.filter((sheet) => sheet.state !== 'visible');
+  assert.deepEqual(hidden.map((sheet) => [sheet.name, sheet.state]), [['_noodle_sync', 'veryHidden']]);
+  assert.deepEqual(visible.map((sheet) => sheet.name), [
     'Summary',
     'Tasks',
     'Milestones',

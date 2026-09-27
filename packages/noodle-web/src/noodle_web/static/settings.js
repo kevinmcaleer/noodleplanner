@@ -390,7 +390,14 @@ function switchSettingsTab(tabName) {
 // ---------------------------------------------------------------------------
 
 // `targetKey` is LocalFileAccess's per-target handle key (local-file-access.js)
-// -- it must match RAID_SYNC_TARGET_KEY / MSP_SYNC_TARGET_KEY in script.js.
+// -- it must match RAID_SYNC_TARGET_KEY / MSP_SYNC_TARGET_KEY /
+// WORKBOOK_SYNC_TARGET_KEY in script.js.
+//
+// Two of these are Excel workbooks, and they are different files (#1138):
+// the RAID Log target is the RAID-only workbook the RAID view exports, and
+// the project workbook is the whole plan that Report > Share > Excel
+// exports. Only the project workbook's Tasks sheet syncs back; its own RAID
+// Log sheet is a copy for reading. `scope` says which, on each row.
 // Duplicated as a literal here rather than referencing those constants
 // directly: settings.js loads before script.js (see the file header above),
 // so the constants don't exist yet at *parse* time, and a literal avoids
@@ -405,10 +412,12 @@ const SYNC_TARGET_DEFS = [
         syncedField: 'excel_file_synced',
         syncLabel: 'Sync Now',
         relinkLabel: 'Re-link…',
+        scope: 'The RAID-only workbook from the RAID view. Every RAID item syncs both ways.',
         syncAction: () => {
-            if (typeof syncRaidExcelTarget === 'function') syncRaidExcelTarget();
-            else document.getElementById('raidXlUpload')?.click();
+            if (typeof syncRaidExcelTarget === 'function') return syncRaidExcelTarget();
+            document.getElementById('raidXlUpload')?.click();
         },
+        reviewOverlay: 'raidSyncOverlay',
     },
     {
         key: 'msproject',
@@ -419,10 +428,31 @@ const SYNC_TARGET_DEFS = [
         syncedField: 'msproject_file_synced',
         syncLabel: 'Sync Now',
         relinkLabel: 'Re-link…',
+        scope: 'The task tree syncs both ways; a linked .mpp file is rewritten after each sync.',
         syncAction: () => {
-            if (typeof syncMSProjectTarget === 'function') syncMSProjectTarget();
-            else if (typeof triggerMSProjectUpload === 'function') triggerMSProjectUpload();
+            if (typeof syncMSProjectTarget === 'function') return syncMSProjectTarget();
+            if (typeof triggerMSProjectUpload === 'function') triggerMSProjectUpload();
         },
+        reviewOverlay: 'mspSyncOverlay',
+    },
+    {
+        key: 'workbook',
+        targetKey: 'project-excel',
+        label: 'Project workbook',
+        icon: 'bi-table',
+        fileField: 'workbook_file',
+        syncedField: 'workbook_file_synced',
+        syncLabel: 'Sync Now',
+        relinkLabel: 'Re-link…',
+        createLabel: 'Create…',
+        scope: 'The whole-plan workbook from Report > Share > Excel. Its Tasks sheet’s % Complete, Comment and new rows sync back; every other sheet, RAID Log included, is export-only.',
+        syncAction: () => {
+            if (typeof syncProjectWorkbookTarget === 'function') return syncProjectWorkbookTarget();
+        },
+        createAction: () => {
+            if (typeof createProjectWorkbookTarget === 'function') return createProjectWorkbookTarget();
+        },
+        reviewOverlay: 'workbookSyncOverlay',
     },
 ];
 
@@ -488,21 +518,32 @@ async function renderSyncSettings() {
             escapeHtml(def.label) + '</strong>' +
             '<small class="sync-target-status sync-target-status-' + status + '">' +
             syncTargetStatusLine(status, def, linkedName, file, synced) + '</small>' +
+            (def.scope ? '<small class="sync-target-scope">' + escapeHtml(def.scope) + '</small>' : '') +
             '</div>';
 
         const buttonLabel = status === 'needs-relink' ? def.relinkLabel : def.syncLabel;
         const unlinkBtn = (file || status === 'linked' || status === 'needs-relink')
             ? '<button type="button" class="btn-sm sync-target-unlink" data-sync-target-idx="' + idx + '" title="Forget this link">Unlink</button>'
             : '';
+        // A workbook NoodlePlanner writes can be created from here rather
+        // than exported and then linked: only offered where the browser can
+        // keep the link, and only while there is nothing linked yet.
+        const createBtn = (def.createAction && supported && status === 'unlinked' && !file)
+            ? '<button type="button" class="btn-secondary" data-sync-target-idx="' + idx + '" data-sync-create="1">' + escapeHtml(def.createLabel) + '</button>'
+            : '';
         return '<div class="sync-target-row">' + infoHtml +
             '<div class="sync-target-actions">' +
             '<button type="button" class="btn-secondary" data-sync-target-idx="' + idx + '" data-sync-action="1">' + escapeHtml(buttonLabel) + '</button>' +
+            createBtn +
             unlinkBtn +
             '</div></div>';
     }).join('');
 
     el.querySelectorAll('[data-sync-action]').forEach((btn) => {
         btn.addEventListener('click', () => SYNC_TARGET_DEFS[Number(btn.dataset.syncTargetIdx)].syncAction());
+    });
+    el.querySelectorAll('[data-sync-create]').forEach((btn) => {
+        btn.addEventListener('click', () => SYNC_TARGET_DEFS[Number(btn.dataset.syncTargetIdx)].createAction());
     });
     el.querySelectorAll('.sync-target-unlink').forEach((btn) => {
         btn.addEventListener('click', () => unlinkSyncTarget(SYNC_TARGET_DEFS[Number(btn.dataset.syncTargetIdx)].key));
@@ -556,6 +597,13 @@ async function unlinkSyncTarget(key) {
             module.clearMspSyncState(projectId);
         } catch (error) {
             console.warn('Failed to clear MS Project sync snapshot:', error);
+        }
+    } else if (key === 'workbook') {
+        try {
+            const module = await import('/static/workbook-sync.js');
+            module.clearWorkbookSyncState(projectId);
+        } catch (error) {
+            console.warn('Failed to clear project workbook sync snapshot:', error);
         }
     }
 

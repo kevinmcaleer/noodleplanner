@@ -131,6 +131,7 @@
     <link rel="stylesheet" href="/static/views/programme.css?v={{ v }}">
     <link rel="stylesheet" href="/static/status-bar.css?v={{ v }}">
     <link rel="stylesheet" href="/static/collab-chat.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/sync.css?v={{ v }}">
     <link rel="stylesheet" href="/static/dark-mode.css?v={{ v }}">
     <!-- Approved #998 palette. Deliberately last: it redefines the same
          semantic --np-* roles the stylesheets above already consume, so it
@@ -3634,7 +3635,7 @@ Build
                 <!-- Sync Tab (issue #761) -->
                 <div id="settingsTab-sync" class="settings-tab-content" role="tabpanel">
                     <h3>Sync</h3>
-                    <p class="settings-ai-description">Files this plan is linked to, and when they last synced. Nothing syncs automatically — sync only runs when you trigger it here or from the Tools menu.</p>
+                    <p class="settings-ai-description">Files this plan is linked to, and when they last synced. Nothing syncs automatically — sync only runs when you trigger it here or with Sync on the Report ribbon.</p>
                     <div id="syncSettingsList" class="sync-settings-list"></div>
                 </div>
             </div>
@@ -3802,6 +3803,8 @@ Build
 
     <!-- Hidden file input for MS Project import -->
     <input type="file" id="msProjectImportInput" accept=".xml,.mpp" style="display: none;">
+    <!-- The project workbook sync's file choice where no file can be linked (#1138). -->
+    <input type="file" id="workbookSyncInput" accept=".xlsx" hidden onchange="uploadWorkbookSyncFile(event)">
 
     <!-- Excel Import Wizard Modal -->
     <div id="excelWizardOverlay" class="modal-overlay" onclick="if(event.target===this) closeExcelWizard()" role="dialog" aria-modal="true" aria-label="Import Excel File">
@@ -3894,6 +3897,39 @@ Build
                 <button class="btn btn-secondary" onclick="closeRaidSyncReview()">Cancel</button>
                 <button class="btn btn-primary" id="raidSyncApplyBtn" onclick="applyRaidSyncReview()">Apply Selected</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Project workbook sync review (#1138). The entries reuse the RAID
+         review's styling, which covers all four kinds, conflicts included. -->
+    <div id="workbookSyncOverlay" class="modal-overlay" onclick="if(event.target===this) closeWorkbookSyncReview()" role="dialog" aria-modal="true" aria-labelledby="workbookSyncTitle">
+        <div class="task-form-modal sync-dialog">
+            <div class="modal-header">
+                <h2 id="workbookSyncTitle">Sync project workbook</h2>
+                <np-close-button onclick="closeWorkbookSyncReview()"></np-close-button>
+            </div>
+            <div class="modal-body">
+                <p id="workbookSyncSummary" class="sync-hub-intro"></p>
+                <div id="workbookSyncList" class="raid-sync-list"></div>
+            </div>
+            <div class="sync-dialog-footer">
+                <np-button variant="neutral" onclick="closeWorkbookSyncReview()">Cancel</np-button>
+                <np-button variant="primary" onclick="applyWorkbookSyncReview()">Apply selected</np-button>
+            </div>
+        </div>
+    </div>
+
+    <!-- The Report ribbon's Sync button, when it can't just sync (#1139):
+         nothing linked, a link needing permission, or no File System Access.
+         sync-hub.js renders the body and footer. -->
+    <div id="syncHubOverlay" class="modal-overlay" onclick="if(event.target===this) closeSyncHub()" role="dialog" aria-modal="true" aria-labelledby="syncHubTitle">
+        <div class="task-form-modal sync-dialog">
+            <div class="modal-header">
+                <h2 id="syncHubTitle">Sync</h2>
+                <np-close-button onclick="closeSyncHub()"></np-close-button>
+            </div>
+            <div id="syncHubBody" class="modal-body"></div>
+            <div id="syncHubFooter" class="sync-dialog-footer"></div>
         </div>
     </div>
 
@@ -4053,6 +4089,7 @@ Build
     <script src="/static/kanban.js?v={{ v }}"></script>
     <script src="/static/notepad.js?v={{ v }}"></script>
     <script src="/static/local-file-access.js?v={{ v }}"></script>
+    <script src="/static/sync-hub.js?v={{ v }}"></script>
     <script src="/static/project-store.js?v={{ v }}"></script>
     <script src="/static/programme-data-store.js?v={{ v }}"></script>
     <script src="/static/project-storage.js?v={{ v }}"></script>

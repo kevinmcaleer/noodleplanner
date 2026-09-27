@@ -8435,6 +8435,7 @@ async function syncRaidExcelTarget() {
         picked = await LocalFileAccess.pickAndLinkFile(projectId, RAID_SYNC_TARGET_KEY, RAID_XLSX_PICKER_OPTIONS, 'arraybuffer');
     } catch (error) {
         showMessage('editor', 'error', 'Failed to open RAID Excel file: ' + error.message);
+        reportSyncOutcomeIfRunning(RAID_SYNC_TARGET_KEY, 'error', error.message);
         return;
     }
     if (!picked) return; // user cancelled the picker
@@ -8488,12 +8489,14 @@ async function processRaidExcelSyncInput(input, filename) {
             externalItems = data.items;
         } catch (error) {
             alert('Failed to import Excel: ' + error.message);
+            reportSyncOutcomeIfRunning(RAID_SYNC_TARGET_KEY, 'error', error.message);
             return;
         }
     }
 
     if (externalItems.length === 0) {
         alert('No RAID items found in the Excel file.');
+        reportSyncOutcomeIfRunning(RAID_SYNC_TARGET_KEY, 'error', 'no RAID items in the file');
         return;
     }
 
@@ -8519,6 +8522,7 @@ async function openRaidSyncReview(externalItems, filename) {
 
     const overlay = document.getElementById('raidSyncOverlay');
     if (overlay) overlay.classList.add('active');
+    if (entries.length === 0) reportSyncOutcomeIfRunning(RAID_SYNC_TARGET_KEY, 'nochange');
 }
 
 function renderRaidSyncReview(entries) {
@@ -8599,6 +8603,8 @@ function setRaidSyncChoice(id, choice) {
 function closeRaidSyncReview() {
     const overlay = document.getElementById('raidSyncOverlay');
     if (overlay) overlay.classList.remove('active');
+    // A no-op after applyRaidSyncReview() has reported 'applied'.
+    reportSyncOutcomeIfRunning(RAID_SYNC_TARGET_KEY, 'cancelled');
     raidSyncPendingEntries = [];
     raidSyncPendingChoices = {};
     raidSyncPendingFilename = '';
@@ -8679,6 +8685,7 @@ async function applyRaidSyncReview() {
         console.error('RAID sync write-back export failed:', error);
     }
 
+    reportSyncOutcomeIfRunning(RAID_SYNC_TARGET_KEY, 'applied');
     closeRaidSyncReview();
 }
 
@@ -9622,6 +9629,7 @@ async function syncMSProjectTarget() {
         picked = await LocalFileAccess.pickAndLinkFile(projectId, MSP_SYNC_TARGET_KEY, MSP_FILE_PICKER_OPTIONS, 'arraybuffer');
     } catch (error) {
         showMessage('editor', 'error', 'Failed to open MS Project file: ' + error.message);
+        reportSyncOutcomeIfRunning(MSP_SYNC_TARGET_KEY, 'error', error.message);
         return;
     }
     if (!picked) return; // user cancelled the picker
@@ -9654,6 +9662,7 @@ async function processMSProjectSyncInput(bytesOrFile, filename) {
             await applyImportedMspMarkdown(markdown, filename);
         } catch (error) {
             showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
+            reportSyncOutcomeIfRunning(MSP_SYNC_TARGET_KEY, 'error', error.message);
         }
         return;
     }
@@ -9677,6 +9686,7 @@ async function processMSProjectSyncInput(bytesOrFile, filename) {
         await applyImportedMspMarkdown(result.markdown, filename);
     } catch (error) {
         showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
+        reportSyncOutcomeIfRunning(MSP_SYNC_TARGET_KEY, 'error', error.message);
     }
 }
 
@@ -9699,6 +9709,7 @@ async function applyImportedMspMarkdown(markdown, filename) {
     if (!currentText.trim() || !/\S/.test(currentText.replace(/^---[\s\S]*?---/, ''))) {
         // Blank or task-less plan -- nothing to diff against, no need to review.
         await finishMspImport(markdown, filename);
+        reportSyncOutcomeIfRunning(MSP_SYNC_TARGET_KEY, 'applied');
         return;
     }
 
@@ -9791,6 +9802,7 @@ async function openMspSyncReview(currentText, importedMarkdown, filename) {
         syncModule.setMspSyncState(projectId, { taskBody: localTaskBody, syncedAt: new Date().toISOString() });
         await finishMspImport(finalText, filename);
         showMessage('editor', 'success', 'MS Project schedule already matches -- nothing to sync.');
+        reportSyncOutcomeIfRunning(MSP_SYNC_TARGET_KEY, 'nochange');
         return;
     }
 
@@ -9889,6 +9901,7 @@ function closeMspSyncReview() {
     mspSyncPendingDiff = null;
     mspSyncPendingChoices = {};
     showMessage('editor', 'info', 'MS Project sync cancelled.');
+    reportSyncOutcomeIfRunning(MSP_SYNC_TARGET_KEY, 'cancelled');
 }
 
 async function applyMspSyncReview() {
@@ -9910,6 +9923,7 @@ async function applyMspSyncReview() {
     const filename = mspSyncPendingFilename;
     closeMspSyncReviewSilently();
     await finishMspImport(finalText, filename);
+    reportSyncOutcomeIfRunning(MSP_SYNC_TARGET_KEY, 'applied');
 }
 
 function closeMspSyncReviewSilently() {
@@ -9928,6 +9942,343 @@ function closeMspSyncReviewSilently() {
 // (syncMSProjectTarget above).
 async function uploadMSProjectFile(file) {
     await processMSProjectSyncInput(file, file.name);
+}
+
+// ===== Project workbook sync (#1138) =====
+//
+// The third sync target, beside RAID Excel and MS Project: the whole-plan
+// workbook Report > Share > Excel exports. workbook-sync.js holds the rules
+// (which columns sync back, how rows match tasks, the three-way base); this
+// is the same link / read / review / write-back flow as the two targets
+// above, and the same LocalFileAccess states drive it.
+
+// This target's key into LocalFileAccess's per-target handle map -- distinct
+// from RAID_SYNC_TARGET_KEY, which is a different workbook.
+const WORKBOOK_SYNC_TARGET_KEY = 'project-excel';
+const WORKBOOK_FILE_TYPES = [{
+    description: 'Project workbook',
+    accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] },
+}];
+const WORKBOOK_PICKER_OPTIONS = {
+    id: 'noodleplanner-project-workbook',
+    types: WORKBOOK_FILE_TYPES,
+    excludeAcceptAllOption: false,
+    multiple: false,
+};
+
+// The review in progress: { currentText, diff, choices, filename }.
+let workbookSyncPending = null;
+
+function workbookSyncProjectId() {
+    return (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
+}
+
+/**
+ * Sync Now on the project workbook target. Same shape as
+ * syncRaidExcelTarget(): unsupported browsers choose the file each time,
+ * needs-relink asks for permission on the same handle first, unlinked opens
+ * the picker and links what is chosen, linked reads straight through.
+ * MUST run from a click with no await before the permission request.
+ */
+async function syncProjectWorkbookTarget() {
+    const projectId = workbookSyncProjectId();
+
+    if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported()) {
+        if (typeof showToast === 'function') {
+            showToast('This browser can’t link Sync to a file on disk — choose the project workbook each time instead.', 'info');
+        }
+        const input = document.getElementById('workbookSyncInput');
+        if (input) {
+            input.value = '';
+            input.click();
+        }
+        return;
+    }
+
+    await LocalFileAccess.ensureRestored(projectId);
+    let status = LocalFileAccess.getLinkStatus(projectId, WORKBOOK_SYNC_TARGET_KEY);
+
+    if (status === 'needs-relink') {
+        const granted = await LocalFileAccess.requestWritePermission(projectId, WORKBOOK_SYNC_TARGET_KEY);
+        status = granted ? 'linked' : 'unlinked';
+    }
+
+    if (status === 'linked') {
+        let read = null;
+        try {
+            read = await LocalFileAccess.readLinkedFile(projectId, WORKBOOK_SYNC_TARGET_KEY, 'arraybuffer');
+        } catch (error) {
+            console.error('Could not read the linked project workbook:', error);
+        }
+        if (read) {
+            await processWorkbookSyncInput(read.content, read.name);
+            return;
+        }
+    }
+
+    let picked;
+    try {
+        picked = await LocalFileAccess.pickAndLinkFile(projectId, WORKBOOK_SYNC_TARGET_KEY, WORKBOOK_PICKER_OPTIONS, 'arraybuffer');
+    } catch (error) {
+        showMessage('editor', 'error', 'Failed to open the project workbook: ' + error.message);
+        reportSyncOutcomeIfRunning(WORKBOOK_SYNC_TARGET_KEY, 'error', error.message);
+        return;
+    }
+    if (!picked) return; // the picker was cancelled
+    await processWorkbookSyncInput(picked.content, picked.name);
+}
+
+/** The plain file input's change handler: the unsupported-browser path. */
+async function uploadWorkbookSyncFile(event) {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    await processWorkbookSyncInput(file, file.name);
+}
+
+/**
+ * Create a new project workbook on disk and link it, rather than exporting
+ * one and then choosing it again. The save picker needs the click's user
+ * activation, so it is the very first thing this does.
+ */
+async function createProjectWorkbookTarget() {
+    if (typeof window.showSaveFilePicker !== 'function' || typeof LocalFileAccess === 'undefined') {
+        showMessage('editor', 'info', 'This browser can’t create a linked file. Export the workbook from Report > Share > Excel, then choose it with Sync Now.');
+        return;
+    }
+    const editor = document.getElementById('planEditor');
+    const title = (editor && typeof getSyncFrontMatterField === 'function' && getSyncFrontMatterField(editor.value, 'title')) || 'Project';
+    let handle;
+    try {
+        handle = await window.showSaveFilePicker({ suggestedName: title + '.xlsx', types: WORKBOOK_FILE_TYPES, id: WORKBOOK_PICKER_OPTIONS.id });
+    } catch (error) {
+        if (error && error.name === 'AbortError') return;
+        showMessage('editor', 'error', 'Could not create the workbook: ' + error.message);
+        return;
+    }
+    const projectId = workbookSyncProjectId();
+    LocalFileAccess.link(projectId, handle, handle.name, WORKBOOK_SYNC_TARGET_KEY);
+    await writeBackProjectWorkbook(handle.name);
+    if (typeof renderSyncSettings === 'function') renderSyncSettings();
+}
+
+async function processWorkbookSyncInput(input, filename) {
+    if (filename && !/\.xlsx$/i.test(filename)) {
+        showMessage('editor', 'error', 'Please choose an Excel (.xlsx) workbook.');
+        reportSyncOutcomeIfRunning(WORKBOOK_SYNC_TARGET_KEY, 'error', 'not an .xlsx file');
+        return;
+    }
+    let read;
+    try {
+        const excel = await import('/static/browser-excel.js');
+        const workbook = await excel.loadPlanWorkbook(input);
+        const sync = await import('/static/workbook-sync.js');
+        read = sync.readWorkbookTasks(workbook);
+    } catch (error) {
+        showMessage('editor', 'error', 'Could not read the project workbook: ' + error.message);
+        reportSyncOutcomeIfRunning(WORKBOOK_SYNC_TARGET_KEY, 'error', error.message);
+        return;
+    }
+    await openWorkbookSyncReview(read, filename);
+}
+
+async function openWorkbookSyncReview(read, filename) {
+    const sync = await import('/static/workbook-sync.js');
+    const plan = await import('/static/msproject-sync.js');
+    const editor = document.getElementById('planEditor');
+    const currentText = editor ? editor.value : '';
+    const body = plan.stripBackMatterSections(plan.splitFrontMatter(currentText).rest);
+    const stored = sync.getWorkbookSyncState(workbookSyncProjectId());
+    const diff = sync.diffWorkbookTasks(body, read, stored && stored.rows ? stored.rows : null);
+
+    if (diff.entries.length === 0) {
+        // Nothing came back: still write the plan out, so the workbook
+        // reflects any change made in the plan since it was last written.
+        await writeBackProjectWorkbook(filename);
+        showMessage('editor', 'success', 'Project workbook already matches the plan — wrote the latest plan back to it.');
+        reportSyncOutcomeIfRunning(WORKBOOK_SYNC_TARGET_KEY, 'nochange');
+        return;
+    }
+
+    const choices = {};
+    diff.entries.forEach((entry) => { choices[entry.key] = sync.defaultWorkbookSyncChoice(entry.kind); });
+    workbookSyncPending = { currentText, diff, choices, filename };
+    renderWorkbookSyncReview(diff);
+    document.getElementById('workbookSyncOverlay')?.classList.add('active');
+}
+
+const WORKBOOK_FIELD_LABELS = { percent: '% Complete', comment: 'Comment' };
+
+function workbookFieldValue(field, value) {
+    if (field === 'percent') return value + '%';
+    return value ? value : '(none)';
+}
+
+function renderWorkbookSyncReview(diff) {
+    const summary = document.getElementById('workbookSyncSummary');
+    const listEl = document.getElementById('workbookSyncList');
+    if (!summary || !listEl) return;
+
+    const n = diff.entries.length;
+    summary.textContent = n + ' change' + (n === 1 ? '' : 's') + ' in the workbook since it was last written. ' +
+        'Only % Complete, Comment and new rows on the Tasks sheet sync back; dates, durations, resources and the other sheets are export-only.' +
+        (diff.hasBase ? '' : ' This workbook has no record of what it was written with, so every difference is shown as a conflict.') +
+        (diff.unmatched ? ' ' + diff.unmatched + ' edited row' + (diff.unmatched === 1 ? ' is' : 's are') + ' for tasks since removed from the plan, and were left out.' : '');
+
+    listEl.innerHTML = '';
+    diff.entries.forEach((entry, entryIndex) => {
+        const row = document.createElement('div');
+        row.className = 'raid-sync-entry raid-sync-kind-' + entry.kind;
+        const badge = '<span class="raid-sync-kind-badge raid-sync-kind-' + entry.kind + '">' + entry.kind + '</span>';
+        const choice = workbookSyncPending.choices[entry.key];
+        let detail = '';
+        let sidesHtml = '';
+        let choiceHtml = '';
+
+        if (entry.kind === 'updated' || entry.kind === 'conflict') {
+            const side = (label, pick) => '<div class="raid-sync-entry-side"><div class="raid-sync-entry-side-label">' + label + '</div>' +
+                entry.fields.map((f) => escapeHtml(WORKBOOK_FIELD_LABELS[f.field] + ': ' + workbookFieldValue(f.field, pick(f)))).join('<br>') + '</div>';
+            sidesHtml = '<div class="raid-sync-entry-sides">' + side('Your plan', (f) => f.local) + side('Workbook', (f) => f.external) + '</div>';
+            choiceHtml = entry.kind === 'conflict'
+                ? '<label><input type="radio" name="workbook-sync-choice-' + entryIndex + '"' + (choice === 'keep-mine' ? ' checked' : '') + '> Keep mine</label>' +
+                  '<label><input type="radio" name="workbook-sync-choice-' + entryIndex + '"' + (choice === 'keep-theirs' ? ' checked' : '') + '> Keep workbook</label>'
+                : '<label><input type="checkbox"' + (choice === 'accept' ? ' checked' : '') + '> Apply update</label>';
+        } else if (entry.kind === 'added') {
+            const bits = [];
+            if (entry.external.percent) bits.push(entry.external.percent + '% complete');
+            if (entry.external.comment) bits.push('“' + entry.external.comment + '”');
+            detail = 'New row in the workbook' + (bits.length ? ': ' + bits.join(', ') : '');
+            choiceHtml = '<label><input type="checkbox"' + (choice === 'accept' ? ' checked' : '') + '> Add to plan</label>';
+        } else if (entry.kind === 'removed') {
+            detail = 'Deleted from the workbook' + (entry.descendantCount
+                ? '; removing it also removes ' + entry.descendantCount + ' sub-task' + (entry.descendantCount === 1 ? '' : 's') : '');
+            choiceHtml = '<label><input type="checkbox"' + (choice === 'accept' ? ' checked' : '') + '> Remove from plan</label>';
+        }
+
+        row.innerHTML =
+            '<div class="raid-sync-entry-body">' +
+            '<div class="raid-sync-entry-title">' + badge + ' ' + escapeHtml(entry.name) + '</div>' +
+            (detail ? '<div class="raid-sync-entry-detail">' + escapeHtml(detail) + '</div>' : '') +
+            sidesHtml +
+            '</div>' +
+            '<div class="raid-sync-entry-choice">' + choiceHtml + '</div>';
+
+        // Keys carry task names; wired by closure, never interpolated into
+        // an inline handler.
+        if (entry.kind === 'conflict') {
+            const [mine, theirs] = row.querySelectorAll('input[type="radio"]');
+            mine.addEventListener('change', () => { if (mine.checked) setWorkbookSyncChoice(entry.key, 'keep-mine'); });
+            theirs.addEventListener('change', () => { if (theirs.checked) setWorkbookSyncChoice(entry.key, 'keep-theirs'); });
+        } else {
+            const box = row.querySelector('input[type="checkbox"]');
+            box.addEventListener('change', () => setWorkbookSyncChoice(entry.key, box.checked ? 'accept' : 'reject'));
+        }
+        listEl.appendChild(row);
+    });
+}
+
+function setWorkbookSyncChoice(key, choice) {
+    if (workbookSyncPending) workbookSyncPending.choices[key] = choice;
+}
+
+function closeWorkbookSyncReview() {
+    document.getElementById('workbookSyncOverlay')?.classList.remove('active');
+    if (workbookSyncPending) {
+        workbookSyncPending = null;
+        showMessage('editor', 'info', 'Project workbook sync cancelled.');
+        reportSyncOutcomeIfRunning(WORKBOOK_SYNC_TARGET_KEY, 'cancelled');
+    }
+}
+
+async function applyWorkbookSyncReview() {
+    if (!workbookSyncPending) return;
+    const { currentText, diff, choices, filename } = workbookSyncPending;
+    const sync = await import('/static/workbook-sync.js');
+    const plan = await import('/static/msproject-sync.js');
+
+    const current = plan.splitFrontMatter(currentText);
+    const body = plan.stripBackMatterSections(current.rest);
+    const newBody = sync.applyWorkbookTaskDiff(body, diff, choices);
+    const sections = plan.extractBackMatterSections(current.rest);
+    const finalText = plan.assemblePlanText(current.lines, newBody, sections);
+    const applied = diff.entries.filter((e) => (e.kind === 'conflict' ? choices[e.key] === 'keep-theirs' : choices[e.key] === 'accept')).length;
+
+    workbookSyncPending = null;
+    document.getElementById('workbookSyncOverlay')?.classList.remove('active');
+
+    const editor = document.getElementById('planEditor');
+    if (editor) {
+        setEditorValuePreservingCursor(editor, finalText);
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    await renderText();
+    await writeBackProjectWorkbook(filename);
+    showMessage('editor', 'success', 'Applied ' + applied + ' change' + (applied === 1 ? '' : 's') + ' from the project workbook.');
+    reportSyncOutcomeIfRunning(WORKBOOK_SYNC_TARGET_KEY, 'applied', applied + ' change' + (applied === 1 ? '' : 's'));
+}
+
+/**
+ * Write the current plan out as the project workbook: through the linked
+ * handle when there is one, as a download otherwise. Then remember what was
+ * written (front matter label and timestamp, and the rows as the fallback
+ * base) the way the other targets do.
+ */
+async function writeBackProjectWorkbook(filename) {
+    const projectId = workbookSyncProjectId();
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+    let parse;
+    try {
+        parse = await currentParseResult(editor.value);
+    } catch (error) {
+        showMessage('editor', 'error', 'Could not write the project workbook: ' + error.message);
+        return;
+    }
+    const excel = await import('/static/browser-excel.js');
+    const sync = await import('/static/workbook-sync.js');
+    const name = filename || ((parse.project_name || 'Project') + '.xlsx');
+    const linked = typeof LocalFileAccess !== 'undefined' &&
+        LocalFileAccess.getLinkStatus(projectId, WORKBOOK_SYNC_TARGET_KEY) === 'linked';
+
+    try {
+        const result = await excel.exportPlanExcelInBrowser(parse, {
+            projectName: parse.project_name || null,
+            budgetItems,
+            filename: name,
+            download: !linked,
+        });
+        if (linked) {
+            const written = await LocalFileAccess.writeLinkedFile(projectId, WORKBOOK_SYNC_TARGET_KEY, result.buffer);
+            if (written && written.ok) {
+                if (typeof showToast === 'function') showToast('Wrote the plan back to ' + written.filename + ' — no download needed.', 'success');
+            } else {
+                await excel.exportPlanExcelInBrowser(parse, { projectName: parse.project_name || null, budgetItems, filename: name });
+                const reason = written && written.needsRelink ? ' Re-link it in Settings > Sync to restore one-click sync.' : '';
+                if (typeof showToast === 'function') showToast('Could not write back to the linked workbook — downloaded a copy instead.' + reason, 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Project workbook write-back failed:', error);
+        showMessage('editor', 'error', 'Could not write the project workbook: ' + error.message);
+        return;
+    }
+
+    sync.setWorkbookSyncState(projectId, { filename: name, rows: sync.buildSyncRows(parse.tasks || []), syncedAt: new Date().toISOString() });
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const stamp = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+    const plan = await import('/static/msproject-sync.js');
+    let text = plan.upsertFrontMatterField(editor.value, 'workbook_file', name);
+    text = plan.upsertFrontMatterField(text, 'workbook_file_synced', stamp);
+    if (text !== editor.value) {
+        setEditorValuePreservingCursor(editor, text);
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+/** sync-hub.js's outcome report, when a Sync-button run is in progress. */
+function reportSyncOutcomeIfRunning(targetKey, outcome, detail) {
+    if (typeof reportSyncOutcome === 'function') reportSyncOutcome(targetKey, outcome, detail);
 }
 
 // ===== Excel Import Wizard =====

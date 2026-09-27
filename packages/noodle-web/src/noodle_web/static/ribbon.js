@@ -344,12 +344,8 @@ const LABEL_HELP = {
     // titles; Baseline itself still opens the dialog (#1112).
     'Set Baseline': 'Save the current schedule as the baseline',
     'Show Baseline': 'Show or hide the baseline overlay on the Gantt chart',
-    // #1123: the per-target RAID Excel / MS Project sync already built in
-    // #868 lives in Settings > Sync -- there is no consolidated one-click
-    // control yet (that's #913's single-button, multi-target work). This
-    // button is a stopgap that jumps straight there rather than doing
-    // nothing.
-    Sync: 'Open sync settings for linked RAID Excel / MS Project files (a single consolidated Sync button is tracked in #913)',
+    // #1139: syncs every linked file, or says what to do first.
+    Sync: 'Sync the plan with its linked files: the project workbook, the RAID workbook and MS Project',
 };
 
 function labelHelp(label) {
@@ -577,12 +573,11 @@ const LABEL_ACTIONS = {
     Settings: () => openSettingsPanel(),
     Undo: () => EditorUndoManager.undo(),
 
-    // #1123: the Report ribbon's Sync button used to resolve to nothing
-    // (a generic "Sync isn't available yet" toast). The real per-target
-    // sync UI (RAID Excel / MS Project, #868) already lives in Settings >
-    // Sync -- jump straight there rather than leaving a dead button until
-    // #913's consolidated single-button sync replaces this.
-    Sync: () => openSettingsPanel('sync'),
+    // #1139: syncs every linked target, or -- with nothing linked, a link
+    // needing permission again, or a browser that cannot keep links --
+    // opens the dialog that says what to do instead (sync-hub.js). It used
+    // to open Settings > Sync (#1123), which left the button a detour.
+    Sync: () => runFrontOfHouseSync(),
 
     // Per-category syntax highlight toggles (#1051) -- see
     // highlight-toggles.js's own header comment for why flipping these can
@@ -1011,7 +1006,7 @@ function renderButton(scopeId, tuple, kind) {
     const action = resolveAction(scopeId, label);
     const isActive = isButtonActive(scopeId, label, live);
     return `<button type="button" class="${cls}${isActive ? ' active' : ''}" data-scope-id="${scopeId}" data-label="${label}"
-        title="${help}" aria-label="${label}" aria-pressed="${isActive}" ${action ? '' : 'data-stub="true"'}>
+        title="${help}" aria-label="${label}" aria-pressed="${isActive}" ${action ? '' : 'data-stub="true"'}${runStateAttributes(label)}>
         ${icon(iconName, size)}${label}${flag === 'caret' ? '<span class="ribbon-caret">▼</span>' : ''}
     </button>`;
 }
@@ -1048,7 +1043,15 @@ function renderSimpleButton(scopeId, tuple, { menuItem = false } = {}) {
     const action = resolveAction(scopeId, label);
     const isActive = isButtonActive(scopeId, label, live);
     return `<button type="button" class="${cls}${isActive ? ' active' : ''}" data-scope-id="${scopeId}" data-label="${label}"${role}
-        title="${help}" aria-label="${label}" aria-pressed="${isActive}" ${action ? '' : 'data-stub="true"'}>${inner}</button>`;
+        title="${help}" aria-label="${label}" aria-pressed="${isActive}" ${action ? '' : 'data-stub="true"'}${runStateAttributes(label)}>${inner}</button>`;
+}
+
+/** A long-running command's progress, as button attributes: only Sync has
+ * one (sync-hub.js, #1139). The ribbon is re-rendered on every interaction,
+ * so the state has to come from here rather than be set on a node. */
+function runStateAttributes(label) {
+    if (label === 'Sync' && typeof syncButtonAttributes === 'function') return syncButtonAttributes();
+    return '';
 }
 
 /** Buttons whose pressed state reflects real, currently-known app state. */

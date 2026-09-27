@@ -107,7 +107,14 @@ def test_browser_workbook_matches_python_export_cell_for_cell(tmp_path):
 
     browser = load_workbook(browser_path)
     python = load_workbook(python_path)
-    assert browser.sheetnames == python.sheetnames
+    # The browser adds one sheet the server does not: `_noodle_sync`, very
+    # hidden, the project workbook sync's record of what the file was written
+    # with (#1138, static/workbook-sync.js). A workbook without it still
+    # syncs, from the last-synced snapshot, so the server need not write it.
+    hidden = [ws.title for ws in browser.worksheets if ws.sheet_state != "visible"]
+    assert hidden == ["_noodle_sync"]
+    assert browser["_noodle_sync"].sheet_state == "veryHidden"
+    assert [name for name in browser.sheetnames if name not in hidden] == python.sheetnames
 
     volatile_cells = {("Summary", "B8")}
     for sheet_name in python.sheetnames:

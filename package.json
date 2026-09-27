@@ -18,6 +18,7 @@
     "vendor": "npm run vendor:mppwriter && npm run vendor:jspdf && npm run vendor:docx && npm run vendor:dejavu && npm run vendor:exceljs && npm run vendor:jszip && npm run vendor:pptxgenjs && npm run vendor:qrcode",
     "audit:tokens": "node scripts/token-audit.mjs",
     "design:tokens": "node scripts/design-tokens.mjs",
+    "design:pull": "node scripts/design-pull.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "lint:design": "node scripts/lint-design-system.mjs",
     "design:consolidation": "node scripts/token-consolidation.mjs",

@@ -113,24 +113,7 @@
     "$type": "color"
   },
   "floating-shadow": {
-    "$value": [
-      {
-        "offsetX": "0",
-        "offsetY": "1",
-        "blur": "2",
-        "spread": "0",
-        "color": "#0003",
-        "inset": false
-      },
-      {
-        "offsetX": "0",
-        "offsetY": "18",
-        "blur": "40",
-        "spread": "-24",
-        "color": "#0009",
-        "inset": false
-      }
-    ],
+    "$value": "0 1px 2px #0003, 0 18px 40px -24px #0009",
     "$type": "shadow"
   },
   "border-control": {
