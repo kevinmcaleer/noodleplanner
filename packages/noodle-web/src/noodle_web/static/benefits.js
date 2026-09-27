@@ -1767,12 +1767,8 @@ function updateBenefits() {
     const benStart = planText.indexOf(BENEFITS_START);
     if (benStart !== -1) {
         // Find end of benefits section
-        let benEnd = planText.length;
         const searchAfter = benStart + BENEFITS_START.length;
-        for (const marker of [BUDGET_START, RAID_LOG_START, BASELINE_START, COMMS_START, LESSONS_START, WHITEBOARD_START]) {
-            const idx = planText.indexOf(marker, searchAfter);
-            if (idx !== -1 && idx < benEnd) benEnd = idx;
-        }
+        const benEnd = npBackMatterSectionEnd(planText, searchAfter, [BENEFITS_START]);
 
         const benefitsText = planText.substring(searchAfter, benEnd);
         const parsed = parseBenefitsMarkdown(benefitsText);

@@ -339,6 +339,10 @@ function wbCutDependencyNoodle(fromName, toName) {
 function wbNoteRowRectFor(taskName) {
     if (typeof wbNoteNodes === 'undefined' || !wbNoteNodes || !taskName) return null;
     if (typeof wbClientToBoard !== 'function') return null;
+    // A pan or zoom still waiting for its frame (whiteboard.js) has moved
+    // the view but not the notes yet: measured now, a row would convert
+    // back to the wrong board point.
+    if (typeof wbFlushTransform === 'function') wbFlushTransform();
     const key = String(taskName).toLowerCase();
 
     for (const entry of wbNoteNodes.values()) {

@@ -33,11 +33,14 @@ function updateEditorTaskViaModel(editor, task, taskIndex, updater) {
  *   requireAfter  add a missing field only after one of `after` -- a finish
  *                 date without a start would be read as the start
  *   append        add a missing field at the end of the line
+ *   skip          (token, line) => true for a token that is not the field
+ *                 after all -- see isNotAResource()
  */
 function updateLineField(line, type, value, options = {}) {
-    const { nth = 0, all = false, after = [], requireAfter = false, append = false } = options;
+    const { nth = 0, all = false, after = [], requireAfter = false, append = false, skip = null } = options;
     const tokens = TaskLineTokenizer.tokenize(line)
-        .filter(token => token.type !== 'star' && token.type !== 'star-lag');
+        .filter(token => token.type !== 'star' && token.type !== 'star-lag')
+        .filter(token => !(skip && skip(token, line)));
     const matching = tokens.filter(token => token.type === type);
     const targets = all ? matching : matching.slice(nth, nth + 1);
 
@@ -60,6 +63,19 @@ function updateLineField(line, type, value, options = {}) {
         return line.slice(0, tokens[0].start) + value + ' ' + line.slice(tokens[0].start);
     }
     return line.trimEnd() + ' ' + value;
+}
+
+/**
+ * The grammar reads any `@word` as a resource, but two kinds are not one a
+ * Resources edit may touch: a quality role (`@kev:A`, views-products.js),
+ * and an @ inside a bracket the tokenizer does not protect, such as
+ * `[levelled @ann 2026-01-05]`.
+ */
+function isNotAResource(token, line) {
+    if (token.type !== 'resource') return false;
+    if (/^:[PRA]\b/i.test(line.slice(token.end))) return true;
+    const before = line.slice(0, token.start);
+    return before.lastIndexOf('[') > before.lastIndexOf(']');
 }
 
 /** Replace a token's text, or remove it with one space beside it. */
@@ -87,7 +103,7 @@ function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null)
             if (field === 'resources') {
                 const people = value.split(/[,\s]+/).filter(Boolean)
                     .map(person => '@' + person.replace(/^@/, ''));
-                return updateLineField(line, 'resource', people.join(' '), { all: true });
+                return updateLineField(line, 'resource', people.join(' '), { all: true, skip: isNotAResource });
             }
             if (field === 'comment') return updateLineField(line, 'comment', value && `"${value}"`, { all: true, append: true });
             if (field === 'bucket') return updateLineField(line, 'bucket', value && `{${value}}`, { append: true });

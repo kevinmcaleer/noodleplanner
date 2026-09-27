@@ -234,6 +234,9 @@ function wbGroupToolbarButtons(groupName) {
 function wbObjectToolbarTargetRect() {
     const target = wbObjectToolbarTarget;
     if (!target) return null;
+    // Measure the note where the current pan/zoom puts it, not where the
+    // last frame did (whiteboard.js's wbApplyTransformSoon()).
+    if (typeof wbFlushTransform === 'function') wbFlushTransform();
     if (target.kind === 'note') {
         const entry = (typeof wbNoteNodes !== 'undefined') ? wbNoteNodes.get(target.name) : null;
         return entry && entry.refs && entry.refs.card ? entry.refs.card.getBoundingClientRect() : null;

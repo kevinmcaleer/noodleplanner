@@ -3,6 +3,34 @@
  * Must be loaded before all other script files.
  */
 
+// The one global escapeHtml(). Declared here, in the first script both
+// index.html and collab_join.html load, because a top-level function in a
+// classic script is shared by -- and silently replaced for -- every file:
+// a second copy anywhere later wins for all callers. It escapes quotes as
+// well as & < >, so its result is safe in a quoted attribute value
+// (title="...", data-*="...") as well as in element text.
+function escapeHtml(value) {
+    if (value == null) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// A value for a single-quoted JS string inside an event-handler attribute,
+// onclick="f('...')". The browser decodes the attribute's entities before
+// it runs the handler, so escapeHtml() alone hands the JS a bare ': escape
+// for the string first, then for the attribute.
+function escapeJsAttr(value) {
+    return escapeHtml(String(value == null ? '' : value)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '\\r')
+        .replace(/\n/g, '\\n'));
+}
+
 // Core state
 let selectedFile = null;
 let renderTimeout = null;

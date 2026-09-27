@@ -23,6 +23,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import vm from 'node:vm';
+import backMatter from '../packages/noodle-web/src/noodle_web/static/back-matter-markers.js';
 
 import { planBody } from '../packages/noodle-web/src/noodle_web/static/engine/local-parse.js';
 import { scheduleTasksFromText } from '../packages/noodle-web/src/noodle_web/static/engine/scheduler.js';
@@ -47,6 +48,9 @@ function liftFunctions(sandbox, file, names) {
 // script.js in index.html). Seed them directly rather than lifting the
 // whole file, since these are simple string literals.
 const sandbox = {
+  // The canonical back-matter marker list and section-boundary helpers,
+  // from back-matter-markers.js (loaded before state.js in index.html).
+  ...backMatter,
   HIGHLIGHTS_START: '---highlights---',
   HIGHLIGHTS_END: '---end-highlights---',
   BUDGET_START: '---budget---',

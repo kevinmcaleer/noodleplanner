@@ -650,5 +650,28 @@ Phase 1
                 os.unlink(tmp_path)
 
 
+class TestMarkdownTableFromYamlFile:
+    """yaml_to_markdown_table (the CLI's `render` of a YAML plan) renders a
+    file exactly as text_to_markdown_table renders its contents -- it used
+    to be a separate copy of that function's body."""
+
+    def test_same_output_as_text_to_markdown_table_with_holidays(self, tmp_path):
+        import yaml
+        from noodle_core import yaml_to_markdown_table
+
+        plan = "Phase 1\n  Task A @alice 2d 2026-03-17\n  Task B @bob 3d [depends Task A]\n"
+        body = yaml.safe_dump(natural_language_to_yaml(plan, "Project"), sort_keys=False)
+        # The whole file after the opening --- reads as front matter too
+        text = "---\n" + body + "non-working-days: 2026-03-18\n"
+        path = tmp_path / "plan.yaml"
+        path.write_text(text, encoding="utf-8")
+
+        rendered = yaml_to_markdown_table(str(path))
+        assert rendered == text_to_markdown_table(text, is_yaml=True, original_text=text)
+        # the holiday was honoured: Task A runs Tue 17, Thu 19 Mar
+        assert "|     Task A | 17 Mar | 20 Mar |  2d |" in rendered
+        assert "alice    |   16h |█░█ ░░  |" in rendered
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

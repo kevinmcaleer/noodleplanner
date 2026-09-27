@@ -45,6 +45,7 @@ const templatesDir = join(repo, 'packages', 'noodle-web', 'src', 'noodle_web', '
 
 const ribbonSrc = readFileSync(join(staticDir, 'ribbon.js'), 'utf8');
 const scriptSrc = readFileSync(join(staticDir, 'script.js'), 'utf8');
+const stateSrc = readFileSync(join(staticDir, 'state.js'), 'utf8');
 const html = readFileSync(join(templatesDir, 'index.html'), 'utf8');
 
 // ---------------------------------------------------------------------------
@@ -155,8 +156,8 @@ function makeSandbox(overrides = {}) {
     ...overrides,
   };
 
+  liftFunctions(sandbox, stateSrc, ['escapeHtml']);
   liftFunctions(sandbox, scriptSrc, [
-    'escapeHtml',
     'formatBaselineTimestamp',
     'createBaseline',
     'clearActiveBaseline',

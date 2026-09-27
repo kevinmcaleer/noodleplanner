@@ -45,6 +45,41 @@ function getBackMatterFoldingDescriptors() {
     ];
 }
 
+/**
+ * Is this line a separator or section rule rather than a task (#746)?
+ *
+ * True for a line that *starts* with `===` or `---` -- an `=== Phase ===`
+ * heading, a bare `---`/`=====` rule, or a back-matter marker such as
+ * `---comms---` -- and for a markdown table's delimiter row (`|---|---|`).
+ * A `---` or `===` in the middle of a line (`Migrate A---B 3d`) is part of
+ * a task's text, not a separator, so such a line is still a task.
+ */
+function isEditorSeparatorLine(line) {
+    return /^\s*(?:={3,}|-{3,})/.test(line) || /^\s*\|[\s|:-]*-{3,}[\s|:-]*$/.test(line);
+}
+
+/**
+ * Whether to check, after each overlay repaint, that the highlight overlay
+ * still holds exactly the textarea's text (#746). Off in production; on for
+ * a local dev server, or anywhere with `localStorage['np-debug-overlay'] = '1'`.
+ */
+function editorOverlayDriftCheckEnabled() {
+    try {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('np-debug-overlay') === '1') return true;
+    } catch (e) { /* storage blocked */ }
+    const host = typeof location !== 'undefined' ? location.hostname : '';
+    return host === 'localhost' || host === '127.0.0.1';
+}
+
+/** Index of the first character at which two strings differ, or -1. */
+function firstTextDifference(a, b) {
+    const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) {
+        if (a.charCodeAt(i) !== b.charCodeAt(i)) return i;
+    }
+    return a.length === b.length ? -1 : n;
+}
+
 function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
     const sectionFoldingController = editor.id === 'planEditor' && typeof SectionFolding !== 'undefined'
@@ -86,7 +121,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             if (trimmed === '---raid log---') { inRaidLog = true; continue; }
             if (trimmed === '---baseline---') { inBaseline = true; continue; }
             if (trimmed === '---whiteboard---') { inWhiteboard = true; continue; }
-            if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudget || inWhiteboard || !trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.includes('===')) continue;
+            if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudget || inWhiteboard || !trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') || isEditorSeparatorLine(trimmed)) continue;
 
             const taskMetadata = TaskLineTokenizer.metadata(allLines[i]).values;
             if (taskMetadata.name) {
@@ -158,6 +193,10 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         // Dependency tokens the last parse flagged as circular, keyed by
         // 1-based line number (see updateCircularDependencyWarnings).
         const circularByLine = window._circularDependencyLines || {};
+        // The one escape for text going into the overlay's innerHTML. & must
+        // go first: the overlay has to render char-for-char what the
+        // textarea holds, and an unescaped "&amp;" or "&not" collapses to one
+        // glyph and drags the caret (#745). Use it at every line site.
         function escapeSyntaxHtml(value) {
             return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
@@ -243,16 +282,16 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 return '<span class="section-fold-highlight-line">&#8203;</span>';
             }
             if (record.sectionMarker) {
-                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-content">' + escapeSyntaxHtml(line) + '</span>';
             }
 
             // Track front matter (between --- delimiters) — skip syntax highlighting
             if (line.trim() === '---' && !inHighlightsSection && !inBudgetSection && !inRaidLogSection && !inBaselineSection) {
                 inFrontMatterSection = !inFrontMatterSection;
-                return '<span class="syntax-frontmatter-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-frontmatter-delimiter">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (inFrontMatterSection) {
-                const escaped = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const escaped = escapeSyntaxHtml(line);
                 const listMatch = escaped.match(/^(\s*-\s+)(.*)$/);
                 if (listMatch) {
                     const prefix = '<span class="syntax-yaml-list">' + listMatch[1] + '</span>';
@@ -276,88 +315,91 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
             if (line.trim() === '---highlights---') {
                 inHighlightsSection = true;
-                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (line.trim() === '---end-highlights---' || (inHighlightsSection && (line.trim() === '---raid log---' || line.trim() === '---budget---'))) {
                 inHighlightsSection = false;
                 if (line.trim() === '---budget---') {
                     inBudgetSection = true;
-                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                    return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
                 }
                 if (line.trim() === '---raid log---') {
                     inRaidLogSection = true;
-                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                    return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
                 }
-                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (inHighlightsSection) {
-                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-content">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (line.trim() === '---budget---') {
                 inBudgetSection = true;
-                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (inBudgetSection) {
                 if (line.trim() === '---raid log---') {
                     inBudgetSection = false;
                     inRaidLogSection = true;
-                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                    return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
                 }
                 if (line.trim() === '---baseline---') {
                     inBudgetSection = false;
                     inBaselineSection = true;
-                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                    return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
                 }
-                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-content">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (line.trim() === '---raid log---') {
                 inRaidLogSection = true;
-                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (inRaidLogSection) {
                 if (line.trim() === '---baseline---') {
                     inRaidLogSection = false;
                     inBaselineSection = true;
-                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                    return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
                 }
-                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-content">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (line.trim() === '---baseline---') {
                 inBaselineSection = true;
-                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (inBaselineSection) {
                 if (line.trim() === '---whiteboard---') {
                     inBaselineSection = false;
                     inWhiteboardSection = true;
-                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                    return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
                 }
-                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-content">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (line.trim() === '---whiteboard---') {
                 inWhiteboardSection = true;
-                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (inWhiteboardSection) {
                 if (line.trim() === '---parking lot---') {
                     inWhiteboardSection = false;
                     inParkingLotSection = true;
-                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                    return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
                 }
-                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-content">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (line.trim() === '---parking lot---') {
                 inParkingLotSection = true;
-                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-delimiter">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (inParkingLotSection) {
-                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-highlights-content">' + escapeSyntaxHtml(line) + '</span>';
             }
             if (line.trimStart().startsWith('//')) {
-                return '<span class="syntax-line-comment">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                return '<span class="syntax-line-comment">' + escapeSyntaxHtml(line) + '</span>';
             }
-            if (!line.trim() || line.includes('===') || line.includes('---')) {
-                return line;
+            // Blank lines and separator/section rules get no task highlighting,
+            // but are still escaped: the overlay is set with innerHTML, so a raw
+            // `<` here would open a real tag and drop text from the overlay (#746).
+            if (!line.trim() || isEditorSeparatorLine(line)) {
+                return line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             }
             return highlightTaskLine(line, lineIdx);
         }).join('\n');
@@ -413,6 +455,18 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
         if (highlightLayer) {
             highlightLayer.innerHTML = highlightSyntax(content);
+            if (editorOverlayDriftCheckEnabled()) {
+                // The caret comes from the textarea and the glyphs from this
+                // overlay, so they must hold the same text char for char.
+                // A folded section renders as one zero-width-space line.
+                const expected = displayLines.map(record => record.kind === 'header' ? '\u200b' : record.text).join('\n');
+                const actual = highlightLayer.textContent;
+                if (actual !== expected) {
+                    const at = firstTextDifference(actual, expected);
+                    console.warn('Editor overlay drift at index ' + at + ': overlay ' +
+                        JSON.stringify(actual.slice(at, at + 20)) + ' vs text ' + JSON.stringify(expected.slice(at, at + 20)));
+                }
+            }
         }
 
         // The gutter has just been rebuilt, so any #1271 hover band is
@@ -694,10 +748,11 @@ function indentSelectedLines() {
         const startLine = editor.value.slice(0, editor.selectionStart).split('\n').length;
         const endLine = editor.value.slice(0, editor.selectionEnd).split('\n').length;
         const model = NoodlePlanModel.modelForEditor(editor);
-        const selected = model.tasks.filter(task => {
-            const line = model.lineNumber(task);
-            return line >= startLine && line <= endLine;
-        });
+        const selected = [];
+        for (let line = startLine; line <= endLine; line++) {
+            const task = model.taskAtLine(line);
+            if (task) selected.push(task);
+        }
         if (model.indentTasks(selected)) {
             NoodlePlanModel.commitToEditor(editor, model);
             return;
@@ -759,10 +814,11 @@ function outdentSelectedLines() {
         const startLine = editor.value.slice(0, editor.selectionStart).split('\n').length;
         const endLine = editor.value.slice(0, editor.selectionEnd).split('\n').length;
         const model = NoodlePlanModel.modelForEditor(editor);
-        const selected = model.tasks.filter(task => {
-            const line = model.lineNumber(task);
-            return line >= startLine && line <= endLine;
-        });
+        const selected = [];
+        for (let line = startLine; line <= endLine; line++) {
+            const task = model.taskAtLine(line);
+            if (task) selected.push(task);
+        }
         if (model.outdentTasks(selected)) {
             NoodlePlanModel.commitToEditor(editor, model);
             return;
@@ -828,7 +884,7 @@ function outdentSelectedLines() {
  */
 function extractTaskNameFromEditorLine(line) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#') || trimmed.includes('===') || trimmed.includes('---')) {
+    if (!trimmed || trimmed.startsWith('#') || isEditorSeparatorLine(trimmed)) {
         return '';
     }
     const task = parseTaskLine(line, 0);
