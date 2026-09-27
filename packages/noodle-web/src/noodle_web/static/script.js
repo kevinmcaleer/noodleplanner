@@ -5917,14 +5917,35 @@ function openResourceForm(existingShortname = null) {
     }, 100);
 }
 
+/** Set a task's own percent, found by name, the way ticking a task row
+ * does: the product form's activities and the resource form's assigned
+ * tasks both write through here. Returns whether a line was changed. */
+function setTaskPercentByName(taskName, percent) {
+    const editor = document.getElementById('planEditor');
+    if (!editor || !taskName || typeof updatePercentInLine !== 'function') return false;
+    const lineNumber = findTaskLineNumber({ name: taskName });
+    if (!(lineNumber > 0)) return false;
+    const lines = editor.value.split('\n');
+    lines[lineNumber - 1] = updatePercentInLine(lines[lineNumber - 1], percent);
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    return true;
+}
+
+/**
+ * The resource form's Assigned Tasks: one compact <np-task-row> per leaf
+ * task this resource is on (Penpot "Task row"), the row the task form's
+ * Subtasks and the product form's Activities use. The name opens the task,
+ * the box ticks it. No people chips: every row would only repeat this
+ * resource. An empty list says so through `.task-row-list:empty`.
+ */
 function populateResourceAssignedTasks(shortname) {
     const el = document.getElementById('resourceAssignedTasks');
     if (!el) return;
+    el.replaceChildren();
 
-    if (!shortname || !lastRenderedTasks || lastRenderedTasks.length === 0) {
-        el.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">No tasks assigned</span>';
-        return;
-    }
+    if (!shortname || !lastRenderedTasks || lastRenderedTasks.length === 0) return;
 
     const sn = shortname.toLowerCase();
     const assigned = lastRenderedTasks.filter(t => {
@@ -5936,21 +5957,22 @@ function populateResourceAssignedTasks(shortname) {
         });
     });
 
-    if (assigned.length === 0) {
-        el.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">No tasks assigned</span>';
-        return;
+    for (const t of assigned) {
+        const row = document.createElement('np-task-row');
+        row.className = 'resource-task-row';
+        row.setAttribute('density', 'compact');
+        row.setAttribute('name', t.name || '');
+        row.setAttribute('percent', String(parseFloat(t.percent) || 0));
+        const dates = formatTaskRowDates(t.start, t.finish);
+        if (dates) row.setAttribute('meta', dates);
+        if (t.rag) row.setAttribute('rag', t.rag);
+        row.addEventListener('task-open', () => openTaskFormByName(t.name));
+        row.addEventListener('task-toggle', (e) => {
+            if (e.detail.checked && typeof spawnConfetti === 'function') spawnConfetti(row.checkbox);
+            setTaskPercentByName(t.name, e.detail.checked ? '100%' : '0%');
+        });
+        el.appendChild(row);
     }
-
-    el.innerHTML = assigned.map(t => {
-        const name = (t.name || '').replace(/</g, '&lt;');
-        const pct = t.percent || 0;
-        const rag = t.rag || '';
-        const ragClass = rag ? 'rag-' + (typeof ragStatusToColour === 'function' ? ragStatusToColour(rag) : '') : '';
-        return `<div class="product-comp-item" style="cursor: pointer;" onclick="openTaskFormByName('${escapeJsAttr(t.name || '')}')">
-            <span class="product-comp-name">${name}</span>
-            <span class="product-comp-pct">${pct}%</span>
-        </div>`;
-    }).join('');
 }
 
 /**

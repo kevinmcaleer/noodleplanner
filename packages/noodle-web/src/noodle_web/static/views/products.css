@@ -516,20 +516,6 @@
     border-bottom: none;
 }
 
-.product-comp-name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.product-comp-pct {
-    font-size: 12px;
-    color: var(--np-text-muted);
-    margin-left: var(--np-space-8);
-    flex-shrink: 0;
-}
-
 .product-comp-comment {
     font-size: 11px;
     color: var(--np-text-muted);

@@ -3769,9 +3769,9 @@ Build
 
                     <div class="form-group">
                         <label>Assigned Tasks</label>
-                        <div id="resourceAssignedTasks" class="product-composition-list">
-                            <!-- Populated by JS -->
-                        </div>
+                        <!-- One <np-task-row> per assigned task (populateResourceAssignedTasks in script.js). -->
+                        <div id="resourceAssignedTasks" class="task-row-list resource-assigned-tasks"
+                             data-empty="No tasks assigned"></div>
                     </div>
                 </form>
             </div>

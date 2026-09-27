@@ -365,8 +365,9 @@ new way. RAG is one dot on `--np-success` / `--np-warning` /
 script.js's `ragStatusToColour()`.
 
 **Status: wired into the task form's Subtasks, Dependencies and its
-add-dependency picker, the product form's Activities, the whiteboard's
-task peek, and the task inspector's dependency list.** The picker offers compact `picker` rows -- ID, dates, status,
+add-dependency picker, the product form's Activities, the resource form's
+Assigned Tasks, the whiteboard's task peek, and the task inspector's
+dependency list.** The picker offers compact `picker` rows -- ID, dates, status,
 people -- and opens on a click in the empty box with every task the form's
 task could depend on: never itself, its own phases or subtasks, or anything
 already waiting on it (with that task's subtasks), since each would be a
@@ -375,9 +376,9 @@ first; the list caps at 50 with a count of the rest. The peek's rows are
 compact list rows whose children carry a `count` and an always-shown
 `open` action that drills in. The inspector's are read-only relation rows;
 the predecessor that sets the start is `driving`, which the pill says in
-words ("Driving · FS") as well as in the accent. The other lists the survey
-found -- the resource form's assigned tasks, the report tables -- are
-still their own markup.
+words ("Driving · FS") as well as in the accent. The resource form's are
+compact list rows without people chips, which would only repeat the
+resource. The report tables the survey found are still their own markup.
 
 ### Composed forms
 

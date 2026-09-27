@@ -2130,6 +2130,12 @@ tr:hover .task-context-btn,
     gap: var(--np-space-2);
 }
 
+/* The resource form's list scrolls like the other composition lists. */
+.resource-assigned-tasks {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
 .task-row-list:empty::after {
     content: attr(data-empty);
     display: block;

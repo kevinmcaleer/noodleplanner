@@ -555,3 +555,74 @@ def test_no_dependencies_says_so(inspecting):
     _open_inspector(inspecting, "Research")
     assert inspecting.locator("#inspectorDepList").count() == 0
     assert "no dependencies" in inspecting.locator("#inspectorBody .inspector-no-deps").inner_text()
+
+
+# ── Resource form: assigned tasks ───────────────────────────────────────
+
+RESOURCE_PLAN = """---
+title: Resource rows
+Resources:
+  - @sam: Sam Smith, Developer
+  - @jo: Jo Lee, Reviewer
+---
+
+Release
+  Research @sam 2d
+  Design @sam 3d
+  Build @jo 3d
+"""
+
+
+def _open_resource(page, shortname):
+    page.evaluate(
+        "sn => { if (isDetailPaneOpen()) closeDetailPane(); openResourceForm(sn); }", shortname
+    )
+    page.wait_for_selector("#resourceFormSection.active")
+
+
+@pytest.fixture
+def staffed(page, app_server):
+    open_app(page, app_server)
+    load_plan(page, RESOURCE_PLAN)
+    return page
+
+
+def test_assigned_tasks_are_compact_task_rows(staffed):
+    _open_resource(staffed, "sam")
+    rows = _rows(staffed, "resourceAssignedTasks")
+    assert [r["name"] for r in rows] == ["Research", "Design"]
+    assert {r["density"] for r in rows} == {"compact"}
+    dates = staffed.evaluate(
+        "() => [...document.querySelectorAll('#resourceAssignedTasks np-task-row')]"
+        ".map(r => r.getAttribute('meta'))"
+    )
+    assert all(dates), dates
+
+
+def test_an_assigned_task_name_opens_the_task(staffed):
+    _open_resource(staffed, "sam")
+    staffed.locator("#resourceAssignedTasks np-task-row[name='Design'] button.name").click()
+    staffed.wait_for_function("() => document.getElementById('taskName').value === 'Design'")
+
+
+def test_ticking_an_assigned_task_writes_its_percent(staffed):
+    _open_resource(staffed, "sam")
+    staffed.locator("#resourceAssignedTasks np-task-row[name='Research'] np-checkbox").click()
+    staffed.wait_for_function(
+        "() => /Research\\b.*100%/.test(document.getElementById('planEditor').value)"
+    )
+
+
+def test_a_resource_with_no_tasks_says_so(staffed):
+    staffed.evaluate(
+        """() => { const e = document.getElementById('planEditor');
+            e.value = e.value.replace('  - @jo: Jo Lee, Reviewer', '  - @jo: Jo Lee, Reviewer\\n  - @al: Alex Ray, Designer');
+            e.dispatchEvent(new Event('input', { bubbles: true })); }"""
+    )
+    staffed.wait_for_function("() => document.getElementById('planEditor').value.includes('@al:')")
+    _open_resource(staffed, "al")
+    assert staffed.locator("#resourceAssignedTasks np-task-row").count() == 0
+    content = staffed.evaluate(
+        "() => getComputedStyle(document.getElementById('resourceAssignedTasks'), '::after').content"
+    )
+    assert "No tasks assigned" in content
