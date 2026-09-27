@@ -279,7 +279,7 @@
         return applyEdit((model) => {
             const node = nodeFor(model, task, index);
             return !!node && model.updateLine(node, (line) =>
-                root.updatePercentInLine(line, complete ? '100%' : '0%', node.indentText, node.name));
+                root.updatePercentInLine(line, complete ? '100%' : '0%'));
         });
     }
 

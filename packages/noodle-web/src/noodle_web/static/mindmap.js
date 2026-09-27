@@ -1545,7 +1545,7 @@ function mindmapStartEditing(node) {
         const newName = input.value.trim();
         if (newName && newName !== node.name) {
             node.name = newName;
-            mindmapSyncToEditor();
+            mindmapWriteRename(node, newName);
         }
         fo.remove();
         textEl.setAttribute('opacity', '1');
@@ -1595,9 +1595,9 @@ function mindmapAddChild(parentNode) {
     // Auto-expand if the parent was collapsed
     mindmapCollapsedIds.delete(parentNode.id);
 
-    // Sync immediately so the plan text includes this node before any
+    // Write it immediately so the plan text includes this node before any
     // pending debounced render fires (prevents the node from vanishing).
-    mindmapSyncToEditor();
+    mindmapWriteInsert(newNode);
 
     mindmapLayout(mindmapTree);
     mindmapRender();
@@ -1653,9 +1653,9 @@ function mindmapAddSibling(node) {
     const idx = parent.children.indexOf(node);
     parent.children.splice(idx + 1, 0, newNode);
 
-    // Sync immediately so the plan text includes this node before any
+    // Write it immediately so the plan text includes this node before any
     // pending debounced render fires (prevents the node from vanishing).
-    mindmapSyncToEditor();
+    mindmapWriteInsert(newNode);
 
     mindmapLayout(mindmapTree);
     mindmapRender();
@@ -1699,6 +1699,9 @@ function mindmapCreateFirst() {
 
 function mindmapDeleteNode(node) {
     const parent = mindmapFindParent(mindmapTree, node);
+    // Taken out of the plan while the node still sits in the tree, so its
+    // task can be found; the node's children go with it, as in the tree.
+    if (!node._isRoot && parent) mindmapWriteDelete(node);
 
     // Root with no parent: allow delete only if it has no children,
     // which clears the mindmap entirely.
@@ -1735,8 +1738,6 @@ function mindmapDeleteNode(node) {
     } else {
         mindmapSelectNode(parent);
     }
-
-    mindmapSyncToEditor();
 }
 
 /**
@@ -1759,42 +1760,15 @@ function mindmapClearToEmpty() {
     if (placeholder) placeholder.style.display = '';
     if (content) content.style.display = 'none';
 
-    // Clear task lines from the plan text, preserving front matter and
-    // every back-matter section (highlights, budget, benefits, RAID log,
-    // comms, lessons learned, baseline, whiteboard) -- not just RAID log,
-    // or a plan whose only back matter was e.g. a whiteboard section
-    // would have it silently dropped here.
+    // Take every task out of the plan through the model, which leaves the
+    // front matter, the back matter and any comment lines where they are.
     const editor = document.getElementById('planEditor');
     if (editor) {
-        const currentText = editor.value;
-        let frontMatter = '';
-        let backMatter = '';
-        const lines = currentText.split('\n');
-
-        let inFrontMatter = false;
-        let fmEnd = -1;
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].trim() === '---') {
-                if (!inFrontMatter) { inFrontMatter = true; } else { fmEnd = i; break; }
-            }
+        const model = NoodlePlanModel.modelForEditor(editor);
+        if (model.tasks.length) {
+            model.roots.slice().forEach(task => model.removeSubtree(task));
+            NoodlePlanModel.commitToEditor(editor, model);
         }
-        if (fmEnd >= 0) {
-            frontMatter = lines.slice(0, fmEnd + 1).join('\n') + '\n';
-        }
-
-        let backMatterIdx = -1;
-        for (const marker of ['---highlights---', '---budget---', '---benefits---',
-                              '---raid log---', '---comms---', '---lessons learned---',
-                              '---baseline---', '---whiteboard---']) {
-            const idx = currentText.indexOf(marker);
-            if (idx !== -1 && (backMatterIdx === -1 || idx < backMatterIdx)) backMatterIdx = idx;
-        }
-        if (backMatterIdx >= 0) {
-            backMatter = '\n' + currentText.substring(backMatterIdx);
-        }
-
-        editor.value = frontMatter + backMatter;
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
 
@@ -1818,97 +1792,80 @@ function mindmapGetNextId() {
     return maxId + 1;
 }
 
-// ── Sync tree back to editor ──────────────────────────────────────────
+// ── Write edits back to the plan ──────────────────────────────────────
+//
+// Each edit goes through the plan model and changes only the task it is
+// about -- its line, and for a rename every [depends] on it (#921). This
+// used to regenerate the whole outline from the mind map's tree, which kept
+// just a few of each line's tokens: dependencies, dates, labels, $products
+// and `*` links were lost on every edit.
 
-function mindmapSyncToEditor() {
-    if (!mindmapTree) return;
+/** The plan-model task behind a mind-map node, or null for the virtual
+ * root and for a node not written to the plan yet. */
+function mindmapModelTask(model, node) {
+    if (!node) return null;
+    if (node._modelTask && model.tasks.includes(node._modelTask)) return node._modelTask;
+    const task = node._task;
+    if (!task) return null;
+    const found = task._uid != null ? model.findById(task._uid) : model.findByName(task.name);
+    if (found) node._modelTask = found;
+    return found;
+}
 
+/** Write a node that is in the tree but not yet in the plan: after its
+ * previous sibling, else before its next one, else as its parent's child. */
+function mindmapInsertTask(model, node) {
+    const parent = mindmapFindParent(mindmapTree, node);
+    const siblings = parent ? parent.children : [];
+    const index = siblings.indexOf(node);
+    const previous = index > 0 ? mindmapModelTask(model, siblings[index - 1]) : null;
+    const next = siblings.slice(index + 1).map(sibling => mindmapModelTask(model, sibling)).find(Boolean);
+    let parentTask = mindmapModelTask(model, parent);
+    // a parent that is itself unwritten -- the first node of a new map --
+    // goes in first; the virtual root (level -1) is no task at all
+    if (!parentTask && parent && parent.level >= 0) parentTask = mindmapInsertTask(model, parent);
+
+    let inserted;
+    if (previous) {
+        inserted = model.insertTaskAfter(previous, previous.indent, node.name);
+    } else if (parentTask) {
+        inserted = model.insertTaskAfter(parentTask, parentTask.indent + 2, node.name);
+    } else {
+        inserted = model.insertTaskAfter(null, 0, node.name);
+    }
+    if (!previous && next) model.moveBefore(inserted, next);
+    node._modelTask = inserted;
+    return inserted;
+}
+
+function mindmapWriteInsert(node) {
     const editor = document.getElementById('planEditor');
     if (!editor) return;
+    const model = NoodlePlanModel.modelForEditor(editor);
+    mindmapInsertTask(model, node);
+    NoodlePlanModel.commitToEditor(editor, model);
+}
 
-    // Preserve front matter
-    const currentText = editor.value;
-    let frontMatter = '';
-    let backMatter = '';
-    const lines = currentText.split('\n');
-
-    let inFrontMatter = false;
-    let fmEnd = -1;
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].trim() === '---') {
-            if (!inFrontMatter) {
-                inFrontMatter = true;
-            } else {
-                fmEnd = i;
-                break;
-            }
-        }
+function mindmapWriteRename(node, typed) {
+    const editor = document.getElementById('planEditor');
+    if (!editor || node.level < 0) return; // the virtual root is the project, not a task
+    const model = NoodlePlanModel.modelForEditor(editor);
+    const task = mindmapModelTask(model, node);
+    if (!task) {
+        mindmapInsertTask(model, node);
+        NoodlePlanModel.commitToEditor(editor, model);
+        return;
     }
+    if (NoodlePlanModel.renameTaskTo(model, task, typed)) NoodlePlanModel.commitToEditor(editor, model);
+}
 
-    if (fmEnd >= 0) {
-        frontMatter = lines.slice(0, fmEnd + 1).join('\n') + '\n\n';
-    }
-
-    // Preserve every back-matter section (highlights, budget, benefits,
-    // RAID log, comms, lessons learned, baseline, whiteboard) -- not just
-    // RAID log, or a plan whose only back matter was e.g. a whiteboard
-    // section would have it silently dropped here.
-    let backMatterIdx = -1;
-    for (const marker of ['---highlights---', '---budget---', '---benefits---',
-                          '---raid log---', '---comms---', '---lessons learned---',
-                          '---baseline---', '---whiteboard---']) {
-        const idx = currentText.indexOf(marker);
-        if (idx !== -1 && (backMatterIdx === -1 || idx < backMatterIdx)) backMatterIdx = idx;
-    }
-    if (backMatterIdx >= 0) {
-        backMatter = '\n' + currentText.substring(backMatterIdx);
-    }
-
-    // Build plan text from tree
-    const planLines = [];
-    function writeNode(node, indent) {
-        if (node._isRoot && node.level === -1) {
-            // Virtual root: skip, just write children
-            for (const child of node.children) {
-                writeNode(child, 0);
-            }
-            return;
-        }
-
-        const prefix = '  '.repeat(indent);
-        let line = prefix + node.name;
-
-        // Re-attach original task metadata if available
-        if (node._task) {
-            const t = node._task;
-            if (t.resources) {
-                const res = t.resources.split(',').map(r => '@' + r.trim()).join(' ');
-                line += ' ' + res;
-            }
-            if (t.duration_days > 0) {
-                line += ` ${t.duration_days}days`;
-            }
-            if (t.percent !== '' && t.percent !== undefined && t.percent !== null) {
-                line += ` ${t.percent}%`;
-            }
-            if (t.comment) {
-                line += ` "${t.comment}"`;
-            }
-        }
-
-        planLines.push(line);
-
-        for (const child of node.children) {
-            writeNode(child, indent + 1);
-        }
-    }
-
-    writeNode(mindmapTree, 0);
-
-    editor.value = frontMatter + planLines.join('\n') + backMatter;
-
-    // Dispatch input event to trigger re-render
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
+function mindmapWriteDelete(node) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+    const model = NoodlePlanModel.modelForEditor(editor);
+    const task = mindmapModelTask(model, node);
+    if (!task || !model.removeSubtree(task)) return;
+    NoodlePlanModel.commitToEditor(editor, model);
 }
 
 // ── Keyboard navigation ───────────────────────────────────────────────

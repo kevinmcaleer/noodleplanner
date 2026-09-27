@@ -840,37 +840,14 @@ function wbSetTaskFieldsInPlanText(planText, taskName, fields) {
 }
 
 /**
- * Rename a task in the outline (the line itself), leaving every other
- * token on that line untouched -- only the name run is replaced.
- *
- * Dependency references and whiteboard rows are *not* updated here: the
- * caller (wbRenameNoteTask() in whiteboard-notes.js) chains this with
- * script.js's existing updateDependencyReferences() and
- * renamePlanWhiteboardTask() so there is one implementation of each rule
- * rather than a second copy living in the whiteboard.
+ * Rename a task: its outline line, and -- through the plan model, so there
+ * is one implementation of the rule (#921) -- every `[depends ...]` that
+ * points at it, its Theme colour and its whiteboard rows. Inline tokens in
+ * `newName` (`Design 3d @kev`) go onto the line in place of the old name;
+ * every other token on the line is left untouched.
  */
 function wbRenameTaskInPlanText(planText, oldName, newName) {
-    const text = String(planText == null ? '' : planText);
-    const clean = String(newName || '').trim();
-    if (!oldName || !clean || oldName === clean) return text;
-
-    const parsed = wbParseOutline(text);
-    const pos = wbFindOutlineIndex(parsed.entries, oldName);
-    if (pos === -1) return text;
-
-    const idx = parsed.entries[pos].index;
-    const line = parsed.lines[idx];
-
-    // Replace only the first occurrence of the old name as it appears in
-    // the line, so `Design @adam 5d` -> `Wireframes @adam 5d` and the
-    // metadata survives. Falls back to rebuilding indent + name when the
-    // name isn't found verbatim (e.g. it was split by an inline token).
-    const at = line.indexOf(oldName);
-    parsed.lines[idx] = at === -1
-        ? wbSetLineIndent(clean, parsed.entries[pos].indent)
-        : line.slice(0, at) + clean + line.slice(at + oldName.length);
-
-    return parsed.lines.join('\n');
+    return NoodlePlanModel.renameTaskInText(planText, oldName, newName);
 }
 
 /**

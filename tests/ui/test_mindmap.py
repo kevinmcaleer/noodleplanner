@@ -118,3 +118,66 @@ def test_rendered_svg_has_no_unparseable_attributes(page, app_server, label, pla
 
     bad = _unparseable_svg_attributes(page)
     assert bad == [], f"{label}: SVG attributes the parser cannot read: {bad}"
+
+
+# -- Edits write back through the plan model (#921) -------------------------
+#
+# Renaming, adding or deleting a node used to regenerate the whole outline
+# from the mind map's tree, keeping only resources, a duration (written as
+# `2days`, which the parser does not read), percent and comment. Every other
+# token on every line -- dependencies, dates, labels, `*` links -- was lost.
+
+PLAN_WITH_TOKENS = (
+    "Phase\n"
+    "  Design 2d @kev 2026-01-05 #ux\n"
+    "  Build 3d [depends Design]\n"
+    "  * Test 1d\n"
+)
+
+
+def _node(name):
+    return (
+        "(() => { let found = null; (function walk(node) {"
+        f"  if (!node || found) return; if (node.name === {name!r}) found = node;"
+        "  (node.children || []).forEach(walk); })(mindmapTree); return found; })()"
+    )
+
+
+def _editor(page):
+    """The plan's outline -- the app writes front matter of its own (`rag:`)
+    on render, which is not what these tests are about."""
+    text = page.eval_on_selector("#planEditor", "editor => editor.value")
+    if text.startswith("---\n"):
+        text = text[text.index("\n---\n", 3) + 5:]
+    return text
+
+
+def test_renaming_a_node_keeps_every_token_and_its_dependants(page, app_server):
+    _render_mindmap(page, app_server, PLAN_WITH_TOKENS)
+    page.evaluate(f"mindmapStartEditing({_node('Design')})")
+    field = page.locator(".mm-inline-input")
+    field.fill("Wireframes")
+    field.press("Enter")
+    assert _editor(page) == (
+        "Phase\n"
+        "  Wireframes 2d @kev 2026-01-05 #ux\n"
+        "  Build 3d [depends Wireframes]\n"
+        "  * Test 1d\n"
+    )
+
+
+def test_deleting_a_node_removes_only_its_line(page, app_server):
+    _render_mindmap(page, app_server, PLAN_WITH_TOKENS)
+    page.evaluate(f"mindmapDeleteNode({_node('Test')})")
+    assert _editor(page) == (
+        "Phase\n"
+        "  Design 2d @kev 2026-01-05 #ux\n"
+        "  Build 3d [depends Design]\n"
+    )
+
+
+def test_adding_a_child_inserts_one_line_under_its_parent(page, app_server):
+    _render_mindmap(page, app_server, PLAN_WITH_TOKENS)
+    page.evaluate(f"mindmapAddChild({_node('Phase')})")
+    page.locator(".mm-inline-input").wait_for()
+    assert _editor(page) == PLAN_WITH_TOKENS + "  New Task\n"
