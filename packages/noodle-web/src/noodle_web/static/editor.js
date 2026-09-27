@@ -45,6 +45,41 @@ function getBackMatterFoldingDescriptors() {
     ];
 }
 
+/**
+ * Is this line a separator or section rule rather than a task (#746)?
+ *
+ * True for a line that *starts* with `===` or `---` -- an `=== Phase ===`
+ * heading, a bare `---`/`=====` rule, or a back-matter marker such as
+ * `---comms---` -- and for a markdown table's delimiter row (`|---|---|`).
+ * A `---` or `===` in the middle of a line (`Migrate A---B 3d`) is part of
+ * a task's text, not a separator, so such a line is still a task.
+ */
+function isEditorSeparatorLine(line) {
+    return /^\s*(?:={3,}|-{3,})/.test(line) || /^\s*\|[\s|:-]*-{3,}[\s|:-]*$/.test(line);
+}
+
+/**
+ * Whether to check, after each overlay repaint, that the highlight overlay
+ * still holds exactly the textarea's text (#746). Off in production; on for
+ * a local dev server, or anywhere with `localStorage['np-debug-overlay'] = '1'`.
+ */
+function editorOverlayDriftCheckEnabled() {
+    try {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('np-debug-overlay') === '1') return true;
+    } catch (e) { /* storage blocked */ }
+    const host = typeof location !== 'undefined' ? location.hostname : '';
+    return host === 'localhost' || host === '127.0.0.1';
+}
+
+/** Index of the first character at which two strings differ, or -1. */
+function firstTextDifference(a, b) {
+    const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) {
+        if (a.charCodeAt(i) !== b.charCodeAt(i)) return i;
+    }
+    return a.length === b.length ? -1 : n;
+}
+
 function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
     const sectionFoldingController = editor.id === 'planEditor' && typeof SectionFolding !== 'undefined'
@@ -86,7 +121,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             if (trimmed === '---raid log---') { inRaidLog = true; continue; }
             if (trimmed === '---baseline---') { inBaseline = true; continue; }
             if (trimmed === '---whiteboard---') { inWhiteboard = true; continue; }
-            if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudget || inWhiteboard || !trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.includes('===')) continue;
+            if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudget || inWhiteboard || !trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') || isEditorSeparatorLine(trimmed)) continue;
 
             const taskMetadata = TaskLineTokenizer.metadata(allLines[i]).values;
             if (taskMetadata.name) {
@@ -356,8 +391,11 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             if (line.trimStart().startsWith('//')) {
                 return '<span class="syntax-line-comment">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            if (!line.trim() || line.includes('===') || line.includes('---')) {
-                return line;
+            // Blank lines and separator/section rules get no task highlighting,
+            // but are still escaped: the overlay is set with innerHTML, so a raw
+            // `<` here would open a real tag and drop text from the overlay (#746).
+            if (!line.trim() || isEditorSeparatorLine(line)) {
+                return line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             }
             return highlightTaskLine(line, lineIdx);
         }).join('\n');
@@ -413,6 +451,18 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
         if (highlightLayer) {
             highlightLayer.innerHTML = highlightSyntax(content);
+            if (editorOverlayDriftCheckEnabled()) {
+                // The caret comes from the textarea and the glyphs from this
+                // overlay, so they must hold the same text char for char.
+                // A folded section renders as one zero-width-space line.
+                const expected = displayLines.map(record => record.kind === 'header' ? '\u200b' : record.text).join('\n');
+                const actual = highlightLayer.textContent;
+                if (actual !== expected) {
+                    const at = firstTextDifference(actual, expected);
+                    console.warn('Editor overlay drift at index ' + at + ': overlay ' +
+                        JSON.stringify(actual.slice(at, at + 20)) + ' vs text ' + JSON.stringify(expected.slice(at, at + 20)));
+                }
+            }
         }
 
         // The gutter has just been rebuilt, so any #1271 hover band is
@@ -828,7 +878,7 @@ function outdentSelectedLines() {
  */
 function extractTaskNameFromEditorLine(line) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#') || trimmed.includes('===') || trimmed.includes('---')) {
+    if (!trimmed || trimmed.startsWith('#') || isEditorSeparatorLine(trimmed)) {
         return '';
     }
     const task = parseTaskLine(line, 0);
