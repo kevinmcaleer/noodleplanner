@@ -1188,6 +1188,63 @@
     }
 }
 
+/* Centre peek and full page (#1409). The rules above are the side peek;
+   np-detail-sheet.js sets data-peek-mode on the pane from the switch at the
+   top left of every form, or the project's default (Settings -> Layout). A
+   phone is always a full page, so these are for a tablet and a desktop.
+
+   The centre peek is a dialog in the middle of the window. Closed, it fades
+   out where it is rather than sliding off an edge, so it is hidden from the
+   pointer and from focus once the fade has run. */
+.detail-pane[data-peek-mode="center"] {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    width: min(900px, calc(100vw - 2 * var(--np-space-48)));
+    height: calc(100vh - 2 * var(--np-space-48) - var(--keyboard-inset, 0px));
+    height: calc(100dvh - 2 * var(--np-space-48) - var(--keyboard-inset, 0px));
+    padding-top: 0;
+    padding-bottom: 0;
+    border-radius: var(--np-radius-lg);
+    box-shadow: var(--np-floating-shadow);
+    opacity: 0;
+    visibility: hidden;
+    transform: translate(-50%, -50%) scale(0.96);
+    transition:
+        transform var(--np-anim-duration-fast) var(--np-anim-easing),
+        opacity var(--np-anim-duration-fast) var(--np-anim-easing),
+        visibility 0s linear var(--np-anim-duration-fast);
+}
+
+.detail-pane[data-peek-mode="center"].open {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -50%);
+    transition:
+        transform var(--np-anim-duration-fast) var(--np-anim-easing),
+        opacity var(--np-anim-duration-fast) var(--np-anim-easing);
+}
+
+/* The full page covers the window, and keeps the form to a readable measure
+   down the middle of it, as a page does. */
+.detail-pane[data-peek-mode="full"] {
+    width: 100%;
+}
+
+.detail-pane[data-peek-mode="full"].open {
+    box-shadow: none;
+}
+
+.detail-pane[data-peek-mode="full"] .detail-pane-section .modal-body {
+    padding-left: max(var(--np-space-32), calc((100% - 900px) / 2));
+    padding-right: max(var(--np-space-32), calc((100% - 900px) / 2));
+}
+
+[data-layout="phone"] .detail-pane[data-peek-mode="full"] .detail-pane-section .modal-body {
+    padding-left: var(--np-space-20);
+    padding-right: var(--np-space-20);
+}
+
 /* A sheet's footer holds its main action, side by side, at every width
    (the <=768px rule below stacks a form's actions for the old in-body row). */
 np-detail-sheet > .form-actions[slot="footer"] {
