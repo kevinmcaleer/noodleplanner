@@ -1974,6 +1974,10 @@ function showMessage(prefix, type, text) {
  * file) this falls back to the original download-a-copy flow, unchanged,
  * and says so explicitly so the user knows they need to replace the file
  * themselves.
+ *
+ * issue #1407: the link outlives a reload. If the browser asks for write
+ * permission again and the user refuses, the link is kept, a copy is
+ * downloaded instead, and the next Save asks again.
  */
 async function downloadMarkdown() {
     const editor = getActiveEditor();
@@ -1996,6 +2000,11 @@ async function downloadMarkdown() {
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
     const currentProjectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (typeof LocalFileAccess !== 'undefined' && currentProjectId && LocalFileAccess.isSupported()) {
+        // loadProjectIntoEditor() starts reading back a link from an earlier
+        // page session; a Save clicked straight after page load waits for it.
+        await LocalFileAccess.ensureRestored(currentProjectId);
+    }
     if (typeof LocalFileAccess !== 'undefined' && currentProjectId && LocalFileAccess.isLinked(currentProjectId)) {
         const result = await LocalFileAccess.saveToLinkedFile(currentProjectId, versionedContent);
         if (result && result.ok) {
@@ -2004,13 +2013,16 @@ async function downloadMarkdown() {
             return;
         }
         if (result && !result.ok) {
-            // The link was dropped by saveToLinkedFile; fall through to the
-            // download fallback below so the edit is not lost, but tell the
-            // user their file on disk was NOT updated.
+            // Fall through to the download fallback below so the edit is not
+            // lost, but tell the user their file on disk was NOT updated. A
+            // refused permission keeps the link (the next Save asks again);
+            // any other failure (file moved or deleted) has dropped it.
             if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator();
             console.error('Could not write to linked file:', result.error);
             if (typeof showToast === 'function') {
-                showToast('Could not save to ' + result.filename + ' — downloading a copy instead', 'error');
+                showToast(result.needsRelink
+                    ? result.filename + ' was not updated: no permission to write to it — downloading a copy instead. Save again to allow it.'
+                    : 'Could not save to ' + result.filename + ' — downloading a copy instead', 'error');
             }
         }
     }
@@ -2137,14 +2149,39 @@ function updateLocalFileStatusIndicator() {
     const el = document.getElementById('localFileLinkStatus');
     if (!el) return;
     const projectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
-    if (typeof LocalFileAccess !== 'undefined' && projectId && LocalFileAccess.isLinked(projectId)) {
-        const name = LocalFileAccess.getLinkedFileName(projectId);
+    const status = typeof LocalFileAccess !== 'undefined' && projectId
+        ? LocalFileAccess.getLinkStatus(projectId) : 'unlinked';
+    const name = status === 'linked' || status === 'needs-relink'
+        ? LocalFileAccess.getLinkedFileName(projectId) : null;
+    if (status === 'linked') {
         el.textContent = '🔗 ' + name;
         el.title = 'Saves write straight back to ' + name + ' on disk — no download, no re-prompt';
+    } else if (status === 'needs-relink') {
+        // #1407: a link restored after a reload, whose write permission the
+        // browser wants to ask for again. The state goes first: the status
+        // bar truncates this at 220px, and a long file name must not push
+        // it out of sight.
+        el.textContent = '🔗 Needs access: ' + name;
+        el.title = 'Linked to ' + name + ' on disk. This browser needs your permission again before it can write to it; Save will ask for it.';
     } else {
         el.textContent = '';
         el.title = '';
     }
+}
+
+/**
+ * Read back the files `projectId` was linked to in an earlier page session
+ * (issue #1407), then refresh the status bar. LocalFileAccess keeps each
+ * link in IndexedDB; without this read when a project loads, Save after a
+ * reload finds no link and downloads a copy instead of writing to the
+ * file. This only checks permission and never prompts: Save asks for it,
+ * from inside the click.
+ */
+async function restoreLocalFileLinks(projectId) {
+    if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported() || !projectId) return;
+    await LocalFileAccess.ensureRestored(projectId);
+    const currentId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (currentId === projectId) updateLocalFileStatusIndicator();
 }
 
 // Task Form Modal Functions
@@ -9555,13 +9592,19 @@ function toggleTimelinePhases() {
 
 // ===== MS Project Import =====
 
-function triggerMSProjectUpload() {
+// Import > MS Project: the chosen file becomes a new project, like every
+// other importer (Excel, plan file). Settings > Sync's fallback for
+// browsers that can't link a file passes `{ sync: true }` instead, which
+// merges the file into the open project through the review.
+function triggerMSProjectUpload(options) {
+    const sync = !!(options && options.sync);
     closeAllNavMenus();
     const input = document.getElementById('msProjectImportInput');
     input.value = '';
     input.onchange = function() {
         if (input.files && input.files[0]) {
-            uploadMSProjectFile(input.files[0]);
+            if (sync) uploadMSProjectFile(input.files[0]);
+            else importMSProjectAsNewProject(input.files[0]);
         }
     };
     input.click();
@@ -9599,7 +9642,7 @@ async function syncMSProjectTarget() {
         if (typeof showToast === 'function') {
             showToast('This browser can’t link Sync to a file on disk — choose the MS Project file each time instead.', 'info');
         }
-        triggerMSProjectUpload();
+        triggerMSProjectUpload({ sync: true });
         return;
     }
 
@@ -9638,56 +9681,90 @@ async function syncMSProjectTarget() {
 }
 
 /**
- * Shared by uploadMSProjectFile (a File, from the plain upload input) and
- * syncMSProjectTarget (raw bytes, from a linked handle). Native .mpp files
- * are parsed entirely in the browser (issue #770); MSPDI .xml still goes to
- * the server, same as before.
+ * The plan markdown for an MS Project file. Native .mpp files are parsed
+ * entirely in the browser (issue #770); MSPDI .xml still goes to the
+ * server. `preferredShortnames` keeps an existing plan's resource
+ * shortcodes (see processMSProjectSyncInput). Throws on failure.
  */
-async function processMSProjectSyncInput(bytesOrFile, filename) {
+async function readMSProjectMarkdown(bytesOrFile, filename, preferredShortnames) {
     if (/\.mpp$/i.test(filename || '')) {
-        try {
-            const { importMppBytes, parseResourceShortnames } = await import('/static/mpp-export.js');
-            const bytes = bytesOrFile instanceof ArrayBuffer
-                ? new Uint8Array(bytesOrFile)
-                : new Uint8Array(await bytesOrFile.arrayBuffer());
-            // Reuse the current plan's own resource shortcodes (@jd, not a
-            // freshly re-derived @jdoe) where the full name matches -- a
-            // .mpp file's resource table has no home for the shortcode
-            // itself, so re-deriving one from scratch on every sync would
-            // otherwise report a spurious diff on every task referencing
-            // that resource, forever (#912).
-            const editor = document.getElementById('planEditor');
-            const preferredShortnames = parseResourceShortnames(editor ? editor.value : '');
-            const markdown = importMppBytes(bytes, preferredShortnames);
-            await applyImportedMspMarkdown(markdown, filename);
-        } catch (error) {
-            showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
-            reportSyncOutcomeIfRunning(MSP_SYNC_TARGET_KEY, 'error', error.message);
-        }
-        return;
+        const { importMppBytes } = await import('/static/mpp-export.js');
+        const bytes = bytesOrFile instanceof ArrayBuffer
+            ? new Uint8Array(bytesOrFile)
+            : new Uint8Array(await bytesOrFile.arrayBuffer());
+        return importMppBytes(bytes, preferredShortnames);
     }
 
     const formData = new FormData();
     const file = bytesOrFile instanceof File ? bytesOrFile : new File([bytesOrFile], filename || 'schedule.xml', { type: 'application/xml' });
     formData.append('file', file);
+    const response = await fetch('/api/msproject/import', {
+        method: 'POST',
+        body: formData
+    });
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Failed to import MS Project file');
+    }
+    const result = await response.json();
+    return result.markdown;
+}
 
+/**
+ * Shared by uploadMSProjectFile (a File, from the plain upload input) and
+ * syncMSProjectTarget (raw bytes, from a linked handle): merges the file
+ * into the open project.
+ */
+async function processMSProjectSyncInput(bytesOrFile, filename) {
     try {
-        const response = await fetch('/api/msproject/import', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || 'Failed to import MS Project file');
+        // Reuse the current plan's own resource shortcodes (@jd, not a
+        // freshly re-derived @jdoe) where the full name matches -- a
+        // .mpp file's resource table has no home for the shortcode
+        // itself, so re-deriving one from scratch on every sync would
+        // otherwise report a spurious diff on every task referencing
+        // that resource, forever (#912).
+        let preferredShortnames;
+        if (/\.mpp$/i.test(filename || '')) {
+            const { parseResourceShortnames } = await import('/static/mpp-export.js');
+            const editor = document.getElementById('planEditor');
+            preferredShortnames = parseResourceShortnames(editor ? editor.value : '');
         }
-
-        const result = await response.json();
-        await applyImportedMspMarkdown(result.markdown, filename);
+        const markdown = await readMSProjectMarkdown(bytesOrFile, filename, preferredShortnames);
+        await applyImportedMspMarkdown(markdown, filename);
     } catch (error) {
         showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
         reportSyncOutcomeIfRunning(MSP_SYNC_TARGET_KEY, 'error', error.message);
     }
+}
+
+/**
+ * Import an MS Project file (.mpp or MSPDI .xml) as a new project, named
+ * after the file, and save it so it is listed in the project switcher.
+ * The file is read before anything is created, so a file that fails to
+ * import leaves no empty project behind.
+ */
+async function importMSProjectAsNewProject(file) {
+    let markdown;
+    try {
+        markdown = await readMSProjectMarkdown(file, file.name);
+    } catch (error) {
+        showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
+        return null;
+    }
+
+    if (typeof clearPlanTrackingData === 'function') clearPlanTrackingData();
+    // Save whatever project is open before switching away from it.
+    if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
+
+    const project = createProject(file.name.replace(/\.(xml|mpp)$/i, ''));
+    setCurrentProjectId(project.id);
+    if (typeof updateProjectBreadcrumb === 'function') updateProjectBreadcrumb(project.name);
+
+    // The new project has nothing to diff against: finishMspImport fills
+    // the editor directly and saves it.
+    await finishMspImport(markdown, file.name);
+    if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
+    return project;
 }
 
 // Applies a freshly-imported MS Project task tree to the editor. The import
@@ -9729,6 +9806,11 @@ async function finishMspImport(finalTextOrMarkdown, filename) {
 
     editor.value = finalText;
     if (editor._updateLineNumbers) editor._updateLineNumbers();
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    if (kanbanEditor) kanbanEditor.value = finalText;
+    // Persist now rather than waiting for the next autosave, so the import
+    // survives a reload and the project switcher lists it.
+    if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
     showMessage('editor', 'success', 'MS Project file imported successfully!');
     await renderText();
 

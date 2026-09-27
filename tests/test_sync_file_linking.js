@@ -27,7 +27,11 @@
  *      gone drops the link entirely (nothing left worth retrying against);
  *   7. unlink(projectId, targetKey) removes only that target's persisted
  *      record; unlink(projectId) with no targetKey purges every target for
- *      the project (project deletion's use, in project-storage.js).
+ *      the project (project deletion's use, in project-storage.js);
+ *   8. the main plan file's link survives a reload the same way (issue
+ *      #1407): a Save that arrives while the restore is still reading
+ *      IndexedDB waits for it, and a refused permission on Save keeps the
+ *      persisted record for the next reload.
  *
  * The fake IndexedDB here is a small hand-rolled in-memory stub, not the
  * `fake-indexeddb` package test_project_store.js uses -- that package does
@@ -473,6 +477,53 @@ async function main() {
         const saveResult = await app.LocalFileAccess.saveToLinkedFile('proj-12', original);
         assertTrue(saveResult.ok === true, 'saveToLinkedFile() (unchanged from #767) still succeeds with no targetKey argument');
         assertTrue(pickerCalledDuringSave === false, 'no picker was invoked -- the no-re-prompt guarantee still holds');
+    }
+
+    // --- 13. #1407: the plan file's link survives a reload, and a refused
+    //         permission on Save does not delete it -------------------------
+
+    {
+        const pickers = { showOpenFilePicker: async () => [], showSaveFilePicker: async () => ({}) };
+        const idb = makeFakeIndexedDBFactory();
+        const handle = makeFakeHandle('roadmap.md', 'plan v1', { permissionState: 'granted' });
+
+        const before = makeApp(pickers, idb);
+        before.LocalFileAccess.link('proj-13', handle, 'roadmap.md'); // the plan target, as File > Open... does
+        await wait(20);
+
+        // Reload. The page starts the restore when the project loads, and
+        // Save calls ensureRestored() again before looking for a link. The
+        // second call must wait for the first read to finish rather than
+        // resolve at once with nothing linked yet.
+        handle._setPermission('prompt'); // a reload often costs the write grant
+        const after = makeApp(pickers, idb);
+        const onLoad = after.LocalFileAccess.ensureRestored('proj-13');
+        const onSave = after.LocalFileAccess.ensureRestored('proj-13');
+        assertTrue(onSave === onLoad, 'a second ensureRestored() call shares the first call\'s restore');
+        await onSave;
+        assertTrue(after.LocalFileAccess.isLinked('proj-13'),
+            'once ensureRestored() resolves, even for the second caller, the plan file is linked again');
+        assertEqual(after.LocalFileAccess.getLinkStatus('proj-13'), 'needs-relink',
+            'a restored link whose write grant lapsed reports needs-relink, which the status bar shows');
+        assertEqual(handle.requestPermissionCalls.length, 0, 'restoring on load asked for nothing');
+
+        // The user dismisses the permission prompt Save raises.
+        const refused = await after.LocalFileAccess.saveToLinkedFile('proj-13', 'plan v2');
+        assertTrue(refused.ok === false && refused.needsRelink === true, 'a refused prompt on Save reports needsRelink');
+        assertTrue(after.LocalFileAccess.isLinked('proj-13'), 'the link is still there in memory');
+        await wait(20);
+
+        const again = makeApp(pickers, idb);
+        const restored = await again.LocalFileAccess.restoreLinks('proj-13');
+        assertEqual(restored.map((r) => r.targetKey), ['plan'],
+            'and still persisted: another reload restores it, rather than a dismissed prompt forgetting the file for good');
+
+        // Allowed this time: the write goes through the restored handle.
+        handle._setPermission('granted');
+        const saved = await again.LocalFileAccess.saveToLinkedFile('proj-13', 'plan v2');
+        assertTrue(saved.ok === true, 'Save writes to the restored handle once permission is granted');
+        assertEqual(handle.writes, ['plan v2'], 'the content landed in the linked file');
+        assertEqual(again.LocalFileAccess.getLinkStatus('proj-13'), 'linked', 'and the link is healthy again');
     }
 }
 

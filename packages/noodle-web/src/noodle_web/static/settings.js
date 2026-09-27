@@ -456,7 +456,7 @@ const SYNC_TARGET_DEFS = [
         scope: 'The task tree syncs both ways; a linked .mpp file is rewritten after each sync.',
         syncAction: () => {
             if (typeof syncMSProjectTarget === 'function') return syncMSProjectTarget();
-            if (typeof triggerMSProjectUpload === 'function') triggerMSProjectUpload();
+            if (typeof triggerMSProjectUpload === 'function') triggerMSProjectUpload({ sync: true });
         },
         reviewOverlay: 'mspSyncOverlay',
     },
