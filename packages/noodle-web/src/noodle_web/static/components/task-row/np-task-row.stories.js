@@ -80,7 +80,14 @@ export const Done = { args: { percent: 100 } };
 export const Unassigned = { args: { resources: '' } };
 export const Summary = {
     args: { name: 'Procurement', meta: '1 Sep – 30 Sep', summary: true, indeterminate: true,
-        collapsible: true, rag: 'Behind schedule', resources: 'Sam Smith, Jo Lee, Alex Ray, Kim Ito' },
+        collapsible: true, count: '2/5', rag: 'Behind schedule', resources: 'Sam Smith, Jo Lee, Alex Ray, Kim Ito' },
+};
+/** The task peek's rows: a child with children says how many, and its
+ * "open" action -- always shown, unlike menu and remove -- drills in. */
+export const PeekSummary = {
+    args: { density: 'compact', name: 'Sub B', summary: true, count: '2', action: 'open',
+        'action-label': 'Sub B has 2 subtasks. Peek subtasks.', meta: '', rag: '', resources: 'Jo Lee',
+        assignable: false },
 };
 export const Editing = { args: { editing: true, name: '', placeholder: 'Enter subtask name...' } };
 export const Relation = {

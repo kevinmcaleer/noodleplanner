@@ -1429,36 +1429,6 @@
 }
 
 
-/* `.wb-note-avatar` survives this file's own migration to
-   <np-resource-stack> (#1246) because the note is no longer its only
-   consumer: task-peek.js sets this class itself for the peek popover's own
-   stack, and task-peek.css sizes it down from there. Deleting it would take
-   that surface's avatars with it. Converting the peek popover is part of
-   #1199's rollout, and this rule goes when it does.
-
-   The overlap is the one declaration of that off-scale value in this file.
-   docs/design/standardisation-backlog.md records it as a deliberate survivor
-   of the spacing pass: a stack overlaps by design and no step on the 4px scale
-   gives the same result. */
-.wb-note-avatar {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--np-info-gradient);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 9px;
-    font-weight: bold;
-    border: 1.5px solid var(--np-surface);
-    margin-left: -5px;
-}
-
-.wb-note-avatar:first-child {
-    margin-left: 0;
-}
-
 /* ========================================
    Note colour menu (issue #849)
 

@@ -174,9 +174,12 @@ def open_peek(page, note_task, child_name):
 
 
 def peek_row(page, task_name):
-    return page.locator(f"{PEEK} .task-peek-row").filter(
-        has=page.locator(".task-peek-row-name", has_text=re_exact(task_name))
-    )
+    """The peek's <np-task-row> for `task_name` (locators pierce its shadow root)."""
+    return page.locator(f'{PEEK} np-task-row.task-peek-row[name="{task_name}"]')
+
+
+# A row's drill-down: the trailing "open" action a child with children carries.
+DRILL = 'button.action[data-kind="open"]:not([hidden])'
 
 
 def peek_title(page):
@@ -185,7 +188,10 @@ def peek_title(page):
 
 
 def peek_row_names(page):
-    return page.locator(f"{PEEK} .task-peek-row-name").all_inner_texts()
+    return page.evaluate(
+        "() => [...document.querySelectorAll('#taskPeekPopover np-task-row.task-peek-row')]"
+        ".map(row => row.getAttribute('name'))"
+    )
 
 
 def crumbs(page):
@@ -246,20 +252,23 @@ class TestPeekContent:
         )
 
         sub_b = peek_row(board, "Sub B")
-        assert sub_b.locator(".task-peek-checkbox").count() == 1
-        assert sub_b.locator(".task-peek-row-name").count() == 1
-        assert sub_b.locator(".wb-note-avatar").count() == 1, (
+        assert sub_b.locator("np-checkbox").count() == 1
+        assert sub_b.locator("button.name").count() == 1
+        assert sub_b.locator("np-resource-stack .chip").count() == 1, (
             "each row must show completion, name and assignee"
         )
-        assert sub_b.locator(".wb-note-count-badge").count() == 1, (
-            "Sub B has its own children, so its row must carry a drill-down badge"
+        assert sub_b.locator(DRILL).count() == 1, (
+            "Sub B has its own children, so its row must carry a drill-down"
         )
-        assert sub_b.locator(".wb-note-avatar").inner_text() == "JO", (
+        assert sub_b.locator(".count").inner_text() == "2", (
+            "the drill-down row says how many subtasks it holds"
+        )
+        assert sub_b.locator("np-resource-stack .chip").inner_text() == "JO", (
             "the assignee chip shows Jo's initials"
         )
 
-        assert peek_row(board, "Sub A").locator(".wb-note-count-badge").count() == 0, (
-            "a leaf child (Sub A) must not show a drill-down badge"
+        assert peek_row(board, "Sub A").locator(DRILL).count() == 0, (
+            "a leaf child (Sub A) must not show a drill-down"
         )
 
     def test_peek_is_anchored_near_its_note(self, board):
@@ -277,7 +286,7 @@ class TestPeekBreadcrumb:
             "a single-level peek shows no breadcrumb (nothing to navigate)"
         )
 
-        peek_row(board, "Sub B").locator(".wb-note-count-badge").dispatch_event("click")
+        peek_row(board, "Sub B").locator(DRILL).dispatch_event("click")
         board.wait_for_function(
             "() => document.querySelector('#taskPeekPopover .task-peek-title')"
             "        ?.textContent === 'Sub B'"
@@ -293,7 +302,7 @@ class TestPeekBreadcrumb:
 
     def test_breadcrumb_navigates_back_up(self, board):
         open_peek(board, "Build", "Nested")
-        peek_row(board, "Sub B").locator(".wb-note-count-badge").dispatch_event("click")
+        peek_row(board, "Sub B").locator(DRILL).dispatch_event("click")
         board.wait_for_function(
             "() => document.querySelector('#taskPeekPopover .task-peek-title')"
             "        ?.textContent === 'Sub B'"
@@ -331,7 +340,7 @@ class TestPeekDeepNesting:
         # Drill: Gen1 -> Gen2 -> Gen3, each one level deeper than #850's own
         # single-hop coverage.
         for child_name in ["Gen1", "Gen2", "Gen3"]:
-            badge = peek_row(page, child_name).locator(".wb-note-count-badge")
+            badge = peek_row(page, child_name).locator(DRILL)
             assert badge.count() == 1, (
                 f"{child_name} has its own children, so it must carry a drill-down badge"
             )
@@ -349,7 +358,7 @@ class TestPeekDeepNesting:
         )
         gen4 = peek_row(page, "Gen4")
         assert gen4.count() == 1
-        assert gen4.locator(".wb-note-count-badge").count() == 0, (
+        assert gen4.locator(DRILL).count() == 0, (
             "Gen4 is a leaf, so its row must not carry a drill-down badge"
         )
 
@@ -379,7 +388,7 @@ class TestPeekPlanTextRerender:
 
     def test_multi_level_stack_survives_a_plan_text_rerender(self, board):
         open_peek(board, "Build", "Nested")
-        peek_row(board, "Sub B").locator(".wb-note-count-badge").dispatch_event("click")
+        peek_row(board, "Sub B").locator(DRILL).dispatch_event("click")
         board.wait_for_function(
             "() => document.querySelector('#taskPeekPopover .task-peek-title')"
             "        ?.textContent === 'Sub B'"
@@ -422,7 +431,7 @@ class TestPeekChecklistTicking:
         assert before_line is not None and "100%" not in before_line.split()
 
         open_peek(board, "Build", "Nested")
-        peek_row(board, "Sub A").locator(".task-peek-checkbox").dispatch_event("click")
+        peek_row(board, "Sub A").locator("np-checkbox").dispatch_event("click")
         board.wait_for_function(
             "() => /Sub A[^\\n]*100%/.test(document.getElementById('planEditor').value)"
         )
@@ -449,7 +458,7 @@ class TestPeekChecklistTicking:
         assert before_line is not None and "100%" not in before_line.split()
 
         open_peek(board, "Build", "Nested")
-        peek_row(board, "Sub A").locator(".task-peek-checkbox").dispatch_event("click")
+        peek_row(board, "Sub A").locator("np-checkbox").dispatch_event("click")
         board.wait_for_function(
             "() => /Sub A[^\\n]*100%/.test(document.getElementById('planEditor').value)"
         )
@@ -476,6 +485,21 @@ class TestOpenTaskDetails:
         ) is True, "the task-details form must be open"
         assert board.input_value("#taskName") == "Nested", (
             "the peek's own current-level task (Nested) must be the one selected"
+        )
+
+    def test_a_leaf_name_in_the_peek_opens_that_task(self, board):
+        """A name opens its task in every other task row; a leaf's does here."""
+        open_peek(board, "Build", "Nested")
+        peek_row(board, "Sub A").locator("button.name").dispatch_event("click")
+        board.wait_for_selector(PEEK, state="detached")
+        board.wait_for_function("() => document.getElementById('taskName').value === 'Sub A'")
+
+    def test_a_summary_name_in_the_peek_drills_in(self, board):
+        open_peek(board, "Build", "Nested")
+        peek_row(board, "Sub B").locator("button.name").dispatch_event("click")
+        board.wait_for_function(
+            "() => document.querySelector('#taskPeekPopover .task-peek-title')"
+            "        ?.textContent === 'Sub B'"
         )
 
     def test_open_task_details_from_the_note_menu_selects_the_right_task(self, board):

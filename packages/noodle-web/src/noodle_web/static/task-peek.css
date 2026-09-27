@@ -9,14 +9,9 @@
    `.task-peek*` classes, so any future consumer of TaskPeek (task-peek.js)
    gets identical styling for free without touching whiteboard.css.
 
-   Two exceptions, both deliberate reuse rather than duplication (see
-   task-peek.js's own header comment): peek rows use the exact
-   `.wb-note-avatar` (assignee chip) and `.wb-note-count-badge` (child-
-   count badge) classes views/whiteboard.css already defines, sized down
-   slightly here. A non-whiteboard consumer of TaskPeek would need to pull
-   in those two small rule blocks too (or we hoist them into a shared
-   stylesheet once a second consumer actually exists) -- not worth doing
-   preemptively for zero current second consumers.
+   The rows are <np-task-row>s, which style themselves in their own shadow
+   root, so nothing here reaches into a row and nothing borrows the
+   whiteboard's classes any more.
 
    Every colour below is a themed var(--np-*) token, so -- like the note
    `...` menu -- this file needs no separate dark-mode.css overrides at
@@ -158,9 +153,11 @@
 }
 
 .task-peek-list {
-    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--np-space-2);
     margin: 0;
-    padding: var(--np-space-4) var(--np-space-8);
+    padding: var(--np-space-4);
     overflow-y: auto;
     min-height: 0;
 }
@@ -171,55 +168,6 @@
     color: var(--np-text-muted);
     font-style: italic;
     text-align: center;
-}
-
-.task-peek-row {
-    display: flex;
-    align-items: center;
-    gap: var(--np-space-8);
-    padding: var(--np-space-8) var(--np-space-4);
-    border-radius: 6px;
-    min-width: 0;
-}
-
-.task-peek-row:hover {
-    background: var(--np-bg-hover);
-}
-
-.task-peek-row-drillable {
-    cursor: pointer;
-}
-
-.task-peek-checkbox {
-    flex-shrink: 0;
-    width: 15px;
-    height: 15px;
-    margin: 0;
-    cursor: pointer;
-}
-
-.task-peek-row-name {
-    flex: 1;
-    min-width: 0;
-    color: var(--np-text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.task-peek-avatars {
-    display: flex;
-    flex-shrink: 0;
-}
-
-.task-peek-avatars .wb-note-avatar {
-    width: 18px;
-    height: 18px;
-    font-size: 8px;
-}
-
-.task-peek-count-badge {
-    flex-shrink: 0;
 }
 
 /* Visually hidden but still announced -- the aria-live region tpBuildAnnouncer()
@@ -239,10 +187,5 @@
 @media (pointer: coarse) {
     .task-peek {
         width: 300px;
-    }
-
-    .task-peek-checkbox {
-        width: 20px;
-        height: 20px;
     }
 }

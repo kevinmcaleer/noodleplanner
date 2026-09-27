@@ -9,8 +9,9 @@
  * possible because this file imports nothing.
  *
  * There were four implementations before this: wbGetInitials()
- * (whiteboard-notes.js), tpGetInitials() (task-peek.js, which delegates to the
- * first when it is loaded and duplicates the body when it is not),
+ * (whiteboard-notes.js), tpGetInitials() (task-peek.js, which delegated to the
+ * first when it was loaded and duplicated the body when it was not; removed
+ * when the peek's rows became <np-task-row>),
  * KanbanBoard.getInitials() (kanban.js) and getResourceInitials()
  * (script.js). The two pilot components sidestepped the question entirely by
  * taking pre-computed initials as a string attribute, and when <np-note> grew

@@ -27,9 +27,10 @@
  * One implementation, `initialsFor()` below, ported from whiteboard-notes.js's
  * wbGetInitials() -- first and *last* word, not first and second, which is a
  * real difference on "Mary Jane Watson" (MW, not MJ). The other three copies
- * are tpGetInitials() (task-peek.js, which already delegates to wbGetInitials
- * when it is loaded and duplicates the body when it is not),
- * KanbanBoard.getInitials() and getResourceInitials() (script.js). The two
+ * were tpGetInitials() (task-peek.js, which delegated to wbGetInitials when it
+ * was loaded and duplicated the body when it was not),
+ * KanbanBoard.getInitials() and getResourceInitials() (script.js); the first
+ * and last went when their surfaces moved to <np-task-row>. The two
  * pilot components sidestepped the question entirely by taking pre-computed
  * initials as a string attribute, which is why np-note's story used to pass
  * `avatars="AB,CD"`. This takes *names* and derives them.
