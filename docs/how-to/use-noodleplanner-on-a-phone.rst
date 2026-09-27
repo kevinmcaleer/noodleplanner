@@ -53,6 +53,10 @@ From there you can save it to Files, iCloud Drive or Google Drive, or send
 it by Mail, Messages or AirDrop, then open it on your computer. Close the
 share sheet without choosing anything and nothing changes.
 
+Some phone browsers won't share a ``.md`` file. They share the same plan
+as a ``.txt`` file instead, which NoodlePlanner opens just the same: with
+**File** ▸ **Open**, or by dropping it on the window.
+
 Some phone browsers can't share a plan file. There the same button says
 **Download a copy** (**Download** in the **⋯** sheet), and the plan
 downloads to the phone's Downloads folder instead.

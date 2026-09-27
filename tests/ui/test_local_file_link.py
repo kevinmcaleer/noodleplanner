@@ -40,10 +40,11 @@ Build
   UI 4d
 """
 
-# showOpenFilePicker hands back a real handle to FILE_NAME in the origin
+# showOpenFilePicker hands back a real handle to `name` in the origin
 # private file system, and counts its calls so a test can show Save never
 # opened it. An init script, so it is in place again after each reload.
-STUB_PICKER = """
+def _stub_picker(name):
+    return """
 (() => {
     const name = %r;
     window.__pickerCalls = 0;
@@ -54,7 +55,10 @@ STUB_PICKER = """
     window.showOpenFilePicker = async () => { window.__pickerCalls++; return [await handle()]; };
     window.showSaveFilePicker = async () => { window.__pickerCalls++; return handle(); };
 })();
-""" % FILE_NAME
+""" % name
+
+
+STUB_PICKER = _stub_picker(FILE_NAME)
 
 
 # After a reload the browser often wants to ask for write permission again.
@@ -148,3 +152,16 @@ def test_each_project_keeps_its_link_across_a_switch(page, app_server):
 
     page.evaluate("id => switchToProject(id)", linked_id)
     wait_for_link_status(page, "🔗 " + FILE_NAME)
+
+
+def test_file_open_takes_a_txt_copy_too(page, app_server):
+    """A phone whose browser won't share a .md file shares the plan as .txt
+    (#1395); File > Open... opens that copy as the plan it is."""
+    page.context.add_init_script(_stub_picker("office-move.txt"))
+    open_project_view(page, app_server)
+    # No title in the front matter, which would rename the project after it.
+    opfs_write(page, "office-move.txt", PLAN.replace("title: Office move\n", ""))
+    page.evaluate("() => openLocalPlanFile()")
+    wait_for_link_status(page, "🔗 office-move.txt")
+    assert page.evaluate("() => getCurrentProject().name") == "office-move", "named without the .txt"
+    assert "Wireframes" in page.eval_on_selector("#planEditor", "editor => editor.value")
