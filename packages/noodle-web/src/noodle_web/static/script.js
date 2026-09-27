@@ -3816,8 +3816,10 @@ function updateTaskNameFromTitle() {
     const taskSection = document.getElementById('taskFormSection');
     if (taskSection && !taskSection.classList.contains('active')) return;
 
+    // A task name is one line of the plan: a line break reaching it would
+    // split the task's line in two.
     const titleEl = document.getElementById('taskFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
-    const title = (titleEl ? titleEl.innerText : '').trim();
+    const title = (titleEl ? titleEl.innerText : '').replace(/\s+/g, ' ').trim();
     document.getElementById('taskName').value = title;
     saveTask();
 }

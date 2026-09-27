@@ -81,7 +81,8 @@ export const AccentEditable = {
     docs: {
       description: {
         story:
-          'Matches the Task form header exactly: a contenteditable title (fires `titlechange`) plus ' +
+          'Matches the Task form header exactly: a single-line contenteditable title (fires ' +
+          '`titlechange`; Enter finishes the edit) plus ' +
           'the Inspect/Product action buttons ahead of the close button.',
       },
     },
