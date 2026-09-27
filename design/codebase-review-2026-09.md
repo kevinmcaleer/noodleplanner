@@ -192,6 +192,7 @@ Each row is one commit, with a test that fails on `main`.
 | An editor render with no export no longer POSTs `/render`. That call computed a hidden ASCII table, and views waited on it, so edits did not update views offline or on a 429 or 5xx. | perf, reliability | `test_editor_render_offline.mjs` |
 | One global `escapeHtml` in `state.js` that escapes quotes, plus `escapeJsAttr` for `onclick` strings. Three duplicate globals are deleted, and unescaped plan text in the RAID, Kanban breadcrumb and deliverables-matrix markup is escaped. | security | `test_escape_html.mjs` |
 | The Resources-table rename is `startResourceShortnameRename`. The portfolio function of the same name overrode it, so renaming a shortname threw. A test now fails on any duplicate top-level function across the classic scripts. | bug, guard | `test_duplicate_globals.mjs` |
+| Assigning a resource leaves quality roles (`@kev:P`) and the `@name` in a levelling flag (`[levelled @ann …]`) alone. #921's `updateLineField()` fixed the `[depends …]` overwrite this review also found, but rewrote both of those as resources. | data loss | `test_assign_resource_line.mjs` |
 | `PlanModel.lineIndex()` / `taskAtLine()`: Kanban's parse on a 1,000-task plan went from 4.0 s to 27 ms. | perf | `test_plan_model.mjs`, `test_kanban_board_mutations.mjs` |
 | A `*` task's predecessor is named without re-parsing the chain above it. 401 lines went from 81,002 tokenizer calls to about 800. | perf | `test_previous_task_name.mjs` |
 | Gantt builds its name→id map once per render, not once per row, and the duplicate `appendChild` is removed. | perf | `test_gantt_rows_render.mjs` |
@@ -256,11 +257,6 @@ All of these were verified by reading the code; the ones marked **bug** were als
 
 ### Low
 
-- **Resource reassignment edge cases (since #921).** The Gantt and Tasks "Assign Resource" edit now goes through `updateLineField()` (`editor-sync.js`). That fixed the `[depends]` overwrite this review also found. It still treats two things as resources that aren't:
-  - a quality-role holder: `@kev:P` becomes `@jen:P`
-  - the `@name` inside a portfolio-levelling flag: `[levelled @ann 2026-01-05]` becomes `[levelled 2026-01-05]`, which `portfolio-leveling.js`'s own regex no longer recognises, so the flag can't be cleared
-
-  Fix: have `TaskLineTokenizer` emit levelling flags and quality roles as their own token types.
 - **Search:** comms results read `title` and `purpose`, but comms items have `activity` and `content`. Every comms hit is titled `#id`, and its text is never searched (`app.py` `search_plan`).
 - **Resource parsing:** `@alice, @bob` parses to the resources string `"alice,, bob"`.
 - **Date maths:** a negative `add_working_days` on a calendar with no working days loops forever.

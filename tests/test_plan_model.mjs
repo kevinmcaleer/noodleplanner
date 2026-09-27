@@ -515,6 +515,7 @@ test('lineIndex() follows every mutation of the model', () => {
         ['insertTaskAfter', m => m.insertTaskAfter(m.findByName('Design'), 2, 'Review 1d')],
         ['insertCardAfter', m => m.insertCardAfter(m.findByName('Ship'), 2, 'Card\n  Sub 1d')],
         ['removeTask', m => m.removeTask(m.findByName('Design'))],
+        ['removeSubtree', m => m.removeSubtree(m.findByName('Phase One'))],
         ['indentTasks', m => m.indentTasks([m.findByName('Phase Two')])],
         ['outdentTasks', m => m.outdentTasks([m.findByName('Test')])],
         ['addDependency', m => m.addDependency(m.findByName('Ship'), m.findByName('Test'))],
