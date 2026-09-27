@@ -224,6 +224,15 @@
     "$type": "color",
     "$description": "Ink for text sitting *on* a hue token. Single-valued like the hue it\npairs with -- the whole point of these is that the hue does not change\nwith the theme, so its ink cannot either. Added for the whiteboard\nnote's deliverable badge (#1248), whose rule had been carrying a raw\n`#111` under a comment claiming `#161616`; scripts/check-contrast.mjs\nnow scores this pairing so the claim is measured rather than asserted."
   },
+  "qr-ink": {
+    "$value": "#161616",
+    "$type": "color",
+    "$description": "A QR code's modules and its paper (#1389): the planning session's join\nlink, drawn by <np-qr-code> for a phone's camera. Single-valued, like\n--np-orange-ink: a camera reads dark modules on light paper most\nreliably, so the code stays dark on light in the dark theme too, as a\nprinted code would. scripts/check-contrast.mjs scores the pair."
+  },
+  "qr-paper": {
+    "$value": "#ffffff",
+    "$type": "color"
+  },
   "accent-soft": {
     "$value": "{blue-subtle}",
     "$type": "color",

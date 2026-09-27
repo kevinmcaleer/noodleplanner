@@ -8549,6 +8549,25 @@ button.ribbon-breadcrumb-rung:hover {
     color: var(--np-text-secondary);
 }
 
+/* #1389: the join link as a QR code, for a phone's camera. Its caption goes
+   with it: no code (no session yet, or an ended one), no "scan this". */
+.collab-session-qr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--np-space-8);
+    margin: var(--np-space-12) 0;
+}
+
+.collab-session-qr:has(np-qr-code[hidden]) {
+    display: none;
+}
+
+.collab-session-qr figcaption {
+    font-size: var(--np-text-85);
+    color: var(--np-text-secondary);
+}
+
 .collab-presence-heading {
     font-weight: 600;
     font-size: 0.9em;

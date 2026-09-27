@@ -524,6 +524,9 @@ function setJoinedUi(joined) {
     el('joinScreen').hidden = joined;
     el('relay').hidden = !joined;
     document.body.classList.toggle('is-joined', joined);
+    // #1389: on a phone the chat opens over the board, so it starts closed;
+    // the bar's Chat button (and its unread count) is a tap away.
+    if (joined && isPhoneLayout()) setChatPanelOpen(false);
     if (joined && typeof initWhiteboard === 'function') {
         needsFirstFit = true;
         initWhiteboard();
@@ -713,7 +716,46 @@ function initJoinPage() {
     // whiteboard's own commit raises this event too -- is a local change.
     const editor = planEditorEl();
     if (editor) editor.addEventListener('input', noteLocalPlanChange);
+    configureJoinerCards();
+    prefillJoinCode();
     prefillJoinName();
+}
+
+function isPhoneLayout() {
+    return document.documentElement.dataset.layout === 'phone';
+}
+
+/** #1389: a phone joiner gets the board as cards (plan-list.js, #1384), as
+ * a phone gets it in the app. A row opens in the board's quick editor --
+ * the full task form is the host's -- and a tick writes the plan the way a
+ * board edit does, through renderText() to the host. */
+function configureJoinerCards() {
+    if (typeof NoodlePlanList === 'undefined') return;
+    NoodlePlanList.configureWhiteboardCards({
+        onOpen: (task) => openTaskFormByName(task.name),
+        emptyText: 'The plan has no tasks yet.',
+    });
+}
+
+/** #1389: the session dialog's QR code opens `/join#code=123456`. The code
+ * goes into the form -- the joiner still says who they are and taps Join --
+ * and out of the address bar, so it is not left in the page's URL. It was
+ * only ever in the fragment, which never reaches the server. */
+function prefillJoinCode() {
+    const match = /(?:^#|&)code=(\d{6})(?:&|$)/.exec(window.location.hash || '');
+    if (!match) return;
+    const input = el('joinCode');
+    if (input && !input.value) input.value = match[1];
+    try {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch (_) { /* the fragment stays; harmless */ }
+    // Once prefillJoinName() has had its turn: the name if it is still
+    // empty, otherwise straight to Join.
+    setTimeout(() => {
+        const name = el('displayName');
+        const target = name && !name.value ? name : el('joinBtn');
+        if (target) target.focus();
+    }, 0);
 }
 
 /** #1377: the name from the joiner's saved profile, so they need not type

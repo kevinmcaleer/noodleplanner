@@ -217,6 +217,14 @@
     "$value": "#161616",
     "$type": "color"
   },
+  "qr-ink": {
+    "$value": "#161616",
+    "$type": "color"
+  },
+  "qr-paper": {
+    "$value": "#ffffff",
+    "$type": "color"
+  },
   "accent-soft": {
     "$value": "#1c3a47",
     "$type": "color",

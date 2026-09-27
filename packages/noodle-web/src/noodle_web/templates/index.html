@@ -4138,6 +4138,7 @@ Build
     <script type="module" src="/static/components/notice/np-notice.js?v={{ v }}"></script>
     <!-- Every detail-pane form's shell (#1383). -->
     <script type="module" src="/static/components/detail-sheet/np-detail-sheet.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/qr-code/np-qr-code.js?v={{ v }}"></script>
 
     {% include "_user_profile_dialog.html" %}
 
@@ -4166,6 +4167,12 @@ Build
                         <label for="collabSessionUrl">Join page (share with your team)</label>
                         <input type="text" id="collabSessionUrl" readonly onclick="this.select()">
                     </div>
+                    <!-- #1389: the join page and the code in one QR code, for a
+                         phone's camera. collab-session.js sets its value. -->
+                    <figure class="collab-session-qr">
+                        <np-qr-code id="collabSessionQr" label="QR code: scan it with a phone's camera to join this session" hidden></np-qr-code>
+                        <figcaption>Or scan this with a phone's camera to join.</figcaption>
+                    </figure>
                     <!-- #966: host presence panel -- populated by renderCollabPresence()
                          in collab-session.js from `{"type":"presence",...}` server pushes. -->
                     <div id="collabPresencePanel" style="display:none;">

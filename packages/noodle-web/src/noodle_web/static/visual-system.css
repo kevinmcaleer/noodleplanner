@@ -233,6 +233,14 @@
        now scores this pairing so the claim is measured rather than asserted. */
     --np-orange-ink: #161616;
 
+    /* A QR code's modules and its paper (#1389): the planning session's join
+       link, drawn by <np-qr-code> for a phone's camera. Single-valued, like
+       --np-orange-ink: a camera reads dark modules on light paper most
+       reliably, so the code stays dark on light in the dark theme too, as a
+       printed code would. scripts/check-contrast.mjs scores the pair. */
+    --np-qr-ink: #161616;
+    --np-qr-paper: #ffffff;
+
     /* --- Status ramp, overlay and shadow tints (#1194, moved here from
        dark-mode.css, which is where the #1024 identity declared them).
 
