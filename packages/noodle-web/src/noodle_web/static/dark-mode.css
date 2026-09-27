@@ -989,11 +989,6 @@ body {
     background: var(--np-table-stripe);
 }
 
-[data-theme="dark"] .raid-table tbody tr:hover,
-[data-theme="dark"] .raid-table tbody tr:nth-child(even):hover {
-    background: var(--np-table-hover);
-}
-
 [data-theme="dark"] .raid-container {
     color: var(--np-text);
 }
@@ -1161,11 +1156,6 @@ body {
     background: var(--np-table-stripe);
 }
 
-[data-theme="dark"] .budget-table tbody tr:hover,
-[data-theme="dark"] .budget-table tbody tr:nth-child(even):hover {
-    background: var(--np-table-hover);
-}
-
 [data-theme="dark"] .budget-table tfoot td {
     background: var(--np-summary-row);
     color: var(--np-text);
@@ -1239,14 +1229,6 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .resources-table .totals-row {
-    background: var(--np-summary-row);
-}
-
-[data-theme="dark"] .resources-table .totals-row:hover {
-    background: var(--np-summary-row-hover);
-}
-
 [data-theme="dark"] .resources-scope-label {
     color: var(--np-text-muted);
 }
@@ -1280,30 +1262,6 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .timesheet-hours-none {
-    color: var(--np-text-muted);
-}
-
-[data-theme="dark"] .timesheet-hours-low {
-    background: #1a3a28;
-    color: #50c878;
-}
-
-[data-theme="dark"] .timesheet-hours-normal {
-    background: #3a3020;
-    color: #e0a020;
-}
-
-[data-theme="dark"] .timesheet-hours-high {
-    background: #3a2020;
-    color: #e06060;
-}
-
-[data-theme="dark"] .timesheet-holiday {
-    background: #3a3020 !important;
-    border-left-color: #e0a020;
-}
-
 /* ---- Workload Page ---- */
 [data-theme="dark"] .workload-content {
     color: var(--np-text);
@@ -1326,10 +1284,6 @@ body {
     background: var(--np-input-bg);
     color: var(--np-text);
     border-color: var(--np-input-border);
-}
-
-[data-theme="dark"] .resource-sheet-group-header {
-    background: var(--np-summary-row);
 }
 
 [data-theme="dark"] .resource-sheet-group-name {
@@ -1362,16 +1316,8 @@ body {
     color: var(--np-text);
 }
 
-[data-theme="dark"] .resource-sheet-timeline-cell {
-    border-right-color: var(--np-border-light);
-}
-
 [data-theme="dark"] .resource-sheet-timeline-cell.resource-sheet-weekend {
     background: var(--np-surface-alt);
-}
-
-[data-theme="dark"] .resource-sheet-timeline-cell.resource-sheet-holiday {
-    background: #3a3020;
 }
 
 /* ---- NoodleSheet (EVM spreadsheet, etc.) ---- */
@@ -2073,14 +2019,6 @@ body {
 [data-theme="dark"] .ben-tracking-table td {
     color: var(--np-text);
     border-bottom-color: var(--np-border);
-}
-
-[data-theme="dark"] .ben-tracking-table td.ben-cell-editable:hover {
-    background: var(--np-bg-hover);
-}
-
-[data-theme="dark"] .ben-tracking-table td.ben-cell-editable:focus-within {
-    background: var(--np-bg-hover);
 }
 
 [data-theme="dark"] .ben-tracking-table .ben-cell-input {

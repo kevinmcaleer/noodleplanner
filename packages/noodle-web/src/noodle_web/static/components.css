@@ -113,8 +113,8 @@
 .milestones-table .rag-blue,
 .rag-complete,
 .rag-blue {
-    background: #1976d2;
-    color: white;
+    background: var(--np-info);
+    color: var(--np-on-info);
     text-align: center;
     font-weight: 600;
     border-radius: 4px;
@@ -131,18 +131,18 @@
 }
 
 .up-next-late {
-    background: #ff6b6b;
-    color: white;
+    background: var(--np-danger-tint);
+    color: var(--np-danger-ink);
 }
 
 .up-next-in-progress {
-    background: #ffd93d;
-    color: var(--np-ink);
+    background: var(--np-warning-tint);
+    color: var(--np-warning-ink);
 }
 
 .up-next-starting-soon {
-    background: #74c0fc;
-    color: white;
+    background: var(--np-info-tint);
+    color: var(--np-info-ink);
 }
 
 .up-next-not-started {
@@ -164,7 +164,7 @@
 }
 
 .up-next-row-clickable:hover {
-    background-color: rgba(0, 123, 255, 0.08);
+    background-color: var(--np-table-hover);
 }
 
 /* Resources Table Styling */
@@ -230,12 +230,12 @@
 }
 
 .resources-table .totals-row {
-    background: #e8eaf6;
+    background: var(--np-summary-row);
     border-top: 2px solid var(--np-accent);
 }
 
 .resources-table .totals-row:hover {
-    background: #dde0f3;
+    background: var(--np-summary-row-hover);
 }
 
 .resources-toolbar {
@@ -362,7 +362,7 @@
     text-align: center;
     font-weight: 600;
     font-size: 0.85em;
-    border-right: 1px solid rgba(255,255,255,0.2);
+    border-right: 1px solid var(--np-hairline);
 }
 
 .resource-sheet-task-col {
@@ -387,7 +387,7 @@
 
 .resource-sheet-month-header {
     font-size: 0.85em;
-    border-bottom: 1px solid rgba(255,255,255,0.3);
+    border-bottom: 1px solid var(--np-hairline);
 }
 
 .resource-sheet-day-header {
@@ -397,15 +397,15 @@
 }
 
 .resource-sheet-day-header.resource-sheet-weekend {
-    background: rgba(0,0,0,0.15);
+    background: var(--np-sunken);
 }
 
 .resource-sheet-day-header.resource-sheet-holiday {
-    background: rgba(255,193,7,0.3);
+    background: var(--np-warning-tint);
 }
 
 .resource-sheet-group-header {
-    background: #e8eaf6;
+    background: var(--np-summary-row);
 }
 
 .resource-sheet-group-name {
@@ -458,7 +458,7 @@
     min-width: 24px;
     padding: 0 !important;
     height: 24px;
-    border-right: 1px solid #f5f5f5;
+    border-right: 1px solid var(--np-hairline);
 }
 
 .resource-sheet-timeline-cell.resource-sheet-weekend {
@@ -466,15 +466,15 @@
 }
 
 .resource-sheet-timeline-cell.resource-sheet-holiday {
-    background: #fff9e6;
+    background: var(--np-warning-tint);
 }
 
 .resource-sheet-timeline-cell.resource-sheet-active {
-    background: #42a5f5;
+    background: var(--np-info);
 }
 
 .resource-sheet-timeline-cell.resource-sheet-overlap {
-    background: #ef4444;
+    background: var(--np-danger);
 }
 
 /* Timesheet Styling */
@@ -509,7 +509,7 @@
     padding: var(--np-space-8) var(--np-space-8);
     text-align: center;
     font-weight: 600;
-    border-right: 1px solid rgba(255, 255, 255, 0.3);
+    border-right: 1px solid var(--np-hairline);
     white-space: nowrap;
 }
 
@@ -582,7 +582,7 @@
 }
 
 .timesheet-hours-none {
-    color: #ccc;
+    color: var(--np-faint);
 }
 
 .timesheet-hours-low {
@@ -591,13 +591,13 @@
 }
 
 .timesheet-hours-normal {
-    background: #fff3e0;
-    color: #e65100;
+    background: var(--np-warning-tint);
+    color: var(--np-warning-ink);
 }
 
 .timesheet-hours-high {
-    background: #ffebee;
-    color: var(--np-danger);
+    background: var(--np-danger-tint);
+    color: var(--np-danger-ink);
     font-weight: 600;
 }
 
@@ -606,8 +606,8 @@
 }
 
 .timesheet-holiday {
-    background: #fff3e0 !important;
-    border-left: 3px solid #ff9800;
+    background: var(--np-warning-tint) !important;
+    border-left: 3px solid var(--np-warning);
 }
 
 .timesheet-title {
@@ -1033,8 +1033,8 @@
 
 .report-rag-badge.rag-complete,
 .report-rag-badge.rag-blue {
-    background: #1976d2;
-    color: white;
+    background: var(--np-info);
+    color: var(--np-on-info);
 }
 
 /* Overall project RAG badge next to report date */
@@ -3269,7 +3269,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-table th:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--np-sunken);
 }
 
 .raid-table th .sort-indicator {
@@ -3286,7 +3286,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-table tbody tr:hover {
-    background: var(--np-paper);
+    background: var(--np-table-hover);
 }
 
 .raid-table tbody tr:nth-child(even) {
@@ -3294,7 +3294,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-table tbody tr:nth-child(even):hover {
-    background: #e8eaf6;
+    background: var(--np-table-hover);
 }
 
 /* Type badges */
@@ -3791,7 +3791,7 @@ tr:hover .task-context-btn,
     padding: var(--np-space-12);
     text-align: left;
     font-weight: 600;
-    border-bottom: 2px solid #fff;
+    border-bottom: 2px solid var(--np-hairline);
 }
 
 .lookahead-table td {
@@ -4859,7 +4859,7 @@ tr:hover .task-context-btn,
 }
 
 .actions-table th:hover {
-    background: rgba(255,255,255,0.1);
+    background: var(--np-sunken);
 }
 
 .actions-table th .sort-indicator {
@@ -5683,11 +5683,11 @@ tr:hover .task-context-btn,
 }
 
 .ben-tracking-table td.ben-cell-editable:hover {
-    background: #f0f7ff;
+    background: var(--np-bg-hover);
 }
 
 .ben-tracking-table td.ben-cell-editable:focus-within {
-    background: #e3f2fd;
+    background: var(--np-selected);
     outline: 2px solid var(--np-accent);
     outline-offset: -2px;
 }
@@ -6199,7 +6199,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-table th:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--np-sunken);
 }
 
 .budget-table th .sort-indicator {
@@ -6217,7 +6217,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-table tbody tr:hover {
-    background: #e8eaf6;
+    background: var(--np-table-hover);
 }
 
 .budget-table tbody tr:nth-child(even) {
@@ -6225,7 +6225,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-table tbody tr:nth-child(even):hover {
-    background: #e8eaf6;
+    background: var(--np-table-hover);
 }
 
 .budget-table tfoot td {
