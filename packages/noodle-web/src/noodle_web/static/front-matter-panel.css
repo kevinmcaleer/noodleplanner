@@ -399,3 +399,20 @@
     .fm-list-entry { flex-wrap: wrap; }
     .fm-list-field { flex-basis: calc(50% - 4px); }
 }
+
+/* Touch (#1378): the metadata fields inherit the panel's 13px, which iOS
+   zooms into on focus. Same selectors as the rules above, so this wins by
+   coming after them. */
+@media (pointer: coarse) {
+    :root body .fm-panel :is(
+        input.fm-row-key-input,
+        input.fm-value-input,
+        input.fm-list-field,
+        input.fm-tag-input,
+        input.fm-block-line-input,
+        select.fm-value-select,
+        select.fm-add-key-select
+    ) {
+        font-size: var(--np-touch-field-text);
+    }
+}

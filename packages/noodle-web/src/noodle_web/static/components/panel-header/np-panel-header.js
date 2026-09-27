@@ -21,6 +21,14 @@
  *   </np-panel-header>
  *   <np-panel-header title="Status Message Log" variant="neutral"></np-panel-header>
  *
+ * Narrow panes (#1378): below 560px of its own width the header gives the
+ * title the whole first row, next to the close button, and moves the slotted
+ * actions to a row of their own. Measured by container query rather than by
+ * viewport, so a narrow pane on a wide screen gets it too. At 390px the task
+ * form's title used to share its row with Inspect and Make Deliverable and got
+ * about 45px, breaking "Design" into "Desig / n". The close button is 44px
+ * under a coarse pointer, like <np-close-button>'s.
+ *
  * Events:
  *   - `close` (bubbles, composed) — the close button was clicked.
  *   - `titlechange` (bubbles, composed, detail: { value }) — only fires
@@ -33,13 +41,15 @@ TEMPLATE.innerHTML = `
   <style>
     :host {
       display: block;
+      container-type: inline-size;
       font-family: var(--np-font-heading, var(--np-font-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif));
     }
     :host([hidden]) { display: none; }
 
     .header {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-areas: "titles actions close";
       align-items: center;
       gap: var(--np-space-12, 12px);
       padding: var(--np-space-20, 20px) var(--np-space-32, 32px);
@@ -56,7 +66,7 @@ TEMPLATE.innerHTML = `
     }
 
     .titles {
-      flex: 1;
+      grid-area: titles;
       min-width: 0;
     }
 
@@ -68,6 +78,9 @@ TEMPLATE.innerHTML = `
       padding: var(--np-space-4, 4px);
       border-radius: 4px;
       min-height: 1.2em;
+      /* A word only breaks when it is wider than the whole row on its own. */
+      overflow-wrap: break-word;
+      word-break: normal;
       transition: background-color 0.2s;
     }
     .title[contenteditable] {
@@ -89,14 +102,20 @@ TEMPLATE.innerHTML = `
     .subtitle[hidden] { display: none; }
 
     .actions {
+      grid-area: actions;
       display: flex;
       align-items: center;
       gap: var(--np-space-12, 12px);
-      flex-shrink: 0;
+      min-width: 0;
     }
+    .actions.empty { display: none; }
     ::slotted(*) { flex-shrink: 0; }
 
     .close-btn {
+      grid-area: close;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       background: none;
       border: none;
       color: inherit;
@@ -116,11 +135,24 @@ TEMPLATE.innerHTML = `
     }
     :host([variant="neutral"]) .close-btn:hover { background-color: var(--np-sunken, rgba(0, 0, 0, 0.06)); }
 
+    @media (pointer: coarse) {
+      .close-btn { min-width: 44px; min-height: 44px; }
+    }
+
     @media (max-width: 768px) {
       .header {
         padding: var(--np-space-16, 16px) var(--np-space-20, 20px);
       }
       .title { font-size: 1.2em; }
+    }
+
+    @container (max-width: 559px) {
+      .header {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas: "titles close" "actions actions";
+        row-gap: var(--np-space-8, 8px);
+      }
+      .actions { flex-wrap: wrap; }
     }
   </style>
   <div class="header" part="header">
@@ -129,8 +161,8 @@ TEMPLATE.innerHTML = `
     </div>
     <div class="actions" part="actions">
       <slot name="actions"></slot>
-      <button class="close-btn" part="close-button" type="button" aria-label="Close">&times;</button>
     </div>
+    <button class="close-btn" part="close-button" type="button" aria-label="Close">&times;</button>
   </div>
 `;
 
@@ -146,7 +178,17 @@ export class NpPanelHeader extends HTMLElement {
     this._titles = root.querySelector('.titles');
     this._subtitle = root.querySelector('.subtitle');
     this._closeBtn = root.querySelector('.close-btn');
+    this._actions = root.querySelector('.actions');
     this._title = null;
+
+    // An empty actions row would still take a grid row (and a gap) when the
+    // header wraps, so it is hidden while nothing is slotted into it.
+    const slot = root.querySelector('slot[name="actions"]');
+    const syncActions = () => {
+      this._actions.classList.toggle('empty', slot.assignedElements().length === 0);
+    };
+    slot.addEventListener('slotchange', syncActions);
+    syncActions();
 
     this._closeBtn.addEventListener('click', () => {
       this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true }));

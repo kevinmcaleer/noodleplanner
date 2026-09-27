@@ -1155,7 +1155,11 @@
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.4);
-    z-index: 1015;
+    /* Above the status bar (status-bar.css, z-index 1050), not below it
+       (#1378). The pane is aria-modal, and at <=768px the status bar wraps to
+       80-128px, so under it the pane's own Done / Delete buttons sat beneath
+       the bar and could not be tapped on a phone or a portrait tablet. */
+    z-index: 1055;
 }
 
 .detail-pane-overlay.active {
@@ -1167,19 +1171,39 @@
     top: 0;
     right: 0;
     width: min(600px, 90vw);
-    height: 100%;
+    height: 100vh;
+    height: 100dvh;
     background: var(--np-surface);
-    z-index: 1020;
+    z-index: 1056;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
     transform: translateX(100%);
     transition: transform 0.3s ease;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    /* The pane's footer clears the home indicator on a notched phone and in
+       the installed app (viewport-fit=cover in index.html). */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .detail-pane.open {
     transform: translateX(0);
+}
+
+/* A closed pane rests just off the right edge, and its 20px shadow blurred
+   back into the window as a grey strip down every screen (#1378). No shadow
+   until it is open. The selector outranks dark-mode.css's own .detail-pane
+   shadow, which would otherwise put it back in both themes. */
+.detail-pane:not(.open) {
+    box-shadow: none;
+}
+
+/* A confirmation opened from inside the pane (delete this RAID item?) is a
+   .modal-overlay, which sits at z-index 1000 -- under the pane. While the
+   pane is open, such dialogs stack above it instead. */
+body.detail-pane-open .modal-overlay {
+    z-index: 1070;
 }
 
 .detail-pane-section {
@@ -1556,6 +1580,12 @@ tr:hover .task-context-btn,
     min-width: 44px;
     min-height: 32px;
     transition: background 0.2s, border-color 0.2s;
+}
+
+@media (pointer: coarse) {
+    .task-form-inspect-btn {
+        min-height: var(--np-touch-target);
+    }
 }
 
 .task-form-inspect-btn:hover {
@@ -6101,6 +6131,12 @@ tr:hover .task-context-btn,
 .budget-view-toggle:focus-visible {
     outline: 2px solid var(--np-accent);
     outline-offset: 2px;
+}
+
+/* Was an inline style on #budgetSupplierFilter, where the touch rule in
+   responsive.css (#1378) could not reach it. */
+.budget-filter-group input {
+    font-size: 0.85em;
 }
 
 .budget-filter-group label {

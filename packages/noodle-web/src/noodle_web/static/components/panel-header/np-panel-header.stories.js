@@ -1,6 +1,6 @@
 import './np-panel-header.js';
 
-export default {
+const PanelHeader = {
   title: 'Components/PanelHeader',
   render: ({ title, subtitle, variant, editable, actions }) => {
     const el = document.createElement('np-panel-header');
@@ -47,6 +47,8 @@ export default {
     },
   },
 };
+
+export default PanelHeader;
 
 export const Accent = {
   name: 'Accent (drawer)',
@@ -95,5 +97,31 @@ export const WithSubtitle = {
     title: 'Task Inspector',
     subtitle: 'Riverside Platform Refresh',
     variant: 'neutral',
+  },
+};
+
+export const OnAPhone = {
+  name: 'On a phone (narrow pane)',
+  args: {
+    title: 'Design the onboarding flow',
+    editable: true,
+    actions: '🔍 Inspect,📦 Make Deliverable',
+  },
+  render: (args, context) => {
+    const el = PanelHeader.render(args, context);
+    const frame = document.createElement('div');
+    frame.style.cssText = 'width: 390px; border: 1px solid var(--np-border);';
+    frame.appendChild(el);
+    return frame;
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Below 560px of its own width the title takes the first row beside the close button, ' +
+          'and the actions wrap to a row of their own (#1378). At 390px the title used to share ' +
+          'its row with both actions and broke mid-word.',
+      },
+    },
   },
 };

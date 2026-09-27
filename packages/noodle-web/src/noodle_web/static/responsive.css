@@ -35,6 +35,9 @@
 @media (max-width: 768px) {
     body {
         padding: 0;
+        /* Still reserve the status bar, which wraps to two or three rows at
+           this width (#1378): status-bar.js measures it. */
+        padding-bottom: var(--status-bar-height, calc(36px + env(safe-area-inset-bottom, 0px)));
         overflow: auto;
     }
 
@@ -481,3 +484,29 @@
     }
 }
 
+
+/* ========================================
+   Touch: form fields at 16px (#1378)
+
+   iOS Safari zooms the whole page into any focused input, select or textarea
+   whose text is under 16px, and leaves it zoomed. The app's fields are 14px
+   (.form-group, components.css), 13px in the product form and 11px in the
+   ribbon search, and the <=480px rule above takes every textarea to 12px, so
+   on a phone every tap into a form shifted the page. Under a coarse pointer
+   every text field takes --np-touch-field-text instead. `:root body` lifts
+   the rule over the per-form selectors it replaces; checkboxes, radios,
+   ranges and buttons carry no text to zoom into and are left alone.
+
+   Pinch-zoom is not touched: the viewport meta sets no maximum-scale.
+   ======================================== */
+@media (pointer: coarse) {
+    :root body :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"], [type="hidden"]), select, textarea) {
+        font-size: var(--np-touch-field-text);
+    }
+}
+
+/* Keep content clear of the notch in landscape on a notched phone. */
+body {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+}

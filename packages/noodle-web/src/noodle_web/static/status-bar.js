@@ -839,3 +839,34 @@ function saveStatusLogToFile() {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
 }
+
+// ---------------------------------------------------------------------------
+// Reserved space (#1378)
+//
+// The bar is fixed to the bottom of the window, so the page reserves its
+// height with body's padding-bottom. On a desktop that is one 36px row, but
+// at <=768px the bar wraps to two or three rows (80px on a portrait tablet,
+// 128px on a phone), and a fixed 36px left the bottom of every view -- and
+// the last rows of every table -- underneath it. The bar's real height is
+// measured and published as --status-bar-height, which status-bar.css reads.
+// A hidden bar (the phone layout replaces it) reserves nothing.
+// ---------------------------------------------------------------------------
+(function watchStatusBarHeight() {
+    if (typeof document === 'undefined' || typeof ResizeObserver !== 'function') return;
+    function publish(bar) {
+        // A fixed element has no offsetParent, so a hidden bar is recognised
+        // by its zero-height box instead.
+        var height = bar ? bar.getBoundingClientRect().height : 0;
+        document.body.style.setProperty('--status-bar-height', Math.ceil(height) + 'px');
+    }
+    function start() {
+        var bar = document.querySelector('.status-bar');
+        if (!bar) return;
+        var observer = new ResizeObserver(function () { publish(bar); });
+        observer.observe(bar);
+        publish(bar);
+        document.addEventListener('layoutchange', function () { publish(bar); });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+    else start();
+})();

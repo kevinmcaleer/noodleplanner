@@ -7,13 +7,19 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 36px;
+    /* 36px of bar, plus the home indicator's inset on a notched phone or in
+       the installed app (#1378; viewport-fit=cover in index.html). The inset
+       is 0 everywhere else. */
+    height: calc(36px + env(safe-area-inset-bottom, 0px));
     min-height: 36px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     background: var(--np-bg);
     border-top: 1px solid var(--np-border);
     display: flex;
     align-items: center;
-    padding: 0 var(--np-space-12);
+    padding-top: 0;
+    padding-left: calc(var(--np-space-12) + env(safe-area-inset-left, 0px));
+    padding-right: calc(var(--np-space-12) + env(safe-area-inset-right, 0px));
     gap: var(--np-space-12);
     z-index: 1050;
     font-size: 0.85em;
@@ -373,9 +379,11 @@ body.collab-chat-docked > .container-fluid {
     text-decoration: underline;
 }
 
-/* Ensure main content doesn't hide behind status bar */
+/* Ensure main content doesn't hide behind status bar. At <=768px the bar
+   wraps to two or three rows, so status-bar.js measures it and publishes
+   --status-bar-height; the fallback is the one-row desktop bar. */
 body {
-    padding-bottom: 36px;
+    padding-bottom: var(--status-bar-height, calc(36px + env(safe-area-inset-bottom, 0px)));
 }
 
 /* ========================================
@@ -387,6 +395,7 @@ body {
         min-height: 44px;
         flex-wrap: wrap;
         padding: var(--np-space-4) var(--np-space-8);
+        padding-bottom: calc(var(--np-space-4) + env(safe-area-inset-bottom, 0px));
         gap: var(--np-space-4);
     }
 
