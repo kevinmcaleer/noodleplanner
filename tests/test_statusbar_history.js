@@ -256,6 +256,9 @@ function afterExpiryTest() {
 function circularDependencyTest() {
     const sb = newSandbox();
     sb._el.planEditor.value = 'Foo [depends Foo]\n';
+    // script.js's findTaskLineNumber() finds the line through the plan
+    // model; status-bar.js no longer falls back to a substring search (#921)
+    sb.findTaskLineNumber = (task) => (task.name === 'Foo' ? 1 : -1);
     const result = {
         tasks: [{
             name: 'Foo',

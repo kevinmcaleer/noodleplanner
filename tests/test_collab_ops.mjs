@@ -141,6 +141,13 @@ test('add_task with no parent appends at the end of the plan', () => {
     assert.equal(snapshot.tasks[snapshot.tasks.length - 1].indent, 0);
 });
 
+test('add_task with no parent lands ahead of the back matter, not after it', () => {
+    const text = 'Phase 1\n  Design 2d\n\n---whiteboard---\n| ID | Task |\n|----|------|\n';
+    const result = applyPlanOp(text, op({ op: 'add_task', parent_id: null, name: 'Phase 2' }));
+    assert.equal(result.ok, true);
+    assert.equal(result.text, 'Phase 1\n  Design 2d\n\nPhase 2\n---whiteboard---\n| ID | Task |\n|----|------|\n');
+});
+
 // -- newline injection (#1006) ---------------------------------------------
 //
 // A joiner-supplied name is untrusted free text spliced into a single

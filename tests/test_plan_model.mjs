@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import planModel from '../packages/noodle-web/src/noodle_web/static/plan-model.js';
 
-const { PlanModel } = planModel;
+const { PlanModel, renameTaskInText } = planModel;
 const repo = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 
 test('all real plans round-trip byte for byte through the model', () => {
@@ -471,4 +471,70 @@ test('a sequential lag is not part of the task name, and rides on the implicit e
     // a dependency on the lagged task by name resolves to it
     const review = model.findByName('Review').dependencies[0];
     assert.equal(review.target, model.findByName('Build'));
+});
+
+// ── #921: the text-level operations callers used to do with regex ────────
+
+test('renameTaskInText renames the line and every dependency, case-insensitively', () => {
+    const text = 'Design @adam 5d\nBuild 3d [depends design:SS +2d, Other]\n';
+    assert.equal(renameTaskInText(text, 'Design', 'Wireframes'),
+        'Wireframes @adam 5d\nBuild 3d [depends Wireframes:SS +2d, Other]\n');
+});
+
+test('renameTaskInText puts typed tokens on the line and the parsed name in references', () => {
+    // node loads no TaskLineTokenizer, so this is the fallback naming path
+    const text = 'Design 5d\nBuild [depends Design]\n';
+    assert.equal(renameTaskInText(text, 'Design', 'Wireframes @kev'),
+        'Wireframes @kev 5d\nBuild [depends Wireframes]\n');
+});
+
+test('renameTaskInText leaves the text alone for an unknown task or a blank name', () => {
+    const text = 'Design 5d\n';
+    assert.equal(renameTaskInText(text, 'Nope', 'X'), text);
+    assert.equal(renameTaskInText(text, 'Design', '   '), text);
+    assert.equal(renameTaskInText(text, 'Design', 'Design'), text);
+});
+
+test('renameDeliverable follows the edges to every $id reference', () => {
+    const model = PlanModel.parse('Spec $spec 2d\nBuild [depends $spec:SS +1d, Other]\nOther 1d [depends $specs]\n');
+    assert.equal(model.renameDeliverable(model.tasks[0], 'specification'), true);
+    assert.equal(model.serialize(),
+        'Spec $specification 2d\nBuild [depends $specification:SS +1d, Other]\nOther 1d [depends $specs]\n');
+});
+
+test('renameDeliverable and rename together rewrite both kinds of reference', () => {
+    const model = PlanModel.parse('Spec /$spec\nBuild [depends $spec]\nShip [depends Spec]\n');
+    model.renameDeliverable(model.tasks[0], '$grp');
+    model.rename(model.tasks[0], 'Specification');
+    assert.equal(model.serialize(), 'Specification /$grp\nBuild [depends $grp]\nShip [depends Specification]\n');
+});
+
+test('renameDeliverable refuses a task without one, or an invalid identifier', () => {
+    const model = PlanModel.parse('Plain 1d\nSpec $spec\n');
+    assert.equal(model.renameDeliverable(model.tasks[0], 'x'), false);
+    assert.equal(model.renameDeliverable(model.tasks[1], '9bad'), false);
+    assert.equal(model.serialize(), 'Plain 1d\nSpec $spec\n');
+});
+
+test('removeSubtree takes the task and every descendant, keeping the gap after it', () => {
+    const model = PlanModel.parse('Phase\n  Summary\n    Child A\n    // note\n    Child B\n\n  Sibling\n');
+    assert.equal(model.removeSubtree(model.findByName('Summary')), 3);
+    assert.equal(model.serialize(), 'Phase\n\n  Sibling\n');
+});
+
+test('removeSubtree of the last task keeps the missing final newline missing', () => {
+    const model = PlanModel.parse('A\nB\n  b');
+    model.removeSubtree(model.findByName('B'));
+    assert.equal(model.serialize(), 'A');
+});
+
+test('a rename survives the next edit to the same model', () => {
+    // commitToEditor() caches the edited model, so the next table edit runs
+    // on it; that edit re-resolves dependencies from the text, which used to
+    // find them still naming the old task and write the old name back
+    const model = PlanModel.parse('Design 2d\nBuild [depends Design]\n');
+    model.rename(model.tasks[0], 'Wireframes');
+    model.updateLine(model.tasks[0], line => line + ' @kev');
+    assert.equal(model.serialize(), 'Wireframes 2d @kev\nBuild [depends Wireframes]\n');
+    assert.equal(model.tasks[1].dependencies[0].target, model.tasks[0]);
 });

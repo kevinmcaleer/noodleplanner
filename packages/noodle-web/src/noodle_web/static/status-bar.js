@@ -442,14 +442,6 @@ function updateCircularDependencyWarnings(result) {
         if (conflicts.length === 0) return;
 
         var lineNumber = (typeof findTaskLineNumber === 'function') ? findTaskLineNumber(task) : -1;
-        if (lineNumber < 0 && editor) {
-            // Fall back to a case-insensitive text search for the task name.
-            var lines = editor.value.split('\n');
-            var needle = String(task.name || '').toLowerCase();
-            for (var i = 0; i < lines.length && needle; i++) {
-                if (lines[i].toLowerCase().indexOf(needle) !== -1) { lineNumber = i + 1; break; }
-            }
-        }
 
         conflicts.forEach(function (conflict) {
             var tokens = circularDependencyTokens(conflict);

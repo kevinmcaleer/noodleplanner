@@ -202,36 +202,23 @@ export function applyPlanOp(planText, op) {
     return { ok: true, text: model.serialize(), previous: null };
 }
 
-/** Insert a new task, either as the last child of `parent_id` or at the end
- * of the plan. Done as a text splice because plan-model.js models an
- * existing document rather than growing one. */
+/** Insert a new task, either as the last child of `parent_id` or as the
+ * last top-level task -- ahead of any back matter, which a splice onto the
+ * end of the text would have put it after. */
 function addTask(model, op, name) {
-    const text = model.serialize();
-    const eol = /\r\n/.test(text) ? '\r\n' : '\n';
-    const lines = text.split(/\r\n|\n/);
-    const hadTrailingBlank = lines.length > 0 && lines[lines.length - 1] === '';
-    if (hadTrailingBlank) lines.pop();
-
     if (op.parent_id == null) {
-        lines.push(name);
-        return { ok: true, text: lines.join(eol) + (hadTrailingBlank ? eol : ''), previous: null };
+        model.insertTaskAfter(null, 0, name);
+        return { ok: true, text: model.serialize(), previous: null };
     }
 
     const parent = model.tasks[op.parent_id];
     if (!parent) return reject('unknown_task');
     if (typeof op.expect === 'string' && parent.name !== op.expect) return reject('stale');
 
-    // Insert after the parent's entire subtree, so the new task becomes its
-    // last child rather than displacing existing descendants.
-    let last = parent;
-    const walk = (node) => { last = node; node.children.forEach(walk); };
-    parent.children.forEach(walk);
-    const at = model.lineNumber(last);
-    if (at < 1) return reject('unknown_task');
-
-    const indent = ' '.repeat(parent.indent + 2);
-    lines.splice(at, 0, indent + name);
-    return { ok: true, text: lines.join(eol) + (hadTrailingBlank ? eol : ''), previous: null };
+    // deeper than the parent, so it lands after the parent's existing
+    // children rather than displacing them
+    model.insertTaskAfter(parent, parent.indent + 2, name);
+    return { ok: true, text: model.serialize(), previous: null };
 }
 
 /** How recently someone else must have touched a task for the next edit to

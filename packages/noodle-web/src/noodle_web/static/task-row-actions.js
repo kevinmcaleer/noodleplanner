@@ -1,69 +1,17 @@
 /**
  * task-row-actions.js — Hover add-buttons, drag handles, and insert helpers
  * for the Gantt info table and Tasks table views.
- * Depends on: state.js (globals), editor-sync.js, script.js (openTaskForm, findTaskLineNumber)
+ * Depends on: state.js (globals), editor-sync.js, script.js (insertNewTaskBeside)
  */
 
 // ── Insert Task helpers ─────────────────────────────────────────────
 
 /**
- * Insert a blank task above the given task index and open the form.
+ * Insert a blank task above the given task, or below it and its subtasks,
+ * and open the form.
  */
 function insertTaskAtPosition(task, position) {
-    const editor = document.getElementById('planEditor');
-    if (!editor) return;
-
-    const lineNumber = findTaskLineNumber(task);
-    if (lineNumber < 1) return;
-
-    const lines = editor.value.split('\n');
-    const lineIdx = lineNumber - 1;
-
-    // Match the indentation of the current task
-    const currentLine = lines[lineIdx];
-    const indentMatch = currentLine.match(/^(\s*)/);
-    const indent = indentMatch ? indentMatch[1] : '';
-
-    const newTaskName = 'New Task';
-    let insertIdx;
-    if (position === 'above') {
-        insertIdx = lineIdx;
-    } else {
-        // Insert below: skip past any children of the current task
-        const taskIndent = currentLine.search(/\S/);
-        insertIdx = lineIdx + 1;
-        for (let i = lineIdx + 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line.trim()) continue;
-            const lineIndent = line.search(/\S/);
-            if (lineIndent <= taskIndent) break;
-            insertIdx = i + 1;
-        }
-    }
-    lines.splice(insertIdx, 0, indent + newTaskName);
-
-    editor.value = lines.join('\n');
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-    // Open the task form for the new line (1-based)
-    const newLineNumber = insertIdx + 1;
-    setTimeout(() => {
-        openTaskForm(newLineNumber);
-        // Focus the contenteditable title and select all text so the user
-        // can immediately start typing a replacement name.
-        setTimeout(() => {
-            const titleEl = document.getElementById('taskFormPanelHeader')?.shadowRoot?.querySelector('[contenteditable]');
-            if (titleEl) {
-                titleEl.focus();
-                // Select all text so the first keystroke replaces "New Task"
-                const sel = window.getSelection();
-                const range = document.createRange();
-                range.selectNodeContents(titleEl);
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
-        }, 50);
-    }, 100);
+    insertNewTaskBeside(task, position !== 'above');
 }
 
 // ── Add-button creation ──────────────────────────────────────────────

@@ -2119,225 +2119,6 @@ function updateLocalFileStatusIndicator() {
 // Task Form Modal Functions
 // Task form state is now in state.js
 
-// Task class to manage task state
-class Task {
-    constructor(lineNumber, lineText) {
-        this.lineNumber = lineNumber;
-        this.originalLine = lineText || '';
-        this.indent = this.extractIndent(lineText);
-        this.name = '';
-        this.duration = '';
-        this.startDate = '';
-        this.finishDate = '';
-        this.percent = 0;
-        this.resources = [];
-        this.comment = '';
-        this.priority = 'Low';
-        this.bucket = '';
-        this.dependencies = [];
-        this.labels = [];
-        this.dependsOnPrevious = false;
-
-        // Parse the line if provided
-        if (lineText) {
-            this.parseFromLine(lineText);
-        }
-    }
-
-    extractIndent(line) {
-        if (!line) return '';
-        const match = line.match(/^(\\s*)/);
-        return match ? match[1] : '';
-    }
-
-    parseFromLine(line) {
-        const trimmed = line.trim();
-        if (!trimmed) return;
-
-        let remaining = trimmed;
-
-        // Check for * prefix (depends on previous task)
-        if (remaining.startsWith('*')) {
-            this.dependsOnPrevious = true;
-            remaining = remaining.substring(1).trim();
-        }
-
-        // Extract task name - stop at first: duration, @, #, %, ", or RAG
-        const nameMatch = remaining.match(/^([^\\d@#%"]+?)(?=\\s+\\d+d|\\s+@|\\s+#|\\s+\\d+%|\\s+"|$)/);
-        if (nameMatch) {
-            this.name = nameMatch[1].trim();
-        }
-
-        // Extract duration (e.g., "5d")
-        const durationMatch = remaining.match(/\\b(\\d+)d\\b/);
-        if (durationMatch) {
-            this.duration = durationMatch[1];
-        }
-
-        // Extract percent (e.g., "50%")
-        const percentMatch = remaining.match(/\\b(\\d+)%\\b/);
-        if (percentMatch) {
-            this.percent = parseInt(percentMatch[1]);
-        }
-
-        // Extract resources (all @mentions)
-        const resourceMatches = remaining.match(/@([^\\s@#%!"]+)/g);
-        if (resourceMatches) {
-            this.resources = resourceMatches.map(r => r.substring(1));
-        }
-
-        // Extract labels/tags (after #)
-        const labelMatches = remaining.match(/#([^\\s@%!"]+)/g);
-        if (labelMatches) {
-            this.labels = labelMatches.map(l => l.substring(1));
-        }
-
-        // Extract comment (text in quotes)
-        const commentMatch = remaining.match(/"([^"]*)"/);
-        if (commentMatch) {
-            this.comment = commentMatch[1];
-        }
-
-        // Extract bucket (text in curly braces)
-        const bucketMatch = remaining.match(/\{([^}]+)\}/);
-        if (bucketMatch) {
-            this.bucket = bucketMatch[1].trim();
-        }
-
-        // Extract priority markers
-        const priorityMatch = remaining.match(/(?<!\w)(!!!|!!|!)(?!["'{])/);
-        if (priorityMatch) {
-            const marker = priorityMatch[1];
-            if (marker === '!!!') this.priority = 'Urgent';
-            else if (marker === '!!') this.priority = 'Important';
-            else if (marker === '!') this.priority = 'Medium';
-        }
-    }
-
-    // Calculate duration from dates
-    calculateDurationFromDates() {
-        if (!this.startDate || !this.finishDate) return null;
-        const start = new Date(this.startDate);
-        const finish = new Date(this.finishDate);
-        const diffTime = Math.abs(finish - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays;
-    }
-
-    // Calculate finish date from start + duration
-    calculateFinishDateFromDuration() {
-        if (!this.startDate || !this.duration) return null;
-        const start = new Date(this.startDate);
-        const durationDays = parseInt(this.duration);
-        if (isNaN(durationDays)) return null;
-        const finish = new Date(start);
-        finish.setDate(finish.getDate() + durationDays);
-        return finish.toISOString().split('T')[0];
-    }
-
-    // Reconstruct task line from current state
-    toString() {
-        let line = this.indent;
-
-        // Add * prefix if depends on previous
-        if (this.dependsOnPrevious) {
-            line += '*';
-        }
-
-        // Add task name
-        line += this.name;
-
-        // Add duration
-        if (this.duration) {
-            line += ' ' + this.duration + 'd';
-        }
-
-        // Add resources
-        if (this.resources.length > 0) {
-            line += ' ' + this.resources.map(r => '@' + r).join(' ');
-        }
-
-        // Add dependencies using [depends] syntax
-        const nonPrevDeps = this.dependencies.filter(d => {
-            // Get previous task name to filter it out
-            const editor = document.getElementById('planEditor');
-            if (editor) {
-                const lines = editor.value.split('\n');
-                const prevName = this.getPreviousTaskName(lines);
-                return d !== prevName;
-            }
-            return true;
-        });
-
-        if (nonPrevDeps.length > 0) {
-            line += ' [depends ' + nonPrevDeps.join(', ') + ']';
-        }
-
-        // Add labels
-        if (this.labels.length > 0) {
-            line += ' ' + this.labels.map(l => '#' + l).join(' ');
-        }
-
-        // Add percent
-        if (this.percent > 0) {
-            line += ' ' + this.percent + '%';
-        }
-
-        // Add priority marker
-        const priorityMarkers = { 'Urgent': '!!!', 'Important': '!!', 'Medium': '!' };
-        if (priorityMarkers[this.priority]) {
-            line += ' ' + priorityMarkers[this.priority];
-        }
-
-        // Add bucket
-        if (this.bucket) {
-            line += ' {' + this.bucket + '}';
-        }
-
-        // Add comment
-        if (this.comment) {
-            line += ' "' + this.comment + '"';
-        }
-
-        return line;
-    }
-
-    getPreviousTaskName(lines) {
-        // Find the previous non-empty, non-summary task line
-        for (let i = this.lineNumber - 2; i >= 0; i--) {
-            const line = lines[i].trim();
-            if (line && !line.includes('===') && !line.includes('---') && !line.startsWith('#')) {
-                // Skip summary tasks (phases that have children)
-                if (typeof isSummaryLine === 'function' && isSummaryLine(lines, i)) continue;
-
-                // Extract task name
-                let taskLine = line;
-                if (taskLine.startsWith('*')) {
-                    taskLine = taskLine.substring(1).trim();
-                }
-                const nameMatch = taskLine.match(/^([^\\d@#%"]+?)(?=\\s+\\d+d|\\s+@|\\s+#|\\s+\\d+%|\\s+"|$)/);
-                if (nameMatch) {
-                    return nameMatch[1].trim();
-                }
-            }
-        }
-        return null;
-    }
-
-    // Update task in editor
-    updateInEditor() {
-        const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        lines[this.lineNumber - 1] = this.toString();
-        editor.value = lines.join('\n');
-
-        // Trigger render
-        setTimeout(() => renderText(), 10);
-    }
-}
-
 // Check if a date is a weekend (Saturday or Sunday)
 function isWeekend(date) {
     const day = date.getDay();
@@ -2456,17 +2237,8 @@ function calculateTaskDates(task, taskMap, lines, visited) {
 }
 
 function openTaskFormByName(taskName) {
-    const editor = document.getElementById('planEditor');
-    if (!editor) return;
-
-    const lines = editor.value.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        const t = parseTaskLine(lines[i], i + 1);
-        if (t.name && t.name === taskName) {
-            openTaskForm(i + 1);
-            return;
-        }
-    }
+    const lineNumber = findTaskLineNumber({ name: taskName });
+    if (lineNumber > 0) openTaskForm(lineNumber);
 }
 
 /**
@@ -2724,54 +2496,38 @@ function openMilestoneTaskForm(taskName) {
     // Switch to plan editor tab
     switchTab('editor');
 
-    // Find the task in the editor by name
-    const editor = document.getElementById('planEditor');
-    const lines = editor.value.split('\n');
-
-    // Search for the task by matching the name
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-
-        // Skip empty lines and front matter
-        if (!line || line.startsWith('---') || line.startsWith('#')) continue;
-
-        // Parse the task name from the line
-        const task = parseTaskLine(lines[i], i + 1);
-
-        // Match task name (exact match)
-        if (task.name && task.name === taskName) {
-            // Found the task - open the form
-            openTaskForm(i + 1);
-            return;
-        }
+    const lineNumber = findTaskLineNumber({ name: taskName });
+    if (lineNumber > 0) {
+        openTaskForm(lineNumber);
+        return;
     }
 
     console.error('Task not found in editor:', taskName);
 }
 
 /**
+ * The plan-model node for a rendered task -- by its _uid, else by name and
+ * level -- with the model it belongs to, or null.
+ */
+function findTaskNode(task) {
+    const editor = document.getElementById('planEditor');
+    if (!editor || !task) return null;
+
+    const model = NoodlePlanModel.modelForEditor(editor);
+    // a level counted from an indent the model reads differently (tabs, a
+    // four-space outline) must not lose the task, so fall back to the name
+    const node = task._uid != null
+        ? model.findById(task._uid)
+        : model.findByName(task.name, task.level) || model.findByName(task.name);
+    return node ? { editor, model, node } : null;
+}
+
+/**
  * Find the editor line number (1-based) for a task by name and level.
  */
 function findTaskLineNumber(task) {
-    const editor = document.getElementById('planEditor');
-    if (!editor) return -1;
-
-    if (typeof NoodlePlanModel !== 'undefined') {
-        const model = NoodlePlanModel.modelForEditor(editor);
-        const node = task && task._uid != null
-            ? model.findById(task._uid)
-            : model.findByName(task && task.name, task && task.level);
-        if (node) return model.lineNumber(node);
-    }
-
-    const lines = editor.value.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        const parsed = parseTaskLine(lines[i], i + 1);
-        if (parsed.name && parsed.name === task.name) {
-            return i + 1;
-        }
-    }
-    return -1;
+    const found = findTaskNode(task);
+    return found ? found.model.lineNumber(found.node) : -1;
 }
 
 /**
@@ -3308,74 +3064,48 @@ function createCompletionSubmenu(task, taskIndex) {
 }
 
 /**
- * Promote (outdent) a task: remove 2 leading spaces from its line in the editor.
+ * Promote (outdent) a task, and its subtasks with it, one level.
  */
 function promoteTask(task, taskIndex) {
-    const editor = document.getElementById('planEditor');
-    if (!editor) return;
-
-    const lineNumber = findTaskLineNumber(task);
-    if (lineNumber < 1) return;
-
-    const lines = editor.value.split('\n');
-    const lineIdx = lineNumber - 1;
-    const line = lines[lineIdx];
-
-    // Remove up to 2 leading spaces
-    if (line.startsWith('  ')) {
-        lines[lineIdx] = line.substring(2);
-    } else if (line.startsWith(' ')) {
-        lines[lineIdx] = line.substring(1);
-    } else {
-        return; // Already at root level
-    }
-
-    editor.value = lines.join('\n');
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    const found = findTaskNode(task);
+    if (!found || found.node.indent === 0) return;
+    found.model.outdentTasks([found.node]);
+    NoodlePlanModel.commitToEditor(found.editor, found.model);
 }
 
 /**
- * Demote (indent) a task: add 2 leading spaces to its line in the editor.
+ * Demote (indent) a task, and its subtasks with it, one level.
  */
 function demoteTask(task, taskIndex) {
-    const editor = document.getElementById('planEditor');
-    if (!editor) return;
-
-    const lineNumber = findTaskLineNumber(task);
-    if (lineNumber < 1) return;
-
-    const lines = editor.value.split('\n');
-    const lineIdx = lineNumber - 1;
-    lines[lineIdx] = '  ' + lines[lineIdx];
-
-    editor.value = lines.join('\n');
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    const found = findTaskNode(task);
+    if (!found) return;
+    found.model.indentTasks([found.node]);
+    NoodlePlanModel.commitToEditor(found.editor, found.model);
 }
 
 /**
  * Insert a blank task line above the given task and open the editor form.
  */
 function insertTaskAbove(task, taskIndex) {
-    const editor = document.getElementById('planEditor');
-    if (!editor) return;
+    insertNewTaskBeside(task, false);
+}
 
-    const lineNumber = findTaskLineNumber(task);
-    if (lineNumber < 1) return;
+/**
+ * Insert a "New Task" sibling of `task` -- above it, or below it and its
+ * subtasks -- and open the form on it with the name selected.
+ */
+function insertNewTaskBeside(task, below) {
+    const found = findTaskNode(task);
+    if (!found) return;
+    const { editor, model, node } = found;
 
-    const lines = editor.value.split('\n');
-    const lineIdx = lineNumber - 1;
-
-    // Match the indentation of the current task
-    const currentLine = lines[lineIdx];
-    const indentMatch = currentLine.match(/^(\s*)/);
-    const indent = indentMatch ? indentMatch[1] : '';
-
-    // Insert a new task line with the same indent
-    const newTaskName = 'New Task';
-    lines.splice(lineIdx, 0, indent + newTaskName);
-
-    editor.value = lines.join('\n');
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    // Inserted after the task's subtree at its depth; the model has no
+    // insert-before, so above is after-then-move, which lands right whether
+    // or not the task has an earlier sibling.
+    const inserted = model.insertTaskAfter(node, node.indent, 'New Task');
+    if (!below) model.moveBefore(inserted, node);
+    const lineNumber = model.lineNumber(inserted);
+    NoodlePlanModel.commitToEditor(editor, model);
 
     // Open the task form for the new line and focus the title
     setTimeout(() => {
@@ -3882,12 +3612,8 @@ function toggleSubtaskCompletion(lineNumber, percentOrBool) {
         targetPercent = percentOrBool;
     }
 
-    // Extract indent from the line
-    const indentMatch = line.match(/^(\s*)/);
-    const indent = indentMatch ? indentMatch[1] : '';
-
     // Use updatePercentInLine for consistent percent placement
-    const updatedLine = updatePercentInLine(line, targetPercent, indent, task.name);
+    const updatedLine = updatePercentInLine(line, targetPercent);
 
     // Update the line
     lines[lineNumber - 1] = updatedLine;
@@ -4362,56 +4088,28 @@ function deleteTask() {
     if (currentTaskLineNumber === null) return;
 
     const editor = document.getElementById('planEditor');
-    const lines = editor.value.split('\n');
-    const lineIndex = currentTaskLineNumber - 1;
-
-    if (lineIndex < 0 || lineIndex >= lines.length) {
-        console.error('deleteTask: invalid line number', currentTaskLineNumber);
+    const model = NoodlePlanModel.PlanModel.parse(editor.value);
+    const node = model.tasks.find(task => model.lineNumber(task) === currentTaskLineNumber);
+    if (!node) {
+        console.error('deleteTask: no task on line', currentTaskLineNumber);
         return;
     }
 
-    const taskLine = lines[lineIndex];
-    const taskName = extractTaskNameFromEditorLine(taskLine) || 'this task';
-
-    // Determine the range of lines to delete (task + subtasks).
-    // Subtasks are consecutive lines with strictly greater indentation.
-    const parentIndent = taskLine.search(/\S/);
-    let endIndex = lineIndex + 1; // exclusive
-    for (let i = lineIndex + 1; i < lines.length; i++) {
-        const line = lines[i];
-        // Keep blank lines that sit between subtasks
-        if (line.trim() === '') {
-            endIndex = i + 1;
-            continue;
-        }
-        const indent = line.search(/\S/);
-        if (indent > parentIndent) {
-            endIndex = i + 1;
-        } else {
-            break;
-        }
-    }
-
-    // Trim trailing blank lines that were only included speculatively
-    while (endIndex > lineIndex + 1 && lines[endIndex - 1].trim() === '') {
-        endIndex--;
-    }
-
-    const lineCount = endIndex - lineIndex;
-    const hasSubtasks = lineCount > 1;
+    let subtasks = 0;
+    const count = task => task.children.forEach(child => { subtasks++; count(child); });
+    count(node);
 
     // Build confirmation message
-    let message = 'Are you sure you want to delete "' + taskName + '"?';
-    if (hasSubtasks) {
-        message += '\n\nThis will also delete ' + (lineCount - 1) + ' subtask line(s) beneath it.';
+    let message = 'Are you sure you want to delete "' + (node.name || 'this task') + '"?';
+    if (subtasks) {
+        message += '\n\nThis will also delete ' + subtasks + ' subtask(s) beneath it.';
     }
     message += '\n\nThis cannot be undone.';
 
     if (!confirm(message)) return;
 
-    // Remove the lines from the editor
-    lines.splice(lineIndex, lineCount);
-    editor.value = lines.join('\n');
+    model.removeSubtree(node);
+    editor.value = model.serialize();
 
     // Close the form and clear state before triggering re-render
     closeDetailPane();
@@ -4791,37 +4489,18 @@ function saveTask() {
     }
 
     let newPlanText;
-    if (typeof NoodlePlanModel !== 'undefined') {
-        let model = NoodlePlanModel.modelForEditor(editor);
-        let node = model.tasks.find(task => model.lineNumber(task) === currentTaskLineNumber);
-        if (node) {
-            // Rename first while dependency edges still point at this object;
-            // serialising the graph updates every predecessor reference.
-            if (oldTaskName && name && oldTaskName !== name) {
-                model.rename(node, name);
-                model = NoodlePlanModel.PlanModel.parse(model.serialize());
-                node = model.findById(node.id);
-            }
-            model.updateLine(node, () => newLine);
-            newPlanText = model.serialize();
-        } else {
-            lines[currentTaskLineNumber - 1] = newLine;
-            newPlanText = lines.join('\n');
-        }
+    const model = NoodlePlanModel.PlanModel.parse(editor.value);
+    const node = model.tasks.find(task => model.lineNumber(task) === currentTaskLineNumber);
+    if (node) {
+        // Rename first while dependency edges still point at this object, so
+        // every dependant, the Theme colour and the whiteboard rows (#844)
+        // take the new name; then write the form's line over it.
+        if (oldTaskName && name && oldTaskName !== name) model.rename(node, name);
+        model.updateLine(node, () => newLine);
+        newPlanText = model.serialize();
     } else {
         lines[currentTaskLineNumber - 1] = newLine;
-        if (oldTaskName && name && oldTaskName !== name) {
-            updateDependencyReferences(lines, oldTaskName, name);
-        }
         newPlanText = lines.join('\n');
-    }
-
-    // Auto-update the task's whiteboard row(s), if any (issue #844). A
-    // no-op unless the plan has a whiteboard row for this task name --
-    // whiteboard rows only ever reference summary tasks, but renaming a
-    // non-summary task here costs nothing extra to check.
-    if (oldTaskName && name && oldTaskName !== name && typeof renamePlanWhiteboardTask === 'function') {
-        newPlanText = renamePlanWhiteboardTask(newPlanText, oldTaskName, name);
     }
 
     editor.value = newPlanText;
@@ -5063,97 +4742,6 @@ function generateRecurrenceOccurrences(task, windowStart, windowEnd) {
     }
 
     return occurrences;
-}
-
-/**
- * Update all dependency references in the editor when a task is renamed.
- * Scans all lines for [depends ...] blocks containing the old name and
- * replaces them with the new name, handling comma-separated lists and
- * lag/lead suffixes (e.g., "OldName +2d" becomes "NewName +2d").
- */
-function updateDependencyReferences(lines, oldName, newName) {
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (!/\[depends(?::\s*|\s+)[^\]]+\]/i.test(line)) continue;
-
-        lines[i] = line.replace(/\[depends(?::\s*|\s+)([^\]]+)\]/gi, function(match, depsContent) {
-            const deps = depsContent.split(',').map(d => d.trim());
-            let changed = false;
-
-            const updatedDeps = deps.map(dep => {
-                // Check for exact match (with optional type suffix and lag/lead suffix)
-                // e.g., "OldName", "OldName:SS", "OldName +2d", "OldName:SS +2d"
-                const lagLeadMatch = dep.match(/^(.+?)\s+([+\-]\d*[dwmy]?)$/);
-                let corePart = lagLeadMatch ? lagLeadMatch[1].trim() : dep;
-                let lagLead = lagLeadMatch ? lagLeadMatch[2] : '';
-
-                // Check for dependency type suffix
-                const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
-                let taskName = typeMatch ? typeMatch[1].trim() : corePart;
-                let typeSuffix = typeMatch ? ':' + typeMatch[2] : '';
-
-                if (taskName === oldName) {
-                    changed = true;
-                    let result = newName + typeSuffix;
-                    if (lagLead) result += ' ' + lagLead;
-                    return result;
-                }
-
-                return dep;
-            });
-
-            if (changed) {
-                return '[depends ' + updatedDeps.join(', ') + ']';
-            }
-            return match;
-        });
-    }
-}
-
-/**
- * Update all dependency references in the editor when a $deliverable identifier
- * is renamed.  Scans all lines for [depends ...] blocks containing $oldId and
- * replaces them with $newId, handling comma-separated lists and lag/lead or
- * type suffixes (e.g., "$oldId:SS +2d" becomes "$newId:SS +2d").
- */
-function updateDeliverableReferences(lines, oldId, newId) {
-    const oldToken = '$' + oldId;
-    const newToken = '$' + newId;
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (!/\[depends(?::\s*|\s+)[^\]]+\]/i.test(line)) continue;
-
-        lines[i] = line.replace(/\[depends(?::\s*|\s+)([^\]]+)\]/gi, function(match, depsContent) {
-            const deps = depsContent.split(',').map(d => d.trim());
-            let changed = false;
-
-            const updatedDeps = deps.map(dep => {
-                // Strip optional lag/lead suffix  e.g. "$foo +2d"
-                const lagLeadMatch = dep.match(/^(.+?)\s+([+\-]\d*[dwmy]?)$/);
-                let corePart = lagLeadMatch ? lagLeadMatch[1].trim() : dep;
-                let lagLead = lagLeadMatch ? lagLeadMatch[2] : '';
-
-                // Strip optional dependency type suffix  e.g. "$foo:SS"
-                const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
-                let depName = typeMatch ? typeMatch[1].trim() : corePart;
-                let typeSuffix = typeMatch ? ':' + typeMatch[2] : '';
-
-                if (depName === oldToken) {
-                    changed = true;
-                    let result = newToken + typeSuffix;
-                    if (lagLead) result += ' ' + lagLead;
-                    return result;
-                }
-
-                return dep;
-            });
-
-            if (changed) {
-                return '[depends ' + updatedDeps.join(', ') + ']';
-            }
-            return match;
-        });
-    }
 }
 
 /**
@@ -16065,33 +15653,17 @@ function openTaskInspector(lineNumber) {
  * Finds the task in the editor and opens the inspector for it.
  */
 function openTaskInspectorByName(taskName) {
-    const editor = document.getElementById('planEditor');
-    if (!editor) return;
-
-    const lines = editor.value.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        const t = parseTaskLine(lines[i], i + 1);
-        if (t.name && t.name === taskName) {
-            openTaskInspector(i + 1);
-            return;
-        }
-    }
+    const lineNumber = findTaskLineNumber({ name: taskName });
+    if (lineNumber > 0) openTaskInspector(lineNumber);
 }
 
 function openTaskInspectorByDeliverable(deliverableId) {
     const editor = document.getElementById('planEditor');
     if (!editor) return;
 
-    const token = '$' + deliverableId;
-    const lines = editor.value.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        // Match the $token on this line (not inside [depends])
-        const lineWithoutDepends = lines[i].replace(/\[depends(?::\s*|\s+)[^\]]*\]/gi, '');
-        if (lineWithoutDepends.includes(token)) {
-            openTaskInspector(i + 1);
-            return;
-        }
-    }
+    const model = NoodlePlanModel.modelForEditor(editor);
+    const task = model.tasks.find(node => node.deliverable === deliverableId);
+    if (task) openTaskInspector(model.lineNumber(task));
 }
 
 function closeTaskInspector() {
