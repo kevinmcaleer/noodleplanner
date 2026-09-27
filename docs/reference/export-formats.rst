@@ -203,9 +203,12 @@ files on import, also in the browser; see
 Markdown (``.md``)
 ~~~~~~~~~~~~~~~~~~~
 
-Downloads the raw plan text as a markdown file. Use this to save your plan to disk.
+The raw plan text as a Markdown file. In Chrome and Edge, Save writes it to a
+file you choose once; in other browsers it downloads. See
+:doc:`../how-to/save-your-plan-to-a-file`.
 
-- Access: **Ctrl+S** / **Cmd+S**, or click the save icon in the editor toolbar
+- Access: **Ctrl+S** / **Cmd+S**, the save icon in the title bar, or
+  **File › Save**, **Save As…** or **Download a copy**
 
 RAID Log Excel
 ~~~~~~~~~~~~~~~

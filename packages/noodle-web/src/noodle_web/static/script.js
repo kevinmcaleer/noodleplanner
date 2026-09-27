@@ -1965,21 +1965,28 @@ function showMessage(prefix, type, text) {
 }
 
 /**
- * Save the active plan (Ctrl+S and the toolbar 💾 button).
+ * Save the active plan (Ctrl+S, the toolbar 💾 button and File ▸ Save).
  *
  * issue #767: when the current project was opened from disk via the File
  * System Access API (openLocalPlanFile below), this writes straight back to
  * that same file with no dialog and no re-prompt — LocalFileAccess retains
- * the file handle. Otherwise (Firefox/Safari, or a project never linked to a
- * file) this falls back to the original download-a-copy flow, unchanged,
- * and says so explicitly so the user knows they need to replace the file
- * themselves.
+ * the file handle. In Firefox/Safari, which have no such API, this falls
+ * back to the original download-a-copy flow, unchanged, and says so
+ * explicitly so the user knows they need to replace the file themselves.
  *
  * issue #1407: the link outlives a reload. If the browser asks for write
  * permission again and the user refuses, the link is kept, a copy is
  * downloaded instead, and the next Save asks again.
+ *
+ * issue #1406: a plan with no file yet asks where to save it, with the
+ * browser's own save dialog, and is linked to the file chosen there, so
+ * every later Save writes to it too. Cancelling the dialog does nothing at
+ * all. `mode` 'save-as' always asks (File ▸ Save As…); 'download' always
+ * downloads a copy and leaves any linked file alone (File ▸ Download a
+ * copy).
  */
-async function downloadMarkdown() {
+async function downloadMarkdown(mode) {
+    mode = mode || 'save';
     const editor = getActiveEditor();
     const content = editor.value;
     const messageTarget = isBoardViewActive() ? 'kanban' : 'editor';
@@ -1987,6 +1994,38 @@ async function downloadMarkdown() {
     if (!content.trim()) {
         showMessage(messageTarget, 'error', 'Nothing to save - editor is empty');
         return;
+    }
+
+    // Ask where to save, if we are going to, before touching the plan: a
+    // cancelled dialog must not leave a bumped version behind. With no
+    // current project there is nothing to link a file to, so that case
+    // keeps downloading.
+    const currentProjectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    const canLink = mode !== 'download' && !!currentProjectId &&
+        typeof LocalFileAccess !== 'undefined' && LocalFileAccess.isSupported();
+    let pickedFile = null;
+    let downloadInstead = false;
+    if (canLink) {
+        // loadProjectIntoEditor() starts reading back a link from an earlier
+        // page session; a Save clicked straight after page load waits for it
+        // rather than asking for a file the plan already has. The save
+        // dialog after it still has the click's user activation: Chromium
+        // keeps that for a few seconds, not for a fixed number of awaits.
+        if (mode === 'save') await LocalFileAccess.ensureRestored(currentProjectId);
+        if (mode === 'save-as' || !LocalFileAccess.isLinked(currentProjectId)) {
+            try {
+                pickedFile = await LocalFileAccess.pickSaveFile(currentProjectId, suggestedPlanFileName(currentProjectId));
+                if (!pickedFile) return; // cancelled
+            } catch (error) {
+                // The dialog would not open. Download rather than lose the
+                // save, and never write to a file Save As was moving away from.
+                console.error('Could not open the save dialog:', error);
+                if (typeof showToast === 'function') {
+                    showToast('Could not open the save dialog — downloading a copy instead', 'error');
+                }
+                downloadInstead = true;
+            }
+        }
     }
 
     // Increment version in front matter before saving — same for both the
@@ -1999,17 +2038,13 @@ async function downloadMarkdown() {
     if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-    const currentProjectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
-    if (typeof LocalFileAccess !== 'undefined' && currentProjectId && LocalFileAccess.isSupported()) {
-        // loadProjectIntoEditor() starts reading back a link from an earlier
-        // page session; a Save clicked straight after page load waits for it.
-        await LocalFileAccess.ensureRestored(currentProjectId);
-    }
-    if (typeof LocalFileAccess !== 'undefined' && currentProjectId && LocalFileAccess.isLinked(currentProjectId)) {
+    if (canLink && !downloadInstead && LocalFileAccess.isLinked(currentProjectId)) {
         const result = await LocalFileAccess.saveToLinkedFile(currentProjectId, versionedContent);
         if (result && result.ok) {
             if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator();
-            showMessage(messageTarget, 'success', 'Saved to ' + result.filename + ' on disk');
+            showMessage(messageTarget, 'success', pickedFile
+                ? 'Saved to ' + result.filename + ' — Save now writes to this file'
+                : 'Saved to ' + result.filename + ' on disk');
             return;
         }
         if (result && !result.ok) {
@@ -2027,7 +2062,8 @@ async function downloadMarkdown() {
         }
     }
 
-    // Fallback: download a copy (Firefox/Safari, or no file linked)
+    // Fallback: download a copy (Firefox/Safari, Download a copy, or the
+    // linked file could not be written)
     const blob = new Blob([versionedContent], { type: 'text/markdown' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2056,6 +2092,32 @@ async function downloadMarkdown() {
     const fallbackNote = (typeof LocalFileAccess !== 'undefined' && !LocalFileAccess.isSupported())
         ? ' — replace the file on disk yourself' : '';
     showMessage(messageTarget, 'success', 'Markdown file downloaded!' + fallbackNote);
+}
+
+/** File ▸ Save As… (issue #1406): save the plan to a newly chosen file,
+ * and link the project to that file from now on. */
+function savePlanAs() {
+    return downloadMarkdown('save-as');
+}
+
+/** File ▸ Download a copy (issue #1406): the download Save used to be,
+ * for a plan whose Save now writes to a file on disk. */
+function downloadPlanCopy() {
+    return downloadMarkdown('download');
+}
+
+/**
+ * The name the save dialog suggests (issue #1406): the file the project is
+ * already linked to, for Save As, or else the project's name. Unlike the
+ * download's name it carries no version, since the same file is saved
+ * again and again.
+ */
+function suggestedPlanFileName(projectId) {
+    const linkedName = LocalFileAccess.getLinkedFileName(projectId);
+    if (linkedName) return linkedName;
+    const project = typeof getCurrentProject === 'function' ? getCurrentProject() : null;
+    const name = project && project.name ? project.name.replace(/[\\/:*?"<>|]+/g, '-').trim() : '';
+    return (name || 'plan') + '.md';
 }
 
 /**
@@ -4867,8 +4929,17 @@ function parseTaskLine(line, lineNum) {
         if (editor) {
             const previousTaskName = getPreviousTaskName(editor.value.split('\n'), lineNum);
             if (previousTaskName) {
+                // The * already makes the previous task a predecessor, so a
+                // [depends] entry naming it again is dropped rather than
+                // listed twice -- and saveTask() then writes the line back
+                // without it. The * wins: the scheduler applies it and
+                // ignores [depends] on a sequential task.
+                const previous = previousTaskName.toLowerCase();
+                const others = values.dependencies.filter(dep =>
+                    dep.replace(/\s+[+\-]\d*[dwmy]?$/i, '').replace(/:(FS|SS|FF|SF)$/i, '')
+                        .trim().toLowerCase() !== previous);
                 task.dependencies = [values.starLagLead ? `${previousTaskName} ${values.starLagLead}` : previousTaskName,
-                    ...values.dependencies].join(', ');
+                    ...others].join(', ');
             }
         }
     }

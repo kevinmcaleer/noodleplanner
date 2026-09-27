@@ -252,6 +252,22 @@ def test_the_add_box_adds_a_relation_row(loaded):
     assert [r["name"] for r in _rows(loaded, "dependenciesList")] == ["Research"]
 
 
+def test_a_star_predecessor_repeated_in_depends_is_listed_once(page, app_server):
+    """`*Build [depends Design, Spec]` names Spec twice -- the * already
+    makes the task before it the predecessor. The form lists it once, and the next save
+    writes the line back without the redundant [depends] entry."""
+    open_app(page, app_server)
+    load_plan(page, "Design 2d\nSpec 1d\n*Build 3d [depends Design, Spec]\n")
+    _open_task(page, "Build")
+    assert [r["name"] for r in _rows(page, "dependenciesList")] == ["Spec", "Design"]
+    page.locator("#taskDuration").fill("4")
+    page.locator("#taskDuration").dispatch_event("input")
+    page.wait_for_function(
+        "() => /Build 4d/.test(document.getElementById('planEditor').value)"
+    )
+    assert _line(page, "*Build") == "*Build 4d [depends Design]"
+
+
 def test_a_dependency_name_opens_the_predecessor(loaded):
     _open_task(loaded, "Build")
     loaded.locator("#dependenciesList np-task-row[name='Research'] button.name").click()

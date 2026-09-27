@@ -7,6 +7,7 @@
  *
  * Provides:
  *   - #backstage-tab: a left rail of file actions (New plan, Open, Save,
+ *     Save As and Download a copy where Save writes to disk (#1406),
  *     Import, Export, Print, Templates, Settings) plus a "start a new plan"
  *     template strip and a "Recent" grid of projects (listProjects()) in
  *     the main area.
@@ -388,6 +389,14 @@
 
         const rail = document.querySelector('.backstage-rail');
         if (rail) {
+            // #1406: Save As… and Download a copy only mean something where
+            // Save writes to a file on disk. Everywhere else Save already
+            // downloads a copy, so they stay hidden.
+            const canLinkFiles = typeof LocalFileAccess !== 'undefined' && LocalFileAccess.isSupported();
+            rail.querySelectorAll('[data-needs-local-files]').forEach((btn) => {
+                btn.hidden = !canLinkFiles;
+            });
+
             rail.addEventListener('click', (e) => {
                 const actionBtn = e.target.closest('[data-backstage-action]');
                 if (actionBtn) {

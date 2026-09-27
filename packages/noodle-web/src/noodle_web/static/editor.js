@@ -296,7 +296,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 if (listMatch) {
                     const prefix = '<span class="syntax-yaml-list">' + listMatch[1] + '</span>';
                     const rest = listMatch[2];
-                    const restHighlighted = rest.replace(/@(\w+)/g, '<span class="syntax-resource">@$1</span>');
+                    const restHighlighted = rest.replace(/(?<!\w)@(\w+)/g, '<span class="syntax-resource">@$1</span>');
                     return prefix + '<span class="syntax-yaml-value">' + restHighlighted + '</span>';
                 }
                 const kvMatch = escaped.match(/^(\s*)([^:]+?)(:)(\s*)(.*)?$/);

@@ -8,8 +8,9 @@ guide covers backing up everything at once, restoring a backup, and
 tidying up after the move from the old storage.
 
 For a single plan, the Markdown file is the backup: press **Ctrl+S**
-(**Cmd+S** on a Mac) or use **Tools → Export → Markdown**. The rest of this
-page is about all of your projects together.
+(**Cmd+S** on a Mac) to save it to a file (see
+:doc:`save-your-plan-to-a-file`) or use **Tools → Export → Markdown**. The
+rest of this page is about all of your projects together.
 
 Download a backup of everything
 -------------------------------
@@ -77,7 +78,7 @@ If browser storage is full
 The new store's limit is a share of your free disk, so this should be
 rare. If a save cannot be written, the status bar shows a persistent
 message and a toast says what to do. Your edit is still in the editor and
-in memory; download the plan (**Ctrl+S**) straight away, then free space by
+in memory; save the plan to a file (**Ctrl+S**) straight away, then free space by
 deleting projects or version history you no longer need. The next
 successful save clears the message.
 

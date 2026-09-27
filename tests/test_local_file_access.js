@@ -28,7 +28,9 @@
  *   6. a project with no linked file gets `null` from saveToLinkedFile, so
  *      script.js knows to fall back to the download flow.
  *   7. cancelling the picker (AbortError) resolves to null, not a thrown
- *      error — the user backing out of the dialog is not a failure.
+ *      error — the user backing out of the dialog is not a failure. The
+ *      same holds for the save dialog pickSaveFile() opens for a plan with
+ *      no file yet, which links the file the user chooses (issue #1406).
  *
  * What this file does NOT and cannot verify: the real native OS file-picker
  * dialog, which chromedriver only automates in limited ways (see the PR
@@ -254,6 +256,68 @@ async function main() {
         });
         const result = await app.LocalFileAccess.pickAndReadFile();
         assertTrue(result === null, 'cancelling the picker (AbortError) resolves to null, not a thrown error');
+    }
+
+    // --- 7b. pickSaveFile(): a plan with no file yet, and Save As (#1406) ------
+
+    {
+        const app = makeApp({ showOpenFilePicker: async () => [] });
+        // The user renames the suggestion in the dialog.
+        const chosen = makeFakeHandle('office-move-final.md', '');
+        let pickerOptions = null;
+        let pickerCalls = 0;
+        app.window.showSaveFilePicker = async (opts) => { pickerCalls++; pickerOptions = opts; return chosen; };
+
+        const picked = await app.LocalFileAccess.pickSaveFile('project-s', 'Office move.md');
+        assertTrue(!!picked && picked.handle === chosen, 'pickSaveFile() resolves with the handle the dialog returned');
+        assertEqual(picked.name, 'office-move-final.md', 'and the name the user chose, not the suggestion');
+        assertEqual(pickerOptions.suggestedName, 'Office move.md', 'the dialog starts with the suggested name');
+        assertEqual(pickerOptions.types[0].accept, { 'text/markdown': ['.md'] }, 'and offers a Markdown plan file');
+        assertEqual(pickerOptions.id, 'noodleplanner-plan', 'and shares the open dialog\'s id, so both start in the same folder');
+        assertEqual(app.LocalFileAccess.getLinkedFileName('project-s'), 'office-move-final.md',
+            'the chosen file is linked to the project as its plan file');
+        assertEqual(chosen.writes.length, 0, 'picking writes nothing: saving is the caller\'s next step');
+
+        const saved = await app.LocalFileAccess.saveToLinkedFile('project-s', 'plan text');
+        assertTrue(saved.ok === true, 'the next save writes to the chosen file');
+        assertEqual(chosen.writes, ['plan text'], 'through the same handle');
+        assertEqual(pickerCalls, 1, 'with no second dialog');
+
+        // Save As: a new file replaces the old one as the plan's file.
+        const moved = makeFakeHandle('office-move-v2.md', '');
+        app.window.showSaveFilePicker = async () => moved;
+        await app.LocalFileAccess.pickSaveFile('project-s', 'office-move-final.md');
+        await app.LocalFileAccess.saveToLinkedFile('project-s', 'plan text v2');
+        assertEqual(app.LocalFileAccess.getLinkedFileName('project-s'), 'office-move-v2.md', 'Save As re-links the project to the new file');
+        assertEqual(moved.writes, ['plan text v2'], 'later saves go to the new file');
+        assertEqual(chosen.writes, ['plan text'], 'and leave the old one alone');
+    }
+
+    {
+        const app = makeApp({
+            showOpenFilePicker: async () => [],
+            showSaveFilePicker: async () => { const e = new Error('cancelled'); e.name = 'AbortError'; throw e; },
+        });
+        const result = await app.LocalFileAccess.pickSaveFile('project-c', 'plan.md');
+        assertTrue(result === null, 'cancelling the save dialog resolves to null, not a thrown error');
+        assertTrue(app.LocalFileAccess.isLinked('project-c') === false, 'and links nothing');
+
+        app.window.showSaveFilePicker = async () => {
+            const e = new Error('Must be handling a user gesture to show a file picker.');
+            e.name = 'SecurityError';
+            throw e;
+        };
+        let thrown = null;
+        try { await app.LocalFileAccess.pickSaveFile('project-c', 'plan.md'); } catch (e) { thrown = e; }
+        assertTrue(!!thrown && thrown.name === 'SecurityError', 'any other failure is thrown, so Save can fall back to a download');
+        assertTrue(app.LocalFileAccess.isLinked('project-c') === false, 'and links nothing either');
+    }
+
+    {
+        const app = makeApp({}); // Firefox/Safari: no pickers
+        const result = await app.LocalFileAccess.pickSaveFile('project-f', 'plan.md');
+        assertTrue(result === null, 'pickSaveFile() resolves to null where the API is unsupported');
+        assertTrue(app.LocalFileAccess.isLinked('project-f') === false, 'and links nothing');
     }
 
     // --- 8. unlink() clears the link (e.g. on project deletion) ----------------
