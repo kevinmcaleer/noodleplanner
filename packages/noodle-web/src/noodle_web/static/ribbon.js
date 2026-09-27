@@ -163,6 +163,12 @@ function notAvailable(label) {
  * target panel isn't open.
  */
 function revealEditorPanel() {
+    // A phone has no editor beside the views: it is its own Markdown view
+    // there (#1381, editor-visibility.js).
+    if (document.documentElement.dataset.layout === 'phone') {
+        switchToView('markdown');
+        return;
+    }
     const editorTab = document.getElementById('editor-tab');
     if (!editorTab || !editorTab.classList.contains('active')) switchToView('notepad');
     const editorPanel = document.querySelector('.editor-panel');

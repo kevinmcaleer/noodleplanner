@@ -53,3 +53,36 @@
 .phone-shell {
     padding: 0;
 }
+
+/* ========================================
+   The markdown editor on a phone (#1381)
+
+   Never beside or above a view: on a 390px screen the stacked editor was
+   296px of the first screen. It is its own full-screen view instead
+   ("Markdown" in the drawer, editor-visibility.js), and the board's copy of it
+   goes the same way. Hidden, the textarea is still in the page, so every view
+   goes on editing the plan through it.
+   ======================================== */
+[data-layout="phone"] .editor-panel,
+[data-layout="phone"] .editor-splitter,
+[data-layout="phone"] #kanbanEditorPanel,
+[data-layout="phone"] #kanbanSplitter {
+    display: none;
+}
+
+[data-layout="phone"] body.markdown-view .editor-panel {
+    display: flex;
+    /* !important over the splitter's inline pixel width and over
+       .editor-panel.collapsed's own `width: 0 !important` (layout.css): the
+       Markdown view shows the editor whatever the other layouts left it as. */
+    width: 100% !important;
+    min-width: 0;
+    max-width: none;
+    height: calc(100vh - var(--phone-shell-height, 110px));
+    height: calc(100dvh - var(--phone-shell-height, 110px));
+    min-height: 0;
+}
+
+[data-layout="phone"] body.markdown-view .output-panel {
+    display: none;
+}

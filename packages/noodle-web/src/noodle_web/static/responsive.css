@@ -481,3 +481,38 @@ body {
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
 }
+
+/* ========================================
+   Touch: the editor splitter's collapse arrow (#1381, #1386)
+
+   The arrow appears only on :hover until the editor is collapsed, and is a
+   24px-wide (or, stacked at <=768px, 24px-tall) target. With a portrait
+   tablet now starting collapsed it is the first thing there to tap, so under
+   a coarse pointer it is always shown and 44px across, and the collapsed
+   splitter is wide (or tall) enough to hold it.
+   ======================================== */
+@media (hover: none) {
+    .splitter-arrow {
+        opacity: 1;
+    }
+}
+
+@media (pointer: coarse) {
+    .splitter-arrow {
+        min-width: var(--np-touch-target);
+        min-height: var(--np-touch-target);
+    }
+
+    .editor-splitter.collapsed,
+    .kanban-splitter.collapsed {
+        width: var(--np-touch-target);
+    }
+}
+
+@media (pointer: coarse) and (max-width: 768px) {
+    .editor-splitter,
+    .editor-splitter.collapsed {
+        width: 100%;
+        height: var(--np-touch-target);
+    }
+}

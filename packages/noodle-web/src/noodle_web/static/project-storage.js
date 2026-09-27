@@ -637,3 +637,38 @@ if (typeof module !== 'undefined' && module.exports) {
         renderStorageSettings,
     };
 }
+
+// ---------------------------------------------------------------------------
+// Save before the page goes away (#1381)
+//
+// Edits made in a view -- ticking a task in Tasks, typing in the Outline,
+// changing a duration in the task form -- reach #planEditor at once, but the
+// project store only by the 30-second autosave or a project/view switch, so a
+// reload inside that window lost them. On a phone that window is the normal
+// case: switching to another app hides the page, and the system may discard
+// it without ever running pagehide. So the plan is saved when the page is
+// hidden as well as when it goes, and only when it has actually changed, so
+// hiding and showing the page does not pile up version snapshots.
+// project-store.js flushes on the same events; this flushes again after the
+// save, so the write it queued is on disk too.
+// ---------------------------------------------------------------------------
+(function saveBeforeLeaving() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    function save() {
+        const projectId = getCurrentProjectId();
+        const editor = document.getElementById('planEditor');
+        if (!projectId || !editor) return;
+        const stored = loadProject(projectId);
+        if (stored && stored.planText === editor.value) return;
+        try {
+            saveCurrentProjectState();
+        } catch (error) {
+            console.warn('Could not save before leaving:', error);
+        }
+        if (window.NoodleStore && typeof window.NoodleStore.flush === 'function') window.NoodleStore.flush();
+    }
+    window.addEventListener('pagehide', save);
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') save();
+    });
+})();
