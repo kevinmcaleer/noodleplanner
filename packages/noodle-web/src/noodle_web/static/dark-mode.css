@@ -235,12 +235,7 @@ body {
 }
 
 /* Kanban board */
-[data-theme="dark"] .kanban-board {
-    background: var(--np-bg-alt);
-}
-
 [data-theme="dark"] .kanban-column {
-    background: var(--np-surface);
     border-color: var(--np-border);
 }
 
@@ -546,12 +541,10 @@ body {
 
 /* ---- Gantt Chart / Tasks View ---- */
 [data-theme="dark"] .gantt-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
 [data-theme="dark"] .tasks-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -695,7 +688,6 @@ body {
 }
 
 [data-theme="dark"] .kanban-column {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -992,13 +984,11 @@ body {
 }
 
 [data-theme="dark"] .stakeholder-grid-wrapper {
-    background: var(--np-surface);
     border-color: var(--np-border);
 }
 
 /* ---- RAID Log ---- */
 [data-theme="dark"] .raid-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 8px var(--np-shadow);
 }
 
@@ -1038,7 +1028,6 @@ body {
 
 /* ---- Project Actions Tracker ---- */
 [data-theme="dark"] .actions-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 8px var(--np-shadow);
 }
 
@@ -1172,7 +1161,6 @@ body {
 
 /* ---- Budget Page ---- */
 [data-theme="dark"] .budget-table-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 8px var(--np-shadow);
 }
 
@@ -1277,7 +1265,6 @@ body {
 
 /* ---- Timesheet Table Page ---- */
 [data-theme="dark"] .timesheet-wrapper {
-    background: var(--np-surface);
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
@@ -2051,11 +2038,6 @@ body {
 [data-theme="dark"] .upload-area:hover,
 [data-theme="dark"] .upload-area.dragover {
     background: var(--np-bg-hover);
-}
-
-/* ---- Kanban splitter ---- */
-[data-theme="dark"] .kanban-splitter {
-    background: var(--np-splitter-bg);
 }
 
 /* ---- Message boxes ---- */

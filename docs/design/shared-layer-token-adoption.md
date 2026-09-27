@@ -40,3 +40,4 @@ A slice passes when nothing else differs.
 | # | Slice | Changes | Screens (2 x 84) | Computed style | raw-colour |
 |---|---|---|---|---|---|
 | 1 | Panels, cards and popups | 1 light literal and 1 dark literal to `--np-shadow`; 10 dark declarations deleted (3 whole rules) | identical | identical | 715 -> 713 |
+| 2 | View wrappers and boards | 11 dark declarations deleted (2 whole rules): Kanban board/column/splitter, Gantt, Tasks, stakeholder grid, RAID, Actions, Budget and Timesheet wrappers | identical | identical (final-state capture) | 713 -> 713 |
