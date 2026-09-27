@@ -442,10 +442,11 @@ function renderProjectsTable() {
     tableData.sort((a, b) => a.name.localeCompare(b.name));
 
     let html = '<div class="portfolio-table-container">';
-    html += '<table class="portfolio-projects-table">';
+    // Cards on a phone (#1387): np-responsive-table.js.
+    html += '<np-responsive-table priorities=\'{"Project Name":"primary","Status":"1","Finish Date":"2","Project Manager":"3"}\'><table class="portfolio-projects-table">';
     html += '<thead>';
     html += '<tr>';
-    html += '<th class="project-select-col"></th>';
+    html += '<th class="project-select-col" data-label="Select"></th>';
     html += '<th class="sortable" onclick="sortProjectsTable(\'name\')">Project Name</th>';
     html += '<th class="sortable" onclick="sortProjectsTable(\'manager\')">Project Manager</th>';
     html += '<th class="sortable" onclick="sortProjectsTable(\'status\')">Status</th>';
@@ -503,7 +504,7 @@ function renderProjectsTable() {
     });
 
     html += '</tbody>';
-    html += '</table>';
+    html += '</table></np-responsive-table>';
     html += '</div>';
 
     container.innerHTML = html;
@@ -573,10 +574,11 @@ function renderSortedTable(tableData) {
     clearProjectSelection();
 
     let html = '<div class="portfolio-table-container">';
-    html += '<table class="portfolio-projects-table">';
+    // Cards on a phone (#1387): np-responsive-table.js.
+    html += '<np-responsive-table priorities=\'{"Project Name":"primary","Status":"1","Finish Date":"2","Project Manager":"3"}\'><table class="portfolio-projects-table">';
     html += '<thead>';
     html += '<tr>';
-    html += '<th class="project-select-col"></th>';
+    html += '<th class="project-select-col" data-label="Select"></th>';
 
     const columns = [
         { key: 'name', label: 'Project Name' },
@@ -649,7 +651,7 @@ function renderSortedTable(tableData) {
     });
 
     html += '</tbody>';
-    html += '</table>';
+    html += '</table></np-responsive-table>';
     html += '</div>';
 
     container.innerHTML = html;

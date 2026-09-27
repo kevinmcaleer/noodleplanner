@@ -119,6 +119,8 @@
     <link rel="stylesheet" href="/static/views/plan-wizard.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/whiteboard.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/plan-list.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/components/responsive-table/np-responsive-table.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/phone-views.css?v={{ v }}">
     <link rel="stylesheet" href="/static/task-peek.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/timeline.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/portfolio.css?v={{ v }}">
@@ -184,6 +186,8 @@
     <np-action-sheet id="phoneSheet"></np-action-sheet>
     <!-- The current view's create action (#1382, phone-commands.js). -->
     <np-fab id="phoneFab" hidden></np-fab>
+    <!-- On a phone, a view that is best on a larger screen says so (#1387). -->
+    <np-notice id="phoneNotice" class="phone-notice" dismiss-label="Dismiss this notice" hidden></np-notice>
 
     <div class="container-fluid m-0 p-0">
         <div class="content" id="main-content" role="main">
@@ -508,6 +512,9 @@ Press Enter to render..."></textarea>
                                 </div>
                                 <div class="milestones-table-wrapper" style="position: relative;">
                                     <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
+                                    <!-- updateMilestonesView() rebuilds the header, so the
+                                         columns' phone priorities are on the host, by name. -->
+                                    <np-responsive-table priorities='{"ID": "none", "Task Name": "primary", "Finish": "1", "RAG": "2", "%": "3"}'>
                                     <table class="milestones-table">
                                         <thead>
                                             <tr id="milestonesTableHead">
@@ -526,6 +533,7 @@ Press Enter to render..."></textarea>
                                             <!-- Task rows will be populated by JavaScript -->
                                         </tbody>
                                     </table>
+                                    </np-responsive-table>
                                 </div>
                             </div>
                         </div>
@@ -768,14 +776,15 @@ Press Enter to render..."></textarea>
                                 </div>
                                 <div class="resources-table-wrapper" style="position: relative;">
                                     <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
+                                    <np-responsive-table>
                                     <table class="resources-table" aria-label="Resources">
                                         <thead>
                                             <tr>
-                                                <th>Full Name</th>
+                                                <th data-priority="primary">Full Name</th>
                                                 <th>Shortname</th>
-                                                <th>Role</th>
-                                                <th>Tasks Assigned</th>
-                                                <th>Total Days</th>
+                                                <th data-priority="1">Role</th>
+                                                <th data-priority="2">Tasks Assigned</th>
+                                                <th data-priority="3">Total Days</th>
                                                 <th>Total Hours</th>
                                             </tr>
                                         </thead>
@@ -783,6 +792,7 @@ Press Enter to render..."></textarea>
                                             <!-- Resource rows will be populated by JavaScript -->
                                         </tbody>
                                     </table>
+                                    </np-responsive-table>
                                 </div>
                             </div>
                         </div>
@@ -900,19 +910,21 @@ Press Enter to render..."></textarea>
                                     <div class="lookahead-section" id="overdueSection" style="display: none;">
                                         <h3 class="lookahead-section-title overdue">⚠️ Overdue Tasks</h3>
                                         <div class="lookahead-table-wrapper">
+                                            <np-responsive-table>
                                             <table class="lookahead-table">
                                                 <thead>
                                                     <tr>
-                                                        <th>Task Name</th>
-                                                        <th>Due Date</th>
-                                                        <th>Days Late</th>
+                                                        <th data-priority="primary">Task Name</th>
+                                                        <th data-priority="1">Due Date</th>
+                                                        <th data-priority="2">Days Late</th>
                                                         <th>Resources</th>
                                                         <th>%</th>
-                                                        <th>RAG</th>
+                                                        <th data-priority="3">RAG</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="overdueTableBody"></tbody>
                                             </table>
+                                            </np-responsive-table>
                                         </div>
                                     </div>
 
@@ -920,20 +932,22 @@ Press Enter to render..."></textarea>
                                     <div class="lookahead-section" id="upcomingSection" style="display: none;">
                                         <h3 class="lookahead-section-title upcoming">📅 Upcoming Tasks (Next 2 Weeks)</h3>
                                         <div class="lookahead-table-wrapper">
+                                            <np-responsive-table>
                                             <table class="lookahead-table">
                                                 <thead>
                                                     <tr>
-                                                        <th>Task Name</th>
+                                                        <th data-priority="primary">Task Name</th>
                                                         <th>Start Date</th>
-                                                        <th>Due Date</th>
+                                                        <th data-priority="1">Due Date</th>
                                                         <th>Duration</th>
-                                                        <th>Resources</th>
+                                                        <th data-priority="3">Resources</th>
                                                         <th>%</th>
-                                                        <th>RAG</th>
+                                                        <th data-priority="2">RAG</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="upcomingTableBody"></tbody>
                                             </table>
+                                            </np-responsive-table>
                                         </div>
                                     </div>
 
@@ -965,10 +979,12 @@ Press Enter to render..."></textarea>
                                     </div>
                                 </div>
                                 <div class="raid-table-wrapper">
+                                    <np-responsive-table>
                                     <table class="raid-table" aria-label="Escalated risks">
-                                        <thead><tr><th>Title</th><th>Description</th><th>Owner</th><th>Score</th><th>Escalate To</th><th>Target Date</th><th>Status</th></tr></thead>
+                                        <thead><tr><th data-priority="primary">Title</th><th>Description</th><th>Owner</th><th data-priority="2">Score</th><th data-priority="3">Escalate To</th><th>Target Date</th><th data-priority="1">Status</th></tr></thead>
                                         <tbody id="escalationsTableBody"></tbody>
                                     </table>
+                                    </np-responsive-table>
                                     <np-empty-state variant="card" id="escalationsEmptyState" heading="No escalations">
                                         <p>Risks escalated to the Board or Programme will appear here.</p>
                                     </np-empty-state>
@@ -1050,6 +1066,11 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see tasks on a monthly calendar.</p>
                             </div>
                             <div class="calendar-content" style="display: none;">
+                                <!-- On a phone (#1387) the calendar opens as an agenda -- today,
+                                     then the week -- with the month grid a tap away.
+                                     calendar-agenda.js shows and fills both. -->
+                                <np-view-chips id="calendarModeChips" class="calendar-mode-chips" label="Show the calendar as" active="agenda" hidden></np-view-chips>
+                                <div id="calendarAgenda" class="calendar-agenda" role="region" aria-label="Agenda" hidden></div>
                                 <div class="calendar-header">
                                     <div class="calendar-nav">
                                         <button class="calendar-nav-btn" id="calendarPrev" onclick="navigateCalendar(-1)" title="Previous month">&lt;</button>
@@ -1318,15 +1339,16 @@ Press Enter to render..."></textarea>
                                 </div>
                                 <div class="ben-tracking-container" id="benefitsTrackingContainer" style="display: none;" role="tabpanel" aria-label="Benefits tracking table">
                                     <div class="ben-tracking-wrapper">
+                                        <np-responsive-table>
                                         <table class="table table-sm table-hover ben-tracking-table" id="benefitsTrackingTable">
                                             <thead>
                                                 <tr>
-                                                    <th>Title</th>
+                                                    <th data-priority="primary">Title</th>
                                                     <th>Target Value</th>
-                                                    <th>Current Value</th>
-                                                    <th>Target Date</th>
+                                                    <th data-priority="2">Current Value</th>
+                                                    <th data-priority="3">Target Date</th>
                                                     <th>Measurement Method</th>
-                                                    <th>Status</th>
+                                                    <th data-priority="1">Status</th>
                                                     <th>Last Updated</th>
                                                     <th>Source</th>
                                                 </tr>
@@ -1335,6 +1357,7 @@ Press Enter to render..."></textarea>
                                                 <!-- Populated by JavaScript -->
                                             </tbody>
                                         </table>
+                                        </np-responsive-table>
                                     </div>
                                 </div>
                             </div>
@@ -1349,6 +1372,7 @@ Press Enter to render..."></textarea>
                                 <div class="stakeholders-layout">
                                     <div class="stakeholders-table-panel" style="position: relative;">
                                         <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
+                                        <np-responsive-table priorities='{"Name": "primary", "Role": "1", "Interest": "2", "Influence": "3"}'>
                                         <table class="stakeholders-table" id="stakeholdersTable" aria-label="Stakeholders">
                                             <thead>
                                                 <tr>
@@ -1363,6 +1387,7 @@ Press Enter to render..."></textarea>
                                             <tbody id="stakeholdersTableBody">
                                             </tbody>
                                         </table>
+                                        </np-responsive-table>
                                         <np-empty-state variant="card" id="stakeholdersEmptyState" heading="Stakeholders">
                                             <p>Track project stakeholders, their interest and influence levels.</p>
                                             <p>Click <strong>"+ Add Stakeholder"</strong> to get started.</p>
@@ -1716,20 +1741,21 @@ Build
 
                     <!-- RAID Table -->
                     <div class="raid-table-wrapper">
+                        <np-responsive-table>
                         <table class="raid-table" id="raidTable" aria-label="RAID log">
                             <thead>
                                 <tr>
-                                    <th onclick="sortRaidTable('id')">ID <span class="sort-indicator"></span></th>
-                                    <th onclick="sortRaidTable('type')">Type <span class="sort-indicator"></span></th>
-                                    <th onclick="sortRaidTable('title')">Title <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('id')" data-priority="none">ID <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('type')" data-priority="2">Type <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('title')" data-priority="primary">Title <span class="sort-indicator"></span></th>
                                     <th>Description</th>
                                     <th onclick="sortRaidTable('raised_by')">Raised By <span class="sort-indicator"></span></th>
                                     <th onclick="sortRaidTable('owner')">Owner <span class="sort-indicator"></span></th>
                                     <th>Mitigation Actions</th>
                                     <th onclick="sortRaidTable('impact')">Impact <span class="sort-indicator"></span></th>
                                     <th onclick="sortRaidTable('likelihood')">Likelihood <span class="sort-indicator"></span></th>
-                                    <th onclick="sortRaidTable('score')">Score <span class="sort-indicator"></span></th>
-                                    <th onclick="sortRaidTable('status')">Status <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('score')" data-priority="3">Score <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('status')" data-priority="1">Status <span class="sort-indicator"></span></th>
                                     <th onclick="sortRaidTable('priority')">Priority <span class="sort-indicator"></span></th>
                                     <th onclick="sortRaidTable('target_date')">Target Date <span class="sort-indicator"></span></th>
                                     <th>Actions</th>
@@ -1738,6 +1764,7 @@ Build
                             <tbody id="raidTableBody">
                             </tbody>
                         </table>
+                        </np-responsive-table>
                         <np-empty-state variant="card" id="raidEmptyState" heading="RAID Log">
                             <p>Track Risks, Actions, Issues, Decisions, and Dependencies.</p>
                             <p>Click <strong>"+ Add Item"</strong> to get started, or upload an existing RAID log.</p>
@@ -1791,23 +1818,25 @@ Build
 
                     <!-- Comms Table -->
                     <div class="raid-table-wrapper">
+                        <np-responsive-table>
                         <table class="raid-table" id="commsTable" aria-label="Communications plan">
                             <thead>
                                 <tr>
-                                    <th onclick="sortCommsTable('id')">ID <span class="sort-indicator"></span></th>
-                                    <th onclick="sortCommsTable('activity')">Activity <span class="sort-indicator"></span></th>
-                                    <th onclick="sortCommsTable('audience')">Audience <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('id')" data-priority="none">ID <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('activity')" data-priority="primary">Activity <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('audience')" data-priority="2">Audience <span class="sort-indicator"></span></th>
                                     <th>Content</th>
-                                    <th onclick="sortCommsTable('frequency')">Frequency <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('frequency')" data-priority="3">Frequency <span class="sort-indicator"></span></th>
                                     <th onclick="sortCommsTable('channel')">Channel <span class="sort-indicator"></span></th>
                                     <th onclick="sortCommsTable('owner')">Owner <span class="sort-indicator"></span></th>
-                                    <th onclick="sortCommsTable('status')">Status <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('status')" data-priority="1">Status <span class="sort-indicator"></span></th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="commsTableBody">
                             </tbody>
                         </table>
+                        </np-responsive-table>
                         <np-empty-state variant="card" id="commsEmptyState" heading="Communications Plan">
                             <p>Plan and track stakeholder communications.</p>
                             <p>Click <strong>"+ Add Item"</strong> to get started.</p>
@@ -1859,24 +1888,26 @@ Build
 
                     <!-- Lessons Table -->
                     <div class="raid-table-wrapper">
+                        <np-responsive-table>
                         <table class="raid-table" id="lessonsTable" aria-label="Lessons learned">
                             <thead>
                                 <tr>
-                                    <th onclick="sortLessonsTable('id')">ID <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('id')" data-priority="none">ID <span class="sort-indicator"></span></th>
                                     <th onclick="sortLessonsTable('projectPhase')">Phase <span class="sort-indicator"></span></th>
-                                    <th onclick="sortLessonsTable('area')">Area <span class="sort-indicator"></span></th>
-                                    <th onclick="sortLessonsTable('impactType')">Impact Type <span class="sort-indicator"></span></th>
-                                    <th onclick="sortLessonsTable('observation')">Observation <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('area')" data-priority="1">Area <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('impactType')" data-priority="2">Impact Type <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('observation')" data-priority="primary">Observation <span class="sort-indicator"></span></th>
                                     <th>Impact</th>
                                     <th>Recommendations</th>
                                     <th onclick="sortLessonsTable('projectManager')">PM <span class="sort-indicator"></span></th>
-                                    <th onclick="sortLessonsTable('date')">Date <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('date')" data-priority="3">Date <span class="sort-indicator"></span></th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="lessonsTableBody">
                             </tbody>
                         </table>
+                        </np-responsive-table>
                         <np-empty-state variant="card" id="lessonsEmptyState" heading="Lessons Learned">
                             <p>Capture what went well and what to change next time, using an Appreciative Inquiry approach.</p>
                             <p>Try a starter prompt:</p>
@@ -1945,17 +1976,18 @@ Build
 
                     <!-- Budget Table -->
                     <div class="budget-table-wrapper">
+                        <np-responsive-table>
                         <table class="budget-table" id="budgetTable" aria-label="Budget items">
                             <thead>
                                 <tr>
-                                    <th onclick="sortBudgetTable('id')">ID <span class="sort-indicator"></span></th>
-                                    <th onclick="sortBudgetTable('description')">Description <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('id')" data-priority="none">ID <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('description')" data-priority="primary">Description <span class="sort-indicator"></span></th>
                                     <th onclick="sortBudgetTable('estimate')">Estimate <span class="sort-indicator"></span></th>
                                     <th onclick="sortBudgetTable('forecast')">Forecast <span class="sort-indicator"></span></th>
-                                    <th onclick="sortBudgetTable('type')">Type <span class="sort-indicator"></span></th>
-                                    <th onclick="sortBudgetTable('category')">Category <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('type')" data-priority="2">Type <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('category')" data-priority="3">Category <span class="sort-indicator"></span></th>
                                     <th onclick="sortBudgetTable('supplier')">Supplier <span class="sort-indicator"></span></th>
-                                    <th onclick="sortBudgetTable('total')">Total <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('total')" data-priority="1">Total <span class="sort-indicator"></span></th>
                                     <th onclick="sortBudgetTable('date_ordered')">Ordered <span class="sort-indicator"></span></th>
                                     <th onclick="sortBudgetTable('date_received')">Received <span class="sort-indicator"></span></th>
                                     <th>Actions</th>
@@ -1966,6 +1998,7 @@ Build
                             <tfoot id="budgetTableFoot">
                             </tfoot>
                         </table>
+                        </np-responsive-table>
                         <np-empty-state variant="card" id="budgetEmptyState" heading="Budget Tracker">
                             <p>Track project costs, forecasts, and spending.</p>
                             <p>Click <strong>"+ Add Item"</strong> to get started.</p>
@@ -2036,23 +2069,25 @@ Build
 
                         <!-- Actions Table -->
                         <div class="actions-table-wrapper">
+                            <np-responsive-table>
                             <table class="actions-table" id="actionsTable" aria-label="Actions">
                                 <thead>
                                     <tr>
-                                        <th onclick="sortActionsTable('id')">ID <span class="sort-indicator"></span></th>
-                                        <th onclick="sortActionsTable('title')">Title <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('id')" data-priority="none">ID <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('title')" data-priority="primary">Title <span class="sort-indicator"></span></th>
                                         <th>Description</th>
-                                        <th onclick="sortActionsTable('owner')">Owner <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('owner')" data-priority="3">Owner <span class="sort-indicator"></span></th>
                                         <th onclick="sortActionsTable('resource')">Resource <span class="sort-indicator"></span></th>
                                         <th onclick="sortActionsTable('priority')">Priority <span class="sort-indicator"></span></th>
-                                        <th onclick="sortActionsTable('target_date')">Target Date <span class="sort-indicator"></span></th>
-                                        <th onclick="sortActionsTable('status')">Status <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('target_date')" data-priority="2">Target Date <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('status')" data-priority="1">Status <span class="sort-indicator"></span></th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="actionsTableBody">
                                 </tbody>
                             </table>
+                            </np-responsive-table>
                             <np-empty-state variant="card" id="actionsEmptyState" heading="Actions Tracker">
                                 <p>Track action items for resources in your project.</p>
                                 <p>Click <strong>"+ Add Action"</strong> to get started.</p>
@@ -4022,6 +4057,7 @@ Build
          list's (#1384). Then the plan list itself, the Tasks view on a phone. -->
     <script src="/static/summary-collapse.js?v={{ v }}"></script>
     <script src="/static/plan-list.js?v={{ v }}"></script>
+    <script src="/static/calendar-agenda.js?v={{ v }}"></script>
     <script src="/static/version-history.js?v={{ v }}"></script>
     <script src="/static/portfolio.js?v={{ v }}"></script>
     <script src="/static/multi-plan-loader.js?v={{ v }}"></script>
@@ -4091,12 +4127,15 @@ Build
     <!-- <np-note> itself: the plan list's cards (#1384) are stacked notes. -->
     <script type="module" src="/static/components/note/np-note.js?v={{ v }}"></script>
     <script type="module" src="/static/components/quick-add/np-quick-add.js?v={{ v }}"></script>
+    <!-- Wide tables become stacks of cards on a phone (#1387). -->
+    <script type="module" src="/static/components/responsive-table/np-responsive-table.js?v={{ v }}"></script>
     <!-- The phone shell's components (#1380, #1382). -->
     <script type="module" src="/static/components/app-bar/np-app-bar.js?v={{ v }}"></script>
     <script type="module" src="/static/components/view-chips/np-view-chips.js?v={{ v }}"></script>
     <script type="module" src="/static/components/nav-drawer/np-nav-drawer.js?v={{ v }}"></script>
     <script type="module" src="/static/components/action-sheet/np-action-sheet.js?v={{ v }}"></script>
     <script type="module" src="/static/components/fab/np-fab.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/notice/np-notice.js?v={{ v }}"></script>
     <!-- Every detail-pane form's shell (#1383). -->
     <script type="module" src="/static/components/detail-sheet/np-detail-sheet.js?v={{ v }}"></script>
 

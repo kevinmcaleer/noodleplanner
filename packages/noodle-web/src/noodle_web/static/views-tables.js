@@ -185,7 +185,7 @@ function updateReportPage(tasks, projectName, frontMatter) {
 
         if (placeholder && content) {
             placeholder.style.display = 'none';
-            content.style.display = 'block';
+            content.style.display = ''; // its stylesheet's own display: a column on a phone (#1387)
         }
 
         // Populate project info header

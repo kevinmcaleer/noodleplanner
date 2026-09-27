@@ -667,6 +667,7 @@
             root.localStorage.setItem(WHITEBOARD_MODE_KEY, mode === 'canvas' ? 'canvas' : 'cards');
         } catch (_) { /* storage unavailable: the choice lasts for the page */ }
         syncWhiteboard();
+        document.dispatchEvent(new CustomEvent('whiteboardmodechange', { detail: { mode } }));
         // The canvas measured itself while it was hidden; fit it now it shows.
         if (mode === 'canvas' && typeof root.whiteboardZoomFit === 'function') {
             requestAnimationFrame(() => root.whiteboardZoomFit());
@@ -716,6 +717,7 @@
         renderWhiteboardCards,
         configureWhiteboardCards,
         setWhiteboardMode,
+        whiteboardMode,
         openTask,
         setComplete,
         parseQuickAdd,

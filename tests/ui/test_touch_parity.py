@@ -108,7 +108,8 @@ def test_the_row_plus_is_on_the_row_menu_without_hover(tablet_landscape, app_ser
     button = pg.locator(f"{body} tr .task-context-btn").first
     assert pg.evaluate(f"() => getComputedStyle(document.querySelector('{body} tr .task-context-btn')).opacity") == "1"
     box = button.bounding_box()
-    assert box["width"] >= 44 and box["height"] >= 44
+    # Rounded: a Gantt row lays out at fractional pixels (43.99997 is 44).
+    assert round(box["width"]) >= 44 and round(box["height"]) >= 44
     button.tap()
     pg.wait_for_selector("#activeTaskContextMenu")
     items = pg.locator("#activeTaskContextMenu .task-context-menu-item").all_inner_texts()
@@ -128,9 +129,17 @@ def test_the_calendar_plus_is_always_there_on_touch(tablet_landscape, app_server
     open_app(pg, app_server)
     load_plan(pg, PLAN)
     _view(pg, "calendar")
-    pg.wait_for_selector(".calendar-add-btn", state="attached")
-    box = pg.locator(".calendar-add-btn").first.bounding_box()
-    assert box and box["width"] >= 44 and box["height"] >= 44
+    # Measured in the page, once it holds: the calendar redraws its grid when
+    # the plan's render lands, and a button measured mid-redraw is detached.
+    pg.wait_for_function(
+        """() => {
+            const btn = document.querySelector('#calendar-view .calendar-add-btn');
+            if (!btn || !btn.isConnected) return false;
+            const r = btn.getBoundingClientRect();
+            return r.width >= 44 && r.height >= 44;
+        }""",
+        timeout=5_000,
+    )
 
 
 # ── Right-click menus open on a long-press ──────────────────────────────
@@ -304,7 +313,7 @@ def test_the_parking_lot_reorders_by_touch(tablet_landscape, app_server):
     pg.evaluate("() => wbOpenParkingLotPanel()")
     pg.wait_for_selector("#wbParkingLotList .wb-parking-lot-item")
     handle = pg.locator("#wbParkingLotList .wb-parking-lot-item-handle").first.bounding_box()
-    assert handle["width"] >= 44 and handle["height"] >= 44
+    assert round(handle["width"]) >= 44 and round(handle["height"]) >= 44
     _drag(pg, "#wbParkingLotList .wb-parking-lot-item:nth-child(2) .wb-parking-lot-item-handle",
           "#wbParkingLotList .wb-parking-lot-item:nth-child(1)")
     pg.wait_for_function(

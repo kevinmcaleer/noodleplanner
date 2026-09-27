@@ -188,13 +188,22 @@ function renderAssignments() {
             tr.appendChild(reportEl('td', `report-status report-status--${row.status}`,
                 row.status === 'overdue' ? 'Overdue' : row.status === 'complete' ? 'Complete' : 'Open'));
             tr.appendChild(reportEl('td', null, row.sharedWith.join(', ')));
-            tr.addEventListener('dblclick', () => {
+            const open = () => {
                 if (typeof openTaskInspectorByName === 'function') openTaskInspectorByName(row.task.name);
+            };
+            tr.addEventListener('dblclick', open);
+            // On a phone the row is a card (#1387): a tap opens the task.
+            tr.addEventListener('click', () => {
+                if (document.documentElement.dataset.layout === 'phone') open();
             });
             tbody.appendChild(tr);
         });
         table.appendChild(tbody);
-        card.appendChild(table);
+        // Cards on a phone (#1387): np-responsive-table.js.
+        const responsive = document.createElement('np-responsive-table');
+        responsive.setAttribute('priorities', JSON.stringify({ Task: 'primary', Status: '1', Finish: '2', '%': '3' }));
+        responsive.appendChild(table);
+        card.appendChild(responsive);
         container.appendChild(card);
     });
 }

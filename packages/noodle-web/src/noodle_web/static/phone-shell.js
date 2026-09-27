@@ -121,12 +121,19 @@
         }];
 
         const larger = (view) => (view.tier === 'larger-screen' ? 'Best on a larger screen' : '');
+        // The phone tiers (#1387) order each group: what reads on a phone
+        // first, what is best on a larger screen last.
+        const RANK = { 'phone-first': 0, 'phone-readable': 1, 'larger-screen': 2 };
+        const byTier = (views) => views
+            .map((view, i) => ({ view, i }))
+            .sort((a, b) => (RANK[a.view.tier] ?? 1) - (RANK[b.view.tier] ?? 1) || a.i - b.i)
+            .map(({ view }) => view);
         if (catalogue) {
             for (const group of catalogue.groups()) {
                 sections.push({
                     id: group.id,
                     label: group.label,
-                    items: group.views.map((view) => ({
+                    items: byTier(group.views).map((view) => ({
                         id: 'view:' + view.id,
                         label: view.label,
                         icon: view.icon,
@@ -138,7 +145,7 @@
             sections.push({
                 id: 'portfolio',
                 label: 'Portfolio',
-                items: catalogue.portfolioViews().map((view) => ({
+                items: byTier(catalogue.portfolioViews()).map((view) => ({
                     id: 'view:' + view.key,
                     label: view.label,
                     icon: view.icon,
@@ -295,6 +302,7 @@
 
     function refresh() {
         if (!appBar) return;
+        syncNotice();
         const key = currentKey();
         appBar.setAttribute('heading', planName());
         appBar.setAttribute('subheading', viewLabel(key));
@@ -302,6 +310,64 @@
             if (key) chips.setAttribute('active', key);
             else chips.removeAttribute('active');
         }
+    }
+
+    // -----------------------------------------------------------------
+    // "Best on a larger screen" (#1387)
+    // -----------------------------------------------------------------
+
+    // A view the catalogue marks larger-screen still opens on a phone, with
+    // a notice pointing at its nearest phone-first view. Dismissed, it stays
+    // dismissed for that view (per browser).
+    const DISMISSED_KEY = 'noodleplanner:larger-screen-dismissed';
+
+    function dismissed() {
+        try {
+            const list = JSON.parse(localStorage.getItem(DISMISSED_KEY) || '[]');
+            return Array.isArray(list) ? list : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function rememberDismissed(key) {
+        try {
+            localStorage.setItem(DISMISSED_KEY, JSON.stringify([...new Set(dismissed().concat(key))]));
+        } catch (_) { /* storage unavailable: dismissed for the page */ }
+    }
+
+    function syncNotice() {
+        const notice = $('phoneNotice');
+        if (!notice) return;
+        const key = currentKey();
+        const entry = key && window.NoodleViewCatalogue ? window.NoodleViewCatalogue.get(key) : null;
+        let show = isPhone() && !!entry && entry.tier === 'larger-screen' && dismissed().indexOf(key) === -1;
+        // The whiteboard on a phone opens as cards (#1384); only its canvas
+        // is best on a larger screen.
+        const list = window.NoodlePlanList;
+        if (show && key === 'whiteboard' && list && list.whiteboardMode() === 'cards') show = false;
+        notice.hidden = !show;
+        if (!show) return;
+        notice.dataset.view = key;
+        notice.dataset.nearest = entry.nearest || '';
+        notice.setAttribute('action', entry.nearest === 'whiteboard-cards'
+            ? 'Show as cards'
+            : entry.nearest ? `Open ${viewLabel(entry.nearest)}` : '');
+        notice.textContent = `${viewLabel(key)} is best on a larger screen.`;
+    }
+
+    function wireNotice() {
+        const notice = $('phoneNotice');
+        if (!notice) return;
+        notice.addEventListener('action', () => {
+            const nearest = notice.dataset.nearest;
+            if (nearest === 'whiteboard-cards') {
+                if (window.NoodlePlanList) window.NoodlePlanList.setWhiteboardMode('cards');
+            } else if (nearest) {
+                navigate(nearest);
+            }
+        });
+        notice.addEventListener('dismiss', () => rememberDismissed(notice.dataset.view));
     }
 
     function search() {
@@ -336,8 +402,10 @@
         const bell = $('phoneBellBtn');
         if (bell) bell.addEventListener('click', () => { if (typeof openStatusLogFullscreen === 'function') openStatusLogFullscreen(); });
 
+        wireNotice();
         document.addEventListener('viewchange', refresh);
         document.addEventListener('portfolioviewchange', refresh);
+        document.addEventListener('whiteboardmodechange', syncNotice);
         window.addEventListener('projectLoaded', refresh);
         document.addEventListener('layoutchange', () => {
             if (!isPhone()) {

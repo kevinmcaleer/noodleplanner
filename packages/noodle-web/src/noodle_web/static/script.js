@@ -8440,7 +8440,7 @@ function renderRaidTable() {
     }
 
     emptyState.hidden = true;
-    document.getElementById('raidTable').style.display = 'table';
+    document.getElementById('raidTable').style.display = ''; // the stylesheet's: a card stack on a phone (#1387)
 
     filtered.forEach(item => {
         try {
@@ -8471,6 +8471,15 @@ function renderRaidTable() {
                 <np-button icon-only variant="danger" size="small" title="Delete" label="Delete" onclick="deleteRaidItem(${item.id})"><span slot="icon">🗑️</span></np-button>
             </td>
         `;
+
+        // On a phone the row is a card (#1387): tapping it opens the item,
+        // as a row does in the dashboard's RAID table. A wide table keeps
+        // its Edit button for that, and its cells' text selectable.
+        row.addEventListener('click', (e) => {
+            if (document.documentElement.dataset.layout !== 'phone') return;
+            if (e.target.closest('button, np-button, a, input, select, textarea')) return;
+            openRaidForm(item.id);
+        });
 
         // Right-click menu for the entry (#1286)
         row.addEventListener('contextmenu', (e) => {
@@ -10911,6 +10920,8 @@ function updateCalendar(tasks) {
     }
 
     renderCalendarMonth(calendarCurrentYear, calendarCurrentMonth);
+    // On a phone, the agenda (#1387).
+    if (typeof NoodleCalendarAgenda !== 'undefined') NoodleCalendarAgenda.render();
 }
 
 function navigateCalendar(direction) {
@@ -12200,7 +12211,7 @@ function renderCommsTable() {
         }
 
         emptyState.hidden = true;
-        document.getElementById('commsTable').style.display = 'table';
+        document.getElementById('commsTable').style.display = '';
 
         filtered.forEach(item => {
             try {
@@ -12720,7 +12731,7 @@ function renderBudgetTable() {
         }
 
         emptyState.hidden = true;
-        if (table) table.style.display = 'table';
+        if (table) table.style.display = '';
 
         let totalEstimate = 0;
         let totalForecast = 0;
@@ -15060,7 +15071,7 @@ function renderStakeholderTable() {
     }
 
     emptyState.hidden = true;
-    table.style.display = 'table';
+    table.style.display = '';
 
     stakeholderItems.forEach(item => {
         const row = document.createElement('tr');
@@ -16726,7 +16737,7 @@ function renderActionsTable() {
         }
 
         emptyState.hidden = true;
-        document.getElementById('actionsTable').style.display = 'table';
+        document.getElementById('actionsTable').style.display = '';
 
         filtered.forEach(item => {
             const row = document.createElement('tr');
