@@ -310,3 +310,119 @@ def test_rows_are_touch_targets_on_a_phone(phone, app_server):
         assert row["height"] >= 44, row
         # No hover on a phone, so nothing may wait for one.
         assert row["actionOpacity"] in (None, "1"), row
+
+
+# ── Dependency picker ───────────────────────────────────────────────────
+
+
+def _picker(page):
+    return page.evaluate(
+        """() => {
+            const box = document.getElementById('addDependencyAutocomplete');
+            return {
+                shown: box.style.display === 'block',
+                options: [...box.querySelectorAll('np-task-row')].map(r => ({
+                    name: r.getAttribute('name'),
+                    type: r.getAttribute('type'),
+                    density: r.getAttribute('density'),
+                    id: r.getAttribute('task-id'),
+                    meta: r.getAttribute('meta'),
+                    role: r.getAttribute('role'),
+                    selected: r.hasAttribute('selected'),
+                })),
+                more: box.querySelector('.dependency-picker-more')?.textContent || null,
+            };
+        }"""
+    )
+
+
+def test_the_picker_offers_task_rows_that_tell_tasks_apart(loaded):
+    _open_task(loaded, "Backend")
+    loaded.locator("#addDependencyInput").press_sequentially("Res")
+    picker = _picker(loaded)
+    assert picker["shown"]
+    research = next(o for o in picker["options"] if o["name"] == "Research")
+    assert research["type"] == "picker" and research["density"] == "compact"
+    assert research["role"] == "option"
+    # The ID and dates are what tell two similarly named tasks apart.
+    assert research["id"] and research["meta"]
+
+
+def test_the_picker_lists_names_starting_with_the_query_first(loaded):
+    _open_task(loaded, "Backend")
+    loaded.locator("#addDependencyInput").press_sequentially("s")
+    names = [o["name"] for o in _picker(loaded)["options"]]
+    starts = [n for n in names if n.lower().startswith("s")]
+    assert starts and names[: len(starts)] == starts, names
+    assert "Research" in names[len(starts):]
+
+
+def test_the_picker_leaves_out_this_task_and_its_dependencies(loaded):
+    _open_task(loaded, "Build")
+    box = loaded.locator("#addDependencyInput")
+    box.press_sequentially("Build")
+    assert "Build" not in [o["name"] for o in _picker(loaded)["options"]]
+    box.fill("")
+    box.press_sequentially("Resea")
+    # Research is already a predecessor of Build: nothing left to offer.
+    assert not _picker(loaded)["shown"]
+
+
+def test_arrow_and_enter_pick_the_active_option(loaded):
+    _open_task(loaded, "Backend")
+    box = loaded.locator("#addDependencyInput")
+    box.press_sequentially("Resea")
+    box.press("ArrowDown")
+    picker = _picker(loaded)
+    assert picker["options"][0]["selected"]
+    active = loaded.evaluate("() => document.getElementById('addDependencyInput').getAttribute('aria-activedescendant')")
+    assert active and loaded.locator(f"#{active}").get_attribute("name") == "Research"
+    box.press("Enter")
+    loaded.wait_for_function(
+        "() => /Backend.*\\[depends Research\\]/.test(document.getElementById('planEditor').value)"
+    )
+    assert not _picker(loaded)["shown"]
+    assert box.input_value() == ""
+
+
+def test_clicking_an_option_adds_it(loaded):
+    _open_task(loaded, "Backend")
+    loaded.locator("#addDependencyInput").press_sequentially("Resea")
+    loaded.locator("#addDependencyAutocomplete np-task-row[name='Research']").click()
+    loaded.wait_for_function(
+        "() => /Backend.*\\[depends Research\\]/.test(document.getElementById('planEditor').value)"
+    )
+    assert [r["name"] for r in _rows(loaded, "dependenciesList")] == ["Research"]
+    # Focus stays in the box, ready for the next one.
+    assert loaded.evaluate("() => document.activeElement.id") == "addDependencyInput"
+
+
+def test_escape_closes_the_picker(loaded):
+    _open_task(loaded, "Backend")
+    box = loaded.locator("#addDependencyInput")
+    box.press_sequentially("Resea")
+    assert _picker(loaded)["shown"]
+    box.press("Escape")
+    assert not _picker(loaded)["shown"]
+    assert box.get_attribute("aria-expanded") == "false"
+
+
+def test_a_task_cannot_be_made_to_depend_on_itself(loaded):
+    _open_task(loaded, "Backend")
+    before = _line(loaded, "Backend")
+    box = loaded.locator("#addDependencyInput")
+    box.fill("Backend")
+    box.press("Enter")
+    assert loaded.locator("#dependenciesList np-task-row").count() == 0
+    assert _line(loaded, "Backend") == before
+
+
+def test_a_long_match_list_is_capped(page, app_server):
+    tasks = "\n".join(f"  Step {i} 1d" for i in range(1, 61))
+    open_app(page, app_server)
+    load_plan(page, f"---\ntitle: Many\n---\n\nProject\n{tasks}\n  Wrap up 1d\n")
+    _open_task(page, "Wrap up")
+    page.locator("#addDependencyInput").press_sequentially("Step")
+    picker = _picker(page)
+    assert len(picker["options"]) == 50
+    assert picker["more"] and picker["more"].startswith("10 more")

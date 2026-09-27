@@ -4159,7 +4159,8 @@ function addDependencyRow(taskName = '', depType = 'FS', lagLead = '') {
     return row;
 }
 
-/** Commit the task named in the dependency add box on Enter. */
+/** Commit the task named in the dependency add box on Enter: the picker's
+ * keyboard-active option if there is one, else exactly what was typed. */
 function handleAddDependencyKeydown(event, input) {
     if (event.key !== 'Enter') {
         handleDependencyKeydown(event, input);
@@ -4168,8 +4169,8 @@ function handleAddDependencyKeydown(event, input) {
     event.preventDefault();
 
     const dropdown = document.getElementById(input.dataset.dropdown);
-    const selected = dropdown?.querySelector('.autocomplete-item.selected');
-    const typed = (selected ? selected.textContent : input.value).trim();
+    const selected = dropdown?.querySelector('np-task-row[selected]');
+    const typed = (selected ? selected.getAttribute('name') : input.value).trim();
     if (!typed) return;
 
     const match = getAllTaskNames().find(name => name.toLowerCase() === typed.toLowerCase());
@@ -4179,12 +4180,26 @@ function handleAddDependencyKeydown(event, input) {
         }
         return;
     }
+    commitDependencyPick(input, match);
+}
 
-    addDependencyRow(match);
+/** Add `name` as a predecessor of the task in the form, from the add box. */
+function commitDependencyPick(input, name) {
+    const self = (document.getElementById('taskName')?.value || '').trim().toLowerCase();
+    if (name.toLowerCase() === self) {
+        if (typeof showMessage === 'function') {
+            showMessage('editor', 'error', 'A task cannot depend on itself');
+        }
+        return;
+    }
+    // Already a predecessor: nothing to add, and a second row would write
+    // the same name into [depends] twice.
+    if (!dependencyListNames().has(name.toLowerCase())) {
+        addDependencyRow(name);
+        saveTask();
+    }
     input.value = '';
-    if (dropdown) dropdown.style.display = 'none';
-    dependencyAutocompleteSelectedIndex = -1;
-    saveTask();
+    hideDependencyPicker(input);
     input.focus();
 }
 
@@ -5088,96 +5103,138 @@ function selectResource(name) {
     saveTask();
 }
 
-// Dependency autocomplete functionality
-// Dependency autocomplete state is now in state.js
+// Dependency picker: the add-dependency box's dropdown is a listbox of
+// <np-task-row type="picker"> options (Penpot "Task row", picker). Each
+// shows the task's ID, dates, status, progress and people, so two tasks
+// with similar names can be told apart before one is picked. The keyboard
+// state (dependencyAutocompleteSelectedIndex) is in state.js.
+
+// Enough to scroll through; past it, typing more is quicker than scrolling.
+const DEPENDENCY_PICKER_LIMIT = 50;
+
+/** Lower-cased names already in the form's dependency list. */
+function dependencyListNames() {
+    return new Set([...document.querySelectorAll('#dependenciesList np-task-row')]
+        .map(row => (row.getAttribute('name') || '').toLowerCase()));
+}
+
+/**
+ * The tasks the add box offers for `query`: every task whose name contains
+ * it, less the task being edited and the ones it already depends on. Names
+ * that start with the query come first; each group keeps plan order.
+ */
+function dependencyPickerMatches(query) {
+    const q = String(query || '').trim().toLowerCase();
+    if (!q) return [];
+    const self = (document.getElementById('taskName')?.value || '').trim().toLowerCase();
+    const taken = dependencyListNames();
+    const names = [...new Set(getAllTaskNames())].filter(name => {
+        const lower = name.toLowerCase();
+        return lower.includes(q) && lower !== self && !taken.has(lower);
+    });
+    const starts = names.filter(name => name.toLowerCase().startsWith(q));
+    return starts.concat(names.filter(name => !name.toLowerCase().startsWith(q)));
+}
 
 function handleDependencyInput(input) {
     currentDependencyInput = input;
-    const dropdownId = input.getAttribute('data-dropdown');
-    const dropdown = document.getElementById(dropdownId);
-    const value = input.value.trim();
-
-    if (value.length === 0) {
-        dropdown.style.display = 'none';
-        dependencyAutocompleteSelectedIndex = -1;
-        saveTask();
+    const dropdown = document.getElementById(input.getAttribute('data-dropdown'));
+    const matches = dependencyPickerMatches(input.value);
+    if (!dropdown || matches.length === 0) {
+        hideDependencyPicker(input);
         return;
     }
+    renderDependencyPicker(dropdown, input, matches);
+}
 
-    // Get all task names
-    const allTasks = getAllTaskNames();
-    const matches = allTasks.filter(task =>
-        task.toLowerCase().includes(value.toLowerCase())
-    );
+function renderDependencyPicker(dropdown, input, matches) {
+    const editor = document.getElementById('planEditor');
+    const resourceMap = editor ? parseResourceMappings(editor.value) : {};
+    const byName = new Map((lastRenderedTasks || []).map(task => [task.name, task]));
 
-    if (matches.length === 0) {
-        dropdown.style.display = 'none';
-        dependencyAutocompleteSelectedIndex = -1;
-        saveTask();
-        return;
-    }
-
-    // Build dropdown
-    dropdown.innerHTML = '';
-    matches.forEach(task => {
-        const item = document.createElement('div');
-        item.className = 'autocomplete-item';
-        item.textContent = task;
-        item.onclick = () => selectDependency(task, input, dropdownId);
-        dropdown.appendChild(item);
+    const options = matches.slice(0, DEPENDENCY_PICKER_LIMIT).map((name, index) => {
+        const row = document.createElement('np-task-row');
+        row.className = 'dependency-picker-option';
+        row.id = `${dropdown.id}-option-${index}`;
+        row.setAttribute('type', 'picker');
+        row.setAttribute('density', 'compact');
+        row.setAttribute('name', name);
+        const task = byName.get(name);
+        if (task) {
+            if (task.id != null) row.setAttribute('task-id', String(task.id));
+            row.setAttribute('percent', String(parseInt(task.percent) || 0));
+            if (task.rag) row.setAttribute('rag', task.rag);
+            const dates = formatTaskRowDates(task.start, task.finish);
+            if (dates) row.setAttribute('meta', dates);
+            const people = taskRowResourceNames(task.resources, resourceMap);
+            if (people) row.setAttribute('resources', people);
+        }
+        // Picking must not take focus from the box: the next keystroke,
+        // and the next dependency, are typed there.
+        row.addEventListener('mousedown', (event) => event.preventDefault());
+        row.addEventListener('click', () => commitDependencyPick(input, name));
+        return row;
     });
 
+    const rest = matches.length - options.length;
+    if (rest > 0) {
+        const more = document.createElement('div');
+        more.className = 'dependency-picker-more';
+        more.setAttribute('role', 'presentation');
+        more.textContent = `${rest} more. Keep typing to narrow the list.`;
+        options.push(more);
+    }
+
+    dropdown.replaceChildren(...options);
     dropdown.style.display = 'block';
     dependencyAutocompleteSelectedIndex = -1;
-    saveTask();
+    input.setAttribute('aria-expanded', 'true');
+    input.removeAttribute('aria-activedescendant');
+}
+
+function hideDependencyPicker(input) {
+    const dropdown = input && document.getElementById(input.getAttribute('data-dropdown'));
+    if (dropdown) {
+        dropdown.style.display = 'none';
+        dropdown.replaceChildren();
+    }
+    dependencyAutocompleteSelectedIndex = -1;
+    if (input) {
+        input.setAttribute('aria-expanded', 'false');
+        input.removeAttribute('aria-activedescendant');
+    }
 }
 
 function handleDependencyKeydown(event, input) {
-    const dropdownId = input.getAttribute('data-dropdown');
-    const dropdown = document.getElementById(dropdownId);
-    if (dropdown.style.display !== 'block') return;
+    const dropdown = document.getElementById(input.getAttribute('data-dropdown'));
+    if (!dropdown || dropdown.style.display !== 'block') return;
 
-    const items = dropdown.querySelectorAll('.autocomplete-item');
-    if (items.length === 0) return;
+    const options = [...dropdown.querySelectorAll('np-task-row')];
+    if (options.length === 0) return;
 
     if (event.key === 'ArrowDown') {
         event.preventDefault();
-        dependencyAutocompleteSelectedIndex = Math.min(dependencyAutocompleteSelectedIndex + 1, items.length - 1);
-        updateDependencyAutocompleteSelection(items);
+        dependencyAutocompleteSelectedIndex = Math.min(dependencyAutocompleteSelectedIndex + 1, options.length - 1);
+        updateDependencyAutocompleteSelection(options, input);
     } else if (event.key === 'ArrowUp') {
         event.preventDefault();
         dependencyAutocompleteSelectedIndex = Math.max(dependencyAutocompleteSelectedIndex - 1, -1);
-        updateDependencyAutocompleteSelection(items);
-    } else if (event.key === 'Enter') {
-        event.preventDefault();
-        if (dependencyAutocompleteSelectedIndex >= 0) {
-            const selectedItem = items[dependencyAutocompleteSelectedIndex];
-            selectDependency(selectedItem.textContent, input, dropdownId);
-        }
+        updateDependencyAutocompleteSelection(options, input);
     } else if (event.key === 'Escape') {
-        dropdown.style.display = 'none';
-        dependencyAutocompleteSelectedIndex = -1;
+        hideDependencyPicker(input);
     }
 }
 
-function updateDependencyAutocompleteSelection(items) {
-    items.forEach((item, index) => {
-        if (index === dependencyAutocompleteSelectedIndex) {
-            item.classList.add('selected');
-            item.scrollIntoView({ block: 'nearest' });
-        } else {
-            item.classList.remove('selected');
-        }
+/** Mark the keyboard-active option, and tell assistive technology which. */
+function updateDependencyAutocompleteSelection(options, input) {
+    options.forEach((option, index) => {
+        const active = index === dependencyAutocompleteSelectedIndex;
+        option.toggleAttribute('selected', active);
+        if (active) option.scrollIntoView({ block: 'nearest' });
     });
-}
-
-function selectDependency(taskName, input, dropdownId) {
-    input.value = taskName;
-    const dropdown = document.getElementById(dropdownId);
-    dropdown.style.display = 'none';
-    dependencyAutocompleteSelectedIndex = -1;
-    input.focus();
-    saveTask();
+    const active = options[dependencyAutocompleteSelectedIndex];
+    if (input && active) input.setAttribute('aria-activedescendant', active.id);
+    else if (input) input.removeAttribute('aria-activedescendant');
 }
 
 // Label autocomplete functionality
@@ -5579,9 +5636,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const dropdownId = input.getAttribute('data-dropdown');
             if (dropdownId) {
                 const dropdown = document.getElementById(dropdownId);
-                if (dropdown && !input.contains(e.target) && !dropdown.contains(e.target)) {
-                    dropdown.style.display = 'none';
-                    dependencyAutocompleteSelectedIndex = -1;
+                if (dropdown && dropdown.style.display === 'block'
+                        && !input.contains(e.target) && !dropdown.contains(e.target)) {
+                    hideDependencyPicker(input);
                 }
             }
         });
