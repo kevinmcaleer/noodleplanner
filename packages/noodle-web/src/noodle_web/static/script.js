@@ -8835,6 +8835,17 @@ async function openRaidSyncReview(externalItems, filename) {
     });
     raidSyncPendingFilename = filename;
 
+    if (quietSyncRun()) {
+        if (entries.length === 0) {
+            reportSyncOutcomeIfRunning(RAID_SYNC_TARGET_KEY, 'nochange');
+            return;
+        }
+        if (!syncChangesNeedReview(entries)) {
+            await applyRaidSyncReview();
+            return;
+        }
+    }
+
     renderRaidSyncReview(entries);
 
     const overlay = document.getElementById('raidSyncOverlay');
@@ -8930,6 +8941,7 @@ function closeRaidSyncReview() {
 async function applyRaidSyncReview() {
     const module = await import('/static/raid-sync.js');
     const merged = module.applyRaidSyncDiff(raidItems, raidSyncPendingEntries, raidSyncPendingChoices);
+    const changeCount = syncChangeCount(raidSyncPendingEntries, raidSyncPendingChoices, (entry) => entry.id);
 
     raidItems = merged;
     raidNextId = merged.length ? Math.max(...merged.map(i => i.id)) + 1 : 1;
@@ -8983,7 +8995,8 @@ async function applyRaidSyncReview() {
         if (linked) {
             const writeResult = await LocalFileAccess.writeLinkedFile(projectId, RAID_SYNC_TARGET_KEY, result.buffer);
             if (writeResult && writeResult.ok) {
-                if (typeof showToast === 'function') {
+                // A quiet run's own toast reports the whole sync.
+                if (typeof showToast === 'function' && !quietSyncRun()) {
                     showToast('Wrote changes back to ' + writeResult.filename + ' — no download needed.', 'success');
                 }
             } else {
@@ -9002,7 +9015,7 @@ async function applyRaidSyncReview() {
         console.error('RAID sync write-back export failed:', error);
     }
 
-    reportSyncOutcomeIfRunning(RAID_SYNC_TARGET_KEY, 'applied');
+    reportSyncOutcomeIfRunning(RAID_SYNC_TARGET_KEY, 'applied', changeCount);
     closeRaidSyncReview();
 }
 
@@ -10123,7 +10136,8 @@ async function finishMspImport(finalTextOrMarkdown, filename) {
             const { bytes } = await exportMppInBrowser(parse, parse.project_name || null, { download: function () {} });
             const writeResult = await LocalFileAccess.writeLinkedFile(projectId, MSP_SYNC_TARGET_KEY, bytes);
             if (writeResult && writeResult.ok) {
-                if (typeof showToast === 'function') {
+                // A quiet run's own toast reports the whole sync.
+                if (typeof showToast === 'function' && !quietSyncRun()) {
                     showToast('Wrote the schedule back to ' + writeResult.filename + ' — no download needed.', 'success');
                 }
             } else {
@@ -10183,6 +10197,11 @@ async function openMspSyncReview(currentText, importedMarkdown, filename) {
     diff.entries.forEach((entry) => {
         mspSyncPendingChoices[entry.key] = diffModule.defaultTaskSyncChoice(entry.kind);
     });
+
+    if (quietSyncRun() && !syncChangesNeedReview(diff.entries)) {
+        await applyMspSyncReview();
+        return;
+    }
 
     renderMspSyncReview(diff.entries);
     const overlay = document.getElementById('mspSyncOverlay');
@@ -10290,9 +10309,10 @@ async function applyMspSyncReview() {
     syncModule.setMspSyncState(projectId, { taskBody: newTaskBody, syncedAt: new Date().toISOString() });
 
     const filename = mspSyncPendingFilename;
+    const changeCount = syncChangeCount(mspSyncPendingDiff.entries, mspSyncPendingChoices, (entry) => entry.key);
     closeMspSyncReviewSilently();
     await finishMspImport(finalText, filename);
-    reportSyncOutcomeIfRunning(MSP_SYNC_TARGET_KEY, 'applied');
+    reportSyncOutcomeIfRunning(MSP_SYNC_TARGET_KEY, 'applied', changeCount);
 }
 
 function closeMspSyncReviewSilently() {
@@ -10479,6 +10499,10 @@ async function openWorkbookSyncReview(read, filename) {
     const choices = {};
     diff.entries.forEach((entry) => { choices[entry.key] = sync.defaultWorkbookSyncChoice(entry.kind); });
     workbookSyncPending = { currentText, diff, choices, filename };
+    if (quietSyncRun() && !syncChangesNeedReview(diff.entries)) {
+        await applyWorkbookSyncReview();
+        return;
+    }
     renderWorkbookSyncReview(diff);
     document.getElementById('workbookSyncOverlay')?.classList.add('active');
 }
@@ -10626,7 +10650,8 @@ async function writeBackProjectWorkbook(filename) {
         if (linked) {
             const written = await LocalFileAccess.writeLinkedFile(projectId, WORKBOOK_SYNC_TARGET_KEY, result.buffer);
             if (written && written.ok) {
-                if (typeof showToast === 'function') showToast('Wrote the plan back to ' + written.filename + ' — no download needed.', 'success');
+                // A quiet run's own toast reports the whole sync.
+                if (typeof showToast === 'function' && !quietSyncRun()) showToast('Wrote the plan back to ' + written.filename + ' — no download needed.', 'success');
             } else {
                 await excel.exportPlanExcelInBrowser(parse, { projectName: parse.project_name || null, budgetItems, filename: name });
                 const reason = written && written.needsRelink ? ' Re-link it in Settings > Sync to restore one-click sync.' : '';
@@ -10655,6 +10680,37 @@ async function writeBackProjectWorkbook(filename) {
 /** sync-hub.js's outcome report, when a Sync-button run is in progress. */
 function reportSyncOutcomeIfRunning(targetKey, outcome, detail) {
     if (typeof reportSyncOutcome === 'function') reportSyncOutcome(targetKey, outcome, detail);
+}
+
+/**
+ * Whether this sync is the Sync button's one-click run (sync-hub.js): the
+ * button is for keeping the linked files in step quickly, so each target
+ * applies its changes and writes back without opening its review, and the
+ * run's own toast says when it is done. Settings > Sync's Sync Now is not
+ * one, and still reviews every change.
+ */
+function quietSyncRun() {
+    return typeof isQuietSyncRun === 'function' && isQuietSyncRun();
+}
+
+/**
+ * Whether a sync diff holds a change no default should settle unseen, so a
+ * quiet run opens the review after all: a conflict (both sides changed the
+ * same item -- the default keeps the plan's, which would silently throw the
+ * file's edit away) or a removal (the default keeps the item, and the
+ * write-back would then put it straight back into the file it was deleted
+ * from). Added and updated items are one-sided and safe to take.
+ */
+function syncChangesNeedReview(entries) {
+    return entries.some((entry) => entry.kind === 'conflict' || entry.kind === 'removed');
+}
+
+function syncChangeCount(entries, choices, keyOf) {
+    const n = entries.filter((entry) => {
+        const choice = choices[keyOf(entry)];
+        return entry.kind === 'conflict' ? choice === 'keep-theirs' : choice === 'accept';
+    }).length;
+    return n + ' change' + (n === 1 ? '' : 's');
 }
 
 // ===== Excel Import Wizard =====

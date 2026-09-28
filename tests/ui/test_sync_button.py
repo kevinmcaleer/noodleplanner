@@ -7,8 +7,9 @@ does in each state the sync targets can be in:
 - a link needing permission again: a Re-link path, not a silent failure;
 - a browser that cannot keep a file link: an honest description of the
   choose-the-file-each-time fallback;
-- everything linked: it syncs, shows the run on the button, and says how
-  each target ended.
+- everything linked: it syncs in one click -- applies the changes, writes
+  back, and says how each target ended -- opening a review only for a change
+  that needs a decision (a conflict or a removal).
 
 The last one runs the whole project-workbook round trip in the page: the
 plan is exported with the app's own workbook builder, a `% Complete` is
@@ -145,29 +146,79 @@ def test_a_link_needing_permission_gets_a_relink_path(page, app_server):
     )
 
 
-def test_a_linked_workbook_syncs_reviews_and_writes_back(page, app_server):
+def test_a_linked_workbook_syncs_in_one_click_without_a_review(page, app_server):
+    """Once set up, the button is for keeping the files in step quickly: it
+    applies what changed, writes back, and says so -- no dialog in the way."""
     _open(page, app_server)
     _workbook_with_edit(page, "Review", 100)
+    _stub_links(page, {"project-excel": "linked"})
+    page.evaluate("() => { window.__toasts = []; const t = window.showToast; window.showToast = (m, k) => { window.__toasts.push(m); return t(m, k); }; }")
+    _click_sync(page)
+
+    # The run ends only once the write-back and its front-matter stamp are
+    # both done, so wait for that rather than for the write alone.
+    page.wait_for_function("() => window.__written && window.__written.key === 'project-excel' && !isSyncRunning()")
+    assert page.locator("#workbookSyncOverlay.active").count() == 0
+    assert page.locator("#syncHubOverlay.active").count() == 0
+    editor = plan_text(page)
+    assert "  Review 2d 100%" in editor
+    assert "workbook_file: Office move.xlsx" in editor
+    assert page.locator('button[data-label="Sync"][data-sync-state="running"]').count() == 0
+    # One toast for the run, saying what happened, not one per step.
+    toasts = page.evaluate("() => window.__toasts")
+    assert toasts == ["Synced 1 file — Project workbook: changes applied (1 change)."]
+
+
+def test_a_removal_still_opens_the_review_from_the_button(page, app_server):
+    """A deleted row needs a decision: the default keeps the task, and the
+    write-back would then put it straight back into the workbook."""
+    _open(page, app_server)
+    _workbook_with_edit(page, None, None)
+    page.evaluate(
+        """async () => {
+            const excel = await import('/static/browser-excel.js');
+            const workbook = await excel.loadPlanWorkbook(window.__workbookBytes);
+            const sheet = workbook.getWorksheet('Tasks');
+            sheet.eachRow((row, n) => { if (String(row.getCell(2).value).trim() === 'UI') sheet.spliceRows(n, 1); });
+            window.__workbookBytes = await workbook.xlsx.writeBuffer();
+        }"""
+    )
     _stub_links(page, {"project-excel": "linked"})
     _click_sync(page)
 
     review = page.locator("#workbookSyncOverlay.active")
     review.wait_for()
-    # The run is visible on the button while the review is open.
     assert page.locator('button[data-label="Sync"][data-sync-state="running"]').count() == 1
+    kinds = review.locator(".raid-sync-kind-badge").all_inner_texts()
+    assert "removed" in [k.lower() for k in kinds]
+
+
+def _run_with_review(page):
+    """A run that reviews every change: what Settings > Sync's Sync Now and
+    the per-target paths do, as opposed to the button's one-click run."""
+    page.evaluate(
+        "() => { runSyncTargets([SYNC_TARGET_DEFS.find((d) => d.targetKey === 'project-excel')]); }"
+    )
+
+
+def test_a_reviewed_sync_applies_and_writes_back(page, app_server):
+    _open(page, app_server)
+    _workbook_with_edit(page, "Review", 100)
+    _stub_links(page, {"project-excel": "linked"})
+    _run_with_review(page)
+
+    review = page.locator("#workbookSyncOverlay.active")
+    review.wait_for()
+    # The run waits on the review.
+    assert page.evaluate("() => isSyncRunning()")
     entries = review.locator(".raid-sync-entry")
     assert entries.count() == 1
     assert "Review" in entries.first.inner_text()
     assert entries.first.locator(".raid-sync-kind-badge").inner_text().lower() == "updated"
 
     review.locator("np-button[variant=primary]").click()
-    # The run ends only once the write-back and its front-matter stamp are
-    # both done, so wait for that rather than for the write alone.
     page.wait_for_function("() => window.__written && window.__written.key === 'project-excel' && !isSyncRunning()")
-    editor = plan_text(page)
-    assert "  Review 2d 100%" in editor
-    assert "workbook_file: Office move.xlsx" in editor
-    assert page.locator('button[data-label="Sync"][data-sync-state="running"]').count() == 0
+    assert "  Review 2d 100%" in plan_text(page)
 
 
 def test_an_unchanged_workbook_syncs_without_a_review(page, app_server):
@@ -185,7 +236,7 @@ def test_cancelling_a_review_ends_the_run(page, app_server):
     _open(page, app_server)
     _workbook_with_edit(page, "Review", 100)
     _stub_links(page, {"project-excel": "linked"})
-    _click_sync(page)
+    _run_with_review(page)
 
     review = page.locator("#workbookSyncOverlay.active")
     review.wait_for()
