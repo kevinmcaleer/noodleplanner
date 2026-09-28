@@ -284,6 +284,7 @@ function updateReportPage(tasks, projectName, frontMatter) {
         // Populate quad sections
         updateReportMilestones(tasks);
         updateReportRaid();
+        if (typeof updateReportActions === 'function') updateReportActions();
         updateReportUpNext(tasks);
         updateReportHighlight();
         updateReportDonutChart(tasks);
