@@ -160,6 +160,32 @@ def test_download_a_copy_leaves_the_linked_file_alone(page, app_server):
     wait_for_link_status(page, "🔗 " + FILE_NAME)
 
 
+def test_export_markdown_downloads_even_with_a_linked_file(page, app_server):
+    """Report > Export > Markdown: a copy to Downloads whatever Save does,
+    for when the linked file can't be written."""
+    _saved(page, app_server)
+
+    page.click('.ribbon-tab-btn[data-tab="report"]')
+    page.click('button[data-label="Export"]')
+    with page.expect_download() as download:
+        page.click(".ribbon-file-menu-item:has-text('Markdown (.md)')")
+    assert download.value.suggested_filename == "office_move_plan_v1.2.md"
+    with open(download.value.path(), encoding="utf-8") as f:
+        text = f.read()
+    assert "version: 1.2" in text and "Wireframes 3d" in text
+    assert "version: 1.1" in opfs_read(page, FILE_NAME), "the linked file was not written"
+    assert _dialogs_opened(page) == [FILE_NAME], "and no dialog opened"
+
+
+def test_export_markdown_downloads_without_file_access(page, app_server):
+    _open(page, app_server, init_script=NO_FILE_ACCESS)
+    page.click('.ribbon-tab-btn[data-tab="report"]')
+    page.click('button[data-label="Export"]')
+    with page.expect_download() as download:
+        page.click(".ribbon-file-menu-item:has-text('Markdown (.md)')")
+    assert download.value.suggested_filename == "office_move_plan_v1.1.md"
+
+
 def test_save_as_and_download_a_copy_show_only_where_save_can_write_files(page, app_server):
     _open(page, app_server)
     _show_backstage(page)
