@@ -26,6 +26,11 @@ runs:
       uses: astral-sh/setup-uv@v5
       with:
         enable-cache: true
+        # Jobs that never run uv (design, storybook) leave no cache directory
+        # behind. On a cache hit that is harmless, but a PR that changes uv.lock
+        # misses the cache, and the post-step then fails the job over a cache
+        # it had nothing to put in.
+        ignore-nothing-to-cache: true
         python-version: "3.12"
 
     - name: Set up Node
