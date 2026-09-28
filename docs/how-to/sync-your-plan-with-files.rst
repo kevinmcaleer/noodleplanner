@@ -42,10 +42,17 @@ Press Sync
   For the project workbook you can also choose **Create…**, which saves a
   new workbook of the current plan and links it in one step.
 - **Everything linked.** Sync runs straight away, one target after
-  another. The button shows it is busy until the run finishes. Each target
-  with changes opens its own review. When the run ends, a message lists what
-  happened to each target: changes applied, already up to date, review
-  cancelled, skipped or failed.
+  another, with no dialog. The button shows it is busy until the run
+  finishes. Each target takes the changes made in its file, and the plan is
+  written back out to the file. When the run ends, a message lists what
+  happened to each target: changes applied (and how many), already up to
+  date, review cancelled, skipped or failed.
+
+  A target only stops to ask when a change needs a decision: a **conflict**,
+  where the plan and the file both changed the same item, or a **removal**,
+  where something was deleted from the file. Then that target opens its
+  review, and the run waits for it. To review every change before it is
+  applied, use **Sync Now** in **Settings › Sync** instead.
 - **A link needs permission again.** Browsers forget file permissions
   between sessions. The dialog lists the targets that need permission again,
   each with a **Re-link** button, and a button that syncs the targets that

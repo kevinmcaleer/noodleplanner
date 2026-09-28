@@ -12,8 +12,14 @@
  *     file, with a Create button for the one NoodlePlanner can write from
  *     scratch (the project workbook).
  *   - **Linked, and this browser can use every link.** Sync them all, one
- *     after the other, with no dialog of its own: each target opens its own
- *     review when something changed.
+ *     after the other, with no dialog at all: each target applies what
+ *     changed in its file, writes the plan back out to it, and a toast says
+ *     when it is done. The button is for keeping the files in step quickly,
+ *     so a review would only break the flow. The one exception is a change
+ *     that needs a decision: a conflict (the plan and the file both changed
+ *     the same item) or a removal (which no default should take for you).
+ *     Only then does that target open its review. Settings > Sync's Sync Now
+ *     still reviews every change, for when you want to look first.
  *   - **A link needs attention.** A handle whose permission lapsed
  *     (needs-relink), or a file the plan was synced with in another browser,
  *     cannot be reached without a click: permission prompts need one. List
@@ -47,6 +53,7 @@ const syncRun = {
     running: false,
     current: null,       // the target def being synced
     queue: [],           // the defs this run covers
+    quiet: false,        // apply without a review unless a change needs a decision
     outcomes: new Map(), // targetKey -> { outcome, detail }
     waiters: new Map(),  // targetKey -> resolve()
 };
@@ -70,6 +77,13 @@ function reportSyncOutcome(targetKey, outcome, detail) {
 
 function isSyncRunning() {
     return syncRun.running;
+}
+
+/** Whether the run in progress is the Sync button's one-click kind: each
+ *  target applies its changes and writes back without opening its review,
+ *  unless a change needs a decision (script.js's syncChangesNeedReview). */
+function isQuietSyncRun() {
+    return syncRun.running && syncRun.quiet;
 }
 
 function syncHubProjectId() {
@@ -133,7 +147,7 @@ async function runFrontOfHouseSync() {
         openSyncHub(mode, states);
         return;
     }
-    await runSyncTargets(states.filter((s) => s.configured).map((s) => s.def));
+    await runSyncTargets(states.filter((s) => s.configured).map((s) => s.def), { quiet: true });
 }
 
 function setSyncButtonState() {
@@ -153,6 +167,7 @@ function overlayIsOpen(id) {
 async function runSyncTargets(defs, options) {
     if (syncRun.running || !defs.length) return;
     syncRun.running = true;
+    syncRun.quiet = Boolean(options && options.quiet);
     syncRun.queue = defs.slice();
     syncRun.outcomes = new Map();
     syncRun.waiters = new Map();
@@ -177,6 +192,7 @@ async function runSyncTargets(defs, options) {
 
     const results = defs.map((def) => ({ def, ...syncRun.outcomes.get(def.targetKey) }));
     syncRun.running = false;
+    syncRun.quiet = false;
     syncRun.current = null;
     setSyncButtonState();
     renderSyncHubIfOpen();
@@ -220,10 +236,10 @@ function renderSyncHubIfOpen() {
 }
 
 const SYNC_HUB_INTRO = {
-    setup: 'Sync keeps this plan and the files other people work in the same. Nothing is linked yet: link a file below, and from then on this button reads the changes made in it, lets you review them, and writes the plan back out.',
+    setup: 'Sync keeps this plan and the files other people work in the same. Nothing is linked yet: link a file below, and from then on this button reads the changes made in it, applies them, and writes the plan back out — it only stops to ask about a conflict or a removal.',
     manual: 'This browser can’t remember a file between syncs, so Sync can’t be one click here: choose the file each time, and the updated copy downloads rather than overwriting it. Chrome and Edge can link a file once and sync it in one click.',
     attention: 'Some linked files need your permission again before this browser can read them. Re-link them below, then sync. Files that are ready sync as they are.',
-    manage: 'The files this plan syncs with. Link another file, change a linked file for a different one, or unlink one. Sync reads the changes made in each linked file, lets you review them, and writes the plan back out.',
+    manage: 'The files this plan syncs with. Link another file, change a linked file for a different one, or unlink one. Sync reads the changes made in each linked file, applies them, and writes the plan back out.',
     running: 'Syncing…',
 };
 
@@ -351,7 +367,7 @@ async function syncHubAction(action, s, list) {
         const ready = list.filter((x) => x.configured && x.status === 'linked').map((x) => x.def);
         const skipped = list.filter((x) => x.configured && x.status !== 'linked');
         closeSyncHub();
-        const results = await runSyncTargets(ready);
+        const results = await runSyncTargets(ready, { quiet: true });
         if (skipped.length && typeof showToast === 'function') {
             showToast('Not synced, still waiting to be re-linked: ' + skipped.map((x) => x.def.label).join(', ') + '.', 'info');
         }
