@@ -559,36 +559,6 @@
     transform: scale(1.2);
 }
 
-/* Mini Piechart - replaces checkbox for tasks with percentage */
-.mini-piechart {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: conic-gradient(#28a745 0% var(--percent), #e0e0e0 var(--percent) 100%);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: transform 0.15s ease;
-    position: relative;
-}
-
-.mini-piechart:hover {
-    transform: scale(1.2);
-}
-
-.mini-piechart.complete {
-    background: var(--np-success);
-}
-
-.mini-piechart.complete::after {
-    content: '\2713';
-    display: block;
-    color: white;
-    font-size: 10px;
-    line-height: 16px;
-    text-align: center;
-    font-weight: bold;
-}
-
 /* Confetti burst animation */
 .confetti-particle {
     position: fixed;

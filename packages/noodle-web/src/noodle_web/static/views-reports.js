@@ -184,10 +184,18 @@ function renderAssignments() {
             tr.appendChild(reportEl('td', null, row.task.start || ''));
             tr.appendChild(reportEl('td', null, inclusiveFinish(row.task)));
             tr.appendChild(reportEl('td', null, `${row.task.duration_days || 0}d`));
-            tr.appendChild(reportEl('td', null, String(row.task.percent || 0).replace('%', '') + '%'));
-            tr.appendChild(reportEl('td', `report-status report-status--${row.status}`,
+            // Completion, RAG and people are the task row's own parts (script.js).
+            const percent = reportEl('td', 'report-percent');
+            percent.appendChild(reportCompletionCell(row.task.percent));
+            tr.appendChild(percent);
+            const status = reportEl('td', `report-status report-status--${row.status}`);
+            status.appendChild(reportRagCell(row.task.rag, { labelled: false, done: row.status === 'complete' }));
+            status.appendChild(document.createTextNode(
                 row.status === 'overdue' ? 'Overdue' : row.status === 'complete' ? 'Complete' : 'Open'));
-            tr.appendChild(reportEl('td', null, row.sharedWith.join(', ')));
+            tr.appendChild(status);
+            const shared = reportEl('td', 'report-people');
+            shared.appendChild(reportPeopleCell(row.sharedWith));
+            tr.appendChild(shared);
             const open = () => {
                 if (typeof openTaskInspectorByName === 'function') openTaskInspectorByName(row.task.name);
             };
@@ -247,7 +255,14 @@ function slippageTable(rows, columns) {
     const tbody = reportEl('tbody');
     rows.forEach(row => {
         const r = reportEl('tr', `report-row report-row--${row.status || ''}` + (row.critical ? ' report-row--critical' : ''));
-        columns.forEach(([, value, className]) => r.appendChild(reportEl('td', className ? className(row) : null, value(row))));
+        // A column's value is text, or a node (a status dot) to put in the cell.
+        columns.forEach(([, value, className]) => {
+            const content = value(row);
+            const cell = reportEl('td', className ? className(row) : null,
+                content instanceof Node ? undefined : content);
+            if (content instanceof Node) cell.appendChild(content);
+            r.appendChild(cell);
+        });
         tbody.appendChild(r);
     });
     table.appendChild(tbody);
@@ -255,6 +270,13 @@ function slippageTable(rows, columns) {
 }
 
 const SLIPPAGE_STATUS = { slipped: 'Slipped', 'on-track': 'On track', 'pulled-forward': 'Pulled forward' };
+
+/** A slippage status as the task row's dot, in words: red for a slipped
+ * finish (the colour its variance is already printed in), green otherwise. */
+const SLIPPAGE_RAG = { slipped: 'red', 'on-track': 'green', 'pulled-forward': 'green' };
+function slippageStatusCell(status) {
+    return reportRagCell(SLIPPAGE_RAG[status] || '', { label: SLIPPAGE_STATUS[status] || '' });
+}
 
 function renderSlippage(container, report) {
     const p = report.project;
@@ -317,7 +339,7 @@ function renderSlippage(container, report) {
         ['Finish', r => inclusiveFinish(r.task)],
         ['Start var.', r => formatVariance(r.startVariance)],
         ['Finish var.', r => formatVariance(r.finishVariance), r => `report-variance report-variance--${r.status}`],
-        ['Status', r => SLIPPAGE_STATUS[r.status]],
+        ['Status', r => slippageStatusCell(r.status)],
     ]));
 
     if (report.added.length || report.removed.length) {

@@ -4036,16 +4036,7 @@ function productAddActivity(name) {
 /** Tick or untick an activity from the product form: its own line's
  * percent, the same edit a subtask's checkbox makes in the task form. */
 function productSetActivityPercent(taskName, percent) {
-    const editor = document.getElementById('planEditor');
-    if (!editor || !taskName || typeof updatePercentInLine !== 'function') return;
-    const lineNumber = findTaskLineNumber({ name: taskName });
-    if (!(lineNumber > 0)) return;
-    const lines = editor.value.split('\n');
-    lines[lineNumber - 1] = updatePercentInLine(lines[lineNumber - 1], percent);
-    editor.value = lines.join('\n');
-    if (editor._updateLineNumbers) editor._updateLineNumbers();
-    editor.dispatchEvent(new Event('input'));
-    productFormRefresh();
+    if (setTaskPercentByName(taskName, percent)) productFormRefresh();
 }
 
 function productDeleteActivity(taskName) {

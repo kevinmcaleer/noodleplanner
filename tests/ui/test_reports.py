@@ -70,7 +70,8 @@ def test_assignments_groups_people_and_puts_unassigned_first(reports):
     alex = page.locator('#assignmentsGroups .assignment-group[data-person="alex chen"]')
     assert "Developer" in alex.locator(".assignment-group-role").text_content()
     review = alex.locator("tr", has_text="Review")
-    assert "shared" in review.text_content() and "Sam Lee" in review.text_content()
+    assert "shared" in review.text_content()
+    assert review.locator("np-resource-stack").get_attribute("names") == "Sam Lee"
 
 
 def test_assignment_filters(reports):

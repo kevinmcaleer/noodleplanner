@@ -744,6 +744,8 @@ function renderGanttRows() {
 
     // For the Predecessors column: once per render, not once per row
     const nameToId = buildTaskNameToIdMap(ganttTasks);
+    // For the people chips' profile cards: likewise
+    const resourceDetails = taskGridResourceDetails();
 
     ganttTasks.forEach((task, index) => {
         // Skip hidden tasks (children of collapsed summary tasks)
@@ -770,16 +772,15 @@ function renderGanttRows() {
             infoRow.style.color = cfStyle.color;
         }
 
-        // Done piechart cell (skip for summary tasks)
+        // Completion: the task row's box (skip for summary tasks; editor-sync.js)
         const doneCell = document.createElement('td');
         doneCell.classList.add('gantt-done-cell');
         if (!task.is_summary) {
             const percent = parseFloat(task.percent) || 0;
-            const piechart = createMiniPiechart(percent, (newPercent) => {
+            doneCell.appendChild(createTaskCompletionBox(percent, (newPercent) => {
                 task.percent = newPercent;
                 syncGanttPercentToEditor(task, index);
-            });
-            doneCell.appendChild(piechart);
+            }, task.name));
         }
         infoRow.appendChild(doneCell);
 
@@ -853,15 +854,11 @@ function renderGanttRows() {
         setupGanttEditableCell(finishCell, () => makeEditable(finishCell, task, index));
         infoRow.appendChild(finishCell);
 
-        // Resources cell (editable, unless inherited)
+        // Resources cell (editable): the task row's people chips (views-tables.js)
         const resourcesCell = document.createElement('td');
-        resourcesCell.classList.add('editable');
+        resourcesCell.classList.add('editable', 'task-grid-people');
         resourcesCell.dataset.field = 'resources';
-        resourcesCell.textContent = task.resources || '-';
-        if (task.inherited_resource) {
-            resourcesCell.style.fontStyle = 'italic';
-            resourcesCell.title = 'Inherited from parent summary task';
-        }
+        fillTaskGridPeople(resourcesCell, task, resourceDetails);
         setupGanttEditableCell(resourcesCell, () => makeEditable(resourcesCell, task, index));
         infoRow.appendChild(resourcesCell);
 
@@ -873,18 +870,10 @@ function renderGanttRows() {
         setupGanttEditableCell(percentCell, () => makeEditable(percentCell, task, index));
         infoRow.appendChild(percentCell);
 
-        // RAG cell (not editable)
+        // RAG cell (not editable): the task row's dot (views-tables.js)
         const ragCell = document.createElement('td');
         ragCell.classList.add('gantt-rag-cell');
-        if (task.rag) {
-            const ganttRagColour = ragStatusToColour(task.rag);
-            const ragDot = document.createElement('span');
-            ragDot.className = 'gantt-rag-dot' + (ganttRagColour ? ' rag-' + ganttRagColour : '');
-            ragDot.title = task.rag;
-            ragCell.appendChild(ragDot);
-        } else {
-            ragCell.textContent = '-';
-        }
+        fillTaskGridRag(ragCell, task);
         infoRow.appendChild(ragCell);
 
         // Priority cell (editable)

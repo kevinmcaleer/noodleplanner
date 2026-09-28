@@ -246,14 +246,14 @@ def test_a_long_press_on_a_cell_opens_its_menu_and_does_not_edit(tablet_landscap
     pg.wait_for_selector(cell)
     _press(pg, cell, hold_ms=650)
     pg.wait_for_selector("#activeTaskContextMenu .task-context-menu-item", state="attached")
-    assert pg.locator("#tasksTableBody input").count() == 0
+    assert pg.locator("#tasksTableBody td.editing").count() == 0
 
 
 # ── Tap to edit ──────────────────────────────────────────────────────────
 
 
 # Name, Duration, Start, Finish, Resources, %, Priority, Bucket, Comment,
-# Predecessors -- 1-based, after the drag handle and the done pie.
+# Predecessors -- 1-based, after the drag handle and the completion box.
 @pytest.mark.parametrize("column", [4, 5, 6, 7, 8, 9, 13, 14, 15, 16])
 def test_a_tap_edits_a_tasks_cell(tablet_landscape, app_server, column):
     pg = tablet_landscape
@@ -460,12 +460,12 @@ def test_the_long_presses_share_one_helper(file):
     assert not re.search(r"setTimeout\([^;]*?LONG_PRESS_MS", code, re.S), file
 
 
-def test_a_tap_on_the_mini_pie_toggles_and_a_hold_opens_its_menu(tablet_landscape, app_server):
+def test_a_tap_on_the_completion_box_toggles_and_a_hold_opens_its_menu(tablet_landscape, app_server):
     pg = tablet_landscape
     open_app(pg, app_server)
     load_plan(pg, PLAN)
     _view(pg, "tasks")
-    pie = "#tasksTableBody tr:nth-child(2) .mini-piechart"
+    pie = "#tasksTableBody tr:nth-child(2) np-checkbox.task-grid-checkbox"
     pg.wait_for_selector(pie)
     _press(pg, pie)
     pg.wait_for_function("() => /Research[^\\n]*100%/.test(document.getElementById('planEditor').value)")

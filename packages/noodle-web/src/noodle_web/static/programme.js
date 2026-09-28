@@ -64,7 +64,7 @@
  * sibling section markers), benefits.js (parseBenefitsMarkdown), script.js
  * (NavigationController), ribbon.js (setRibbonScope), project-storage.js
  * (listProjects), portfolio-dependencies.js (getAllProgrammeDependencies,
- * propagateProgrammeDependencies, ragCircleHtml, ragToColour,
+ * propagateProgrammeDependencies, ragCircleHtml,
  * showAddDependencyDialog, showEditDependencyDialog,
  * confirmDeleteProgrammeDependency), portfolio-resources.js
  * (aggregateResourceDemandVsCapacity), programme-data-store.js
@@ -736,7 +736,7 @@ function renderProgrammeDependencyBoard(deps, propagationResult) {
             '<td>' + toName + '</td>' +
             '<td>' + escapeHtml(dep.to_task_name) + '</td>' +
             '<td><span class="programme-dep-scope programme-dep-scope--' + dep.scope + '">' + scopeLabel + '</span></td>' +
-            '<td style="max-width:220px;font-size:0.85em;color:' + ragToColour(rag) + ';">' + escapeHtml(reason) + '</td>' +
+            '<td class="dep-reason">' + escapeHtml(reason) + '</td>' +
             '<td><button class="btn-secondary btn-sm" ' +
             'onclick="showEditDependencyDialog(\'' + dep.id + '\')" aria-label="Edit dependency">Edit</button> ' +
             '<button class="btn-danger btn-sm" ' +

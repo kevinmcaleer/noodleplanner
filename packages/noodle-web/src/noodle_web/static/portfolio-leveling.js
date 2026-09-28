@@ -506,7 +506,9 @@ function renderLevellingSuggestionsPanel(suggestions) {
         html += '<tr>' +
             '<td>' + escapeHtml(s.projectName) + '</td>' +
             '<td>' + escapeHtml(s.taskName) + '</td>' +
-            '<td>@' + escapeHtml(s.resourceDisplay) + '</td>' +
+            '<td><span class="report-person">' +
+                '<np-resource-stack names="' + escapeHtml(s.resourceDisplay) + '" max="1"></np-resource-stack>' +
+                '@' + escapeHtml(s.resourceDisplay) + '</span></td>' +
             '<td>' + s.originalStart + '</td>' +
             '<td><strong>' + s.proposedStart + '</strong></td>' +
             '<td style="text-align:center;">+' + s.shiftWorkingDays + '</td>' +

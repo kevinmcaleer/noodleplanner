@@ -4,7 +4,7 @@
  * The engine reports RAG as a descriptive status ("On track", "Task
  * overdue"); older plans and some views hold the colour itself. Both map to
  * green, amber, red or blue -- --np-success, --np-warning, --np-danger and
- * --np-info in <np-task-row>. script.js's ragStatusToColour() carries the
+ * --np-info in <np-rag>. script.js's ragStatusToColour() carries the
  * same table for the views that still paint RAG themselves;
  * tests/test_np_task_row.mjs fails if the two disagree.
  *

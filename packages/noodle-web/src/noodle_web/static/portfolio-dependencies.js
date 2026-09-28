@@ -336,7 +336,8 @@ async function propagateProgrammeDependencies(parsedProjects, deps) {
 // -------------------------------------------------------------------
 
 /**
- * Map a RAG string to a CSS colour value.
+ * Map a RAG string to a CSS colour value, for the dependency arrows drawn
+ * over the portfolio timeline. The tables use ragCircleHtml()'s <np-rag>.
  * @param {string} rag  'red', 'amber', 'green', 'grey'
  * @returns {string}
  */
@@ -352,18 +353,18 @@ function ragToColour(rag) {
 }
 
 /**
- * Build a small RAG circle SVG/HTML element.
- * @param {string} rag
+ * A dependency's RAG as the task row's dot, <np-rag>, named by `title` for
+ * its tooltip and screen readers. 'grey' -- not yet evaluated -- is the
+ * hollow "no status" ring; 'blue' is complete.
+ * @param {string} rag  'red', 'amber', 'green', 'grey' or 'blue'
  * @param {string} title  Tooltip text
  * @returns {string} HTML string
  */
 function ragCircleHtml(rag, title) {
-    const colour = ragToColour(rag);
-    return (
-        '<span class="dep-rag-circle" style="display:inline-block;width:14px;height:14px;' +
-        'border-radius:50%;background:' + colour + ';vertical-align:middle;' +
-        'margin-right:4px;flex-shrink:0;" title="' + escapeHtml(title || rag) + '"></span>'
-    );
+    const status = rag === 'grey' || rag === 'blue' ? '' : (rag || '');
+    return '<np-rag class="dep-rag" status="' + escapeHtml(status) + '"' +
+        (rag === 'blue' ? ' done' : '') +
+        ' label="' + escapeHtml(title || rag || 'No status') + '"></np-rag>';
 }
 
 // -------------------------------------------------------------------
@@ -440,8 +441,7 @@ function renderProgrammeDependenciesView(containerId, parsedProjects, propagatio
             html += '<td>' + toName + '</td>';
             html += '<td>' + escapeHtml(dep.to_task_name) + '</td>';
             html += '<td>' + (dep.lag_days || 0) + '</td>';
-            html += '<td style="max-width:220px;font-size:0.85em;color:' +
-                ragToColour(rag) + ';">' + escapeHtml(reason) + '</td>';
+            html += '<td class="dep-reason">' + escapeHtml(reason) + '</td>';
             html += '<td><button class="btn-secondary btn-sm" ' +
                 'onclick="showEditDependencyDialog(\'' + dep.id + '\')" aria-label="Edit dependency">Edit</button> ' +
                 '<button class="btn-danger btn-sm" ' +

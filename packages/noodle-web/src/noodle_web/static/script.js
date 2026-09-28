@@ -304,17 +304,23 @@ function setEditorValuePreservingCursor(editor, newValue) {
  */
 /**
  * Copy a table element as a tab-separated text table to the clipboard.
+ *
+ * A report list of <np-task-row>s copies as the table it replaced: the
+ * list's `data-copy-header` line, then each row's `data-copy` line.
  */
 async function copyTableAsText(tableElement, feedbackBtn) {
     if (!tableElement) return;
-    const table = tableElement.querySelector('table') || tableElement;
-    const rows = table.querySelectorAll('tr');
     const lines = [];
-    rows.forEach(row => {
-        const cells = row.querySelectorAll('th, td');
-        const values = Array.from(cells).map(c => c.textContent.trim());
-        lines.push(values.join('\t'));
-    });
+    if (tableElement.dataset && tableElement.dataset.copyHeader !== undefined) {
+        lines.push(tableElement.dataset.copyHeader);
+        tableElement.querySelectorAll('[data-copy]').forEach(row => lines.push(row.dataset.copy));
+    } else {
+        const table = tableElement.querySelector('table') || tableElement;
+        table.querySelectorAll('tr').forEach(row => {
+            const cells = row.querySelectorAll('th, td');
+            lines.push(Array.from(cells).map(c => c.textContent.trim()).join('\t'));
+        });
+    }
     const text = lines.join('\n');
     try {
         await navigator.clipboard.writeText(text);
@@ -1331,33 +1337,26 @@ async function exportReportPptx() {
     const dateEl = document.getElementById('reportDate');
     const reportDate = dateEl ? dateEl.textContent : new Date().toISOString().split('T')[0];
 
-    // Collect milestones from the table
+    // Collect milestones and up next from the dashboard's rows, which keep
+    // the raw date and status the slide shows (updateReportMilestones /
+    // updateReportUpNext in views-tables.js).
     const milestones = [];
-    const msRows = document.querySelectorAll('#reportMilestonesTableBody tr');
-    msRows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (cells.length >= 3) {
-            milestones.push({
-                name: cells[0].textContent.trim(),
-                date: cells[1].textContent.trim(),
-                rag: cells[2].textContent.trim()
-            });
-        }
+    document.querySelectorAll('#reportMilestonesTable np-task-row').forEach(row => {
+        milestones.push({
+            name: row.getAttribute('name') || '',
+            date: row.dataset.date || '',
+            rag: row.dataset.rag || ''
+        });
     });
 
-    // Collect up next from the table
     const upNext = [];
-    const unRows = document.querySelectorAll('#reportUpNextTableBody tr');
-    unRows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (cells.length >= 4) {
-            upNext.push({
-                name: cells[0].textContent.trim(),
-                start: cells[1].textContent.trim(),
-                finish: cells[2].textContent.trim(),
-                rag: cells[3].textContent.trim()
-            });
-        }
+    document.querySelectorAll('#reportUpNextTable np-task-row').forEach(row => {
+        upNext.push({
+            name: row.getAttribute('name') || '',
+            start: row.dataset.start || '',
+            finish: row.dataset.finish || '',
+            rag: row.dataset.rag || ''
+        });
     });
 
     // Collect latest highlight from the data model (not the DOM) to preserve
@@ -3666,7 +3665,8 @@ function populateSubtasks(parentLineNumber, lines) {
  * full names a task row's `resources` attribute takes. */
 function taskRowResourceNames(resources, resourceMap = {}) {
     const shortnames = Array.isArray(resources) ? resources
-        : String(resources || '').split(',').map(r => r.trim().replace(/^@/, '')).filter(Boolean);
+        : String(resources || '').split(',')
+            .map(r => r.trim().replace(/^@/, '').split('[')[0].trim()).filter(Boolean);
     return shortnames.map(sn => resourceMap[String(sn).toLowerCase()] || sn).join(', ');
 }
 
@@ -3676,6 +3676,86 @@ function formatTaskRowDates(start, finish) {
     const finishStr = finish ? formatSubtaskDate(finish) : '';
     if (startStr && finishStr) return `${startStr} – ${finishStr}`;
     return startStr || finishStr;
+}
+
+/** One date, or a range when the two differ: a report row's dates. */
+function reportRowDates(start, finish) {
+    return start && start === finish ? formatSubtaskDate(start) : formatTaskRowDates(start, finish);
+}
+
+/**
+ * A report table's completion: the task row's box, filled to the percent,
+ * beside the figure. Display only -- a report shows the plan, it does not
+ * tick it -- so the box is inert and the figure is what is read out.
+ */
+function reportCompletionCell(percent) {
+    const value = Math.max(0, Math.min(100, parseFloat(percent) || 0));
+    const wrap = document.createElement('span');
+    wrap.className = 'report-completion';
+    const box = document.createElement('np-checkbox');
+    box.setAttribute('dense', '');
+    if (value >= 100) box.setAttribute('checked', '');
+    else if (value > 0) box.setAttribute('progress', String(value));
+    box.inert = true;
+    const figure = document.createElement('span');
+    figure.textContent = `${Math.round(value)}%`;
+    wrap.append(box, figure);
+    return wrap;
+}
+
+/**
+ * A report table's RAG: the task row's dot and the status in words, or "-"
+ * for a task with none. `labelled: false` is the dot alone, beside words
+ * the cell already has; `label` words the status differently; `done` turns
+ * it blue, as a ticked row does.
+ */
+function reportRagCell(rag, { labelled = true, label = '', done = false } = {}) {
+    if (!rag && !done && labelled) return document.createTextNode('-');
+    const dot = document.createElement('np-rag');
+    dot.setAttribute('status', rag || '');
+    if (label) dot.setAttribute('label', label);
+    if (done) dot.setAttribute('done', '');
+    if (labelled) dot.setAttribute('labelled', '');
+    return dot;
+}
+
+/** A report table's people: the task row's stack of chips. */
+function reportPeopleCell(names) {
+    const list = (Array.isArray(names) ? names : String(names || '').split(','))
+        .map(n => String(n).trim()).filter(Boolean);
+    if (!list.length) return document.createTextNode('');
+    const stack = document.createElement('np-resource-stack');
+    stack.setAttribute('names', list.join(','));
+    stack.setAttribute('max', '3');
+    return stack;
+}
+
+/**
+ * One task in a report, as a read-only <np-task-row>: the dashboard's
+ * Milestones and Up Next, the Look Ahead, the User Workload and the
+ * portfolio Look-Ahead. Read-only because a report shows the plan rather
+ * than edits it: the box shows progress, the dot the RAG status, and the
+ * name opens the task through `onOpen`.
+ *
+ * `rag` defaults to the task's own status; pass it (and `ragLabel`) where
+ * a report words the status itself. `resources` is the row's people, left
+ * off where every row would repeat them. `data` lands on the row's dataset
+ * -- the raw values a copy or an export reads back.
+ */
+function reportTaskRow(task, { meta = '', rag, ragLabel, resources, compact = false, onOpen, data } = {}) {
+    const row = document.createElement('np-task-row');
+    row.setAttribute('role', 'listitem');
+    row.setAttribute('readonly', '');
+    if (compact) row.setAttribute('density', 'compact');
+    row.setAttribute('name', task.name || '');
+    row.setAttribute('percent', String(parseFloat(task.percent) || 0));
+    if (meta) row.setAttribute('meta', meta);
+    row.setAttribute('rag', (rag === undefined ? task.rag : rag) || '');
+    if (ragLabel) row.setAttribute('rag-label', ragLabel);
+    if (resources) row.setAttribute('resources', resources);
+    if (data) Object.assign(row.dataset, data);
+    if (onOpen) row.addEventListener('task-open', onOpen);
+    return row;
 }
 
 function formatSubtaskDate(dateStr) {
@@ -6125,14 +6205,35 @@ function openResourceForm(existingShortname = null) {
     }, 100);
 }
 
+/** Set a task's own percent, found by name, the way ticking a task row
+ * does: the product form's activities and the resource form's assigned
+ * tasks both write through here. Returns whether a line was changed. */
+function setTaskPercentByName(taskName, percent) {
+    const editor = document.getElementById('planEditor');
+    if (!editor || !taskName || typeof updatePercentInLine !== 'function') return false;
+    const lineNumber = findTaskLineNumber({ name: taskName });
+    if (!(lineNumber > 0)) return false;
+    const lines = editor.value.split('\n');
+    lines[lineNumber - 1] = updatePercentInLine(lines[lineNumber - 1], percent);
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    return true;
+}
+
+/**
+ * The resource form's Assigned Tasks: one compact <np-task-row> per leaf
+ * task this resource is on (Penpot "Task row"), the row the task form's
+ * Subtasks and the product form's Activities use. The name opens the task,
+ * the box ticks it. No people chips: every row would only repeat this
+ * resource. An empty list says so through `.task-row-list:empty`.
+ */
 function populateResourceAssignedTasks(shortname) {
     const el = document.getElementById('resourceAssignedTasks');
     if (!el) return;
+    el.replaceChildren();
 
-    if (!shortname || !lastRenderedTasks || lastRenderedTasks.length === 0) {
-        el.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">No tasks assigned</span>';
-        return;
-    }
+    if (!shortname || !lastRenderedTasks || lastRenderedTasks.length === 0) return;
 
     const sn = shortname.toLowerCase();
     const assigned = lastRenderedTasks.filter(t => {
@@ -6144,21 +6245,22 @@ function populateResourceAssignedTasks(shortname) {
         });
     });
 
-    if (assigned.length === 0) {
-        el.innerHTML = '<span style="color: var(--text-secondary); font-style: italic;">No tasks assigned</span>';
-        return;
+    for (const t of assigned) {
+        const row = document.createElement('np-task-row');
+        row.className = 'resource-task-row';
+        row.setAttribute('density', 'compact');
+        row.setAttribute('name', t.name || '');
+        row.setAttribute('percent', String(parseFloat(t.percent) || 0));
+        const dates = formatTaskRowDates(t.start, t.finish);
+        if (dates) row.setAttribute('meta', dates);
+        if (t.rag) row.setAttribute('rag', t.rag);
+        row.addEventListener('task-open', () => openTaskFormByName(t.name));
+        row.addEventListener('task-toggle', (e) => {
+            if (e.detail.checked && typeof spawnConfetti === 'function') spawnConfetti(row.checkbox);
+            setTaskPercentByName(t.name, e.detail.checked ? '100%' : '0%');
+        });
+        el.appendChild(row);
     }
-
-    el.innerHTML = assigned.map(t => {
-        const name = (t.name || '').replace(/</g, '&lt;');
-        const pct = t.percent || 0;
-        const rag = t.rag || '';
-        const ragClass = rag ? 'rag-' + (typeof ragStatusToColour === 'function' ? ragStatusToColour(rag) : '') : '';
-        return `<div class="product-comp-item" style="cursor: pointer;" onclick="openTaskFormByName('${escapeJsAttr(t.name || '')}')">
-            <span class="product-comp-name">${name}</span>
-            <span class="product-comp-pct">${pct}%</span>
-        </div>`;
-    }).join('');
 }
 
 /**
@@ -10784,37 +10886,17 @@ function updateLookAhead(tasks) {
             return dateA - dateB;
         });
 
-        // Populate overdue tasks table
-        const overdueSection = document.getElementById('overdueSection');
-        const overdueBody = document.getElementById('overdueTableBody');
-        if (overdueBody && overdueSection) {
-            overdueBody.innerHTML = '';
-            if (overdueTasks.length > 0) {
-                overdueSection.style.display = 'block';
-                overdueTasks.forEach(task => {
-                    const row = createLookAheadRow(task, 'overdue', today);
-                    overdueBody.appendChild(row);
-                });
-            } else {
-                overdueSection.style.display = 'none';
-            }
-        }
-
-        // Populate upcoming tasks table
-        const upcomingSection = document.getElementById('upcomingSection');
-        const upcomingBody = document.getElementById('upcomingTableBody');
-        if (upcomingBody && upcomingSection) {
-            upcomingBody.innerHTML = '';
-            if (upcomingTasks.length > 0) {
-                upcomingSection.style.display = 'block';
-                upcomingTasks.forEach(task => {
-                    const row = createLookAheadRow(task, 'upcoming');
-                    upcomingBody.appendChild(row);
-                });
-            } else {
-                upcomingSection.style.display = 'none';
-            }
-        }
+        // Populate the overdue and upcoming lists
+        [
+            ['overdueSection', 'lookaheadOverdueList', overdueTasks, 'overdue'],
+            ['upcomingSection', 'lookaheadUpcomingList', upcomingTasks, 'upcoming'],
+        ].forEach(([sectionId, listId, sectionTasks, type]) => {
+            const section = document.getElementById(sectionId);
+            const list = document.getElementById(listId);
+            if (!section || !list) return;
+            list.replaceChildren(...sectionTasks.map(task => createLookAheadRow(task, type, today)));
+            section.style.display = sectionTasks.length > 0 ? 'block' : 'none';
+        });
 
         // Show empty state if no tasks
         const emptyState = document.getElementById('lookaheadEmpty');
@@ -10827,90 +10909,36 @@ function updateLookAhead(tasks) {
     }
 }
 
-// Helper function to create a row for look-ahead table
+/**
+ * One Look Ahead task as a read-only <np-task-row>: tick, name, the dates
+ * (with how late an overdue task is), RAG and people. A recurring task says
+ * how often it repeats; an occurrence shows the one date it falls on.
+ */
 function createLookAheadRow(task, type, today) {
-    const row = document.createElement('tr');
-    row.style.cursor = 'pointer';
-    row.onclick = () => openMilestoneTaskForm(task.name);
-
-    // Task name with indentation and optional recurrence badge
-    const nameCell = document.createElement('td');
-    const indent = '  '.repeat(task.level || 0);
-    nameCell.style.fontFamily = 'var(--np-font-data)';
-    nameCell.classList.add('task-level-' + (task.level || 0));
-    const nameText = document.createTextNode(indent + task.name);
-    nameCell.appendChild(nameText);
-    if (task.recurrence) {
-        const badge = document.createElement('span');
-        badge.className = 'recurrence-badge';
-        badge.textContent = formatRecurrenceLabel(task.recurrence);
-        badge.setAttribute('aria-label', 'Recurring: ' + formatRecurrenceLabel(task.recurrence));
-        nameCell.appendChild(badge);
-    }
-    row.appendChild(nameCell);
-
     // For recurring instances, use recurrence_date as both start and finish
     const displayStart = task.is_recurring_instance ? task.recurrence_date : task.start;
     const displayFinish = task.is_recurring_instance ? task.recurrence_date : task.finish;
 
+    const details = [];
+    if (task.recurrence) details.push(formatRecurrenceLabel(task.recurrence));
     if (type === 'overdue') {
-        // Due date
-        const dueDateCell = document.createElement('td');
-        dueDateCell.textContent = displayFinish ? new Date(displayFinish + 'T00:00:00').toLocaleDateString() : '-';
-        row.appendChild(dueDateCell);
-
-        // Days late
-        const daysLateCell = document.createElement('td');
+        details.push(displayFinish ? `due ${formatSubtaskDate(displayFinish)}` : '');
         if (displayFinish && today) {
             const finishDate = new Date(displayFinish + 'T00:00:00');
             finishDate.setHours(0, 0, 0, 0);
-            const diffTime = today - finishDate;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            daysLateCell.textContent = diffDays;
-            daysLateCell.style.color = '#d32f2f';
-            daysLateCell.style.fontWeight = 'bold';
-        } else {
-            daysLateCell.textContent = '-';
+            const daysLate = Math.ceil((today - finishDate) / (1000 * 60 * 60 * 24));
+            details.push(`${daysLate} ${daysLate === 1 ? 'day' : 'days'} late`);
         }
-        row.appendChild(daysLateCell);
     } else {
-        // Start date
-        const startCell = document.createElement('td');
-        startCell.textContent = displayStart ? new Date(displayStart + 'T00:00:00').toLocaleDateString() : '-';
-        row.appendChild(startCell);
-
-        // Due date
-        const dueDateCell = document.createElement('td');
-        dueDateCell.textContent = displayFinish ? new Date(displayFinish + 'T00:00:00').toLocaleDateString() : '-';
-        row.appendChild(dueDateCell);
-
-        // Duration
-        const durationCell = document.createElement('td');
-        durationCell.textContent = task.is_recurring_instance ? 'recurring' : (task.duration_days ? `${task.duration_days}d` : '-');
-        row.appendChild(durationCell);
+        details.push(reportRowDates(displayStart, displayFinish));
+        if (!task.is_recurring_instance && task.duration_days) details.push(`${task.duration_days}d`);
     }
 
-    // Resources
-    const resourcesCell = document.createElement('td');
-    resourcesCell.textContent = task.resources || '-';
-    row.appendChild(resourcesCell);
-
-    // Percent complete
-    const percentCell = document.createElement('td');
-    percentCell.textContent = task.percent !== undefined && task.percent !== null ? `${task.percent}%` : '0%';
-    row.appendChild(percentCell);
-
-    // RAG status
-    const ragCell = document.createElement('td');
-    ragCell.textContent = task.rag || '-';
-    ragCell.style.backgroundColor = getRAGColor(task.rag);
-    ragCell.style.color = '#fff';
-    ragCell.style.fontWeight = 'bold';
-    ragCell.style.textAlign = 'center';
-    ragCell.style.borderRadius = '4px';
-    row.appendChild(ragCell);
-
-    return row;
+    return reportTaskRow(task, {
+        meta: details.filter(Boolean).join(' · '),
+        resources: taskRowResourceNames(task.resources, globalResourceMap),
+        onOpen: () => openMilestoneTaskForm(task.name),
+    });
 }
 
 // ============================================================
@@ -11304,86 +11332,32 @@ function displayUserWorkload(userMap, filterUser) {
         const header = document.createElement('div');
         header.className = 'user-workload-header';
         header.innerHTML = `
-            <h3>👤 ${user}</h3>
+            <h3></h3>
             <div class="user-stats">
                 <span class="stat"><strong>Tasks:</strong> ${completedTasks}/${totalTasks} complete</span>
                 <span class="stat"><strong>Days:</strong> ${completedDays}/${totalDays} complete</span>
                 <span class="stat"><strong>Completion:</strong> ${Math.round(completedTasks / totalTasks * 100)}%</span>
             </div>
         `;
+        // The name is plan text: set as text, never parsed as markup.
+        const heading = header.querySelector('h3');
+        if (heading) heading.textContent = `👤 ${user}`;
         section.appendChild(header);
 
-        // Create tasks table
-        const tableWrapper = document.createElement('div');
-        tableWrapper.className = 'user-workload-table-wrapper';
-
-        const table = document.createElement('table');
-        table.className = 'user-workload-table';
-
-        // Table header
-        const thead = document.createElement('thead');
-        thead.innerHTML = `
-            <tr>
-                <th>Task Name</th>
-                <th>Start</th>
-                <th>Finish</th>
-                <th>Duration</th>
-                <th>%</th>
-                <th>RAG</th>
-            </tr>
-        `;
-        table.appendChild(thead);
-
-        // Table body
-        const tbody = document.createElement('tbody');
+        // One read-only <np-task-row> per task: tick, name, dates and
+        // duration, RAG. No people -- every row would repeat this user.
+        const list = document.createElement('div');
+        list.className = 'task-row-list report-task-list user-workload-list';
+        list.setAttribute('role', 'list');
+        list.setAttribute('aria-label', `Tasks for ${user}`);
         userTasks.forEach(task => {
-            const row = document.createElement('tr');
-            row.style.cursor = 'pointer';
-            row.onclick = () => openMilestoneTaskForm(task.name);
-
-            // Task name with indentation
-            const nameCell = document.createElement('td');
-            const indent = '  '.repeat(task.level || 0);
-            nameCell.textContent = indent + task.name;
-            nameCell.style.fontFamily = 'var(--np-font-data)';
-            row.appendChild(nameCell);
-
-            // Start date
-            const startCell = document.createElement('td');
-            startCell.textContent = task.start ? new Date(task.start).toLocaleDateString() : '-';
-            row.appendChild(startCell);
-
-            // Finish date
-            const finishCell = document.createElement('td');
-            finishCell.textContent = task.finish ? new Date(task.finish).toLocaleDateString() : '-';
-            row.appendChild(finishCell);
-
-            // Duration
-            const durationCell = document.createElement('td');
-            durationCell.textContent = task.duration_days ? `${task.duration_days}d` : '-';
-            row.appendChild(durationCell);
-
-            // Percent
-            const percentCell = document.createElement('td');
-            percentCell.textContent = task.percent !== undefined && task.percent !== null ? `${task.percent}%` : '0%';
-            row.appendChild(percentCell);
-
-            // RAG
-            const ragCell = document.createElement('td');
-            ragCell.textContent = task.rag || '-';
-            ragCell.style.backgroundColor = getRAGColor(task.rag);
-            ragCell.style.color = '#fff';
-            ragCell.style.fontWeight = 'bold';
-            ragCell.style.textAlign = 'center';
-            ragCell.style.borderRadius = '4px';
-            row.appendChild(ragCell);
-
-            tbody.appendChild(row);
+            list.appendChild(reportTaskRow(task, {
+                meta: [formatTaskRowDates(task.start, task.finish), task.duration_days ? `${task.duration_days}d` : '']
+                    .filter(Boolean).join(' · '),
+                onOpen: () => openMilestoneTaskForm(task.name),
+            }));
         });
-
-        table.appendChild(tbody);
-        tableWrapper.appendChild(table);
-        section.appendChild(tableWrapper);
+        section.appendChild(list);
 
         sectionsContainer.appendChild(section);
     });
@@ -11737,19 +11711,6 @@ function ragStatusToColour(rag) {
         'red': 'red',
     };
     return mapping[lower] || '';
-}
-
-// Helper function to get RAG color
-function getRAGColor(rag) {
-    if (!rag) return '#ccc';
-    const colour = ragStatusToColour(rag);
-    switch(colour) {
-        case 'red': return '#d32f2f';
-        case 'amber': return '#f57c00';
-        case 'green': return '#388e3c';
-        case 'blue': return '#1976d2';
-        default: return '#ccc';
-    }
 }
 
 function getColumnMapping() {
@@ -16162,12 +16123,12 @@ function getInspectorDependencies(task, taskMap, lines) {
 
     // Helper to strip dependency type and lag/lead from an entry to get the task name and type
     function extractDepInfo(entry) {
-        const lagLeadMatch = entry.match(/^(.+?)\s+[+\-]\d+[dwmy]$/);
+        const lagLeadMatch = entry.match(/^(.+?)\s+([+\-]\d+[dwmy])$/);
         let corePart = lagLeadMatch ? lagLeadMatch[1].trim() : entry;
         const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
         const name = typeMatch ? typeMatch[1].trim() : corePart;
         const depType = typeMatch ? typeMatch[2].toUpperCase() : 'FS';
-        return { name, depType };
+        return { name, depType, lag: lagLeadMatch ? lagLeadMatch[2] : '' };
     }
 
     // First pass: find the latest effective date (the driving dependency)
@@ -16190,7 +16151,7 @@ function getInspectorDependencies(task, taskMap, lines) {
 
     // Second pass: build details and mark the driving dependency
     for (const depEntry of depEntries) {
-        const { name: depName, depType } = extractDepInfo(depEntry);
+        const { name: depName, depType, lag } = extractDepInfo(depEntry);
         const depTask = taskMap.get(depName);
         const refDate = depTask
             ? ((depType === 'SS' || depType === 'SF') ? depTask.startDate : depTask.finishDate)
@@ -16199,11 +16160,14 @@ function getInspectorDependencies(task, taskMap, lines) {
         const detail = {
             name: depName,
             depType: depType,
+            lag: lag,
             refDate: refDate || null,
             finishDate: depTask ? (depTask.finishDate || null) : null,
             isDriving: false,
             lineNumber: null,
-            rag: null
+            rag: null,
+            percent: depTask ? (parseInt(depTask.percent) || 0) : 0,
+            resources: depTask ? (depTask.resources || '') : ''
         };
 
         if (depTask) {
@@ -16290,6 +16254,43 @@ function formatInspectorDate(dateStr) {
     } catch {
         return dateStr;
     }
+}
+
+/**
+ * The inspector's dependency list: one read-only <np-task-row type="relation">
+ * per predecessor (Penpot "Task row"), the same row the task form's
+ * Dependencies use. The driving one says so; a name re-opens the inspector
+ * on that predecessor, as the old link did.
+ */
+function renderInspectorDependencies(list, depDetails) {
+    if (!list) return;
+    const editor = document.getElementById('planEditor');
+    const resourceMap = editor ? parseResourceMappings(editor.value) : {};
+    const byName = new Map((lastRenderedTasks || []).map(t => [t.name, t]));
+    const rows = depDetails.map(dep => {
+        const row = document.createElement('np-task-row');
+        row.className = 'inspector-dep-row';
+        row.setAttribute('type', 'relation');
+        row.setAttribute('readonly', '');
+        row.setAttribute('name', dep.name);
+        row.setAttribute('relation', dep.depType);
+        if (dep.lag) row.setAttribute('lag', dep.lag);
+        if (dep.isDriving) row.setAttribute('driving', '');
+        row.setAttribute('percent', String(dep.percent || 0));
+        const rendered = byName.get(dep.name);
+        if (rendered && rendered.id != null) row.setAttribute('task-id', String(rendered.id));
+        const verb = dep.depType === 'SS' || dep.depType === 'SF' ? 'starts' : 'finishes';
+        const refDate = dep.refDate || dep.finishDate;
+        if (refDate) row.setAttribute('meta', `${verb} ${formatInspectorDate(refDate)}`);
+        if (dep.rag) row.setAttribute('rag', dep.rag);
+        const people = taskRowResourceNames(dep.resources, resourceMap);
+        if (people) row.setAttribute('resources', people);
+        if (dep.lineNumber) {
+            row.addEventListener('task-open', () => openTaskInspectorByName(dep.name));
+        }
+        return row;
+    });
+    list.replaceChildren(...rows);
 }
 
 /**
@@ -16382,31 +16383,9 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     if (depDetails.length === 0) {
         html += '    <div class="inspector-no-deps">This task has no dependencies. Its start date is set directly or defaults to today.</div>';
     } else {
-        html += '    <ul class="inspector-dep-list">';
-        for (const dep of depDetails) {
-            html += '      <li class="inspector-dep-item">';
-            html += '        <span class="inspector-dep-badge ' + (dep.isDriving ? 'driving' : 'non-driving') + '">';
-            html += dep.isDriving ? 'DRIVING' : 'predecessor';
-            html += '        </span>';
-            html += '        <span class="inspector-dep-name">';
-            if (dep.lineNumber) {
-                html += '<a href="#" onclick="openTaskInspectorByName(\'' + escapeJsAttr(dep.name) + '\'); return false;" style="color: inherit; text-decoration: underline dotted;">';
-                html += escapeHtml(dep.name);
-                html += '</a>';
-            } else {
-                html += escapeHtml(dep.name);
-            }
-            html += '        </span>';
-            const depTypeLabel = dep.depType === 'SS' ? 'starts' : dep.depType === 'SF' ? 'starts' : dep.depType === 'FF' ? 'finishes' : 'finishes';
-            const depRefDate = dep.refDate || dep.finishDate;
-            html += '        <span class="inspector-dep-date">' + depTypeLabel + ' ' + formatInspectorDate(depRefDate) + '</span>';
-            if (dep.rag) {
-                const depRagCol = ragStatusToColour(dep.rag);
-                html += '        <span class="inspector-rag-dot' + (depRagCol ? ' rag-' + depRagCol : '') + '" style="width:10px; height:10px;" title="' + escapeHtml(dep.rag) + '"></span>';
-            }
-            html += '      </li>';
-        }
-        html += '    </ul>';
+        // Filled with <np-task-row type="relation"> rows below, once the
+        // body is in the page (renderInspectorDependencies).
+        html += '    <div id="inspectorDepList" class="task-row-list"></div>';
 
         // Explain the driving dependency
         const drivingDep = depDetails.find(d => d.isDriving);
@@ -16472,6 +16451,7 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     // Edit button is now in the inspector header — no inline button needed
 
     body.innerHTML = html;
+    renderInspectorDependencies(document.getElementById('inspectorDepList'), depDetails);
 
     const estimateBtn = document.getElementById('inspectorEstimateBtn');
     if (estimateBtn && typeof EstimatingTool !== 'undefined') {

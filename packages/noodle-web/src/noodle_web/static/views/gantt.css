@@ -213,23 +213,51 @@
     box-sizing: border-box;
 }
 
+/* Completion: the task row's <np-checkbox> (createTaskCompletionBox() in
+   editor-sync.js), a 24px target with the column's padding either side. */
 .gantt-done-col {
-    width: 30px;
-    min-width: 30px;
-    max-width: 30px;
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
 }
 
 .gantt-done-cell {
     text-align: center;
-    width: 30px;
-    min-width: 30px;
-    max-width: 30px;
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
     padding: var(--np-space-8) var(--np-space-4) !important;
 }
 
-/* Gantt checkboxes use .round-checkbox class - these are kept for specificity */
-.gantt-done-cell input[type="checkbox"] {
-    /* Inherits from .round-checkbox */
+/* The Resources cell: the task row's people chips, and a word when the
+   phase's people are inherited (fillTaskGridPeople() in views-tables.js). */
+.task-grid-people np-resource-stack {
+    vertical-align: middle;
+}
+
+.task-grid-inherited {
+    margin-left: var(--np-space-4);
+    color: var(--np-muted);
+    font-size: var(--np-text-75);
+    font-style: italic;
+}
+
+/* A finger's box: the whole touch target, as the drag handle beside it. */
+@media (pointer: coarse) {
+    .gantt-done-col,
+    .gantt-done-cell {
+        width: var(--np-touch-target);
+        min-width: var(--np-touch-target);
+        max-width: var(--np-touch-target);
+    }
+
+    .gantt-done-cell {
+        padding: 0 !important;
+    }
+
+    .gantt-done-cell np-checkbox {
+        --np-checkbox-target: var(--np-touch-target);
+    }
 }
 
 .gantt-info-table td.editable {
@@ -596,31 +624,6 @@ body.gantt-dragging * {
 .gantt-rag-cell {
     text-align: center;
     width: 40px;
-}
-
-.gantt-rag-dot {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    vertical-align: middle;
-}
-
-.gantt-rag-dot.rag-red {
-    background: #ff6b6b;
-}
-
-.gantt-rag-dot.rag-amber {
-    background: #ffd93d;
-}
-
-.gantt-rag-dot.rag-green {
-    background: #51cf66;
-}
-
-.gantt-rag-dot.rag-complete,
-.gantt-rag-dot.rag-blue {
-    background: #1976d2;
 }
 
 .gantt-milestone {

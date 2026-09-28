@@ -16,8 +16,8 @@
  * "NN%" text, nothing), RAG five ways across three hex palettes, and
  * assignees three ways. This is the row the Penpot "Task row" component
  * (02 . Components -> "Task row") specifies, built from the parts the app
- * already standardised: <np-checkbox> for completion and
- * <np-resource-stack> for people.
+ * already standardised: <np-checkbox> for completion,
+ * <np-resource-stack> for people and <np-rag> for status.
  *
  * ## Anatomy
  *
@@ -31,6 +31,8 @@
  *
  *   list      subtasks, activities: completion, name, dates, RAG, people.
  *   relation  a dependency: ID, name, a type + lag pill ("FS +2d"), date.
+ *             `driving` marks the predecessor that sets the start: the
+ *             pill takes the accent and reads "Driving · FS +2d".
  *             Clicking the pill (or setting `editing`) turns it into a type
  *             select and a lag input. Completion is shown, not taken.
  *   picker    an autocomplete option: ID and dates tell similar names
@@ -88,9 +90,9 @@
 
 import '../checkbox/np-checkbox.js';
 import '../resource-stack/np-resource-stack.js';
-import { ragColour } from './rag.js';
+import '../rag/np-rag.js';
 
-export { ragColour };
+export { ragColour } from '../rag/rag.js';
 
 const TYPES = ['list', 'relation', 'picker', 'outline'];
 const RELATIONS = ['FS', 'SS', 'FF', 'SF'];
@@ -279,18 +281,7 @@ TEMPLATE.innerHTML = `
       white-space: nowrap;
     }
 
-    .rag {
-      flex: 0 0 auto;
-      box-sizing: border-box;
-      width: var(--np-space-8);
-      height: var(--np-space-8);
-      border-radius: var(--np-radius-circle);
-      border: 1.5px solid var(--np-border-control);
-    }
-    .rag[data-rag="green"] { background: var(--np-success); border-color: var(--np-success); }
-    .rag[data-rag="amber"] { background: var(--np-warning); border-color: var(--np-warning); }
-    .rag[data-rag="red"]   { background: var(--np-danger);  border-color: var(--np-danger); }
-    .rag[data-rag="blue"]  { background: var(--np-info);    border-color: var(--np-info); }
+    .rag { flex: 0 0 auto; }
 
     .people {
       flex: 0 0 auto;
@@ -381,7 +372,7 @@ TEMPLATE.innerHTML = `
     <input class="rel-lag" type="text" aria-label="Lag or lead" placeholder="+2d" autocomplete="off" />
     <span class="count" part="count"></span>
     <span class="meta" part="meta"></span>
-    <span class="rag" part="rag" role="img"></span>
+    <np-rag class="rag" part="rag"></np-rag>
     <span class="people" part="people">
       <np-resource-stack max="3"></np-resource-stack>
       <button type="button" class="assign" aria-label="Assign a resource" title="Assign a resource">+</button>
@@ -663,8 +654,12 @@ export class NpTaskRow extends HTMLElement {
         const lag = this.getAttribute('lag') || '';
         const isRelation = type === 'relation';
         e.pill.hidden = !isRelation || editing;
-        e.pill.textContent = lag ? `${relation} ${lag}` : relation;
-        const relLabel = `Dependency ${relation}${lag ? ` ${lag}` : ''}`;
+        // The driving predecessor says so in words, not only in the accent
+        // fill, so the cue survives any theme and a screen reader.
+        const driving = this.hasAttribute('driving');
+        const relText = lag ? `${relation} ${lag}` : relation;
+        e.pill.textContent = driving ? `Driving · ${relText}` : relText;
+        const relLabel = `${driving ? 'Driving dependency' : 'Dependency'} ${relation}${lag ? ` ${lag}` : ''}`;
         e.pill.title = this.hasAttribute('readonly') ? '' : 'Change the dependency type or lag';
         e.pill.setAttribute('aria-label', this.hasAttribute('readonly') ? relLabel : `${relLabel}. Edit`);
         e.relType.hidden = !isRelation || !editing;
@@ -684,14 +679,12 @@ export class NpTaskRow extends HTMLElement {
         e.meta.textContent = meta;
         e.meta.hidden = !meta;
 
-        // RAG: one dot on the status tokens.
-        const ragAttr = this.getAttribute('rag');
-        const colour = done ? 'blue' : ragColour(ragAttr);
+        // RAG: one <np-rag> dot, blue once the task is done.
+        const ragAttr = this.getAttribute('rag') || '';
         e.rag.hidden = !this.hasAttribute('rag') || type === 'outline';
-        if (colour) e.rag.dataset.rag = colour; else delete e.rag.dataset.rag;
-        const ragLabel = this.getAttribute('rag-label') || ragAttr || 'No status';
-        e.rag.title = ragLabel;
-        e.rag.setAttribute('aria-label', `Status: ${ragLabel}`);
+        e.rag.setAttribute('status', ragAttr);
+        e.rag.toggleAttribute('done', done);
+        e.rag.setAttribute('label', this.getAttribute('rag-label') || ragAttr || 'No status');
 
         // People.
         const names = String(this.getAttribute('resources') || '')

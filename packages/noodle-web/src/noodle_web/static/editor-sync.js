@@ -145,44 +145,53 @@ function syncGanttFinishDateToEditor(task, taskIndex) {
 }
 
 /**
- * Creates a mini piechart element that visually represents task completion percentage.
- * Replaces the traditional checkbox for tasks.
- * - Click: toggles between 100% and 0%
- * - Long press: shows a popup to set 0%, 25%, 50%, 75%, or 100%
+ * A task grid's completion -- the Tasks view's and the Gantt's task list --
+ * as the task row's <np-checkbox>, its box filled to the percent the way the
+ * row's is, in place of the hand-built 16px pie it used to be.
+ * - Click: ticks it (100%) or unticks it (0%)
+ * - Press and hold: a popup to set 0%, 25%, 50%, 75% or 100%
  *
  * @param {number} percent - Current completion percentage (0-100)
  * @param {function} onPercentChange - Callback when percent changes, receives new percent string like '50%'
- * @returns {HTMLElement} The piechart div element
+ * @param {string} [name] - The task's name, for the box's accessible label
+ * @returns {HTMLElement} The <np-checkbox>
  */
-function createMiniPiechart(percent, onPercentChange) {
-    const piechart = document.createElement('div');
-    piechart.className = 'mini-piechart';
+function createTaskCompletionBox(percent, onPercentChange, name = '') {
+    const box = document.createElement('np-checkbox');
+    box.className = 'task-grid-checkbox';
 
-    updatePiechartAppearance(piechart, percent);
+    const paint = () => {
+        const done = percent >= 100;
+        box.toggleAttribute('checked', done);
+        if (percent > 0 && !done) box.setAttribute('progress', String(percent));
+        else box.removeAttribute('progress');
+        const partly = percent > 0 && !done ? ` (${percent}% complete)` : '';
+        box.setAttribute('label', `Mark ${name ? `"${name}"` : 'task'} as ${done ? 'incomplete' : 'complete'}${partly}`);
+        box.title = done ? 'Mark incomplete' : partly ? `${percent}% complete - click to complete` : 'Mark complete';
+    };
+    const set = (value) => {
+        percent = value;
+        paint();
+        if (percent >= 100 && typeof spawnConfetti === 'function') spawnConfetti(box);
+        onPercentChange(percent + '%');
+    };
+    paint();
 
     // A press and hold -- mouse, finger or pen -- opens the popup, through the
     // app's one long-press (touch-gestures.js, #1386), which also swallows the
     // click that ends the hold; a plain click or tap toggles.
     if (typeof NoodleTouch !== 'undefined') {
-        NoodleTouch.onLongPress(piechart, () => {
-            showPiechartPopup(piechart, percent, (newPercent) => {
-                percent = newPercent;
-                updatePiechartAppearance(piechart, percent);
-                onPercentChange(percent + '%');
-            });
+        NoodleTouch.onLongPress(box, () => {
+            showPiechartPopup(box, percent, set);
         }, { pointerTypes: ['mouse', 'touch', 'pen'] });
     }
     // The row behind has its own click (open the task) and press (a drag).
-    piechart.addEventListener('pointerdown', (e) => e.stopPropagation());
-    piechart.addEventListener('mousedown', (e) => e.stopPropagation());
-    piechart.addEventListener('click', (e) => {
-        e.stopPropagation();
-        percent = percent >= 100 ? 0 : 100;
-        updatePiechartAppearance(piechart, percent);
-        onPercentChange(percent + '%');
-    });
+    box.addEventListener('pointerdown', (e) => e.stopPropagation());
+    box.addEventListener('mousedown', (e) => e.stopPropagation());
+    box.addEventListener('click', (e) => e.stopPropagation());
+    box.addEventListener('change', (e) => set(e.detail && e.detail.checked ? 100 : 0));
 
-    return piechart;
+    return box;
 }
 
 function spawnConfetti(element) {
@@ -202,21 +211,6 @@ function spawnConfetti(element) {
         dot.style.background = colours[Math.floor(Math.random() * colours.length)];
         document.body.appendChild(dot);
         dot.addEventListener('animationend', () => dot.remove());
-    }
-}
-
-function updatePiechartAppearance(element, percent) {
-    if (percent >= 100) {
-        element.classList.add('complete');
-        element.style.removeProperty('--percent');
-        element.style.background = '';
-        element.title = 'Mark incomplete';
-        spawnConfetti(element);
-    } else {
-        element.classList.remove('complete');
-        element.style.setProperty('--percent', percent + '%');
-        element.style.background = `conic-gradient(#28a745 0% ${percent}%, #e0e0e0 ${percent}% 100%)`;
-        element.title = percent > 0 ? `${percent}% complete - click to complete` : 'Mark complete';
     }
 }
 

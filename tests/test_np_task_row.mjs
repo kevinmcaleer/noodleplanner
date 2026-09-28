@@ -1,8 +1,9 @@
 /**
- * <np-task-row> paints RAG from the same table the views do.
+ * <np-rag> -- the dot <np-task-row> and the report tables show -- paints RAG
+ * from the same table the views do.
  *
- * The row maps the engine's descriptive status ("On track", "Task overdue")
- * to one of four status tokens in components/task-row/rag.js. script.js's
+ * The dot maps the engine's descriptive status ("On track", "Task overdue")
+ * to one of four status tokens in components/rag/rag.js. script.js's
  * ragStatusToColour() is the table every other view uses. Two copies of one
  * mapping drift quietly -- the app already had three RAG palettes because of
  * exactly that -- so this runs the app's function for real and compares.
@@ -39,7 +40,7 @@ function appRagColour() {
     return context.module.fn;
 }
 
-const { ragColour, RAG_COLOURS } = await import(join(STATIC, 'components/task-row/rag.js'));
+const { ragColour, RAG_COLOURS } = await import(join(STATIC, 'components/rag/rag.js'));
 
 test('every status the row knows maps the way the app maps it', () => {
     const app = appRagColour();
@@ -58,9 +59,15 @@ test('an unknown or empty status has no colour, in both', () => {
     }
 });
 
-test('the four colours are the four the row styles', () => {
-    const css = readFileSync(join(STATIC, 'components/task-row/np-task-row.js'), 'utf8');
+test('the four colours are the four the dot styles', () => {
+    const css = readFileSync(join(STATIC, 'components/rag/np-rag.js'), 'utf8');
     for (const colour of new Set(Object.values(RAG_COLOURS))) {
-        assert.match(css, new RegExp(`\\.rag\\[data-rag="${colour}"\\]`), colour);
+        assert.match(css, new RegExp(`\\.dot\\[data-rag="${colour}"\\]`), colour);
     }
+});
+
+test('the row draws its status with <np-rag>, not a dot of its own', () => {
+    const row = readFileSync(join(STATIC, 'components/task-row/np-task-row.js'), 'utf8');
+    assert.match(row, /<np-rag\b/);
+    assert.doesNotMatch(row, /data-rag="/);
 });

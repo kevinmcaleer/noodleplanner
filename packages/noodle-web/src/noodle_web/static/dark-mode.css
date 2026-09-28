@@ -1044,19 +1044,6 @@ body {
     color: var(--np-text-secondary);
 }
 
-[data-theme="dark"] .lookahead-table-wrapper {
-    box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .lookahead-table td {
-    border-bottom-color: var(--np-border-light);
-    color: var(--np-text);
-}
-
-[data-theme="dark"] .lookahead-table tbody tr:hover {
-    background: var(--np-table-hover);
-}
-
 /* ---- Analysis Page ---- */
 [data-theme="dark"] .analysis-title {
     color: var(--np-text);
@@ -1912,32 +1899,6 @@ body {
     background: var(--np-input-bg);
     color: var(--np-text);
     border-color: var(--np-input-border);
-}
-
-[data-theme="dark"] .portfolio-lookahead-table-wrapper {
-    box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-lookahead-table thead {
-    background: var(--np-surface-alt);
-}
-
-[data-theme="dark"] .portfolio-lookahead-table th {
-    color: var(--np-text);
-    border-bottom-color: var(--np-border);
-}
-
-[data-theme="dark"] .portfolio-lookahead-table th:hover {
-    background: var(--np-bg-hover);
-}
-
-[data-theme="dark"] .portfolio-lookahead-table td {
-    border-bottom-color: var(--np-border-light);
-    color: var(--np-text);
-}
-
-[data-theme="dark"] .portfolio-lookahead-table tbody tr:hover {
-    background: var(--np-table-hover);
 }
 
 [data-theme="dark"] .portfolio-lookahead-summary {

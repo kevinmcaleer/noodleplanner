@@ -310,6 +310,12 @@ def test_rows_are_touch_targets_on_a_phone(phone, app_server):
     load_plan(phone, PLAN)
     _open_task(phone, "Build")
     phone.evaluate("() => document.querySelectorAll('#taskFormSection details').forEach(d => d.open = true)")
+    # Measure once the pane has slid in: mid-transition its translateY is
+    # fractional, and a transformed 44px row can measure 43.9999px.
+    phone.evaluate(
+        """() => Promise.all(document.getElementById('detailPane').getAnimations({ subtree: true })
+            .map(a => a.finished.catch(() => {})))"""
+    )
     found = phone.evaluate(
         """() => [...document.querySelectorAll('#subtasksList np-task-row, #dependenciesList np-task-row')]
             .map(r => {
@@ -485,3 +491,160 @@ def test_arrow_down_opens_a_closed_picker(loaded):
     assert not _picker(loaded)["shown"]
     box.press("ArrowDown")
     assert _picker(loaded)["shown"]
+
+
+# ── Task inspector ──────────────────────────────────────────────────────
+
+INSPECTOR_PLAN = """---
+title: Inspector rows
+Resources:
+  - @sam: Sam Smith, Developer
+---
+
+Release
+  Research @sam 2d
+  Design 5d
+  Build 3d [depends Research, Design:SS +1d]
+"""
+
+
+def _open_inspector(page, name):
+    page.evaluate("name => openTaskInspectorByName(name)", name)
+    page.wait_for_selector("#taskInspectorSection.active")
+    page.wait_for_function(
+        "name => document.getElementById('inspectorPanelHeader').getAttribute('title') === name",
+        arg=name,
+    )
+
+
+def _inspector_rows(page):
+    return page.evaluate(
+        """() => [...document.querySelectorAll('#inspectorDepList np-task-row')].map(r => ({
+            name: r.getAttribute('name'),
+            type: r.getAttribute('type'),
+            readonly: r.hasAttribute('readonly'),
+            driving: r.hasAttribute('driving'),
+            pill: r.shadowRoot.querySelector('.pill').textContent,
+            meta: r.getAttribute('meta'),
+            resources: r.getAttribute('resources'),
+        }))"""
+    )
+
+
+@pytest.fixture
+def inspecting(page, app_server):
+    open_app(page, app_server)
+    load_plan(page, INSPECTOR_PLAN)
+    return page
+
+
+def test_the_inspector_lists_dependencies_as_read_only_relation_rows(inspecting):
+    _open_inspector(inspecting, "Build")
+    rows = {r["name"]: r for r in _inspector_rows(inspecting)}
+    assert set(rows) == {"Research", "Design"}
+    for row in rows.values():
+        assert row["type"] == "relation" and row["readonly"], row
+    # The lag the old list dropped is on the pill now.
+    assert rows["Design"]["pill"] == "SS +1d"
+    assert rows["Design"]["meta"].startswith("starts ")
+    assert rows["Research"]["meta"].startswith("finishes ")
+    assert rows["Research"]["resources"] == "Sam Smith"
+
+
+def test_the_driving_dependency_says_so_in_words(inspecting):
+    _open_inspector(inspecting, "Build")
+    rows = {r["name"]: r for r in _inspector_rows(inspecting)}
+    assert rows["Research"]["driving"] and rows["Research"]["pill"] == "Driving · FS"
+    assert not rows["Design"]["driving"]
+
+
+def test_a_read_only_pill_does_not_edit(inspecting):
+    _open_inspector(inspecting, "Build")
+    row = inspecting.locator("#inspectorDepList np-task-row[name='Design']")
+    row.locator("button.pill").click()
+    assert row.get_attribute("editing") is None
+
+
+def test_a_dependency_name_re_opens_the_inspector_on_it(inspecting):
+    _open_inspector(inspecting, "Build")
+    inspecting.locator("#inspectorDepList np-task-row[name='Research'] button.name").click()
+    inspecting.wait_for_function(
+        "() => document.getElementById('inspectorPanelHeader').getAttribute('title') === 'Research'"
+    )
+
+
+def test_no_dependencies_says_so(inspecting):
+    _open_inspector(inspecting, "Research")
+    assert inspecting.locator("#inspectorDepList").count() == 0
+    assert "no dependencies" in inspecting.locator("#inspectorBody .inspector-no-deps").inner_text()
+
+
+# ── Resource form: assigned tasks ───────────────────────────────────────
+
+RESOURCE_PLAN = """---
+title: Resource rows
+Resources:
+  - @sam: Sam Smith, Developer
+  - @jo: Jo Lee, Reviewer
+---
+
+Release
+  Research @sam 2d
+  Design @sam 3d
+  Build @jo 3d
+"""
+
+
+def _open_resource(page, shortname):
+    page.evaluate(
+        "sn => { if (isDetailPaneOpen()) closeDetailPane(); openResourceForm(sn); }", shortname
+    )
+    page.wait_for_selector("#resourceFormSection.active")
+
+
+@pytest.fixture
+def staffed(page, app_server):
+    open_app(page, app_server)
+    load_plan(page, RESOURCE_PLAN)
+    return page
+
+
+def test_assigned_tasks_are_compact_task_rows(staffed):
+    _open_resource(staffed, "sam")
+    rows = _rows(staffed, "resourceAssignedTasks")
+    assert [r["name"] for r in rows] == ["Research", "Design"]
+    assert {r["density"] for r in rows} == {"compact"}
+    dates = staffed.evaluate(
+        "() => [...document.querySelectorAll('#resourceAssignedTasks np-task-row')]"
+        ".map(r => r.getAttribute('meta'))"
+    )
+    assert all(dates), dates
+
+
+def test_an_assigned_task_name_opens_the_task(staffed):
+    _open_resource(staffed, "sam")
+    staffed.locator("#resourceAssignedTasks np-task-row[name='Design'] button.name").click()
+    staffed.wait_for_function("() => document.getElementById('taskName').value === 'Design'")
+
+
+def test_ticking_an_assigned_task_writes_its_percent(staffed):
+    _open_resource(staffed, "sam")
+    staffed.locator("#resourceAssignedTasks np-task-row[name='Research'] np-checkbox").click()
+    staffed.wait_for_function(
+        "() => /Research\\b.*100%/.test(document.getElementById('planEditor').value)"
+    )
+
+
+def test_a_resource_with_no_tasks_says_so(staffed):
+    staffed.evaluate(
+        """() => { const e = document.getElementById('planEditor');
+            e.value = e.value.replace('  - @jo: Jo Lee, Reviewer', '  - @jo: Jo Lee, Reviewer\\n  - @al: Alex Ray, Designer');
+            e.dispatchEvent(new Event('input', { bubbles: true })); }"""
+    )
+    staffed.wait_for_function("() => document.getElementById('planEditor').value.includes('@al:')")
+    _open_resource(staffed, "al")
+    assert staffed.locator("#resourceAssignedTasks np-task-row").count() == 0
+    content = staffed.evaluate(
+        "() => getComputedStyle(document.getElementById('resourceAssignedTasks'), '::after').content"
+    )
+    assert "No tasks assigned" in content

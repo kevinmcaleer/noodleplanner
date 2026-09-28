@@ -125,19 +125,13 @@ function updateMilestonesTable(tasks) {
                 row.appendChild(varianceCell);
             }
 
-            // Percent cell
+            // Percent and RAG: the task row's box and dot (script.js).
             const percentCell = document.createElement('td');
-            percentCell.textContent = task.percent || '-';
+            percentCell.appendChild(reportCompletionCell(task.percent));
             row.appendChild(percentCell);
 
-            // RAG cell
             const ragCell = document.createElement('td');
-            const ragText = task.rag || '-';
-            ragCell.textContent = ragText;
-            const ragColour = ragStatusToColour(ragText);
-            if (ragColour) {
-                ragCell.classList.add('rag-' + ragColour);
-            }
+            ragCell.appendChild(reportRagCell(task.rag));
             row.appendChild(ragCell);
 
             // Priority cell
@@ -679,41 +673,40 @@ function updateAllEmbeddedTimelines() {
     });
 }
 
+/**
+ * A milestone's finish against the baseline: `text` is the old Variance
+ * column's value ("+3d", "-2d", "On track", "New", "-"), `meta` the words a
+ * task row shows for it, or '' when there is nothing to say.
+ */
+function milestoneBaselineVariance(task, bl) {
+    if (!bl) return { text: 'New', meta: 'new since baseline' };
+    if (!bl.finish || !task.finish) return { text: '-', meta: '' };
+    const currentDate = parseLocalDate(task.finish);
+    const baselineDate = parseLocalDate(bl.finish);
+    if (!currentDate || !baselineDate) return { text: '-', meta: '' };
+    const diffDays = Math.round((currentDate - baselineDate) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return { text: 'On track', meta: 'on baseline' };
+    const text = (diffDays > 0 ? '+' : '') + diffDays + 'd';
+    return { text, meta: `${text} vs baseline` };
+}
+
+/**
+ * The dashboard's Milestones: the next milestones as compact, read-only
+ * <np-task-row>s -- tick, name, date, RAG -- with the baseline variance in
+ * the date line when there is a baseline. Each row keeps the old columns'
+ * raw values (`data-date`, `data-rag`, `data-copy`) for the PowerPoint
+ * export and "Copy as text".
+ */
 function updateReportMilestones(tasks) {
     try {
-        const tbody = document.getElementById('reportMilestonesTableBody');
-        const emptyEl = document.getElementById('reportMilestonesEmpty');
-        const tableEl = tbody ? tbody.closest('table') : null;
-        if (!tbody) return;
+        const list = document.getElementById('reportMilestonesTable');
+        if (!list) return;
+        list.replaceChildren();
 
-        tbody.innerHTML = '';
-
-        // Check if a baseline plan exists
         const hasBaseline = baselineItems.length > 0;
         const baselineLookup = hasBaseline ? getBaselineLookup() : {};
-
-        // Update the table header to include baseline columns when baseline exists
-        const thead = tableEl ? tableEl.querySelector('thead tr') : null;
-        if (thead) {
-            thead.innerHTML = '';
-            const headers = ['Milestone', 'Date'];
-            if (hasBaseline) {
-                headers.push('BL Finish', 'Variance');
-            }
-            headers.push('RAG');
-            headers.forEach(h => {
-                const th = document.createElement('th');
-                th.textContent = h;
-                if (h === 'Milestone') th.classList.add('col-name');
-                else if (h === 'Date' || h === 'BL Finish') th.classList.add('col-date');
-                else if (h === 'Variance') th.classList.add('col-variance');
-                else if (h === 'RAG') th.classList.add('col-rag');
-                if (h === 'BL Finish' || h === 'Variance') {
-                    th.classList.add('baseline-col');
-                }
-                thead.appendChild(th);
-            });
-        }
+        list.dataset.copyHeader = ['Milestone', 'Date']
+            .concat(hasBaseline ? ['BL Finish', 'Variance'] : [], ['RAG']).join('\t');
 
         // Filter to only milestones (0-duration, non-summary tasks)
         const allMilestones = tasks.filter(task => task.duration_days === 0 && !task.is_summary);
@@ -727,90 +720,21 @@ function updateReportMilestones(tasks) {
 
         const incomplete = sorted.filter(task => (parseFloat(task.percent) || 0) < 100);
 
-        // Show all milestones sorted by date, limit to 10 if too many
-        let displayMilestones;
-        if (sorted.length <= 10) {
-            displayMilestones = sorted;
-        } else {
-            // Too many milestones: show only next 10 incomplete
-            displayMilestones = incomplete.slice(0, 10);
-        }
-
-        if (displayMilestones.length === 0) {
-            if (tableEl) tableEl.style.display = 'none';
-            if (emptyEl) emptyEl.style.display = 'block';
-            return;
-        }
-
-        if (tableEl) tableEl.style.display = '';
-        if (emptyEl) emptyEl.style.display = 'none';
+        // Show all milestones sorted by date; too many, and only the next 10 incomplete.
+        const displayMilestones = sorted.length <= 10 ? sorted : incomplete.slice(0, 10);
 
         displayMilestones.forEach(task => {
-            const row = document.createElement('tr');
-
-            const nameCell = document.createElement('td');
-            nameCell.textContent = task.name;
-            nameCell.title = task.name;
-            nameCell.classList.add('task-name', 'col-name');
-            row.appendChild(nameCell);
-
-            const dateCell = document.createElement('td');
-            dateCell.textContent = task.finish || '-';
-            dateCell.classList.add('col-date');
-            row.appendChild(dateCell);
-
-            // Baseline columns (shown automatically when baseline exists)
-            if (hasBaseline) {
-                const bl = baselineLookup[task.name];
-
-                const blFinishCell = document.createElement('td');
-                blFinishCell.classList.add('baseline-col', 'col-date');
-                blFinishCell.textContent = bl ? (bl.finish || '-') : '-';
-                row.appendChild(blFinishCell);
-
-                const varianceCell = document.createElement('td');
-                varianceCell.classList.add('baseline-col', 'col-variance');
-                if (bl && bl.finish && task.finish) {
-                    const currentDate = parseLocalDate(task.finish);
-                    const baselineDate = parseLocalDate(bl.finish);
-                    if (currentDate && baselineDate) {
-                        const diffDays = Math.round((currentDate - baselineDate) / (1000 * 60 * 60 * 24));
-                        if (diffDays > 0) {
-                            varianceCell.textContent = '+' + diffDays + 'd';
-                            varianceCell.classList.add('baseline-late');
-                        } else if (diffDays < 0) {
-                            varianceCell.textContent = diffDays + 'd';
-                            varianceCell.classList.add('baseline-early');
-                        } else {
-                            varianceCell.textContent = 'On track';
-                            varianceCell.classList.add('baseline-ontrack');
-                        }
-                    } else {
-                        varianceCell.textContent = '-';
-                    }
-                } else {
-                    varianceCell.textContent = bl ? '-' : 'New';
-                    if (!bl) varianceCell.classList.add('baseline-new');
-                }
-                row.appendChild(varianceCell);
-            }
-
-            const ragCell = document.createElement('td');
-            ragCell.classList.add('col-rag');
-            const ragValue = task.rag || '-';
-            ragCell.textContent = ragValue;
-            const ragColourMs = ragStatusToColour(ragValue);
-            if (ragColourMs) {
-                ragCell.classList.add('rag-' + ragColourMs);
-            }
-            row.appendChild(ragCell);
-
-            row.style.cursor = 'pointer';
-            row.addEventListener('click', () => {
-                openMilestoneTaskForm(task.name);
-            });
-
-            tbody.appendChild(row);
+            const bl = baselineLookup[task.name];
+            const variance = hasBaseline ? milestoneBaselineVariance(task, bl) : null;
+            const copy = [task.name, task.finish || '-'];
+            if (hasBaseline) copy.push(bl ? (bl.finish || '-') : '-', variance.text);
+            copy.push(task.rag || '-');
+            list.appendChild(reportTaskRow(task, {
+                compact: true,
+                meta: [formatSubtaskDate(task.finish), variance && variance.meta].filter(Boolean).join(' · '),
+                onOpen: () => openMilestoneTaskForm(task.name),
+                data: { date: task.finish || '-', rag: task.rag || '-', copy: copy.join('\t') },
+            }));
         });
 
     } catch (error) {
@@ -820,19 +744,18 @@ function updateReportMilestones(tasks) {
 
 /**
  * Populate the Up Next quad with late, in-progress, and upcoming tasks
- * for the next 2 weeks. Limited to 10 leaf tasks.
+ * for the next 2 weeks. Limited to 10 leaf tasks, as compact read-only
+ * <np-task-row>s like the Milestones beside it.
  *
  * Uses the same start/finish dates and RAG statuses already computed by
  * the scheduling engine so values are consistent with the task table.
  */
 function updateReportUpNext(tasks) {
     try {
-        const tbody = document.getElementById('reportUpNextTableBody');
-        const emptyEl = document.getElementById('reportUpNextEmpty');
-        const tableEl = document.getElementById('reportUpNextTable');
-        if (!tbody) return;
-
-        tbody.innerHTML = '';
+        const list = document.getElementById('reportUpNextTable');
+        if (!list) return;
+        list.replaceChildren();
+        list.dataset.copyHeader = ['Task', 'Start', 'Finish', 'RAG'].join('\t');
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -877,7 +800,7 @@ function updateReportUpNext(tasks) {
             if (task.is_recurring_instance) {
                 const occDate = parseLocalDate(task.recurrence_date);
                 if (occDate >= today && occDate <= twoWeeksFromNow) {
-                    categorized.push({ task, sortOrder: 2, status: 'Recurring', statusClass: 'rag-green', displayStart: taskStart, displayFinish: taskFinish });
+                    categorized.push({ task, sortOrder: 2, status: 'Recurring', rag: 'green', displayStart: taskStart, displayFinish: taskFinish });
                 }
                 return;
             }
@@ -890,15 +813,14 @@ function updateReportUpNext(tasks) {
             // with the task table, falling back to a derived value only if
             // the backend did not provide one.
             const ragStatus = task.rag || '';
-            const ragColourCat = ragStatusToColour(ragStatus);
-            const ragClass = ragColourCat ? 'rag-' + ragColourCat : '';
+            const known = Boolean(ragStatusToColour(ragStatus));
 
             if (isLate) {
-                categorized.push({ task, sortOrder: 0, status: ragStatus || 'Task Overdue', statusClass: ragClass || 'rag-red', displayStart: taskStart, displayFinish: taskFinish });
+                categorized.push({ task, sortOrder: 0, status: ragStatus || 'Task Overdue', rag: known ? ragStatus : 'red', displayStart: taskStart, displayFinish: taskFinish });
             } else if (isInProgress) {
-                categorized.push({ task, sortOrder: 1, status: ragStatus || 'Behind Schedule', statusClass: ragClass || 'rag-amber', displayStart: taskStart, displayFinish: taskFinish });
+                categorized.push({ task, sortOrder: 1, status: ragStatus || 'Behind Schedule', rag: known ? ragStatus : 'amber', displayStart: taskStart, displayFinish: taskFinish });
             } else if (isUpcoming) {
-                categorized.push({ task, sortOrder: 2, status: ragStatus || 'Not Started', statusClass: ragClass || 'rag-green', displayStart: taskStart, displayFinish: taskFinish });
+                categorized.push({ task, sortOrder: 2, status: ragStatus || 'Not Started', rag: known ? ragStatus : 'green', displayStart: taskStart, displayFinish: taskFinish });
             }
         });
 
@@ -909,58 +831,23 @@ function updateReportUpNext(tasks) {
             return dateA - dateB;
         });
 
-        const displayTasks = categorized.slice(0, 10);
-
-        if (displayTasks.length === 0) {
-            if (tableEl) tableEl.style.display = 'none';
-            if (emptyEl) emptyEl.style.display = 'block';
-            return;
-        }
-
-        if (tableEl) tableEl.style.display = '';
-        if (emptyEl) emptyEl.style.display = 'none';
-
-        displayTasks.forEach(({ task, status, statusClass, displayStart, displayFinish }) => {
-            const row = document.createElement('tr');
-            row.classList.add('up-next-row-clickable');
-            row.addEventListener('click', () => {
-                switchTab('editor');
-                openTaskFormByName(task.name);
-            });
-
-            const nameCell = document.createElement('td');
-            nameCell.classList.add('task-name', 'col-name');
-            nameCell.title = task.name;
-            const nameText = document.createTextNode(task.name);
-            nameCell.appendChild(nameText);
-            if (task.recurrence) {
-                const badge = document.createElement('span');
-                badge.className = 'recurrence-badge';
-                const label = (typeof formatRecurrenceLabel === 'function') ? formatRecurrenceLabel(task.recurrence) : task.recurrence;
-                badge.textContent = label;
-                nameCell.appendChild(badge);
-            }
-            row.appendChild(nameCell);
-
-            const startCell = document.createElement('td');
-            startCell.classList.add('col-date');
-            startCell.textContent = displayStart || task.start || '-';
-            row.appendChild(startCell);
-
-            const finishCell = document.createElement('td');
-            finishCell.classList.add('col-date');
-            finishCell.textContent = displayFinish || task.finish || '-';
-            row.appendChild(finishCell);
-
-            const statusCell = document.createElement('td');
-            statusCell.classList.add('col-rag');
-            const statusBadge = document.createElement('span');
-            statusBadge.className = 'up-next-status ' + statusClass;
-            statusBadge.textContent = status;
-            statusCell.appendChild(statusBadge);
-            row.appendChild(statusCell);
-
-            tbody.appendChild(row);
+        categorized.slice(0, 10).forEach(({ task, status, rag, displayStart, displayFinish }) => {
+            const start = displayStart || task.start || '-';
+            const finish = displayFinish || task.finish || '-';
+            const recurrence = !task.recurrence ? ''
+                : (typeof formatRecurrenceLabel === 'function') ? formatRecurrenceLabel(task.recurrence) : task.recurrence;
+            list.appendChild(reportTaskRow(task, {
+                compact: true,
+                meta: [recurrence, reportRowDates(displayStart || task.start, displayFinish || task.finish)]
+                    .filter(Boolean).join(' · '),
+                rag,
+                ragLabel: status,
+                onOpen: () => {
+                    switchTab('editor');
+                    openTaskFormByName(task.name);
+                },
+                data: { start, finish, rag: status, copy: [task.name, start, finish, status].join('\t') },
+            }));
         });
 
     } catch (error) {
@@ -1848,6 +1735,65 @@ function updateTimesheet(tasks, frontMatter = {}) {
 
 // Store tasks and project name for timeline re-rendering
 
+/**
+ * The task grid's cells that are the task row's parts (Penpot "Task row"),
+ * shared by the Tasks view (updateTasksTable) and the Gantt's task list
+ * (renderGanttRows in views-gantt.js), which draw the same 40px grid.
+ * Completion is createTaskCompletionBox() in editor-sync.js.
+ */
+
+/** The front matter's resource details, for a people chip's profile card. */
+function taskGridResourceDetails() {
+    const editor = document.getElementById('planEditor');
+    if (!editor || typeof parseResourceDetails !== 'function') return {};
+    try { return parseResourceDetails(editor.value); } catch { return {}; }
+}
+
+/**
+ * The Resources cell: the task row's stack of people chips, for the names
+ * the engine's "sam[50%], Jo Lee" stands for. The raw assignment, with any
+ * allocation, is the cell's tooltip; an assignment inherited from the phase
+ * says so. Double-click still edits the text (makeEditable).
+ */
+function fillTaskGridPeople(cell, task, details) {
+    cell.replaceChildren();
+    const raw = task.resources || '';
+    const names = typeof taskRowResourceNames === 'function'
+        ? taskRowResourceNames(raw, typeof globalResourceMap !== 'undefined' ? globalResourceMap : {}) : raw;
+    if (!names) {
+        cell.textContent = '-';
+    } else {
+        const stack = document.createElement('np-resource-stack');
+        stack.setAttribute('names', names);
+        stack.setAttribute('max', '3');
+        stack.details = details || taskGridResourceDetails();
+        cell.appendChild(stack);
+    }
+    const notes = [];
+    if (task.inherited_resource) {
+        notes.push('Inherited from parent summary task');
+        const hint = document.createElement('span');
+        hint.className = 'task-grid-inherited';
+        hint.textContent = 'inherited';
+        cell.appendChild(hint);
+    }
+    if (raw.includes('[')) notes.push(raw);
+    if (notes.length) cell.title = notes.join(': '); else cell.removeAttribute('title');
+}
+
+/** The RAG cell: the task row's dot, named by the status, or "-". */
+function fillTaskGridRag(cell, task) {
+    cell.replaceChildren();
+    if (!task.rag) {
+        cell.textContent = '-';
+        return;
+    }
+    const dot = document.createElement('np-rag');
+    dot.setAttribute('status', task.rag);
+    if ((parseFloat(task.percent) || 0) >= 100) dot.setAttribute('done', '');
+    cell.appendChild(dot);
+}
+
 function updateTasksTable(tasks) {
     const placeholder = document.querySelector('#tasks-view .placeholder-view');
     const content = document.querySelector('#tasks-view .tasks-content');
@@ -1868,6 +1814,7 @@ function updateTasksTable(tasks) {
     if (!tasks || tasks.length === 0) return;
 
     const nameToId = buildTaskNameToIdMap(tasks);
+    const resourceDetails = taskGridResourceDetails();
 
     tasks.forEach((task, index) => {
         const cfStyle = !task.is_summary ? getConditionalFormatting(task) : null;
@@ -1880,16 +1827,15 @@ function updateTasksTable(tasks) {
             row.style.color = cfStyle.color;
         }
 
-        // Done piechart
+        // Completion: the task row's box (editor-sync.js)
         const doneCell = document.createElement('td');
         doneCell.classList.add('gantt-done-cell');
         if (!task.is_summary) {
             const percent = parseFloat(task.percent) || 0;
-            const piechart = createMiniPiechart(percent, (newPercent) => {
+            doneCell.appendChild(createTaskCompletionBox(percent, (newPercent) => {
                 task.percent = newPercent;
                 syncGanttPercentToEditor(task, index);
-            });
-            doneCell.appendChild(piechart);
+            }, task.name));
         }
         row.appendChild(doneCell);
 
@@ -1941,15 +1887,11 @@ function updateTasksTable(tasks) {
         setupGanttEditableCell(finishCell, () => makeEditable(finishCell, task, index));
         row.appendChild(finishCell);
 
-        // Resources
+        // Resources: the task row's people chips
         const resourcesCell = document.createElement('td');
-        resourcesCell.classList.add('editable');
+        resourcesCell.classList.add('editable', 'task-grid-people');
         resourcesCell.dataset.field = 'resources';
-        resourcesCell.textContent = task.resources || '-';
-        if (task.inherited_resource) {
-            resourcesCell.style.fontStyle = 'italic';
-            resourcesCell.title = 'Inherited from parent summary task';
-        }
+        fillTaskGridPeople(resourcesCell, task, resourceDetails);
         setupGanttEditableCell(resourcesCell, () => makeEditable(resourcesCell, task, index));
         row.appendChild(resourcesCell);
 
@@ -1977,18 +1919,10 @@ function updateTasksTable(tasks) {
         }
         row.appendChild(effortCell);
 
-        // RAG
+        // RAG: the task row's dot
         const ragCell = document.createElement('td');
         ragCell.classList.add('gantt-rag-cell');
-        if (task.rag) {
-            const printRagColour = ragStatusToColour(task.rag);
-            const ragDot = document.createElement('span');
-            ragDot.className = 'gantt-rag-dot' + (printRagColour ? ' rag-' + printRagColour : '');
-            ragDot.title = task.rag;
-            ragCell.appendChild(ragDot);
-        } else {
-            ragCell.textContent = '-';
-        }
+        fillTaskGridRag(ragCell, task);
         row.appendChild(ragCell);
 
         // Float (total float / slack)
@@ -2110,7 +2044,11 @@ function makeEditable(cell, task, taskIndex) {
 
     input.style.width = '100%';
 
+    // The Resources cell holds people chips, not text: put them back.
     const originalContent = cell.textContent;
+    const restore = field === 'resources'
+        ? () => fillTaskGridPeople(cell, task)
+        : () => { cell.textContent = originalContent; };
     cell.textContent = '';
     cell.appendChild(input);
     input.focus();
@@ -2135,7 +2073,7 @@ function makeEditable(cell, task, taskIndex) {
                     syncGanttDurationToEditor(task, taskIndex);
                     cell.textContent = `${durationValue}d`;
                 } else {
-                    cell.textContent = originalContent;
+                    restore();
                 }
             } else if (field === 'start') {
                 // Validate date format (YYYY-MM-DD)
@@ -2145,7 +2083,7 @@ function makeEditable(cell, task, taskIndex) {
                     syncGanttStartDateToEditor(task, taskIndex);
                     cell.textContent = newValue;
                 } else {
-                    cell.textContent = originalContent;
+                    restore();
                 }
             } else if (field === 'finish') {
                 // Validate date format (YYYY-MM-DD)
@@ -2155,7 +2093,7 @@ function makeEditable(cell, task, taskIndex) {
                     syncGanttFinishDateToEditor(task, taskIndex);
                     cell.textContent = newValue;
                 } else {
-                    cell.textContent = originalContent;
+                    restore();
                 }
             } else if (field === 'percent') {
                 // Parse percent (remove '%' suffix if present)
@@ -2166,7 +2104,7 @@ function makeEditable(cell, task, taskIndex) {
                     syncGanttPercentToEditor(task, taskIndex);
                     cell.textContent = `${percentValue}%`;
                 } else {
-                    cell.textContent = originalContent;
+                    restore();
                 }
             } else if (field === 'predecessors') {
                 // Parse the predecessors string back to depends / lag_lead
@@ -2174,14 +2112,14 @@ function makeEditable(cell, task, taskIndex) {
                 const parsed = parsePredecessorsString(newValue, _idToName);
                 if (parsed === null) {
                     alert('Invalid predecessors format. Use e.g. "3FS" or "3FS+2d, 5FS".');
-                    cell.textContent = originalContent;
+                    restore();
                 } else {
                     // Check for loops before accepting
                     const _nameToId2 = buildTaskNameToIdMap(ganttTasks);
                     const proposedIds = parsed.depends.map(n => _nameToId2[n.toLowerCase()]).filter(id => id !== undefined);
                     if (wouldCreateLoop(task.id, proposedIds, ganttTasks)) {
                         alert('Cannot set these predecessors — it would create a circular dependency.');
-                        cell.textContent = originalContent;
+                        restore();
                     } else {
                         task.depends = parsed.depends;
                         task.lag_lead = parsed.lag_lead;
@@ -2207,6 +2145,8 @@ function makeEditable(cell, task, taskIndex) {
                 if (field === 'name') {
                     renderGanttRows();
                     return;
+                } else if (field === 'resources') {
+                    fillTaskGridPeople(cell, task);
                 } else {
                     cell.textContent = newValue || '-';
                 }
@@ -2217,7 +2157,7 @@ function makeEditable(cell, task, taskIndex) {
                 renderGanttRows();
                 return;
             }
-            cell.textContent = originalContent;
+            restore();
         }
     };
 
@@ -2231,7 +2171,7 @@ function makeEditable(cell, task, taskIndex) {
                 renderGanttRows();
                 return;
             }
-            cell.textContent = originalContent;
+            restore();
         }
     });
 }
