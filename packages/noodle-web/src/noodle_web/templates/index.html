@@ -3666,6 +3666,12 @@ Build
                     </div>
                     <small>A backup holds every project, its version history and programme dependencies in one JSON file. Restoring adds what is missing and keeps what is already here.</small>
                     <div id="storageSettingsLegacy" class="storage-settings-legacy" style="display: none;"></div>
+                    <!-- The way back to the Sync dialog once every link works (sync-hub.js openSyncFiles()). -->
+                    <div class="settings-sync-files">
+                        <h4>Synced files</h4>
+                        <p>The project workbook, RAID workbook and MS Project files this plan syncs with. Link another, change one for a different file, or unlink it.</p>
+                        <np-button variant="secondary" id="storageSyncFilesBtn" onclick="openSyncFiles()">Manage synced files&hellip;</np-button>
+                    </div>
                 </div>
 
                 <!-- Sync Tab (issue #761) -->
@@ -3673,6 +3679,9 @@ Build
                     <h3>Sync</h3>
                     <p class="settings-ai-description">Files this plan is linked to, and when they last synced. Nothing syncs automatically — sync only runs when you trigger it here or with Sync on the Report ribbon.</p>
                     <div id="syncSettingsList" class="sync-settings-list"></div>
+                    <div class="settings-sync-files-actions">
+                        <np-button variant="secondary" id="settingsSyncFilesBtn" onclick="openSyncFiles()">Manage synced files&hellip;</np-button>
+                    </div>
                 </div>
             </div>
         </np-detail-sheet>

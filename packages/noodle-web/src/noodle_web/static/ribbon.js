@@ -346,6 +346,7 @@ const LABEL_HELP = {
     'Show Baseline': 'Show or hide the baseline overlay on the Gantt chart',
     // #1139: syncs every linked file, or says what to do first.
     Sync: 'Sync the plan with its linked files: the project workbook, the RAID workbook and MS Project',
+    'Sync Files': 'Link, change or unlink the files this plan syncs with',
 };
 
 function labelHelp(label) {
@@ -578,6 +579,9 @@ const LABEL_ACTIONS = {
     // opens the dialog that says what to do instead (sync-hub.js). It used
     // to open Settings > Sync (#1123), which left the button a detour.
     Sync: () => runFrontOfHouseSync(),
+    // The same dialog in every state, so a plan linked to one file can link
+    // another or swap it for a different one.
+    'Sync Files': () => openSyncFiles(),
 
     // Per-category syntax highlight toggles (#1051) -- see
     // highlight-toggles.js's own header comment for why flipping these can

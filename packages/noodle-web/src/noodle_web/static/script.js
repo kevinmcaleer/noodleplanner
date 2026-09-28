@@ -8602,7 +8602,7 @@ async function uploadRaidExcel(event) {
  *   - linked: reads straight from the handle -- genuinely one click, no
  *     dialog of any kind.
  */
-async function syncRaidExcelTarget() {
+async function syncRaidExcelTarget(options = {}) {
     const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
 
     if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported()) {
@@ -8614,7 +8614,11 @@ async function syncRaidExcelTarget() {
     }
 
     await LocalFileAccess.ensureRestored(projectId);
-    let status = LocalFileAccess.getLinkStatus(projectId, RAID_SYNC_TARGET_KEY);
+    // "Change file…" in the Sync dialog: straight to the picker, as if
+    // nothing were linked, and a different file than the one linked makes
+    // the last sync's snapshot the wrong base for the diff.
+    const previousName = options.chooseFile ? LocalFileAccess.getLinkedFileName(projectId, RAID_SYNC_TARGET_KEY) : null;
+    let status = options.chooseFile ? 'unlinked' : LocalFileAccess.getLinkStatus(projectId, RAID_SYNC_TARGET_KEY);
 
     if (status === 'needs-relink') {
         const granted = await LocalFileAccess.requestWritePermission(projectId, RAID_SYNC_TARGET_KEY);
@@ -8647,6 +8651,9 @@ async function syncRaidExcelTarget() {
         return;
     }
     if (!picked) return; // user cancelled the picker
+    if (previousName && picked.name !== previousName && typeof forgetSyncBaseline === 'function') {
+        await forgetSyncBaseline('excel', projectId);
+    }
 
     await processRaidExcelSyncInput(picked.content, picked.name);
 }
@@ -9806,7 +9813,7 @@ const MSP_FILE_PICKER_OPTIONS = {
  * LocalFileAccess's current link status, and why this must run with no
  * await before the first LocalFileAccess call.
  */
-async function syncMSProjectTarget() {
+async function syncMSProjectTarget(options = {}) {
     const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
 
     if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported()) {
@@ -9818,7 +9825,11 @@ async function syncMSProjectTarget() {
     }
 
     await LocalFileAccess.ensureRestored(projectId);
-    let status = LocalFileAccess.getLinkStatus(projectId, MSP_SYNC_TARGET_KEY);
+    // "Change file…" in the Sync dialog: straight to the picker, as if
+    // nothing were linked, and a different file than the one linked makes
+    // the last sync's snapshot the wrong base for the diff.
+    const previousName = options.chooseFile ? LocalFileAccess.getLinkedFileName(projectId, MSP_SYNC_TARGET_KEY) : null;
+    let status = options.chooseFile ? 'unlinked' : LocalFileAccess.getLinkStatus(projectId, MSP_SYNC_TARGET_KEY);
 
     if (status === 'needs-relink') {
         const granted = await LocalFileAccess.requestWritePermission(projectId, MSP_SYNC_TARGET_KEY);
@@ -9847,6 +9858,9 @@ async function syncMSProjectTarget() {
         return;
     }
     if (!picked) return; // user cancelled the picker
+    if (previousName && picked.name !== previousName && typeof forgetSyncBaseline === 'function') {
+        await forgetSyncBaseline('msproject', projectId);
+    }
 
     await processMSProjectSyncInput(picked.content, picked.name);
 }
@@ -10233,7 +10247,7 @@ function workbookSyncProjectId() {
  * the picker and links what is chosen, linked reads straight through.
  * MUST run from a click with no await before the permission request.
  */
-async function syncProjectWorkbookTarget() {
+async function syncProjectWorkbookTarget(options = {}) {
     const projectId = workbookSyncProjectId();
 
     if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported()) {
@@ -10249,7 +10263,11 @@ async function syncProjectWorkbookTarget() {
     }
 
     await LocalFileAccess.ensureRestored(projectId);
-    let status = LocalFileAccess.getLinkStatus(projectId, WORKBOOK_SYNC_TARGET_KEY);
+    // "Change file…" in the Sync dialog: straight to the picker, as if
+    // nothing were linked, and a different file than the one linked makes
+    // the last sync's snapshot the wrong base for the diff.
+    const previousName = options.chooseFile ? LocalFileAccess.getLinkedFileName(projectId, WORKBOOK_SYNC_TARGET_KEY) : null;
+    let status = options.chooseFile ? 'unlinked' : LocalFileAccess.getLinkStatus(projectId, WORKBOOK_SYNC_TARGET_KEY);
 
     if (status === 'needs-relink') {
         const granted = await LocalFileAccess.requestWritePermission(projectId, WORKBOOK_SYNC_TARGET_KEY);
@@ -10278,6 +10296,9 @@ async function syncProjectWorkbookTarget() {
         return;
     }
     if (!picked) return; // the picker was cancelled
+    if (previousName && picked.name !== previousName && typeof forgetSyncBaseline === 'function') {
+        await forgetSyncBaseline('workbook', projectId);
+    }
     await processWorkbookSyncInput(picked.content, picked.name);
 }
 

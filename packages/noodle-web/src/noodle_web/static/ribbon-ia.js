@@ -119,7 +119,9 @@ export const TABS = [
             // a status meeting asks for.
             { name: 'Reports', launcher: true, lg: [['project-report', 'Project Report'], ['highlights', 'Highlights']], cols: [[['chart', 'Analysis'], ['milestones', 'Milestones']], [['money', 'Budget'], ['target', 'Benefits']], [['people', 'By Assignment'], ['flag', 'Slippage']]] },
             { name: 'Share', lg: [['download', 'Export']], cols: [[['print', 'Print'], ['doc', 'PDF']], [['grid', 'Excel'], ['board', 'PowerPoint']]] },
-            { name: 'Data', lg: [['upload', 'Import']], cols: [[['save', 'Save'], ['refresh', 'Sync']]] },
+            // Sync Files opens the Sync dialog whatever is linked: once every link
+            // works, Sync itself syncs straight away and never shows it.
+            { name: 'Data', lg: [['upload', 'Import']], cols: [[['save', 'Save'], ['refresh', 'Sync']], [['link', 'Sync Files']]] },
         ],
     },
     {

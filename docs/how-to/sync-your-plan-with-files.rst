@@ -59,6 +59,27 @@ Press Sync
 **Settings › Sync** lists the same targets, with each one's link, when it
 last synced, **Sync Now**, and **Unlink**.
 
+Link another file, or change one
+--------------------------------
+
+Once every link works, **Sync** syncs straight away and doesn't show the
+dialog. To get back to it, for example to link an MS Project file as well
+as the project workbook, or to swap a linked file for a different one,
+press **Sync Files** next to **Sync** on the **Report** tab. The same
+dialog is under **Settings › Storage** and **Settings › Sync**, from
+**Manage synced files…**.
+
+The dialog lists every target, whatever state it is in:
+
+- **Link existing file…** (and **Create…** for the project workbook) for a
+  target that isn't linked yet.
+- **Change file…** opens the file picker for a linked target, links the
+  file you choose instead, and syncs with it. The old file isn't changed. If
+  you choose a different file, the last sync's record for that target is
+  forgotten, so the review compares the plan with the new file alone.
+- **Unlink** forgets a link. The file itself isn't changed.
+- **Sync N ready files** syncs every target that is linked and ready.
+
 Review workbook changes
 -----------------------
 

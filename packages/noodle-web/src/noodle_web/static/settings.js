@@ -438,8 +438,8 @@ const SYNC_TARGET_DEFS = [
         syncLabel: 'Sync Now',
         relinkLabel: 'Re-link…',
         scope: 'The RAID-only workbook from the RAID view. Every RAID item syncs both ways.',
-        syncAction: () => {
-            if (typeof syncRaidExcelTarget === 'function') return syncRaidExcelTarget();
+        syncAction: (options) => {
+            if (typeof syncRaidExcelTarget === 'function') return syncRaidExcelTarget(options);
             document.getElementById('raidXlUpload')?.click();
         },
         reviewOverlay: 'raidSyncOverlay',
@@ -454,8 +454,8 @@ const SYNC_TARGET_DEFS = [
         syncLabel: 'Sync Now',
         relinkLabel: 'Re-link…',
         scope: 'The task tree syncs both ways; a linked .mpp file is rewritten after each sync.',
-        syncAction: () => {
-            if (typeof syncMSProjectTarget === 'function') return syncMSProjectTarget();
+        syncAction: (options) => {
+            if (typeof syncMSProjectTarget === 'function') return syncMSProjectTarget(options);
             if (typeof triggerMSProjectUpload === 'function') triggerMSProjectUpload({ sync: true });
         },
         reviewOverlay: 'mspSyncOverlay',
@@ -471,8 +471,8 @@ const SYNC_TARGET_DEFS = [
         relinkLabel: 'Re-link…',
         createLabel: 'Create…',
         scope: 'The whole-plan workbook from Report > Share > Excel. Its Tasks sheet’s % Complete, Comment and new rows sync back; every other sheet, RAID Log included, is export-only.',
-        syncAction: () => {
-            if (typeof syncProjectWorkbookTarget === 'function') return syncProjectWorkbookTarget();
+        syncAction: (options) => {
+            if (typeof syncProjectWorkbookTarget === 'function') return syncProjectWorkbookTarget(options);
         },
         createAction: () => {
             if (typeof createProjectWorkbookTarget === 'function') return createProjectWorkbookTarget();
@@ -575,6 +575,37 @@ async function renderSyncSettings() {
     });
 }
 
+/**
+ * Forget the snapshot of the last sync with `key`'s file (the base its next
+ * diff is taken against): on Unlink, and when "Change file…" picks a
+ * different file, whose rows the snapshot says nothing about.
+ */
+async function forgetSyncBaseline(key, projectId) {
+    projectId = projectId || (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
+    if (key === 'excel') {
+        try {
+            const module = await import('/static/raid-sync.js');
+            module.clearRaidSyncState(projectId);
+        } catch (error) {
+            console.warn('Failed to clear RAID sync snapshot:', error);
+        }
+    } else if (key === 'msproject') {
+        try {
+            const module = await import('/static/msproject-sync.js');
+            module.clearMspSyncState(projectId);
+        } catch (error) {
+            console.warn('Failed to clear MS Project sync snapshot:', error);
+        }
+    } else if (key === 'workbook') {
+        try {
+            const module = await import('/static/workbook-sync.js');
+            module.clearWorkbookSyncState(projectId);
+        } catch (error) {
+            console.warn('Failed to clear project workbook sync snapshot:', error);
+        }
+    }
+}
+
 async function unlinkSyncTarget(key) {
     const editor = document.getElementById('planEditor');
     if (!editor) return;
@@ -609,28 +640,7 @@ async function unlinkSyncTarget(key) {
         }
     }
 
-    if (key === 'excel') {
-        try {
-            const module = await import('/static/raid-sync.js');
-            module.clearRaidSyncState(projectId);
-        } catch (error) {
-            console.warn('Failed to clear RAID sync snapshot:', error);
-        }
-    } else if (key === 'msproject') {
-        try {
-            const module = await import('/static/msproject-sync.js');
-            module.clearMspSyncState(projectId);
-        } catch (error) {
-            console.warn('Failed to clear MS Project sync snapshot:', error);
-        }
-    } else if (key === 'workbook') {
-        try {
-            const module = await import('/static/workbook-sync.js');
-            module.clearWorkbookSyncState(projectId);
-        } catch (error) {
-            console.warn('Failed to clear project workbook sync snapshot:', error);
-        }
-    }
+    await forgetSyncBaseline(key, projectId);
 
     renderSyncSettings();
     showMessage('editor', 'success', 'Sync link removed.');

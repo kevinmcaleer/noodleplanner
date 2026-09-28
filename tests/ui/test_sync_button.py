@@ -207,3 +207,72 @@ def test_settings_lists_the_project_workbook_apart_from_the_raid_workbook(page, 
     assert workbook.locator("[data-sync-create]").inner_text() == "Create…"
     # The RAID workbook has no Create: it is written by the RAID view.
     assert rows.nth(0).locator("[data-sync-create]").count() == 0
+
+
+def _click_sync_files(page):
+    page.click('.ribbon-tab-btn[data-tab="report"]')
+    page.click('button[data-label="Sync Files"]')
+
+
+def test_with_a_workbook_linked_sync_files_still_opens_the_dialog(page, app_server):
+    """Once every link works, Sync syncs straight away and never shows the
+    dialog, so Sync Files is the way back to it: to link MS Project as well,
+    or to change the workbook for a different file."""
+    _open(page, app_server, PLAN.replace("---\nDesign", "workbook_file: Office move.xlsx\n---\nDesign"))
+    _stub_links(page, {"project-excel": "linked"})
+    _click_sync_files(page)
+
+    hub = page.locator("#syncHubOverlay.active")
+    hub.wait_for()
+    assert "Link another file" in hub.locator(".sync-hub-intro").inner_text()
+    workbook = hub.locator('[data-sync-hub-target="workbook"]')
+    assert workbook.locator('[data-sync-hub-action="change"]').inner_text() == "Change file…"
+    assert workbook.locator('[data-sync-hub-action="unlink"]').count() == 1
+    msp = hub.locator('[data-sync-hub-target="msproject"]')
+    assert msp.locator('[data-sync-hub-action="sync"]').inner_text() == "Link existing file…"
+    assert msp.locator('[data-sync-hub-action="unlink"]').count() == 0
+    run = hub.locator('#syncHubFooter [data-sync-hub-action="run"]')
+    assert run.inner_text() == "Sync 1 ready file"
+
+
+def test_change_file_opens_the_picker_and_forgets_the_old_snapshot(page, app_server):
+    _open(page, app_server, PLAN.replace("---\nDesign", "workbook_file: Office move.xlsx\n---\nDesign"))
+    _workbook_with_edit(page, None, None)
+    _stub_links(page, {"project-excel": "linked"})
+    page.evaluate(
+        """async () => {
+            const sync = await import('/static/workbook-sync.js');
+            sync.setWorkbookSyncState(getCurrentProjectId() || 'default', { filename: 'Office move.xlsx', rows: [], syncedAt: '' });
+            window.__read = false;
+            window.__forgot = [];
+            const forget = window.forgetSyncBaseline;
+            window.forgetSyncBaseline = async (key, projectId) => { window.__forgot.push(key); return forget(key, projectId); };
+            LocalFileAccess.readLinkedFile = async () => { window.__read = true; return null; };
+            LocalFileAccess.pickAndLinkFile = async (p, key) => {
+                window.__picked = key;
+                return { name: 'Office move v2.xlsx', content: window.__workbookBytes };
+            };
+        }"""
+    )
+    _click_sync_files(page)
+    hub = page.locator("#syncHubOverlay.active")
+    hub.wait_for()
+    hub.locator('[data-sync-hub-target="workbook"] [data-sync-hub-action="change"]').click()
+
+    page.wait_for_function("() => window.__written && !isSyncRunning()")
+    assert page.evaluate("() => window.__picked") == "project-excel"
+    # Straight to the picker: the linked file is not read first.
+    assert page.evaluate("() => window.__read") is False
+    assert "workbook_file: Office move v2.xlsx" in plan_text(page)
+    # A different file: the old file's snapshot is not the base for its diff.
+    assert page.evaluate("() => window.__forgot") == ["workbook"]
+
+
+def test_settings_storage_opens_the_sync_dialog(page, app_server):
+    _open(page, app_server)
+    _stub_links(page, {"project-excel": "linked"})
+    page.evaluate("() => { openSettingsPanel('storage'); }")
+    page.click("#storageSyncFilesBtn")
+    hub = page.locator("#syncHubOverlay.active")
+    hub.wait_for()
+    assert hub.locator('[data-sync-hub-target="workbook"] [data-sync-hub-action="change"]').count() == 1
