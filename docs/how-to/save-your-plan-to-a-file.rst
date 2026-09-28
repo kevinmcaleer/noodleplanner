@@ -55,8 +55,11 @@ later Save writes there. The old file is left as it was.
 Download a copy
 ---------------
 
-Choose **File › Download a copy**. The plan downloads as
+Choose **File › Download a copy**, or **Export › Markdown (.md)** on the
+**Report** or **Home** tab. The plan downloads as
 ``<plan name>_plan_v<version>.md``, and the file on disk isn't touched.
+Export › Markdown is there in every browser, so it is the way to get a copy
+out if Save can't write to the linked file.
 
 When the browser asks for permission again
 ------------------------------------------
@@ -78,6 +81,19 @@ forgets the file. The next Save asks where to save.
 The link belongs to this browser on this computer. Open the same plan in
 another browser, or on another computer, and its first Save asks for a
 file again.
+
+How Save knows where the file is
+--------------------------------
+
+The plan doesn't record the file's folder, and can't: browsers never tell a
+web page where a file is on disk. When you choose a file, the browser hands
+NoodlePlanner a *file handle*, a private reference to that one file, which
+it keeps in the browser's own storage for this site. Save writes through
+that handle. The status bar's 🔗 shows the file's name, which is all the
+browser reveals.
+
+That is also why a link only works in the browser that made it, and why
+clearing this site's data forgets it.
 
 In Firefox, Safari and on phones
 --------------------------------

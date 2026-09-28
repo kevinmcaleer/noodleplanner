@@ -256,6 +256,10 @@ function onWhiteboard(name) {
  * explicitly marked as split/gallery buttons in the design, not single
  * actions, so they open a small menu rather than picking one format. */
 const EXPORT_FORMATS = [
+    // The plan itself, always as a download: the way to get a copy out when
+    // Save writes to a linked file that can't be reached (File > Download a
+    // copy, which Backstage only shows where Save writes to disk).
+    { label: 'Markdown (.md)', run: () => downloadPlanCopy() },
     { label: 'Excel (.xlsx)', run: () => exportFile('excel', 'editor') },
     { label: 'CSV', run: () => exportFile('csv', 'editor') },
     { label: 'PDF', run: () => exportFile('pdf', 'editor') },
