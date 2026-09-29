@@ -161,11 +161,12 @@ function wbNoodlePathD(anchors) {
 
 /**
  * The arrowhead polygon points for a noodle arriving at `b` along `axis`,
- * pointing into the child note's edge.
+ * pointing into the child note's edge. `size` lets a dependency noodle
+ * draw a larger head (whiteboard-dep-noodles.js).
  */
-function wbNoodleArrowPoints(anchors) {
+function wbNoodleArrowPoints(anchors, size = WB_NOODLE_ARROW_SIZE) {
     const { a, b, axis } = anchors;
-    const s = WB_NOODLE_ARROW_SIZE;
+    const s = size;
     const dir = axis === 'x' ? (Math.sign(b.x - a.x) || 1) : (Math.sign(b.y - a.y) || 1);
     if (axis === 'x') {
         return `${b.x},${b.y} ${b.x - s * dir},${b.y - s * 0.6} ${b.x - s * dir},${b.y + s * 0.6}`;

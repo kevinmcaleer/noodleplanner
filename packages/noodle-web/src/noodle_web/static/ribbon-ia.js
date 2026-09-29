@@ -70,18 +70,6 @@ export const TABS = [
             { name: 'Schedule', launcher: true, lg: [['gantt-chart', 'Gantt']], cols: [[['calendar', 'Calendars'], ['clock', 'Durations']], [['target', 'Critical Path'], ['clock', 'Baseline']]] },
             { name: 'Deliverables', lg: [['doc', 'Products']], cols: [[['board', 'Product Flow'], ['grid', 'Deliverables']]] },
             { name: 'Model', lg: [['bulb', 'Mind Map']], cols: [[['grid', 'Whiteboard'], ['timeline', 'Timeline']]] },
-            {
-                // #1111: was 'Highlight' -- renamed since these buttons are
-                // easy to mistake for whiteboard/Gantt display options
-                // (they aren't; see LABEL_HELP in ribbon.js) and the plain
-                // "Highlight" caption didn't say what gets highlighted.
-                name: 'Editor Highlighting',
-                cols: [
-                    [['clock', 'Show Durations'], ['resources', 'Show Resources']],
-                    [['pin', 'Show Tags'], ['doc', 'Show Comments']],
-                    [['link', 'Show Dependencies'], ['pin', 'Highlight Preset', 'caret']],
-                ],
-            },
             { name: 'Wizard', lg: [['bulb', 'Guided Plan']] },
         ],
     },
@@ -282,6 +270,23 @@ export const CONTEXTUAL_TABS = [
             // group is the first to fold away, and the existing groups keep
             // their own collapse points.
             { name: 'Baseline', cols: [[['save', 'Set Baseline'], ['timeline', 'Show Baseline']]] },
+            // The editor's syntax-highlight toggles (#1051), moved here from the
+            // Plan tab, where they sat beside the Model group's Whiteboard
+            // button and read as whiteboard display options (#1111 had
+            // already renamed the group for that reason). The Gantt is the
+            // view that shows the markdown editor alongside it, and hovering
+            // a bar highlights its line there (gantt-editor-link.js), so this
+            // is where the editor's colouring is actually looked at. Last,
+            // like Baseline above and for the same reason: fitGroups() folds
+            // groups away from the right, and these should go first.
+            {
+                name: 'Editor Highlighting',
+                cols: [
+                    [['clock', 'Show Durations'], ['resources', 'Show Resources']],
+                    [['pin', 'Show Tags'], ['doc', 'Show Comments']],
+                    [['link', 'Show Dependencies'], ['pin', 'Highlight Preset', 'caret']],
+                ],
+            },
         ],
     },
     {
@@ -328,7 +333,12 @@ export const CONTEXTUAL_TABS = [
             // the solid and dashed lines mean (Key); and the how-to line
             // under the toolbar, once its own close button has dismissed it
             // (Tips).
-            { name: 'Show', cols: [[['task-list', 'Structure'], ['flag', 'Parking Lot']], [['link', 'Key'], ['bulb', 'Tips']]] },
+            // Dependency Lines / Sub-task Lines hide or show each kind of
+            // noodle -- the dashed `[depends ...]` links and the solid
+            // parent/child links -- so a busy board can be read one
+            // relationship at a time. Not "Dependencies": that label is the
+            // Gantt's own dependency-arrow toggle (isButtonActive()).
+            { name: 'Show', cols: [[['task-list', 'Structure'], ['flag', 'Parking Lot']], [['link', 'Key'], ['bulb', 'Tips']], [['link', 'Dependency Lines'], ['task-list', 'Sub-task Lines']]] },
             // Last, because none of it is built yet: on a narrow screen the
             // groups that overflow into "More" go from the right, and these
             // are the ones to lose first.

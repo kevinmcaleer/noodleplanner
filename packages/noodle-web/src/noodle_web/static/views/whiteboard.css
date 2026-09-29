@@ -2682,6 +2682,15 @@ body.wb-linking * {
     stroke: #ffffff;
 }
 
+/* The ribbon's Whiteboard > Dependency Lines and Sub-task Lines buttons
+   (wbSetNoodleKindVisible() in whiteboard.js). Only the drawn noodles go:
+   the drag ghosts live in the same layers and stay visible, so a link drawn
+   while its kind is hidden still shows where it is going. */
+.wb-hide-dependency-lines .wb-dep-noodle,
+.wb-hide-subtask-lines .wb-noodle {
+    display: none;
+}
+
 /* ── Transient canvas message ────────────────────────────────────────
    Used for refused links and confirmed cuts: a nudge, not an error the
    user has to dismiss. */

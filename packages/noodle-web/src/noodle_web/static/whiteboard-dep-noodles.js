@@ -23,13 +23,12 @@
  * *another* checklist row, started and finished here
  * (wbBeginRowDepDrag()/wbEndRowDepDrag()).
  *
- * Geometry (anchors/curve/arrow) is still reused directly from
+ * Geometry between two whole note cards is reused directly from
  * whiteboard-noodles.js's pure helpers -- wbNoodleAnchors/wbNoodlePathD/
- * wbNoodleArrowPoints -- since a dependency noodle is drawn between two
- * rectangles the same way a hierarchy noodle is; only *which* rectangle
- * (a whole note, or one checklist row inside it -- see
- * wbDepNoodleEndpointRectFor()), what the link *means*, how it commits,
- * and how it looks differ.
+ * wbNoodleArrowPoints. A checklist-row endpoint (see
+ * wbDepNoodleEndpointRectFor()) is anchored on its card's outer edge
+ * instead, so the arrowhead saying which task waits on which is never
+ * hidden under the card -- see wbDepNoodleGeometry().
  */
 
 const WB_DEP_NOODLE_ID_SEP = '';
@@ -153,13 +152,89 @@ function wbLayoutDepNoodle(node, link) {
     }
     node.group.removeAttribute('visibility');
 
-    const anchors = wbNoodleAnchors(from, to);
-    const d = wbNoodlePathD(anchors);
-    node.hit.setAttribute('d', d);
-    node.path.setAttribute('d', d);
-    node.arrow.setAttribute('points', wbNoodleArrowPoints(anchors));
-    const mid = wbNoodleMidpoint(anchors);
-    node.cut.setAttribute('transform', `translate(${mid.x}, ${mid.y})`);
+    const geometry = wbDepNoodleGeometry(from, to);
+    node.hit.setAttribute('d', geometry.d);
+    node.path.setAttribute('d', geometry.d);
+    node.arrow.setAttribute('points', geometry.arrow);
+    node.cut.setAttribute('transform', `translate(${geometry.mid.x}, ${geometry.mid.y})`);
+}
+
+/** Board units. Larger than a hierarchy noodle's arrowhead: which way a
+ * dependency points is the whole of what it says. */
+const WB_DEP_NOODLE_ARROW_SIZE = 13;
+
+/**
+ * The path, arrowhead and midpoint for one dependency noodle, from the
+ * endpoint rects wbDepNoodleEndpointRectFor() returns. Pure -- unit tested
+ * in tests/test_whiteboard_dep_noodles.mjs.
+ *
+ * Two whole note cards are joined exactly like a hierarchy noodle
+ * (wbNoodleAnchors()). An endpoint that is a checklist row is different:
+ * the row is *inside* its note card, and this layer paints under the notes
+ * layer, so a noodle ending on the row's own edge had its arrowhead hidden
+ * behind the card -- a dependency read as a plain line with no direction.
+ * So a row endpoint is anchored on its card's outer left or right edge, at
+ * the row's height, and the arrowhead sits just outside the card pointing
+ * in at that row. Only the card's sides are used: a top or bottom edge
+ * would say nothing about which row is meant.
+ *
+ * When the two ends cannot face each other across a gap (the cards overlap
+ * horizontally, or both rows are in the same card) the noodle leaves and
+ * enters by the same side, looping out and back.
+ */
+function wbDepNoodleGeometry(from, to) {
+    const size = WB_DEP_NOODLE_ARROW_SIZE;
+    if (!from.card && !to.card) {
+        const anchors = wbNoodleAnchors(from, to);
+        return {
+            d: wbNoodlePathD(anchors),
+            arrow: wbNoodleArrowPoints(anchors, size),
+            mid: wbNoodleMidpoint(anchors),
+        };
+    }
+
+    const sides = (end) => {
+        const box = end.card || end;
+        const y = end.y + end.height / 2;
+        return { right: { x: box.x + box.width, y, out: 1 }, left: { x: box.x, y, out: -1 } };
+    };
+    const fromSides = sides(from);
+    const toSides = sides(to);
+    const candidates = [
+        { a: fromSides.right, b: toSides.left },
+        { a: fromSides.left, b: toSides.right },
+        { a: fromSides.right, b: toSides.right },
+        { a: fromSides.left, b: toSides.left },
+    ].filter(({ a, b }) => {
+        // Facing sides only work with the gap between them in front of
+        // both: otherwise the curve doubles back through the cards.
+        if (a.out === b.out) return true;
+        return a.out > 0 ? b.x >= a.x : b.x <= a.x;
+    });
+
+    let best = candidates[0];
+    let bestDist = Infinity;
+    candidates.forEach(c => {
+        const dist = Math.hypot(c.b.x - c.a.x, c.b.y - c.a.y);
+        if (dist < bestDist) { bestDist = dist; best = c; }
+    });
+
+    const { a, b } = best;
+    const bulge = a.out === b.out
+        ? Math.max(WB_NOODLE_MIN_CURVE, Math.abs(b.y - a.y) * 0.25)
+        : Math.max(WB_NOODLE_MIN_CURVE, Math.abs(b.x - a.x) * WB_NOODLE_CURVE);
+    const c1 = { x: a.x + bulge * a.out, y: a.y };
+    const c2 = { x: b.x + bulge * b.out, y: b.y };
+    const baseX = b.x + size * b.out;
+    return {
+        d: `M ${a.x} ${a.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${b.x} ${b.y}`,
+        arrow: `${b.x},${b.y} ${baseX},${b.y - size * 0.6} ${baseX},${b.y + size * 0.6}`,
+        // A cubic bezier at t = 0.5 -- see wbNoodleMidpoint().
+        mid: {
+            x: (a.x + 3 * c1.x + 3 * c2.x + b.x) / 8,
+            y: (a.y + 3 * c1.y + 3 * c2.y + b.y) / 8,
+        },
+    };
 }
 
 /**
@@ -169,7 +244,8 @@ function wbLayoutDepNoodle(node, link) {
  * parent's note body (wbNoteRowRectFor()), otherwise null -- exactly the
  * same "not on the board right now" outcome wbNoteRectFor() alone already
  * gives a hierarchy noodle, just resolved over the wider set of places a
- * task can now appear.
+ * task can now appear. A row's rect also carries `card`, the rect of the
+ * note it is in, which wbDepNoodleGeometry() anchors on.
  */
 function wbDepNoodleEndpointRectFor(taskName) {
     const cardRect = (typeof wbNoteRectFor === 'function') ? wbNoteRectFor(taskName) : null;
@@ -345,7 +421,7 @@ function wbNoteRowRectFor(taskName) {
     if (typeof wbFlushTransform === 'function') wbFlushTransform();
     const key = String(taskName).toLowerCase();
 
-    for (const entry of wbNoteNodes.values()) {
+    for (const [noteTask, entry] of wbNoteNodes) {
         const body = entry && entry.refs && entry.refs.body;
         if (!body) continue;
         // Compared case-insensitively in JS (this file's convention
@@ -360,11 +436,13 @@ function wbNoteRowRectFor(taskName) {
             if (!rect.width || !rect.height) return null; // hidden (e.g. title-only tier)
             const topLeft = wbClientToBoard(rect.left, rect.top);
             const bottomRight = wbClientToBoard(rect.right, rect.bottom);
+            const card = (typeof wbNoteRectFor === 'function') ? wbNoteRectFor(noteTask) : null;
             return {
                 x: topLeft.x,
                 y: topLeft.y,
                 width: bottomRight.x - topLeft.x,
                 height: bottomRight.y - topLeft.y,
+                card: (card && card.width) ? card : null,
             };
         }
     }

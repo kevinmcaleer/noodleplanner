@@ -252,8 +252,9 @@ saved Markdown.
    switches to the plan editor and opens its panel automatically, so the
    colour change is always visible right away.
 
-Each category can be switched off independently from the ribbon's **Plan**
-tab, in the **Editor Highlighting** group (**Show Durations** / **Show
+Each category can be switched off independently from the ribbon's **Gantt
+Tools** tab (shown while the Gantt view, with the editor beside it, is open),
+in the **Editor Highlighting** group (**Show Durations** / **Show
 Resources** / **Show Tags** / **Show Comments** / **Show Dependencies**), so
 you can focus on the field relevant to what you're doing — for example,
 turning everything off except dependencies while working through a plan's

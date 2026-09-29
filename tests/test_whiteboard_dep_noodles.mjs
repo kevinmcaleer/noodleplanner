@@ -202,3 +202,80 @@ test('link then cut round-trips back to the original text', () => {
     assert.equal(sandbox.wbCutDependencyNoodle('A', 'C'), true);
     assert.equal(editor.value, original);
 });
+
+// -- Arrow geometry ---------------------------------------------------------
+//
+// A dependency that ends on a checklist row used to anchor on the row's own
+// edge, which is inside its note card -- and the noodle layer paints under
+// the notes, so the arrowhead was hidden and the line had no direction.
+// wbDepNoodleGeometry() anchors a row endpoint on its card's outer edge.
+
+function geometrySandbox() {
+    const sandbox = { console };
+    vm.createContext(sandbox);
+    vm.runInContext(readFileSync(join(staticDir, 'whiteboard-noodles.js'), 'utf8'), sandbox);
+    const depSrc = readFileSync(join(staticDir, 'whiteboard-dep-noodles.js'), 'utf8');
+    const sizeDecl = depSrc.match(/\nconst WB_DEP_NOODLE_ARROW_SIZE = [^;]+;/);
+    assert.ok(sizeDecl, 'WB_DEP_NOODLE_ARROW_SIZE not found');
+    vm.runInContext(sizeDecl[0], sandbox);
+    liftFunctions(sandbox, 'whiteboard-dep-noodles.js', ['wbDepNoodleGeometry']);
+    return sandbox;
+}
+
+const box = (x, y, width = 200, height = 150) => ({ x, y, width, height });
+const rowIn = (card, top) => ({ x: card.x + 12, y: card.y + top, width: card.width - 24, height: 24, card });
+const arrowTip = (points) => points.split(' ')[0].split(',').map(Number);
+
+test('wbDepNoodleGeometry: a row endpoint is anchored outside its card, arrow pointing in at the row', () => {
+    const { wbDepNoodleGeometry } = geometrySandbox();
+    const leftCard = box(0, 0);
+    const rightCard = box(400, 0);
+    const from = rowIn(leftCard, 40);
+    const to = rowIn(rightCard, 80);
+    const g = wbDepNoodleGeometry(from, to);
+
+    const [tipX, tipY] = arrowTip(g.arrow);
+    assert.equal(tipX, rightCard.x, 'the arrow tip sits on the card edge, not the row edge inside it');
+    assert.equal(tipY, to.y + to.height / 2, 'level with the dependent row');
+    const baseXs = g.arrow.split(' ').slice(1).map((p) => Number(p.split(',')[0]));
+    for (const x of baseXs) assert.ok(x < rightCard.x, 'the arrowhead is drawn outside the card, where it is visible');
+    assert.match(g.d, new RegExp(`^M ${leftCard.x + leftCard.width} ${from.y + from.height / 2} `),
+        'the line leaves the prerequisite card at its row');
+});
+
+test('wbDepNoodleGeometry: two rows in the same card loop out and back in by one side', () => {
+    const { wbDepNoodleGeometry } = geometrySandbox();
+    const card = box(100, 100);
+    const g = wbDepNoodleGeometry(rowIn(card, 30), rowIn(card, 90));
+    const [tipX] = arrowTip(g.arrow);
+    assert.ok(tipX === card.x || tipX === card.x + card.width, 'the arrow lands on a side of the card');
+    const baseXs = g.arrow.split(' ').slice(1).map((p) => Number(p.split(',')[0]));
+    for (const x of baseXs) assert.ok(x < card.x || x > card.x + card.width, 'the arrowhead is outside the card');
+    assert.ok(g.mid.x < card.x || g.mid.x > card.x + card.width, 'the loop bulges outside the card');
+});
+
+test('wbDepNoodleGeometry: stacked cards never join facing sides through each other', () => {
+    const { wbDepNoodleGeometry } = geometrySandbox();
+    const top = box(0, 0);
+    const bottom = box(50, 300);
+    const g = wbDepNoodleGeometry(rowIn(top, 40), rowIn(bottom, 40));
+    const [tipX] = arrowTip(g.arrow);
+    const aX = Number(g.d.split(' ')[1]);
+    const leftSides = [top.x, bottom.x];
+    const rightSides = [top.x + top.width, bottom.x + bottom.width];
+    assert.ok(
+        (leftSides.includes(aX) && tipX === bottom.x) || (rightSides.includes(aX) && tipX === bottom.x + bottom.width),
+        `expected a same-side loop, got start x ${aX}, tip x ${tipX}`,
+    );
+});
+
+test('wbDepNoodleGeometry: two whole cards join like a hierarchy noodle, with a larger head', () => {
+    const sandbox = geometrySandbox();
+    const from = box(0, 0);
+    const to = box(400, 0);
+    const g = sandbox.wbDepNoodleGeometry(from, to);
+    const anchors = sandbox.wbNoodleAnchors(from, to);
+    assert.equal(g.d, sandbox.wbNoodlePathD(anchors));
+    assert.equal(g.arrow, sandbox.wbNoodleArrowPoints(anchors, 13));
+    assert.notEqual(g.arrow, sandbox.wbNoodleArrowPoints(anchors));
+});
