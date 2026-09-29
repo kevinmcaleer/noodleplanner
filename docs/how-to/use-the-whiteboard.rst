@@ -146,13 +146,23 @@ Rows are the endpoints because only an individual task can have a dependency: a 
 
 The handle sits outside the note rather than inside the row, and so does the planning-hint ``✦`` on the row's other side. Both only appear for the row you are pointing at. They used to sit in the row itself, where they reserved their width on every row whether or not that row had either — which left the task name with almost nothing on a default-width note. Out on the margins they cost the name nothing.
 
-A dependency noodle is dashed and purple, so it never reads as a hierarchy link (solid, blue) even on a board that has both. As you drag, every row you pass over shows whether the link would be accepted.
+A dependency noodle is dashed and purple, so it never reads as a hierarchy link (solid, blue) even on a board that has both. It ends in an arrowhead pointing at the task that waits: the line leaves the task that must finish first and arrives, arrow first, at the edge of the note beside the dependent task's row. As you drag, every row you pass over shows whether the link would be accepted.
 
 If you forget which is which, select **Key** on the ribbon's **Whiteboard** tab. A small card appears at the top right of the board: a solid line is a subtask, and a dashed line is a dependency. Select **Key** again, or the card's ``×``, to hide it. Whether it is showing is remembered on this device.
 
 Creating a link that would make a circular dependency (A depends on B, which already depends on A) is refused with a short message, the same way a self-link or an already-linked pair are refused for hierarchy noodles.
 
 Unlinking a dependency noodle works exactly like unlinking a hierarchy one — click to select, then the ``✕`` or :kbd:`Delete` — and removes only the dependency, never the task or its subtasks.
+
+Hide the Lines
+----------------
+
+On a busy board the lines can get in the way. The ribbon's **Whiteboard** tab has two toggles in its **Show** group:
+
+- **Dependency Lines** shows or hides the dashed dependency noodles.
+- **Sub-task Lines** shows or hides the solid lines from a note to its subtasks.
+
+Hiding a line only changes what the board draws — the links themselves stay in your plan, and the Gantt still schedules by them. You can still draw a new link while its lines are hidden; it appears once you show them again. Whether each kind is showing is remembered on this device.
 
 The Plan Structure Panel
 --------------------------

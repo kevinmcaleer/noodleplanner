@@ -154,6 +154,8 @@ function getLiveState() {
         highlightToggles: (typeof HighlightToggles !== 'undefined') ? HighlightToggles.getState() : null,
         editorVisible: !document.querySelector('.editor-panel')?.classList.contains('collapsed'),
         whiteboardKeyVisible: (typeof wbNoodleKeyVisible === 'function') ? wbNoodleKeyVisible() : false,
+        whiteboardDependencyLinesVisible: (typeof wbNoodleKindVisible === 'function') ? wbNoodleKindVisible('dependency') : true,
+        whiteboardSubtaskLinesVisible: (typeof wbNoodleKindVisible === 'function') ? wbNoodleKindVisible('hierarchy') : true,
         whiteboardOutlineOpen: (typeof wbOutlinePanelOpen === 'function') ? wbOutlinePanelOpen() : false,
         whiteboardParkingLotOpen: (typeof wbParkingLotPanelOpen === 'function') ? wbParkingLotPanelOpen() : false,
     };
@@ -342,6 +344,8 @@ const LABEL_HELP = {
     // bare label cannot collide with another tab's button.
     Group: 'Draw a named boundary round the selected notes (select two or more first)',
     Key: 'Show or hide the key to the board’s solid and dashed lines',
+    'Dependency Lines': 'Show or hide the dashed dependency lines between notes',
+    'Sub-task Lines': 'Show or hide the solid lines from a note to its sub-tasks',
     Structure: 'Show or hide the plan structure panel',
     'Parking Lot': 'Show or hide the parking lot -- ideas sent off the board for later',
     // #1266: moved off the Gantt toolbar, where these were the button
@@ -527,6 +531,10 @@ function scopedAction(scopeId, label) {
         'whiteboard:Tips': onWhiteboard('wbToggleToolbarHint'),
         // Shows or hides the key to the solid and dashed lines on the board.
         'whiteboard:Key': onWhiteboard('wbToggleNoodleKey'),
+        // Show or hide each kind of line: the dashed dependencies and the
+        // solid parent/child links.
+        'whiteboard:Dependency Lines': onWhiteboard('wbToggleDependencyLines'),
+        'whiteboard:Sub-task Lines': onWhiteboard('wbToggleSubtaskLines'),
         // The two side panels of the board, moved here from the toolbar of
         // the whiteboard itself -- the plan structure outline and the parking lot.
         'whiteboard:Structure': onWhiteboard('wbToggleOutlinePanel'),
@@ -1093,6 +1101,8 @@ function isButtonActive(scopeId, label, live) {
         if (label === 'Years') return live.ganttScale === 'years';
     }
     if (scopeId === 'whiteboard' && label === 'Key') return live.whiteboardKeyVisible;
+    if (scopeId === 'whiteboard' && label === 'Dependency Lines') return live.whiteboardDependencyLinesVisible;
+    if (scopeId === 'whiteboard' && label === 'Sub-task Lines') return live.whiteboardSubtaskLinesVisible;
     if (scopeId === 'whiteboard' && label === 'Structure') return live.whiteboardOutlineOpen;
     if (scopeId === 'whiteboard' && label === 'Parking Lot') return live.whiteboardParkingLotOpen;
     if (scopeId === 'kanban') {

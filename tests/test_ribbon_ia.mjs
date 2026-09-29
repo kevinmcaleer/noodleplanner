@@ -169,16 +169,34 @@ test("the editor syntax-highlight toggles (#1051) sit in a group labelled for wh
   // whiteboard/Gantt display option -- these are markdown-editor syntax
   // highlighting toggles (see ribbon.js's LABEL_HELP for the tooltips that
   // now say so explicitly).
-  const plan = TABS.find((t) => t.id === "plan");
-  const group = plan.groups.find((g) =>
+  //
+  // They now live on the Gantt Tools tab, the view that shows the editor
+  // beside it, rather than on the Plan tab next to the Whiteboard button.
+  const gantt = CONTEXTUAL_TABS.find((t) => t.id === "gantt");
+  const group = gantt.groups.find((g) =>
     (g.cols || []).some((col) => col.some((b) => b[1] === "Show Durations"))
   );
-  assert.ok(group, "no group in the Plan tab contains the highlight-toggle buttons");
+  assert.ok(group, "no group in the Gantt Tools tab contains the highlight-toggle buttons");
   assert.equal(group.name, "Editor Highlighting");
   const labels = (group.cols || []).flat().map((b) => b[1]);
   assert.deepEqual(labels, [
     "Show Durations", "Show Resources", "Show Tags", "Show Comments", "Show Dependencies", "Highlight Preset",
   ]);
+});
+
+test("the editor highlight toggles are no longer on the Plan tab", () => {
+  const plan = TABS.find((t) => t.id === "plan");
+  const labels = plan.groups.flatMap((g) => [...(g.lg || []), ...(g.cols || []).flat()]).map((b) => b[1]);
+  assert.ok(!labels.includes("Show Durations"));
+  assert.ok(!plan.groups.some((g) => g.name === "Editor Highlighting"));
+});
+
+test("the Whiteboard tab can show or hide each kind of line", () => {
+  const whiteboard = CONTEXTUAL_TABS.find((t) => t.id === "whiteboard");
+  const show = whiteboard.groups.find((g) => g.name === "Show");
+  const labels = (show.cols || []).flat().map((b) => b[1]);
+  assert.ok(labels.includes("Dependency Lines"));
+  assert.ok(labels.includes("Sub-task Lines"));
 });
 
 test("a caret button is always a small (cols) button, never a large one", () => {

@@ -1225,6 +1225,7 @@ function wbSyncToolbarInset() {
 function wbInitFloatingToolbar() {
     wbApplyToolbarHintVisibility();
     wbApplyNoodleKeyVisibility();
+    wbApplyNoodleKindVisibility();
     wbSyncToolbarInset();
     const toolbar = document.getElementById('whiteboardToolbar');
     if (!toolbar || toolbar.dataset.wbInsetObserved || typeof ResizeObserver === 'undefined') return;
@@ -1379,6 +1380,80 @@ function wbNoodleKeyVisible() {
 /** The ribbon's Whiteboard > Key button. */
 function wbToggleNoodleKey() {
     wbSetNoodleKeyVisible(!wbNoodleKeyVisible());
+}
+
+// ── Hiding each kind of line ────────────────────────────────────────────
+//
+// The ribbon's Whiteboard > Dependency Lines and Sub-task Lines buttons hide
+// the dashed dependency noodles and the solid parent/child ones, so a busy
+// board can be read one relationship at a time. Hiding a line changes
+// nothing in the plan: the noodles are still derived and laid out on every
+// render, only a class on the container stops them painting, so showing
+// them again is instant. Remembered per browser, like the key above.
+//
+// The drag ghosts (.wb-noodle-ghost, .wb-dep-noodle-ghost) are not hidden:
+// drawing a new link with its kind switched off still shows where it is
+// going.
+
+const WB_NOODLE_KINDS = {
+    dependency: { storageKey: 'whiteboard_hide_dependency_lines', className: 'wb-hide-dependency-lines' },
+    hierarchy: { storageKey: 'whiteboard_hide_subtask_lines', className: 'wb-hide-subtask-lines' },
+};
+
+function wbNoodleKindHiddenWanted(kind) {
+    try {
+        return localStorage.getItem(WB_NOODLE_KINDS[kind].storageKey) === '1';
+    } catch (e) {
+        return false;
+    }
+}
+
+/** Whether `kind` ('dependency' or 'hierarchy') of line is showing -- the
+ * ribbon reads this for the button's pressed state. */
+function wbNoodleKindVisible(kind) {
+    const container = document.getElementById('whiteboardContainer');
+    if (container) return !container.classList.contains(WB_NOODLE_KINDS[kind].className);
+    return !wbNoodleKindHiddenWanted(kind);
+}
+
+function wbShowNoodleKindOn(container, kind, visible) {
+    if (visible) container.classList.remove(WB_NOODLE_KINDS[kind].className);
+    else container.classList.add(WB_NOODLE_KINDS[kind].className);
+}
+
+/** Called when the board starts up. */
+function wbApplyNoodleKindVisibility() {
+    const container = document.getElementById('whiteboardContainer');
+    if (!container) return;
+    Object.keys(WB_NOODLE_KINDS).forEach(kind => wbShowNoodleKindOn(container, kind, !wbNoodleKindHiddenWanted(kind)));
+}
+
+/** Show or hide one kind of line, remembered across visits. A hidden line
+ * cannot stay selected: Delete would cut a link the user cannot see. */
+function wbSetNoodleKindVisible(kind, visible) {
+    const spec = WB_NOODLE_KINDS[kind];
+    if (!spec) return;
+    try {
+        if (visible) localStorage.removeItem(spec.storageKey);
+        else localStorage.setItem(spec.storageKey, '1');
+    } catch (e) { /* storage blocked: still show/hide for this page */ }
+    const container = document.getElementById('whiteboardContainer');
+    if (container) wbShowNoodleKindOn(container, kind, visible);
+    if (!visible) {
+        if (kind === 'dependency' && typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
+        if (kind === 'hierarchy' && typeof wbClearNoodleSelection === 'function') wbClearNoodleSelection();
+    }
+    if (typeof refreshRibbon === 'function') refreshRibbon();
+}
+
+/** The ribbon's Whiteboard > Dependency Lines button. */
+function wbToggleDependencyLines() {
+    wbSetNoodleKindVisible('dependency', !wbNoodleKindVisible('dependency'));
+}
+
+/** The ribbon's Whiteboard > Sub-task Lines button. */
+function wbToggleSubtaskLines() {
+    wbSetNoodleKindVisible('hierarchy', !wbNoodleKindVisible('hierarchy'));
 }
 
 // ── Initialization ────────────────────────────────────────────────────
