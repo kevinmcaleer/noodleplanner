@@ -774,24 +774,32 @@
             return removed.length;
         }
 
-        indentTasks(tasks) {
-            const selected = new Set(tasks);
-            const roots = tasks.filter(task => {
-                for (let parent = task.parent; parent; parent = parent.parent) if (selected.has(parent)) return false;
-                return true;
-            });
-            for (const task of roots) this._setIndent(task, task.indent + 2);
-            this._rebuildHierarchyFromIndents();
-            return tasks.length > 0;
+        // Indent/outdent move each task's whole subtree by default, which is
+        // what the outline and notepad rows want. The editor's Ctrl+] / Ctrl+[
+        // pass { linesOnly: true } instead: like any text editor they shift
+        // exactly the selected lines, leaving unselected children in place.
+        indentTasks(tasks, options = {}) {
+            return this._shiftTasks(tasks, 2, options);
         }
 
-        outdentTasks(tasks) {
-            const selected = new Set(tasks);
-            const roots = tasks.filter(task => {
-                for (let parent = task.parent; parent; parent = parent.parent) if (selected.has(parent)) return false;
-                return true;
-            });
-            for (const task of roots) this._setIndent(task, Math.max(0, task.indent - 2));
+        outdentTasks(tasks, options = {}) {
+            return this._shiftTasks(tasks, -2, options);
+        }
+
+        _shiftTasks(tasks, delta, { linesOnly = false } = {}) {
+            if (linesOnly) {
+                for (const task of tasks) {
+                    task.indent = Math.max(0, task.indent + delta);
+                    task.indentText = ' '.repeat(task.indent);
+                }
+            } else {
+                const selected = new Set(tasks);
+                const roots = tasks.filter(task => {
+                    for (let parent = task.parent; parent; parent = parent.parent) if (selected.has(parent)) return false;
+                    return true;
+                });
+                for (const task of roots) this._setIndent(task, Math.max(0, task.indent + delta));
+            }
             this._rebuildHierarchyFromIndents();
             return tasks.length > 0;
         }
