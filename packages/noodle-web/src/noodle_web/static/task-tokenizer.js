@@ -6,7 +6,7 @@ const TaskLineTokenizer = (() => {
         ['recurrence', /\[repeats\s+[^\]]+\]/gi],
         ['bucket', /\{[^}]+\}/g],
     ];
-    const tokenPattern = /~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?|(?<![\w!])(!!!|!!|!)(?![\w!"'{])|(?<!\w)@\w+(?:\[\d+%\])?|#\w+|[/^]?\$[A-Za-z_][A-Za-z0-9_-]*|\b\d+[dmwy]\b|(?<!\w)\d+%(?!\w)|\bD\d{4}-\d{2}-\d{2}\b|\b\d{4}-\d{2}-\d{2}\b/g;
+    const tokenPattern = /~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?|(?<![\w!])(!!!|!!|!)(?![\w!"'{])|(?<!\w)@\w+(?:\[\d+%\])?|#\w+|[/^]?\$[A-Za-z_][A-Za-z0-9_-]*|\b\d+(?:days?|weeks?|months?|[dmwy])\b|(?<!\w)\d+%(?!\w)|\bD\d{4}-\d{2}-\d{2}\b|\b\d{4}-\d{2}-\d{2}\b/g;
 
     function addToken(tokens, line, type, start, end) {
         tokens.push({ type, start, end, text: line.slice(start, end) });
@@ -84,7 +84,7 @@ const TaskLineTokenizer = (() => {
                 values.dependencies.push(...content.split(',').map(value => value.trim()).filter(Boolean));
             } else if (token.type === 'resource') values.resources.push(text.slice(1));
             else if (token.type === 'label') values.labels.push(text.slice(1));
-            else if (token.type === 'duration') values.duration = text.slice(0, -1);
+            else if (token.type === 'duration') values.duration = /^\d+/.exec(text)[0];
             else if (token.type === 'percent') values.percent = text.slice(0, -1);
             else if (token.type === 'date') dates.push(text);
             else if (token.type === 'deadline' && !values.deadline) values.deadline = text.slice(1);

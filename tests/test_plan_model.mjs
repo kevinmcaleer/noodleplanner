@@ -647,3 +647,31 @@ test('a rename survives the next edit to the same model', () => {
     assert.equal(model.serialize(), 'Wireframes 2d @kev\nBuild [depends Wireframes]\n');
     assert.equal(model.tasks[1].dependencies[0].target, model.tasks[0]);
 });
+
+test('long-form durations and percentages are not part of the task name', () => {
+    // node loads no TaskLineTokenizer, so this is the fallback naming path.
+    // The whiteboard looks rows up in the model by the engine's task name, so
+    // `Requirements gathering 10days 0%` found nothing and a row's resource
+    // menu showed no ticks and appended a second @token.
+    const model = PlanModel.parse([
+        'Phase',
+        '  Requirements gathering @analyst 10days 0% "Gather requirements"',
+        '  Build @dev[30%] 2weeks 50%',
+        '  Launch 1month',
+        '  Polish 1day',
+        '  Spaced 5 days',
+        '',
+    ].join('\n'));
+    assert.deepEqual(model.tasks.map(task => task.name),
+        ['Phase', 'Requirements gathering', 'Build', 'Launch', 'Polish', 'Spaced 5 days']);
+});
+
+test('every template task is named as the engine names it', () => {
+    const text = readFileSync(join(repo, 'templates', 'software_delivery', 'plan.md'), 'utf8');
+    const model = PlanModel.parse(text);
+    const task = model.findByName('Requirements gathering');
+    assert.ok(task, 'Requirements gathering is found by its engine name');
+    assert.match(task.content, /@analyst 10days/);
+    assert.ok(model.tasks.every(node => !/\b\d+(?:days?|weeks?|months?)\b|\d%/.test(node.name)),
+        model.tasks.map(node => node.name).filter(name => /\d(?:days?|weeks?|months?|%)/.test(name)).join(', '));
+});

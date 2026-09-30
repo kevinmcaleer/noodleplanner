@@ -310,3 +310,58 @@ class TestResourceSourceBreadth:
         assert menu.locator('[role="menuitemcheckbox"]').count() >= 1
         assert "jo" in menu.inner_text()
         assert "No resources" not in menu.inner_text()
+
+
+# How every bundled template writes its tasks: a long-form duration and a
+# percentage. The engine names this row `Gather`; PlanModel used to name it
+# `Gather 10days 0%`, so the menu's by-name lookup found no task, ticked
+# nobody, and clicking an assigned resource appended a second `@analyst`.
+LONG_FORM_PLAN = """---
+title: Row Assign Long-Form Plan
+Resources:
+  - @analyst: Ana Lyst, Analyst
+  - @sam: Sam Smith, Developer
+---
+
+Phase 1
+  Build
+    Gather @analyst 10days 0% "Gather the requirements"
+    Other 5d
+
+---whiteboard---
+| Task  | X   | Y  | Colour | Width | Height | Collapsed |
+|-------|-----|----|--------|-------|--------|-----------|
+| Build | 480 | 80 |        | 280   | 260    | no        |
+"""
+
+
+class TestLongFormDurations:
+    def test_an_assigned_resource_is_ticked(self, page, app_server):
+        open_app(page, app_server)
+        load_plan(page, LONG_FORM_PLAN)
+        switch_to_whiteboard(page)
+
+        menu = _open_menu(page, "Gather")
+        analyst = menu.locator('[role="menuitemcheckbox"]', has_text=re.compile("Ana Lyst"))
+        assert analyst.get_attribute("aria-checked") == "true"
+        assert analyst.inner_text().startswith("✓")
+        sam = menu.locator('[role="menuitemcheckbox"]', has_text=re.compile("Sam Smith"))
+        assert sam.get_attribute("aria-checked") == "false"
+
+    def test_clicking_an_assigned_resource_removes_its_token(self, page, app_server):
+        open_app(page, app_server)
+        load_plan(page, LONG_FORM_PLAN)
+        switch_to_whiteboard(page)
+
+        menu = _open_menu(page, "Gather")
+        menu.locator(
+            '[role="menuitemcheckbox"]', has_text=re.compile("Ana Lyst")
+        ).dispatch_event("click")
+        page.wait_for_function(
+            "() => document.getElementById('planEditor').value"
+            "        .split('\\n').some(l => l.trim().startsWith('Gather')"
+            "                                  && !l.includes('@analyst'))"
+        )
+        line = _line_for(page, "Gather")
+        assert "@analyst" not in line, f"the token was not removed: {line!r}"
+        assert "10days" in line and "0%" in line, f"the line lost its metadata: {line!r}"

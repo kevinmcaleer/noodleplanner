@@ -41,6 +41,14 @@ equal(tokenTypes('Design @dev[30%] 5d 0%'), [['resource', '@dev[30%]'], ['durati
 equal(context.parseTaskLine('Design @dev[30%] 5d 0%', 1).percent, '0', 'an allocation does not set percent complete');
 equal(context.parseTaskLine('Design @dev[30%] 5d', 1).percent, '', 'an allocation alone leaves percent unset');
 equal(context.parseTaskLine('Design @dev[30%] 5d', 1).name, 'Design', 'an allocation is excluded from task names');
+equal(tokenTypes('Gather @analyst 10days 0%'), [['resource', '@analyst'], ['duration', '10days'], ['percent', '0%']],
+    'long-form durations are duration tokens');
+equal(context.tokenizer.metadata('Requirements gathering @analyst 10days 0% "x"').values.name, 'Requirements gathering',
+    'long-form durations are excluded from task names, as the engine excludes them');
+equal(context.tokenizer.metadata('Build 2weeks').values.duration, '2', 'long-form durations keep their count');
+equal(context.tokenizer.metadata('Launch 1month').values.name, 'Launch', 'month durations are excluded from task names');
+equal(context.tokenizer.metadata('Spaced 5 days').values.name, 'Spaced 5 days',
+    'a spaced `5 days` stays in the name, as the engine keeps it');
 equal(tokenTypes('Build ~8h 2d'), [['effort', '~8h'], ['duration', '2d']], 'effort and duration have source spans');
 equal(context.parseTaskLine('Build ~8h 2d', 1).effortTotal, '8', 'effort metadata is parsed from the shared grammar');
 equal(tokenTypes('Task 2d [depends $product:FS +2d]'), [['duration', '2d'], ['dependency', '[depends $product:FS +2d]']],
