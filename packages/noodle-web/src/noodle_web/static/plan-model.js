@@ -46,12 +46,14 @@
             .replace(/["\u201c][^"\u201d]*["\u201d]/g, '')
             .replace(/~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?/gi, '')
             .replace(/(?<!\w)(?:!!!|!!|!)(?![\w"'])/g, '')
-            .replace(/(?:^|\s)@[A-Za-z0-9_.-]+/g, ' ')
+            .replace(/(?:^|\s)@[A-Za-z0-9_.-]+(?:\[\d+%\])?/g, ' ')
             .replace(/(?:^|\s)#[^\s]+/g, ' ')
             .replace(/(?:^|\s)[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/g, ' ')
             .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '')
-            .replace(/(?<!~)\b\d+(?:\.\d+)?[dwmy]\b/gi, '')
-            .replace(/\b\d{1,3}%\b/g, '');
+            // `10days` is a duration as much as `10d` is: the engine rewrites
+            // the long form before it names the task (normaliseDurationWords)
+            .replace(/(?<!~)\b\d+(?:\.\d+)?(?:days?|weeks?|months?|[dwmy])\b/gi, '')
+            .replace(/(?<!\w)\d{1,3}%(?!\w)/g, '');
         return {
             name: protectedLine.replace(/^\s*\*(?:\s*[+-]\d+[dwmy])?/i, '').replace(/\s+/g, ' ').trim(),
         };
