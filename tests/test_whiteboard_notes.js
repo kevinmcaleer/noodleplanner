@@ -694,6 +694,16 @@ const tasks = [
         wbResourceOptionsFromPlanText('# Plan\n* Phase\n  Child 2d').length === 0,
         'a plan with no resources anywhere still yields no options'
     );
+
+    const twice = [
+        '---', 'Resources:', '  - @sam: Sam Smith, Developer', '  - @jo: Jo Lee',
+        '  - @Sam: Samuel Smith, Lead', '---', '', 'Phase', '  Build 2d',
+    ].join('\n');
+    const deduped = wbResourceOptionsFromPlanText(twice);
+    assert(
+        deduped.map(o => o.name).join(',') === 'Samuel Smith,Jo Lee',
+        'a resource declared twice is offered once, case-insensitively, the later declaration winning'
+    );
 }
 {
     const tasks = [

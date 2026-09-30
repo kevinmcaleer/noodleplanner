@@ -753,7 +753,7 @@ function indentSelectedLines() {
             const task = model.taskAtLine(line);
             if (task) selected.push(task);
         }
-        if (model.indentTasks(selected)) {
+        if (model.indentTasks(selected, { linesOnly: true })) {
             NoodlePlanModel.commitToEditor(editor, model);
             return;
         }
@@ -819,7 +819,7 @@ function outdentSelectedLines() {
             const task = model.taskAtLine(line);
             if (task) selected.push(task);
         }
-        if (model.outdentTasks(selected)) {
+        if (model.outdentTasks(selected, { linesOnly: true })) {
             NoodlePlanModel.commitToEditor(editor, model);
             return;
         }

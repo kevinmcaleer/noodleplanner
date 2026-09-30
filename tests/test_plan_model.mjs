@@ -504,6 +504,33 @@ test('lineIndex() puts every task on the line lineNumber() gives it', () => {
     assertIndexMatches(PlanModel.parse('A 1d\r\n\r\nB 1d\r\n  C 1d'), 'CRLF, no final newline');
 });
 
+test('indentTasks shifts a task\'s whole subtree by default', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\nB 1d\n  C 1d\n');
+    model.indentTasks([model.findByName('B')]);
+    assert.equal(model.serialize(), 'Phase\n  A 1d\n  B 1d\n    C 1d\n');
+});
+
+test('indentTasks with linesOnly shifts only the given lines, not their children', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\nB\n  C 1d\n  D 1d\n');
+    model.indentTasks([model.findByName('B')], { linesOnly: true });
+    assert.equal(model.serialize(), 'Phase\n  A 1d\n  B\n  C 1d\n  D 1d\n');
+    assert.deepEqual(model.findByName('Phase').children.map(task => task.name), ['A', 'B', 'C', 'D']);
+    assert.deepEqual(model.findByName('B').children, []);
+});
+
+test('indentTasks with linesOnly shifts every selected line, children included', () => {
+    const model = PlanModel.parse('B\n  C 1d\n  D 1d\n');
+    model.indentTasks([model.findByName('B'), model.findByName('C')], { linesOnly: true });
+    assert.equal(model.serialize(), '  B\n    C 1d\n  D 1d\n');
+});
+
+test('outdentTasks with linesOnly leaves unselected children where they are', () => {
+    const model = PlanModel.parse('Phase\n  B\n    C 1d\n');
+    model.outdentTasks([model.findByName('B')], { linesOnly: true });
+    assert.equal(model.serialize(), 'Phase\nB\n    C 1d\n');
+    assert.equal(model.findByName('C').parent, model.findByName('B'));
+});
+
 test('lineIndex() follows every mutation of the model', () => {
     const mutations = [
         ['updateLine', m => m.updateLine(m.findByName('Design'), line => line + ' @kev')],

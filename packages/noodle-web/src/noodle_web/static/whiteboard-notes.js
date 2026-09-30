@@ -817,9 +817,18 @@ function wbResourceOptionsFromPlanText(planText) {
     const result = [];
     const match = /^---\s*$([\s\S]*?)^---\s*$/m.exec(text);
     if (match) {
+        // One entry per shortname, case-insensitively: a resource declared
+        // twice (or as @Kev and @kev) is one person, and listing every line
+        // showed the same name twice in the menu. The later declaration wins,
+        // as it does in parseResourceDetails() (script.js), which keys its
+        // result by shortname; the first one keeps its place in the list.
+        const byShortname = new Map();
         const re = /^\s*-\s*@([A-Za-z0-9_]+):\s*([^,\n]+)(?:,\s*([^\n]+))?/gm;
         let item;
-        while ((item = re.exec(match[1]))) result.push({ shortname: item[1], name: item[2].trim(), role: (item[3] || '').trim() });
+        while ((item = re.exec(match[1]))) {
+            byShortname.set(item[1].toLowerCase(), { shortname: item[1], name: item[2].trim(), role: (item[3] || '').trim() });
+        }
+        result.push(...byShortname.values());
     }
     if (result.length) return result;
 
