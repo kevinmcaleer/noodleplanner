@@ -635,6 +635,20 @@
     max-width: 100%;
 }
 
+/* Phase name inside a dashboard timeline bar: truncated to the bar. */
+.report-timeline-phase-label {
+    box-sizing: border-box;
+    height: 100%;
+    padding: 0 var(--np-space-4);
+    line-height: 22px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--np-on-fill);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Embedded Timeline in Tasks/Gantt Views */
 .embedded-timeline-section {
     border: none;
