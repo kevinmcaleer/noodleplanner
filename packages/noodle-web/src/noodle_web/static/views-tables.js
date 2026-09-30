@@ -513,13 +513,15 @@ function updateReportTimeline(tasks, projectName) {
                     '<title>' + escapeHtml(phase.name) + ' (' + percent + '% complete)</title></rect>';
             }
 
-            // Phase name text inside bar
+            // Phase name inside the bar. An HTML label in a foreignObject the
+            // size of the bar, so CSS can truncate it with an ellipsis instead
+            // of an SVG <text> spilling past the bar's end.
             if (wPct > 5) {
-                const fontSize = Math.min(12, barHeight - 6);
                 const textLabel = isComplete ? '\u2713 ' + phase.name : phase.name;
-                html += '<text x="' + (xPct + 0.3) + '%" y="' + (y + barHeight / 2) + '" ' +
-                    'dominant-baseline="central" font-size="' + fontSize + 'px" fill="#fff" font-weight="500" ' +
-                    'style="pointer-events: none;"><tspan>' + escapeHtml(textLabel) + '</tspan></text>';
+                html += '<foreignObject x="' + xPct + '%" y="' + y + '" width="' + wPct + '%" height="' + barHeight + '" ' +
+                    'style="pointer-events: none;">' +
+                    '<div xmlns="http://www.w3.org/1999/xhtml" class="report-timeline-phase-label">' +
+                    escapeHtml(textLabel) + '</div></foreignObject>';
             }
 
             html += '</g>';
