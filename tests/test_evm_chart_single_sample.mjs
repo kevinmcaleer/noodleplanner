@@ -41,6 +41,18 @@ function liftFunctions(sandbox, source, names) {
   return sandbox;
 }
 
+// buildEvmTimeSeries() reads "today" with `new Date()`, and a plan in the past
+// gets a second sample for it. Pinning the clock inside the plan's month keeps
+// these tests about the plan, not about when they happen to run.
+const PINNED_NOW = new Date(2026, 8, 25, 12).getTime();
+class PinnedDate extends Date {
+  constructor(...args) {
+    if (args.length === 0) super(PINNED_NOW);
+    else super(...args);
+  }
+  static now() { return PINNED_NOW; }
+}
+
 function makeSandbox() {
   const svg = {
     attrs: {},
@@ -50,7 +62,7 @@ function makeSandbox() {
   };
   const legend = { innerHTML: '' };
   const sandbox = {
-    Date,
+    Date: PinnedDate,
     Math,
     svg,
     legend,
