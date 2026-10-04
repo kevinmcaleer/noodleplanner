@@ -466,7 +466,7 @@ class TestKanbanReliability:
         """Issue #1070: the right-edge Add Phase tile is a drop target."""
         self._load_plan(page, app_server)
         result = page.evaluate(
-            """() => {
+            """async () => {
                 switchPlanSubnavToBoard();
                 window.prompt = () => 'Phase Three';
                 const editor = document.getElementById('planEditor');
@@ -484,6 +484,8 @@ class TestKanbanReliability:
                     bubbles: true, cancelable: true, dataTransfer: transfer}));
                 source.dispatchEvent(new DragEvent('dragend', {
                     bubbles: true, dataTransfer: transfer}));
+                // The name prompt waits for the native drag to finish.
+                await new Promise(resolve => setTimeout(resolve, 300));
                 return {
                     text: editor.value,
                     inputEvents,
