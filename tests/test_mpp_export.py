@@ -286,3 +286,22 @@ def test_full_complete_note_matches_the_browser_exporter_byte_for_byte():
     found = re.search(r'const FULL_COMPLETE_EXPORT_NOTE = "([^"]*)"', js)
     assert found, "mpp-export.js no longer declares FULL_COMPLETE_EXPORT_NOTE"
     assert found.group(1) == FULL_COMPLETE_EXPORT_NOTE
+
+
+@needs_template
+def test_every_leaf_task_has_an_assignment_row_so_project_opens_on_all_tasks(tmp_path):
+    """Project opens on the template's row count (three tasks) until the Gantt
+    Chart button rebuilds the view, unless the file keeps an assignment row for
+    every leaf task, a placeholder where nobody is assigned.  The count is in
+    the first FixedMeta record header at offset 8 (issue #1443)."""
+    import struct
+
+    import pymppwriter as pw
+
+    from noodle_core.mpp_writer import export_to_mpp
+
+    out = tmp_path / "plan.mpp"
+    export_to_mpp(PLAN, str(out), TEMPLATE, "Plan")
+    meta = pw.MppWriter(str(out)).root.children["   114"].children["TBkndAssn"].children["FixedMeta"]
+    leaves = 5  # Proposal, Approval, Build, Review, Ship
+    assert struct.unpack_from("<I", meta, 8)[0] >= leaves
