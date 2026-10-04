@@ -293,7 +293,7 @@ function setEditorValuePreservingCursor(editor, newValue) {
 
     // No input event is fired for this write, so tell the board its line
     // numbers moved.
-    if (typeof window.kanbanSyncIfStale === 'function') window.kanbanSyncIfStale();
+    if (typeof window !== 'undefined' && typeof window.kanbanSyncIfStale === 'function') window.kanbanSyncIfStale();
 
     // Restore scroll position (use requestAnimationFrame to ensure it takes effect after browser layout)
     requestAnimationFrame(() => {
