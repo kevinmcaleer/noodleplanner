@@ -3,6 +3,32 @@ How to Use Project Templates
 
 Project templates provide pre-built plan structures for common project types, saving you time when starting a new project.
 
+Start a New Plan from Backstage
+---------------------------------
+
+Click **File** to open Backstage. The **Start a new plan** strip across the top
+holds **Blank plan** and the four most popular templates; **More templates**
+(or **Templates** in the left rail) opens all of them.
+
+Each template card is a picture of the *shape* of its plan, not a generic icon:
+
+- every row is one top-level summary task (a phase), with its name above a bar;
+- the bar's length is how many work tasks that phase holds, relative to the
+  busiest phase, so you can see at a glance whether the effort is front- or
+  back-loaded;
+- a small circle to the right of the bar is a milestone (a zero-duration task)
+  in that phase;
+- the line under the rows counts the phases and milestones.
+
+Picking a card asks for a name and creates a **new** plan from the template.
+It does not touch the plan you have open.
+
+The bundled templates are Event Planning, Marketing Campaign, Mobile App
+Launch, Software Delivery (a gated, waterfall project), Software Deployment (a
+release and cutover plan: change approval, staging rehearsal, rollback cover
+and hypercare), Software Development Project and Website Redesign. A template
+marked ``popular: true`` in its ``template.yml`` is eligible for the strip.
+
 Open the Templates Browser
 ----------------------------
 

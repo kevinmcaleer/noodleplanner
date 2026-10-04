@@ -24,7 +24,10 @@
  *     inserts a starter plan into the *current* project, overwriting it).
  *     Picking a card here creates a **separate new plan** and opens it --
  *     the follow-up #972 left open, see createPlanFromTemplate() below.
- *     #945/#946 (portrait card rendering, seed templates) are still to come.
+ *     Cards are portrait (#945): a picture of the template's shape -- phase
+ *     rows and milestone bubbles, drawn by template-card.js off the parsed
+ *     plan -- above its name. The seed set itself (#946) is the folders under
+ *     `templates/`.
  *   - Real template data comes from `/api/templates`, cached in
  *     `templatesData` (state.js) -- the same global nav.js's own Templates
  *     modal (openTemplatesModal()) already populates and reads, so opening
@@ -246,7 +249,7 @@
 
     // How many real templates the landing strip shows alongside Blank --
     // "four or five cards including Blank" per #972's own layout spec.
-    const STRIP_TEMPLATE_COUNT = 3;
+    const STRIP_TEMPLATE_COUNT = 4;
 
     /**
      * Fetches /api/templates once per session, caching into `templatesData`
@@ -268,17 +271,62 @@
         }
     }
 
+    /**
+     * A portrait card (#945): the template's name under a picture of its
+     * shape -- stacked phase rows with their milestone bubbles
+     * (template-card.js). The picture needs the template's plan, which the
+     * list does not carry, so the card starts with the document icon and
+     * hydrateTemplateCards() swaps the picture in once the plan is read.
+     * Until then, and if the read fails, the card is still a working button.
+     */
     function renderTemplateCard(template) {
-        // #945 replaces this body with the real portrait-rendered card
-        // (summary-task rows + milestone bubbles, off plan-model.js).
         return `
-            <button type="button" class="backstage-template-card" data-template-id="${escapeHtml(template.id)}">
-                <span class="backstage-template-card-icon">
+            <button type="button" class="backstage-template-card backstage-template-card-portrait" data-template-id="${escapeHtml(template.id)}">
+                <span class="backstage-template-card-shape-slot">
                     <svg class="icon" width="28" height="28" aria-hidden="true"><use href="#icon-doc"/></svg>
                 </span>
                 <span class="backstage-template-card-name">${escapeHtml(template.title)}</span>
             </button>
         `;
+    }
+
+    // template id -> Promise of its rendered shape (or null if it failed), so
+    // the strip and the full browser share one read per template.
+    const shapeCache = new Map();
+
+    function loadTemplateShape(templateId) {
+        if (!shapeCache.has(templateId)) {
+            shapeCache.set(templateId, (async () => {
+                if (typeof templateSkeletonFromPlan !== 'function' || typeof NoodlePlanModel === 'undefined') {
+                    return null;
+                }
+                try {
+                    const response = await fetch(`/api/templates/${encodeURIComponent(templateId)}`);
+                    if (!response.ok) throw new Error('Failed to load template');
+                    const template = await response.json();
+                    return templateCardShapeHtml(templateSkeletonFromPlan(template.content || ''));
+                } catch (error) {
+                    console.error('Backstage: error drawing template card:', error);
+                    shapeCache.delete(templateId);
+                    return null;
+                }
+            })());
+        }
+        return shapeCache.get(templateId);
+    }
+
+    /** Draw the shape on every template card under `container`. */
+    function hydrateTemplateCards(container) {
+        if (!container) return;
+        container.querySelectorAll('.backstage-template-card-portrait').forEach((card) => {
+            const slot = card.querySelector('.backstage-template-card-shape-slot');
+            if (!slot) return;
+            loadTemplateShape(card.dataset.templateId).then((html) => {
+                // The strip/grid may have been re-rendered while this read was
+                // in flight; only touch a card that is still on the page.
+                if (html && card.isConnected) slot.innerHTML = html;
+            });
+        });
     }
 
     function renderBlankPlanCard() {
@@ -307,6 +355,7 @@
         const popular = all.filter((t) => t.popular);
         const picks = (popular.length > 0 ? popular : all).slice(0, STRIP_TEMPLATE_COUNT);
         strip.innerHTML = renderBlankPlanCard() + picks.map(renderTemplateCard).join('');
+        hydrateTemplateCards(strip);
     }
 
     async function renderTemplatePicker() {
@@ -316,6 +365,7 @@
         const data = await loadTemplates();
         if (!data) return; // Blank stays visible; grid just skips real templates.
         grid.innerHTML = renderBlankPlanCard() + (data.templates || []).map(renderTemplateCard).join('');
+        hydrateTemplateCards(grid);
     }
 
     /** Looks up a template by id from whichever of the strip/grid the click

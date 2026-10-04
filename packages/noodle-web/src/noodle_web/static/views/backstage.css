@@ -160,7 +160,7 @@ body.backstage-fullscreen {
 }
 
 .backstage-template-strip .backstage-template-card {
-    flex: 0 0 150px;
+    flex: 0 0 168px;
 }
 
 .backstage-main-header-landing {
@@ -331,4 +331,109 @@ body.backstage-fullscreen {
     }
     .backstage-rail-btn { width: auto; }
     .backstage-main { padding: var(--np-space-20); }
+}
+
+/* ── Portrait template cards (#945) ──────────────────────────────────
+   A card shows the shape of the plan behind it: one stacked row per
+   top-level phase -- its name above a bar for how much work it holds, with
+   a bubble to the right for each milestone (template-card.js). Portrait
+   because the labels need the vertical room a landscape timeline lacks.
+   The card grows to fit its rows rather than holding the fixed 3:4 ratio
+   the blank card has, and the blank card stretches to match. */
+.backstage-template-card-portrait {
+    aspect-ratio: auto;
+    min-height: 230px;
+    justify-content: flex-start;
+    align-items: stretch;
+    text-align: left;
+}
+
+.backstage-template-card-shape-slot {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    color: var(--np-accent);
+}
+
+.backstage-card-shape {
+    display: flex;
+    flex-direction: column;
+    gap: var(--np-space-4);
+    width: 100%;
+    align-self: stretch;
+}
+
+.backstage-card-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--np-space-2);
+    min-width: 0;
+}
+
+.backstage-card-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.7em;
+    line-height: 1.2;
+    color: var(--np-text-secondary);
+}
+
+.backstage-card-line {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-4);
+}
+
+.backstage-card-track {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 6px;
+    border-radius: var(--np-radius-pill);
+    background: var(--np-bg-alt);
+}
+
+.backstage-card-bar {
+    display: block;
+    width: var(--backstage-card-bar, 100%);
+    height: 100%;
+    border-radius: var(--np-radius-pill);
+    background: var(--np-accent);
+}
+
+.backstage-card-bubbles {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--np-space-2);
+}
+
+.backstage-card-bubble {
+    display: block;
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--np-accent);
+    border-radius: var(--np-radius-circle);
+    background: var(--np-surface);
+}
+
+.backstage-card-more,
+.backstage-card-more-rows,
+.backstage-card-summary {
+    font-size: 0.65em;
+    color: var(--np-text-muted);
+}
+
+.backstage-card-summary {
+    margin-top: var(--np-space-4);
+}
+
+.backstage-card-shape-empty {
+    align-items: center;
+}
+
+.backstage-template-card-portrait .backstage-template-card-name {
+    line-height: 1.3;
 }

@@ -1916,6 +1916,31 @@ class TestTemplateEndpoints:
             assert "description" in template
             assert "category" in template
 
+    def test_seed_template_ids_follow_one_naming_convention(self, client):
+        """#946: every template folder is lowercase-hyphenated -- no underscores."""
+        import re
+
+        for template in client.get("/api/templates").json()["templates"]:
+            assert re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", template["id"]), template["id"]
+
+    def test_seed_set_includes_software_deployment(self, client):
+        """#946: the 'software deployment' template #903 names is in the set,
+        flagged popular so it lands in Backstage's top strip."""
+        templates = {t["id"]: t for t in client.get("/api/templates").json()["templates"]}
+        assert "software-deployment" in templates
+        assert templates["software-deployment"]["popular"] is True
+
+    def test_seed_templates_are_distinct_ideas(self, client):
+        """#946: no two seed templates share a title or a description."""
+        templates = client.get("/api/templates").json()["templates"]
+        assert len({t["title"] for t in templates}) == len(templates)
+        assert len({t["description"] for t in templates}) == len(templates)
+
+    def test_strip_has_enough_popular_templates(self, client):
+        """#972's top strip is the first STRIP_TEMPLATE_COUNT popular templates."""
+        templates = client.get("/api/templates").json()["templates"]
+        assert sum(1 for t in templates if t["popular"]) >= 4
+
     def test_get_template_by_id(self, client):
         """Test that GET /api/templates/{id} returns template content."""
         response = client.get("/api/templates/software-development")
