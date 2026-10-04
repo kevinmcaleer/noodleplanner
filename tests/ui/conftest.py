@@ -51,7 +51,7 @@ try:
 except ImportError:
     HAS_PLAYWRIGHT = False
 
-def pytest_collection_modifyitems(items):
+def pytest_collection_modifyitems(config, items):
     """Mark everything in this directory `ui`.
 
     A module-level `pytestmark` in a conftest is not applied to tests, so the
@@ -62,6 +62,19 @@ def pytest_collection_modifyitems(items):
     for item in items:
         if here in pathlib.Path(str(item.fspath)).parents:
             item.add_marker(pytest.mark.ui)
+
+    # NOODLE_UI_SHARD="2/4" keeps every fourth test, starting at the second, so
+    # CI can spread the suite over several runners. Taking every Nth test in
+    # collection order, rather than whole files, interleaves the heavy
+    # parametrised files across shards. Collection order is deterministic, so
+    # the shards are disjoint and together cover everything.
+    shard = os.environ.get("NOODLE_UI_SHARD")
+    if shard:
+        index, count = (int(part) for part in shard.split("/"))
+        kept = [item for position, item in enumerate(items) if position % count == index - 1]
+        dropped = [item for item in items if item not in kept]
+        items[:] = kept
+        config.hook.pytest_deselected(items=dropped)
 
 
 # Everything index.html loads from somewhere that is not this app. Aborting
