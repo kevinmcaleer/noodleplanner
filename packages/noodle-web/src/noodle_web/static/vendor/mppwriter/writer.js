@@ -16,6 +16,77 @@ const copy = (b) => new Uint8Array(b);
 const u16 = (v) => { const b = new Uint8Array(2); dv(b).setUint16(0, v, true); return b; };
 const i32 = (v) => { const b = new Uint8Array(4); dv(b).setInt32(0, v, true); return b; };
 const f64 = (v) => { const b = new Uint8Array(8); dv(b).setFloat64(0, v, true); return b; };
+/**
+ * Var entry 50 (RAW_TIMEPHASED_ACTUAL_REGULAR_WORK): the work done so far over
+ * the elapsed duration, in the single-segment shape Project writes: header
+ * <count=1><24><36>, then units x 10000, actual work (milli-minutes) and actual
+ * duration (tenths x 8), with one block at +32 starting at the assignment's start.
+ */
+export function actualWorkContour(units, work, tenths) {
+    const blob = new Uint8Array(56);
+    const d = dv(blob);
+    d.setUint16(0, 1, true);
+    d.setUint16(2, 24, true);
+    d.setUint32(4, 36, true);
+    for (const off of [8, 44])
+        d.setFloat64(off, units * PCT_SCALE, true);
+    for (const off of [16, 36])
+        d.setFloat64(off, work, true);
+    for (const off of [24, 52])
+        d.setUint32(off, (tenths * 8) >>> 0, true);
+    return blob;
+}
+/**
+ * Var entry 49 as Project saves it once an assignment is 100% complete: the
+ * count words and the leading block (+8..+31) emptied, the trailing block at +44
+ * still holding the full work, units x 16 and duration x 8 (#1221).
+ */
+export function projectRemainingAt100(units, work, tenths) {
+    const blob = new Uint8Array(72);
+    const d = dv(blob);
+    d.setUint16(0, 0, true);
+    d.setUint16(2, 32, true);
+    d.setUint32(4, 44, true);
+    d.setFloat64(44, work, true);
+    d.setFloat64(52, units * PCT_SCALE * 16, true);
+    d.setUint32(68, (tenths * 8) >>> 0, true);
+    return blob;
+}
+/**
+ * Var entry 87 (TIMEPHASED_ACTUAL_IRREGULAR_WORK): <count><2*count><16>, 8 zero
+ * bytes, then each working window's start and finish as 4-byte timestamps.
+ * Project wrote only the first day's two windows for a finished two-day task,
+ * and that is the shape that keeps a finished assigned task at 100% with its
+ * full duration (#1221); mode "all" lists every window up to `finish`.
+ */
+export function irregularActualWindows(pattern, start, finish, mode) {
+    const wins = [];
+    let day = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+    const lastDay = Date.UTC(finish.getUTCFullYear(), finish.getUTCMonth(), finish.getUTCDate());
+    while (day.getTime() <= lastDay) {
+        if (!pattern.nonworking.has(day.toISOString().slice(0, 10))) {
+            for (const [w0, w1] of pattern.windows.get((day.getUTCDay() + 6) % 7) ?? []) {
+                const wStart = new Date(day.getTime() + w0 * 60_000);
+                const wEnd = new Date(day.getTime() + w1 * 60_000);
+                if (wEnd.getTime() <= start.getTime() || wStart.getTime() >= finish.getTime())
+                    continue;
+                wins.push([
+                    wStart.getTime() > start.getTime() ? wStart : start,
+                    wEnd.getTime() < finish.getTime() ? wEnd : finish,
+                ]);
+            }
+            if (wins.length && mode === "first_day")
+                break;
+        }
+        day = new Date(day.getTime() + 86_400_000);
+    }
+    const head = new Uint8Array(16);
+    const d = dv(head);
+    d.setUint16(0, wins.length, true);
+    d.setUint16(2, 2 * wins.length, true);
+    d.setUint32(4, 16, true);
+    return concat([head, ...wins.flatMap(([a, b]) => [B.encodeTimestamp(a), B.encodeTimestamp(b)])]);
+}
 function concat(parts) {
     let n = 0;
     for (const p of parts)
@@ -140,6 +211,93 @@ export class MppWriter {
                 bit.set(it.fieldId, i);
         });
         return [fm, bit];
+    }
+    // ------------------------------------------------------------- view cache --
+    static VIEW_PRJ = "   214";
+    static EDL_ROWS = 0x26400035;
+    static EDL_LAYOUT = 0x2640003d;
+    static EDL_PAINTED = 0x26400024;
+    static EDL_VAR2DATA_SIZE = 0x10007; // 214/Props: CEdl is view class 7
+    /**
+     * Rewrite the CEdl row cache for `uids`, the visible rows in ID order.
+     *
+     * Each CEdl record is a Props blob (var type 6) for one sheet view. Three
+     * entries describe its rows: 0x..35 the row uids followed by a fixed trailer,
+     * 0x..3D the row count, n+1 pixel offsets (row height from the trailer that
+     * follows them) and the pane state, 0x..24 the painted rows padded with -1 to
+     * the slots the window had. See FORMAT_NOTES, "Files open on the template's
+     * row count". Templates without the record are left alone.
+     */
+    refreshGanttRows(uids) {
+        const edl = `${MppWriter.VIEW_PRJ}/CEdl`;
+        const vm = this.root.get(`${edl}/VarMeta`);
+        const vd = this.root.get(`${edl}/Var2Data`);
+        if (!vm || !vd)
+            return;
+        const { entries } = B.parseVarMeta(vm);
+        if (!entries.length)
+            return;
+        const u32s = (ns) => {
+            const out = new Uint8Array(ns.length * 4);
+            ns.forEach((v, i) => dv(out).setUint32(i * 4, v, true));
+            return out;
+        };
+        const rows = u32s(uids);
+        const n = uids.length;
+        const metaParts = [copy(vm.subarray(0, 24))];
+        const dataParts = [];
+        let dataLen = 0;
+        let changed = false;
+        for (const { uid, offset, type, unk } of entries) {
+            let blob = B.readVar(vd, offset);
+            if (type === 6 && blob.length >= 16) {
+                const { header, values, order } = B.parseProps(blob);
+                const rowsOld = values.get(MppWriter.EDL_ROWS);
+                const layout = values.get(MppWriter.EDL_LAYOUT);
+                if (rowsOld && layout) {
+                    const oldN = dv(layout).getUint32(0, true);
+                    const rowH = dv(layout).getUint16(4 + (oldN + 1) * 4, true) || 42;
+                    values.set(MppWriter.EDL_ROWS, concat([rows, rowsOld.subarray(oldN * 4)]));
+                    const offsets = Array.from({ length: n + 1 }, (_, i) => i * rowH);
+                    values.set(MppWriter.EDL_LAYOUT, concat([u32s([n]), u32s(offsets), layout.subarray(4 + (oldN + 1) * 4)]));
+                    const painted = values.get(MppWriter.EDL_PAINTED);
+                    if (painted) {
+                        const slots = Math.max(painted.length >> 2, n);
+                        values.set(MppWriter.EDL_PAINTED, concat([rows, new Uint8Array(4 * (slots - n)).fill(0xff)]));
+                    }
+                    blob = B.buildProps(header, values, order);
+                    changed = true;
+                }
+            }
+            const entry = new Uint8Array(12);
+            dv(entry).setUint32(0, uid, true);
+            dv(entry).setUint32(4, dataLen, true);
+            dv(entry).setUint16(8, type, true);
+            dv(entry).setUint16(10, unk, true);
+            metaParts.push(entry);
+            const chunk = new Uint8Array(4 + blob.length);
+            dv(chunk).setUint32(0, blob.length, true);
+            chunk.set(blob, 4);
+            dataParts.push(chunk);
+            dataLen += chunk.length;
+        }
+        if (!changed)
+            return;
+        const meta = concat(metaParts);
+        dv(meta).setUint32(8, entries.length, true);
+        dv(meta).setUint32(20, dataLen, true);
+        this.set(`${edl}/VarMeta`, meta);
+        this.set(`${edl}/Var2Data`, concat(dataParts));
+        // the view storage's Props gates each class's Var2Data read at the
+        // declared length, like the 114 storage's does
+        const vp = this.root.get(`${MppWriter.VIEW_PRJ}/Props`);
+        if (!vp)
+            return;
+        const { header, values, order } = B.parseProps(vp);
+        if (values.has(MppWriter.EDL_VAR2DATA_SIZE)) {
+            values.set(MppWriter.EDL_VAR2DATA_SIZE, u32s([dataLen]));
+            this.set(`${MppWriter.VIEW_PRJ}/Props`, B.buildProps(header, values, order));
+        }
     }
     get(path) {
         const data = this.root.get(path);
@@ -503,15 +661,6 @@ export class MppWriter {
             if (eff.get(uid).start.getTime() < implied.getTime()) {
                 warn(`task ${uid} ${JSON.stringify(task.name)} starts ${fmtDate(eff.get(uid).start)} but its ` +
                     `predecessors put it at ${fmtDate(implied)}; Project will move it`);
-            }
-        }
-        // Project reconciles a finished task against its assignments' timephased
-        // actual work, which is not written yet
-        for (const uid of new Set(assignments.map((a) => a.taskUid))) {
-            if ((byUid.get(uid)?.percentComplete ?? 0) === 100) {
-                warn(`task ${uid} ${JSON.stringify(byUid.get(uid).name)} is 100% complete and has assignments; ` +
-                    `Project recalculates progress from timephased actual work, which is not written yet, ` +
-                    `and will show it at 99%`);
             }
         }
         const pStart = new Date(Math.min(...tasks.map((t) => eff.get(t.uid).start.getTime()), project.start.getTime()));
@@ -976,8 +1125,7 @@ export class MppWriter {
             }
         }
         // Project keeps an assignment row for every leaf task, with a placeholder
-        // resource where nobody is assigned; without them it opens on the
-        // template's row count until the view is rebuilt
+        // resource where nobody is assigned, as Project's own files do
         const assignedSet = new Set(assignments.map((a) => a.taskUid));
         const specs = assignments.map((a) => [a.taskUid, a.resourceUid, a.units ?? 1, a.baselines ?? {}]);
         for (const t of tasks) {
@@ -1028,6 +1176,18 @@ export class MppWriter {
                 remainingTenths = e.tenths - elapsedTenths;
                 reached = tpct === 100 ? e.finish : advanceWorking(e.start, elapsedTenths, pattern);
             }
+            // a progressed assignment carries its own actuals, as Project writes them:
+            // without them Project read a finished assignment as not started and
+            // showed the task at 99% (#56). Placeholder rows get them too (#1221)
+            if (tpct) {
+                put("PERCENT_WORK_COMPLETE", "u16", tpct);
+                this.putfTs(this.assnFm, ASSN_NATIVE, rec, rec2, "ACTUAL_START", e.start);
+                this.bitf(this.assnBit, ASSN_NATIVE, m, m2, "ACTUAL_START", true);
+                if (tpct === 100) {
+                    this.putfTs(this.assnFm, ASSN_NATIVE, rec, rec2, "ACTUAL_FINISH", e.finish);
+                    this.bitf(this.assnBit, ASSN_NATIVE, m, m2, "ACTUAL_FINISH", true);
+                }
+            }
             this.putfTs(this.assnFm, ASSN_NATIVE, rec, rec2, "START", e.start);
             for (const name of ["RESUME", "STOP"])
                 this.putfTs(this.assnFm, ASSN_NATIVE, rec, rec2, name, reached);
@@ -1043,6 +1203,14 @@ export class MppWriter {
             ameta.push(m);
             ameta2.push(m2);
             let nvars = 0;
+            // Project rebuilds an assigned task's duration from the assignment's
+            // timephased blobs: the actual-work contour (var 50) plus the remaining
+            // contour (var 49), with var 87 alongside var 50. Without var 50 a 50%
+            // task opened at 100% with half its duration, and an unassigned 100% task
+            // (whose placeholder row had neither blob) at 0 days (#1221)
+            const contour = tpct > 0;
+            const actualWork = (work * tpct) / 100;
+            const elapsedTenths = e.tenths - remainingTenths;
             for (const [typ, payload0] of this.assnProto.var) {
                 let payload = payload0;
                 if (typ === ASSN_NATIVE["CREATED"]) {
@@ -1060,9 +1228,26 @@ export class MppWriter {
                     bd.setFloat64(8, units * PCT_SCALE * 16, true);
                     bd.setFloat64(16, remainingWork, true);
                     bd.setUint32(24, remainingTenths * 8, true);
-                    payload = b2;
+                    payload = tpct === 100 ? projectRemainingAt100(units, work, e.tenths) : b2;
+                }
+                else if (typ === ASSN_NATIVE["ACTUAL_WORK_DATA"] && contour) {
+                    continue; // replaced below
                 }
                 avarEntries.push({ uid: i, type: typ, payload });
+                nvars += 1;
+            }
+            if (contour) {
+                avarEntries.push({
+                    uid: i, type: ASSN_NATIVE["ACTUAL_WORK_DATA"],
+                    payload: actualWorkContour(units, actualWork, elapsedTenths),
+                });
+                this.bitf(this.assnBit, ASSN_NATIVE, m, m2, "ACTUAL_WORK_DATA", true);
+                nvars += 1;
+                avarEntries.push({
+                    uid: i, type: ASSN_NATIVE["ACTUAL_IRREGULAR_DATA"],
+                    payload: irregularActualWindows(pattern, e.start, reached, "first_day"),
+                });
+                this.bitf(this.assnBit, ASSN_NATIVE, m, m2, "ACTUAL_IRREGULAR_DATA", true);
                 nvars += 1;
             }
             for (const typ of ASSN_VAR_EMPTY) {
@@ -1184,6 +1369,11 @@ export class MppWriter {
                 this.set("   214/CV_iew/Var2Data", out);
             }
         }
+        // Gantt row cache (#74): the view storage's CEdl record remembers the rows
+        // the Gantt table last painted — task uids and a pixel offset per row — and
+        // Project paints exactly those on open until the view is rebuilt. Left as
+        // the template saved it, every file opened on the template's three rows.
+        this.refreshGanttRows(tasks.map((t) => t.uid));
         // document metadata
         const si = this.root.get("SummaryInformation");
         if (si) {

@@ -45,7 +45,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "4.2.1",
     "jszip": "3.10.1",
-    "mppwriter": "0.4.1",
+    "mppwriter": "0.4.3",
     "pdfjs-dist": "6.3.289",
     "pptxgenjs": "4.0.1",
     "qrcode-generator": "2.0.4",
