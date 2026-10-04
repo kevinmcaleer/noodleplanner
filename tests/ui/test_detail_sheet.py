@@ -140,16 +140,26 @@ def test_a_desktop_keeps_the_side_pane(page, app_server):
     assert page.locator("#taskFormPanelHeader").get_attribute("back") is None
 
 
-def test_secondary_actions_are_in_the_overflow(phone, app_server):
+def test_inspect_and_product_sit_on_the_peek_bar_and_delete_is_a_trashcan(phone, app_server):
     open_app(phone, app_server)
     load_plan(phone, PLAN)
     _open(phone, "task")
+    # no ⋯ menu any more (#1468); the trashcan is always in the header
     shadow = "document.getElementById('taskFormPanelHeader').shadowRoot"
-    phone.evaluate(f"() => {shadow}.querySelector('.more').click()")
-    labels = phone.evaluate(f"() => [...{shadow}.querySelectorAll('.menu button')].map(b => b.textContent.trim())")
-    assert labels[-1] == "Delete task", labels
-    assert any("inspect" in label.lower() for label in labels), labels
-    assert any("Deliverable" in label or "Product" in label for label in labels)
+    assert phone.evaluate(f"() => {shadow}.querySelector('.more').hidden")
+    trash = phone.locator("#taskFormPanelHeader > [slot=trailing]")
+    assert trash.get_attribute("aria-label") == "Delete task"
+    assert trash.is_visible()
+    # Inspect and Product are on the peek bar, right-aligned (#1462), and
+    # still there on a phone, where the peek switch itself is not.
+    inspect = phone.locator("#taskFormSection > [slot=peekbar-actions]", has_text="Inspect")
+    product = phone.locator("#taskDeliverableBtn")
+    assert inspect.is_visible() and product.is_visible()
+    assert phone.evaluate(
+        "() => { const bar = document.getElementById('taskFormSection').shadowRoot.querySelector('.peekbar');"
+        " const b = document.querySelector('#taskDeliverableBtn').getBoundingClientRect();"
+        " return bar.getBoundingClientRect().right - b.right < 24; }"
+    )
 
 
 def test_the_keyboard_never_covers_the_sheet(phone, app_server):

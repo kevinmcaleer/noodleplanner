@@ -149,6 +149,41 @@ function autocompleteField(labelText, id, value, hint) {
     return group;
 }
 
+// One row per resource, then the add dropdown (#1465).
+function resourceRows(resources) {
+    const group = document.createElement('div');
+    group.className = 'form-group';
+    const label = document.createElement('label');
+    label.textContent = 'Resources';
+    group.appendChild(label);
+    const list = document.createElement('div');
+    list.className = 'resource-row-list';
+    String(resources || '').split(',').map((r) => r.trim()).filter(Boolean).forEach((name) => {
+        const row = document.createElement('div');
+        row.className = 'resource-row';
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'resource-row-open';
+        open.innerHTML = '<span class="resource-row-name"></span>';
+        open.firstChild.textContent = name;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'resource-row-remove';
+        remove.setAttribute('aria-label', 'Remove ' + name);
+        remove.textContent = '\u2715';
+        row.append(open, remove);
+        list.appendChild(row);
+    });
+    group.appendChild(list);
+    const select = document.createElement('select');
+    select.className = 'resource-add-select';
+    select.setAttribute('aria-label', 'Add a resource');
+    select.add(new Option('Add a resource\u2026', ''));
+    select.add(new Option('+ New resource\u2026', '__new__'));
+    group.appendChild(select);
+    return group;
+}
+
 function buildForm(task) {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'max-width:600px;border:1px solid var(--np-border);border-radius:var(--np-radius-lg);overflow:hidden;';
@@ -157,15 +192,29 @@ function buildForm(task) {
     header.setAttribute('variant', 'accent');
     header.setAttribute('editable', '');
     header.setAttribute('title', task.name);
+    // The trashcan replaces the ⋯ menu (#1468).
+    const trash = document.createElement('button');
+    trash.slot = 'trailing';
+    trash.type = 'button';
+    trash.className = 'panel-icon-btn';
+    trash.title = 'Delete task';
+    trash.setAttribute('aria-label', 'Delete task');
+    trash.innerHTML = '<i class="bi bi-trash" aria-hidden="true"></i>';
+    header.appendChild(trash);
+
+    // Inspect sits on the peek bar, right-aligned (#1462).
+    const peekbar = document.createElement('div');
+    peekbar.style.cssText = 'display:flex;justify-content:flex-end;padding:var(--np-space-4) var(--np-space-12);background:var(--np-surface);border-bottom:1px solid var(--np-hairline);';
     const inspect = document.createElement('button');
-    inspect.slot = 'actions';
-    inspect.className = 'task-form-inspect-btn';
+    inspect.className = 'task-form-inspect-btn task-form-peekbar-btn';
     inspect.title = 'Inspect task';
     inspect.textContent = '\u{1F50D} Inspect';
-    header.appendChild(inspect);
+    peekbar.appendChild(inspect);
+    wrap.appendChild(peekbar);
     wrap.appendChild(header);
 
     const body = document.createElement('form');
+    body.className = 'form-compact';
     body.style.cssText = 'padding:var(--np-space-24, 24px);background:var(--np-paper);display:flex;flex-direction:column;gap:var(--np-space-16, 16px);';
     body.addEventListener('submit', (e) => e.preventDefault());
 
@@ -188,7 +237,7 @@ function buildForm(task) {
 
     body.appendChild(
         grid(2, [
-            autocompleteField('Resources', 'taskResources', task.resources, 'Separate multiple resources with commas'),
+            resourceRows(task.resources),
             autocompleteField('Labels', 'taskLabels', task.labels, 'Tags/labels for categorization'),
         ])
     );
@@ -252,6 +301,14 @@ export const Default = {
         resources: 'Kevin McAleer, Katie Fox',
         labels: 'UX, Design',
         comment: 'Waiting on user research findings before the final pass.',
+    },
+};
+
+export const LongName = {
+    name: 'Long task name',
+    args: {
+        ...Default.args,
+        name: 'Design the onboarding flow for first-time users across web, tablet and phone, with accessibility review',
     },
 };
 

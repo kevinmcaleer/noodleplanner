@@ -2629,6 +2629,7 @@ function openTaskForm(lineNumber) {
         updateEffortTotal();
 
         document.getElementById('taskResources').value = task.resources || '';
+        renderTaskResources();
         document.getElementById('taskComment').value = task.comment || '';
         const prioritySelect = document.getElementById('taskPriority');
         if (prioritySelect) {
@@ -3929,80 +3930,79 @@ function toggleSubtaskCompletion(lineNumber, percentOrBool) {
     populateSubtasks(currentTaskLineNumber, lines);
 }
 
-function addNewSubtask() {
-    const subtasksList = document.getElementById('subtasksList');
-    if (!subtasksList) return;
+/**
+ * Add a subtask called `taskName` under the task in the form: one level in,
+ * after its existing children. The blank entry under the Subtasks list calls
+ * this (#1467).
+ */
+function createSubtask(taskName) {
+    if (!taskName || currentTaskLineNumber === null) return;
 
-    // The new subtask is a task row in its editing state: the name is an
-    // input, Enter or leaving it commits, Escape abandons.
-    const row = document.createElement('np-task-row');
-    row.className = 'subtask-row';
-    row.setAttribute('editing', '');
-    row.setAttribute('readonly', '');
-    row.setAttribute('placeholder', 'Enter subtask name...');
+    const editor = document.getElementById('planEditor');
+    const lines = editor.value.split('\n');
 
-    let saved = false;
-    const saveSubtask = (taskName) => {
-        if (saved) return;
-        if (!taskName) {
-            row.remove();
-            return;
+    // Get parent task line
+    const parentLine = lines[currentTaskLineNumber - 1];
+    const parentIndent = parentLine.search(/\S/);
+
+    // Create new subtask with one more level of indentation
+    const childIndent = ' '.repeat(parentIndent + 2);
+    const newTaskLine = `${childIndent}${taskName}`;
+
+    // Find where to insert - after all existing child tasks
+    let insertIndex = currentTaskLineNumber;
+
+    // Look for existing child tasks and find the last one
+    for (let i = currentTaskLineNumber; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        // Skip empty lines
+        if (!trimmed) continue;
+
+        // Skip front matter, phase headers, summary lines
+        if (trimmed.startsWith('---') || trimmed.startsWith('#') || trimmed.includes('===')) break;
+
+        const indent = line.search(/\S/);
+
+        // If we hit a line at same or lower indentation than parent, we're done
+        if (indent <= parentIndent) {
+            break;
         }
 
-        saved = true;
+        // This is a child task, update insert position to after it
+        insertIndex = i + 1;
+    }
 
-        const editor = document.getElementById('planEditor');
-        const lines = editor.value.split('\n');
+    // Insert the new line
+    lines.splice(insertIndex, 0, newTaskLine);
+    editor.value = lines.join('\n');
 
-        // Get parent task line
-        const parentLine = lines[currentTaskLineNumber - 1];
-        const parentIndent = parentLine.search(/\S/);
+    // Trigger input event to update line numbers and syntax highlighting
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-        // Create new subtask with one more level of indentation
-        const childIndent = ' '.repeat(parentIndent + 2);
-        const newTaskLine = `${childIndent}${taskName}`;
+    // Re-populate subtasks to show the new task properly
+    populateSubtasks(currentTaskLineNumber, editor.value.split('\n'));
+}
 
-        // Find where to insert - after all existing child tasks
-        let insertIndex = currentTaskLineNumber;
+/** Enter in the blank subtask entry adds it and stays ready for the next. */
+function onNewSubtaskKeydown(event, input) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        commitNewSubtaskInput(input);
+        input.focus();
+    } else if (event.key === 'Escape' && input.value) {
+        // the first Escape only abandons the text; the pane stays open
+        event.stopPropagation();
+        input.value = '';
+    }
+}
 
-        // Look for existing child tasks and find the last one
-        for (let i = currentTaskLineNumber; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmed = line.trim();
-
-            // Skip empty lines
-            if (!trimmed) continue;
-
-            // Skip front matter, phase headers, summary lines
-            if (trimmed.startsWith('---') || trimmed.startsWith('#') || trimmed.includes('===')) break;
-
-            const indent = line.search(/\S/);
-
-            // If we hit a line at same or lower indentation than parent, we're done
-            if (indent <= parentIndent) {
-                break;
-            }
-
-            // This is a child task, update insert position to after it
-            insertIndex = i + 1;
-        }
-
-        // Insert the new line
-        lines.splice(insertIndex, 0, newTaskLine);
-        editor.value = lines.join('\n');
-
-        // Trigger input event to update line numbers and syntax highlighting
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-        // Re-populate subtasks to show the new task properly
-        populateSubtasks(currentTaskLineNumber, editor.value.split('\n'));
-    };
-
-    row.addEventListener('name-commit', (e) => saveSubtask(e.detail.value));
-    row.addEventListener('name-cancel', () => row.remove());
-
-    subtasksList.appendChild(row);
-    row.focusEditor();
+/** Turn what was typed in the blank entry into a subtask. Leaving the box empty adds nothing. */
+function commitNewSubtaskInput(input) {
+    const name = input.value.trim();
+    input.value = '';
+    if (name) createSubtask(name);
 }
 
 // Called when date fields change - recalculate duration
@@ -5288,109 +5288,133 @@ function getAllResourceNames() {
     return Array.from(resourceSet).sort();
 }
 
-function handleResourceInput() {
-    const input = document.getElementById('taskResources');
-    const dropdown = document.getElementById('resourceAutocomplete');
-    const value = input.value;
+// Resources on the task form: one row each, added from a dropdown (#1465).
+// The plan's own comma-separated list lives in the hidden #taskResources,
+// which saveTask() reads; these functions keep the rows and it in step.
 
-    // Get the current word being typed (after the last comma)
-    const lastCommaIndex = value.lastIndexOf(',');
-    const currentWord = value.substring(lastCommaIndex + 1).trim();
+/** The shortnames assigned to the task in the form, as written in the plan. */
+function taskFormResourceList() {
+    const field = document.getElementById('taskResources');
+    return field && field.value
+        ? field.value.split(',').map(r => r.trim()).filter(r => r)
+        : [];
+}
 
-    if (currentWord.length === 0) {
-        dropdown.style.display = 'none';
-        resourceAutocompleteSelectedIndex = -1;
-        saveTask();
-        return;
-    }
+function setTaskFormResources(list) {
+    const field = document.getElementById('taskResources');
+    if (!field) return;
+    field.value = list.join(', ');
+    renderTaskResources();
+}
 
-    // Get all resource names and filter by current word
-    const allResources = getAllResourceNames();
-    const matches = allResources.filter(name =>
-        name.toLowerCase().includes(currentWord.toLowerCase())
-    );
+/** Rebuild the resource rows and the add dropdown from #taskResources. */
+function renderTaskResources() {
+    const listEl = document.getElementById('taskResourcesList');
+    const select = document.getElementById('addResourceSelect');
+    if (!listEl) return;
 
-    if (matches.length === 0) {
-        dropdown.style.display = 'none';
-        resourceAutocompleteSelectedIndex = -1;
-        saveTask();
-        return;
-    }
+    const editor = document.getElementById('planEditor');
+    const resourceMap = editor ? parseResourceMappings(editor.value) : {};
+    const assigned = taskFormResourceList();
 
-    // Build dropdown HTML
-    dropdown.innerHTML = '';
-    matches.forEach((name, index) => {
-        const item = document.createElement('div');
-        item.className = 'autocomplete-item';
-        item.textContent = name;
-        item.onclick = function() {
-            selectResource(name);
-        };
-        dropdown.appendChild(item);
+    listEl.replaceChildren();
+    assigned.forEach(shortname => {
+        const full = resourceMap[shortname.toLowerCase()];
+        const row = document.createElement('div');
+        row.className = 'resource-row';
+        row.dataset.shortname = shortname;
+
+        // Clicking the resource opens its details form (#1466).
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'resource-row-open';
+        open.title = 'Open resource details';
+        const name = document.createElement('span');
+        name.className = 'resource-row-name';
+        name.textContent = full && full !== shortname ? full + ' (' + shortname + ')' : shortname;
+        open.appendChild(name);
+        open.addEventListener('click', () => openResourceFromTask(shortname));
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'resource-row-remove';
+        remove.setAttribute('aria-label', 'Remove ' + shortname);
+        remove.title = 'Remove';
+        remove.textContent = '\u2715';
+        remove.addEventListener('click', () => {
+            setTaskFormResources(taskFormResourceList().filter(r => r.toLowerCase() !== shortname.toLowerCase()));
+            saveTask();
+        });
+
+        row.append(open, remove);
+        listEl.appendChild(row);
     });
 
-    dropdown.style.display = 'block';
-    resourceAutocompleteSelectedIndex = -1;
+    if (select) {
+        const taken = new Set(assigned.map(r => r.toLowerCase()));
+        select.replaceChildren();
+        const placeholder = new Option('Add a resource\u2026', '');
+        select.add(placeholder);
+        getAllResourceNames()
+            .filter(name => !taken.has(name.toLowerCase()))
+            .forEach(name => {
+                const full = resourceMap[name.toLowerCase()];
+                select.add(new Option(full && full !== name ? full + ' (' + name + ')' : name, name));
+            });
+        select.add(new Option('+ New resource\u2026', '__new__'));
+        select.value = '';
+    }
+}
+
+/** The add dropdown: assign the chosen resource, or define a new one. */
+function onAddResourceSelect(select) {
+    const value = select.value;
+    if (!value) return;
+    if (value === '__new__') {
+        select.value = '';
+        openResourceFromTask(null);
+        return;
+    }
+    setTaskFormResources([...taskFormResourceList(), value]);
     saveTask();
 }
 
-function handleResourceKeydown(event) {
-    const dropdown = document.getElementById('resourceAutocomplete');
-    if (dropdown.style.display !== 'block') return;
-
-    const items = dropdown.querySelectorAll('.autocomplete-item');
-    if (items.length === 0) return;
-
-    if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        resourceAutocompleteSelectedIndex = Math.min(resourceAutocompleteSelectedIndex + 1, items.length - 1);
-        updateResourceAutocompleteSelection(items);
-    } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        resourceAutocompleteSelectedIndex = Math.max(resourceAutocompleteSelectedIndex - 1, -1);
-        updateResourceAutocompleteSelection(items);
-    } else if (event.key === 'Enter') {
-        event.preventDefault();
-        if (resourceAutocompleteSelectedIndex >= 0) {
-            const selectedItem = items[resourceAutocompleteSelectedIndex];
-            selectResource(selectedItem.textContent);
-        }
-    } else if (event.key === 'Escape') {
-        dropdown.style.display = 'none';
-        resourceAutocompleteSelectedIndex = -1;
-    }
+/**
+ * Open the resource form from the task form (#1466). Closing it brings the
+ * task form back; for a resource defined here (shortname null) the new
+ * resource is also assigned to the task.
+ */
+function openResourceFromTask(shortname) {
+    openResourceForm(shortname ? shortname.toLowerCase() : null, taskFormReturnState(!shortname));
 }
 
-function updateResourceAutocompleteSelection(items) {
-    items.forEach((item, index) => {
-        if (index === resourceAutocompleteSelectedIndex) {
-            item.classList.add('selected');
-            item.scrollIntoView({ block: 'nearest' });
-        } else {
-            item.classList.remove('selected');
-        }
-    });
+/** Where the resource form returns to when it was opened from the task form. */
+function taskFormReturnState(assignNew) {
+    const nameField = document.getElementById('taskName');
+    return {
+        name: nameField ? nameField.value : '',
+        line: currentTaskLineNumber,
+        assignNew: !!assignNew,
+    };
 }
 
-function selectResource(name) {
-    const input = document.getElementById('taskResources');
-    const value = input.value;
+/** Back to the task form after the resource form; assigns a new resource. */
+function returnToTaskFromResourceForm() {
+    const back = resourceFormTaskReturn;
+    resourceFormTaskReturn = null;
+    if (!back) return false;
 
-    // Replace the current word being typed with the selected name
-    const lastCommaIndex = value.lastIndexOf(',');
-    let newValue;
-    if (lastCommaIndex >= 0) {
-        newValue = value.substring(0, lastCommaIndex + 1) + ' ' + name;
-    } else {
-        newValue = name;
+    const field = document.getElementById('resourceShortname');
+    const created = back.assignNew && field ? field.value.trim().toLowerCase() : '';
+    // front-matter edits shift the task's line: find it again by name
+    const line = back.name ? findTaskLineNumber({ name: back.name }) : -1;
+    openTaskForm(line > 0 ? line : back.line);
+    if (created && getAllResourceNames().includes(created)
+        && !taskFormResourceList().some(r => r.toLowerCase() === created)) {
+        setTaskFormResources([...taskFormResourceList(), created]);
+        saveTask();
     }
-
-    input.value = newValue;
-    const dropdown = document.getElementById('resourceAutocomplete');
-    dropdown.style.display = 'none';
-    resourceAutocompleteSelectedIndex = -1;
-    input.focus();
-    saveTask();
+    return true;
 }
 
 // Dependency picker: the add-dependency box's dropdown is a listbox of
@@ -5898,13 +5922,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            const resDropdown = document.getElementById('resourceAutocomplete');
-            if (resDropdown && resDropdown.style.display === 'block') {
-                resDropdown.style.display = 'none';
-                resourceAutocompleteSelectedIndex = -1;
-                return;
-            }
-
             // If detail pane is open, close the active section
             if (isDetailPaneOpen()) {
                 requestCloseDetailPane();
@@ -6021,13 +6038,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Handle resource autocomplete
-        const resDropdown = document.getElementById('resourceAutocomplete');
-        const resInput = document.getElementById('taskResources');
-        if (resDropdown && resInput && !resInput.contains(e.target) && !resDropdown.contains(e.target)) {
-            resDropdown.style.display = 'none';
-            resourceAutocompleteSelectedIndex = -1;
-        }
     });
 
     // Function to attach double-click handler to any editor
@@ -6171,10 +6181,16 @@ function toggleProjectDetails() {
 // ESC and click-outside for project details are handled by the unified detail pane handlers
 
 // Resource Form Functions
-function openResourceForm(existingShortname = null) {
+function openResourceForm(existingShortname = null, taskReturn = null) {
     // Track where we came from so we can return there
     const pane = document.getElementById('detailPane');
     const activeSection = pane.querySelector('.detail-pane-section.active');
+    // From the task form (its resource rows, or a subtask's people chip), the
+    // resource form hands back to the task form when it closes (#1466).
+    if (!taskReturn && activeSection && activeSection.id === 'taskFormSection') {
+        taskReturn = taskFormReturnState(false);
+    }
+    resourceFormTaskReturn = taskReturn;
     if (activeSection && activeSection.id === 'projectDetailsSection') {
         resourceFormReturnSection = 'projectDetailsSection';
     } else {
@@ -6280,7 +6296,9 @@ function dismissResourceForm() {
 }
 
 function closeResourceForm() {
-    if (resourceFormReturnSection) {
+    if (returnToTaskFromResourceForm()) {
+        resourceFormReturnSection = null;
+    } else if (resourceFormReturnSection) {
         // Return to the section that opened the resource form
         openDetailPane(resourceFormReturnSection);
         resourceFormReturnSection = null;

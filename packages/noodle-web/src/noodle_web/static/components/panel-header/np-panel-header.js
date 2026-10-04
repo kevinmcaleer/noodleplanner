@@ -28,6 +28,9 @@
  *     attribute -- for a form whose script already writes its heading into an
  *     element by id (`raidFormTitle.textContent = …`).
  *   - `actions`: secondary buttons beside the title.
+ *   - `trailing`: icon buttons beside the close button, always visible --
+ *     the task form's trashcan (#1468). They are the page's own markup, so
+ *     they take the page's icon fonts; give them an `aria-label`.
  *   - `overflow`: buttons that only ever appear in the ⋯ menu (Delete).
  *     `data-destructive` marks one red. A slotted button that is `hidden` or
  *     `display: none` is left out, so a form can still show and hide them.
@@ -36,7 +39,7 @@
  * the title's row for the title, and the `actions` join the ⋯ menu -- at 390px
  * the task form's title used to share its row with Inspect and Make
  * Deliverable and got about 45px, breaking "Design" into "Desig / n". A title
- * is clamped to two lines while it is not being edited. The close button is
+ * is cut to one line with an ellipsis while it is not being edited (#1461). The close button is
  * 44px under a coarse pointer, like <np-close-button>'s, and `back` turns it
  * into ← Back, for a full-screen sheet on a phone (<np-detail-sheet>).
  *
@@ -66,8 +69,8 @@ TEMPLATE.innerHTML = `
 
     .header {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto auto;
-      grid-template-areas: "titles actions more close";
+      grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+      grid-template-areas: "titles actions more trailing close";
       align-items: center;
       gap: var(--np-space-12, 12px);
       padding: var(--np-space-20, 20px) var(--np-space-32, 32px);
@@ -79,8 +82,8 @@ TEMPLATE.innerHTML = `
 
     /* A full-screen sheet's ← Back leads the row, where back always is. */
     :host([back]) .header {
-      grid-template-columns: auto minmax(0, 1fr) auto auto;
-      grid-template-areas: "close titles actions more";
+      grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+      grid-template-areas: "close titles actions more trailing";
     }
 
     :host([variant="neutral"]) .header {
@@ -106,10 +109,9 @@ TEMPLATE.innerHTML = `
     }
     ::slotted([slot="title"]) {
       font-family: inherit;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+      white-space: nowrap;
       overflow: hidden;
+      text-overflow: ellipsis;
     }
     .title {
       padding: var(--np-space-4, 4px);
@@ -117,11 +119,11 @@ TEMPLATE.innerHTML = `
       min-height: 1.2em;
       transition: background-color 0.2s;
     }
+    /* One line with an ellipsis while it is not being edited (#1461). */
     .title:not(:focus) {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+      white-space: nowrap;
       overflow: hidden;
+      text-overflow: ellipsis;
     }
     .titles.slotted .title { display: none; }
     .title[contenteditable] {
@@ -153,6 +155,13 @@ TEMPLATE.innerHTML = `
     :host([compact]) .actions { display: none; }
     ::slotted(*) { flex-shrink: 0; }
     .overflow-slot { display: none; }
+    .trailing {
+      grid-area: trailing;
+      display: flex;
+      align-items: center;
+      gap: var(--np-space-4, 4px);
+    }
+    .trailing.empty { display: none; }
 
     button.icon {
       grid-area: close;
@@ -234,14 +243,14 @@ TEMPLATE.innerHTML = `
 
     @container (max-width: 559px) {
       .header {
-        grid-template-columns: minmax(0, 1fr) auto auto;
-        grid-template-areas: "titles more close" "actions actions actions";
+        grid-template-columns: minmax(0, 1fr) auto auto auto;
+        grid-template-areas: "titles more trailing close" "actions actions actions actions";
         row-gap: var(--np-space-8, 8px);
         padding-inline: var(--np-space-12, 12px) var(--np-space-8, 8px);
       }
       :host([back]) .header {
-        grid-template-columns: auto minmax(0, 1fr) auto;
-        grid-template-areas: "close titles more" "actions actions actions";
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
+        grid-template-areas: "close titles more trailing" "actions actions actions actions";
         padding-inline: var(--np-space-4, 4px) var(--np-space-8, 8px);
       }
       .actions { flex-wrap: wrap; }
@@ -256,6 +265,7 @@ TEMPLATE.innerHTML = `
       <slot name="actions"></slot>
     </div>
     <div class="overflow-slot"><slot name="overflow"></slot></div>
+    <div class="trailing" part="trailing"><slot name="trailing"></slot></div>
     <button class="icon more" part="more-button" type="button" aria-label="More actions" aria-haspopup="menu" aria-expanded="false" hidden>&#8943;</button>
     <button class="icon close-btn" part="close-button" type="button" aria-label="Close">&times;</button>
   </div>
@@ -287,6 +297,8 @@ export class NpPanelHeader extends HTMLElement {
     this._actions = root.querySelector('.actions');
     this._actionsSlot = root.querySelector('slot[name="actions"]');
     this._overflowSlot = root.querySelector('slot[name="overflow"]');
+    this._trailing = root.querySelector('.trailing');
+    this._trailingSlot = root.querySelector('slot[name="trailing"]');
     this._titleSlot = root.querySelector('slot[name="title"]');
     this._title = null;
     this._menuItems = [];
@@ -300,10 +312,12 @@ export class NpPanelHeader extends HTMLElement {
     const sync = () => {
       this._actions.classList.toggle('empty', this._actionsSlot.assignedElements().length === 0);
       this._titles.classList.toggle('slotted', this._titleSlot.assignedElements().length > 0);
+      this._trailing.classList.toggle('empty', this._trailingSlot.assignedElements().length === 0);
       this._syncMore();
     };
     this._actionsSlot.addEventListener('slotchange', sync);
     this._overflowSlot.addEventListener('slotchange', sync);
+    this._trailingSlot.addEventListener('slotchange', sync);
     this._titleSlot.addEventListener('slotchange', sync);
     sync();
 

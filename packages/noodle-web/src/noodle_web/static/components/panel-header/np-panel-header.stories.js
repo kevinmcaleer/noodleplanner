@@ -140,6 +140,35 @@ export const OnAPhone = {
   },
 };
 
+export const LongTitleWithTrashcan = {
+  name: 'Long title, trashcan in the trailing slot',
+  args: {
+    title: 'Design the onboarding flow for first-time users across web, tablet and phone, with accessibility review',
+    editable: true,
+  },
+  render: (args, context) => {
+    const el = PanelHeader.render(args, context);
+    const trash = document.createElement('button');
+    trash.slot = 'trailing';
+    trash.type = 'button';
+    trash.className = 'panel-icon-btn';
+    trash.title = 'Delete task';
+    trash.setAttribute('aria-label', 'Delete task');
+    trash.textContent = '\u{1F5D1}';
+    el.appendChild(trash);
+    return el;
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A title stays on one line and ends in an ellipsis while it is not being edited (#1461). ' +
+          'An icon button in the `trailing` slot sits beside the close button (#1468).',
+      },
+    },
+  },
+};
+
 export const BackWithOverflow = {
   name: 'Full screen: ← Back and the ⋯ menu',
   args: {

@@ -41,6 +41,8 @@ let lastParseResult = null; // { result, planText } of the last /api/parse; the 
 
 // Track which section the resource form was opened from (for returning to it)
 let resourceFormReturnSection = null;
+// Set when the resource form was opened from the task form (openResourceFromTask).
+let resourceFormTaskReturn = null;
 
 // Detail pane timer for close transition
 let closeDetailPaneTimer = null;
@@ -71,7 +73,6 @@ let userSetDuration = false;
 
 // Autocomplete state
 let autocompleteSelectedIndex = -1;
-let resourceAutocompleteSelectedIndex = -1;
 let dependencyAutocompleteSelectedIndex = -1;
 let currentDependencyInput = null;
 let labelAutocompleteSelectedIndex = -1;

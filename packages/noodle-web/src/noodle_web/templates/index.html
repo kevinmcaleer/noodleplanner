@@ -2320,12 +2320,12 @@ Build
         <!-- Task Form Section -->
         <np-detail-sheet id="taskFormSection" class="detail-pane-section" close-action="closeTaskForm">
             <np-panel-header slot="header" id="taskFormPanelHeader" variant="accent" editable title="Task Name">
-                <button class="task-form-inspect-btn" slot="actions" onclick="openTaskInspectorFromForm()" title="Inspect task" aria-label="Open task inspector">&#128269; Inspect</button>
-                <button class="task-form-inspect-btn" slot="actions" id="taskDeliverableBtn" onclick="toggleTaskDeliverable()" title="Product details" style="display: none;">&#128230; Product</button>
-                <button type="button" slot="overflow" data-destructive onclick="deleteTask()">Delete task</button>
+                <button type="button" slot="trailing" class="panel-icon-btn" data-destructive onclick="deleteTask()" title="Delete task" aria-label="Delete task"><i class="bi bi-trash" aria-hidden="true"></i></button>
             </np-panel-header>
+            <button class="task-form-inspect-btn task-form-peekbar-btn" slot="peekbar-actions" onclick="openTaskInspectorFromForm()" title="Inspect task" aria-label="Open task inspector">&#128269; Inspect</button>
+            <button class="task-form-inspect-btn task-form-peekbar-btn" slot="peekbar-actions" id="taskDeliverableBtn" onclick="toggleTaskDeliverable()" title="Product details" style="display: none;">&#128230; Product</button>
             <div class="modal-body">
-                <form onsubmit="event.preventDefault();">
+                <form class="form-compact" onsubmit="event.preventDefault();">
                     <input type="hidden" id="taskName">
 
                     <details class="sheet-section" data-section="task-schedule" data-primary open>
@@ -2471,15 +2471,15 @@ Build
                     <details class="sheet-section" data-section="task-people" open>
                         <summary>People</summary>
                         <div class="form-group">
-                            <label for="taskResources">Resources</label>
-                            <div class="autocomplete-container">
-                                <input type="text" id="taskResources" placeholder="e.g., John, Alice"
-                                       oninput="handleResourceInput()"
-                                       onkeydown="handleResourceKeydown(event)"
-                                       autocomplete="off">
-                                <div id="resourceAutocomplete" class="autocomplete-dropdown"></div>
-                            </div>
-                            <small>Separate multiple resources with commas</small>
+                            <label for="addResourceSelect">Resources</label>
+                            <!-- The plan's own comma-separated list: saveTask() reads it. -->
+                            <input type="hidden" id="taskResources">
+                            <!-- One row per resource (renderTaskResources in script.js). -->
+                            <div id="taskResourcesList" class="resource-row-list"
+                                 data-empty="No resources assigned"></div>
+                            <select id="addResourceSelect" class="resource-add-select"
+                                    aria-label="Add a resource" onchange="onAddResourceSelect(this)"></select>
+                            <small style="display: block; margin-top: 5px;">Click a resource to open its details</small>
                         </div>
                     </details>
 
@@ -2515,9 +2515,10 @@ Build
                             <!-- One <np-task-row> per descendant (populateSubtasks in script.js). -->
                             <div id="subtasksList" class="task-row-list subtasks-list"
                                  data-empty="No sub tasks"></div>
-                            <a href="javascript:void(0)" class="add-item-link" onclick="addNewSubtask()" style="margin-top: 10px; display: inline-block;">
-                                <span class="add-icon">+</span> Add Sub Task
-                            </a>
+                            <!-- A blank entry: type a name and press Enter (or leave the box) to add a subtask. -->
+                            <input type="text" id="newSubtaskInput" class="subtask-add-input"
+                                   placeholder="Add a sub task" aria-label="Add a sub task" autocomplete="off"
+                                   onkeydown="onNewSubtaskKeydown(event, this)" onblur="commitNewSubtaskInput(this)">
                             <small style="display: block; margin-top: 5px;">Child tasks that belong to this task</small>
                         </div>
                     </details>
