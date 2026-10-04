@@ -202,8 +202,11 @@ function fakeWorkerClass(record) {
 
 (function testWorkerImportsAreDomFree() {
     const workerSource = fs.readFileSync(path.join(STATIC, 'pptx-build-worker.js'), 'utf8');
-    const imported = /import\s*{([^}]*)}\s*from\s*"\.\/pptx-export\.js"/.exec(workerSource);
-    assert(imported, 'the worker imports named helpers from pptx-export.js');
+    // The import is dynamic so it can carry the worker's own ?v=<deploy hash>.
+    assert(/import\("\.\/pptx-export\.js"\s*\+\s*self\.location\.search\)/.test(workerSource),
+        'the worker imports pptx-export.js, versioned with its own query string');
+    const imported = /const\s*{([^}]*)}\s*=\s*await\s+exportModule/.exec(workerSource);
+    assert(imported, 'the worker takes named helpers from pptx-export.js');
 
     // Worker scope has no document: pptx-export.js's download helpers touch
     // the DOM, so importing one here would break the export at runtime.

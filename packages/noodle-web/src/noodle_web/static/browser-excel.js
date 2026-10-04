@@ -1,4 +1,5 @@
 import { addSyncSheet } from './workbook-sync.js';
+import { staticUrl } from './static-url.js';
 
 // ExcelJS is vendored, not fetched from a CDN: the app is installable as a
 // PWA and must export offline, its service worker only caches same-origin
@@ -211,7 +212,7 @@ async function ensureExcelJsLoaded() {
     }
 
     if (!excelJsLoadPromise) {
-        document.querySelectorAll(`script[src="${EXCELJS_URL}"]`).forEach((script) => script.remove());
+        document.querySelectorAll(`script[src="${staticUrl(EXCELJS_URL)}"]`).forEach((script) => script.remove());
         excelJsLoadPromise = new Promise((resolve, reject) => {
             const script = document.createElement('script');
             const timeout = window.setTimeout(() => {
@@ -222,7 +223,7 @@ async function ensureExcelJsLoaded() {
                 window.clearTimeout(timeout);
                 callback();
             };
-            script.src = EXCELJS_URL;
+            script.src = staticUrl(EXCELJS_URL);
             script.onload = () => finish(resolve);
             script.onerror = () => finish(() => {
                 script.remove();
@@ -985,7 +986,7 @@ function elapsedSince(started) {
 }
 
 export async function createPlanWorkbookBufferInWorker(parseResult, options = {}) {
-    const worker = new Worker(BROWSER_EXCEL_WORKER_URL);
+    const worker = new Worker(staticUrl(BROWSER_EXCEL_WORKER_URL));
     return new Promise((resolve, reject) => {
         let settled = false;
         const finish = (callback, value) => {
@@ -1017,7 +1018,7 @@ export async function createPlanWorkbookBufferInWorker(parseResult, options = {}
                     budgetItems: Array.isArray(options.budgetItems) ? options.budgetItems : [],
                     now: options.now instanceof Date ? options.now.toISOString() : null,
                 },
-                excelJsUrl: EXCELJS_URL,
+                excelJsUrl: staticUrl(EXCELJS_URL),
             });
         } catch (error) {
             finish(reject, error);

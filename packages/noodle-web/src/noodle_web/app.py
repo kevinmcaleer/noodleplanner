@@ -159,6 +159,29 @@ def _static_version():
 STATIC_VERSION = _static_version()
 
 
+def _static_import_map(version):
+    """JSON import map sending every /static/ module to its ?v=<hash> URL.
+
+    Scripts the templates load already carry the hash, but modules reached
+    through a bare ``import('/static/x.js')`` or a relative ``import './x.js'``
+    do not, and a browser can keep a stale copy of those across a deploy. An
+    import map is resolved against the specifier's final URL, so one entry per
+    file versions every such import without touching the importing code. It is
+    built from disk, so a new module is covered the day it is added.
+    """
+    static_dir = package_dir / "static"
+    imports = {}
+    for path in sorted(static_dir.rglob("*")):
+        if path.suffix in (".js", ".mjs") and path.name != "sw.js":
+            url = "/static/" + path.relative_to(static_dir).as_posix()
+            imports[url] = f"{url}?v={version}"
+    return json.dumps({"imports": imports}, separators=(",", ":"))
+
+
+templates.env.globals["static_import_map"] = _static_import_map(STATIC_VERSION)
+templates.env.globals["static_version"] = STATIC_VERSION
+
+
 def _sanitized_detail(message: str, error: Exception) -> str:
     """Return a user-facing error detail string.
 

@@ -27,6 +27,7 @@
  * docs/reference/export-formats.rst.
  */
 import { jsPDF } from "./vendor/jspdf/jspdf.es.min.js";
+import { staticUrl } from "./static-url.js";
 
 /** Where the deployment serves the font the PDF embeds. */
 export const FONT_URL = "/static/vendor/dejavu/DejaVuSansMono.ttf";
@@ -959,7 +960,7 @@ export function buildPdf(title, report, fontBytes, options = {}) {
 /** The font, or null when the deployment has not provided one. */
 export async function fetchFont(url = FONT_URL, fetchImpl = globalThis.fetch) {
   try {
-    const response = await fetchImpl(url);
+    const response = await fetchImpl(staticUrl(url));
     if (!response.ok) return null;
     const bytes = new Uint8Array(await response.arrayBuffer());
     // a TrueType font starts with 0x00010000 or 'true'; anything else is an

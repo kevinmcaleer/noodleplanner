@@ -17,6 +17,7 @@
  * same code the browser does.
  */
 import { MppWriter, readProject } from "./vendor/mppwriter/index.js";
+import { staticUrl } from "./static-url.js";
 
 /** Where the deployment puts the template it saved from Microsoft Project. */
 export const TEMPLATE_URL = "/static/mpp-template.mpp";
@@ -402,7 +403,7 @@ export function buildMpp(project, templateBytes, onWarning) {
 /** The template, or null when the deployment has not provided one. */
 export async function fetchTemplate(url = TEMPLATE_URL, fetchImpl = globalThis.fetch) {
   try {
-    const response = await fetchImpl(url);
+    const response = await fetchImpl(staticUrl(url));
     if (!response.ok) return null;
     const bytes = new Uint8Array(await response.arrayBuffer());
     // a compound file starts with the OLE magic; anything else is an error
