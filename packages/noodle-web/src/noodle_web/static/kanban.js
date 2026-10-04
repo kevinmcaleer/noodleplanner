@@ -1602,11 +1602,6 @@ class KanbanBoard {
 
         headerEl.appendChild(titleEl);
 
-        const countEl = document.createElement('span');
-        countEl.className = 'kanban-column-count';
-        countEl.textContent = `${visibleCount} ${visibleCount === 1 ? 'task' : 'tasks'}`;
-        headerEl.appendChild(countEl);
-
         // Add delete button for label view (except Unlabeled)
         if (this.viewMode === 'label' && column.title !== 'Unlabeled') {
             const deleteBtn = document.createElement('button');
@@ -1680,6 +1675,18 @@ class KanbanBoard {
             });
 
             this.setupPointerColumnDrag(columnEl, headerEl, column);
+
+            // Keyboard route for column reorder now the arrow buttons are gone (#1450)
+            headerEl.setAttribute('tabindex', '0');
+            headerEl.setAttribute('aria-label', `${column.name} column header. Alt plus Left or Right moves the column.`);
+            headerEl.addEventListener('keydown', (e) => {
+                if (e.target !== headerEl || !e.altKey) return;
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+                e.preventDefault();
+                const delta = e.key === 'ArrowLeft' ? -1 : 1;
+                const target = this.columns[this.columns.indexOf(column) + delta];
+                if (target) this.handleColumnReorder(column.title, target.title, delta < 0);
+            });
         }
 
         // Add colour picker button in phase view
@@ -1695,51 +1702,15 @@ class KanbanBoard {
                 this.showColumnColourPicker(column.title, colourBtn);
             });
             headerEl.appendChild(colourBtn);
-
-            const columnActions = document.createElement('div');
-            columnActions.className = 'kanban-column-order-actions';
-            const columnIndex = this.columns.indexOf(column);
-            [
-                { label: 'Move column left', delta: -1, symbol: '\u2190' },
-                { label: 'Move column right', delta: 1, symbol: '\u2192' }
-            ].forEach(({ label, delta, symbol }) => {
-                const targetColumn = this.columns[columnIndex + delta];
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'kanban-column-order-btn';
-                button.textContent = symbol;
-                button.setAttribute('aria-label', `${label}: ${column.title}`);
-                button.disabled = !targetColumn;
-                button.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    if (targetColumn) {
-                        this.handleColumnReorder(
-                            column.title,
-                            targetColumn.title,
-                            delta < 0
-                        );
-                    }
-                });
-                columnActions.appendChild(button);
-            });
-            headerEl.appendChild(columnActions);
         }
 
         // Apply theme colour to column header and full column
         const themeColour = this.themeColours[column.title];
         if (themeColour) {
-            headerEl.style.background = themeColour;
-            const textColour = isPastelColour(themeColour) ? '#000000' : '#FFFFFF';
-            headerEl.style.color = textColour;
-            headerEl.querySelectorAll('button, .kanban-column-count').forEach((control) => {
-                control.style.color = textColour;
-            });
-            // Apply a lighter tint of the colour to the entire column
+            // The header stays neutral; the chosen colour shows as an accent
+            // stripe and a light tint on the column (#1446).
+            headerEl.style.borderTop = `4px solid ${themeColour}`;
             columnEl.style.background = themeColour + '1A'; // ~10% opacity hex suffix
-            // Set the dots colour to match the column title text colour
-            if (colourBtn) {
-                colourBtn.style.color = textColour;
-            }
         }
 
         columnEl.appendChild(headerEl);
@@ -1829,7 +1800,7 @@ class KanbanBoard {
         cardEl.setAttribute('draggable', 'true');
         cardEl.setAttribute('role', 'button');
         cardEl.setAttribute('tabindex', '0');
-        cardEl.setAttribute('aria-label', `Task: ${task.name}. Press Enter to edit. Alt plus Left or Right moves it between columns.`);
+        cardEl.setAttribute('aria-label', `Task: ${task.name}. Press Enter to edit. Alt plus Left or Right moves it between columns, Alt plus Up or Down reorders it.`);
 
         // Apply conditional formatting
         if (typeof getConditionalFormatting === 'function') {
@@ -1854,13 +1825,7 @@ class KanbanBoard {
                 return;
             }
             if (!cardEl.classList.contains('dragging')) {
-                // If summary task and user clicks the drill-down button, handle it
-                if (e.target.classList.contains('drill-down-btn')) {
-                    e.stopPropagation();
-                    this.drillDown(task);
-                } else {
-                    this.openTaskModal(task);
-                }
+                this.openTaskModal(task);
             }
         });
 
@@ -1872,6 +1837,16 @@ class KanbanBoard {
                 const direction = e.key === 'ArrowLeft' ? -1 : 1;
                 const targetColumn = this.columns[this.columns.indexOf(column) + direction];
                 if (targetColumn) this.handleCardDrop(task.lineNumber, targetColumn);
+                return;
+            }
+            if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                e.preventDefault();
+                if (this.viewMode !== 'phase' || this.sortByPriority) return;
+                const delta = e.key === 'ArrowUp' ? -1 : 1;
+                const targetTask = column.tasks[column.tasks.indexOf(task) + delta];
+                if (targetTask) {
+                    this.handleCardReorder(task.lineNumber, targetTask.lineNumber, delta < 0);
+                }
                 return;
             }
             if (e.key === 'Enter' || e.key === ' ') {
@@ -1968,11 +1943,11 @@ class KanbanBoard {
             this.handleCardReorder(draggedLineNumber, task.lineNumber, insertBefore);
         });
 
-        // Controls row: quick-complete checkbox, move dropdown, up/down buttons.
-        // Kept separate from the title row so the move dropdown never overlaps
-        // the card title (#956).
-        const controlsRowEl = document.createElement('div');
-        controlsRowEl.className = 'kanban-card-controls-row';
+        // Row 1: quick-complete checkbox + title (#1447). Move and reorder
+        // controls are gone (#1448): drag and drop, or Alt+arrow keys on the
+        // focused card, move cards.
+        const headerEl = document.createElement('div');
+        headerEl.className = 'kanban-card-header';
 
         // Quick-complete checkbox (round, on the left)
         const checkboxEl = document.createElement('input');
@@ -1989,65 +1964,7 @@ class KanbanBoard {
             }
             this.quickSetPercent(task, newPercent, cardEl);
         });
-        controlsRowEl.appendChild(checkboxEl);
-
-        const moveSelect = document.createElement('select');
-        moveSelect.className = 'kanban-card-move-select';
-        moveSelect.setAttribute('aria-label', `Move ${task.name} to another ${this.viewMode}`);
-        const movePlaceholder = document.createElement('option');
-        movePlaceholder.value = '';
-        movePlaceholder.textContent = 'Move\u2026';
-        moveSelect.appendChild(movePlaceholder);
-        this.columns.forEach((targetColumn, targetIndex) => {
-            if (targetColumn === column) return;
-            const option = document.createElement('option');
-            option.value = String(targetIndex);
-            option.textContent = targetColumn.title;
-            moveSelect.appendChild(option);
-        });
-        moveSelect.addEventListener('click', event => event.stopPropagation());
-        moveSelect.addEventListener('change', event => {
-            event.stopPropagation();
-            const targetColumn = this.columns[parseInt(moveSelect.value, 10)];
-            if (targetColumn) this.handleCardDrop(task.lineNumber, targetColumn);
-        });
-        controlsRowEl.appendChild(moveSelect);
-
-        if (this.viewMode === 'phase') {
-            const orderActions = document.createElement('div');
-            orderActions.className = 'kanban-card-order-actions';
-            const taskIndex = column.tasks.indexOf(task);
-            [
-                { label: 'Move task up', delta: -1, symbol: '\u2191' },
-                { label: 'Move task down', delta: 1, symbol: '\u2193' }
-            ].forEach(({ label, delta, symbol }) => {
-                const targetTask = column.tasks[taskIndex + delta];
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = `kanban-card-order-btn kanban-card-order-${delta < 0 ? 'up' : 'down'}`;
-                button.textContent = symbol;
-                button.setAttribute('aria-label', `${label}: ${task.name}`);
-                button.disabled = !targetTask || this.sortByPriority;
-                button.addEventListener('click', event => {
-                    event.stopPropagation();
-                    if (targetTask) {
-                        this.handleCardReorder(
-                            task.lineNumber,
-                            targetTask.lineNumber,
-                            delta < 0
-                        );
-                    }
-                });
-                orderActions.appendChild(button);
-            });
-            controlsRowEl.appendChild(orderActions);
-        }
-        cardEl.appendChild(controlsRowEl);
-
-        // Title row: task title + resource avatars, on its own line below the
-        // controls so a long title never crowds the move dropdown (#956).
-        const headerEl = document.createElement('div');
-        headerEl.className = 'kanban-card-header';
+        headerEl.appendChild(checkboxEl);
 
         const titleEl = document.createElement('h4');
         titleEl.className = 'kanban-card-title';
@@ -2083,35 +2000,9 @@ class KanbanBoard {
         });
         headerEl.appendChild(titleEl);
 
-        // Resources avatars
-        if (task.resourcesArray.length > 0) {
-            const resourcesEl = document.createElement('div');
-            resourcesEl.className = 'kanban-card-resources';
-
-            // Show up to 10 resources
-            const resourcesToShow = task.resourcesArray.slice(0, 10);
-            resourcesToShow.forEach(resource => {
-                const avatarEl = document.createElement('div');
-                avatarEl.className = 'resource-avatar';
-                avatarEl.title = resource;
-
-                // Get initials (first letter of first and last name, or first 2 letters)
-                const initials = this.getInitials(resource);
-                avatarEl.textContent = initials;
-
-                resourcesEl.appendChild(avatarEl);
-            });
-
-            headerEl.appendChild(resourcesEl);
-        }
-
         cardEl.appendChild(headerEl);
 
-        // Card body with metadata
-        const bodyEl = document.createElement('div');
-        bodyEl.className = 'kanban-card-body';
-
-        // Meta row (duration, progress)
+        // Row 2: duration + resource avatars
         const metaEl = document.createElement('div');
         metaEl.className = 'kanban-card-meta';
 
@@ -2122,20 +2013,27 @@ class KanbanBoard {
             metaEl.appendChild(durationEl);
         }
 
-        // No percentage badge here — the round completion checkbox already
-        // conveys progress, and a duplicate "100%" label was pure noise (#956).
+        if (task.resourcesArray.length > 0) {
+            const resourcesEl = document.createElement('div');
+            resourcesEl.className = 'kanban-card-resources';
+            task.resourcesArray.slice(0, 10).forEach(resource => {
+                const avatarEl = document.createElement('div');
+                avatarEl.className = 'resource-avatar';
+                avatarEl.title = resource;
+                avatarEl.textContent = this.getInitials(resource);
+                resourcesEl.appendChild(avatarEl);
+            });
+            metaEl.appendChild(resourcesEl);
+        }
 
-        bodyEl.appendChild(metaEl);
+        if (metaEl.children.length > 0) cardEl.appendChild(metaEl);
 
-        // Comment
         if (task.comment) {
             const commentEl = document.createElement('p');
             commentEl.className = 'kanban-card-comment';
             commentEl.textContent = task.comment;
-            bodyEl.appendChild(commentEl);
+            cardEl.appendChild(commentEl);
         }
-
-        cardEl.appendChild(bodyEl);
 
         // Priority indicator dot
         if (task.priority && task.priority !== 'Low') {
@@ -2146,43 +2044,19 @@ class KanbanBoard {
             cardEl.appendChild(dotEl);
         }
 
-        // Card footer with labels/dependencies/drill-down
-        if (task.dependenciesArray.length > 0 || task.labelsArray.length > 0 || isSummaryTask) {
+        // Label tags only; dependency chips and View Subtasks are gone (#1449)
+        if (task.labelsArray.length > 0) {
             const footerEl = document.createElement('div');
             footerEl.className = 'kanban-card-footer';
-
             const labelsEl = document.createElement('div');
             labelsEl.className = 'kanban-card-labels';
-
-            // Show dependencies
-            task.dependenciesArray.forEach(dep => {
-                const labelEl = document.createElement('span');
-                labelEl.className = 'label label-dependency';
-                labelEl.textContent = `→ ${dep}`;
-                labelEl.title = `Depends on: ${dep}`;
-                labelsEl.appendChild(labelEl);
-            });
-
-            // Show labels
             task.labelsArray.forEach(label => {
                 const labelEl = document.createElement('span');
                 labelEl.className = 'label label-tag';
                 labelEl.textContent = `#${label}`;
                 labelsEl.appendChild(labelEl);
             });
-
             footerEl.appendChild(labelsEl);
-
-            // Add drill-down button for summary tasks
-            if (isSummaryTask) {
-                const drillDownBtn = document.createElement('button');
-                drillDownBtn.className = 'drill-down-btn';
-                drillDownBtn.innerHTML = '&#x1F4C1; View Subtasks'; // Folder icon
-                drillDownBtn.title = 'View subtasks of this task';
-                drillDownBtn.setAttribute('aria-label', `View subtasks of ${task.name}`);
-                footerEl.appendChild(drillDownBtn);
-            }
-
             cardEl.appendChild(footerEl);
         }
 

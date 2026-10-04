@@ -24,8 +24,9 @@ def test_kanban_has_pointer_drag_and_tap_move_fallbacks():
 
     assert "setupPointerColumnDrag" in source
     assert "setupPointerCardDrag" in source
-    assert "kanban-card-move-select" in source
-    assert "kanban-card-order-btn" in source
+    assert "kanban-card-move-select" not in source
+    assert "kanban-card-order-btn" not in source
+    assert "e.altKey && (e.key === 'ArrowUp'" in source
     assert "pointercancel" in source
     assert "touch-action: pan-y" in css
 
