@@ -289,11 +289,10 @@ def test_full_complete_note_matches_the_browser_exporter_byte_for_byte():
 
 
 @needs_template
-def test_every_leaf_task_has_an_assignment_row_so_project_opens_on_all_tasks(tmp_path):
-    """Project opens on the template's row count (three tasks) until the Gantt
-    Chart button rebuilds the view, unless the file keeps an assignment row for
-    every leaf task, a placeholder where nobody is assigned.  The count is in
-    the first FixedMeta record header at offset 8 (issue #1443)."""
+def test_every_leaf_task_has_an_assignment_row(tmp_path):
+    """Project's own files keep an assignment row for every leaf task, a
+    placeholder where nobody is assigned; the count is in the first FixedMeta
+    header dword at offset 8 (pymppwriter >= 0.4.1)."""
     import struct
 
     import pymppwriter as pw
@@ -305,3 +304,40 @@ def test_every_leaf_task_has_an_assignment_row_so_project_opens_on_all_tasks(tmp
     meta = pw.MppWriter(str(out)).root.children["   114"].children["TBkndAssn"].children["FixedMeta"]
     leaves = 5  # Proposal, Approval, Build, Review, Ship
     assert struct.unpack_from("<I", meta, 8)[0] >= leaves
+
+
+@needs_template
+def test_gantt_row_cache_lists_every_task_so_project_opens_on_all_tasks(tmp_path):
+    """Project paints the rows its Gantt view cached at save time (the CEdl
+    record in the view storage) until the view is rebuilt, so a file that
+    inherits the template's three-row cache opens showing three tasks until
+    the Gantt Chart button is pressed.  The writer must rewrite that cache
+    for the tasks it exports (issue #1443, pymppwriter >= 0.4.3)."""
+    import struct
+
+    import pymppwriter as pw
+    from pymppwriter import blocks
+
+    from noodle_core.mpp_writer import build_project_model, export_to_mpp
+
+    out = tmp_path / "plan.mpp"
+    export_to_mpp(PLAN, str(out), TEMPLATE, "Plan")
+    uids = [t["uid"] for t in build_project_model(PLAN, "Plan")["tasks"]]
+    assert len(uids) == 7  # two phases and five tasks
+
+    edl = pw.MppWriter(str(out)).root.children["   214"].children["CEdl"]
+    _, _, entries = blocks.parse_var_meta(edl.children["VarMeta"])
+    var2 = edl.children["Var2Data"]
+    caches = []
+    for _, off, typ, _ in entries:
+        if typ != 6:
+            continue
+        size = struct.unpack_from("<I", var2, off)[0]
+        _, props, _ = blocks.parse_props(var2[off + 4:off + 4 + size])
+        if pw.MppWriter.EDL_ROWS in props:
+            caches.append(props)
+    assert caches, "the template's Gantt view has no row cache to check"
+    expected = b"".join(struct.pack("<I", u) for u in uids)
+    for props in caches:
+        assert props[pw.MppWriter.EDL_ROWS].startswith(expected)
+        assert struct.unpack_from("<I", props[pw.MppWriter.EDL_LAYOUT], 0)[0] == len(uids)

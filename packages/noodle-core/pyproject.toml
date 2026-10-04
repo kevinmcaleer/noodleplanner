@@ -18,7 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mpp = [
-    "pymppwriter>=0.4.2",
+    "pymppwriter>=0.4.3",
 ]
 
 [build-system]
