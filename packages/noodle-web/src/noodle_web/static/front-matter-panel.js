@@ -631,17 +631,23 @@ const FrontMatterPanel = (function () {
 
     let instance = null;
 
-    function init() {
-        const editor = document.getElementById('planEditor');
-        const container = document.getElementById('frontMatterPanel');
+    // The Plan Editor tab's panel is the default and the one `instance`,
+    // revealCalendars() and the ribbon talk to; the board passes its own
+    // ids to bind a second panel to its copy of the editor.
+    function init(opts) {
+        const o = opts || {};
+        const isMain = !o.editorId;
+        const editor = document.getElementById(o.editorId || 'planEditor');
+        const container = document.getElementById(o.containerId || 'frontMatterPanel');
         if (!editor || !container) return null;
         if (typeof NoodleFrontMatter === 'undefined' || typeof NoodlePlanModel === 'undefined') {
             console.error('FrontMatterPanel: required modules not loaded');
             return null;
         }
-        instance = new FrontMatterPanelInstance(editor, container);
-        editor._updateFrontMatterPanel = () => instance.refreshFromEditor();
-        return instance;
+        const created = new FrontMatterPanelInstance(editor, container);
+        if (isMain) instance = created;
+        editor._updateFrontMatterPanel = () => created.refreshFromEditor();
+        return created;
     }
 
     return {

@@ -148,6 +148,9 @@ async function loadProjectIntoEditor(projectId) {
         if (kanbanEditor._updateLineNumbers) {
             kanbanEditor._updateLineNumbers();
         }
+        // ...and for the front/back-matter panels above that pane.
+        if (kanbanEditor._updateFrontMatterPanel) kanbanEditor._updateFrontMatterPanel();
+        if (kanbanEditor._updateBackMatterPanel) kanbanEditor._updateBackMatterPanel();
     }
 
     // Trigger the full render pipeline for the new project.

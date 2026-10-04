@@ -27,6 +27,11 @@ function initializeKanbanEditor() {
     }
 
     setupEditor(editor, lineNumbers, highlightLayer, false);
+
+    // The board's copy gets the same front/back-matter panels as the Plan
+    // Editor tab; both panels are bound per editor.
+    if (typeof FrontMatterPanel !== 'undefined') FrontMatterPanel.init({ editorId: 'kanbanPlanEditor', containerId: 'kanbanFrontMatterPanel' });
+    if (typeof BackMatterPanel !== 'undefined') BackMatterPanel.init({ editorId: 'kanbanPlanEditor', containerId: 'kanbanBackMatterPanel' });
 }
 
 function getBackMatterFoldingDescriptors() {
@@ -82,7 +87,7 @@ function firstTextDifference(a, b) {
 
 function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
-    const sectionFoldingController = editor.id === 'planEditor' && typeof SectionFolding !== 'undefined'
+    const sectionFoldingController = typeof SectionFolding !== 'undefined'
         ? SectionFolding.attach({
             editor: editor,
             lineNumbers: lineNumbers,
@@ -593,28 +598,28 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 renderText();
                 renderDebounceTimer = null;
             }, 1000);
+        }
 
-            // Keep the front-matter panel (#780) in sync when the user
-            // types the raw YAML directly into the textarea instead of
-            // using the structured editor.
-            if (editor._updateFrontMatterPanel) {
-                if (fmPanelSyncTimer) clearTimeout(fmPanelSyncTimer);
-                fmPanelSyncTimer = setTimeout(() => {
-                    editor._updateFrontMatterPanel();
-                    fmPanelSyncTimer = null;
-                }, 500);
-            }
+        // Keep the front-matter panel (#780) in sync when the user
+        // types the raw YAML directly into the textarea instead of
+        // using the structured editor.
+        if (editor._updateFrontMatterPanel) {
+            if (fmPanelSyncTimer) clearTimeout(fmPanelSyncTimer);
+            fmPanelSyncTimer = setTimeout(() => {
+                editor._updateFrontMatterPanel();
+                fmPanelSyncTimer = null;
+            }, 500);
+        }
 
-            // Same as above for the back-matter panel (#1203): keep it in
-            // sync when the user types raw markdown directly into the
-            // textarea instead of using the panel's own raw editor.
-            if (editor._updateBackMatterPanel) {
-                if (bmPanelSyncTimer) clearTimeout(bmPanelSyncTimer);
-                bmPanelSyncTimer = setTimeout(() => {
-                    editor._updateBackMatterPanel();
-                    bmPanelSyncTimer = null;
-                }, 500);
-            }
+        // Same as above for the back-matter panel (#1203): keep it in
+        // sync when the user types raw markdown directly into the
+        // textarea instead of using the panel's own raw editor.
+        if (editor._updateBackMatterPanel) {
+            if (bmPanelSyncTimer) clearTimeout(bmPanelSyncTimer);
+            bmPanelSyncTimer = setTimeout(() => {
+                editor._updateBackMatterPanel();
+                bmPanelSyncTimer = null;
+            }, 500);
         }
     });
 
