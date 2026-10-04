@@ -80,21 +80,21 @@ function geometryValues(markup) {
 test('a plan inside one calendar month builds a single-sample EVM series', () => {
   const sandbox = makeSandbox();
   const series = sandbox.buildEvmTimeSeries(
-    [], 100, new Date(2026, 8, 24), new Date(2026, 8, 30), false, 0, 0
+    [], 100, new Date(2099, 8, 24), new Date(2099, 8, 30), false, 0, 0
   );
-  assert.equal(series.dates.length, 1, 'expected one monthly sample for a plan inside September');
+  assert.equal(series.dates.length, 1, 'expected one monthly sample for a plan inside one month');
 });
 
 test('renderEvmChart() draws no NaN coordinates for a single-sample series', () => {
   const sandbox = makeSandbox();
-  const projectStart = new Date(2026, 8, 24);
-  const projectEnd = new Date(2026, 8, 30);
+  const projectStart = new Date(2099, 8, 24);
+  const projectEnd = new Date(2099, 8, 30);
   const timeSeries = sandbox.buildEvmTimeSeries([], 100, projectStart, projectEnd, false, 0, 0);
   assert.equal(timeSeries.dates.length, 1);
 
   sandbox.evmData = {
     timeSeries,
-    today: new Date(2026, 8, 24),
+    today: new Date(2099, 8, 24),
     BAC: 100,
     EV: 0,
     AC: 0,
