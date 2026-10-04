@@ -629,7 +629,7 @@ function buildPortfolioDeckOffMainThread(portfolioData, projectReports, onProgre
         }
 
         try {
-            worker = new Worker('/static/pptx-build-worker.js', { type: 'module' });
+            worker = new Worker('/static/pptx-build-worker.js' + (window.NP_STATIC_V ? '?v=' + window.NP_STATIC_V : ''), { type: 'module' });
         } catch (err) {
             console.warn('Portfolio export: Web Worker unavailable, building on the main thread:', err);
             resolve(buildPortfolioDeckOnMainThread(portfolioData, projectReports, onProgress));

@@ -11,11 +11,14 @@
  * messages while building, then a final { type: 'done', filename, bytes }
  * (bytes transferred, not copied) or { type: 'error', message }.
  */
-import { buildPortfolioDeck, deckBytes, pptxFilename } from "./pptx-export.js";
+// A worker has no import map, so carry this script's own ?v=<deploy hash>
+// onto its one import (staticUrl() can't: the page's window is not here).
+const exportModule = import("./pptx-export.js" + self.location.search);
 
 self.onmessage = async (event) => {
   const { portfolioData, projectReports } = event.data || {};
   try {
+    const { buildPortfolioDeck, deckBytes, pptxFilename } = await exportModule;
     const pptx = buildPortfolioDeck(portfolioData, projectReports, (done, total, label) => {
       self.postMessage({ type: "progress", done, total, label });
     });

@@ -1,0 +1,6 @@
+    {# Cache-busting for /static/ loads that no template tag can version: the
+       import map versions every module import, window.NP_STATIC_V feeds
+       staticUrl() (static-url.js) for workers, fetches and script tags. Must
+       come before the first module script. #}
+    <script type="importmap">{{ static_import_map|safe }}</script>
+    <script>window.NP_STATIC_V = "{{ static_version }}";</script>
