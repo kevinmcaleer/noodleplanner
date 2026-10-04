@@ -153,12 +153,11 @@ def test_a_subtask_name_opens_that_task(loaded):
     loaded.wait_for_function("() => document.getElementById('taskName').value === 'Backend'")
 
 
-def test_add_sub_task_is_a_row_being_edited(loaded):
+def test_the_blank_entry_adds_a_sub_task(loaded):
     _open_task(loaded, "Build")
-    loaded.locator("#taskFormSection .add-item-link").click()
-    editing = loaded.locator("#subtasksList np-task-row[editing]")
-    editing.locator("input.name-input").fill("Testing")
-    editing.locator("input.name-input").press("Enter")
+    entry = loaded.locator("#newSubtaskInput")
+    entry.fill("Testing")
+    entry.press("Enter")
     loaded.wait_for_function(
         "() => document.getElementById('planEditor').value.includes('    Testing')"
     )
@@ -166,12 +165,10 @@ def test_add_sub_task_is_a_row_being_edited(loaded):
 
 
 def test_typing_a_sub_task_name_is_not_a_page_shortcut(loaded):
-    """The name input is inside the row's shadow root. "gg"/"gl" switch views
-    and "?" opens the shortcuts dialog unless the page can see the key came
-    from a field -- keyEventTarget() (#1405) is what lets it."""
+    """"gg"/"gl" switch views and "?" opens the shortcuts dialog unless the
+    page can see the key came from a field."""
     _open_task(loaded, "Build")
-    loaded.locator("#taskFormSection .add-item-link").click()
-    field = loaded.locator("#subtasksList np-task-row[editing] input.name-input")
+    field = loaded.locator("#newSubtaskInput")
     field.press_sequentially("Suggest egg glue?")
     assert field.input_value() == "Suggest egg glue?"
     assert loaded.locator("#taskFormSection.active").count() == 1
@@ -184,11 +181,12 @@ def test_typing_a_sub_task_name_is_not_a_page_shortcut(loaded):
 def test_escape_abandons_a_new_sub_task(loaded):
     _open_task(loaded, "Build")
     before = plan_text(loaded)
-    loaded.locator("#taskFormSection .add-item-link").click()
-    editing = loaded.locator("#subtasksList np-task-row[editing]")
-    editing.locator("input.name-input").fill("Never mind")
-    editing.locator("input.name-input").press("Escape")
-    assert loaded.locator("#subtasksList np-task-row[editing]").count() == 0
+    entry = loaded.locator("#newSubtaskInput")
+    entry.fill("Never mind")
+    entry.press("Escape")
+    assert entry.input_value() == ""
+    assert loaded.locator("#taskFormSection.active").count() == 1
+    entry.blur()
     assert plan_text(loaded) == before
 
 

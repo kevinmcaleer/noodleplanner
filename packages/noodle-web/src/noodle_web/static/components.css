@@ -1638,6 +1638,184 @@ tr:hover .task-context-btn,
     outline-offset: 1px;
 }
 
+/* Inspect and Product sit on the peek bar, over the surface, not the header's
+   gold (#1462): ink, not on-accent. */
+.task-form-peekbar-btn {
+    color: var(--np-ink);
+    border-color: var(--np-border-strong);
+    margin-right: 0;
+    min-height: var(--np-space-32);
+}
+
+.task-form-peekbar-btn:hover {
+    background: var(--np-sunken);
+    border-color: var(--np-ink);
+}
+
+/* An icon button in <np-panel-header>'s `trailing` slot -- the task form's
+   trashcan (#1468). On the header's accent background, like the close button. */
+.panel-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--np-space-32);
+    height: var(--np-space-32);
+    padding: 0;
+    border: none;
+    border-radius: var(--np-radius-sm);
+    background: none;
+    color: var(--np-on-accent);
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.panel-icon-btn:hover {
+    background: color-mix(in srgb, var(--np-on-accent) 15%, transparent);
+}
+
+.panel-icon-btn:focus-visible {
+    outline: 2px solid var(--np-on-accent);
+    outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+    .panel-icon-btn {
+        width: var(--np-touch-target);
+        height: var(--np-touch-target);
+    }
+}
+
+/* The task form opens straight onto Schedule: the generic .modal-body's
+   32px of top padding left a gap above it (#1463). */
+#taskFormSection .modal-body {
+    padding-top: var(--np-space-4);
+}
+
+/* A compact form (#1464): the small field size, for a dense form. The
+   coarse-pointer rule on np-detail-sheet fields keeps these 44px targets
+   on touch, and 16px text stays (#1378). */
+.form-compact .form-group input[type="text"],
+.form-compact .form-group input[type="email"],
+.form-compact .form-group input[type="number"],
+.form-compact .form-group input[type="date"],
+.form-compact .form-group select,
+.form-compact .subtask-add-input {
+    padding: var(--np-space-4) var(--np-space-8);
+    border-width: 1px;
+    line-height: var(--np-leading-tight);
+}
+
+/* Fine pointers only: a coarse pointer keeps the 16px field text (#1378). */
+@media (pointer: fine) {
+    .form-compact .form-group input[type="text"],
+    .form-compact .form-group input[type="email"],
+    .form-compact .form-group input[type="number"],
+    .form-compact .form-group input[type="date"],
+    .form-compact .form-group select,
+    .form-compact .subtask-add-input {
+        font-size: var(--np-text-85);
+    }
+}
+
+.form-compact .form-group {
+    margin-bottom: var(--np-space-12);
+}
+
+/* Resources: one row each (#1465), a click opens the resource (#1466). */
+.resource-row-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--np-space-2);
+}
+
+.resource-row-list:empty::after {
+    content: attr(data-empty);
+    display: block;
+    padding: var(--np-space-8);
+    color: var(--np-faint);
+    font-size: var(--np-text-85);
+    font-style: italic;
+}
+
+.resource-row {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-8);
+    min-height: var(--np-space-40);
+    padding: 0 var(--np-space-8);
+    border-radius: var(--np-radius-md);
+    font-size: var(--np-text-90);
+}
+
+.resource-row:hover {
+    background: var(--np-bg-hover);
+}
+
+.resource-row-open {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-8);
+    padding: var(--np-space-4) 0;
+    border: none;
+    background: none;
+    color: var(--np-ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.resource-row-open:focus-visible,
+.resource-row-remove:focus-visible {
+    outline: 2px solid var(--np-accent);
+    outline-offset: 1px;
+}
+
+.resource-row-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.resource-row-remove {
+    flex: none;
+    border: none;
+    background: none;
+    color: var(--np-faint);
+    cursor: pointer;
+    padding: var(--np-space-4) var(--np-space-8);
+    border-radius: var(--np-radius-sm);
+}
+
+.resource-row-remove:hover {
+    color: var(--np-danger-ink);
+    background: var(--np-sunken);
+}
+
+.form-group .resource-add-select,
+.form-group .subtask-add-input,
+.subtask-add-input {
+    margin-top: var(--np-space-8);
+}
+
+.subtask-add-input {
+    width: 100%;
+    padding: var(--np-space-8) var(--np-space-12);
+    border: 1px dashed var(--np-input-border);
+    border-radius: 4px;
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    font: inherit;
+}
+
+.subtask-add-input:focus {
+    outline: none;
+    border-style: solid;
+    border-color: var(--np-accent);
+}
+
 .task-context-menu {
     display: none;
     position: fixed;

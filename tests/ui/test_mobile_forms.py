@@ -119,10 +119,10 @@ def test_the_task_form_title_has_its_own_row_on_a_phone(phone, app_server):
                      closeW: close.width, closeH: close.height, hostWidth: host.getBoundingClientRect().width };
         }"""
     )
-    # The title takes the row, beside only ⋯ and the close button: the
-    # secondary actions (Inspect, Make Deliverable) are in the ⋯ menu (#1383)...
+    # The title takes the row, beside only the trashcan and the close button:
+    # Inspect and Make Deliverable moved to the peek bar (#1462)...
     assert header["titleWidth"] > header["hostWidth"] * 0.6
-    assert not header["actionsShown"] and header["moreShown"]
+    assert not header["actionsShown"] and not header["moreShown"]
     # ..."Research" is on one line, not broken mid-word...
     assert header["titleHeight"] < header["line"] * 1.9
     # ...and the close button is a touch target.

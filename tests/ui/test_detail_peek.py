@@ -185,11 +185,12 @@ def test_a_phone_is_always_a_full_page(phone, app_server):
     assert _mode(phone) == "full"
     box = phone.evaluate(PANE_BOX)
     assert box["left"] == 0 and box["top"] == 0 and box["width"] == 390
-    bar = phone.evaluate(
+    # no switch on a phone (the bar stays for the task form's Inspect/Product, #1462)
+    switch = phone.evaluate(
         "() => getComputedStyle(document.getElementById('taskFormSection').shadowRoot"
-        ".querySelector('.peekbar')).display"
+        ".querySelector('np-peek-switch')).display"
     )
-    assert bar == "none"
+    assert switch == "none"
     assert phone.locator("#taskFormPanelHeader").get_attribute("back") is not None
 
 

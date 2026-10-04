@@ -58,7 +58,9 @@
  *      `settings: detail_peek:` -- settings.js calls setDefaultPeekMode();
  *   3. a side peek.
  *
- * A phone always shows the full page, so it has no switch. The mode is
+ * Buttons slotted into `slot="peekbar-actions"` sit at the right of the same
+ * bar (the task form's Inspect and Product, #1462). A phone always shows the
+ * full page, so it has no switch -- the bar then shows only those buttons. The mode is
  * published as `data-peek-mode` on #detailPane, which components.css lays
  * out; `detailpeekchange` is raised on `document` when it changes.
  *
@@ -152,9 +154,22 @@ TEMPLATE.innerHTML = `
       background: var(--np-surface, #fffdf9);
       border-bottom: 1px solid var(--np-hairline, #ece6db);
     }
-    :host([data-peek-locked]) .peekbar { display: none; }
+    .peekbar-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: var(--np-space-8, 8px);
+      min-width: 0;
+    }
+    /* A phone shows no switch, but the bar stays for any actions slotted
+       into it (#1462); with none, it goes. */
+    :host([data-peek-locked]) np-peek-switch { display: none; }
+    :host([data-peek-locked]) .peekbar.no-actions { display: none; }
   </style>
-  <div class="peekbar" part="peekbar"><np-peek-switch></np-peek-switch></div>
+  <div class="peekbar no-actions" part="peekbar">
+    <np-peek-switch></np-peek-switch>
+    <div class="peekbar-actions" part="peekbar-actions"><slot name="peekbar-actions"></slot></div>
+  </div>
   <slot name="header"></slot>
   <div class="body" part="body"><slot></slot></div>
   <div class="footer" part="footer"><slot name="footer"></slot></div>
@@ -196,6 +211,7 @@ export class NpDetailSheet extends HTMLElement {
     const root = this.attachShadow({ mode: 'open' });
     root.appendChild(TEMPLATE.content.cloneNode(true));
     this._footer = root.querySelector('.footer');
+    this._peekbar = root.querySelector('.peekbar');
     this._peekSwitch = root.querySelector('np-peek-switch');
     this._onClose = null;
 
@@ -208,6 +224,11 @@ export class NpDetailSheet extends HTMLElement {
     const syncFooter = () => this._footer.classList.toggle('empty', footerSlot.assignedElements().length === 0);
     footerSlot.addEventListener('slotchange', syncFooter);
     syncFooter();
+
+    const actionsSlot = root.querySelector('slot[name="peekbar-actions"]');
+    const syncActions = () => this._peekbar.classList.toggle('no-actions', actionsSlot.assignedElements().length === 0);
+    actionsSlot.addEventListener('slotchange', syncActions);
+    syncActions();
 
     // The header's × (or ←) closes through the form's own handler.
     this.addEventListener('close', (event) => {
