@@ -1,0 +1,32 @@
+{#- The plan editor: tip, front-matter panel, line-numbered highlighted
+    textarea and back-matter panel. Included by every view that shows the
+    plan's markdown, so no view can carry an older copy of it
+    (tests/test_plan_editor_single_source.mjs enforces this).
+    The element ids come from the including template (pe_editor, pe_lines,
+    pe_highlight, pe_fm, pe_bm). -#}
+<div style="padding: 6px 10px; background: var(--np-editor-tip-bg); border-left: 4px solid var(--np-blue); margin-bottom: 0; font-size: 0.85em; color: var(--np-editor-tip-text);">
+    💡 <strong>Tip:</strong> Double-click or double-tap any task line to edit it
+</div>
+<div id="{{ pe_fm }}" class="fm-panel"></div>
+<div class="editor-wrapper">
+    <div class="line-numbers" id="{{ pe_lines }}">1</div>
+    <div class="editor-area">
+        <div class="editor-highlight-layer" id="{{ pe_highlight }}"></div>
+        <textarea id="{{ pe_editor }}" class="editor-textarea" spellcheck="false" autocorrect="off" autocapitalize="off" placeholder="Type or paste your project plan here...
+
+Example:
+---
+title: My Project
+Resources:
+- @Alice: Alice Smith, Developer
+- @Bob: Bob Jones, Designer
+---
+
+Phase 1
+  Task 1 @Alice 3days 50% \"Initial setup\"
+  Task 2 @Bob 2days [depends Task 1]
+
+Press Enter to render..."></textarea>
+    </div>
+</div>
+<div id="{{ pe_bm }}" class="fm-panel"></div>

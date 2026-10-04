@@ -181,6 +181,8 @@ class KanbanBoard {
             if (kanbanEditor._updateLineNumbers) {
                 kanbanEditor._updateLineNumbers();
             }
+            if (kanbanEditor._updateFrontMatterPanel) kanbanEditor._updateFrontMatterPanel();
+            if (kanbanEditor._updateBackMatterPanel) kanbanEditor._updateBackMatterPanel();
         }
         if (typeof getCurrentProjectId === 'function') {
             const projectId = getCurrentProjectId();
