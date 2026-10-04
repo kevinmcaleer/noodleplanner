@@ -41,6 +41,17 @@ function liftFunctions(sandbox, source, names) {
   return sandbox;
 }
 
+/** `Date` whose no-argument constructor and `now()` are pinned to 2026-09-24,
+ * so the series builder's "today" does not depend on when the suite runs. */
+const FIXED_NOW = new Date(2026, 8, 24, 12, 0, 0).getTime();
+class FixedClockDate extends Date {
+  constructor(...args) {
+    if (args.length === 0) super(FIXED_NOW);
+    else super(...args);
+  }
+  static now() { return FIXED_NOW; }
+}
+
 function makeSandbox() {
   const svg = {
     attrs: {},
@@ -50,7 +61,7 @@ function makeSandbox() {
   };
   const legend = { innerHTML: '' };
   const sandbox = {
-    Date,
+    Date: FixedClockDate,
     Math,
     svg,
     legend,
