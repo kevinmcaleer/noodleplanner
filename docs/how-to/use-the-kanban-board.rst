@@ -19,7 +19,7 @@ Choose a Grouping Mode
 
 Use the **View by** dropdown at the top of the board to change how tasks are grouped into columns:
 
-- **Phase** — columns correspond to your plan phases (most common)
+- **Phase** — each top-level summary task is a column and its subtasks are the cards (most common). A phase can carry dates, resources or dependencies and still be a column; a nested summary shows as a card you can drill into.
 - **Resource** — one column per team member
 - **Progress** — columns group by completion bracket (Not Started, In Progress, Complete)
 - **Label** — columns based on task labels
