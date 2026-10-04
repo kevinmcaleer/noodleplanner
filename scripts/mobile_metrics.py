@@ -55,6 +55,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -275,10 +276,17 @@ SETTLE_JS = r"""() => new Promise((resolve) => {
 })"""
 
 
+MEASURE_TIME = datetime(2026, 9, 27, 12, 0, 0)
+
+
 def new_device_context(browser, device: str, **extra):
     """A browser context that behaves like `device`: its size, with touch."""
     spec = {**CONTEXT_DEFAULTS, **DEVICES[device], **extra}
     context = browser.new_context(**spec)
+    # The calendar view draws the current month, so its cell count moves with
+    # the real date. Freeze "now" (time still runs) to the month the baseline
+    # was recorded in so the ratchet only moves when the code does.
+    context.clock.install(time=MEASURE_TIME)
     context.add_init_script("document.cookie = 'tourCompleted=true; path=/; max-age=31536000';")
     return context
 
