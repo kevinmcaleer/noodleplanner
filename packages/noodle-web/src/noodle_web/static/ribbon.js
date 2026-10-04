@@ -1115,6 +1115,19 @@ function isButtonActive(scopeId, label, live) {
     return false;
 }
 
+/**
+ * A group's "more options" launcher (#1435): `group.launcher` names the
+ * ribbon label (resolved by resolveAction(), exactly like a button of that
+ * label) the caption's corner button runs. A launcher whose label resolves to
+ * nothing renders nothing, so there is never a control that does nothing.
+ */
+function renderLauncher(scopeId, group) {
+    if (!group.launcher || !resolveAction(scopeId, group.launcher)) return '';
+    const name = `${group.name} options`;
+    return `<np-button class="ribbon-launcher" variant="neutral" size="small" icon-only label="${name}" title="${name}"
+        data-scope-id="${scopeId}" data-launcher="${group.launcher}"><span slot="icon" aria-hidden="true">⌟</span></np-button>`;
+}
+
 function renderGroup(scopeId, group, animate) {
     const lg = (group.lg || []).map((b) => renderButton(scopeId, b, 'lg')).join('');
     const cols = (group.cols || []).map((col) =>
@@ -1122,7 +1135,7 @@ function renderGroup(scopeId, group, animate) {
     ).join('');
     return `<div class="ribbon-group${animate ? ' ribbon-group-tab-in' : ''}" data-group="${group.name}">
         <div class="ribbon-group-row">${lg}${cols}</div>
-        <div class="ribbon-group-caption">${group.name}${group.launcher ? '<span class="ribbon-launcher" title="More options">⌟</span>' : ''}</div>
+        <div class="ribbon-group-caption">${group.name}${renderLauncher(scopeId, group)}</div>
     </div>`;
 }
 
@@ -1751,6 +1764,12 @@ function wireEvents(shell) {
 
         if (e.target.closest('[data-action="toggle-more"]')) {
             loadIA().then((ia) => renderMorePopover(ia, currentContextTab(ia, getLiveState())));
+            return;
+        }
+
+        const launcher = e.target.closest('.ribbon-launcher');
+        if (launcher) {
+            runAction(launcher.dataset.scopeId, launcher.dataset.launcher, launcher);
             return;
         }
 
