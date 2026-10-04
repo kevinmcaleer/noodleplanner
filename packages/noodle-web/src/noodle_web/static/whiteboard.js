@@ -919,6 +919,7 @@ function wbHandleMouseDown(e) {
         // note selection, so a shift-drag adds to it.
         if (typeof wbClearNoodleSelection === 'function') wbClearNoodleSelection();
         if (typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
+        if (typeof wbClearLineSelection === 'function') wbClearLineSelection();
         if (!e.shiftKey && typeof wbClearNoteSelection === 'function') wbClearNoteSelection();
         if (typeof wbClearGroupSelection === 'function') wbClearGroupSelection();
         if (typeof wbClearTextSelection === 'function') wbClearTextSelection();
@@ -1121,11 +1122,13 @@ function wbHandleKeydown(e) {
     if (e.key === 'Delete' || e.key === 'Backspace') {
         if (typeof wbCutSelectedNoodle === 'function' && wbCutSelectedNoodle()) { e.preventDefault(); return; }
         if (typeof wbCutSelectedDependencyNoodle === 'function' && wbCutSelectedDependencyNoodle()) { e.preventDefault(); return; }
+        if (typeof wbCutSelectedLine === 'function' && wbCutSelectedLine()) { e.preventDefault(); return; }
     }
     if (e.key === 'Escape') {
         if (typeof wbClearGroupSelection === 'function') wbClearGroupSelection();
         if (typeof wbClearNoodleSelection === 'function') wbClearNoodleSelection();
         if (typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
+        if (typeof wbClearLineSelection === 'function') wbClearLineSelection();
         if (typeof wbClearTextSelection === 'function') wbClearTextSelection();
     }
     if ((e.key === 'n' || e.key === 'N') && typeof wbCreateNoteInViewportCentre === 'function') {
@@ -1344,6 +1347,8 @@ function wbEnsureNoodleKey() {
         ' — a sub-task. The arrow points from a note to a task inside it.'));
     list.appendChild(wbNoodleKeyRow('dependency', 'Dashed line',
         ' — a dependency. The task at the arrow can’t start until the other finishes.'));
+    list.appendChild(wbNoodleKeyRow('association', 'Dotted line',
+        ' — an association between two notes, in any colour. No arrow, and it changes nothing in the plan.'));
 
     panel.appendChild(header);
     panel.appendChild(list);

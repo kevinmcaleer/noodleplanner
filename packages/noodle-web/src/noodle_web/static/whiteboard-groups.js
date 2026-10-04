@@ -863,6 +863,7 @@ function wbFlushGroupDrag() {
     // re-deriving here is what keeps them attached mid-drag.
     wbRenderGroupsFromBoard();
     if (typeof wbRenderDependencyNoodles === 'function') wbRenderDependencyNoodles();
+    if (typeof wbRefreshLineGeometry === 'function') wbRefreshLineGeometry();
 }
 
 function wbGroupMouseUp(e) {

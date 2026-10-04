@@ -14429,6 +14429,8 @@ function parseWhiteboardMarkdown(text) {
         // Issue #1018: free-floating text object columns -- see this
         // file's "Whiteboard back matter" header comment above.
         kind: 'kind', id: 'id', text: 'text',
+        // Issue #874: associative line columns (Kind=line rows only).
+        from: 'from', to: 'to',
     };
     const colMap = {};
     headers.forEach((h, idx) => {
@@ -14480,6 +14482,27 @@ function parseWhiteboardMarkdown(text) {
             const groupTask = getCell('task', '');
             if (!groupTask) continue;
             items.push({ kind: 'group', task: groupTask, colour: getCell('colour', '') });
+            continue;
+        }
+
+        // Issue #874: an associative line between two post-its -- a
+        // whiteboard-only annotation with no scheduling weight. Id is its
+        // key (like a text object), From/To name the two notes by task, Text
+        // is the label and Colour the pen. A line missing an Id or either
+        // end can't be tracked or drawn, so it is dropped.
+        if (kindStr === 'line') {
+            const lineId = getCell('id', '').trim();
+            const lineFrom = getCell('from', '').trim();
+            const lineTo = getCell('to', '').trim();
+            if (!lineId || !lineFrom || !lineTo) continue;
+            items.push({
+                kind: 'line',
+                id: lineId,
+                from: lineFrom,
+                to: lineTo,
+                label: getCell('text', '').replace(/\\n/g, '\n'),
+                colour: getCell('colour', ''),
+            });
             continue;
         }
 
@@ -14543,27 +14566,39 @@ function generateWhiteboardText(items) {
     // the exact same seven-column post-it table it always has.
     const hasTextObjects = items.some(item => item && item.kind === 'text');
     const hasGroups = items.some(item => item && item.kind === 'group');
-    if (hasTextObjects || hasGroups) headers.push('Kind', 'Id', 'Text');
+    const hasLines = items.some(item => item && item.kind === 'line');
+    const hasKinds = hasTextObjects || hasGroups || hasLines;
+    if (hasKinds) headers.push('Kind', 'Id', 'Text');
+    // From/To only exist to carry issue #874's associative lines.
+    if (hasLines) headers.push('From', 'To');
 
     const rows = items.map(item => {
         const isText = !!(item && item.kind === 'text');
         const isGroup = !!(item && item.kind === 'group');
+        const isLine = !!(item && item.kind === 'line');
         const cells = [
-            escapePipe(isText ? '' : (item.task || '')),
-            escapePipe(String(item.x != null ? item.x : 0)),
-            escapePipe(String(item.y != null ? item.y : 0)),
+            escapePipe((isText || isLine) ? '' : (item.task || '')),
+            // A line has no position of its own: it is drawn between its notes.
+            escapePipe(isLine ? '' : String(item.x != null ? item.x : 0)),
+            escapePipe(isLine ? '' : String(item.y != null ? item.y : 0)),
             escapePipe(isText ? '' : (item.colour || '')),
-            escapePipe(isText ? '' : cellOrBlank(item.width)),
-            escapePipe(isText ? '' : cellOrBlank(item.height)),
+            escapePipe((isText || isLine) ? '' : cellOrBlank(item.width)),
+            escapePipe((isText || isLine) ? '' : cellOrBlank(item.height)),
             // A boundary has no checklist to collapse, so it leaves the cell
             // blank rather than claiming a state it does not have.
-            escapePipe((isText || isGroup) ? '' : (item.collapsed ? 'yes' : 'no')),
+            escapePipe((isText || isGroup || isLine) ? '' : (item.collapsed ? 'yes' : 'no')),
         ];
-        if (hasTextObjects || hasGroups) {
+        if (hasKinds) {
             cells.push(
-                escapePipe(isText ? 'text' : (isGroup ? 'group' : '')),
-                escapePipe(isText ? (item.id || '') : ''),
-                escapeTextCell(isText ? (item.text || '') : '')
+                escapePipe(isText ? 'text' : (isGroup ? 'group' : (isLine ? 'line' : ''))),
+                escapePipe((isText || isLine) ? (item.id || '') : ''),
+                escapeTextCell(isText ? (item.text || '') : (isLine ? (item.label || '') : ''))
+            );
+        }
+        if (hasLines) {
+            cells.push(
+                escapePipe(isLine ? (item.from || '') : ''),
+                escapePipe(isLine ? (item.to || '') : '')
             );
         }
         return cells;
@@ -14602,14 +14637,14 @@ function validateWhiteboardRows(items, summaryTaskNames) {
     const warnings = [];
     const nameCounts = {};
     items.forEach(item => {
-        if (item && item.kind === 'text') return;
+        if (item && (item.kind === 'text' || item.kind === 'line')) return;
         const key = item.task.toLowerCase();
         nameCounts[key] = (nameCounts[key] || 0) + 1;
     });
 
     const seenDuplicates = new Set();
     items.forEach(item => {
-        if (item && item.kind === 'text') return;
+        if (item && (item.kind === 'text' || item.kind === 'line')) return;
         const name = item.task;
         const key = name.toLowerCase();
         if (nameCounts[key] > 1 && !seenDuplicates.has(key)) {
@@ -14626,7 +14661,7 @@ function validateWhiteboardRows(items, summaryTaskNames) {
         const validNames = new Set(Array.from(summaryTaskNames, (n) => n.toLowerCase()));
         const seenOrphans = new Set();
         items.forEach(item => {
-            if (item && item.kind === 'text') return;
+            if (item && (item.kind === 'text' || item.kind === 'line')) return;
             const name = item.task;
             const key = name.toLowerCase();
             if (name && !validNames.has(key) && !seenOrphans.has(key)) {
@@ -14704,6 +14739,11 @@ function renamePlanWhiteboardTask(planText, oldName, newName) {
         if (item.task === oldName) {
             item.task = newName;
             changed = true;
+        }
+        // Issue #874: an associative line names its notes by task too.
+        if (item.kind === 'line') {
+            if (item.from === oldName) { item.from = newName; changed = true; }
+            if (item.to === oldName) { item.to = newName; changed = true; }
         }
     });
     if (!changed) return planText;

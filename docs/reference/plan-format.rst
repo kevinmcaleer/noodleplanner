@@ -504,6 +504,44 @@ grows and shrinks with its own content. Deleting one (its own small ``×``
 button) removes only its row: there is no task, and so nothing else in the
 plan to touch.
 
+Associative lines
+~~~~~~~~~~~~~~~~~
+
+An **associative line** (issue #874) is a labelled line between two notes,
+for idea-forming: "conflicts with", "see also", "same team". Unlike a noodle
+it is a whiteboard-only annotation with no scheduling weight, so there is
+nothing in the outline to derive it from and it is stored. It is a row in
+this same table with ``Kind`` set to the literal string ``line``:
+
+- ``Id`` is an opaque, app-generated identifier, the row's unique key.
+- ``From`` and ``To`` name the two notes by task. They are two more columns,
+  written only once a plan has at least one line. A line has no direction
+  of its own; the order is the order it was drawn in, and is what
+  **Make dependency** uses (see below).
+- ``Text`` is the label, escaped like a text object's. It may be blank.
+- ``Colour`` is the pen, a ``#RRGGBB`` value. Blank is the default pen.
+
+``Task``, ``X``, ``Y``, ``Width``, ``Height`` and ``Collapsed`` are blank:
+a line is drawn between its notes and has no position or size of its own. A
+row missing its ``Id``, ``From`` or ``To`` is dropped.
+
+A line is only drawn while both of its notes are on the board. If one leaves
+the board the row stays in the file, as an orphan note row does, and the line
+returns with the note. Renaming a task renames the ends of its lines.
+
+On the board a line is dotted with no arrowhead, in its pen's colour. The
+style carries the type -- dotted is an association, dashed purple a
+dependency, solid blue a sub-task -- so colour stays free personal choice.
+Draw one from a note's ``...`` menu with **Draw a line to...**, then click the
+other note. Selecting a line shows its label field, the pen palette, **Make
+dependency** and **Delete**.
+
+**Make dependency** promotes a line to a real dependency: the ``To`` note
+comes to depend on the ``From`` note, a ``[depends: ...]`` token is written
+into the outline, and the line's row is removed, all in one commit so one
+undo restores both. It is refused for a summary task or a loop, for the same
+reasons a dependency drawn any other way would be.
+
 Noodles are not stored
 ~~~~~~~~~~~~~~~~~~~~~~~
 

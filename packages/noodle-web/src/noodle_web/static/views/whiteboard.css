@@ -3650,3 +3650,164 @@ body.wb-row-drag-active * {
     border-radius: var(--np-radius-md);
     font-weight: 600;
 }
+
+/* ── Associative lines (#874) ────────────────────────────────────────
+   The third kind of line: dotted, no arrowhead, in whatever pen the user
+   picked (`--wb-pen`, set from the row's Colour cell by
+   whiteboard-lines.js). Style carries the type -- dotted is an association,
+   dashed purple a dependency, solid blue a sub-task -- so the colour stays
+   free personal choice. */
+.wb-assoc-line-path {
+    stroke: var(--np-text-secondary);
+    stroke-width: 3;
+    stroke-dasharray: 1 7;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    opacity: 0.85;
+    transition: opacity 0.12s ease, stroke-width 0.12s ease;
+}
+
+.wb-assoc-line-hit {
+    cursor: pointer;
+}
+
+.wb-assoc-line:hover .wb-assoc-line-path {
+    opacity: 1;
+    stroke-width: 4;
+}
+
+.wb-assoc-line.selected .wb-assoc-line-path {
+    opacity: 1;
+    stroke-width: 4.5;
+}
+
+.wb-assoc-line-ghost {
+    stroke: var(--np-text-secondary);
+    stroke-width: 3;
+    stroke-dasharray: 1 7;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+}
+
+.wb-line-drawing {
+    cursor: crosshair;
+}
+
+.wb-line-target {
+    outline: 3px dotted var(--np-focus-ring-color);
+    outline-offset: 2px;
+}
+
+.wb-assoc-line-tag-fo {
+    overflow: visible;
+    pointer-events: none;
+}
+
+.wb-assoc-line-tag {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--np-space-4);
+    font-size: 12px;
+}
+
+.wb-assoc-line-tag > * {
+    pointer-events: auto;
+}
+
+.wb-assoc-line-label {
+    max-width: 100%;
+    padding: var(--np-space-2) var(--np-space-8);
+    border: 2px solid var(--wb-pen, var(--np-border));
+    border-radius: var(--np-radius-pill);
+    background: var(--np-surface);
+    color: var(--np-text);
+    font: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wb-assoc-line-controls {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--np-space-4);
+    padding: var(--np-space-8);
+    border: 1px solid var(--np-border);
+    border-radius: var(--np-radius-card);
+    background: var(--np-surface);
+    box-shadow: var(--np-shadow);
+}
+
+.wb-assoc-line.selected .wb-assoc-line-controls {
+    display: flex;
+}
+
+.wb-assoc-line-input {
+    padding: var(--np-space-4) var(--np-space-8);
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-control);
+    background: var(--np-bg);
+    color: var(--np-text);
+    font: inherit;
+}
+
+.wb-assoc-line-pens {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--np-space-4);
+}
+
+.wb-assoc-line-pen {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 2px solid var(--np-border);
+    border-radius: var(--np-radius-circle);
+    background: var(--wb-pen);
+    cursor: pointer;
+}
+
+.wb-assoc-line-pen[aria-pressed="true"] {
+    border-color: var(--np-text);
+}
+
+.wb-assoc-line-actions {
+    display: flex;
+    gap: var(--np-space-4);
+}
+
+.wb-assoc-line-action {
+    flex: 1;
+    padding: var(--np-space-4) var(--np-space-8);
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-control);
+    background: var(--np-surface-alt);
+    color: var(--np-text);
+    font: inherit;
+    cursor: pointer;
+}
+
+.wb-assoc-line-action:hover {
+    background: var(--np-bg-hover);
+}
+
+.wb-assoc-line-pen:focus-visible,
+.wb-assoc-line-action:focus-visible,
+.wb-assoc-line-label:focus-visible,
+.wb-assoc-line-input:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: var(--np-focus-ring-offset);
+}
+
+.wb-key-sample-association .wb-key-line {
+    stroke: var(--np-text-secondary);
+    stroke-dasharray: 1 6;
+}
+
+.wb-key-sample-association .wb-key-arrow {
+    display: none;
+}
