@@ -57,8 +57,10 @@ TEMPLATE.innerHTML = `
 
     .column-header {
       padding: 15px;
-      background: var(--column-colour, var(--np-info-gradient, linear-gradient(135deg, #108BB9 0%, #0d7096 100%)));
-      color: #fff;
+      background: var(--np-surface-alt);
+      color: var(--np-ink);
+      border-bottom: 1px solid var(--np-border);
+      border-top: 4px solid var(--column-colour, transparent);
       border-radius: var(--np-radius-md, 8px) var(--np-radius-md, 8px) 0 0;
       display: flex;
       justify-content: space-between;
@@ -75,15 +77,6 @@ TEMPLATE.innerHTML = `
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-
-    .column-count {
-      font-size: 12px;
-      opacity: 0.9;
-      background: rgba(255, 255, 255, 0.2);
-      padding: 2px 8px;
-      border-radius: 12px;
-      flex-shrink: 0;
     }
 
     .column-body {
@@ -235,10 +228,6 @@ export class NpBoard extends HTMLElement {
     title.textContent = col.title || 'Untitled';
     header.appendChild(title);
 
-    const count = document.createElement('span');
-    count.className = 'column-count';
-    count.textContent = String((col.cards || []).length);
-    header.appendChild(count);
 
     column.appendChild(header);
 

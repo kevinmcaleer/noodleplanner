@@ -2640,32 +2640,6 @@ tr:hover .task-context-btn,
     color: var(--np-faint);
 }
 
-/* Drill-down Button for Summary Tasks */
-.drill-down-btn {
-    background: var(--np-accent);
-    color: var(--np-on-accent);
-    border: none;
-    border-radius: 4px;
-    padding: var(--np-space-4) var(--np-space-12);
-    font-size: 12px;
-    cursor: pointer;
-    transition: background 0.2s;
-    margin-top: var(--np-space-8);
-    display: flex;
-    align-items: center;
-    gap: var(--np-space-4);
-    width: 100%;
-    justify-content: center;
-}
-
-.drill-down-btn:hover {
-    background: var(--np-accent-hover);
-}
-
-.drill-down-btn:active {
-    transform: scale(0.98);
-}
-
 /* Analysis View Styles */
 .analysis-content {
     padding: var(--np-space-20);

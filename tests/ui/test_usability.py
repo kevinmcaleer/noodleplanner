@@ -966,13 +966,11 @@ class TestTouchInteractions:
                 board.openTaskModal = () => { opened += 1; };
                 const card = board.renderCard(task, source);
                 document.body.appendChild(card);
-                const select = card.querySelector('.kanban-card-move-select');
-                select.value = '1';
-                select.dispatchEvent(new Event('change', {bubbles: true}));
-                select.dispatchEvent(new KeyboardEvent('keydown', {
-                    bubbles: true, key: 'Enter'}));
-                const orderButton = card.querySelector('.kanban-card-order-down');
-                if (orderButton) orderButton.click();
+                card.dispatchEvent(new KeyboardEvent('keydown', {
+                    bubbles: true, key: 'ArrowRight', altKey: true}));
+                const keyboardMovedTo = movedTo;
+                card.dispatchEvent(new KeyboardEvent('keydown', {
+                    bubbles: true, key: 'ArrowDown', altKey: true}));
                 movedTo = null;
                 const targetBody = document.createElement('div');
                 targetBody.className = 'kanban-column-body';
@@ -992,16 +990,16 @@ class TestTouchInteractions:
                 const draggedTo = movedTo;
                 document.elementFromPoint = originalElementFromPoint;
                 targetBody.remove();
-                const label = select.getAttribute('aria-label');
+                const label = card.getAttribute('aria-label');
                 card.remove();
-                return {movedTo, draggedTo, label, opened, reordered};
+                return {keyboardMovedTo, movedTo, draggedTo, label, opened, reordered};
             }"""
         )
-        assert result["movedTo"] == "complete"
+        assert result["keyboardMovedTo"] == "complete"
         assert result["draggedTo"] == "complete"
         assert result["opened"] == 0
         assert result["reordered"] is None
-        assert result["label"].startswith("Move Touch task")
+        assert "Alt plus Left or Right" in result["label"]
 
     def test_diagram_pointer_pan_finishes_cleanly(self, page, app_server):
         open_app(page, app_server)

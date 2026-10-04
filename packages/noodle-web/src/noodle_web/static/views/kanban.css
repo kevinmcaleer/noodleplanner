@@ -226,8 +226,9 @@
 
 .kanban-column-header {
     padding: var(--np-space-16);
-    background: var(--np-info-gradient);
-    color: white;
+    background: var(--np-surface-alt);
+    color: var(--np-ink);
+    border-bottom: 1px solid var(--np-border);
     border-radius: 8px 8px 0 0;
     display: flex;
     justify-content: space-between;
@@ -259,18 +260,11 @@
     box-sizing: border-box;
 }
 
-.kanban-column-count {
-    font-size: 12px;
-    opacity: 0.9;
-    background: rgba(255, 255, 255, 0.2);
-    padding: var(--np-space-2) var(--np-space-8);
-    border-radius: 12px;
-}
 
 .kanban-column-delete {
     background: transparent;
     border: none;
-    color: white;
+    color: inherit;
     font-size: 24px;
     line-height: 1;
     cursor: pointer;
@@ -301,26 +295,6 @@
 
 .kanban-column-colour-btn:hover {
     opacity: 1;
-}
-
-.kanban-column-order-actions {
-    display: flex;
-    gap: var(--np-space-2);
-}
-
-.kanban-column-order-btn {
-    min-width: 28px;
-    min-height: 28px;
-    border: 0;
-    border-radius: 4px;
-    color: inherit;
-    background: rgba(255,255,255,0.2);
-    cursor: pointer;
-}
-
-.kanban-column-order-btn:disabled {
-    opacity: 0.35;
-    cursor: default;
 }
 
 /* Theme colour picker popup */
@@ -620,59 +594,17 @@
     color: white;
 }
 
-/* Card Controls Row (checkbox + move dropdown + up/down buttons) */
-.kanban-card-controls-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--np-space-8);
-    margin-bottom: var(--np-space-8);
-}
-
-.kanban-card-move-select {
-    min-width: 72px;
-    min-height: 32px;
-    max-width: 110px;
-    border: 1px solid var(--np-border);
-    border-radius: 4px;
-    background: var(--np-surface);
-    color: var(--np-body);
-    font-size: 12px;
-    margin-left: auto;
-}
-
-.kanban-card-order-actions {
-    display: flex;
-    gap: var(--np-space-2);
-}
-
-.kanban-card-order-btn {
-    min-width: 28px;
-    min-height: 32px;
-    border: 0;
-    border-radius: 4px;
-    background: var(--np-surface);
-    color: var(--np-body);
-    cursor: pointer;
-}
-
-.kanban-card-order-btn:disabled {
-    opacity: 0.35;
-    cursor: default;
-}
-
-.kanban-card-controls-row .round-checkbox {
-    margin-top: 0;
-}
-
-/* Card Header */
+/* Card Header: checkbox + title on one row */
 .kanban-card-header {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: var(--np-space-8);
-    flex: 1;
     min-width: 0;
+}
+
+.kanban-card-header .round-checkbox {
+    flex-shrink: 0;
+    margin-top: 0;
 }
 
 .kanban-card-title {
@@ -742,9 +674,10 @@
 
 .kanban-card-meta {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: var(--np-space-12);
-    flex-wrap: wrap;
-    margin-bottom: var(--np-space-8);
+    margin-top: var(--np-space-8);
 }
 
 .kanban-meta-duration {
@@ -790,13 +723,6 @@
     font-weight: 500;
 }
 
-.label-dependency {
-    /* See .kanban-meta-duration above: the token pair carries the contrast
-       that kept this off the band-2 merge. */
-    background: var(--np-info-tint);
-    color: var(--np-info-ink);
-}
-
 .label-tag {
     background: #f3e5f5;
     color: #7b1fa2;
@@ -840,10 +766,7 @@
 /* Mobile Responsive */
 @media (max-width: 768px) {
     .kanban-column-delete,
-    .kanban-column-colour-btn,
-    .kanban-column-order-btn,
-    .kanban-card-order-btn,
-    .kanban-card-move-select {
+    .kanban-column-colour-btn {
         min-width: 44px;
         min-height: 44px;
     }

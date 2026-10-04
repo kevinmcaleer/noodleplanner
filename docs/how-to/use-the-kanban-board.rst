@@ -30,7 +30,7 @@ How Plan Depth Maps to the Board
 
 In **Phase** mode the column level follows your current drill-down position.
 At the root, top-level summary tasks are columns and their direct children are
-cards. Select **View Subtasks** on a summary card to move the board down one
+cards. Focus a summary card and press ``Shift+Enter`` to move the board down one
 level: summary tasks at that level become columns and their direct children
 become cards. You can repeat this at any depth, and use the breadcrumb to move
 back up.
@@ -60,9 +60,11 @@ that explicit link to ``*`` again. Resource, Progress, Label, and Bucket modes a
 moving cards between columns to change the corresponding task field, but do not
 offer within-column reordering.
 
-To move a focused card without a mouse, press ``Alt+Left`` or ``Alt+Right``.
-The **Move…** control on each card provides the same operation for keyboard and
-touch users. Press ``Escape`` to cancel a drag before dropping it.
+To move a focused card without a mouse, press ``Alt+Left`` or ``Alt+Right`` to
+change column, and in **Phase** mode ``Alt+Up`` or ``Alt+Down`` to reorder it
+within its column. On a focused column header in **Phase** mode, ``Alt+Left``
+or ``Alt+Right`` moves the column. Touch users drag cards and columns with a
+finger. Press ``Escape`` to cancel a drag before dropping it.
 
 Click a Card
 -------------

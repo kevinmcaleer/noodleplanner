@@ -842,7 +842,6 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
     .export-btn,
     .export-btn:hover,
     .tour-actions .btn-primary,
-    .drill-down-btn,
     .fix-it-btn,
     .raid-toolbar .btn-primary,
     .raid-toolbar .btn-primary:hover,
