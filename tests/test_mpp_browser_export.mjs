@@ -35,6 +35,7 @@ import {
   resolvePredecessorLinks,
 } from "../packages/noodle-web/src/noodle_web/static/mpp-export.js";
 import { readProject } from "../packages/noodle-web/src/noodle_web/static/vendor/mppwriter/index.js";
+import { readCfb } from "../packages/noodle-web/src/noodle_web/static/vendor/mppwriter/cfb.js";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const python = `${repo}/.venv/bin/python`;
@@ -434,4 +435,25 @@ test("the vendored mppwriter is the release package.json pins", () => {
       `${name} in static/vendor/mppwriter differs from mppwriter@${pinned}; run \`npm run vendor:mppwriter\``,
     );
   }
+});
+
+test("every leaf task keeps an assignment row, so Project opens on all tasks (#1443)", { skip: !hasTemplate }, () => {
+  // Project opens on the template's row count (three tasks) until the Gantt
+  // Chart button rebuilds the view, unless each leaf task has an assignment
+  // row, a placeholder where nobody is assigned. The count sits at offset 8
+  // of the TBkndAssn FixedMeta header.
+  const start = new Date(Date.UTC(2026, 9, 5, 8));
+  const tasks = [];
+  for (let uid = 1; uid <= 10; uid++) {
+    tasks.push({
+      uid, name: `Task ${uid}`, start, finish: new Date(start.getTime() + 8 * 3600e3),
+      durationDays: 1, outlineLevel: 1, parentUid: 0,
+    });
+  }
+  const project = { title: "Rows", start, tasks, relations: [], resources: [], assignments: [] };
+  const bytes = buildMpp(project, new Uint8Array(readFileSync(template)), () => {});
+  const meta = readCfb(bytes).get("   114/TBkndAssn/FixedMeta");
+  assert.ok(meta.length >= 12, "assignment metadata missing");
+  const count = new DataView(meta.buffer, meta.byteOffset, meta.byteLength).getUint32(8, true);
+  assert.ok(count >= 10, `assignment rows ${count} < 10 leaf tasks`);
 });
