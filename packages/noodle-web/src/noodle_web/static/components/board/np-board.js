@@ -57,8 +57,8 @@ TEMPLATE.innerHTML = `
 
     .column-header {
       padding: 15px;
-      background: var(--np-surface-alt);
-      color: var(--np-ink);
+      background: var(--np-info-tint);
+      color: var(--np-info-ink);
       border-bottom: 1px solid var(--np-border);
       border-top: 4px solid var(--column-colour, transparent);
       border-radius: var(--np-radius-md, 8px) var(--np-radius-md, 8px) 0 0;
@@ -221,6 +221,8 @@ export class NpBoard extends HTMLElement {
     header.className = 'column-header';
     if (col.colour || col.color) {
       header.style.setProperty('--column-colour', col.colour || col.color);
+      header.style.background = 'color-mix(in srgb, var(--column-colour) 28%, var(--np-surface))';
+      header.style.color = 'var(--np-ink)';
     }
 
     const title = document.createElement('p');
