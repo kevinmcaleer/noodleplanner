@@ -150,6 +150,30 @@ class KanbanBoard {
     }
 
     /**
+     * Has the editor text changed since the board last parsed it?  The app
+     * rewrites the editor on its own (it writes `rag:` into the front matter
+     * after a render, which shifts every line down), and every card carries the
+     * line number it had at parse time -- so a stale board would move or delete
+     * the wrong task on the next drop.
+     */
+    isStale() {
+        const editor = document.getElementById('planEditor');
+        return Boolean(editor) && this.parsedText !== undefined && editor.value !== this.parsedText;
+    }
+
+    /** Re-derive the board if the editor changed underneath it.  Returns true if it did. */
+    syncIfStale() {
+        if (!this.isStale()) return false;
+        this.parse();
+        const tab = document.getElementById('kanban-tab');
+        if (!tab || tab.classList.contains('active')) {
+            this.render();
+            this.renderBreadcrumb();
+        }
+        return true;
+    }
+
+    /**
      * The Markdown editor is the single source of truth for every board mutation.
      * Write it once, emit one input event, then derive the board again immediately.
      */
@@ -205,7 +229,7 @@ class KanbanBoard {
         if (options.renderAll !== false && typeof renderText === 'function') {
             Promise.resolve(renderText()).catch(error => {
                 console.error('Kanban update render failed:', error);
-            });
+            }).then(() => this.syncIfStale());
         }
         return true;
     }
@@ -232,6 +256,7 @@ class KanbanBoard {
         }
 
         const planText = editor.value;
+        this.parsedText = planText;
         this.tasks = [];
         this.columns = [];
         this.phases = [];
@@ -1536,11 +1561,13 @@ class KanbanBoard {
                 addColumnEl.classList.remove('drag-over');
                 const taskLineNumber = parseInt(event.dataTransfer.getData('text/plain'), 10);
                 if (!this.activeDrag?.cancelled && Number.isInteger(taskLineNumber)) {
-                    // handleNewColumnDrop() asks for the name with prompt(), a
-                    // modal dialog.  Opening one while the browser is still
-                    // finishing a native drag leaves the page unresponsive, so
-                    // wait for the drag to end first.
-                    this.afterDragSettles(() => this.handleNewColumnDrop(taskLineNumber));
+                    // Ask for the name in the tile itself.  A modal prompt()
+                    // opened while the browser is still finishing a native drag
+                    // can leave the page unresponsive, and no timer reliably
+                    // outlasts the end of the drag.
+                    this.requestColumnName(addColumnEl).then(name => {
+                        if (name) this.handleNewColumnDrop(taskLineNumber, name);
+                    });
                 }
             });
         }
@@ -1548,23 +1575,62 @@ class KanbanBoard {
     }
 
     /**
-     * Run `fn` once the native drag that is ending has finished: on the next
-     * dragend (a task later), or after a short fallback in case the source card
-     * was re-rendered away and never reports one.
+     * Turn the add-column tile into a name field and resolve with the trimmed
+     * name on Enter, or null on Escape / focus loss.  Names already used by a
+     * column keep the field open with a message instead of failing silently.
      */
-    afterDragSettles(fn) {
-        let done = false;
-        let timer = null;
-        const run = () => {
-            if (done) return;
-            done = true;
-            document.removeEventListener('dragend', onDragEnd, true);
-            clearTimeout(timer);
-            fn();
-        };
-        const onDragEnd = () => setTimeout(run, 0);
-        document.addEventListener('dragend', onDragEnd, true);
-        timer = setTimeout(run, 150);
+    requestColumnName(tileEl) {
+        const label = this.viewMode === 'phase'
+            ? 'Enter new column name:'
+            : this.viewMode === 'label' ? 'Enter new label name:' : 'Bucket name:';
+        const original = Array.from(tileEl.childNodes);
+        return new Promise(resolve => {
+            const wrap = document.createElement('div');
+            wrap.className = 'kanban-add-column-form';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'kanban-add-column-input';
+            input.setAttribute('aria-label', label.replace(/:$/, ''));
+            input.placeholder = label.replace(/:$/, '');
+            const message = document.createElement('div');
+            message.className = 'kanban-add-column-message';
+            message.setAttribute('role', 'alert');
+            wrap.append(input, message);
+
+            let finished = false;
+            const finish = value => {
+                if (finished) return;
+                finished = true;
+                wrap.remove();
+                original.forEach(node => tileEl.appendChild(node));
+                tileEl.classList.remove('drag-over');
+                resolve(value);
+            };
+            input.addEventListener('keydown', event => {
+                event.stopPropagation();
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    finish(null);
+                } else if (event.key === 'Enter') {
+                    event.preventDefault();
+                    const name = input.value.trim();
+                    if (!name) return;
+                    const taken = this.columns.some(column =>
+                        column.title.toLowerCase() === name.toLowerCase());
+                    if (taken) {
+                        message.textContent = `"${name}" already exists`;
+                        return;
+                    }
+                    finish(name);
+                }
+            });
+            input.addEventListener('input', () => { message.textContent = ''; });
+            input.addEventListener('blur', () => finish(null));
+
+            original.forEach(node => tileEl.removeChild(node));
+            tileEl.appendChild(wrap);
+            input.focus();
+        });
     }
 
     /**
@@ -2244,7 +2310,9 @@ class KanbanBoard {
                 !completedGesture.dragging) return;
 
             if (completedGesture.targetNewColumn) {
-                this.handleNewColumnDrop(task.lineNumber);
+                this.requestColumnName(completedGesture.targetNewColumn).then(name => {
+                    if (name) this.handleNewColumnDrop(task.lineNumber, name);
+                });
                 return;
             }
             if (!completedGesture.targetColumn) return;
@@ -2391,15 +2459,23 @@ class KanbanBoard {
     }
 
     /** Create a phase/label/bucket from the add-column drop zone and move the card. */
-    handleNewColumnDrop(taskLineNumber) {
+    handleNewColumnDrop(taskLineNumber, enteredName) {
+        if (this.syncIfStale()) {
+            // taskLineNumber came from a card drawn from older text.
+            if (typeof showToast === 'function') showToast('The plan changed — board refreshed, please try again', 'info');
+            return false;
+        }
         const task = this.tasks.find(item => item.lineNumber === taskLineNumber);
         const editor = document.getElementById('planEditor');
         if (!task || !editor || !['phase', 'label', 'bucket'].includes(this.viewMode)) return false;
 
-        const promptLabel = this.viewMode === 'phase'
-            ? 'Enter new column name:'
-            : this.viewMode === 'label' ? 'Enter new label name:' : 'Bucket name:';
-        const entered = prompt(promptLabel);
+        let entered = enteredName;
+        if (entered === undefined) {
+            const promptLabel = this.viewMode === 'phase'
+                ? 'Enter new column name:'
+                : this.viewMode === 'label' ? 'Enter new label name:' : 'Bucket name:';
+            entered = prompt(promptLabel);
+        }
         if (!entered || !entered.trim()) return false;
         const name = this.viewMode === 'label' ? entered.trim().toLowerCase() : entered.trim();
 
@@ -2422,11 +2498,16 @@ class KanbanBoard {
             const sourceSummaryNode = sourceColumn?.summaryLineNumber
                 ? model.taskAtLine(sourceColumn.summaryLineNumber)
                 : null;
-            if (!model.moveAsChild(taskNode, phaseNode, true)) return false;
+            if (!model.moveAsChild(taskNode, phaseNode, true)) {
+                // insertTaskAfter() already touched the cached model, so drop
+                // it rather than let the next edit serialise a stray phase.
+                delete editor._noodlePlanModel;
+                return false;
+            }
             if (sourceSummaryNode && sourceSummaryNode.children.length === 0) {
                 model.removeTask(sourceSummaryNode);
             }
-            return this.commitMarkdown(model.serialize(), { model });
+            return this.commitVerifiedColumnDrop(editor, model.serialize(), { model }, name, task);
         }
 
         const lines = editor.value.split('\n');
@@ -2435,7 +2516,29 @@ class KanbanBoard {
             ? this.replaceLabelsInTaskLine(lines[taskIndex], name)
             : this.replaceBucketInTaskLine(lines[taskIndex], name);
         this.addFrontMatterListValue(lines, this.viewMode === 'label' ? 'labels' : 'buckets', name);
-        return this.commitMarkdown(lines.join('\n'));
+        return this.commitVerifiedColumnDrop(editor, lines.join('\n'), {}, name, task);
+    }
+
+    /**
+     * Commit a drop-created column, then check the board really shows the new
+     * column holding the card and no other card was lost.  If not, put the
+     * previous text back so a drop can never silently delete a task.
+     */
+    commitVerifiedColumnDrop(editor, nextText, options, name, task) {
+        const previousText = editor.value;
+        const cardsBefore = this.tasks.length;
+        if (!this.commitMarkdown(nextText, options)) return false;
+        const column = this.columns.find(item => item.title.toLowerCase() === name.toLowerCase());
+        const landed = column && column.tasks.some(item => item.name === task.name);
+        if (landed && this.tasks.length === cardsBefore) return true;
+
+        delete editor._noodlePlanModel;
+        this.commitMarkdown(previousText);
+        console.error(`Kanban: dropping "${task.name}" on a new column "${name}" did not create the column; change reverted`);
+        if (typeof showToast === 'function') {
+            showToast(`Could not move "${task.name}" to "${name}" — nothing was changed`, 'error');
+        }
+        return false;
     }
 
     /** Add one value to an inline YAML front-matter list without committing. */
@@ -3475,6 +3578,10 @@ function setupKanbanAutoSync() {
         // Store reference to prevent circular updates
         window.kanbanIsUpdating = function(value) {
             isKanbanUpdating = value;
+        };
+        // For code that rewrites the editor without an input event.
+        window.kanbanSyncIfStale = function() {
+            return Boolean(kanbanBoard) && kanbanBoard.syncIfStale();
         };
     }
 }
