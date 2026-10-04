@@ -667,7 +667,7 @@ test('long-form durations and percentages are not part of the task name', () => 
 });
 
 test('every template task is named as the engine names it', () => {
-    const text = readFileSync(join(repo, 'templates', 'software_delivery', 'plan.md'), 'utf8');
+    const text = readFileSync(join(repo, 'templates', 'software-delivery', 'plan.md'), 'utf8');
     const model = PlanModel.parse(text);
     const task = model.findByName('Requirements gathering');
     assert.ok(task, 'Requirements gathering is found by its engine name');

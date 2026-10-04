@@ -221,7 +221,7 @@ test("the PDF contains the report text and keeps non-ASCII names", { skip: !hasP
 });
 
 test("page size follows the setting, and both sizes render", { skip: !hasPython }, () => {
-  const { parse } = pythonSide("templates/software_delivery/plan.md");
+  const { parse } = pythonSide("templates/software-delivery/plan.md");
   const report = buildReportText(parse, { projectName: parse.project_name });
   const fontBytes = new Uint8Array(readFileSync(fontPath));
 

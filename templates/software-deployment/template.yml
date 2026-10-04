@@ -1,0 +1,5 @@
+title: "Software Deployment"
+description: "Release and deployment plan for getting a built system into production safely: readiness, change approval, staging rehearsal, cutover, rollback cover and hypercare."
+author: "NoodlePlanner Team"
+category: "Technology"
+popular: true
