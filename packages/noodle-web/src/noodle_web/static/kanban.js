@@ -1536,11 +1536,35 @@ class KanbanBoard {
                 addColumnEl.classList.remove('drag-over');
                 const taskLineNumber = parseInt(event.dataTransfer.getData('text/plain'), 10);
                 if (!this.activeDrag?.cancelled && Number.isInteger(taskLineNumber)) {
-                    this.handleNewColumnDrop(taskLineNumber);
+                    // handleNewColumnDrop() asks for the name with prompt(), a
+                    // modal dialog.  Opening one while the browser is still
+                    // finishing a native drag leaves the page unresponsive, so
+                    // wait for the drag to end first.
+                    this.afterDragSettles(() => this.handleNewColumnDrop(taskLineNumber));
                 }
             });
         }
         return addColumnEl;
+    }
+
+    /**
+     * Run `fn` once the native drag that is ending has finished: on the next
+     * dragend (a task later), or after a short fallback in case the source card
+     * was re-rendered away and never reports one.
+     */
+    afterDragSettles(fn) {
+        let done = false;
+        let timer = null;
+        const run = () => {
+            if (done) return;
+            done = true;
+            document.removeEventListener('dragend', onDragEnd, true);
+            clearTimeout(timer);
+            fn();
+        };
+        const onDragEnd = () => setTimeout(run, 0);
+        document.addEventListener('dragend', onDragEnd, true);
+        timer = setTimeout(run, 150);
     }
 
     /**
