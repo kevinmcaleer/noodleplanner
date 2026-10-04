@@ -2066,6 +2066,7 @@ function wbRenderNotes() {
     if (typeof wbRenderGroups === 'function') wbRenderGroups(rows, wbLastTasks);
     if (typeof wbRenderNoodles === 'function') wbRenderNoodles(rows, wbLastTasks);
     if (typeof wbRenderDependencyNoodles === 'function') wbRenderDependencyNoodles();
+    if (typeof wbRenderLines === 'function') wbRenderLines(rows);
     if (typeof wbRenderOutlinePanel === 'function') wbRenderOutlinePanel();
 
     // Empty state (issue #847): purposeful "what is this board for" copy
@@ -2762,6 +2763,9 @@ function wbUpdateNoteDragFromClient(clientX, clientY) {
     if (typeof wbRefreshDependencyNoodleGeometry === 'function') {
         wbRefreshDependencyNoodleGeometry(fo.dataset.wbTask);
     }
+    if (typeof wbRefreshLineGeometry === 'function') {
+        wbRefreshLineGeometry(fo.dataset.wbTask);
+    }
 
     // Issue #1201: hint that dropping *here* would park the note instead of
     // repositioning it -- the panel gets a highlight, the note itself gets a
@@ -3441,7 +3445,7 @@ function wbCreateTextObjectAt(boardX, boardY) {
     let x = Math.round(boardX - width / 2);
     let y = Math.round(boardY - height / 2);
 
-    const existingRects = items.map(item => ({
+    const existingRects = items.filter(item => item && item.kind !== 'line').map(item => ({
         x: item.x || 0,
         y: item.y || 0,
         width: (item.kind === 'text') ? WB_TEXT_DEFAULT_WIDTH : (item.width || WB_NOTE_DEFAULT_WIDTH),
@@ -4624,7 +4628,7 @@ function wbSpawnCoachingNote(sourceTaskName, relation, suggestedName) {
     const height = WB_NOTE_DEFAULT_HEIGHT;
     let x = source ? (source.x || 0) + (relation === 'successor' ? width + 60 : -width - 60) : 80;
     let y = source ? (source.y || 0) : 80;
-    const rects = items.map(item => ({
+    const rects = items.filter(item => item && item.kind !== 'line').map(item => ({
         x: item.x || 0, y: item.y || 0,
         width: item.width || WB_NOTE_DEFAULT_WIDTH,
         height: item.height || WB_NOTE_DEFAULT_HEIGHT,
@@ -4818,6 +4822,11 @@ function wbAppendStructureMenuSection(list, taskName) {
     const task = (wbLastTasks || []).find(t => t && t.name === taskName);
     if (task && task.parent) wbAppendUnlinkMenuItem(list, taskName, task.parent);
     if (!wbIsThoughtNote(taskName)) wbAppendIndentMenuItems(list, taskName);
+    if (typeof wbBeginLineDraw === 'function') {
+        wbAppendNoteMenuItem(list, 'Draw a line to…',
+            'Join this note to another with a labelled line -- an annotation, not a dependency',
+            () => wbBeginLineDraw(taskName));
+    }
 }
 
 /** "Unlink from <parent>" -- see wbAppendStructureMenuSection(). */
@@ -7159,7 +7168,7 @@ function wbSplitNoteAtChild(parentName, lastStayingChildName) {
     let x = Math.round((rect ? rect.x : (source && source.x) || 0) + width + gap);
     const y = Math.round(rect ? rect.y : (source && source.y) || 0);
 
-    const existingRects = items.map(item => ({
+    const existingRects = items.filter(item => item && item.kind !== 'line').map(item => ({
         x: item.x || 0,
         y: item.y || 0,
         width: item.width || WB_NOTE_DEFAULT_WIDTH,
