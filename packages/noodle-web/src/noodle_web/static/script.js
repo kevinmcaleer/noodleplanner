@@ -291,6 +291,10 @@ function setEditorValuePreservingCursor(editor, newValue) {
 
     editor.setSelectionRange(mapPosition(prevStart), mapPosition(prevEnd));
 
+    // No input event is fired for this write, so tell the board its line
+    // numbers moved.
+    if (typeof window !== 'undefined' && typeof window.kanbanSyncIfStale === 'function') window.kanbanSyncIfStale();
+
     // Restore scroll position (use requestAnimationFrame to ensure it takes effect after browser layout)
     requestAnimationFrame(() => {
         editor.scrollTop = prevScrollTop;

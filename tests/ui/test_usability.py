@@ -468,7 +468,6 @@ class TestKanbanReliability:
         result = page.evaluate(
             """async () => {
                 switchPlanSubnavToBoard();
-                window.prompt = () => 'Phase Three';
                 const editor = document.getElementById('planEditor');
                 let inputEvents = 0;
                 editor.addEventListener('input', () => inputEvents++);
@@ -484,8 +483,12 @@ class TestKanbanReliability:
                     bubbles: true, cancelable: true, dataTransfer: transfer}));
                 source.dispatchEvent(new DragEvent('dragend', {
                     bubbles: true, dataTransfer: transfer}));
-                // The name prompt waits for the native drag to finish.
-                await new Promise(resolve => setTimeout(resolve, 300));
+                // The name is typed into the tile, not a modal prompt.
+                const field = document.querySelector('.kanban-add-column-input');
+                field.value = 'Phase Three';
+                field.dispatchEvent(new KeyboardEvent('keydown', {
+                    bubbles: true, cancelable: true, key: 'Enter'}));
+                await new Promise(resolve => setTimeout(resolve, 100));
                 return {
                     text: editor.value,
                     inputEvents,
