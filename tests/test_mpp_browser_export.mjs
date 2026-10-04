@@ -437,11 +437,56 @@ test("the vendored mppwriter is the release package.json pins", () => {
   }
 });
 
-test("every leaf task keeps an assignment row, so Project opens on all tasks (#1443)", { skip: !hasTemplate }, () => {
-  // Project opens on the template's row count (three tasks) until the Gantt
-  // Chart button rebuilds the view, unless each leaf task has an assignment
-  // row, a placeholder where nobody is assigned. The count sits at offset 8
-  // of the TBkndAssn FixedMeta header.
+test("every leaf task keeps an assignment row, as Project's own files do", { skip: !hasTemplate }, () => {
+  // Project keeps an assignment row per leaf task, a placeholder where nobody
+  // is assigned. The count sits at offset 8 of the TBkndAssn FixedMeta header.
+  const { bytes } = tenTaskProject();
+  const meta = readCfb(bytes).get("   114/TBkndAssn/FixedMeta");
+  assert.ok(meta.length >= 12, "assignment metadata missing");
+  const count = new DataView(meta.buffer, meta.byteOffset, meta.byteLength).getUint32(8, true);
+  assert.ok(count >= 10, `assignment rows ${count} < 10 leaf tasks`);
+});
+
+test("the Gantt row cache lists every task, so Project opens on all tasks (#1443)", { skip: !hasTemplate }, () => {
+  // Project paints the rows its Gantt view cached at save time (the CEdl
+  // record in the view storage) until the view is rebuilt; inherited from the
+  // template, that cache says three rows. mppwriter >= 0.4.3 rewrites it.
+  const { bytes, tasks } = tenTaskProject();
+  const root = readCfb(bytes);
+  const varMeta = root.get("   214/CEdl/VarMeta");
+  const var2 = root.get("   214/CEdl/Var2Data");
+  assert.ok(varMeta && var2, "the template's Gantt view has no row cache to check");
+  const dv = (b) => new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const expected = new Uint8Array(tasks.length * 4);
+  tasks.forEach((t, i) => dv(expected).setUint32(i * 4, t.uid, true));
+  const count = dv(varMeta).getUint32(8, true);
+  let checked = 0;
+  for (let i = 0; i < count; i++) {
+    const off = dv(varMeta).getUint32(24 + i * 12 + 4, true);
+    const type = dv(varMeta).getUint16(24 + i * 12 + 8, true);
+    if (type !== 6) continue;
+    const size = dv(var2).getUint32(off, true);
+    const blob = var2.subarray(off + 4, off + 4 + size);
+    // a Props blob: 16-byte header, then (size, key, type) + value entries
+    const n = dv(blob).getUint16(12, true);
+    let pos = 16;
+    for (let j = 0; j < n; j++) {
+      const vsize = dv(blob).getUint32(pos, true);
+      const key = dv(blob).getUint32(pos + 4, true);
+      const value = blob.subarray(pos + 12, pos + 12 + vsize);
+      if (key === 0x26400035) {
+        assert.deepEqual(Array.from(value.subarray(0, expected.length)), Array.from(expected), "row uids");
+        checked++;
+      } else if (key === 0x2640003d) {
+        assert.equal(dv(value).getUint32(0, true), tasks.length, "row count");
+      }
+      pos += 12 + vsize + (vsize & 1);
+    }
+  }
+  assert.ok(checked > 0, "no row cache found in the view storage");
+});
+
+function tenTaskProject() {
   const start = new Date(Date.UTC(2026, 9, 5, 8));
   const tasks = [];
   for (let uid = 1; uid <= 10; uid++) {
@@ -451,9 +496,5 @@ test("every leaf task keeps an assignment row, so Project opens on all tasks (#1
     });
   }
   const project = { title: "Rows", start, tasks, relations: [], resources: [], assignments: [] };
-  const bytes = buildMpp(project, new Uint8Array(readFileSync(template)), () => {});
-  const meta = readCfb(bytes).get("   114/TBkndAssn/FixedMeta");
-  assert.ok(meta.length >= 12, "assignment metadata missing");
-  const count = new DataView(meta.buffer, meta.byteOffset, meta.byteLength).getUint32(8, true);
-  assert.ok(count >= 10, `assignment rows ${count} < 10 leaf tasks`);
-});
+  return { tasks, bytes: buildMpp(project, new Uint8Array(readFileSync(template)), () => {}) };
+}
