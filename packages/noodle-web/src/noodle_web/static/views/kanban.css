@@ -226,8 +226,11 @@
 
 .kanban-column-header {
     padding: var(--np-space-16);
-    background: var(--np-surface-alt);
-    color: var(--np-ink);
+    /* Not --np-surface-alt: that is the board's own background, so the header
+       vanished into it. The info tint/ink pair is the one the duration chip
+       uses, already contrast-checked in both themes. */
+    background: var(--np-info-tint);
+    color: var(--np-info-ink);
     border-bottom: 1px solid var(--np-border);
     border-radius: 8px 8px 0 0;
     display: flex;

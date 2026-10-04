@@ -1710,6 +1710,10 @@ class KanbanBoard {
             // The header stays neutral; the chosen colour shows as an accent
             // stripe and a light tint on the column (#1446).
             headerEl.style.borderTop = `4px solid ${themeColour}`;
+            // A soft wash of the chosen colour over the surface, with normal
+            // ink text, so any picked colour stays readable in both themes.
+            headerEl.style.background = `color-mix(in srgb, ${themeColour} 28%, var(--np-surface))`;
+            headerEl.style.color = 'var(--np-ink)';
             columnEl.style.background = themeColour + '1A'; // ~10% opacity hex suffix
         }
 
