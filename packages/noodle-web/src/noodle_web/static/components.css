@@ -7687,7 +7687,15 @@ button.ribbon-breadcrumb-rung:hover {
 .ribbon-launcher {
     font-size: 9px;
     color: var(--np-faint);
-    cursor: pointer;
+}
+
+/* The launcher is an <np-button>; its square is sized from here so it sits in
+   the caption line rather than growing the ribbon. */
+.ribbon-launcher::part(button) {
+    width: var(--np-space-16);
+    height: var(--np-space-16);
+    min-width: 0;
+    min-height: 0;
 }
 
 .ribbon-more {

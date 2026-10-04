@@ -57,17 +57,17 @@ export const TABS = [
     {
         id: 'home', label: 'Home',
         groups: [
-            { name: 'Plan', launcher: true, lg: [['project-report', 'Dashboard'], ['task-list', 'New Task'], ['milestones', 'Milestone']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['delete', 'Delete'], ['doc', 'Details']]] },
+            { name: 'Plan', lg: [['project-report', 'Dashboard'], ['task-list', 'New Task'], ['milestones', 'Milestone']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['delete', 'Delete'], ['doc', 'Details']]] },
             { name: 'Views', lg: [['gantt-chart', 'Gantt'], ['board', 'Board'], ['task-list', 'Outline']], cols: [[['timeline', 'Timeline'], ['calendar', 'Calendar']], [['task-list', 'Tasks']]] },
-            { name: 'Track', launcher: true, lg: [['raid-log', 'RAID']], cols: [[['check', 'Actions'], ['highlights', 'Highlights']], [['search', 'Lookahead'], ['warn', 'Escalations']]] },
-            { name: 'Report', launcher: true, cols: [[['download', 'Export', 'caret'], ['print', 'Print']], [['save', 'Save'], ['upload', 'Import', 'caret']]] },
+            { name: 'Track', lg: [['raid-log', 'RAID']], cols: [[['check', 'Actions'], ['highlights', 'Highlights']], [['search', 'Lookahead'], ['warn', 'Escalations']]] },
+            { name: 'Report', cols: [[['download', 'Export', 'caret'], ['print', 'Print']], [['save', 'Save'], ['upload', 'Import', 'caret']]] },
         ],
     },
     {
         id: 'plan', label: 'Plan',
         groups: [
-            { name: 'Structure', launcher: true, lg: [['task-list', 'Tasks'], ['board', 'PBS']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['link', 'Link'], ['unlink', 'Unlink']]] },
-            { name: 'Schedule', launcher: true, lg: [['gantt-chart', 'Gantt']], cols: [[['calendar', 'Calendars'], ['clock', 'Durations']], [['target', 'Critical Path'], ['clock', 'Baseline']]] },
+            { name: 'Structure', lg: [['task-list', 'Tasks'], ['board', 'PBS']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['link', 'Link'], ['unlink', 'Unlink']]] },
+            { name: 'Schedule', launcher: 'Calendars', lg: [['gantt-chart', 'Gantt']], cols: [[['calendar', 'Calendars'], ['clock', 'Durations']], [['target', 'Critical Path'], ['clock', 'Baseline']]] },
             { name: 'Deliverables', lg: [['doc', 'Products']], cols: [[['board', 'Product Flow'], ['grid', 'Deliverables']]] },
             { name: 'Model', lg: [['bulb', 'Mind Map']], cols: [[['grid', 'Whiteboard'], ['timeline', 'Timeline']]] },
             { name: 'Wizard', lg: [['bulb', 'Guided Plan']] },
@@ -76,9 +76,9 @@ export const TABS = [
     {
         id: 'track', label: 'Track',
         groups: [
-            { name: 'RAID', launcher: true, lg: [['raid-log', 'RAID Log']], cols: [[['flag', 'Risk'], ['warn', 'Issue']], [['doc', 'Assumption'], ['link', 'Dependency']], [['check', 'Action']]] },
+            { name: 'RAID', launcher: 'RAID Log', lg: [['raid-log', 'RAID Log']], cols: [[['flag', 'Risk'], ['warn', 'Issue']], [['doc', 'Assumption'], ['link', 'Dependency']], [['check', 'Action']]] },
             { name: 'Progress', lg: [['highlights', 'Highlights']], cols: [[['check', 'Actions'], ['search', 'Lookahead']], [['chart', 'Analysis'], ['bulb', 'Lessons']]] },
-            { name: 'Cost', launcher: true, lg: [['money', 'Budget']], cols: [[['chart', 'EVM'], ['refresh', 'Forecast']]] },
+            { name: 'Cost', launcher: 'Budget', lg: [['money', 'Budget']], cols: [[['chart', 'EVM'], ['refresh', 'Forecast']]] },
             { name: 'Benefits', lg: [['target', 'Benefits']], cols: [[['chart', 'Realisation']]] },
         ],
     },
@@ -90,13 +90,13 @@ export const TABS = [
             // roadmap. Calendars (#1047/#1135) now opens the Front Matter
             // panel's Calendars section -- see ribbon.js's
             // revealCalendarsPanel().
-            { name: 'People', launcher: true, lg: [['resources', 'Resources'], ['people', 'Stakeholders']], cols: [[['calendar', 'Calendars']]] },
+            { name: 'People', launcher: 'Resource Sheet', lg: [['resources', 'Resources'], ['people', 'Stakeholders']], cols: [[['calendar', 'Calendars']]] },
             // "Clear Level" (#1117) sits alongside "Level" here too, not just
             // on the "Resource Tools" contextual tab (which only shows once
             // a Resources/Timesheet/Workload/Resource Sheet view is already
             // open) -- levelling needs to be reachable *and* undoable from
             // this tab on its own.
-            { name: 'Effort', launcher: true, lg: [['clock', 'Timesheet']], cols: [[['chart', 'Workload'], ['refresh', 'Level']], [['warn', 'Overallocation'], ['grid', 'Resource Sheet']], [['delete', 'Clear Level']]] },
+            { name: 'Effort', launcher: 'Workload', lg: [['clock', 'Timesheet']], cols: [[['chart', 'Workload'], ['refresh', 'Level']], [['warn', 'Overallocation'], ['grid', 'Resource Sheet']], [['delete', 'Clear Level']]] },
             { name: 'Comms', lg: [['doc', 'Comms Plan']], cols: [[['people', 'Influence'], ['print', 'Print']]] },
         ],
     },
@@ -105,7 +105,7 @@ export const TABS = [
         groups: [
             // #776: By Assignment and Slippage share a column -- the two reports
             // a status meeting asks for.
-            { name: 'Reports', launcher: true, lg: [['project-report', 'Project Report'], ['highlights', 'Highlights']], cols: [[['chart', 'Analysis'], ['milestones', 'Milestones']], [['money', 'Budget'], ['target', 'Benefits']], [['people', 'By Assignment'], ['flag', 'Slippage']]] },
+            { name: 'Reports', launcher: 'Analysis', lg: [['project-report', 'Project Report'], ['highlights', 'Highlights']], cols: [[['chart', 'Analysis'], ['milestones', 'Milestones']], [['money', 'Budget'], ['target', 'Benefits']], [['people', 'By Assignment'], ['flag', 'Slippage']]] },
             { name: 'Share', lg: [['download', 'Export']], cols: [[['print', 'Print'], ['doc', 'PDF']], [['grid', 'Excel'], ['board', 'PowerPoint']]] },
             // Sync Files opens the Sync dialog whatever is linked: once every link
             // works, Sync itself syncs straight away and never shows it.
@@ -119,7 +119,7 @@ export const TABS = [
             // (#1124): none of them did anything. Editor now toggles the
             // markdown editor panel (#1125) instead of the dead "Editor" view
             // switch it used to be.
-            { name: 'Layout', launcher: true, lg: [['task-list', 'Editor']], cols: [[['milestones', 'Milestones']]] },
+            { name: 'Layout', launcher: 'Settings', lg: [['task-list', 'Editor']], cols: [[['milestones', 'Milestones']]] },
             // "System Theme" (#909 ribbon-parity follow-up) replicates the old
             // top nav's 3-way Light/Dark/System theme menu's third option --
             // see setThemeChoice('system') in theme.js. "AI Settings" opens the
@@ -155,21 +155,21 @@ export const PORTFOLIO_TABS = [
             // "Dashboard first" placement fix #909 made for project scope
             // (issue #933: "Home should lead with the portfolio roll-up as
             // its front door").
-            { name: 'Portfolio', launcher: true, lg: [['project-report', 'Status'], ['portfolio', 'Projects']], cols: [[['add', 'New Project'], ['upload', 'Import Project']]] },
+            { name: 'Portfolio', launcher: 'Projects', lg: [['project-report', 'Status'], ['portfolio', 'Projects']], cols: [[['add', 'New Project'], ['upload', 'Import Project']]] },
             { name: 'Report', lg: [['download', 'Export Report']], cols: [[['task-list', 'Actions']]] },
         ],
     },
     {
         id: 'pf-plan', label: 'Plan',
         groups: [
-            { name: 'Schedule', launcher: true, lg: [['timeline', 'Timeline']], cols: [[['search', 'Look-Ahead'], ['link', 'Dependencies']]] },
+            { name: 'Schedule', launcher: 'Dependencies', lg: [['timeline', 'Timeline']], cols: [[['search', 'Look-Ahead'], ['link', 'Dependencies']]] },
             { name: 'Capacity', lg: [['resources', 'Team Allocation']], cols: [[['refresh', 'Level Team']]] },
         ],
     },
     {
         id: 'pf-track', label: 'Track',
         groups: [
-            { name: 'RAID & Benefits', launcher: true, lg: [['flag', 'Risks']], cols: [[['target', 'Benefits'], ['bulb', 'Lessons']]] },
+            { name: 'RAID & Benefits', launcher: 'Benefits', lg: [['flag', 'Risks']], cols: [[['target', 'Benefits'], ['bulb', 'Lessons']]] },
         ],
     },
 ];
@@ -229,7 +229,7 @@ export const CONTEXTUAL_TABS = [
         id: 'raid', label: 'RAID Log', icon: 'raid-log', accent: '#c21d1d', accentToken: '--np-red', tint: '#faeaea', onAccent: '#ffffff',
         trigger: 'RAID Log view open',
         groups: [
-            { name: 'Entries', launcher: true, lg: [['flag', 'New Risk'], ['warn', 'New Issue']], cols: [[['doc', 'Assumption'], ['link', 'Dependency']], [['target', 'Escalate'], ['check', 'Close']]] },
+            { name: 'Entries', lg: [['flag', 'New Risk'], ['warn', 'New Issue']], cols: [[['doc', 'Assumption'], ['link', 'Dependency']], [['target', 'Escalate'], ['check', 'Close']]] },
             { name: 'Score', cols: [[['chart', 'Probability'], ['chart', 'Impact']], [['grid', 'Heat Map'], ['flag', 'RAG']]] },
             { name: 'Data', cols: [[['filter', 'Filter'], ['sort', 'Sort']], [['upload', 'Import'], ['download', 'Export']]] },
         ],
@@ -238,7 +238,7 @@ export const CONTEXTUAL_TABS = [
         id: 'lessons', label: 'Lessons Learned', icon: 'bulb', accent: '#ffd641', accentToken: '--np-yellow', tint: '#fff8e0', onAccent: '#02384d',
         trigger: 'Lessons view open',
         groups: [
-            { name: 'Lessons', launcher: true, lg: [['bulb', 'New Lesson'], ['check', 'Review']], cols: [[['sort', 'Categorise'], ['pin', 'Tag']], [['link', 'Link to Risk'], ['people', 'Owner']]] },
+            { name: 'Lessons', lg: [['bulb', 'New Lesson'], ['check', 'Review']], cols: [[['sort', 'Categorise'], ['pin', 'Tag']], [['link', 'Link to Risk'], ['people', 'Owner']]] },
             { name: 'Share', cols: [[['upload', 'Publish'], ['download', 'Export']], [['print', 'Print'], ['project-report', 'Report']]] },
         ],
     },
@@ -246,7 +246,7 @@ export const CONTEXTUAL_TABS = [
         id: 'gantt', label: 'Gantt Tools', icon: 'gantt-chart', accent: '#108bb9', accentToken: '--np-blue', tint: '#e6f3f9', onAccent: '#ffffff',
         trigger: 'Gantt view open',
         groups: [
-            { name: 'Schedule', launcher: true, lg: [['link', 'Link'], ['unlink', 'Unlink']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['target', 'Critical Path'], ['clock', 'Baseline']]] },
+            { name: 'Schedule', launcher: 'Baseline', lg: [['link', 'Link'], ['unlink', 'Unlink']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['target', 'Critical Path'], ['clock', 'Baseline']]] },
             // #1267: the scale's own subsection. Five mutually exclusive
             // buttons (exactly one pressed, driven by isButtonActive()'s
             // `gantt` block against the ganttScale global) replacing both the
@@ -293,7 +293,7 @@ export const CONTEXTUAL_TABS = [
         id: 'kanban', label: 'Board Tools', icon: 'board', accent: '#1c9e41', accentToken: '--np-green', tint: '#e8f7ec', onAccent: '#ffffff',
         trigger: 'Kanban board open',
         groups: [
-            { name: 'Cards', launcher: true, lg: [['add', 'Add Card']], cols: [[['doc', 'Edit'], ['delete', 'Delete']], [['people', 'Assign'], ['pin', 'Label']]] },
+            { name: 'Cards', lg: [['add', 'Add Card']], cols: [[['doc', 'Edit'], ['delete', 'Delete']], [['people', 'Assign'], ['pin', 'Label']]] },
             { name: 'Columns', cols: [[['add', 'Add Column'], ['doc', 'Rename']], [['sort', 'Group by', 'caret'], ['target', 'WIP Limit']]] },
             { name: 'View', cols: [[['board', 'Phase'], ['resources', 'Resource']], [['chart', 'Progress'], ['pin', 'Label']]] },
         ],
@@ -302,7 +302,7 @@ export const CONTEXTUAL_TABS = [
         id: 'resources', label: 'Resource Tools', icon: 'resources', accent: '#ff7b01', accentToken: '--np-orange', tint: '#fff1e2', onAccent: '#3a1c00',
         trigger: 'Resources, Timesheet, Workload or Resource Sheet open',
         groups: [
-            { name: 'People', launcher: true, lg: [['people', 'Add Resource']], cols: [[['calendar', 'Calendar']]] },
+            { name: 'People', launcher: 'Calendar', lg: [['people', 'Add Resource']], cols: [[['calendar', 'Calendar']]] },
             { name: 'Effort', cols: [[['clock', 'Timesheet'], ['chart', 'Workload']], [['refresh', 'Level'], ['warn', 'Overallocation'], ['delete', 'Clear Level']]] },
         ],
     },
@@ -310,7 +310,7 @@ export const CONTEXTUAL_TABS = [
         id: 'stakeholders', label: 'Stakeholders', icon: 'people', accent: '#02384d', accentToken: '--np-dark-blue', tint: '#e4edf1', onAccent: '#ffffff',
         trigger: 'Stakeholder register open',
         groups: [
-            { name: 'Register', launcher: true, lg: [['people', 'Add Stakeholder']], cols: [[['chart', 'Influence'], ['target', 'Interest']], [['doc', 'Comms Plan'], ['people', 'Owner']]] },
+            { name: 'Register', launcher: 'Comms Plan', lg: [['people', 'Add Stakeholder']], cols: [[['chart', 'Influence'], ['target', 'Interest']], [['doc', 'Comms Plan'], ['people', 'Owner']]] },
             { name: 'Map', cols: [[['grid', 'Grid'], ['chart', 'Heat']], [['download', 'Export'], ['print', 'Print']]] },
         ],
     },
@@ -321,7 +321,7 @@ export const CONTEXTUAL_TABS = [
             // Draw: "Note" is a post-it (a new task); "Text Note" is a note
             // that is not a task (a commented-out line, promoted later);
             // "Title" is free-floating text with no card at all.
-            { name: 'Draw', launcher: true, lg: [['doc', 'Note']], cols: [[['doc', 'Text Note'], ['doc', 'Title']], [['pin', 'Colour'], ['delete', 'Delete']]] },
+            { name: 'Draw', launcher: 'Spacing', lg: [['doc', 'Note']], cols: [[['doc', 'Text Note'], ['doc', 'Title']], [['pin', 'Colour'], ['delete', 'Delete']]] },
             // Arrange: the board's layouts, moved here from the whiteboard's
             // own toolbar. Compact/Comfy re-run the grid with a different gap
             // rather than arranging anything differently, so they share one
@@ -349,7 +349,7 @@ export const CONTEXTUAL_TABS = [
         id: 'portfolio', label: 'Portfolio Tools', icon: 'chart', accent: '#02384d', accentToken: '--np-dark-blue', tint: '#e4edf1', onAccent: '#ffffff',
         trigger: 'Portfolio dashboard open',
         groups: [
-            { name: 'Portfolio', launcher: true, lg: [['board', 'Add Programme']], cols: [[['add', 'Add Project'], ['chart', 'Weighting']], [['refresh', 'Rebaseline'], ['save', 'Snapshot']]] },
+            { name: 'Portfolio', launcher: 'Capacity', lg: [['board', 'Add Programme']], cols: [[['add', 'Add Project'], ['chart', 'Weighting']], [['refresh', 'Rebaseline'], ['save', 'Snapshot']]] },
             { name: 'Analyse', cols: [[['grid', 'Heat Map'], ['link', 'Dependencies']], [['resources', 'Capacity'], ['target', 'Benefits']]] },
         ],
     },

@@ -96,25 +96,37 @@ jobs:
       - uses: ./.github/actions/setup
       - run: ./ci/run.sh -j1 --strict usability
 
-  ui:
-    name: pytest (ui)
+  # The UI suite (~950 tests, ~12 minutes on one 4-core runner) is split across
+  # four runners, each running every fourth test (see pytest_collection_modifyitems
+  # in tests/ui/conftest.py). Each shard still runs xdist across its own cores.
+  ui-shard:
+    name: pytest (ui shard ${{ matrix.shard }}/4)
     runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["ubuntu-latest"]') }}
-    # A real gate, unlike `usability` below, because it is fast enough to block
-    # on and green enough to mean something. On this runner the three ported
-    # files cost ~135.7s under Selenium and ~43.5s here; see tests/ui/README.md
-    # for where the difference comes from and what is left to port.
-    #
-    # No CI_RUNS_ON guard, unlike `usability`: a gating job has to run
-    # wherever the gate applies.
-    #
-    # 25 minutes, over ci/run.sh's 1500s deadline for the job: the suite has
-    # grown to ~810 tests and ~13 minutes, past the old 10, which had become a
-    # budget rather than a backstop against a hang.
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      NOODLE_UI_SHARD: ${{ matrix.shard }}/4
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - run: ./ci/run.sh -j1 --strict ui
+
+  # Keeps the check name `pytest (ui)` that branch protection requires: the
+  # shards above have their own names, so this one job stands in for them all.
+  ui:
+    name: pytest (ui)
+    needs: ui-shard
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          if [ "${{ needs.ui-shard.result }}" != "success" ]; then
+            echo "ui shards: ${{ needs.ui-shard.result }}"; exit 1
+          fi
 
   js:
     name: npm run test:js
