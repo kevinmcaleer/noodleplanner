@@ -41,6 +41,17 @@ function liftFunctions(sandbox, source, names) {
   return sandbox;
 }
 
+/** `Date` whose no-argument constructor and `now()` are pinned to 2026-09-24,
+ * so the series builder's "today" does not depend on when the suite runs. */
+const FIXED_NOW = new Date(2026, 8, 24, 12, 0, 0).getTime();
+class FixedClockDate extends Date {
+  constructor(...args) {
+    if (args.length === 0) super(FIXED_NOW);
+    else super(...args);
+  }
+  static now() { return FIXED_NOW; }
+}
+
 function makeSandbox() {
   const svg = {
     attrs: {},
@@ -50,7 +61,7 @@ function makeSandbox() {
   };
   const legend = { innerHTML: '' };
   const sandbox = {
-    Date,
+    Date: FixedClockDate,
     Math,
     svg,
     legend,
@@ -80,21 +91,21 @@ function geometryValues(markup) {
 test('a plan inside one calendar month builds a single-sample EVM series', () => {
   const sandbox = makeSandbox();
   const series = sandbox.buildEvmTimeSeries(
-    [], 100, new Date(2099, 8, 24), new Date(2099, 8, 30), false, 0, 0
+    [], 100, new Date(2026, 8, 24), new Date(2026, 8, 30), false, 0, 0
   );
-  assert.equal(series.dates.length, 1, 'expected one monthly sample for a plan inside one month');
+  assert.equal(series.dates.length, 1, 'expected one monthly sample for a plan inside September');
 });
 
 test('renderEvmChart() draws no NaN coordinates for a single-sample series', () => {
   const sandbox = makeSandbox();
-  const projectStart = new Date(2099, 8, 24);
-  const projectEnd = new Date(2099, 8, 30);
+  const projectStart = new Date(2026, 8, 24);
+  const projectEnd = new Date(2026, 8, 30);
   const timeSeries = sandbox.buildEvmTimeSeries([], 100, projectStart, projectEnd, false, 0, 0);
   assert.equal(timeSeries.dates.length, 1);
 
   sandbox.evmData = {
     timeSeries,
-    today: new Date(2099, 8, 24),
+    today: new Date(2026, 8, 24),
     BAC: 100,
     EV: 0,
     AC: 0,
