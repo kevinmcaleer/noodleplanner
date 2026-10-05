@@ -276,6 +276,7 @@ class KanbanBoard {
 
         const lines = planText.split('\n');
         let currentPhase = null;
+        let currentPhaseIsSummary = false;
         let currentIndent = 0;
         let inFrontMatter = false;
         let frontMatterStart = -1;
@@ -501,9 +502,27 @@ class KanbanBoard {
                     .trim();
             }
 
+            // A top-level task with subtasks is a phase, whatever is on its line:
+            // dates, resources, dependencies and a $product token don't stop a
+            // summary from being a column.
+            const lineNode = this.planModel ? this.planModel.taskAtLine(lineNum) : null;
+            if (lineNode && !lineNode.parent && lineNode.children.length > 0) {
+                const summary = parseTaskLine(line, lineNum);
+                currentPhase = (hasMetadata && summary.name && summary.name.trim())
+                    ? summary.name.trim()
+                    : cleanPhaseName(trimmed);
+                currentIndent = indent;
+                currentPhaseIsSummary = true;
+                this.phases.push(currentPhase);
+                this.phaseLineNumbers.set(currentPhase, lineNum);
+                this.phaseNodes.set(currentPhase, lineNode);
+                continue;
+            }
+
             // If not indented (or minimally) and no metadata, it's likely a phase
             if (indent === 0 && !hasMetadata && trimmed.length > 0) {
                 currentPhase = cleanPhaseName(trimmed);
+                currentPhaseIsSummary = false;
                 currentIndent = indent;
                 this.phases.push(currentPhase);
                 this.phaseLineNumbers.set(currentPhase, lineNum);
@@ -522,6 +541,7 @@ class KanbanBoard {
                 } else {
                     // New phase at same or higher level
                     currentPhase = cleanPhaseName(trimmed);
+                    currentPhaseIsSummary = false;
                     currentIndent = indent;
                     this.phases.push(currentPhase);
                     this.phaseLineNumbers.set(currentPhase, lineNum);
@@ -538,12 +558,15 @@ class KanbanBoard {
             // Only add if it has a name
             if (task.name && task.name.trim()) {
                 // Add phase information
-                task.phase = currentPhase || 'Unassigned';
                 task.indent = indent;
                 task.originalLine = line;
                 task.planNode = this.planModel
                     ? this.planModel.taskAtLine(lineNum)
                     : null;
+                // A top-level task after a summary phase is not that phase's
+                // subtask: the summary's own children are indented under it.
+                const looseTopLevel = task.planNode && !task.planNode.parent && currentPhaseIsSummary;
+                task.phase = (!looseTopLevel && currentPhase) || 'Unassigned';
 
                 // Parse resources into array and normalize to lowercase
                 const rawResources = task.resources ?
@@ -734,8 +757,14 @@ class KanbanBoard {
         const allTasks = this.allTasksCache || this.tasks;
 
         if (!this.currentParentTask) {
-            // Root level: show only tasks with indent 0 or minimal indent (top-level tasks)
-            return allTasks.filter(task => task.indent === 0 || task.indent <= 2);
+            // Root level: the columns are the top-level summaries, so the cards
+            // are their direct subtasks (plus any loose top-level tasks).
+            // Anything deeper is reached by drilling into a summary card.
+            return allTasks.filter(task => {
+                const node = task.planNode;
+                if (!node) return task.indent === 0 || task.indent <= 2;
+                return !node.parent || !node.parent.parent;
+            });
         }
 
         // When drilling down, we want to show tasks at the same level as currentParentTask
