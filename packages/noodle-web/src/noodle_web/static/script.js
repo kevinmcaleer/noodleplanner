@@ -4098,6 +4098,22 @@ function updateTaskNameFromTitle() {
 
 document.getElementById('taskFormPanelHeader')?.addEventListener('titlechange', updateTaskNameFromTitle);
 
+// Whole calendar days, not instants. The scheduling engine counts RAG in
+// day numbers (engine/date-math.js dayOf), so the form and the inspector must
+// too: new Date('2026-06-01') is UTC midnight while today's setHours(0,0,0,0)
+// is local midnight, which shifts the expected-progress comparison by up to a
+// day's fraction and flips On Track / Behind Schedule against the Up Next
+// widget and the task table in any non-UTC timezone.
+function ragDayDate(value) {
+    const [y, m, d] = String(value).slice(0, 10).split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d));
+}
+
+function ragToday() {
+    const now = new Date();
+    return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+}
+
 function updateRagDisplay() {
     const percent = parseInt(document.getElementById('taskPercent').value) || 0;
     const startDateStr = document.getElementById('taskStartDate').value;
@@ -4109,8 +4125,7 @@ function updateRagDisplay() {
 
     let ragStatus, bgColor, textColor, reasoning;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = ragToday();
 
     // RAG logic based on backend rules (from calculate_rag_status):
 
@@ -4126,18 +4141,18 @@ function updateRagDisplay() {
     // start/finish dates, which it never moves. Checked next so this
     // preview agrees with calculate_rag_status.
     else if (deadlineStr && (
-        new Date(deadlineStr) < today ||
-        (finishDateStr && new Date(finishDateStr) > new Date(deadlineStr))
+        ragDayDate(deadlineStr) < today ||
+        (finishDateStr && ragDayDate(finishDateStr) > ragDayDate(deadlineStr))
     )) {
         ragStatus = 'Task Overdue';
         bgColor = '#f44336';
         textColor = 'white';
-        reasoning = new Date(deadlineStr) < today
+        reasoning = ragDayDate(deadlineStr) < today
             ? 'Deadline has passed and the task is not complete'
             : 'Not on track to complete by the deadline';
     }
     // Green: Task hasn't started yet (start date is in the future)
-    else if (startDateStr && new Date(startDateStr) > today) {
+    else if (startDateStr && ragDayDate(startDateStr) > today) {
         if (percent > 0) {
             ragStatus = 'Ahead of Schedule';
             bgColor = '#4caf50';
@@ -4151,7 +4166,7 @@ function updateRagDisplay() {
         }
     }
     // Red: Start date is in the past and no progress or 0%
-    else if (startDateStr && new Date(startDateStr) <= today && percent === 0) {
+    else if (startDateStr && ragDayDate(startDateStr) <= today && percent === 0) {
         ragStatus = 'Task Overdue';
         bgColor = '#f44336';
         textColor = 'white';
@@ -4159,8 +4174,8 @@ function updateRagDisplay() {
     }
     // Calculate expected progress based on dates
     else if (startDateStr && finishDateStr) {
-        const startDate = new Date(startDateStr);
-        const finishDate = new Date(finishDateStr);
+        const startDate = ragDayDate(startDateStr);
+        const finishDate = ragDayDate(finishDateStr);
         const totalDuration = (finishDate - startDate) / (1000 * 60 * 60 * 24);
         const elapsedDays = Math.max(0, (today - startDate) / (1000 * 60 * 60 * 24));
         const expectedPercent = Math.min(100, (elapsedDays / Math.max(1, totalDuration)) * 100);
@@ -16151,8 +16166,7 @@ function calculateInspectorRag(task) {
     const finishDateStr = task.finishDate;
     const deadlineStr = task.deadline;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = ragToday();
 
     let status, reasoning, bgClass, expectedPercent = null;
 
@@ -16161,42 +16175,43 @@ function calculateInspectorRag(task) {
         bgClass = 'rag-blue';
         reasoning = 'This task is complete. No further action needed.';
     } else if (deadlineStr && (
-        new Date(deadlineStr) < today ||
-        (finishDateStr && new Date(finishDateStr) > new Date(deadlineStr))
+        ragDayDate(deadlineStr) < today ||
+        (finishDateStr && ragDayDate(finishDateStr) > ragDayDate(deadlineStr))
     )) {
         // Red: deadline slippage (#877). A fixed marker, independent of the
         // on-track/behind-schedule reasoning below. Mirrors
         // exporters.calculate_rag_status in noodle_core.
         status = 'Task Overdue';
         bgClass = 'rag-red';
-        reasoning = new Date(deadlineStr) < today
+        reasoning = ragDayDate(deadlineStr) < today
             ? 'This task has a deadline of ' + formatInspectorDate(deadlineStr) + ', which has passed, and the task is not complete.'
             : 'This task is not on track to complete by its deadline of ' + formatInspectorDate(deadlineStr) + '.';
-    } else if (startDateStr && new Date(startDateStr) > today) {
+    } else if (startDateStr && ragDayDate(startDateStr) > today) {
         status = 'Not Started';
         bgClass = 'rag-green';
-        const startDate = new Date(startDateStr);
+        const startDate = ragDayDate(startDateStr);
         const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
         reasoning = 'This task is not due to start yet. It begins in ' + daysUntil + ' day' + (daysUntil !== 1 ? 's' : '') + ' on ' + formatInspectorDate(startDateStr) + '.';
-    } else if (startDateStr && new Date(startDateStr) <= today && percent === 0) {
+    } else if (startDateStr && ragDayDate(startDateStr) <= today && percent === 0) {
         status = 'Task Overdue';
         bgClass = 'rag-red';
-        const startDate = new Date(startDateStr);
+        const startDate = ragDayDate(startDateStr);
         const daysOverdue = Math.ceil((today - startDate) / (1000 * 60 * 60 * 24));
         reasoning = 'This task was scheduled to start ' + daysOverdue + ' day' + (daysOverdue !== 1 ? 's' : '') + ' ago but has no progress reported. It needs immediate attention.';
     } else if (startDateStr && finishDateStr) {
-        const startDate = new Date(startDateStr);
-        const finishDate = new Date(finishDateStr);
+        const startDate = ragDayDate(startDateStr);
+        const finishDate = ragDayDate(finishDateStr);
         const totalDuration = (finishDate - startDate) / (1000 * 60 * 60 * 24);
         const elapsedDays = Math.max(0, (today - startDate) / (1000 * 60 * 60 * 24));
-        expectedPercent = Math.min(100, Math.round((elapsedDays / Math.max(1, totalDuration)) * 100));
+        const rawExpected = Math.min(100, (elapsedDays / Math.max(1, totalDuration)) * 100);
+        expectedPercent = Math.round(rawExpected);
 
         if (today > finishDate && percent < 100) {
             status = 'Task Overdue';
             bgClass = 'rag-red';
             const daysLate = Math.ceil((today - finishDate) / (1000 * 60 * 60 * 24));
             reasoning = 'This task is ' + daysLate + ' day' + (daysLate !== 1 ? 's' : '') + ' past its finish date with only ' + percent + '% complete. It is overdue and blocking downstream work.';
-        } else if (percent < expectedPercent) {
+        } else if (percent < rawExpected) {
             status = 'Behind Schedule';
             bgClass = 'rag-amber';
             const gap = expectedPercent - percent;
