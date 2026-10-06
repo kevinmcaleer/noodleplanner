@@ -506,6 +506,112 @@ function unlinkProgrammeBenefit(slug, projectId, benefitItemId) {
     if (programme) loadProgrammeDashboardData(programme);
 }
 
+/**
+ * Extract one project's budget items from its plan text (#738). Reuses
+ * extractBudgetItemsFromPlanText() (script.js), the same parser the
+ * single-project Budget view uses, so a programme total can never
+ * disagree with the project's own table.
+ */
+function extractProgrammeBudgetItems(planText) {
+    if (!planText || typeof extractBudgetItemsFromPlanText !== 'function') return [];
+    return extractBudgetItemsFromPlanText(planText) || [];
+}
+
+/**
+ * Roll member-project budgets up against the programme's funding envelope
+ * (#738). `budgetByProject` is [{ projectId, projectName, items }] where
+ * items carry numeric `estimate`, `forecast` and `total` (spend to date).
+ * `envelope` is the programme-level funding figure, or null/undefined when
+ * none has been set -- then there is no headroom to report, not zero.
+ * Headroom is envelope - forecast, so a negative figure means the
+ * programme is forecast to overspend its funding. Budgets carry no
+ * currency, so everything is summed as plain numbers.
+ */
+function computeProgrammeFinance(budgetByProject, envelope) {
+    const projects = (budgetByProject || []).map((p) => {
+        const sum = (key) => (p.items || []).reduce((s, it) => s + (Number(it && it[key]) || 0), 0);
+        return {
+            projectId: p.projectId,
+            projectName: p.projectName,
+            estimate: sum('estimate'),
+            forecast: sum('forecast'),
+            spent: sum('total'),
+        };
+    });
+    const total = (key) => projects.reduce((s, p) => s + p[key], 0);
+    const hasEnvelope = envelope !== null && envelope !== undefined && envelope !== '' && Number.isFinite(Number(envelope));
+    const env = hasEnvelope ? Number(envelope) : null;
+    const forecast = total('forecast');
+    return {
+        projects,
+        estimate: total('estimate'),
+        forecast,
+        spent: total('spent'),
+        envelope: env,
+        headroom: hasEnvelope ? env - forecast : null,
+        overspend: hasEnvelope && forecast > env,
+    };
+}
+
+function formatProgrammeMoney(value, currency) {
+    const n = Number(value) || 0;
+    return (currency || '') + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Render the Finance dashboard section (#738) into #programmeFinance. */
+function renderProgrammeFinance(finance, slug) {
+    const el = document.getElementById('programmeFinance');
+    if (!el) return;
+    const data = (typeof getProgrammeData === 'function') ? (getProgrammeData(slug) || {}) : {};
+    const funding = data.funding || {};
+    const cur = funding.currency || '';
+    const slugAttr = escapeJsAttr(slug);
+
+    const headroomLabel = finance.headroom === null ? '—'
+        : (finance.headroom < 0 ? '−' : '') + formatProgrammeMoney(Math.abs(finance.headroom), cur);
+    let html = '<div class="programme-form-row">' +
+        '<label for="programmeEnvelopeInput">Funding envelope</label>' +
+        `<input type="number" id="programmeEnvelopeInput" class="form-control" min="0" step="any" ` +
+        `placeholder="Total programme funding" value="${funding.envelope == null ? '' : escapeHtml(String(funding.envelope))}" ` +
+        `onchange="saveProgrammeFunding('${slugAttr}')">` +
+        '<label for="programmeCurrencyInput">Currency symbol</label>' +
+        `<input type="text" id="programmeCurrencyInput" class="form-control" maxlength="4" placeholder="£" ` +
+        `value="${escapeHtml(cur)}" onchange="saveProgrammeFunding('${slugAttr}')">` +
+        '</div>';
+
+    html += '<div class="programme-resourcing-summary">' +
+        `<div class="programme-resourcing-summary-item"><span class="programme-stat-label">Estimate</span><span class="programme-resourcing-summary-value">${formatProgrammeMoney(finance.estimate, cur)}</span></div>` +
+        `<div class="programme-resourcing-summary-item"><span class="programme-stat-label">Forecast</span><span class="programme-resourcing-summary-value">${formatProgrammeMoney(finance.forecast, cur)}</span></div>` +
+        `<div class="programme-resourcing-summary-item"><span class="programme-stat-label">Spent</span><span class="programme-resourcing-summary-value">${formatProgrammeMoney(finance.spent, cur)}</span></div>` +
+        `<div class="programme-resourcing-summary-item"><span class="programme-stat-label">Headroom</span><span class="programme-resourcing-summary-value${finance.overspend ? ' programme-resourcing-summary-value--warn' : ''}">${headroomLabel}</span></div>` +
+        '</div>';
+
+    if (finance.projects.every((p) => p.estimate === 0 && p.forecast === 0 && p.spent === 0)) {
+        html += '<np-empty-state>No budget items found across this programme\'s member projects.</np-empty-state>';
+    } else {
+        html += '<div class="programme-resourcing-table-wrapper"><table class="programme-resourcing-table">' +
+            '<thead><tr><th scope="col">Project</th><th scope="col">Estimate</th><th scope="col">Forecast</th><th scope="col">Spent</th></tr></thead><tbody>' +
+            finance.projects.map((p) => '<tr>' +
+                `<td class="programme-resourcing-name">${escapeHtml(p.projectName)}</td>` +
+                `<td>${formatProgrammeMoney(p.estimate, cur)}</td>` +
+                `<td>${formatProgrammeMoney(p.forecast, cur)}</td>` +
+                `<td>${formatProgrammeMoney(p.spent, cur)}</td></tr>`).join('') +
+            '</tbody></table></div>';
+    }
+    el.innerHTML = html;
+}
+
+/** Save the envelope + currency inputs; clearing both drops the funding slice. */
+function saveProgrammeFunding(slug) {
+    if (typeof setProgrammeData !== 'function') return;
+    const envRaw = document.getElementById('programmeEnvelopeInput').value.trim();
+    const currency = document.getElementById('programmeCurrencyInput').value.trim();
+    const envelope = envRaw === '' || !Number.isFinite(Number(envRaw)) || Number(envRaw) < 0 ? null : Number(envRaw);
+    setProgrammeData(slug, { funding: (envelope === null && !currency) ? null : { envelope, currency } });
+    const programme = getCurrentPortfolioProgramme();
+    if (programme) loadProgrammeDashboardData(programme);
+}
+
 /** Map an array of {id, rag} entries to {[id]: rag} for cheap lookups while rendering. */
 function ragById(projectRags) {
     const map = {};
@@ -891,6 +997,14 @@ async function loadProgrammeDashboardData(programme) {
     renderProgrammeDependencyBoard(scopedDeps, dependencyPropagation);
     renderProgrammeResourcing(resourceDemand);
     renderProgrammeBenefitsRealisation(outcomeContributions, programme.slug);
+
+    const budgetByProject = relevant.map(({ project }) => ({
+        projectId: project.id,
+        projectName: project.name,
+        items: extractProgrammeBudgetItems(project.planText || ''),
+    }));
+    const funding = programmeData.funding || {};
+    renderProgrammeFinance(computeProgrammeFinance(budgetByProject, funding.envelope), programme.slug);
 }
 
 /**
@@ -911,6 +1025,7 @@ function renderProgrammeView() {
     const depsEl = document.getElementById('programmeDependencies');
     const resourcingEl = document.getElementById('programmeResourcing');
     const benefitsEl = document.getElementById('programmeBenefitsRealisation');
+    const financeEl = document.getElementById('programmeFinance');
     if (!titleEl || !gridEl) return;
 
     const programme = getCurrentPortfolioProgramme();
@@ -927,6 +1042,7 @@ function renderProgrammeView() {
         if (depsEl) depsEl.innerHTML = '';
         if (resourcingEl) resourcingEl.innerHTML = '';
         if (benefitsEl) benefitsEl.innerHTML = '';
+        if (financeEl) financeEl.innerHTML = '';
         return;
     }
 
@@ -944,6 +1060,7 @@ function renderProgrammeView() {
         if (depsEl) depsEl.innerHTML = '';
         if (resourcingEl) resourcingEl.innerHTML = '';
         if (benefitsEl) benefitsEl.innerHTML = '';
+        if (financeEl) financeEl.innerHTML = '';
         return;
     }
 
@@ -953,6 +1070,7 @@ function renderProgrammeView() {
     if (depsEl) depsEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
     if (resourcingEl) resourcingEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
     if (benefitsEl) benefitsEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
+    if (financeEl) financeEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
 
     renderProgrammeMemberGrid(programme, {});
     loadProgrammeDashboardData(programme);
@@ -1024,5 +1142,6 @@ if (typeof module !== 'undefined' && module.exports) {
         filterDependenciesForProgramme,
         aggregateProgrammeResourceDemand,
         computeOutcomeContributions,
+        computeProgrammeFinance,
     };
 }
