@@ -336,7 +336,8 @@
     margin-top: var(--np-space-12);
 }
 
-.programme-outcome-add input {
+.programme-outcome-add input,
+.programme-outcome-add select {
     flex: 1 1 160px;
 }
 

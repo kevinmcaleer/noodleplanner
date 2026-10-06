@@ -342,6 +342,99 @@ function deleteProgrammeOutcomeConfirm(slug, outcomeId) {
     refreshProgrammeOwnedDataView();
 }
 
+// ── Stakeholder register and engagement map (#740) ──────────────────────
+
+const STAKEHOLDER_QUADRANTS = [
+    { key: 'manage-closely', label: 'Manage closely', hint: 'High influence, high interest' },
+    { key: 'keep-satisfied', label: 'Keep satisfied', hint: 'High influence, lower interest' },
+    { key: 'keep-informed', label: 'Keep informed', hint: 'Lower influence, high interest' },
+    { key: 'monitor', label: 'Monitor', hint: 'Lower influence, lower interest' },
+];
+
+/** Group stakeholders by engagement quadrant, in STAKEHOLDER_QUADRANTS order. Pure/testable. */
+function groupStakeholdersByQuadrant(stakeholders) {
+    const groups = STAKEHOLDER_QUADRANTS.map((q) => Object.assign({}, q, { stakeholders: [] }));
+    (stakeholders || []).forEach((s) => {
+        const key = stakeholderQuadrant(s);
+        groups.find((g) => g.key === key).stakeholders.push(s);
+    });
+    return groups;
+}
+
+function stakeholderLevelOptions(selected) {
+    return STAKEHOLDER_LEVELS.map((l) =>
+        `<option value="${l}"${l === selected ? ' selected' : ''}>${l.charAt(0).toUpperCase() + l.slice(1)}</option>`).join('');
+}
+
+/** Render the Stakeholders section (#740) into #programmeStakeholders. */
+function renderProgrammeStakeholders(programme) {
+    const el = document.getElementById('programmeStakeholders');
+    if (!el) return;
+    const data = (typeof getProgrammeData === 'function') ? (getProgrammeData(programme.slug) || {}) : {};
+    const stakeholders = data.stakeholders || [];
+    const slugAttr = escapeJsAttr(programme.slug);
+
+    let html = '';
+    if (stakeholders.length === 0) {
+        html += '<np-empty-state>No stakeholders recorded yet. Add the people and groups this programme depends on or affects.</np-empty-state>';
+    } else {
+        html += '<div class="programme-resourcing-summary">' +
+            groupStakeholdersByQuadrant(stakeholders).map((g) =>
+                '<div class="programme-resourcing-summary-item">' +
+                `<span class="programme-stat-label" title="${escapeHtml(g.hint)}">${escapeHtml(g.label)}</span>` +
+                `<span class="programme-resourcing-summary-value">${g.stakeholders.length}</span></div>`).join('') +
+            '</div>';
+        html += '<div class="programme-resourcing-table-wrapper"><table class="programme-resourcing-table">' +
+            '<thead><tr><th scope="col">Name</th><th scope="col">Role</th><th scope="col">Organisation</th>' +
+            '<th scope="col">Influence</th><th scope="col">Interest</th><th scope="col">Engagement</th><th scope="col">Notes</th><th scope="col"></th></tr></thead><tbody>' +
+            stakeholders.map((s) => {
+                const quadrant = STAKEHOLDER_QUADRANTS.find((q) => q.key === stakeholderQuadrant(s));
+                return '<tr>' +
+                    `<td class="programme-resourcing-name">${escapeHtml(s.name)}</td>` +
+                    `<td>${escapeHtml(s.role)}</td><td>${escapeHtml(s.organisation)}</td>` +
+                    `<td>${escapeHtml(s.influence)}</td><td>${escapeHtml(s.interest)}</td>` +
+                    `<td>${escapeHtml(quadrant.label)}</td><td>${escapeHtml(s.notes)}</td>` +
+                    `<td><button type="button" class="btn-danger btn-sm" onclick="deleteProgrammeStakeholderConfirm('${slugAttr}', ${s.id})" aria-label="Delete stakeholder ${escapeHtml(s.name)}">Delete</button></td>` +
+                    '</tr>';
+            }).join('') + '</tbody></table></div>';
+    }
+
+    html += `<form class="programme-outcome-add" onsubmit="submitAddProgrammeStakeholder(event, '${slugAttr}')">` +
+        '<input type="text" id="programmeStakeholderName" class="form-control" maxlength="200" placeholder="Name" aria-label="Stakeholder name" required>' +
+        '<input type="text" id="programmeStakeholderRole" class="form-control" maxlength="200" placeholder="Role" aria-label="Role">' +
+        '<input type="text" id="programmeStakeholderOrg" class="form-control" maxlength="200" placeholder="Organisation" aria-label="Organisation">' +
+        `<select id="programmeStakeholderInfluence" class="form-control" aria-label="Influence">${stakeholderLevelOptions('medium')}</select>` +
+        `<select id="programmeStakeholderInterest" class="form-control" aria-label="Interest">${stakeholderLevelOptions('medium')}</select>` +
+        '<input type="text" id="programmeStakeholderNotes" class="form-control" maxlength="500" placeholder="Notes (optional)" aria-label="Notes">' +
+        '<button type="submit" class="btn-secondary btn-sm">Add Stakeholder</button>' +
+        '</form>';
+    el.innerHTML = html;
+}
+
+function submitAddProgrammeStakeholder(event, slug) {
+    event.preventDefault();
+    const val = (id) => { const e = document.getElementById(id); return e ? e.value : ''; };
+    if (typeof addProgrammeStakeholder === 'function') {
+        addProgrammeStakeholder(slug, {
+            name: val('programmeStakeholderName'),
+            role: val('programmeStakeholderRole'),
+            organisation: val('programmeStakeholderOrg'),
+            influence: val('programmeStakeholderInfluence'),
+            interest: val('programmeStakeholderInterest'),
+            notes: val('programmeStakeholderNotes'),
+        });
+    }
+    const programme = getCurrentPortfolioProgramme();
+    if (programme) renderProgrammeStakeholders(programme);
+}
+
+function deleteProgrammeStakeholderConfirm(slug, stakeholderId) {
+    if (!confirm('Delete this stakeholder?')) return;
+    if (typeof deleteProgrammeStakeholder === 'function') deleteProgrammeStakeholder(slug, stakeholderId);
+    const programme = getCurrentPortfolioProgramme();
+    if (programme) renderProgrammeStakeholders(programme);
+}
+
 // ── Benefits realisation rollup (#735) ──────────────────────────────────
 
 /**
@@ -1036,6 +1129,8 @@ function renderProgrammeView() {
         }
         gridEl.innerHTML = '';
         if (sroVisionEl) sroVisionEl.innerHTML = '';
+        const stakeholdersEl = document.getElementById('programmeStakeholders');
+        if (stakeholdersEl) stakeholdersEl.innerHTML = '';
         if (tilesEl) tilesEl.innerHTML = '';
         if (milestonesEl) milestonesEl.innerHTML = '';
         if (escalatedEl) escalatedEl.innerHTML = '';
@@ -1050,6 +1145,7 @@ function renderProgrammeView() {
     const count = programme.projects.length;
     if (metaEl) metaEl.textContent = `${count} project${count === 1 ? '' : 's'} in this programme`;
     renderProgrammeSroVision(programme);
+    renderProgrammeStakeholders(programme);
 
     if (count === 0) {
         gridEl.innerHTML = '<np-empty-state variant="card" heading="No projects yet">' +
@@ -1143,5 +1239,6 @@ if (typeof module !== 'undefined' && module.exports) {
         aggregateProgrammeResourceDemand,
         computeOutcomeContributions,
         computeProgrammeFinance,
+        groupStakeholdersByQuadrant,
     };
 }

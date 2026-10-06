@@ -217,6 +217,84 @@ function unlinkBenefitFromOutcome(slug, projectId, benefitItemId) {
     return true;
 }
 
+// ---------------------------------------------------------------------
+// Stakeholder register (#740)
+//
+// Programme stakeholders aren't the union of the member projects' ones, so
+// the register is programme-owned data: a `stakeholders` slice of the
+// programme's record. Influence and interest are rated low/medium/high and
+// place the stakeholder on the engagement map (stakeholderQuadrant()).
+// ---------------------------------------------------------------------
+
+const STAKEHOLDER_LEVELS = ['low', 'medium', 'high'];
+
+function normaliseStakeholderLevel(value) {
+    const v = String(value == null ? '' : value).toLowerCase();
+    return STAKEHOLDER_LEVELS.indexOf(v) === -1 ? 'medium' : v;
+}
+
+/**
+ * Where a stakeholder sits on the power/interest engagement map. Medium
+ * counts as the low side only for the "monitor" corner: a stakeholder is
+ * "high" on an axis only when rated high.
+ */
+function stakeholderQuadrant(stakeholder) {
+    const highInfluence = normaliseStakeholderLevel(stakeholder && stakeholder.influence) === 'high';
+    const highInterest = normaliseStakeholderLevel(stakeholder && stakeholder.interest) === 'high';
+    if (highInfluence && highInterest) return 'manage-closely';
+    if (highInfluence) return 'keep-satisfied';
+    if (highInterest) return 'keep-informed';
+    return 'monitor';
+}
+
+function cleanStakeholderFields(fields) {
+    const f = fields || {};
+    return {
+        name: String(f.name || '').trim(),
+        role: String(f.role || '').trim(),
+        organisation: String(f.organisation || '').trim(),
+        influence: normaliseStakeholderLevel(f.influence),
+        interest: normaliseStakeholderLevel(f.interest),
+        notes: String(f.notes || '').trim(),
+    };
+}
+
+/** Add a stakeholder, generating an id unique within this programme. */
+function addProgrammeStakeholder(slug, fields) {
+    const clean = cleanStakeholderFields(fields);
+    if (!slug || !clean.name) return null;
+    const data = getProgrammeData(slug) || {};
+    const stakeholders = (data.stakeholders || []).slice();
+    const nextId = stakeholders.reduce((max, s) => Math.max(max, s.id || 0), 0) + 1;
+    const record = Object.assign({ id: nextId }, clean);
+    stakeholders.push(record);
+    setProgrammeData(slug, { stakeholders: stakeholders });
+    return record;
+}
+
+function updateProgrammeStakeholder(slug, stakeholderId, fields) {
+    const data = getProgrammeData(slug);
+    if (!data || !Array.isArray(data.stakeholders)) return null;
+    const idx = data.stakeholders.findIndex((s) => s.id === stakeholderId);
+    if (idx === -1) return null;
+    const clean = cleanStakeholderFields(Object.assign({}, data.stakeholders[idx], fields));
+    if (!clean.name) return null;
+    const stakeholders = data.stakeholders.slice();
+    stakeholders[idx] = Object.assign({ id: stakeholderId }, clean);
+    setProgrammeData(slug, { stakeholders: stakeholders });
+    return stakeholders[idx];
+}
+
+/** Delete a stakeholder; the slice is dropped when the last one goes, so no empty register lingers. */
+function deleteProgrammeStakeholder(slug, stakeholderId) {
+    const data = getProgrammeData(slug);
+    if (!data || !Array.isArray(data.stakeholders)) return false;
+    const stakeholders = data.stakeholders.filter((s) => s.id !== stakeholderId);
+    if (stakeholders.length === data.stakeholders.length) return false;
+    setProgrammeData(slug, { stakeholders: stakeholders.length ? stakeholders : null });
+    return true;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         PROGRAMME_DATA_KEY,
@@ -231,5 +309,9 @@ if (typeof module !== 'undefined' && module.exports) {
         deleteProgrammeOutcome,
         linkBenefitToOutcome,
         unlinkBenefitFromOutcome,
+        stakeholderQuadrant,
+        addProgrammeStakeholder,
+        updateProgrammeStakeholder,
+        deleteProgrammeStakeholder,
     };
 }
