@@ -190,7 +190,7 @@ const DELIBERATE_STUBS = new Set([
   // every button in it is intentionally a stub rather than the ribbon
   // pretending programme features exist. See ribbon-ia.js's PROGRAMME_TABS
   // comment for the full reasoning.
-  "Programme View", "Cross-Project Links", "Shared Capacity",
+  "Cross-Project Links", "Shared Capacity",
 ]);
 
 test("every button label is either resolvable, a link button, or an explicit, reviewed stub", () => {

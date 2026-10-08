@@ -8760,7 +8760,6 @@ button.ribbon-breadcrumb-rung:hover {
 .project-drag-handle {
     display: inline-flex;
     align-items: center;
-    margin-right: var(--np-space-8);
     color: var(--np-text-muted);
     cursor: grab;
     vertical-align: middle;

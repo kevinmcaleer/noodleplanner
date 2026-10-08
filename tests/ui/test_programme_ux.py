@@ -163,3 +163,20 @@ def test_programme_view_ribbon_button_opens_the_programme_with_its_plans(page, a
     assert "isn't available yet" not in page.locator("body").inner_text()
     assert page.locator("#programmeViewTitle").inner_text() == "Estate Renewal"
     assert page.locator("#programmeViewProjects", has_text="Alpha").count() == 1
+
+
+def test_drag_handle_comes_before_the_checkbox_with_room_between(page, app_server):
+    open_app(page, app_server)
+    _new_project(page, "Alpha")
+    click_scope(page, "portfolio")
+    page.wait_for_selector(".project-table-row .project-drag-handle")
+    box = page.evaluate(
+        """() => {
+            const row = document.querySelector('.project-table-row');
+            const h = row.querySelector('.project-drag-handle').getBoundingClientRect();
+            const c = row.querySelector('.project-select-checkbox').getBoundingClientRect();
+            return {handleRight: h.right, checkLeft: c.left, handleLeft: h.left};
+        }"""
+    )
+    assert box["handleLeft"] < box["checkLeft"]
+    assert box["checkLeft"] - box["handleRight"] >= 8, box

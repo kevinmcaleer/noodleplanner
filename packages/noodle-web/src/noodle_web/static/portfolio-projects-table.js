@@ -705,8 +705,8 @@ function portfolioPlanRowHtml(project, opts) {
     let html = `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" data-plan-type="${project.planType || 'project'}"` +
         `${opts.child ? ` data-parent-programme="${escapeHtml(project.programme.slug)}"` : ''} onclick="handleProjectRowClick(event, '${project.id}')">`;
     html += `<td class="project-select-cell" onclick="event.stopPropagation()">` +
-        projectDragHandleHtml(project.id, project.name) +
-        `<input type="checkbox" class="project-select-checkbox" onclick="handleProjectCheckboxClick(event, '${project.id}')"></td>`;
+        '<span class="project-select-inner">' + projectDragHandleHtml(project.id, project.name) +
+        `<input type="checkbox" class="project-select-checkbox" onclick="handleProjectCheckboxClick(event, '${project.id}')"></span></td>`;
     html += `<td class="project-name-cell" ondblclick="event.stopPropagation(); startInlineRename('${project.id}', this)">`;
     if (project.isActive) {
         html += `<span class="active-indicator">●</span> `;
