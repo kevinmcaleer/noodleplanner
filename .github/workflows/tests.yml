@@ -109,6 +109,13 @@ jobs:
         shard: [1, 2, 3, 4]
     env:
       NOODLE_UI_SHARD: ${{ matrix.shard }}/4
+      # Each shard runs one xdist worker per core, each with its own Chromium,
+      # so a wait that takes 1s on a laptop can take well over 5s here. Every
+      # first-run failure so far has been a single wait or a wall-clock budget
+      # missed in a different test each time; both pass on re-run. Longer
+      # timeouts cost nothing when tests pass.
+      NOODLE_UI_TIMEOUT_MS: "20000"
+      NOODLE_UI_PERF_SCALE: "3"
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
