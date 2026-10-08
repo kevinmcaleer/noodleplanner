@@ -292,6 +292,13 @@
                     });
                 });
                 row.appendChild(estimateBtn);
+            } else if (rowState.isDraft && typeof EstimatingTool !== 'undefined') {
+                // Keep the draft input the same width as the task rows' by
+                // reserving the (invisible) estimate button's slot.
+                const spacer = document.createElement('span');
+                spacer.className = 'notepad-estimate-btn notepad-estimate-btn--spacer';
+                spacer.setAttribute('aria-hidden', 'true');
+                row.appendChild(spacer);
             }
 
             input.addEventListener('focus', () => { lastFocusedInput = input; });
