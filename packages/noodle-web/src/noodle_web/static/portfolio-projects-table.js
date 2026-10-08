@@ -206,7 +206,37 @@ function deriveProgrammes(projects) {
         bySlug[programme.slug].projects.push(project);
     });
 
+    // A programme created from the ribbon's New Programme button has no
+    // members yet (#1491), so no project names it: it is recorded in the
+    // programme data store with a `declaredName` and merged in here, which
+    // also keeps the delete-when-last-member-leaves hooks from discarding it.
+    if (typeof getAllProgrammeData === 'function') {
+        const stored = getAllProgrammeData();
+        Object.keys(stored).forEach(slug => {
+            const record = stored[slug];
+            if (bySlug[slug] || !record || !record.declaredName) return;
+            bySlug[slug] = { slug, name: record.declaredName, projects: [] };
+            order.push(slug);
+        });
+    }
+
     return order.map(slug => bySlug[slug]);
+}
+
+/**
+ * Create an empty programme (#1491). Returns { ok, slug, name } or
+ * { ok: false, error } when the name is empty or already taken.
+ */
+function createProgramme(name) {
+    const trimmed = (name || '').trim();
+    const slug = slugify(trimmed);
+    if (!slug) return { ok: false, error: 'Enter a programme name.' };
+    const projects = (typeof loadAllProjectsIntoCache === 'function') ? loadAllProjectsIntoCache() : listProjects();
+    if (deriveProgrammes(projects).some(p => p.slug === slug)) {
+        return { ok: false, error: 'A programme with that name already exists.' };
+    }
+    setProgrammeData(slug, { declaredName: trimmed });
+    return { ok: true, slug, name: trimmed };
 }
 
 /**
@@ -552,7 +582,7 @@ function renderProjectsTable() {
     // Sort by project name by default
     tableData.sort((a, b) => a.name.localeCompare(b.name));
 
-    let html = planTypeFilterBarHtml(tableData);
+    let html = planTypeFilterBarHtml(tableData) + programmeDropStripHtml();
     html += '<div class="portfolio-table-container">';
     // Cards on a phone (#1387): np-responsive-table.js.
     html += '<np-responsive-table priorities=\'{"Project Name":"primary","Status":"1","Finish Date":"2","Project Manager":"3"}\'><table class="portfolio-projects-table">';
@@ -595,6 +625,7 @@ function renderProjectsTable() {
 
         html += `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" data-plan-type="${project.planType || 'project'}" onclick="handleProjectRowClick(event, '${project.id}')">`;
         html += `<td class="project-select-cell" onclick="event.stopPropagation()">` +
+            projectDragHandleHtml(project.id, project.name) +
             `<input type="checkbox" class="project-select-checkbox" onclick="handleProjectCheckboxClick(event, '${project.id}')"></td>`;
         html += `<td class="project-name-cell" ondblclick="event.stopPropagation(); startInlineRename('${project.id}', this)">`;
         if (project.isActive) {
@@ -691,7 +722,7 @@ function renderSortedTable(tableData) {
     // the selection state has to be reset to match (issue #952).
     clearProjectSelection();
 
-    let html = planTypeFilterBarHtml(tableData);
+    let html = planTypeFilterBarHtml(tableData) + programmeDropStripHtml();
     html += '<div class="portfolio-table-container">';
     // Cards on a phone (#1387): np-responsive-table.js.
     html += '<np-responsive-table priorities=\'{"Project Name":"primary","Status":"1","Finish Date":"2","Project Manager":"3"}\'><table class="portfolio-projects-table">';
@@ -749,6 +780,7 @@ function renderSortedTable(tableData) {
 
         html += `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" data-plan-type="${project.planType || 'project'}" onclick="handleProjectRowClick(event, '${project.id}')">`;
         html += `<td class="project-select-cell" onclick="event.stopPropagation()">` +
+            projectDragHandleHtml(project.id, project.name) +
             `<input type="checkbox" class="project-select-checkbox" onclick="handleProjectCheckboxClick(event, '${project.id}')"></td>`;
         html += `<td class="project-name-cell" ondblclick="event.stopPropagation(); startInlineRename('${project.id}', this)">`;
         if (project.isActive) {
@@ -1061,7 +1093,14 @@ function removeSelectedFromProgramme() {
     const ids = getSelectedProjectIds();
     const plural = ids.length === 1 ? '' : 's';
     if (!confirm(`Remove ${ids.length} project${plural} from ${ids.length === 1 ? 'its' : 'their'} programme?`)) return;
+    removeProjectsFromProgramme(ids);
+    if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
+    renderProjectsTable();
+    showNotification('Removed from programme.');
+}
 
+/** Clear the programme on `ids`, dropping the data of any programme left with no members. */
+function removeProjectsFromProgramme(ids) {
     // Note which programmes these projects belonged to before clearing
     // membership, so any left with no members afterwards can have their
     // programme-owned data (#954/#735) cleaned up rather than orphaned.
@@ -1082,10 +1121,99 @@ function removeSelectedFromProgramme() {
             if (!remainingSlugs.has(slug)) deleteProgrammeData(slug);
         });
     }
+}
 
+// ---------------------------------------------------------------------------
+// Drag handle (#1490): drag a project or initiative -- or the whole selection
+// when the dragged row is part of it -- onto a programme chip above the table
+// to join it, or onto "No programme" to leave. Membership is the same
+// `programme:` front-matter write the Group / Add to programme dialog uses.
+// HTML5 drag and drop is mouse/pen only; touch and keyboard use the selection
+// toolbar's Group into programme / Add to programme actions.
+// ---------------------------------------------------------------------------
+
+const PROGRAMME_DRAG_TYPE = 'application/x-noodle-projects';
+
+function projectDragHandleHtml(projectId, projectName) {
+    return `<span class="project-drag-handle" draggable="true" data-drag-project-id="${escapeHtml(projectId)}" ` +
+        `title="Drag onto a programme" aria-label="Drag ${escapeHtml(projectName)} onto a programme">` +
+        '<svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true">' +
+        '<circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/><circle cx="3" cy="8" r="1.5"/>' +
+        '<circle cx="9" cy="8" r="1.5"/><circle cx="3" cy="13" r="1.5"/><circle cx="9" cy="13" r="1.5"/></svg></span>';
+}
+
+function programmeDropStripHtml() {
+    if (typeof loadAllProjectsIntoCache !== 'function') return '';
+    const programmes = deriveProgrammes(loadAllProjectsIntoCache());
+    if (programmes.length === 0) return '';
+    const chip = (slug, name, count) =>
+        `<button type="button" class="programme-drop-chip" data-programme-slug="${escapeHtml(slug)}" ` +
+        `data-programme-name="${escapeHtml(name)}" title="Drop projects here to ${slug ? 'add them to' : 'remove them from'} ${slug ? escapeHtml(name) : 'their programme'}">` +
+        `${escapeHtml(name)}${count === null ? '' : ` <span class="programme-drop-count">${count}</span>`}</button>`;
+    return '<div class="programme-drop-strip" role="group" aria-label="Programmes: drop projects here">' +
+        '<span class="programme-drop-label">Drag a project onto a programme</span>' +
+        programmes.map(p => chip(p.slug, p.name, p.projects.length)).join('') +
+        chip('', 'No programme', null) +
+        '</div>';
+}
+
+/** Apply a drop: join `slug` (named `name`), or leave any programme when slug is empty. */
+function applyProgrammeDrop(ids, slug, name) {
+    if (!ids || ids.length === 0) return;
+    if (slug) {
+        persistProgrammeMembership(ids, slug, name);
+    } else {
+        removeProjectsFromProgramme(ids);
+    }
     if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
     renderProjectsTable();
-    showNotification('Removed from programme.');
+    const n = ids.length;
+    showNotification(slug ? `Added ${n} to ${name}` : `Removed ${n} from their programme`);
+}
+
+if (typeof document !== 'undefined') {
+    (function initProgrammeDragDrop() {
+        let activeStrip = null;
+        const clear = () => {
+            document.querySelectorAll('.programme-drop-chip.drop-over').forEach(c => c.classList.remove('drop-over'));
+            document.querySelectorAll('.programme-drop-strip.dragging').forEach(c => c.classList.remove('dragging'));
+            activeStrip = null;
+        };
+
+        document.addEventListener('dragstart', (e) => {
+            const handle = e.target.closest && e.target.closest('.project-drag-handle');
+            if (!handle) return;
+            const id = handle.getAttribute('data-drag-project-id');
+            const ids = selectedProjectIds.has(id) ? getSelectedProjectIds() : [id];
+            e.dataTransfer.setData(PROGRAMME_DRAG_TYPE, JSON.stringify(ids));
+            e.dataTransfer.effectAllowed = 'move';
+            const row = handle.closest('tr');
+            if (row && e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(row, 16, 16);
+            document.querySelectorAll('.programme-drop-strip').forEach(c => c.classList.add('dragging'));
+            activeStrip = true;
+        });
+        document.addEventListener('dragover', (e) => {
+            const chip = e.target.closest && e.target.closest('.programme-drop-chip');
+            if (!chip || !activeStrip) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            chip.classList.add('drop-over');
+        });
+        document.addEventListener('dragleave', (e) => {
+            const chip = e.target.closest && e.target.closest('.programme-drop-chip');
+            if (chip && !chip.contains(e.relatedTarget)) chip.classList.remove('drop-over');
+        });
+        document.addEventListener('drop', (e) => {
+            const chip = e.target.closest && e.target.closest('.programme-drop-chip');
+            if (!chip || !activeStrip) return;
+            e.preventDefault();
+            let ids = [];
+            try { ids = JSON.parse(e.dataTransfer.getData(PROGRAMME_DRAG_TYPE) || '[]'); } catch (err) { ids = []; }
+            clear();
+            applyProgrammeDrop(ids, chip.getAttribute('data-programme-slug'), chip.getAttribute('data-programme-name'));
+        });
+        document.addEventListener('dragend', clear);
+    })();
 }
 
 /**
@@ -1111,6 +1239,7 @@ function renameProgramme(oldSlug, newName) {
         typeof setProgrammeData === 'function' && typeof deleteProgrammeData === 'function') {
         const data = getProgrammeData(oldSlug);
         if (data) {
+            if (data.declaredName) data.declaredName = newName;
             setProgrammeData(newSlug, data);
             deleteProgrammeData(oldSlug);
         }
@@ -1339,6 +1468,7 @@ if (typeof module !== 'undefined' && module.exports) {
         programmeNameFromSlug,
         extractProjectProgramme,
         deriveProgrammes,
+        createProgramme,
         slugify,
         setFrontMatterField,
         removeFrontMatterField,

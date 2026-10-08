@@ -259,18 +259,95 @@ function openProjectDashboard(projectId) {
 }
 
 /**
- * Show create project dialog
+ * A small "name it" modal in the app's own dialog shell (task-form-modal,
+ * the same one the programme dialogs use), replacing the browser's native
+ * prompt() for creating a project, initiative or programme (#1493).
+ *
+ * opts: { title, label, placeholder, submitLabel, hint, validate(name) -> error|'' ,
+ *         onSubmit(name) }. Esc, a click on the backdrop and Cancel close it;
+ * Enter submits; focus lands in the field and returns to the opener on close.
  */
-function showCreateProjectDialog() {
-    const name = prompt('Enter project name:');
-    if (!name) return;
+function showNameDialog(opts) {
+    closeNameDialog();
+    const opener = document.activeElement;
+    const overlay = document.createElement('div');
+    overlay.id = 'nameDialogOverlay';
+    overlay.className = 'modal-overlay active';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'nameDialogTitle');
+    overlay.innerHTML =
+        '<div class="task-form-modal name-dialog">' +
+        '<div class="modal-header">' +
+        `<h3 id="nameDialogTitle" style="margin:0;">${escapeHtml(opts.title)}</h3>` +
+        '<np-close-button data-name-dialog-cancel></np-close-button>' +
+        '</div>' +
+        '<div class="modal-body">' +
+        '<form id="nameDialogForm" novalidate>' +
+        '<div class="form-group">' +
+        `<label for="nameDialogInput">${escapeHtml(opts.label || 'Name')}</label>` +
+        `<input type="text" id="nameDialogInput" class="form-control" maxlength="200" autocomplete="off" ` +
+        `placeholder="${escapeHtml(opts.placeholder || '')}" aria-describedby="nameDialogError">` +
+        (opts.hint ? `<small class="name-dialog-hint">${escapeHtml(opts.hint)}</small>` : '') +
+        '<div id="nameDialogError" class="name-dialog-error" role="alert" hidden></div>' +
+        '</div>' +
+        '<div class="name-dialog-actions">' +
+        '<button type="button" class="btn-secondary" data-name-dialog-cancel>Cancel</button>' +
+        `<button type="submit" class="btn-primary">${escapeHtml(opts.submitLabel || 'Create')}</button>` +
+        '</div>' +
+        '</form>' +
+        '</div>' +
+        '</div>';
+    document.body.appendChild(overlay);
 
+    const input = overlay.querySelector('#nameDialogInput');
+    const errorEl = overlay.querySelector('#nameDialogError');
+    const close = () => {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey, true);
+        if (opener && typeof opener.focus === 'function' && document.contains(opener)) opener.focus();
+    };
+    const onKey = (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay || e.target.closest('[data-name-dialog-cancel]')) close();
+    });
+    overlay.querySelector('#nameDialogForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = input.value.trim();
+        const error = !name ? 'Enter a name.' : (opts.validate ? opts.validate(name) : '');
+        if (error) {
+            errorEl.textContent = error;
+            errorEl.hidden = false;
+            input.setAttribute('aria-invalid', 'true');
+            input.focus();
+            return;
+        }
+        close();
+        opts.onSubmit(name);
+    });
+    input.addEventListener('input', () => {
+        errorEl.hidden = true;
+        input.removeAttribute('aria-invalid');
+    });
+    input.focus();
+}
+
+function closeNameDialog() {
+    const overlay = document.getElementById('nameDialogOverlay');
+    if (overlay) overlay.remove();
+}
+
+/** Create a project/initiative from `name` and switch to it (shared tail of both dialogs). */
+function _createAndOpenProject(name, planText, noun) {
     // Save current project state before creating/switching
     if (typeof saveCurrentProjectState === 'function') {
         saveCurrentProjectState();
     }
 
-    const project = createProject(name);
+    const project = createProject(name, planText);
     if (project) {
         // Load the new (empty) project into the editor so old plan text is cleared
         if (typeof loadProjectIntoEditor === 'function') {
@@ -284,8 +361,21 @@ function showCreateProjectDialog() {
         if (typeof renderProjectsTable === 'function') {
             renderProjectsTable();
         }
-        showNotification('Project created: ' + project.name);
+        showNotification(noun + ' created: ' + project.name);
     }
+}
+
+/**
+ * Show create project dialog
+ */
+function showCreateProjectDialog() {
+    showNameDialog({
+        title: 'New Project',
+        label: 'Project name',
+        placeholder: 'e.g. Website relaunch',
+        submitLabel: 'Create project',
+        onSubmit: (name) => _createAndOpenProject(name, undefined, 'Project'),
+    });
 }
 
 /**
@@ -293,28 +383,44 @@ function showCreateProjectDialog() {
  * with the minimal initiative template (`type: initiative`, a task list).
  */
 function showCreateInitiativeDialog() {
-    const name = prompt('Enter initiative name:');
-    if (!name) return;
+    showNameDialog({
+        title: 'New Initiative',
+        label: 'Initiative name',
+        placeholder: 'e.g. Reduce onboarding time',
+        submitLabel: 'Create initiative',
+        onSubmit: (name) => _createAndOpenProject(name, buildInitiativeTemplate(name), 'Initiative'),
+    });
+}
 
-    if (typeof saveCurrentProjectState === 'function') {
-        saveCurrentProjectState();
-    }
-
-    const project = createProject(name, buildInitiativeTemplate(name));
-    if (project) {
-        if (typeof loadProjectIntoEditor === 'function') {
-            loadProjectIntoEditor(project.id);
-        }
-
-        renderProjectsList();
-        if (typeof refreshProjectSelectors === 'function') {
-            refreshProjectSelectors();
-        }
-        if (typeof renderProjectsTable === 'function') {
-            renderProjectsTable();
-        }
-        showNotification('Initiative created: ' + project.name);
-    }
+/**
+ * Show create programme dialog (#1491). A programme created here starts
+ * empty (see createProgramme in portfolio-projects-table.js); projects and
+ * initiatives join it by drag handle or the Group into programme action.
+ */
+function showCreateProgrammeDialog() {
+    showNameDialog({
+        title: 'New Programme',
+        label: 'Programme name',
+        placeholder: 'e.g. Digital Transformation',
+        submitLabel: 'Create programme',
+        hint: 'Add projects and initiatives to it afterwards from the Projects view.',
+        validate: (name) => {
+            const slug = slugify(name);
+            if (!slug) return 'Use letters or numbers in the name.';
+            const projects = (typeof loadAllProjectsIntoCache === 'function') ? loadAllProjectsIntoCache() : listProjects();
+            return deriveProgrammes(projects).some((p) => p.slug === slug)
+                ? 'A programme with that name already exists.' : '';
+        },
+        onSubmit: (name) => {
+            const result = createProgramme(name);
+            if (!result.ok) { showNotification(result.error); return; }
+            if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
+            if (typeof switchToView === 'function') switchToView('portfolio');
+            if (typeof switchPortfolioView === 'function') switchPortfolioView('projects');
+            if (typeof renderProjectsTable === 'function') renderProjectsTable();
+            showNotification('Programme created: ' + result.name);
+        },
+    });
 }
 
 /**
