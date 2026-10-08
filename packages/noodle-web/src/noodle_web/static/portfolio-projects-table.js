@@ -414,11 +414,82 @@ function planTypeFilterBarHtml(tableData) {
         '</select></label></div>';
 }
 
+/**
+ * Pagination (#1494). Projects live in the browser-local store, so paging is
+ * client-side: sort and filter run over every project, only the current page
+ * of rows is rendered. The pager stays out of sight until there is more than
+ * the smallest page's worth of plans.
+ */
+const PORTFOLIO_PAGE_SIZES = [10, 25, 50, 100];
+const PORTFOLIO_DEFAULT_PAGE_SIZE = 25;
+const PORTFOLIO_PAGE_SIZE_KEY = 'noodleplanner_portfolio_page_size';
+
+function getPortfolioPageSize() {
+    try {
+        const stored = parseInt(localStorage.getItem(PORTFOLIO_PAGE_SIZE_KEY), 10);
+        if (PORTFOLIO_PAGE_SIZES.indexOf(stored) !== -1) return stored;
+    } catch (e) { /* no localStorage */ }
+    return PORTFOLIO_DEFAULT_PAGE_SIZE;
+}
+
+/** The rows for one page, with the page clamped into range. */
+function paginateProjects(rows, page, pageSize) {
+    const total = rows.length;
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const current = Math.min(Math.max(1, parseInt(page, 10) || 1), pages);
+    const start = (current - 1) * pageSize;
+    return {
+        rows: rows.slice(start, start + pageSize),
+        page: current,
+        pages: pages,
+        total: total,
+        from: total === 0 ? 0 : start + 1,
+        to: Math.min(start + pageSize, total),
+    };
+}
+
+/** Rows that pass the All / Projects / Initiatives filter. */
+function filterProjectsByPlanType(rows) {
+    const container = typeof document !== 'undefined' ? document.getElementById('portfolioProjectsList') : null;
+    const filter = container && container.getAttribute('data-type-filter');
+    return filter ? rows.filter(r => (r.planType || 'project') === filter) : rows;
+}
+
+function portfolioPagerHtml(info, pageSize) {
+    if (info.total <= PORTFOLIO_PAGE_SIZES[0]) return '';
+    const sizeOptions = PORTFOLIO_PAGE_SIZES.map(n =>
+        `<option value="${n}"${n === pageSize ? ' selected' : ''}>${n}</option>`).join('');
+    return '<nav class="portfolio-pager" aria-label="Projects pagination">' +
+        `<span class="portfolio-pager-summary" aria-live="polite">Showing ${info.from}–${info.to} of ${info.total}</span>` +
+        '<label class="portfolio-pager-size">Per page ' +
+        `<select aria-label="Projects per page" onchange="setPortfolioPageSize(this.value)">${sizeOptions}</select></label>` +
+        '<span class="portfolio-pager-nav">' +
+        `<button type="button" class="btn-secondary portfolio-pager-prev" onclick="goToPortfolioPage(${info.page - 1})"${info.page <= 1 ? ' disabled' : ''}>Previous</button>` +
+        `<span class="portfolio-pager-page">Page ${info.page} of ${info.pages}</span>` +
+        `<button type="button" class="btn-secondary portfolio-pager-next" onclick="goToPortfolioPage(${info.page + 1})"${info.page >= info.pages ? ' disabled' : ''}>Next</button>` +
+        '</span></nav>';
+}
+
+function goToPortfolioPage(page) {
+    window.portfolioPage = page;
+    if (window.portfolioTableData) renderSortedTable(window.portfolioTableData);
+}
+
+function setPortfolioPageSize(value) {
+    const size = parseInt(value, 10);
+    if (PORTFOLIO_PAGE_SIZES.indexOf(size) === -1) return;
+    try { localStorage.setItem(PORTFOLIO_PAGE_SIZE_KEY, String(size)); } catch (e) { /* not remembered */ }
+    window.portfolioPage = 1;
+    if (window.portfolioTableData) renderSortedTable(window.portfolioTableData);
+}
+
 function setPlanTypeFilter(value) {
     const container = document.getElementById('portfolioProjectsList');
     if (!container) return;
     if (value === 'project' || value === 'initiative') container.setAttribute('data-type-filter', value);
     else container.removeAttribute('data-type-filter');
+    window.portfolioPage = 1;
+    if (window.portfolioTableData) renderSortedTable(window.portfolioTableData);
 }
 
 function renderProjectsTable() {
@@ -499,7 +570,11 @@ function renderProjectsTable() {
     html += '</thead>';
     html += '<tbody>';
 
-    tableData.forEach(project => {
+    const pageSize = getPortfolioPageSize();
+    const pageInfo = paginateProjects(filterProjectsByPlanType(tableData), window.portfolioPage, pageSize);
+    window.portfolioPage = pageInfo.page;
+
+    pageInfo.rows.forEach(project => {
         const rowClass = project.isActive ? 'active-project-row' : '';
         const statusBadge = getStatusBadgeClass(project.status);
 
@@ -547,6 +622,7 @@ function renderProjectsTable() {
     html += '</tbody>';
     html += '</table></np-responsive-table>';
     html += '</div>';
+    html += portfolioPagerHtml(pageInfo, pageSize);
 
     container.innerHTML = html;
 
@@ -596,6 +672,7 @@ function sortProjectsTable(column) {
 
     window.portfolioTableSortColumn = column;
     window.portfolioTableSortDirection = direction;
+    window.portfolioPage = 1;
 
     // Re-render table with sorted data
     renderSortedTable(tableData);
@@ -647,7 +724,11 @@ function renderSortedTable(tableData) {
     html += '</thead>';
     html += '<tbody>';
 
-    tableData.forEach(project => {
+    const pageSize = getPortfolioPageSize();
+    const pageInfo = paginateProjects(filterProjectsByPlanType(tableData), window.portfolioPage, pageSize);
+    window.portfolioPage = pageInfo.page;
+
+    pageInfo.rows.forEach(project => {
         const rowClass = project.isActive ? 'active-project-row' : '';
         const statusBadge = getStatusBadgeClass(project.status);
 
@@ -695,6 +776,7 @@ function renderSortedTable(tableData) {
     html += '</tbody>';
     html += '</table></np-responsive-table>';
     html += '</div>';
+    html += portfolioPagerHtml(pageInfo, pageSize);
 
     container.innerHTML = html;
 }
@@ -1265,5 +1347,7 @@ if (typeof module !== 'undefined' && module.exports) {
         computeRangeSelection,
         rectsIntersect,
         projectIdsInLasso,
+        paginateProjects,
+        portfolioPagerHtml,
     };
 }
