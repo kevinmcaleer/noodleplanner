@@ -357,7 +357,7 @@ async function renderPortfolioResources() {
             const workloadClass = getWorkloadBadgeClass(resource.workloadLevel);
             const projectsList = resource.projects.join(', ');
 
-            html += '<tr class="resource-row" data-resource="' + escapeHtml(resource.name) + '">' +
+            html += '<tr class="portfolio-resource-row" data-resource="' + escapeHtml(resource.name) + '">' +
                 '<td class="resource-name">' + escapeHtml(resource.name) + '</td>' +
                 '<td><span class="project-count-badge">' + resource.projectCount + '</span> ' +
                 '<span class="projects-tooltip" title="' + escapeHtml(projectsList) + '">' +
@@ -698,7 +698,7 @@ function rerenderResourcesTable(resources) {
         const workloadClass = getWorkloadBadgeClass(resource.workloadLevel);
         const projectsList = resource.projects.join(', ');
 
-        html += '<tr class="resource-row" data-resource="' + escapeHtml(resource.name) + '">' +
+        html += '<tr class="portfolio-resource-row" data-resource="' + escapeHtml(resource.name) + '">' +
             '<td class="resource-name">' + escapeHtml(resource.name) + '</td>' +
             '<td><span class="project-count-badge">' + resource.projectCount + '</span> ' +
             '<span class="projects-tooltip" title="' + escapeHtml(projectsList) + '">' +
