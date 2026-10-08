@@ -69,7 +69,7 @@ def test_every_section_of_the_pane_is_a_detail_sheet(page, app_server):
     tags = page.evaluate(
         "() => [...document.querySelectorAll('#detailPane > .detail-pane-section')].map(s => [s.id, s.tagName])"
     )
-    assert len(tags) == 16
+    assert len(tags) == 17
     assert all(tag == "NP-DETAIL-SHEET" for _, tag in tags), tags
     ids = {sid for sid, _ in tags}
     assert {f[1] for f in FORMS.values()} <= ids

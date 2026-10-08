@@ -8760,7 +8760,6 @@ button.ribbon-breadcrumb-rung:hover {
 .project-drag-handle {
     display: inline-flex;
     align-items: center;
-    margin-right: var(--np-space-8);
     color: var(--np-text-muted);
     cursor: grab;
     vertical-align: middle;
@@ -8770,42 +8769,43 @@ button.ribbon-breadcrumb-rung:hover {
     color: var(--np-text);
 }
 
-.programme-drop-strip {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--np-space-8);
-    margin-bottom: var(--np-space-12);
+.programme-table-row {
+    background: var(--np-bg-alt);
+    font-weight: var(--np-weight-semibold);
+    cursor: pointer;
 }
 
-.programme-drop-label {
-    color: var(--np-text-muted);
-    font-size: var(--np-text-90);
-}
-
-.programme-drop-chip {
-    padding: var(--np-space-4) var(--np-space-12);
-    border: 1px dashed var(--np-border-strong);
-    border-radius: var(--np-radius-pill);
-    background: var(--np-surface);
-    color: var(--np-text);
-    font: inherit;
-    font-size: var(--np-text-90);
-}
-
-.programme-drop-strip.dragging .programme-drop-chip {
-    border-color: var(--np-accent);
-}
-
-.programme-drop-chip.drop-over {
+.programme-table-row.drop-over,
+.programme-child-row.drop-over {
     background: var(--np-accent-tint);
-    border-style: solid;
-    border-color: var(--np-accent);
+    outline: 2px solid var(--np-accent);
+    outline-offset: -2px;
 }
 
-.programme-drop-count {
-    margin-left: var(--np-space-4);
+.programme-toggle {
+    display: inline-flex;
+    padding: var(--np-space-4);
+    border: 0;
+    background: transparent;
+    color: var(--np-text);
+    cursor: pointer;
+}
+
+.programme-toggle svg {
+    transition: transform 0.15s ease;
+}
+
+.programme-toggle[aria-expanded="true"] svg {
+    transform: rotate(90deg);
+}
+
+.programme-child-row .project-name-cell {
+    padding-left: var(--np-space-32);
+}
+
+.programme-count {
     color: var(--np-text-muted);
+    font-weight: normal;
 }
 
 /* Programme index: shown by the Programme scope when no programme is open (#1489). */

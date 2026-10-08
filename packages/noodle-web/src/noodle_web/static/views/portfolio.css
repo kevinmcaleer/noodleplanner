@@ -1299,12 +1299,20 @@
 
 /* Multi-select, programme badge and lasso (issue #952) */
 .project-select-col {
-    width: 32px;
+    width: 72px;
 }
 
 .project-select-cell {
-    width: 32px;
+    width: 72px;
     text-align: center;
+}
+
+/* Drag handle first, then the checkbox, with room between them. */
+.project-select-inner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--np-space-12);
 }
 
 .project-select-checkbox {

@@ -108,7 +108,36 @@ function openProgrammeScope() {
     if (!currentProgrammeSlug) {
         try { currentProgrammeSlug = localStorage.getItem(LAST_PROGRAMME_KEY) || null; } catch (err) { currentProgrammeSlug = null; }
     }
+    // Nothing remembered (or it no longer exists): open the first programme, so
+    // the default Programme View lists a programme's projects and initiatives.
+    // "All programmes" still reaches the index.
+    if (!getCurrentPortfolioProgramme()) {
+        const projects = (typeof loadAllProjectsIntoCache === 'function') ? loadAllProjectsIntoCache() : [];
+        const all = (typeof deriveProgrammes === 'function') ? deriveProgrammes(projects) : [];
+        const first = all.slice().sort((a, b) => a.name.localeCompare(b.name))[0];
+        currentProgrammeSlug = first ? first.slug : null;
+    }
     NavigationController.navigateTo('programme');
+}
+
+/**
+ * The programme details form (#1500): the programme-owned information (SRO,
+ * vision, outcomes, stakeholders) in the detail pane, like the project
+ * details form, so the programme view itself leads with its projects.
+ */
+function openProgrammeDetailsForm() {
+    const programme = getCurrentPortfolioProgramme();
+    if (!programme) return;
+    const title = document.getElementById('programmeDetailsTitle');
+    if (title) title.textContent = programme.name + ' details';
+    renderProgrammeSroVision(programme);
+    renderProgrammeStakeholders(programme);
+    renderProgrammeInformation(programme);
+    openDetailPane('programmeDetailsSection');
+}
+
+function closeProgrammeDetailsForm() {
+    closeDetailPane();
 }
 
 /** "All programmes": drop out of the open programme to the index. */
@@ -1442,6 +1471,7 @@ if (typeof document !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         openProgramme,
+        openProgrammeDetailsForm,
         openProgrammeScope,
         getCurrentPortfolioProgramme,
         computeRagRollup,
