@@ -295,6 +295,62 @@ function deleteProgrammeStakeholder(slug, stakeholderId) {
     return true;
 }
 
+// ---------------------------------------------------------------------
+// Information register (#741)
+//
+// Key documents and assets the programme owns: what it is, who owns it,
+// where it lives and when it is next due for review. Programme-owned, so
+// it is an `information` slice of the programme's record.
+// ---------------------------------------------------------------------
+
+function cleanInformationFields(fields) {
+    const f = fields || {};
+    const review = String(f.reviewDate || '').trim();
+    return {
+        title: String(f.title || '').trim(),
+        owner: String(f.owner || '').trim(),
+        location: String(f.location || '').trim(),
+        reviewDate: /^\d{4}-\d{2}-\d{2}$/.test(review) ? review : '',
+        notes: String(f.notes || '').trim(),
+    };
+}
+
+/** Add an information item, generating an id unique within this programme. */
+function addProgrammeInformationItem(slug, fields) {
+    const clean = cleanInformationFields(fields);
+    if (!slug || !clean.title) return null;
+    const data = getProgrammeData(slug) || {};
+    const items = (data.information || []).slice();
+    const nextId = items.reduce((max, i) => Math.max(max, i.id || 0), 0) + 1;
+    const record = Object.assign({ id: nextId }, clean);
+    items.push(record);
+    setProgrammeData(slug, { information: items });
+    return record;
+}
+
+function updateProgrammeInformationItem(slug, itemId, fields) {
+    const data = getProgrammeData(slug);
+    if (!data || !Array.isArray(data.information)) return null;
+    const idx = data.information.findIndex((i) => i.id === itemId);
+    if (idx === -1) return null;
+    const clean = cleanInformationFields(Object.assign({}, data.information[idx], fields));
+    if (!clean.title) return null;
+    const items = data.information.slice();
+    items[idx] = Object.assign({ id: itemId }, clean);
+    setProgrammeData(slug, { information: items });
+    return items[idx];
+}
+
+/** Delete an item; the slice is dropped when the last one goes. */
+function deleteProgrammeInformationItem(slug, itemId) {
+    const data = getProgrammeData(slug);
+    if (!data || !Array.isArray(data.information)) return false;
+    const items = data.information.filter((i) => i.id !== itemId);
+    if (items.length === data.information.length) return false;
+    setProgrammeData(slug, { information: items.length ? items : null });
+    return true;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         PROGRAMME_DATA_KEY,
@@ -313,5 +369,8 @@ if (typeof module !== 'undefined' && module.exports) {
         addProgrammeStakeholder,
         updateProgrammeStakeholder,
         deleteProgrammeStakeholder,
+        addProgrammeInformationItem,
+        updateProgrammeInformationItem,
+        deleteProgrammeInformationItem,
     };
 }

@@ -503,6 +503,83 @@ function deleteProgrammeStakeholderConfirm(slug, stakeholderId) {
     if (programme) renderProgrammeStakeholders(programme);
 }
 
+// ── Information register (#741) ─────────────────────────────────────────
+
+/**
+ * Whether an information item's review is overdue: it has a review date
+ * strictly before `today` (an ISO yyyy-mm-dd string, passed in so this
+ * stays pure and testable). Items with no review date are never overdue.
+ */
+function isInformationReviewOverdue(item, today) {
+    return !!(item && item.reviewDate && today && item.reviewDate < today);
+}
+
+function todayIso() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/** Render the Information section (#741) into #programmeInformation. */
+function renderProgrammeInformation(programme) {
+    const el = document.getElementById('programmeInformation');
+    if (!el) return;
+    const data = (typeof getProgrammeData === 'function') ? (getProgrammeData(programme.slug) || {}) : {};
+    const items = data.information || [];
+    const slugAttr = escapeJsAttr(programme.slug);
+    const today = todayIso();
+
+    let html = '';
+    if (items.length === 0) {
+        html += '<np-empty-state>No key documents or assets recorded yet. Add the information this programme relies on.</np-empty-state>';
+    } else {
+        html += '<div class="programme-resourcing-table-wrapper"><table class="programme-resourcing-table">' +
+            '<thead><tr><th scope="col">Title</th><th scope="col">Owner</th><th scope="col">Location</th>' +
+            '<th scope="col">Review date</th><th scope="col">Notes</th><th scope="col"></th></tr></thead><tbody>' +
+            items.map((i) => {
+                const overdue = isInformationReviewOverdue(i, today);
+                return '<tr' + (overdue ? ' class="programme-resourcing-row--over"' : '') + '>' +
+                    `<td class="programme-resourcing-name">${escapeHtml(i.title)}</td>` +
+                    `<td>${escapeHtml(i.owner)}</td><td>${escapeHtml(i.location)}</td>` +
+                    `<td>${escapeHtml(i.reviewDate)}${overdue ? ' (overdue)' : ''}</td><td>${escapeHtml(i.notes)}</td>` +
+                    `<td><button type="button" class="btn-danger btn-sm" onclick="deleteProgrammeInformationConfirm('${slugAttr}', ${i.id})" aria-label="Delete ${escapeHtml(i.title)}">Delete</button></td>` +
+                    '</tr>';
+            }).join('') + '</tbody></table></div>';
+    }
+
+    html += `<form class="programme-outcome-add" onsubmit="submitAddProgrammeInformation(event, '${slugAttr}')">` +
+        '<input type="text" id="programmeInfoTitle" class="form-control" maxlength="200" placeholder="Document or asset" aria-label="Document or asset" required>' +
+        '<input type="text" id="programmeInfoOwner" class="form-control" maxlength="200" placeholder="Owner" aria-label="Owner">' +
+        '<input type="text" id="programmeInfoLocation" class="form-control" maxlength="500" placeholder="Location (path or URL)" aria-label="Location">' +
+        '<input type="date" id="programmeInfoReview" class="form-control" aria-label="Review date">' +
+        '<input type="text" id="programmeInfoNotes" class="form-control" maxlength="500" placeholder="Notes (optional)" aria-label="Notes">' +
+        '<button type="submit" class="btn-secondary btn-sm">Add Item</button>' +
+        '</form>';
+    el.innerHTML = html;
+}
+
+function submitAddProgrammeInformation(event, slug) {
+    event.preventDefault();
+    const val = (id) => { const e = document.getElementById(id); return e ? e.value : ''; };
+    if (typeof addProgrammeInformationItem === 'function') {
+        addProgrammeInformationItem(slug, {
+            title: val('programmeInfoTitle'),
+            owner: val('programmeInfoOwner'),
+            location: val('programmeInfoLocation'),
+            reviewDate: val('programmeInfoReview'),
+            notes: val('programmeInfoNotes'),
+        });
+    }
+    const programme = getCurrentPortfolioProgramme();
+    if (programme) renderProgrammeInformation(programme);
+}
+
+function deleteProgrammeInformationConfirm(slug, itemId) {
+    if (!confirm('Delete this item?')) return;
+    if (typeof deleteProgrammeInformationItem === 'function') deleteProgrammeInformationItem(slug, itemId);
+    const programme = getCurrentPortfolioProgramme();
+    if (programme) renderProgrammeInformation(programme);
+}
+
 // ── Benefits realisation rollup (#735) ──────────────────────────────────
 
 /**
@@ -1206,6 +1283,7 @@ function renderProgrammeView() {
     if (metaEl) metaEl.textContent = `${count} project${count === 1 ? '' : 's'} in this programme`;
     renderProgrammeSroVision(programme);
     renderProgrammeStakeholders(programme);
+    renderProgrammeInformation(programme);
 
     if (count === 0) {
         gridEl.innerHTML = '<np-empty-state variant="card" heading="No projects yet">' +
@@ -1304,5 +1382,6 @@ if (typeof module !== 'undefined' && module.exports) {
         computeOutcomeContributions,
         computeProgrammeFinance,
         groupStakeholdersByQuadrant,
+        isInformationReviewOverdue,
     };
 }
