@@ -97,8 +97,7 @@
     function switchScope(scope) {
         if (scope === 'portfolio') switchToView('portfolio');
         else if (scope === 'project') switchToView('editor');
-        else if (typeof getCurrentPortfolioProgramme === 'function' && getCurrentPortfolioProgramme()) switchToView('programme');
-        else if (typeof showToast === 'function') showToast("Programme isn't available yet", 'info');
+        else openProgrammeScope();
     }
 
     // -----------------------------------------------------------------

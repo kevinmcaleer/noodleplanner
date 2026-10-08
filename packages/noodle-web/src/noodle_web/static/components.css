@@ -8725,3 +8725,130 @@ button.ribbon-breadcrumb-rung:hover {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* "Name it" dialog for New Project / Initiative / Programme (#1493). Rides
+   the shared .modal-overlay + .task-form-modal shell. */
+.name-dialog {
+    max-width: 420px;
+    width: min(420px, 92vw);
+}
+
+.name-dialog .form-group {
+    margin-bottom: var(--np-space-16);
+}
+
+.name-dialog-hint {
+    display: block;
+    margin-top: var(--np-space-4);
+    color: var(--np-text-muted);
+    font-size: var(--np-text-90);
+}
+
+.name-dialog-error {
+    margin-top: var(--np-space-4);
+    color: var(--np-danger);
+    font-size: var(--np-text-90);
+}
+
+.name-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--np-space-8);
+}
+
+/* Drag a project onto a programme (#1490). */
+.project-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    margin-right: var(--np-space-8);
+    color: var(--np-text-muted);
+    cursor: grab;
+    vertical-align: middle;
+}
+
+.project-drag-handle:hover {
+    color: var(--np-text);
+}
+
+.programme-drop-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--np-space-8);
+    margin-bottom: var(--np-space-12);
+}
+
+.programme-drop-label {
+    color: var(--np-text-muted);
+    font-size: var(--np-text-90);
+}
+
+.programme-drop-chip {
+    padding: var(--np-space-4) var(--np-space-12);
+    border: 1px dashed var(--np-border-strong);
+    border-radius: var(--np-radius-pill);
+    background: var(--np-surface);
+    color: var(--np-text);
+    font: inherit;
+    font-size: var(--np-text-90);
+}
+
+.programme-drop-strip.dragging .programme-drop-chip {
+    border-color: var(--np-accent);
+}
+
+.programme-drop-chip.drop-over {
+    background: var(--np-accent-tint);
+    border-style: solid;
+    border-color: var(--np-accent);
+}
+
+.programme-drop-count {
+    margin-left: var(--np-space-4);
+    color: var(--np-text-muted);
+}
+
+/* Programme index: shown by the Programme scope when no programme is open (#1489). */
+.programme-index-actions {
+    margin-bottom: var(--np-space-16);
+}
+
+.programme-index-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--np-space-16);
+}
+
+.programme-index-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--np-space-4);
+    padding: var(--np-space-16);
+    border: 1px solid var(--np-border);
+    border-radius: var(--np-radius-card);
+    background: var(--np-surface);
+    color: var(--np-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.programme-index-card:hover {
+    background: var(--np-bg-hover);
+    border-color: var(--np-border-strong);
+}
+
+.programme-index-name {
+    font-weight: var(--np-weight-semibold);
+}
+
+.programme-index-meta,
+.programme-index-members {
+    color: var(--np-text-muted);
+    font-size: var(--np-text-90);
+}
+
+.programme-all-link {
+    margin-bottom: var(--np-space-8);
+}

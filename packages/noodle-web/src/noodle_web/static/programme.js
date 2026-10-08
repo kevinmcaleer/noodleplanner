@@ -85,7 +85,75 @@ let currentProgrammeSlug = null;
 function openProgramme(slug) {
     if (!slug) return;
     currentProgrammeSlug = slug;
+    rememberProgramme(slug);
     NavigationController.navigateTo('programme');
+}
+
+const LAST_PROGRAMME_KEY = 'noodleplanner_last_programme';
+
+function rememberProgramme(slug) {
+    try {
+        if (slug) localStorage.setItem(LAST_PROGRAMME_KEY, slug);
+        else localStorage.removeItem(LAST_PROGRAMME_KEY);
+    } catch (err) { /* storage unavailable: the index is the fallback */ }
+}
+
+/**
+ * The Programme scope button (#1489): reopen the programme last visited if
+ * it still exists, otherwise land on the index of programmes. Never a dead
+ * end -- it used to toast "Programme isn't available yet" until a programme
+ * had been drilled into this session.
+ */
+function openProgrammeScope() {
+    if (!currentProgrammeSlug) {
+        try { currentProgrammeSlug = localStorage.getItem(LAST_PROGRAMME_KEY) || null; } catch (err) { currentProgrammeSlug = null; }
+    }
+    NavigationController.navigateTo('programme');
+}
+
+/** "All programmes": drop out of the open programme to the index. */
+function showProgrammeIndex() {
+    currentProgrammeSlug = null;
+    rememberProgramme(null);
+    renderProgrammeView();
+}
+
+/** The index shown when no programme is in context: a card per programme, or an empty state. */
+function renderProgrammeIndex() {
+    const indexEl = document.getElementById('programmeIndex');
+    const dashEl = document.getElementById('programmeDashboard');
+    if (!indexEl) return;
+    if (dashEl) dashEl.hidden = true;
+    indexEl.hidden = false;
+
+    const projects = (typeof loadAllProjectsIntoCache === 'function') ? loadAllProjectsIntoCache() : [];
+    const programmes = (typeof deriveProgrammes === 'function') ? deriveProgrammes(projects) : [];
+    const newButton = '<button type="button" class="btn-primary" onclick="showCreateProgrammeDialog()">+ New Programme</button>';
+
+    if (programmes.length === 0) {
+        indexEl.innerHTML = '<np-empty-state variant="card" heading="No programmes yet">' +
+            '<p>A programme groups related projects and initiatives that share outcomes.</p>' +
+            newButton.replace('<button ', '<button slot="actions" ') +
+            '</np-empty-state>';
+        return;
+    }
+
+    const esc = (v) => escapeHtml(String(v));
+    indexEl.innerHTML =
+        '<div class="programme-landing-header"><h2>Programmes</h2>' +
+        '<p class="programme-landing-meta">Open a programme, or drag projects onto one in the Portfolio view.</p></div>' +
+        '<div class="programme-index-actions">' + newButton + '</div>' +
+        '<div class="programme-index-grid">' +
+        programmes.map((p) => {
+            const n = p.projects.length;
+            const names = p.projects.slice(0, 3).map((m) => esc(m.name)).join(', ');
+            return `<button type="button" class="programme-index-card" data-programme-slug="${esc(p.slug)}">` +
+                `<span class="programme-index-name">${esc(p.name)}</span>` +
+                `<span class="programme-index-meta">${n} ${n === 1 ? 'project' : 'projects'}</span>` +
+                (names ? `<span class="programme-index-members">${names}${n > 3 ? ', …' : ''}</span>` : '') +
+                '</button>';
+        }).join('') +
+        '</div>';
 }
 
 /**
@@ -1122,24 +1190,16 @@ function renderProgrammeView() {
     if (!titleEl || !gridEl) return;
 
     const programme = getCurrentPortfolioProgramme();
+    const indexEl = document.getElementById('programmeIndex');
+    const dashEl = document.getElementById('programmeDashboard');
     if (!programme) {
-        titleEl.textContent = 'Programme not found';
-        if (metaEl) {
-            metaEl.textContent = 'It has no member projects left, or none was selected. Go back to Portfolio and pick a programme badge.';
-        }
-        gridEl.innerHTML = '';
-        if (sroVisionEl) sroVisionEl.innerHTML = '';
-        const stakeholdersEl = document.getElementById('programmeStakeholders');
-        if (stakeholdersEl) stakeholdersEl.innerHTML = '';
-        if (tilesEl) tilesEl.innerHTML = '';
-        if (milestonesEl) milestonesEl.innerHTML = '';
-        if (escalatedEl) escalatedEl.innerHTML = '';
-        if (depsEl) depsEl.innerHTML = '';
-        if (resourcingEl) resourcingEl.innerHTML = '';
-        if (benefitsEl) benefitsEl.innerHTML = '';
-        if (financeEl) financeEl.innerHTML = '';
+        // Nothing (or nothing that still exists) in context: show the index.
+        currentProgrammeSlug = null;
+        renderProgrammeIndex();
         return;
     }
+    if (indexEl) indexEl.hidden = true;
+    if (dashEl) dashEl.hidden = false;
 
     titleEl.textContent = programme.name;
     const count = programme.projects.length;
@@ -1187,6 +1247,9 @@ function openProjectFromProgramme(projectId) {
 
 if (typeof document !== 'undefined') {
     document.addEventListener('click', (e) => {
+        const card = e.target.closest('.programme-index-card');
+        if (card) openProgramme(card.dataset.programmeSlug);
+
         const btn = e.target.closest('[data-open-programme-project]');
         if (btn) openProjectFromProgramme(btn.dataset.openProgrammeProject);
 
@@ -1228,6 +1291,7 @@ if (typeof document !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         openProgramme,
+        openProgrammeScope,
         getCurrentPortfolioProgramme,
         computeRagRollup,
         extractProjectMilestones,
