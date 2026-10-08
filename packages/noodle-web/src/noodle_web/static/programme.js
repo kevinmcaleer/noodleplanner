@@ -108,6 +108,15 @@ function openProgrammeScope() {
     if (!currentProgrammeSlug) {
         try { currentProgrammeSlug = localStorage.getItem(LAST_PROGRAMME_KEY) || null; } catch (err) { currentProgrammeSlug = null; }
     }
+    // Nothing remembered (or it no longer exists): open the first programme, so
+    // the default Programme View lists a programme's projects and initiatives.
+    // "All programmes" still reaches the index.
+    if (!getCurrentPortfolioProgramme()) {
+        const projects = (typeof loadAllProjectsIntoCache === 'function') ? loadAllProjectsIntoCache() : [];
+        const all = (typeof deriveProgrammes === 'function') ? deriveProgrammes(projects) : [];
+        const first = all.slice().sort((a, b) => a.name.localeCompare(b.name))[0];
+        currentProgrammeSlug = first ? first.slug : null;
+    }
     NavigationController.navigateTo('programme');
 }
 

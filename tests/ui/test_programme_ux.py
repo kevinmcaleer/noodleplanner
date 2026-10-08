@@ -53,7 +53,7 @@ def test_programme_scope_opens_an_index_not_a_toast(page, app_server):
     assert page.locator("#programmeIndex", has_text="No programmes yet").count() == 1
 
 
-def test_new_programme_from_the_ribbon_appears_in_the_index(page, app_server):
+def test_new_programme_from_the_ribbon_opens_in_the_programme_view(page, app_server):
     open_app(page, app_server)
     click_scope(page, "portfolio")
     page.click('[data-scope-id="pf-home"][data-label="New Programme"], [data-label="New Programme"]')
@@ -63,10 +63,11 @@ def test_new_programme_from_the_ribbon_appears_in_the_index(page, app_server):
 
     page.click('.ribbon-scope-btn[data-scope="programme"]')
     page.wait_for_selector("#programme-tab.active")
-    card = page.locator(".programme-index-card", has_text="Digital Transformation")
-    assert card.count() == 1
-    card.click()
+    # The default Programme View opens the programme, not an empty index.
+    page.wait_for_selector("#programmeDashboard:not([hidden])")
     assert page.locator("#programmeViewTitle").inner_text() == "Digital Transformation"
+    page.click(".programme-all-link")
+    assert page.locator(".programme-index-card", has_text="Digital Transformation").count() == 1
 
 
 def test_duplicate_programme_name_is_refused(page, app_server):
@@ -131,7 +132,7 @@ def test_programme_view_leads_with_projects_and_details_live_in_a_form(page, app
     open_app(page, app_server)
     page.evaluate("() => createProgramme('Estate Renewal')")
     page.click('.ribbon-scope-btn[data-scope="programme"]')
-    page.locator(".programme-index-card", has_text="Estate Renewal").click()
+    page.wait_for_selector("#programmeDashboard:not([hidden])")
 
     # SRO / vision / stakeholders are no longer sections of the view...
     assert page.locator("#programme-tab #programmeSroVision").count() == 0
@@ -145,3 +146,20 @@ def test_programme_view_leads_with_projects_and_details_live_in_a_form(page, app
     page.locator("#programmeSroInput").dispatch_event("change")
     sro = page.evaluate("() => getProgrammeData('estate-renewal').sro")
     assert sro == "Alex Doe"
+
+
+def test_programme_view_ribbon_button_opens_the_programme_with_its_plans(page, app_server):
+    open_app(page, app_server)
+    _new_project(page, "Alpha")
+    page.evaluate("() => createProgramme('Estate Renewal')")
+    page.evaluate("() => applyProgrammeDrop([window.portfolioTableData[0].id], 'estate-renewal', 'Estate Renewal')")
+    page.click('.ribbon-scope-btn[data-scope="programme"]')
+    page.wait_for_selector("#programme-tab.active")
+    # Back to the portfolio, then the Programme tab's own "Programme View" button.
+    page.click('.ribbon-scope-btn[data-scope="portfolio"]')
+    page.click('.ribbon-scope-btn[data-scope="programme"]')
+    page.locator(".ribbon-lg-btn, .ribbon-btn", has_text="Programme View").first.click()
+    page.wait_for_selector("#programmeDashboard:not([hidden])")
+    assert "isn't available yet" not in page.locator("body").inner_text()
+    assert page.locator("#programmeViewTitle").inner_text() == "Estate Renewal"
+    assert page.locator("#programmeViewProjects", has_text="Alpha").count() == 1
