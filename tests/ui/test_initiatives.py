@@ -55,3 +55,19 @@ def test_stating_a_rag_writes_it_to_the_front_matter(page, app_server):
     text = page.evaluate("() => document.getElementById('planEditor').value")
     assert "rag: amber" in text
     assert "rag_comment: Waiting on access" in text
+
+
+def test_initiative_can_be_moved_under_an_existing_programme(page, app_server):
+    open_app(page, app_server)
+    page.evaluate(
+        "() => createProject('P', '---\\ntitle: P\\nprogramme: digital\\nprogramme_name: Digital\\n---\\nTask 1d\\n')"
+    )
+    _create_initiative(page)
+
+    page.evaluate("() => openInitiativeProgrammeDialog()")
+    page.select_option('select[name="programme"]', "digital")
+    page.evaluate("() => document.querySelector('.initiative-programme-form').requestSubmit()")
+
+    text = page.evaluate("() => document.getElementById('planEditor').value")
+    assert "programme: digital" in text
+    assert "type: initiative" in text

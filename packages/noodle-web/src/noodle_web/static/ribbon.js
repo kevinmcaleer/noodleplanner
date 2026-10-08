@@ -627,6 +627,8 @@ const LABEL_ACTIONS = {
     Baseline: () => { if (typeof openBaselineDialog === 'function') openBaselineDialog(); },
     // #1481: an initiative's RAG is stated, not computed.
     Rate: () => { if (typeof openInitiativeRagDialog === 'function') openInitiativeRagDialog(); },
+    // #1487: move an initiative under an existing programme.
+    Programme: () => { if (typeof openInitiativeProgrammeDialog === 'function') openInitiativeProgrammeDialog(); },
     // #1266: the Gantt toolbar's own "Set Baseline" / "Show Baseline"
     // controls moved here. "Set Baseline" is the one-click snapshot (it
     // asks for confirmation itself); "Show Baseline" flips the overlay

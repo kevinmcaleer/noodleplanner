@@ -127,6 +127,18 @@ function initiativeRagLabel(rag) {
 }
 
 /**
+ * Move an initiative under an existing programme (#1487), or out of its
+ * programme when `programme` is falsy. Only existing programmes can be
+ * chosen: this never creates one.
+ */
+function setInitiativeProgramme(planText, programme) {
+    const apply = _frontMatterHelper('applyProgrammeFrontMatter');
+    return programme && programme.slug
+        ? apply(planText, programme.slug, programme.name)
+        : apply(planText, null);
+}
+
+/**
  * Ribbon labels (ribbon-ia.js) an initiative hides is decided there; the
  * views an initiative offers are the task list and the board.
  */
@@ -192,6 +204,51 @@ function openInitiativeRagDialog() {
     dialog.showModal();
 }
 
+function openInitiativeProgrammeDialog() {
+    const editor = document.getElementById('planEditor');
+    if (!editor || !isInitiativePlan(editor.value)) {
+        if (typeof showToast === 'function') showToast('Only initiatives can be moved under a programme.', 'info');
+        return;
+    }
+    const all = typeof loadAllProjectsIntoCache === 'function' ? loadAllProjectsIntoCache() : listProjects();
+    const programmes = deriveProgrammes(all);
+    if (programmes.length === 0) {
+        if (typeof showToast === 'function') showToast('No programmes yet. Group projects into a programme from the Portfolio first.', 'info');
+        return;
+    }
+    const current = (typeof extractProjectProgramme === 'function' ? extractProjectProgramme(editor.value) : null) || { slug: '' };
+    const dialog = document.createElement('dialog');
+    dialog.className = 'initiative-programme-dialog';
+    dialog.setAttribute('aria-label', 'Move initiative under a programme');
+    const esc = typeof escapeHtml === 'function' ? escapeHtml : s => String(s);
+    dialog.innerHTML =
+        '<form method="dialog" class="initiative-programme-form">' +
+        '<h2>Programme</h2>' +
+        '<label>Move under <select name="programme">' +
+        '<option value="">No programme</option>' +
+        programmes.map(p => '<option value="' + esc(p.slug) + '"' + (p.slug === current.slug ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') +
+        '</select></label>' +
+        '<div class="initiative-rag-actions">' +
+        '<np-button type="button" data-action="cancel">Cancel</np-button>' +
+        '<np-button type="submit" variant="primary" data-action="save">Save</np-button>' +
+        '</div></form>';
+    document.body.appendChild(dialog);
+    const close = () => { dialog.close(); dialog.remove(); };
+    dialog.querySelector('[data-action="cancel"]').addEventListener('click', close);
+    dialog.querySelector('form').addEventListener('submit', event => {
+        event.preventDefault();
+        const chosen = programmes.find(p => p.slug === event.target.programme.value) || null;
+        const updated = setInitiativeProgramme(editor.value, chosen);
+        if (updated !== editor.value) {
+            editor.value = updated;
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        close();
+    });
+    dialog.addEventListener('cancel', () => dialog.remove());
+    dialog.showModal();
+}
+
 if (typeof document !== 'undefined') {
     // Typing `type: initiative` (or removing it) changes the plan's type
     // without reloading it, so follow the editor too.
@@ -208,6 +265,7 @@ if (typeof document !== 'undefined') {
 
 if (typeof window !== 'undefined') {
     window.openInitiativeRagDialog = openInitiativeRagDialog;
+    window.openInitiativeProgrammeDialog = openInitiativeProgrammeDialog;
     window.applyPlanTypeToDocument = applyPlanTypeToDocument;
 }
 
@@ -224,6 +282,7 @@ if (typeof module !== 'undefined' && module.exports) {
         normaliseInitiativeRag,
         getInitiativeRag,
         setInitiativeRag,
+        setInitiativeProgramme,
         buildInitiativeTemplate,
         initiativeRagLabel,
     };

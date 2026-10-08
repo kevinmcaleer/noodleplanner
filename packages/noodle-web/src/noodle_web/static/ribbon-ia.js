@@ -210,7 +210,7 @@ export const INITIATIVE_TABS = [
         groups: [
             { name: 'Plan', lg: [['task-list', 'New Task']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['delete', 'Delete'], ['doc', 'Details']]] },
             { name: 'Views', lg: [['board', 'Board'], ['task-list', 'Outline']], cols: [[['task-list', 'Tasks']]] },
-            { name: 'Track', lg: [['flag', 'Rate']], cols: [[['check', 'Actions'], ['highlights', 'Highlights']]] },
+            { name: 'Track', lg: [['flag', 'Rate']], cols: [[['check', 'Actions'], ['highlights', 'Highlights']], [['portfolio', 'Programme']]] },
             { name: 'Report', cols: [[['download', 'Export', 'caret'], ['print', 'Print']], [['save', 'Save'], ['upload', 'Import', 'caret']]] },
         ],
     },
