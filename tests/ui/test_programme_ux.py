@@ -136,9 +136,11 @@ def test_programme_view_leads_with_projects_and_details_live_in_a_form(page, app
     # SRO / vision / stakeholders are no longer sections of the view...
     assert page.locator("#programme-tab #programmeSroVision").count() == 0
     assert page.locator("#programme-tab #programmeStakeholders").count() == 0
+    assert page.locator("#programme-tab #programmeInformation").count() == 0
     # ...they open from the Programme details button.
     page.click(".programme-details-btn")
     page.wait_for_selector("#programmeDetailsSection.active #programmeSroInput")
+    assert page.locator("#programmeDetailsSection #programmeInformation").count() == 1
     page.fill("#programmeSroInput", "Alex Doe")
     page.locator("#programmeSroInput").dispatch_event("change")
     sro = page.evaluate("() => getProgrammeData('estate-renewal').sro")
