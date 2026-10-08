@@ -563,3 +563,67 @@ class TestParserReuse:
         assert len(parser.parse_baseline()) == 1
         assert "title" in parser.parse_key_values()
         assert len(parser.parse_resource_mappings()) == 2
+
+
+class TestPlanType:
+    """``type:`` marks a plan as an initiative; anything else is a project."""
+
+    @staticmethod
+    def _plan(type_line: str) -> str:
+        return f"---\ntitle: Tidy the wiki\n{type_line}---\nTask 1 2d\n"
+
+    def test_initiative(self):
+        assert FrontMatterParser(self._plan("type: initiative\n")).parse_plan_type() == 'initiative'
+
+    def test_case_and_whitespace_insensitive(self):
+        assert FrontMatterParser(self._plan("type:   Initiative \n")).parse_plan_type() == 'initiative'
+
+    def test_explicit_project(self):
+        assert FrontMatterParser(self._plan("type: project\n")).parse_plan_type() == 'project'
+
+    def test_missing_defaults_to_project(self):
+        assert FrontMatterParser(self._plan("")).parse_plan_type() == 'project'
+
+    def test_unknown_defaults_to_project(self):
+        assert FrontMatterParser(self._plan("type: epic\n")).parse_plan_type() == 'project'
+
+    def test_parse_endpoint_reports_plan_type(self):
+        from noodle_web.plan_service import PlanService
+        result = PlanService().parse(self._plan("type: initiative\n"))
+        assert result.plan_type == 'initiative'
+
+
+INITIATIVE_WITH_PEOPLE = """\
+---
+title: Tidy the wiki
+type: initiative
+programme: knowledge
+rag: amber
+rag_comment: Waiting on access
+stakeholders:
+  - @Dana: Sponsor, interest:high, influence:high
+resources:
+  - @AL: Alice Smith, Editor, alice@example.com
+---
+Audit pages 3d @AL
+Retire stale pages 2d @AL
+"""
+
+
+class TestInitiativeResourcesAndStakeholders:
+    """An initiative carries resources and stakeholders like a project (#1483)."""
+
+    def test_resources_and_stakeholders_parse(self):
+        from noodle_web.plan_service import PlanService
+        result = PlanService().parse(INITIATIVE_WITH_PEOPLE)
+        assert result.plan_type == 'initiative'
+        assert result.tasks[0]['resources'] == 'AL'
+        project = PlanService().parse(INITIATIVE_WITH_PEOPLE.replace('type: initiative', 'type: project'))
+        assert result.resource_map == project.resource_map
+        assert len(result.stakeholders) == 1
+        assert result.stakeholders[0]['interest'] == 'high'
+        assert result.front_matter.get('rag') == 'amber'
+
+    def test_programme_membership_is_shared_with_projects(self):
+        parser = FrontMatterParser(INITIATIVE_WITH_PEOPLE)
+        assert parser.parse_programme() == {'slug': 'knowledge', 'name': 'Knowledge'}

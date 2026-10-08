@@ -1890,7 +1890,9 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
     dhf = dashboard_heading.text_frame
     dhf.word_wrap = True
     dhp = dhf.paragraphs[0]
-    dhp.text = "Project Status Dashboard"
+    dhp.text = ("Project and Initiative Status Dashboard"
+                if any(p.get('type') == 'initiative' for p in projects)
+                else "Project Status Dashboard")
     dhp.font.size = Pt(14)
     dhp.font.bold = True
     dhp.font.color.rgb = MID_BLUE
@@ -1929,7 +1931,10 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
 
         for i, proj in enumerate(projects[:20]):
             row_idx = i + 1
-            _set_cell_text(tbl.cell(row_idx, 0), proj.get('name', ''), 9)
+            name = proj.get('name', '')
+            if proj.get('type') == 'initiative':
+                name += ' (Initiative)'
+            _set_cell_text(tbl.cell(row_idx, 0), name, 9)
             _set_cell_text(tbl.cell(row_idx, 1), proj.get('budget', ''),
                            8, False, None, PP_ALIGN.CENTER)
             _set_cell_text(tbl.cell(row_idx, 2), proj.get('status', ''),
@@ -1938,7 +1943,11 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
             _set_cell_text(tbl.cell(row_idx, 3), f"{completion}%",
                            8, False, None, PP_ALIGN.CENTER)
             rag = proj.get('rag', '')
-            _set_cell_text(tbl.cell(row_idx, 4), rag.upper() if rag else '',
+            if rag == 'unrated':
+                rag_text = 'NOT RATED'
+            else:
+                rag_text = rag.upper() if rag else ''
+            _set_cell_text(tbl.cell(row_idx, 4), rag_text,
                            8, True, _rag_rgb(rag), PP_ALIGN.CENTER)
             _set_cell_text(tbl.cell(row_idx, 5),
                            str(proj.get('risk_count', 0)),

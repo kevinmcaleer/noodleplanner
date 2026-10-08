@@ -645,6 +645,8 @@ function persistRagToFrontMatter(ragStatus) {
     if (!ragStatus) return;
     const editor = document.getElementById('planEditor');
     if (!editor) return;
+    // An initiative's rag: is stated by a person, not computed (#1481).
+    if (typeof isInitiativePlan === 'function' && isInitiativePlan(editor.value)) return;
 
     const current = getRagFromFrontMatter(editor.value);
     if (current === ragStatus) return; // no change

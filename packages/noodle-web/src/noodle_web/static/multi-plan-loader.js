@@ -111,6 +111,10 @@ async function loadProjectIntoEditor(projectId) {
         planText = repairStrandedSeparator(planText);
     }
 
+    if (typeof applyPlanTypeToDocument === 'function') {
+        applyPlanTypeToDocument(planText);
+    }
+
     const planEditor = document.getElementById('planEditor');
     if (planEditor) {
         planEditor.value = planText;

@@ -682,6 +682,7 @@ def parse_plan(data: RenderRequest):
         "benefits_items": result.benefits_items,
         "lessons_items": result.lessons_items or [],
         "resource_roles": result.resource_roles or {},
+        "plan_type": result.plan_type,
     }
     if result.error:
         response["error"] = result.error
@@ -903,7 +904,8 @@ def export_report_pptx_route(data: ReportExportRequest):
 class PortfolioProjectSummary(BaseModel):
     """Summary info for a project in the portfolio overview slide."""
     name: str = Field("", max_length=500)
-    status: str = Field("", max_length=100)
+    type: str = Field("project", max_length=20)
+    status: str = Field("", max_length=300)
     rag: str = Field("", max_length=20)
     completion: int = Field(0, ge=0, le=100)
     risk_count: int = Field(0, ge=0)

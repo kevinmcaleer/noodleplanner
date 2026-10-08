@@ -88,6 +88,7 @@ class ParseResult:
     lessons_items: list = None
     stakeholders: list = None
     resource_roles: dict = None
+    plan_type: str = 'project'
     error: Optional[str] = None
 
 
@@ -363,6 +364,7 @@ class PlanService:
         lessons_items = self._safe_extract_lessons(plan_text)
         fm_parser = FrontMatterParser(plan_text)
         dependencies = fm_parser.parse_dependencies()
+        plan_type = fm_parser.parse_plan_type()
 
         # Extract stakeholders (always available)
         stakeholders = []
@@ -419,6 +421,7 @@ class PlanService:
                 lessons_items=lessons_items,
                 stakeholders=stakeholders,
                 resource_roles=resource_roles,
+                plan_type=plan_type,
             )
 
         except (ValueError, KeyError, TypeError) as e:
@@ -440,6 +443,7 @@ class PlanService:
                 lessons_items=lessons_items,
                 stakeholders=stakeholders,
                 resource_roles={},
+                plan_type=plan_type,
                 error=str(e),
             )
 

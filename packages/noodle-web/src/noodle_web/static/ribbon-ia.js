@@ -155,7 +155,7 @@ export const PORTFOLIO_TABS = [
             // "Dashboard first" placement fix #909 made for project scope
             // (issue #933: "Home should lead with the portfolio roll-up as
             // its front door").
-            { name: 'Portfolio', launcher: 'Projects', lg: [['project-report', 'Status'], ['portfolio', 'Projects']], cols: [[['add', 'New Project'], ['upload', 'Import Project']]] },
+            { name: 'Portfolio', launcher: 'Projects', lg: [['project-report', 'Status'], ['portfolio', 'Projects']], cols: [[['add', 'New Project'], ['upload', 'Import Project']], [['add', 'New Initiative']]] },
             { name: 'Report', lg: [['download', 'Export Report']], cols: [[['task-list', 'Actions']]] },
         ],
     },
@@ -198,11 +198,47 @@ export const PROGRAMME_TABS = [
     },
 ];
 
+/**
+ * Initiative plans (#1479). An initiative is a task list with no milestones
+ * or gateways, so its Project-scope ribbon keeps only the task list, board,
+ * actions, resources and stakeholders, plus Rate to state its RAG (#1481).
+ * Every label here is also used by TABS, so it resolves to the same action.
+ */
+export const INITIATIVE_TABS = [
+    {
+        id: 'home', label: 'Home',
+        groups: [
+            { name: 'Plan', lg: [['task-list', 'New Task']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['delete', 'Delete'], ['doc', 'Details']]] },
+            { name: 'Views', lg: [['board', 'Board'], ['task-list', 'Outline']], cols: [[['task-list', 'Tasks']]] },
+            { name: 'Track', lg: [['flag', 'Rate']], cols: [[['check', 'Actions'], ['highlights', 'Highlights']]] },
+            { name: 'Report', cols: [[['download', 'Export', 'caret'], ['print', 'Print']], [['save', 'Save'], ['upload', 'Import', 'caret']]] },
+        ],
+    },
+    {
+        id: 'resources', label: 'Resources',
+        groups: [
+            { name: 'People', lg: [['resources', 'Resources'], ['people', 'Stakeholders']], cols: [[['calendar', 'Calendars']]] },
+        ],
+    },
+    TABS.find((t) => t.id === 'view'),
+];
+
+let activePlanType = 'project';
+
+/** Tell the ribbon which kind of plan is open (`project` or `initiative`). */
+export function setActivePlanType(planType) {
+    activePlanType = planType === 'initiative' ? 'initiative' : 'project';
+}
+
+export function getActivePlanType() {
+    return activePlanType;
+}
+
 /** Which tab set renders for a given scope id (the ribbon-scope-btn value). */
 export function tabsForScope(scopeId) {
     if (scopeId === 'portfolio') return PORTFOLIO_TABS;
     if (scopeId === 'programme') return PROGRAMME_TABS;
-    return TABS;
+    return activePlanType === 'initiative' ? INITIATIVE_TABS : TABS;
 }
 
 /**

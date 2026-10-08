@@ -138,6 +138,11 @@ function extractProjectStatus(planText) {
         return frontMatter['status'].split('\n')[0].trim();
     }
 
+    // An initiative's RAG is stated by a person; unrated is not "Active" (#1481).
+    if (frontMatter['type'] && frontMatter['type'].split('\n')[0].trim().toLowerCase() === 'initiative' && !frontMatter['rag']) {
+        return 'Not Rated';
+    }
+
     // Check for RAG status
     if (frontMatter['rag']) {
         const rag = frontMatter['rag'].toLowerCase();
@@ -358,7 +363,7 @@ function getStatusBadgeClass(status) {
         return 'status-badge-amber';
     } else if (statusLower === 'red' || statusLower === 'critical') {
         return 'status-badge-red';
-    } else if (statusLower === 'on hold' || statusLower === 'paused') {
+    } else if (statusLower === 'on hold' || statusLower === 'paused' || statusLower === 'not rated') {
         return 'status-badge-gray';
     }
 
@@ -384,6 +389,38 @@ function formatDateForTable(date) {
 /**
  * Render projects table
  */
+/** "Initiative" pill beside the name of an initiative row (#1478). */
+function initiativeBadgeHtml(project) {
+    return project.planType === 'initiative'
+        ? ' <span class="initiative-badge" title="Initiative: a lightweight plan with no milestones or gateways">Initiative</span>'
+        : '';
+}
+
+/**
+ * Filter above the projects table: All / Projects / Initiatives. The choice
+ * is an attribute on the list container, so it survives re-sorting; the
+ * rows are hidden by CSS (views/portfolio.css), not removed. Only shown
+ * when the portfolio holds at least one initiative.
+ */
+function planTypeFilterBarHtml(tableData) {
+    if (!(tableData || []).some(p => p.planType === 'initiative')) return '';
+    const container = typeof document !== 'undefined' ? document.getElementById('portfolioProjectsList') : null;
+    const current = (container && container.getAttribute('data-type-filter')) || 'all';
+    const option = (value, label) =>
+        `<option value="${value}"${current === value ? ' selected' : ''}>${label}</option>`;
+    return '<div class="portfolio-type-filter"><label>Show ' +
+        '<select aria-label="Filter by plan type" onchange="setPlanTypeFilter(this.value)">' +
+        option('all', 'All plans') + option('project', 'Projects') + option('initiative', 'Initiatives') +
+        '</select></label></div>';
+}
+
+function setPlanTypeFilter(value) {
+    const container = document.getElementById('portfolioProjectsList');
+    if (!container) return;
+    if (value === 'project' || value === 'initiative') container.setAttribute('data-type-filter', value);
+    else container.removeAttribute('data-type-filter');
+}
+
 function renderProjectsTable() {
     const container = document.getElementById('portfolioProjectsList');
     if (!container) return;
@@ -411,6 +448,7 @@ function renderProjectsTable() {
         container.innerHTML = '<np-empty-state variant="card" heading="No Projects Yet">' +
             '<p>Create your first project to get started.</p>' +
             '<button class="btn-primary" slot="actions" onclick="showCreateProjectDialog()">+ Create Project</button>' +
+            '<button class="btn-secondary" slot="actions" onclick="showCreateInitiativeDialog()">+ Create Initiative</button>' +
             '</np-empty-state>';
         return;
     }
@@ -423,9 +461,11 @@ function renderProjectsTable() {
         const dates = extractProjectDates(planText);
         const highlight = getLatestHighlight(planText);
         const programme = extractProjectProgramme(planText);
+        const planType = (typeof extractPlanType === 'function') ? extractPlanType(planText) : 'project';
 
         return {
             id: project.id,
+            planType: planType,
             name: project.name,
             manager: manager,
             status: status,
@@ -441,7 +481,8 @@ function renderProjectsTable() {
     // Sort by project name by default
     tableData.sort((a, b) => a.name.localeCompare(b.name));
 
-    let html = '<div class="portfolio-table-container">';
+    let html = planTypeFilterBarHtml(tableData);
+    html += '<div class="portfolio-table-container">';
     // Cards on a phone (#1387): np-responsive-table.js.
     html += '<np-responsive-table priorities=\'{"Project Name":"primary","Status":"1","Finish Date":"2","Project Manager":"3"}\'><table class="portfolio-projects-table">';
     html += '<thead>';
@@ -477,14 +518,14 @@ function renderProjectsTable() {
               `${escapeHtml(project.programme.name)}</span>`
             : '';
 
-        html += `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" onclick="handleProjectRowClick(event, '${project.id}')">`;
+        html += `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" data-plan-type="${project.planType || 'project'}" onclick="handleProjectRowClick(event, '${project.id}')">`;
         html += `<td class="project-select-cell" onclick="event.stopPropagation()">` +
             `<input type="checkbox" class="project-select-checkbox" onclick="handleProjectCheckboxClick(event, '${project.id}')"></td>`;
         html += `<td class="project-name-cell" ondblclick="event.stopPropagation(); startInlineRename('${project.id}', this)">`;
         if (project.isActive) {
             html += `<span class="active-indicator">●</span> `;
         }
-        html += `<span class="project-name-editable">${escapeHtml(project.name)}</span>${programmeBadge}</td>`;
+        html += `<span class="project-name-editable">${escapeHtml(project.name)}</span>${initiativeBadgeHtml(project)}${programmeBadge}</td>`;
         html += `<td>${escapeHtml(project.manager)}</td>`;
         html += `<td><span class="status-badge ${statusBadge}">${escapeHtml(project.status)}</span></td>`;
         html += `<td>${formatDateForTable(project.startDate)}</td>`;
@@ -573,7 +614,8 @@ function renderSortedTable(tableData) {
     // the selection state has to be reset to match (issue #952).
     clearProjectSelection();
 
-    let html = '<div class="portfolio-table-container">';
+    let html = planTypeFilterBarHtml(tableData);
+    html += '<div class="portfolio-table-container">';
     // Cards on a phone (#1387): np-responsive-table.js.
     html += '<np-responsive-table priorities=\'{"Project Name":"primary","Status":"1","Finish Date":"2","Project Manager":"3"}\'><table class="portfolio-projects-table">';
     html += '<thead>';
@@ -624,14 +666,14 @@ function renderSortedTable(tableData) {
               `${escapeHtml(project.programme.name)}</span>`
             : '';
 
-        html += `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" onclick="handleProjectRowClick(event, '${project.id}')">`;
+        html += `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" data-plan-type="${project.planType || 'project'}" onclick="handleProjectRowClick(event, '${project.id}')">`;
         html += `<td class="project-select-cell" onclick="event.stopPropagation()">` +
             `<input type="checkbox" class="project-select-checkbox" onclick="handleProjectCheckboxClick(event, '${project.id}')"></td>`;
         html += `<td class="project-name-cell" ondblclick="event.stopPropagation(); startInlineRename('${project.id}', this)">`;
         if (project.isActive) {
             html += `<span class="active-indicator">●</span> `;
         }
-        html += `<span class="project-name-editable">${escapeHtml(project.name)}</span>${programmeBadge}</td>`;
+        html += `<span class="project-name-editable">${escapeHtml(project.name)}</span>${initiativeBadgeHtml(project)}${programmeBadge}</td>`;
         html += `<td>${escapeHtml(project.manager)}</td>`;
         html += `<td><span class="status-badge ${statusBadge}">${escapeHtml(project.status)}</span></td>`;
         html += `<td>${formatDateForTable(project.startDate)}</td>`;
