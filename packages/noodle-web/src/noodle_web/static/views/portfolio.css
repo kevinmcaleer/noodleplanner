@@ -1354,6 +1354,22 @@
     display: none;
 }
 
+.portfolio-pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--np-space-8) var(--np-space-16);
+    margin-top: var(--np-space-8);
+    color: var(--np-text-secondary);
+}
+
+.portfolio-pager-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--np-space-8);
+}
+
 /* Clickable since issue #953: drills into the programme-altitude view. */
 .programme-badge:hover {
     background: var(--np-accent);

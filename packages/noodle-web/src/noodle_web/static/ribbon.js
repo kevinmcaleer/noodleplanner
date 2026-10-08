@@ -381,6 +381,7 @@ function scopedAction(scopeId, label) {
         'pf-home:Projects': switchPortfolioSubview('projects'),
         'pf-home:New Project': () => showCreateProjectDialog(),
         'pf-home:New Initiative': () => showCreateInitiativeDialog(),
+        'pf-home:New Programme': () => showCreateProgrammeDialog(),
         'pf-home:Import Project': () => showImportProjectDialog(),
         'pf-home:Status': switchPortfolioSubview('status'),
         'pf-home:Export Report': () => exportPortfolioReport(),
@@ -1655,8 +1656,7 @@ function wireEvents(shell) {
             }
             if (scopeId === 'portfolio') switchToView('portfolio');
             else if (scopeId === 'project') switchToView('editor');
-            else if (typeof getCurrentPortfolioProgramme === 'function' && getCurrentPortfolioProgramme()) switchToView('programme');
-            else notAvailable('Programme');
+            else openProgrammeScope();
             refreshRibbon();
             return;
         }

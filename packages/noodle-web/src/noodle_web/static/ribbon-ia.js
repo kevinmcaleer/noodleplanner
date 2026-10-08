@@ -155,7 +155,7 @@ export const PORTFOLIO_TABS = [
             // "Dashboard first" placement fix #909 made for project scope
             // (issue #933: "Home should lead with the portfolio roll-up as
             // its front door").
-            { name: 'Portfolio', launcher: 'Projects', lg: [['project-report', 'Status'], ['portfolio', 'Projects']], cols: [[['add', 'New Project'], ['upload', 'Import Project']], [['add', 'New Initiative']]] },
+            { name: 'Portfolio', launcher: 'Projects', lg: [['project-report', 'Status'], ['portfolio', 'Projects']], cols: [[['add', 'New Project'], ['upload', 'Import Project']], [['add', 'New Initiative'], ['board', 'New Programme']]] },
             { name: 'Report', lg: [['download', 'Export Report']], cols: [[['task-list', 'Actions']]] },
         ],
     },

@@ -9,7 +9,9 @@ from .helpers import click_scope, open_app
 
 
 def _create_initiative(pg, name="Tidy the wiki"):
-    pg.evaluate(f"() => {{ window.prompt = () => {name!r}; showCreateInitiativeDialog(); }}")
+    pg.evaluate("() => showCreateInitiativeDialog()")
+    pg.fill("#nameDialogInput", name)
+    pg.keyboard.press("Enter")
     pg.wait_for_function("() => document.documentElement.dataset.planType === 'initiative'")
 
 
