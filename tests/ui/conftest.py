@@ -147,6 +147,15 @@ def browser():
         instance.close()
 
 
+# Playwright's wait budget for every locator, wait_for_function and navigation
+# in a test. 5s is plenty on a quiet laptop, but CI runs one xdist worker per
+# core, each driving its own Chromium, so a single wait can stall for seconds
+# behind its neighbours and the shard goes red on a different test each run. A
+# timeout only costs time when something is really wrong, so CI sets this
+# higher (tests.yml) rather than the tests retrying or being skipped.
+DEFAULT_TIMEOUT_MS = int(os.environ.get("NOODLE_UI_TIMEOUT_MS", "5000"))
+
+
 def _new_page(browser, block_external, timeout_ms, layout=None, **context_args):
     context_args.setdefault("viewport", {"width": 1280, "height": 900})
     context = browser.new_context(**context_args)
@@ -195,7 +204,7 @@ def _new_page(browser, block_external, timeout_ms, layout=None, **context_args):
 @pytest.fixture
 def page(browser):
     """A fresh, isolated page that never touches the network."""
-    context, pg = _new_page(browser, block_external=True, timeout_ms=5_000)
+    context, pg = _new_page(browser, block_external=True, timeout_ms=DEFAULT_TIMEOUT_MS)
     yield pg
     context.close()
 
@@ -239,7 +248,7 @@ def device_page(browser):
     """A factory: `device_page("phone", layout="phone")` -> an isolated page."""
     contexts = []
 
-    def make(name, layout=None, timeout_ms=5_000):
+    def make(name, layout=None, timeout_ms=DEFAULT_TIMEOUT_MS):
         context, pg = _new_page(
             browser, block_external=True, timeout_ms=timeout_ms, layout=layout,
             **{**TOUCH, **DEVICES[name]},

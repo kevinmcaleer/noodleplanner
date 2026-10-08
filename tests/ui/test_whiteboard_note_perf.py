@@ -27,6 +27,8 @@ Usage:
     uv run pytest tests/ui/test_whiteboard_note_perf.py -q
 """
 
+import os
+
 import pytest
 
 from .helpers import load_plan, note, open_app, switch_to_whiteboard
@@ -37,9 +39,14 @@ ROWS_PER_NOTE = 8
 # Generous multiples of the measured cost above. A regression that matters --
 # a shadow root per *cell*, a re-parse per row, a synchronous layout inside the
 # render loop -- moves these by an order of magnitude, not by 50%.
-RENDER_BUDGET_MS = 1500
-RERENDER_BUDGET_MS = 1200
-DRAG_BUDGET_MS = 800
+#
+# CI multiplies them (NOODLE_UI_PERF_SCALE in tests.yml): it runs one xdist
+# worker per core, so a 35ms drag has been seen to take 1.2s when a neighbouring
+# Chromium took the CPU mid-measurement. That is the runner, not the board.
+_SCALE = float(os.environ.get("NOODLE_UI_PERF_SCALE", "1"))
+RENDER_BUDGET_MS = 1500 * _SCALE
+RERENDER_BUDGET_MS = 1200 * _SCALE
+DRAG_BUDGET_MS = 800 * _SCALE
 
 
 def _plan():
