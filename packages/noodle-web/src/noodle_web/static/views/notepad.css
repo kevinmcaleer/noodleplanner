@@ -117,9 +117,20 @@
 }
 
 .notepad-estimate-btn {
+    flex: 0 0 32px;
+    width: 32px;
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
     border: none;
     background: transparent;
     color: var(--np-text-muted);
+}
+
+/* Reserves the estimate button's column on the draft row so every input
+   in the list ends at the same edge. */
+.notepad-estimate-btn--spacer {
+    visibility: hidden;
 }
 
 .notepad-row:hover {
