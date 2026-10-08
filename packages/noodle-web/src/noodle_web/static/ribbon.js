@@ -380,6 +380,7 @@ function scopedAction(scopeId, label) {
         // the single "portfolio" NavigationController view, not separate views.
         'pf-home:Projects': switchPortfolioSubview('projects'),
         'pf-home:New Project': () => showCreateProjectDialog(),
+        'pf-home:New Initiative': () => showCreateInitiativeDialog(),
         'pf-home:Import Project': () => showImportProjectDialog(),
         'pf-home:Status': switchPortfolioSubview('status'),
         'pf-home:Export Report': () => exportPortfolioReport(),
@@ -624,6 +625,8 @@ const LABEL_ACTIONS = {
     // Baseline" button (#1266); this button opens the full Baseline dialog
     // (create/list/clear/delete) instead.
     Baseline: () => { if (typeof openBaselineDialog === 'function') openBaselineDialog(); },
+    // #1481: an initiative's RAG is stated, not computed.
+    Rate: () => { if (typeof openInitiativeRagDialog === 'function') openInitiativeRagDialog(); },
     // #1266: the Gantt toolbar's own "Set Baseline" / "Show Baseline"
     // controls moved here. "Set Baseline" is the one-click snapshot (it
     // asks for confirmation itself); "Show Baseline" flips the overlay
@@ -1602,6 +1605,22 @@ function renderBreadcrumb() {
  * programme.js's openProgramme()) that already know which altitude
  * they're landing on.
  */
+/**
+ * Tell the ribbon which kind of plan is open so initiatives get their own,
+ * smaller tab set (#1479). Called by initiative.js when a plan loads or its
+ * `type:` changes.
+ */
+async function setRibbonPlanType(planType) {
+    const ia = await loadIA();
+    if (ia.getActivePlanType() === (planType === 'initiative' ? 'initiative' : 'project')) return;
+    ia.setActivePlanType(planType);
+    if (!ia.tabsForScope(ribbonState.scope).some((t) => t.id === ribbonState.activeTab)) {
+        ribbonState.activeTab = 'home';
+    }
+    if (typeof refreshRibbon === 'function') refreshRibbon();
+}
+window.setRibbonPlanType = setRibbonPlanType;
+
 function setRibbonScope(scopeId) {
     if (scopeId === ribbonState.scope) return;
     ribbonState.scope = scopeId;

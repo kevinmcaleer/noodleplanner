@@ -33,7 +33,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import {
-  TABS, CONTEXTUAL_TABS, PORTFOLIO_TABS, PROGRAMME_TABS, CREATE_FOR_VIEW,
+  TABS, INITIATIVE_TABS, CONTEXTUAL_TABS, PORTFOLIO_TABS, PROGRAMME_TABS, CREATE_FOR_VIEW,
 } from "../packages/noodle-web/src/noodle_web/static/ribbon-ia.js";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
@@ -45,7 +45,7 @@ const ribbonSrc = readFileSync(`${repo}/packages/noodle-web/src/noodle_web/stati
  * three scopes. */
 function allButtons() {
   const out = [];
-  for (const scope of [...TABS, ...PORTFOLIO_TABS, ...PROGRAMME_TABS, ...CONTEXTUAL_TABS]) {
+  for (const scope of [...TABS, ...INITIATIVE_TABS, ...PORTFOLIO_TABS, ...PROGRAMME_TABS, ...CONTEXTUAL_TABS]) {
     for (const g of scope.groups) {
       for (const b of g.lg || []) out.push({ scopeId: scope.id, label: b[1], flag: b[2] });
       for (const col of g.cols || []) for (const b of col) out.push({ scopeId: scope.id, label: b[1], flag: b[2] });

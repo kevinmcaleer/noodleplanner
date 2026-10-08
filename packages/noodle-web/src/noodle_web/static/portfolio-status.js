@@ -36,6 +36,13 @@ function calculateProjectCompletionFromTasks(tasks) {
  *        Green – everything else (on track or no schedule data)
  */
 function extractRAGStatus(frontMatter, tasks, completion) {
+    // An initiative has no schedule rigor to compute a RAG from, so its RAG is
+    // the one a person stated; unrated stays 'unrated', never a computed green
+    // (#1481, initiative.js).
+    if (typeof isInitiativeFrontMatter === 'function' && isInitiativeFrontMatter(frontMatter)) {
+        return getInitiativeRag(frontMatter).rag || 'unrated';
+    }
+
     // Compute RAG from actual task statuses. The front matter rag: field is
     // written as output (for version history) and should not override the
     // computed value — otherwise fixing a task leaves the plan stuck at amber/red.
@@ -107,6 +114,11 @@ function extractProjectStatusLabel(frontMatter, completion, ragStatus) {
                 return String(frontMatter[key]).split('\n')[0].trim();
             }
         }
+    }
+
+    // An initiative's status is its stated RAG, not a schedule judgement.
+    if (typeof isInitiativeFrontMatter === 'function' && isInitiativeFrontMatter(frontMatter)) {
+        return initiativeRagLabel(ragStatus);
     }
 
     // Derive from completion and RAG

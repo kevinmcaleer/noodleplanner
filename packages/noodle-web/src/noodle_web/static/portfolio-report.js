@@ -453,9 +453,15 @@ async function runPortfolioReportExport() {
                 budget = frontMatter['budget'] || '';
             }
 
+            // An initiative carries its stated RAG comment in the status column
+            // (#1482); it has no schedule to explain the colour otherwise.
+            const isInitiative = typeof isInitiativeFrontMatter === 'function' && isInitiativeFrontMatter(frontMatter);
+            const ragComment = isInitiative ? getInitiativeRag(frontMatter).comment : '';
+
             portfolioProjects.push({
                 name: project.name,
-                status: statusLabel,
+                type: isInitiative ? 'initiative' : 'project',
+                status: ragComment ? statusLabel + ' - ' + ragComment : statusLabel,
                 rag: ragStatus,
                 completion: completion,
                 risk_count: openRisks,
@@ -497,9 +503,11 @@ async function runPortfolioReportExport() {
         });
 
         // Sort portfolio projects by RAG (red first, then amber, then green)
-        var ragOrder = { 'red': 0, 'amber': 1, 'green': 2 };
+        // Initiatives nobody has rated sort last: they are not green, just unknown.
+        var ragOrder = { 'red': 0, 'amber': 1, 'green': 2, 'unrated': 3 };
+        var ragRank = function(rag) { return rag in ragOrder ? ragOrder[rag] : 2; };
         portfolioProjects.sort(function(a, b) {
-            return (ragOrder[a.rag] || 2) - (ragOrder[b.rag] || 2);
+            return ragRank(a.rag) - ragRank(b.rag);
         });
 
         if (progress) progress.update('Capturing portfolio timeline...', 56);

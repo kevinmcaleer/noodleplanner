@@ -73,6 +73,9 @@ def build(plan_text: str, project_name: str | None = None) -> dict:
     # ascii_output is opt-in and empty here (#789); it is not part of the
     # contract the browser engine has to reproduce.
     payload.pop("ascii_output", None)
+    # plan_type is read from the front matter by the browser itself
+    # (initiative.js), so it is not part of the engine contract (#1477).
+    payload.pop("plan_type", None)
     return payload
 
 

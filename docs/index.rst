@@ -29,6 +29,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    how-to/sync-your-plan-with-files
    how-to/back-up-your-projects
    how-to/use-the-portfolio-view
+   how-to/use-initiatives
    how-to/use-the-2-week-lookahead
    how-to/use-the-timeline-view
    how-to/use-the-calendar-view

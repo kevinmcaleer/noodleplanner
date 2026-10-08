@@ -289,6 +289,35 @@ function showCreateProjectDialog() {
 }
 
 /**
+ * Show create initiative dialog (#1478). Same flow as a project, seeded
+ * with the minimal initiative template (`type: initiative`, a task list).
+ */
+function showCreateInitiativeDialog() {
+    const name = prompt('Enter initiative name:');
+    if (!name) return;
+
+    if (typeof saveCurrentProjectState === 'function') {
+        saveCurrentProjectState();
+    }
+
+    const project = createProject(name, buildInitiativeTemplate(name));
+    if (project) {
+        if (typeof loadProjectIntoEditor === 'function') {
+            loadProjectIntoEditor(project.id);
+        }
+
+        renderProjectsList();
+        if (typeof refreshProjectSelectors === 'function') {
+            refreshProjectSelectors();
+        }
+        if (typeof renderProjectsTable === 'function') {
+            renderProjectsTable();
+        }
+        showNotification('Initiative created: ' + project.name);
+    }
+}
+
+/**
  * Show rename project dialog
  */
 function showRenameProjectDialog(projectId) {

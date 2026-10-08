@@ -31,6 +31,9 @@ def programme_name_from_slug(slug: str) -> str:
     return re.sub(r'[-_]+', ' ', slug).strip().title()
 
 
+PLAN_TYPES = ('project', 'initiative')
+
+
 class FrontMatterParser:
     """Parse all front matter data from a plan text in a single pass.
 
@@ -147,6 +150,16 @@ class FrontMatterParser:
 
         self._cached_key_values = front_matter
         return self._cached_key_values
+
+    def parse_plan_type(self) -> str:
+        """Extract the plan type from front matter.
+
+        ``type: initiative`` marks a lightweight plan (a task list with no
+        milestones or gateways). A missing or unrecognised ``type:`` means
+        ``project``, so every existing plan keeps behaving as a project.
+        """
+        value = self.parse_key_values().get('type', '').strip().lower()
+        return value if value in PLAN_TYPES else 'project'
 
     def parse_programme(self) -> dict | None:
         """Extract programme membership from front matter.

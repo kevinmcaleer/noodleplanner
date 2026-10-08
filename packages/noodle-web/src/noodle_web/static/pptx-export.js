@@ -437,8 +437,9 @@ export function addPortfolioOverviewSlide(pptx, portfolioData) {
     top += maxHeight + IN(0.15);
   }
 
-  sectionHeading(slide, "Projects", IN(0.4), top, IN(12.533));
   const projects = data.projects || [];
+  const hasInitiatives = projects.some((p) => p.type === "initiative");
+  sectionHeading(slide, hasInitiatives ? "Projects and initiatives" : "Projects", IN(0.4), top, IN(12.533));
   if (!projects.length) {
     placeholderText(slide, "No projects in this portfolio.", IN(0.4), top + IN(0.35), IN(12.533));
     return slide;
@@ -458,9 +459,9 @@ export function addPortfolioOverviewSlide(pptx, portfolioData) {
   projects.slice(0, 15).forEach((p, i) => {
     const fill = rowFill(i + 1);
     rows.push([
-      bodyCell(p.name || "", { fill }),
+      bodyCell((p.name || "") + (p.type === "initiative" ? " (Initiative)" : ""), { fill }),
       bodyCell(p.status || "", { fill }),
-      bodyCell(p.rag || "", { bold: true, colour: ragColour(p.rag), align: "center", fill }),
+      bodyCell(p.rag === "unrated" ? "not rated" : (p.rag || ""), { bold: true, colour: ragColour(p.rag), align: "center", fill }),
       bodyCell(`${p.completion ?? 0}%`, { align: "center", fill }),
       bodyCell(String(p.risk_count ?? 0), { align: "center", fill }),
       bodyCell(p.budget || "", { fill }),

@@ -165,6 +165,26 @@ A resource line can carry two optional trailing suffixes, in either order:
 
 Both suffixes are metadata, not part of the resource's displayed name or role.
 
+``type``
+~~~~~~~~
+
+The kind of plan: ``project`` (the default, also used when the field is missing or unrecognised) or ``initiative``. An initiative is a lightweight plan, a task list with no milestones or gateways. See :doc:`../how-to/use-initiatives`.
+
+.. code-block:: yaml
+
+   type: initiative
+
+``rag``, ``rag_comment``, ``rag_updated``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For an initiative, the RAG status a person has stated (``green``, ``amber`` or ``red``), an optional one-line comment, and the date it was last set. Without ``rag`` the initiative is *Not Rated*. Projects ignore these: their RAG is computed from the schedule.
+
+.. code-block:: yaml
+
+   rag: amber
+   rag_comment: Waiting on supplier access
+   rag_updated: 2026-10-08
+
 ``dependencies``
 ~~~~~~~~~~~~~~~~~
 

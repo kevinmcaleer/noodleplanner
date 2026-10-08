@@ -690,7 +690,7 @@ function renderProgrammeMemberGrid(programme, ragMap) {
         return `
             <div class="portfolio-project-card${isActive ? ' active' : ''}">
                 <div class="portfolio-project-header">
-                    <h3>${escapeHtml(project.name)}</h3>
+                    <h3>${escapeHtml(project.name)}${(typeof isInitiativePlan === 'function' && isInitiativePlan(project.planText || '')) ? ' <span class="initiative-badge">Initiative</span>' : ''}</h3>
                     ${ragBadge}
                     ${isActive ? '<span class="portfolio-active-badge">Active</span>' : ''}
                 </div>
