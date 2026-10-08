@@ -92,4 +92,15 @@ assertEqual(programmes.length, 1, 'one programme derived');
 assertEqual(programmes[0].projects.map(p => p.id), ['p1', 'i1'], 'an initiative joins its programme');
 assertEqual(programmes.some(p => p.projects.some(x => x.id === 'i2')), false, 'a standalone initiative has no programme');
 
+// --- move under a programme (#1487) ---------------------------------------
+
+const standalone = fm('title: C', 'type: initiative');
+const moved = init.setInitiativeProgramme(standalone, { slug: 'digital', name: 'Digital' });
+assertEqual(table.extractProjectProgramme(moved), { slug: 'digital', name: 'Digital' }, 'initiative moved under a programme');
+assertEqual(init.isInitiativePlan(moved), true, 'moving keeps it an initiative');
+const reassigned = init.setInitiativeProgramme(moved, { slug: 'ops', name: 'Ops' });
+assertEqual((reassigned.match(/^programme:/gm) || []).length, 1, 'moving again does not duplicate the field');
+assertEqual(table.extractProjectProgramme(reassigned).slug, 'ops', 'moved to another programme');
+assertEqual(table.extractProjectProgramme(init.setInitiativeProgramme(reassigned, null)), null, 'moved out of its programme');
+
 process.exit(failures ? 1 : 0);

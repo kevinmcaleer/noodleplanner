@@ -37,6 +37,8 @@ Put an Initiative Under a Programme
 
 Add ``programme: <slug>`` to the front matter, exactly as for a project. Selecting the initiative in the Projects table and choosing **Group into programme** does the same. The programme view lists it with an **Initiative** badge.
 
+From inside an open initiative you can also click **Programme** on the **Home** tab, under **Track**, choose an existing programme and click **Save**. Choose **No programme** to take it back out. Programmes are not created here; group projects into one from the Portfolio first.
+
 Portfolio Report
 ----------------
 
