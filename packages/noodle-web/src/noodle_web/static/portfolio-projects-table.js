@@ -545,7 +545,8 @@ function renderProjectsTable() {
     // match (issue #952).
     clearProjectSelection();
 
-    if (projects.length === 0) {
+    const hasProgrammes = typeof deriveProgrammes === 'function' && deriveProgrammes(projects).length > 0;
+    if (projects.length === 0 && !hasProgrammes) {
         container.innerHTML = '<np-empty-state variant="card" heading="No Projects Yet">' +
             '<p>Create your first project to get started.</p>' +
             '<button class="btn-primary" slot="actions" onclick="showCreateProjectDialog()">+ Create Project</button>' +
@@ -582,85 +583,12 @@ function renderProjectsTable() {
     // Sort by project name by default
     tableData.sort((a, b) => a.name.localeCompare(b.name));
 
-    let html = planTypeFilterBarHtml(tableData) + programmeDropStripHtml();
-    html += '<div class="portfolio-table-container">';
-    // Cards on a phone (#1387): np-responsive-table.js.
-    html += '<np-responsive-table priorities=\'{"Project Name":"primary","Status":"1","Finish Date":"2","Project Manager":"3"}\'><table class="portfolio-projects-table">';
-    html += '<thead>';
-    html += '<tr>';
-    html += '<th class="project-select-col" data-label="Select"></th>';
-    html += '<th class="sortable" onclick="sortProjectsTable(\'name\')">Project Name</th>';
-    html += '<th class="sortable" onclick="sortProjectsTable(\'manager\')">Project Manager</th>';
-    html += '<th class="sortable" onclick="sortProjectsTable(\'status\')">Status</th>';
-    html += '<th class="sortable" onclick="sortProjectsTable(\'startDate\')">Start Date</th>';
-    html += '<th class="sortable" onclick="sortProjectsTable(\'finishDate\')">Finish Date</th>';
-    html += '<th>Latest Highlight</th>';
-    html += '<th style="text-align: center;">Actions</th>';
-    html += '</tr>';
-    html += '</thead>';
-    html += '<tbody>';
-
-    const pageSize = getPortfolioPageSize();
-    const pageInfo = paginateProjects(filterProjectsByPlanType(tableData), window.portfolioPage, pageSize);
-    window.portfolioPage = pageInfo.page;
-
-    pageInfo.rows.forEach(project => {
-        const rowClass = project.isActive ? 'active-project-row' : '';
-        const statusBadge = getStatusBadgeClass(project.status);
-
-        let highlightText = '-';
-        if (project.highlight) {
-            highlightText = `<div class="highlight-preview">` +
-                `<span class="highlight-date">${project.highlight.date}</span> ` +
-                `<span class="highlight-author">@${project.highlight.author}</span>: ` +
-                `${escapeHtml(project.highlight.preview)}` +
-                `</div>`;
-        }
-
-        const programmeBadge = project.programme
-            ? ` <span class="programme-badge" title="View programme: ${escapeHtml(project.programme.name)}" ` +
-              `onclick="event.stopPropagation(); if (typeof openProgramme === 'function') openProgramme('${escapeJsAttr(project.programme.slug)}');">` +
-              `${escapeHtml(project.programme.name)}</span>`
-            : '';
-
-        html += `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" data-plan-type="${project.planType || 'project'}" onclick="handleProjectRowClick(event, '${project.id}')">`;
-        html += `<td class="project-select-cell" onclick="event.stopPropagation()">` +
-            projectDragHandleHtml(project.id, project.name) +
-            `<input type="checkbox" class="project-select-checkbox" onclick="handleProjectCheckboxClick(event, '${project.id}')"></td>`;
-        html += `<td class="project-name-cell" ondblclick="event.stopPropagation(); startInlineRename('${project.id}', this)">`;
-        if (project.isActive) {
-            html += `<span class="active-indicator">●</span> `;
-        }
-        html += `<span class="project-name-editable">${escapeHtml(project.name)}</span>${initiativeBadgeHtml(project)}${programmeBadge}</td>`;
-        html += `<td>${escapeHtml(project.manager)}</td>`;
-        html += `<td><span class="status-badge ${statusBadge}">${escapeHtml(project.status)}</span></td>`;
-        html += `<td>${formatDateForTable(project.startDate)}</td>`;
-        html += `<td>${formatDateForTable(project.finishDate)}</td>`;
-        html += `<td class="highlight-cell">${highlightText}</td>`;
-        html += `<td class="project-actions-cell" style="text-align: center; white-space: nowrap;">`;
-        html += `<button class="project-action-btn project-action-save" onclick="event.stopPropagation(); exportProject('${project.id}')" title="Download project">` +
-            `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
-            `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>` +
-            `</svg></button>`;
-        html += `<button class="project-action-btn project-action-delete" onclick="event.stopPropagation(); confirmDeleteProjectFromTable('${project.id}', '${escapeJsAttr(project.name)}')" title="Delete project">` +
-            `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
-            `<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>` +
-            `</svg></button>`;
-        html += `</td>`;
-        html += '</tr>';
-    });
-
-    html += '</tbody>';
-    html += '</table></np-responsive-table>';
-    html += '</div>';
-    html += portfolioPagerHtml(pageInfo, pageSize);
-
-    container.innerHTML = html;
-
     // Store table data for sorting
     window.portfolioTableData = tableData;
     window.portfolioTableSortColumn = 'name';
     window.portfolioTableSortDirection = 'asc';
+
+    renderSortedTable(tableData);
 }
 
 /**
@@ -709,6 +637,121 @@ function sortProjectsTable(column) {
     renderSortedTable(tableData);
 }
 
+// ---------------------------------------------------------------------------
+// One hierarchical list (#1501): programmes, projects and initiatives share
+// the table. A programme row has a disclosure triangle and, when expanded,
+// its member plans follow it indented. Paging counts top-level entries, so a
+// programme's members always stay on the page with it.
+// ---------------------------------------------------------------------------
+
+const PORTFOLIO_COLLAPSED_KEY = 'noodleplanner_portfolio_collapsed_programmes';
+
+function getCollapsedProgrammes() {
+    try {
+        const stored = JSON.parse(localStorage.getItem(PORTFOLIO_COLLAPSED_KEY) || '[]');
+        return new Set(Array.isArray(stored) ? stored : []);
+    } catch (e) { return new Set(); }
+}
+
+function toggleProgrammeRow(slug) {
+    const collapsed = getCollapsedProgrammes();
+    if (collapsed.has(slug)) collapsed.delete(slug); else collapsed.add(slug);
+    try { localStorage.setItem(PORTFOLIO_COLLAPSED_KEY, JSON.stringify([...collapsed])); } catch (e) { /* not remembered */ }
+    if (window.portfolioTableData) renderSortedTable(window.portfolioTableData);
+}
+
+/**
+ * Group sorted rows into top-level entries: { programme, children } for a
+ * programme (placed where its first member sorts), { plan } for an ungrouped
+ * plan. `declared` programmes with no members come last. The plan-type filter
+ * applies to the plans; a programme with no matching member is dropped, and
+ * empty programmes only show under "all".
+ */
+function buildPortfolioEntries(rows, programmes, filter) {
+    const planOk = (r) => !filter || (r.planType || 'project') === filter;
+    const bySlug = {};
+    (programmes || []).forEach(p => { bySlug[p.slug] = { programme: p, children: [] }; });
+    const entries = [];
+    (rows || []).forEach(r => {
+        if (!planOk(r)) return;
+        const slug = r.programme && r.programme.slug;
+        if (slug && bySlug[slug]) {
+            if (bySlug[slug].children.length === 0) entries.push(bySlug[slug]);
+            bySlug[slug].children.push(r);
+        } else {
+            entries.push({ plan: r });
+        }
+    });
+    if (!filter) {
+        (programmes || []).forEach(p => { if (bySlug[p.slug].children.length === 0) entries.push(bySlug[p.slug]); });
+    }
+    return entries;
+}
+
+function portfolioPlanRowHtml(project, opts) {
+    opts = opts || {};
+    const rowClass = (project.isActive ? 'active-project-row' : '') + (opts.child ? ' programme-child-row' : '');
+    const statusBadge = getStatusBadgeClass(project.status);
+
+    let highlightText = '-';
+    if (project.highlight) {
+        highlightText = `<div class="highlight-preview">` +
+            `<span class="highlight-date">${project.highlight.date}</span> ` +
+            `<span class="highlight-author">@${project.highlight.author}</span>: ` +
+            `${escapeHtml(project.highlight.preview)}` +
+            `</div>`;
+    }
+
+    let html = `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" data-plan-type="${project.planType || 'project'}"` +
+        `${opts.child ? ` data-parent-programme="${escapeHtml(project.programme.slug)}"` : ''} onclick="handleProjectRowClick(event, '${project.id}')">`;
+    html += `<td class="project-select-cell" onclick="event.stopPropagation()">` +
+        projectDragHandleHtml(project.id, project.name) +
+        `<input type="checkbox" class="project-select-checkbox" onclick="handleProjectCheckboxClick(event, '${project.id}')"></td>`;
+    html += `<td class="project-name-cell" ondblclick="event.stopPropagation(); startInlineRename('${project.id}', this)">`;
+    if (project.isActive) {
+        html += `<span class="active-indicator">●</span> `;
+    }
+    html += `<span class="project-name-editable">${escapeHtml(project.name)}</span>${initiativeBadgeHtml(project)}</td>`;
+    html += `<td>${escapeHtml(project.manager)}</td>`;
+    html += `<td><span class="status-badge ${statusBadge}">${escapeHtml(project.status)}</span></td>`;
+    html += `<td>${formatDateForTable(project.startDate)}</td>`;
+    html += `<td>${formatDateForTable(project.finishDate)}</td>`;
+    html += `<td class="highlight-cell">${highlightText}</td>`;
+    html += `<td class="project-actions-cell" style="text-align: center; white-space: nowrap;">`;
+    html += `<button class="project-action-btn project-action-save" onclick="event.stopPropagation(); exportProject('${project.id}')" title="Download project">` +
+        `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
+        `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>` +
+        `</svg></button>`;
+    html += `<button class="project-action-btn project-action-delete" onclick="event.stopPropagation(); confirmDeleteProjectFromTable('${project.id}', '${escapeJsAttr(project.name)}')" title="Delete project">` +
+        `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
+        `<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>` +
+        `</svg></button>`;
+    html += `</td></tr>`;
+    return html;
+}
+
+function portfolioProgrammeRowHtml(programme, children, expanded) {
+    const n = children.length;
+    const dates = (key, pick) => {
+        const times = children.map(c => c[key]).filter(Boolean).map(d => d.getTime());
+        return times.length ? new Date(pick(...times)) : null;
+    };
+    const slug = escapeHtml(programme.slug);
+    const name = escapeHtml(programme.name);
+    return `<tr class="programme-table-row" data-programme-slug="${slug}" data-programme-name="${name}" ` +
+        `onclick="if (!event.target.closest('.programme-toggle')) openProgramme('${escapeJsAttr(programme.slug)}')">` +
+        `<td class="programme-toggle-cell" onclick="event.stopPropagation()">` +
+        `<button type="button" class="programme-toggle" aria-expanded="${expanded}" ` +
+        `aria-label="${expanded ? 'Collapse' : 'Expand'} ${name}" onclick="toggleProgrammeRow('${escapeJsAttr(programme.slug)}')">` +
+        '<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><path d="M3 2l6 4-6 4z"/></svg></button></td>' +
+        `<td class="project-name-cell"><span class="project-name-editable">${name}</span> <span class="programme-badge">Programme</span></td>` +
+        '<td></td>' +
+        `<td><span class="programme-count">${n} ${n === 1 ? 'plan' : 'plans'}</span></td>` +
+        `<td>${formatDateForTable(dates('startDate', Math.min))}</td>` +
+        `<td>${formatDateForTable(dates('finishDate', Math.max))}</td>` +
+        '<td class="highlight-cell">-</td><td></td></tr>';
+}
+
 /**
  * Re-render table with pre-sorted data
  */
@@ -716,13 +759,11 @@ function renderSortedTable(tableData) {
     const container = document.getElementById('portfolioProjectsList');
     if (!container) return;
 
-    const currentProjectId = getCurrentProjectId();
-
     // Sorting rebuilds the row markup with fresh (unchecked) checkboxes, so
     // the selection state has to be reset to match (issue #952).
     clearProjectSelection();
 
-    let html = planTypeFilterBarHtml(tableData) + programmeDropStripHtml();
+    let html = planTypeFilterBarHtml(tableData);
     html += '<div class="portfolio-table-container">';
     // Cards on a phone (#1387): np-responsive-table.js.
     html += '<np-responsive-table priorities=\'{"Project Name":"primary","Status":"1","Finish Date":"2","Project Manager":"3"}\'><table class="portfolio-projects-table">';
@@ -755,54 +796,25 @@ function renderSortedTable(tableData) {
     html += '</thead>';
     html += '<tbody>';
 
+    const programmes = (typeof deriveProgrammes === 'function' && typeof loadAllProjectsIntoCache === 'function')
+        ? deriveProgrammes(loadAllProjectsIntoCache()) : [];
+    const typeContainer = document.getElementById('portfolioProjectsList');
+    const filter = (typeContainer && typeContainer.getAttribute('data-type-filter')) || '';
+    const entries = buildPortfolioEntries(tableData, programmes, filter);
+    const collapsed = getCollapsedProgrammes();
+
     const pageSize = getPortfolioPageSize();
-    const pageInfo = paginateProjects(filterProjectsByPlanType(tableData), window.portfolioPage, pageSize);
+    const pageInfo = paginateProjects(entries, window.portfolioPage, pageSize);
     window.portfolioPage = pageInfo.page;
 
-    pageInfo.rows.forEach(project => {
-        const rowClass = project.isActive ? 'active-project-row' : '';
-        const statusBadge = getStatusBadgeClass(project.status);
-
-        let highlightText = '-';
-        if (project.highlight) {
-            highlightText = `<div class="highlight-preview">` +
-                `<span class="highlight-date">${project.highlight.date}</span> ` +
-                `<span class="highlight-author">@${project.highlight.author}</span>: ` +
-                `${escapeHtml(project.highlight.preview)}` +
-                `</div>`;
+    pageInfo.rows.forEach(entry => {
+        if (entry.plan) {
+            html += portfolioPlanRowHtml(entry.plan);
+            return;
         }
-
-        const programmeBadge = project.programme
-            ? ` <span class="programme-badge" title="View programme: ${escapeHtml(project.programme.name)}" ` +
-              `onclick="event.stopPropagation(); if (typeof openProgramme === 'function') openProgramme('${escapeJsAttr(project.programme.slug)}');">` +
-              `${escapeHtml(project.programme.name)}</span>`
-            : '';
-
-        html += `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" data-plan-type="${project.planType || 'project'}" onclick="handleProjectRowClick(event, '${project.id}')">`;
-        html += `<td class="project-select-cell" onclick="event.stopPropagation()">` +
-            projectDragHandleHtml(project.id, project.name) +
-            `<input type="checkbox" class="project-select-checkbox" onclick="handleProjectCheckboxClick(event, '${project.id}')"></td>`;
-        html += `<td class="project-name-cell" ondblclick="event.stopPropagation(); startInlineRename('${project.id}', this)">`;
-        if (project.isActive) {
-            html += `<span class="active-indicator">●</span> `;
-        }
-        html += `<span class="project-name-editable">${escapeHtml(project.name)}</span>${initiativeBadgeHtml(project)}${programmeBadge}</td>`;
-        html += `<td>${escapeHtml(project.manager)}</td>`;
-        html += `<td><span class="status-badge ${statusBadge}">${escapeHtml(project.status)}</span></td>`;
-        html += `<td>${formatDateForTable(project.startDate)}</td>`;
-        html += `<td>${formatDateForTable(project.finishDate)}</td>`;
-        html += `<td class="highlight-cell">${highlightText}</td>`;
-        html += `<td class="project-actions-cell" style="text-align: center; white-space: nowrap;">`;
-        html += `<button class="project-action-btn project-action-save" onclick="event.stopPropagation(); exportProject('${project.id}')" title="Download project">` +
-            `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
-            `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>` +
-            `</svg></button>`;
-        html += `<button class="project-action-btn project-action-delete" onclick="event.stopPropagation(); confirmDeleteProjectFromTable('${project.id}', '${escapeJsAttr(project.name)}')" title="Delete project">` +
-            `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
-            `<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>` +
-            `</svg></button>`;
-        html += `</td>`;
-        html += '</tr>';
+        const expanded = !collapsed.has(entry.programme.slug);
+        html += portfolioProgrammeRowHtml(entry.programme, entry.children, expanded);
+        if (expanded) entry.children.forEach(child => { html += portfolioPlanRowHtml(child, { child: true }); });
     });
 
     html += '</tbody>';
@@ -1124,9 +1136,9 @@ function removeProjectsFromProgramme(ids) {
 }
 
 // ---------------------------------------------------------------------------
-// Drag handle (#1490): drag a project or initiative -- or the whole selection
-// when the dragged row is part of it -- onto a programme chip above the table
-// to join it, or onto "No programme" to leave. Membership is the same
+// Drag handle (#1490, #1502): drag a project or initiative -- or the whole
+// selection when the dragged row is part of it -- onto a programme row (or
+// one of its members) to join it, or anywhere else in the list to leave. Membership is the same
 // `programme:` front-matter write the Group / Add to programme dialog uses.
 // HTML5 drag and drop is mouse/pen only; touch and keyboard use the selection
 // toolbar's Group into programme / Add to programme actions.
@@ -1140,21 +1152,6 @@ function projectDragHandleHtml(projectId, projectName) {
         '<svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true">' +
         '<circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/><circle cx="3" cy="8" r="1.5"/>' +
         '<circle cx="9" cy="8" r="1.5"/><circle cx="3" cy="13" r="1.5"/><circle cx="9" cy="13" r="1.5"/></svg></span>';
-}
-
-function programmeDropStripHtml() {
-    if (typeof loadAllProjectsIntoCache !== 'function') return '';
-    const programmes = deriveProgrammes(loadAllProjectsIntoCache());
-    if (programmes.length === 0) return '';
-    const chip = (slug, name, count) =>
-        `<button type="button" class="programme-drop-chip" data-programme-slug="${escapeHtml(slug)}" ` +
-        `data-programme-name="${escapeHtml(name)}" title="Drop projects here to ${slug ? 'add them to' : 'remove them from'} ${slug ? escapeHtml(name) : 'their programme'}">` +
-        `${escapeHtml(name)}${count === null ? '' : ` <span class="programme-drop-count">${count}</span>`}</button>`;
-    return '<div class="programme-drop-strip" role="group" aria-label="Programmes: drop projects here">' +
-        '<span class="programme-drop-label">Drag a project onto a programme</span>' +
-        programmes.map(p => chip(p.slug, p.name, p.projects.length)).join('') +
-        chip('', 'No programme', null) +
-        '</div>';
 }
 
 /** Apply a drop: join `slug` (named `name`), or leave any programme when slug is empty. */
@@ -1173,12 +1170,31 @@ function applyProgrammeDrop(ids, slug, name) {
 
 if (typeof document !== 'undefined') {
     (function initProgrammeDragDrop() {
-        let activeStrip = null;
+        let dragging = false;
         const clear = () => {
-            document.querySelectorAll('.programme-drop-chip.drop-over').forEach(c => c.classList.remove('drop-over'));
-            document.querySelectorAll('.programme-drop-strip.dragging').forEach(c => c.classList.remove('dragging'));
-            activeStrip = null;
+            document.querySelectorAll('.drop-over').forEach(c => c.classList.remove('drop-over'));
+            dragging = false;
         };
+
+        /**
+         * Where a drop would land: a programme row (or one of its members)
+         * joins that programme; anywhere else in the list -- an ungrouped
+         * plan or the table background -- leaves its programme.
+         */
+        function dropTarget(el) {
+            if (!el || !el.closest) return null;
+            const list = el.closest('#portfolioProjectsList');
+            if (!list) return null;
+            const row = el.closest('.programme-table-row, .project-table-row');
+            if (row && row.classList.contains('programme-table-row')) {
+                return { el: row, slug: row.getAttribute('data-programme-slug'), name: row.getAttribute('data-programme-name') };
+            }
+            if (row && row.getAttribute('data-parent-programme')) {
+                const parent = list.querySelector(`.programme-table-row[data-programme-slug="${CSS.escape(row.getAttribute('data-parent-programme'))}"]`);
+                if (parent) return { el: row, slug: parent.getAttribute('data-programme-slug'), name: parent.getAttribute('data-programme-name') };
+            }
+            return { el: row || list.querySelector('.portfolio-table-container'), slug: '', name: '' };
+        }
 
         document.addEventListener('dragstart', (e) => {
             const handle = e.target.closest && e.target.closest('.project-drag-handle');
@@ -1189,28 +1205,26 @@ if (typeof document !== 'undefined') {
             e.dataTransfer.effectAllowed = 'move';
             const row = handle.closest('tr');
             if (row && e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(row, 16, 16);
-            document.querySelectorAll('.programme-drop-strip').forEach(c => c.classList.add('dragging'));
-            activeStrip = true;
+            dragging = true;
         });
         document.addEventListener('dragover', (e) => {
-            const chip = e.target.closest && e.target.closest('.programme-drop-chip');
-            if (!chip || !activeStrip) return;
+            if (!dragging) return;
+            const target = dropTarget(e.target);
+            if (!target) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            chip.classList.add('drop-over');
-        });
-        document.addEventListener('dragleave', (e) => {
-            const chip = e.target.closest && e.target.closest('.programme-drop-chip');
-            if (chip && !chip.contains(e.relatedTarget)) chip.classList.remove('drop-over');
+            document.querySelectorAll('.drop-over').forEach(c => { if (c !== target.el) c.classList.remove('drop-over'); });
+            if (target.el) target.el.classList.add('drop-over');
         });
         document.addEventListener('drop', (e) => {
-            const chip = e.target.closest && e.target.closest('.programme-drop-chip');
-            if (!chip || !activeStrip) return;
+            if (!dragging) return;
+            const target = dropTarget(e.target);
+            if (!target) return;
             e.preventDefault();
             let ids = [];
             try { ids = JSON.parse(e.dataTransfer.getData(PROGRAMME_DRAG_TYPE) || '[]'); } catch (err) { ids = []; }
             clear();
-            applyProgrammeDrop(ids, chip.getAttribute('data-programme-slug'), chip.getAttribute('data-programme-name'));
+            applyProgrammeDrop(ids, target.slug, target.name);
         });
         document.addEventListener('dragend', clear);
     })();
@@ -1398,7 +1412,7 @@ if (typeof document !== 'undefined') {
         function isInteractiveTarget(target) {
             return !!target.closest(
                 '.project-table-row, .project-action-btn, .project-select-checkbox, ' +
-                'button, a, input, select, th.sortable, .portfolio-selection-toolbar'
+                'button, a, input, select, th.sortable, .portfolio-selection-toolbar, .programme-table-row'
             );
         }
 
@@ -1469,6 +1483,7 @@ if (typeof module !== 'undefined' && module.exports) {
         extractProjectProgramme,
         deriveProgrammes,
         createProgramme,
+        buildPortfolioEntries,
         slugify,
         setFrontMatterField,
         removeFrontMatterField,

@@ -111,6 +111,25 @@ function openProgrammeScope() {
     NavigationController.navigateTo('programme');
 }
 
+/**
+ * The programme details form (#1500): the programme-owned information (SRO,
+ * vision, outcomes, stakeholders) in the detail pane, like the project
+ * details form, so the programme view itself leads with its projects.
+ */
+function openProgrammeDetailsForm() {
+    const programme = getCurrentPortfolioProgramme();
+    if (!programme) return;
+    const title = document.getElementById('programmeDetailsTitle');
+    if (title) title.textContent = programme.name + ' details';
+    renderProgrammeSroVision(programme);
+    renderProgrammeStakeholders(programme);
+    openDetailPane('programmeDetailsSection');
+}
+
+function closeProgrammeDetailsForm() {
+    closeDetailPane();
+}
+
 /** "All programmes": drop out of the open programme to the index. */
 function showProgrammeIndex() {
     currentProgrammeSlug = null;
@@ -1291,6 +1310,7 @@ if (typeof document !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         openProgramme,
+        openProgrammeDetailsForm,
         openProgrammeScope,
         getCurrentPortfolioProgramme,
         computeRagRollup,
