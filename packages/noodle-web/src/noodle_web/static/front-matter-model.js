@@ -45,7 +45,7 @@
           description: 'Named calendars: a work week (Mon-Fri) or bracketed shift rotation ([Mon-Fri; Mon-Wed]), optional daily hours, and dated exceptions.' },
         { key: 'labels', label: 'Labels', kind: 'flow-list',
           description: 'Tags used for portfolio grouping and filtering.' },
-        { key: 'type', label: 'Plan Type', kind: 'select', options: ['project', 'initiative'],
+        { key: 'type', label: 'Plan Type', kind: 'select', options: ['project', 'initiative', 'programme'],
           description: 'What kind of plan this is. Switching it changes only this line; the rest of the plan is untouched.' },
         { key: 'programme', label: 'Programme', kind: 'text',
           description: 'Programme slug this project belongs to.' },

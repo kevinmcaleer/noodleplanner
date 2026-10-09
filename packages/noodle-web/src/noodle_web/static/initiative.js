@@ -17,6 +17,7 @@
 
 const PLAN_TYPE_PROJECT = 'project';
 const PLAN_TYPE_INITIATIVE = 'initiative';
+const PLAN_TYPE_PROGRAMME = 'programme';
 const INITIATIVE_RAG_VALUES = ['green', 'amber', 'red'];
 
 /** Scalar front-matter fields of a plan, keys lowercased. */
@@ -31,10 +32,10 @@ function readFrontMatterFields(planText) {
     return fields;
 }
 
-/** `initiative` or `project`; anything missing or unknown is a project. */
+/** `initiative`, `programme` or `project`; anything missing or unknown is a project. */
 function extractPlanType(planText) {
     const value = (readFrontMatterFields(planText).type || '').toLowerCase();
-    return value === PLAN_TYPE_INITIATIVE ? PLAN_TYPE_INITIATIVE : PLAN_TYPE_PROJECT;
+    return value === PLAN_TYPE_INITIATIVE || value === PLAN_TYPE_PROGRAMME ? value : PLAN_TYPE_PROJECT;
 }
 
 function isInitiativePlan(planText) {
@@ -108,9 +109,9 @@ function setInitiativeRag(planText, rag, comment, today) {
  */
 function setPlanType(planText, type) {
     const text = planText || '';
-    const target = type === PLAN_TYPE_INITIATIVE ? PLAN_TYPE_INITIATIVE : PLAN_TYPE_PROJECT;
+    const target = type === PLAN_TYPE_INITIATIVE || type === PLAN_TYPE_PROGRAMME ? type : PLAN_TYPE_PROJECT;
     if (extractPlanType(text) === target) return text;
-    if (target === PLAN_TYPE_INITIATIVE) return _frontMatterHelper('setFrontMatterField')(text, 'type', target);
+    if (target !== PLAN_TYPE_PROJECT) return _frontMatterHelper('setFrontMatterField')(text, 'type', target);
     // Removing the only field leaves an empty block; drop it, so a plan that
     // had no front matter before getting `type:` comes back as it was.
     return _frontMatterHelper('removeFrontMatterField')(text, 'type').replace(/^---\n\s*\n---\n/, '');
@@ -292,6 +293,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         PLAN_TYPE_PROJECT,
         PLAN_TYPE_INITIATIVE,
+        PLAN_TYPE_PROGRAMME,
         INITIATIVE_RAG_VALUES,
         INITIATIVE_VIEWS,
         readFrontMatterFields,
