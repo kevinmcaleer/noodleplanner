@@ -98,6 +98,12 @@ test('the first task has no predecessor to depend on', () => {
   assert.equal(parse(1).dependencies, '');
 });
 
+test('front matter is not a predecessor: the first * task has none', () => {
+  const plan = '---\ntitle: NIS2\nprogramme: ai-programme\nprogramme_name: Ai Programme\n---\n\n* Proposal Stage 5d';
+  const { parse } = load(plan);
+  assert.equal(parse(7).dependencies, '');
+});
+
 test('parsing every line of a long * chain reads each line a bounded number of times', () => {
   const n = 400;
   const plan = ['Start 1d', ...Array.from({ length: n }, (_, i) => `* Step ${i} 1d`)].join('\n');
