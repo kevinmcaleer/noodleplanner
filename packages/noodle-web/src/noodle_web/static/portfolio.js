@@ -8,9 +8,7 @@
  */
 function initPortfolio() {
     // Re-render whichever sub-view was last active, defaulting to projects
-    const activeBtn = document.querySelector('.portfolio-subnav-btn.active');
-    const lastView = activeBtn ? (activeBtn.getAttribute('onclick') || '').replace(/.*'(\w+)'.*/, '$1') : 'projects';
-    switchPortfolioView(lastView || 'projects');
+    switchPortfolioView(currentPortfolioSubview || 'projects');
 }
 
 /** The portfolio sub-view last shown (#1380), read by phone-shell.js. */
@@ -70,15 +68,6 @@ function switchPortfolioView(viewName) {
     // cover them.
     currentPortfolioSubview = viewName;
     document.dispatchEvent(new CustomEvent('portfolioviewchange', { detail: { view: viewName } }));
-
-    // Update sub-nav buttons
-    document.querySelectorAll('.portfolio-subnav-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    const selectedBtn = document.querySelector('.portfolio-subnav-btn[onclick*="' + viewName + '"]');
-    if (selectedBtn) {
-        selectedBtn.classList.add('active');
-    }
 
     // Render the specific view
     switch(viewName) {
