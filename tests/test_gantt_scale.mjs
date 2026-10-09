@@ -301,3 +301,26 @@ test('at the years zoom a drag moves by whole months', () => {
     const edit = planDragEdit(PLAN, drag, 1, 1, inject);
     assert.match(edit.text, /Spec 3d @a 2026-02-05/);
 });
+
+// ----- focus on a task ---------------------------------------------------
+
+test('focusDay: start if not started, finish if complete, else proportional', () => {
+    assert.equal(G.focusDay(100, 110, 0), 100);
+    assert.equal(G.focusDay(100, 110, undefined), 100);
+    assert.equal(G.focusDay(100, 110, '100%'), 110);
+    assert.equal(G.focusDay(100, 110, '40%'), 104);
+    assert.equal(G.focusDay(100, 110, 250), 110);
+});
+
+test('centredScrollLeft centres and clamps', () => {
+    assert.equal(G.centredScrollLeft(500, 200, 2000), 400);
+    assert.equal(G.centredScrollLeft(50, 200, 2000), 0);
+    assert.equal(G.centredScrollLeft(1990, 200, 2000), 1800);
+});
+
+test('easeInOutCubic runs 0 to 1 and is symmetric', () => {
+    assert.equal(G.easeInOutCubic(0), 0);
+    assert.equal(G.easeInOutCubic(1), 1);
+    assert.equal(G.easeInOutCubic(0.5), 0.5);
+    assert.ok(G.easeInOutCubic(0.25) < 0.25);
+});

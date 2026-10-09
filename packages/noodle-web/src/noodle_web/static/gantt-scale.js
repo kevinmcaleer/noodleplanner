@@ -406,6 +406,33 @@
         return `${trimmed} ${token}${trailing}`;
     }
 
+    // ----- Focus on a task ------------------------------------------------
+
+    /**
+     * The day the chart scrolls to when a task is clicked: its start if it
+     * has not begun, its finish if it is complete, and in between the day
+     * that far through the bar. `finishDay` is exclusive, as everywhere else.
+     */
+    function focusDay(startDay, finishDay, percent) {
+        const p = Math.min(100, Math.max(0, Number.parseFloat(percent) || 0));
+        if (p <= 0) return startDay;
+        if (p >= 100) return finishDay;
+        return startDay + (finishDay - startDay) * (p / 100);
+    }
+
+    /** `scrollLeft` that centres `x` in a viewport `clientWidth` wide, kept
+     *  inside [0, scrollWidth - clientWidth]. */
+    function centredScrollLeft(x, clientWidth, scrollWidth) {
+        const max = Math.max(0, scrollWidth - clientWidth);
+        return Math.min(max, Math.max(0, x - clientWidth / 2));
+    }
+
+    /** Ease-in-out cubic: t in [0, 1] -> progress in [0, 1]. */
+    function easeInOutCubic(t) {
+        const c = Math.min(1, Math.max(0, t));
+        return c < 0.5 ? 4 * c * c * c : 1 - Math.pow(-2 * c + 2, 3) / 2;
+    }
+
     /** `line` with its duration set to `days` working days. */
     function setLineDuration(line, days) {
         const { indent, content } = splitIndent(line);
@@ -441,6 +468,7 @@
         dayOf, isoOf, addMonths,
         headerBands, finestUnit, labelWidth,
         barGeometry,
+        focusDay, centredScrollLeft, easeInOutCubic,
         snapUnit, snapSteps, shiftBySteps,
         setLineDuration, setLineStart, lineDuration, formatDuration,
     };
