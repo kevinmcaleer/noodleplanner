@@ -1473,19 +1473,6 @@ body {
     box-shadow: 0 2px 4px var(--np-shadow);
 }
 
-[data-theme="dark"] .portfolio-subnav-btn {
-    color: var(--np-text-secondary);
-}
-
-[data-theme="dark"] .portfolio-subnav-btn:hover {
-    background: color-mix(in srgb, var(--np-accent) 10%, transparent);
-}
-
-[data-theme="dark"] .portfolio-subnav-btn.active {
-    color: var(--np-accent);
-    border-bottom-color: var(--np-accent);
-}
-
 [data-theme="dark"] .portfolio-more-btn {
     border-color: var(--np-border);
     color: var(--np-text-secondary);

@@ -135,6 +135,7 @@ function getLiveState() {
         ganttShowCriticalPath: !!document.getElementById('ganttShowCriticalPath')?.checked,
         ganttShowBaseline: !!document.getElementById('ganttShowBaseline')?.checked,
         ganttShowDependencies: !!document.getElementById('ganttShowDependencies')?.checked,
+        portfolioSubview: (typeof currentPortfolioSubview === 'string') ? currentPortfolioSubview : null,
         // #1267: the Gantt scale, for the `Scale` group's five mutually
         // exclusive buttons. `ganttScale` is a plain global (state.js),
         // defaulting to 'days' -- so the right button is pressed on first
@@ -385,9 +386,9 @@ function scopedAction(scopeId, label) {
         'pf-home:Import Project': () => showImportProjectDialog(),
         'pf-home:Status': switchPortfolioSubview('status'),
         'pf-home:Export Report': () => exportPortfolioReport(),
-        'pf-home:Actions': switchPortfolioSubview('actions'),
+        'pf-plan:Actions': switchPortfolioSubview('actions'),
         'pf-plan:Timeline': switchPortfolioSubview('timeline'),
-        'pf-plan:Look-Ahead': switchPortfolioSubview('lookahead'),
+        'pf-home:Look-Ahead': switchPortfolioSubview('lookahead'),
         'pf-plan:Dependencies': switchPortfolioSubview('dependencies'),
         'pf-plan:Team Allocation': switchPortfolioSubview('resources'),
         'pf-plan:Level Team': () => {
@@ -396,7 +397,7 @@ function scopedAction(scopeId, label) {
         },
         'pf-track:Risks': switchPortfolioSubview('risks'),
         'pf-track:Benefits': switchPortfolioSubview('benefits'),
-        'pf-track:Lessons': switchPortfolioSubview('lessons'),
+        'pf-home:Lessons': switchPortfolioSubview('lessons'),
 
         // Fixes for the pre-existing "portfolio" contextual tab (shown when
         // the Portfolio view is open, regardless of scope pill), found
@@ -1084,8 +1085,20 @@ function runStateAttributes(label) {
     return '';
 }
 
+/** Ribbon label -> portfolio.js sub-view, for the pressed state (#1513). */
+const PORTFOLIO_SUBVIEW_FOR_LABEL = {
+    Projects: 'projects', Status: 'status', 'Look-Ahead': 'lookahead', Lessons: 'lessons',
+    Timeline: 'timeline', Actions: 'actions', Dependencies: 'dependencies',
+    'Team Allocation': 'resources', Risks: 'risks', Benefits: 'benefits',
+};
+
 /** Buttons whose pressed state reflects real, currently-known app state. */
 function isButtonActive(scopeId, label, live) {
+    // #1513: the Portfolio ribbon is the only navigation, so the button for
+    // the sub-view on screen shows pressed.
+    if (scopeId.startsWith('pf-') && PORTFOLIO_SUBVIEW_FOR_LABEL[label]) {
+        return live.portfolioSubview === PORTFOLIO_SUBVIEW_FOR_LABEL[label];
+    }
     if (label === 'Editor') return live.editorVisible;
     if (label === 'Critical Path') return live.ganttShowCriticalPath;
     if (label === 'Baseline') return live.hasActiveBaseline;
@@ -1961,6 +1974,7 @@ function initRibbon() {
     // A phone hides the ribbon (phone-shell.css, #1380), and a hidden ribbon
     // measures nothing: redraw it when the layout brings it back.
     document.addEventListener('layoutchange', () => refreshRibbon());
+    document.addEventListener('portfolioviewchange', () => refreshRibbon());
 
     let resizeTimer = null;
     window.addEventListener('resize', () => {
