@@ -609,79 +609,6 @@ function deleteProgrammeInformationConfirm(slug, itemId) {
     if (programme) renderProgrammeInformation(programme);
 }
 
-// ── Markdown export (#742) ───────────────────────────────────────────────
-
-/** A markdown table cell: pipes escaped, line breaks flattened. */
-function programmeMdCell(value) {
-    return String(value == null ? '' : value).replace(/\|/g, '\\|').replace(/\s*[\r\n]+\s*/g, ' ').trim();
-}
-
-function programmeMdTable(headers, rows) {
-    return '| ' + headers.join(' | ') + ' |\n| ' + headers.map(() => '---').join(' | ') + ' |\n' +
-        rows.map((r) => '| ' + r.map(programmeMdCell).join(' | ') + ' |').join('\n') + '\n';
-}
-
-/**
- * The programme as one markdown document (#742): front matter, then a
- * section per kind of programme-owned data (#954's record) plus the
- * inferred member list. Sections with nothing to say are omitted rather
- * than left as empty headings. Pure/testable: `exportedOn` is passed in.
- * Roll-ups computed from member projects (RAG, risks, budget totals) are
- * deliberately not included -- they live in the member projects and are
- * only ever recomputed, so a snapshot of them here would go stale.
- */
-function generateProgrammeMarkdown(programme, data, exportedOn) {
-    const d = data || {};
-    const q = (v) => JSON.stringify(String(v == null ? '' : v));
-    let md = '---\n' +
-        `name: ${q(programme.name)}\n` +
-        `slug: ${q(programme.slug)}\n` +
-        (d.sro ? `sro: ${q(d.sro)}\n` : '') +
-        (d.vision ? `vision: ${q(d.vision)}\n` : '') +
-        (exportedOn ? `exported: ${q(exportedOn)}\n` : '') +
-        '---\n\n' +
-        `# ${programmeMdCell(programme.name)}\n`;
-
-    const members = programme.projects || [];
-    if (members.length) {
-        md += '\n## Member projects\n\n' + members.map((p) => `- ${programmeMdCell(p.name)}`).join('\n') + '\n';
-    }
-    if ((d.outcomes || []).length) {
-        const links = d.benefitLinks || [];
-        md += '\n## Outcomes\n\n' + programmeMdTable(['Outcome', 'Description', 'Linked benefits'],
-            d.outcomes.map((o) => [o.name, o.description, links.filter((l) => l.outcomeId === o.id).length]));
-    }
-    if (d.funding && (d.funding.envelope != null || d.funding.currency)) {
-        md += '\n## Finance\n\n' +
-            `Funding envelope: ${d.funding.envelope == null ? 'not set' : (d.funding.currency || '') + d.funding.envelope}\n`;
-    }
-    if ((d.stakeholders || []).length) {
-        md += '\n## Stakeholders\n\n' + programmeMdTable(['Name', 'Role', 'Organisation', 'Influence', 'Interest', 'Notes'],
-            d.stakeholders.map((s) => [s.name, s.role, s.organisation, s.influence, s.interest, s.notes]));
-    }
-    if ((d.information || []).length) {
-        md += '\n## Information\n\n' + programmeMdTable(['Title', 'Owner', 'Location', 'Review date', 'Notes'],
-            d.information.map((i) => [i.title, i.owner, i.location, i.reviewDate, i.notes]));
-    }
-    return md;
-}
-
-/** Download the current programme as `<slug>.md`. */
-function downloadProgrammeMarkdown() {
-    const programme = getCurrentPortfolioProgramme();
-    if (!programme) return;
-    const data = (typeof getProgrammeData === 'function') ? getProgrammeData(programme.slug) : null;
-    const md = generateProgrammeMarkdown(programme, data, todayIso());
-    const url = window.URL.createObjectURL(new Blob([md], { type: 'text/markdown' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${programme.slug}.md`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-}
-
 // ── Benefits realisation rollup (#735) ──────────────────────────────────
 
 /**
@@ -1486,6 +1413,5 @@ if (typeof module !== 'undefined' && module.exports) {
         computeProgrammeFinance,
         groupStakeholdersByQuadrant,
         isInformationReviewOverdue,
-        generateProgrammeMarkdown,
     };
 }
