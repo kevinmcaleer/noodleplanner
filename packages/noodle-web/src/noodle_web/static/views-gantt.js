@@ -650,6 +650,46 @@ function scrollGanttToToday() {
     chartSide.scrollLeft = Math.max(0, ganttX(today) - Math.max(ganttPixelsPerDay, 40));
 }
 
+/** How long the focus-on-task scroll takes, in ms. */
+const GANTT_FOCUS_SCROLL_MS = 450;
+let ganttFocusScroll = null;
+
+function cancelGanttFocusScroll() {
+    if (ganttFocusScroll) cancelAnimationFrame(ganttFocusScroll);
+    ganttFocusScroll = null;
+}
+
+/**
+ * Scroll the chart so the clicked task's focus day (see GanttScale.focusDay)
+ * is centred, easing in and out. Skips the animation under
+ * prefers-reduced-motion, and stops if the user scrolls the chart themselves.
+ */
+function scrollGanttToTask(task) {
+    const chartSide = document.querySelector('.gantt-chart-side');
+    if (!chartSide || !task || !task.start || !task.finish) return;
+    const day = GanttScale.focusDay(
+        GanttScale.dayOf(task.start), GanttScale.dayOf(task.finish), task.percent);
+    const target = GanttScale.centredScrollLeft(
+        ganttX(day), chartSide.clientWidth, chartSide.scrollWidth);
+    cancelGanttFocusScroll();
+    const from = chartSide.scrollLeft;
+    const reduced = window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced || Math.abs(target - from) < 1) {
+        chartSide.scrollLeft = target;
+        return;
+    }
+    const began = performance.now();
+    const step = (now) => {
+        const t = (now - began) / GANTT_FOCUS_SCROLL_MS;
+        chartSide.scrollLeft = from + (target - from) * GanttScale.easeInOutCubic(t);
+        ganttFocusScroll = t < 1 ? requestAnimationFrame(step) : null;
+    };
+    ganttFocusScroll = requestAnimationFrame(step);
+    ['wheel', 'touchstart'].forEach((type) =>
+        chartSide.addEventListener(type, cancelGanttFocusScroll, { once: true, passive: true }));
+}
+
 /**
  * Two header bands, chosen from the pixel density by GanttScale.headerBands:
  * the finest unit whose cells are wide enough to label, with the next
@@ -924,6 +964,11 @@ function renderGanttRows() {
             showTaskContextMenuAtPosition(e, task, index);
         });
 
+        infoRow.addEventListener('click', (e) => {
+            if (e.target.closest('input, button, select, textarea, a, .gantt-disclosure-triangle, np-checkbox')) return;
+            scrollGanttToTask(task);
+        });
+
         // Hover add-buttons and drag handle
         if (typeof addRowInteractions === 'function') {
             addRowInteractions(infoRow, task, index, 'gantt');
@@ -1133,6 +1178,7 @@ function setupBarClickToOpenTask(element, task) {
 
         // Only open if this was a click, not a drag
         if (dx < 5 && dy < 5) {
+            scrollGanttToTask(task);
             openMilestoneTaskForm(task.name);
         }
     });
