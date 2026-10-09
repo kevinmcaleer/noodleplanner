@@ -201,3 +201,12 @@ def test_programme_view_lists_its_plans_as_a_portfolio_table(page, app_server):
     # Same rows open the plan, as in the Portfolio view.
     rows.first.locator(".project-name-cell").click()
     page.wait_for_function("() => NavigationController.getCurrentView() !== 'programme'")
+
+
+def test_portfolio_header_has_no_plan_dropdown_the_footer_switcher_remains(page, app_server):
+    open_app(page, app_server)
+    _new_project(page, "Alpha")
+    click_scope(page, "portfolio")
+    page.wait_for_selector("#portfolio-tab.active")
+    assert page.locator("#portfolio-tab .portfolio-header .project-selector-dropdown").count() == 0
+    assert page.locator(".status-bar .project-selector-dropdown").count() == 1

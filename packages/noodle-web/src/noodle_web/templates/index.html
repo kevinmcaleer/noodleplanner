@@ -2147,13 +2147,9 @@ Build
             <!-- Portfolio Tab -->
             <div id="portfolio-tab" class="tab-content" role="tabpanel">
                 <div class="portfolio-container">
-                    <!-- Consolidated header: plan selector, tab buttons, and actions menu -->
+                    <!-- Consolidated header: tab buttons and actions menu (the plan switcher lives in the footer) -->
                     <div class="portfolio-header">
                         <div class="portfolio-header-left">
-                            <div class="project-selector-wrapper">
-                                <label class="project-selector-label">Plan:</label>
-                                <select class="project-selector-dropdown" onchange="onProjectSelectorChange(this.value)" title="Switch project"></select>
-                            </div>
                             <div class="portfolio-subnav">
                                 <button class="portfolio-subnav-btn active" onclick="switchPortfolioView('projects')">
                                     <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-portfolio"/></svg> Projects
