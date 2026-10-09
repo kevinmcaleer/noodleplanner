@@ -572,6 +572,10 @@ class TestPlanType:
     def _plan(type_line: str) -> str:
         return f"---\ntitle: Tidy the wiki\n{type_line}---\nTask 1 2d\n"
 
+    def test_programme(self):
+        assert FrontMatterParser(self._plan("type: programme\n")).parse_plan_type() == 'programme'
+        assert FrontMatterParser(self._plan("type:  Programme \n")).parse_plan_type() == 'programme'
+
     def test_initiative(self):
         assert FrontMatterParser(self._plan("type: initiative\n")).parse_plan_type() == 'initiative'
 

@@ -111,19 +111,26 @@ const rich = [
     '  - from: Other', '    type: FS', 'rag: amber', '---', '', '# Phase', 'Task one 2d @ab', 'Task two 3d', '',
 ].join('\n');
 const noFm = 'Task 1d\nTask 2d\n';
-['project', 'initiative'].forEach(from => {
-    const base = from === 'initiative' ? rich.replace('sponsor: Ada', 'type: initiative\nsponsor: Ada') : rich;
-    ['project', 'initiative'].forEach(to => {
+const TYPES = ['project', 'initiative', 'programme'];
+const withType = (text, type) => type === 'project' ? text : text.replace('sponsor: Ada', 'type: ' + type + '\nsponsor: Ada');
+const stripType = t => t.split('\n').filter(l => !/^type: (initiative|programme)$/.test(l)).join('\n');
+
+TYPES.forEach(from => {
+    const base = withType(rich, from);
+    TYPES.forEach(to => {
         const switched = init.setPlanType(base, to);
         assertEqual(init.extractPlanType(switched), to, from + ' -> ' + to + ' sets the type');
-        const strip = t => t.split('\n').filter(l => l !== 'type: initiative').join('\n');
-        assertEqual(strip(switched), strip(base), from + ' -> ' + to + ' changes only the type line');
-        assertEqual(init.setPlanType(switched, from), from === 'initiative' && to === 'initiative' ? base : init.setPlanType(switched, from), 'switching back is stable');
+        assertEqual(stripType(switched), stripType(base), from + ' -> ' + to + ' changes only the type line');
+        assertEqual(init.setPlanType(switched, from), from === to ? base : init.setPlanType(switched, from), from + ' -> ' + to + ' -> ' + from + ' is stable');
+        assertEqual(stripType(init.setPlanType(switched, from)), stripType(base), from + ' -> ' + to + ' -> ' + from + ' loses nothing');
     });
 });
-assertEqual(init.setPlanType(init.setPlanType(rich, 'initiative'), 'project'), rich, 'project -> initiative -> project is byte-identical');
+['initiative', 'programme'].forEach(t => {
+    assertEqual(init.setPlanType(init.setPlanType(rich, t), 'project'), rich, 'project -> ' + t + ' -> project is byte-identical');
+    assertEqual(init.setPlanType(init.setPlanType(noFm, t), 'project'), noFm, 'no front matter -> ' + t + ' -> project is byte-identical');
+});
 assertEqual(init.setPlanType(rich, 'project'), rich, 'switching to the current type is a no-op');
-assertEqual(init.setPlanType(init.setPlanType(noFm, 'initiative'), 'project').replace(/^---\n---\n/, ''), noFm, 'plan with no front matter keeps its body');
 assertEqual(init.setPlanType(fm('title: P', 'type: project'), 'project'), fm('title: P', 'type: project'), 'an explicit type: project is left alone');
+assertEqual(init.isInitiativePlan(init.setPlanType(rich, 'programme')), false, 'a programme is not an initiative');
 
 process.exit(failures ? 1 : 0);
