@@ -242,41 +242,6 @@
     transform: translateY(-1px);
 }
 
-/* Portfolio Sub-Navigation (inline in header row) */
-.portfolio-subnav {
-    display: flex;
-    gap: var(--np-space-2);
-    align-items: center;
-}
-
-.portfolio-subnav-btn {
-    display: flex;
-    align-items: center;
-    gap: var(--np-space-4);
-    padding: var(--np-space-8) var(--np-space-12);
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
-    color: var(--np-muted);
-    font-size: 0.85em;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-}
-
-.portfolio-subnav-btn:hover {
-    color: var(--np-accent);
-    background: rgba(16, 139, 185, 0.1);
-}
-
-.portfolio-subnav-btn.active {
-    color: var(--np-accent);
-    border-bottom-color: var(--np-accent);
-    font-weight: 600;
-}
-
 /* Portfolio Status View */
 .portfolio-status-header {
     display: flex;
@@ -1045,10 +1010,6 @@
     .portfolio-project-actions button {
         font-size: 0.85em;
         padding: var(--np-space-8) var(--np-space-12);
-    }
-
-    .portfolio-subnav {
-        flex-wrap: wrap;
     }
 
     .portfolio-status-header {

@@ -207,3 +207,18 @@ test("a caret button is always a small (cols) button, never a large one", () => 
     if (tuple[2] === "caret") assert.equal(kind, "sm", `${tab}/${group}: "${tuple[1]}" is a caret lg button`);
   }
 });
+
+test("portfolio ribbon reaches every portfolio sub-view, grouped Status / Progress / Risks & Benefits / Lessons Learned / Resources (#1513)", () => {
+  const groupsByName = {};
+  for (const tab of PORTFOLIO_TABS) {
+    for (const g of tab.groups) {
+      groupsByName[g.name] = [...(g.lg || []), ...(g.cols || []).flat()].map((b) => b[1]);
+    }
+  }
+  assert.deepEqual(groupsByName["Status"], ["Status", "Look-Ahead"]);
+  assert.deepEqual(groupsByName["Lessons Learned"], ["Lessons"]);
+  assert.deepEqual(groupsByName["Risks & Benefits"], ["Risks", "Benefits"]);
+  assert.deepEqual(groupsByName["Progress"], ["Timeline", "Actions", "Dependencies"]);
+  assert.ok(groupsByName["Resources"].includes("Team Allocation"));
+  assert.ok(groupsByName["Portfolio"].includes("Projects"));
+});

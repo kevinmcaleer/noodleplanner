@@ -148,28 +148,30 @@ export const TABS = [
  */
 export const PORTFOLIO_TABS = [
     {
+        // #1513: every Portfolio sub-view is reached from the ribbon (the
+        // in-page button bar is gone), grouped by what the user is asking:
+        // Status (where are we), Progress (how is it going), Risks &
+        // Benefits, Lessons Learned, Resources. Status leads Home, the same
+        // "roll-up first" placement as #933.
         id: 'pf-home', label: 'Home',
         groups: [
-            // Status (the portfolio roll-up -- every project's RAG/completion
-            // in one table) leads as the first, large icon on Home, the same
-            // "Dashboard first" placement fix #909 made for project scope
-            // (issue #933: "Home should lead with the portfolio roll-up as
-            // its front door").
-            { name: 'Portfolio', launcher: 'Projects', lg: [['project-report', 'Status'], ['portfolio', 'Projects']], cols: [[['add', 'New Project'], ['upload', 'Import Project']], [['add', 'New Initiative'], ['board', 'New Programme']]] },
-            { name: 'Report', lg: [['download', 'Export Report']], cols: [[['task-list', 'Actions']]] },
+            { name: 'Status', lg: [['project-report', 'Status']], cols: [[['search', 'Look-Ahead']]] },
+            { name: 'Portfolio', launcher: 'Projects', lg: [['portfolio', 'Projects']], cols: [[['add', 'New Project'], ['upload', 'Import Project']], [['add', 'New Initiative'], ['board', 'New Programme']]] },
+            { name: 'Lessons Learned', lg: [['bulb', 'Lessons']], cols: [] },
+            { name: 'Report', lg: [['download', 'Export Report']], cols: [] },
         ],
     },
     {
-        id: 'pf-plan', label: 'Plan',
+        id: 'pf-plan', label: 'Progress',
         groups: [
-            { name: 'Schedule', launcher: 'Dependencies', lg: [['timeline', 'Timeline']], cols: [[['search', 'Look-Ahead'], ['link', 'Dependencies']]] },
-            { name: 'Capacity', lg: [['resources', 'Team Allocation']], cols: [[['refresh', 'Level Team']]] },
+            { name: 'Progress', launcher: 'Dependencies', lg: [['timeline', 'Timeline']], cols: [[['task-list', 'Actions'], ['link', 'Dependencies']]] },
+            { name: 'Resources', lg: [['resources', 'Team Allocation']], cols: [[['refresh', 'Level Team']]] },
         ],
     },
     {
-        id: 'pf-track', label: 'Track',
+        id: 'pf-track', label: 'Risks & Benefits',
         groups: [
-            { name: 'RAID & Benefits', launcher: 'Benefits', lg: [['flag', 'Risks']], cols: [[['target', 'Benefits'], ['bulb', 'Lessons']]] },
+            { name: 'Risks & Benefits', lg: [['flag', 'Risks'], ['target', 'Benefits']], cols: [] },
         ],
     },
 ];
