@@ -1522,17 +1522,6 @@ body {
     color: var(--np-text-secondary);
 }
 
-/* Portfolio project selector */
-[data-theme="dark"] .portfolio-header .project-selector-dropdown {
-    background: var(--np-input-bg);
-    color: var(--np-text);
-    border-color: var(--np-input-border);
-}
-
-[data-theme="dark"] .portfolio-header .project-selector-label {
-    color: var(--np-text-secondary);
-}
-
 /* Portfolio Status View */
 [data-theme="dark"] .portfolio-status-header {
     box-shadow: 0 2px 4px var(--np-shadow);

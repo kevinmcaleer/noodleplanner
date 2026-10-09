@@ -956,38 +956,6 @@ body.gantt-dragging * {
     border-color: var(--np-accent);
 }
 
-/* Project selector dropdown — portfolio header (light theme) */
-.portfolio-header .project-selector-dropdown {
-    padding: var(--np-space-4) var(--np-space-12);
-    border: 1px solid var(--np-border);
-    border-radius: 4px;
-    background: var(--np-surface);
-    color: var(--np-ink);
-    font-size: 0.85em;
-    cursor: pointer;
-    transition: border-color 0.2s;
-    max-width: 180px;
-}
-
-.portfolio-header .project-selector-dropdown:focus {
-    outline: none;
-    border-color: var(--np-accent);
-}
-
-.portfolio-header .project-selector-label {
-    font-weight: 600;
-    color: var(--np-muted);
-    margin-right: var(--np-space-8);
-    white-space: nowrap;
-    font-size: 0.85em;
-}
-
-.portfolio-header .project-selector-wrapper {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-}
-
 .save-btn {
     background: var(--np-accent);
     color: var(--np-on-accent);
