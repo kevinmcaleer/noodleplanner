@@ -5074,8 +5074,18 @@ function isSummaryLine(lines, lineIndex) {
 }
 
 function getPreviousTaskName(lines, currentLineNum) {
-    // Look backwards from current line to find the previous non-summary task
-    for (let i = currentLineNum - 2; i >= 0; i--) {
+    // Look backwards from current line to find the previous non-summary task,
+    // stopping at the front matter's closing fence: its `key: value` lines
+    // are not tasks (a plan's first * task would otherwise depend on one)
+    let outlineStart = 0;
+    let first = 0;
+    while (first < lines.length && !lines[first].trim()) first++;
+    if (first < lines.length && lines[first].trim() === '---') {
+        for (let i = first + 1; i < lines.length; i++) {
+            if (lines[i].trim() === '---') { outlineStart = i + 1; break; }
+        }
+    }
+    for (let i = currentLineNum - 2; i >= outlineStart; i--) {
         const line = lines[i].trim();
         // Skip empty lines, phase headers, and summary lines
         if (line && !line.includes('===') && !line.includes('---') && !line.startsWith('#')) {
