@@ -3411,7 +3411,7 @@ function openProductForm(task) {
         const resourceMap = editor && typeof parseResourceMappings === 'function' ? parseResourceMappings(editor.value) : {};
         let resourceDetails = {};
         if (editor && typeof parseResourceDetails === 'function') {
-            try { resourceDetails = parseResourceDetails(editor.value); } catch { /* front matter is optional */ }
+            try { resourceDetails = (typeof resourceDetailsWithTasks === "function" ? resourceDetailsWithTasks : parseResourceDetails)(editor.value); } catch { /* front matter is optional */ }
         }
         const list = document.createElement('div');
         list.className = 'task-row-list';
@@ -3439,6 +3439,7 @@ function openProductForm(task) {
                 if (e.detail.kind === 'remove') productDeleteActivity(a.name);
             });
             row.addEventListener('resource-open', (e) => {
+                e.preventDefault();
                 const shortname = e.detail && e.detail.shortname;
                 if (shortname && typeof openResourceForm === 'function') openResourceForm(shortname);
             });

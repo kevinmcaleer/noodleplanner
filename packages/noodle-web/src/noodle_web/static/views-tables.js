@@ -1749,7 +1749,7 @@ function updateTimesheet(tasks, frontMatter = {}) {
 function taskGridResourceDetails() {
     const editor = document.getElementById('planEditor');
     if (!editor || typeof parseResourceDetails !== 'function') return {};
-    try { return parseResourceDetails(editor.value); } catch { return {}; }
+    try { return (typeof resourceDetailsWithTasks === 'function' ? resourceDetailsWithTasks : parseResourceDetails)(editor.value); } catch { return {}; }
 }
 
 /**

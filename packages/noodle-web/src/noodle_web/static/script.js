@@ -3550,7 +3550,7 @@ function populateSubtasks(parentLineNumber, lines) {
     const resourceMap = editor ? parseResourceMappings(editor.value) : {};
     let resourceDetails = {};
     if (editor && typeof parseResourceDetails === 'function') {
-        try { resourceDetails = parseResourceDetails(editor.value); } catch { /* front matter is optional */ }
+        try { resourceDetails = resourceDetailsWithTasks(editor.value); } catch { /* front matter is optional */ }
     }
 
     // One <np-task-row> per descendant (Penpot "Task row", type list).
@@ -3611,6 +3611,7 @@ function populateSubtasks(parentLineNumber, lines) {
             showSubtaskResourcePicker(e.detail.anchor, subtask, resourceMap);
         });
         row.addEventListener('resource-open', (e) => {
+            e.preventDefault();
             const shortname = e.detail && e.detail.shortname;
             if (shortname && typeof openResourceForm === 'function') openResourceForm(shortname);
         });
@@ -5238,6 +5239,54 @@ function parseResourceDetails(planText) {
     return details;
 }
 
+/**
+ * parseResourceDetails() plus each resource's assigned tasks, for the smarttag
+ * hover card (#1527): `tasks: [{ name, percent }]`, leaf tasks only, in start
+ * order. The card decides which to show (up next, else the most recent).
+ */
+let _rdwtCache = { text: null, tasks: null, value: null };
+function resourceDetailsWithTasks(planText) {
+    const tasks = (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks) || [];
+    // Memoised: every whiteboard note and task row asks for the same answer.
+    if (_rdwtCache.text === planText && _rdwtCache.tasks === tasks) return _rdwtCache.value;
+    const details = parseResourceDetails(planText);
+    const byKey = {};
+    for (const [short, d] of Object.entries(details)) {
+        d.tasks = [];
+        byKey[short] = d;
+        if (d.name) byKey[d.name.toLowerCase()] = d;
+    }
+    const ordered = tasks.filter(t => !t.is_summary && t.resources)
+        .sort((a, b) => String(a.start || '').localeCompare(String(b.start || '')));
+    for (const t of ordered) {
+        const seen = new Set();
+        for (const raw of String(t.resources).split(',')) {
+            const key = raw.replace(/\[.*?\]/g, '').trim().toLowerCase();
+            const d = byKey[key];
+            if (d && !seen.has(d)) {
+                seen.add(d);
+                d.tasks.push({ name: t.name, percent: parseFloat(t.percent) || 0 });
+            }
+        }
+    }
+    _rdwtCache = { text: planText, tasks, value: details };
+    return details;
+}
+
+/** Any resource smarttag with no other job opens the resource form (#1524).
+ * A resource used on a task but absent from the front matter arrives with only
+ * its name, which the form takes as the shortname (#1525). */
+document.addEventListener('resource-open', (event) => {
+    if (event.defaultPrevented) return;
+    const d = event.detail || {};
+    let shortname = d.shortname;
+    if (!shortname && d.name) {
+        const lc = String(d.name).toLowerCase();
+        shortname = Object.keys(globalResourceMap || {}).find(k => String(globalResourceMap[k]).toLowerCase() === lc) || d.name;
+    }
+    if (shortname) openResourceForm(String(shortname).toLowerCase());
+});
+
 // Autocomplete functionality for dependencies and resources
 // Autocomplete state is now in state.js
 
@@ -5375,7 +5424,13 @@ function renderTaskResources() {
             saveTask();
         });
 
-        row.append(open, remove);
+        // The smarttag chip with the resource's initials, ahead of the name.
+        const chip = document.createElement('np-resource-stack');
+        chip.setAttribute('max', '1');
+        chip.names = [full || shortname];
+        chip.details = resourceDetailsWithTasks(editor ? editor.value : '');
+
+        row.append(chip, open, remove);
         listEl.appendChild(row);
     });
 
@@ -6344,7 +6399,7 @@ function populateResourceForm(shortname) {
     const content = editor.value;
     const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
     if (!frontMatterMatch) {
-        console.log('No front matter found');
+        document.getElementById('resourceShortname').value = shortname;
         return;
     }
 
@@ -6429,7 +6484,9 @@ function populateResourceForm(shortname) {
         }
     }
 
-    console.log('ERROR: No matching resource found for shortname:', shortname);
+    // Used on a task but never added to the front matter (#1525): open the
+    // form with what we know, the shortname, so it only needs a name.
+    document.getElementById('resourceShortname').value = shortname;
 }
 
 // Auto-save resource with debounce

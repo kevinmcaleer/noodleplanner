@@ -884,7 +884,7 @@ function wireCollabPeople(live) {
         { name: person.display_name, role: person.active ? 'Active' : 'Inactive' },
     ]));
     // A chip, or its card's link, does what the status-bar chat bubble does.
-    const open = () => { if (typeof openCollabChatPanel === 'function') openCollabChatPanel(); };
+    const open = (event) => { event.preventDefault(); if (typeof openCollabChatPanel === 'function') openCollabChatPanel(); };
     stack.addEventListener('resource-activate', open);
     stack.addEventListener('resource-open', open);
 }
