@@ -180,3 +180,24 @@ def test_drag_handle_comes_before_the_checkbox_with_room_between(page, app_serve
     )
     assert box["handleLeft"] < box["checkLeft"]
     assert box["checkLeft"] - box["handleRight"] >= 8, box
+
+
+def test_programme_view_lists_its_plans_as_a_portfolio_table(page, app_server):
+    open_app(page, app_server)
+    _new_project(page, "Alpha")
+    _new_project(page, "Beta")
+    page.evaluate("() => createProgramme('Estate Renewal')")
+    page.evaluate(
+        "() => applyProgrammeDrop(window.portfolioTableData.filter(r => r.name === 'Alpha').map(r => r.id),"
+        " 'estate-renewal', 'Estate Renewal')"
+    )
+    page.click('.ribbon-scope-btn[data-scope="programme"]')
+    page.wait_for_selector("#programmeViewProjects table.programme-members-table")
+    rows = page.locator("#programmeViewProjects tbody tr.project-table-row")
+    assert rows.count() == 1
+    assert rows.first.inner_text().startswith("Alpha") or "Alpha" in rows.first.inner_text()
+    heads = page.locator("#programmeViewProjects thead th").all_inner_texts()
+    assert "Project Name" in heads and "Status" in heads and "Finish Date" in heads
+    # Same rows open the plan, as in the Portfolio view.
+    rows.first.locator(".project-name-cell").click()
+    page.wait_for_function("() => NavigationController.getCurrentView() !== 'programme'")

@@ -522,6 +522,25 @@ function setPlanTypeFilter(value) {
     if (window.portfolioTableData) renderSortedTable(window.portfolioTableData);
 }
 
+/** The columns the portfolio table shows for one cached project. */
+function portfolioRowData(project, currentProjectId) {
+    const planText = project.planText || '';
+    const dates = extractProjectDates(planText);
+    return {
+        id: project.id,
+        planType: (typeof extractPlanType === 'function') ? extractPlanType(planText) : 'project',
+        name: project.name,
+        manager: extractProjectManager(planText),
+        status: extractProjectStatus(planText),
+        startDate: dates.startDate,
+        finishDate: dates.finishDate,
+        highlight: getLatestHighlight(planText),
+        isActive: project.id === currentProjectId,
+        planText: planText,
+        programme: extractProjectProgramme(planText)
+    };
+}
+
 function renderProjectsTable() {
     const container = document.getElementById('portfolioProjectsList');
     if (!container) return;
@@ -556,29 +575,7 @@ function renderProjectsTable() {
     }
 
     // Extract all data for table
-    const tableData = projects.map(project => {
-        const planText = project.planText || '';
-        const manager = extractProjectManager(planText);
-        const status = extractProjectStatus(planText);
-        const dates = extractProjectDates(planText);
-        const highlight = getLatestHighlight(planText);
-        const programme = extractProjectProgramme(planText);
-        const planType = (typeof extractPlanType === 'function') ? extractPlanType(planText) : 'project';
-
-        return {
-            id: project.id,
-            planType: planType,
-            name: project.name,
-            manager: manager,
-            status: status,
-            startDate: dates.startDate,
-            finishDate: dates.finishDate,
-            highlight: highlight,
-            isActive: project.id === currentProjectId,
-            planText: planText,
-            programme: programme
-        };
-    });
+    const tableData = projects.map(project => portfolioRowData(project, currentProjectId));
 
     // Sort by project name by default
     tableData.sort((a, b) => a.name.localeCompare(b.name));
@@ -704,9 +701,11 @@ function portfolioPlanRowHtml(project, opts) {
 
     let html = `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" data-plan-type="${project.planType || 'project'}"` +
         `${opts.child ? ` data-parent-programme="${escapeHtml(project.programme.slug)}"` : ''} onclick="handleProjectRowClick(event, '${project.id}')">`;
-    html += `<td class="project-select-cell" onclick="event.stopPropagation()">` +
-        '<span class="project-select-inner">' + projectDragHandleHtml(project.id, project.name) +
-        `<input type="checkbox" class="project-select-checkbox" onclick="handleProjectCheckboxClick(event, '${project.id}')"></span></td>`;
+    if (!opts.members) {
+        html += `<td class="project-select-cell" onclick="event.stopPropagation()">` +
+            '<span class="project-select-inner">' + projectDragHandleHtml(project.id, project.name) +
+            `<input type="checkbox" class="project-select-checkbox" onclick="handleProjectCheckboxClick(event, '${project.id}')"></span></td>`;
+    }
     html += `<td class="project-name-cell" ondblclick="event.stopPropagation(); startInlineRename('${project.id}', this)">`;
     if (project.isActive) {
         html += `<span class="active-indicator">●</span> `;
@@ -728,6 +727,25 @@ function portfolioPlanRowHtml(project, opts) {
         `</svg></button>`;
     html += `</td></tr>`;
     return html;
+}
+
+/**
+ * The programme view's member list: the portfolio table's columns and rows,
+ * filtered to one programme. No selection or drag column -- grouping is done
+ * in the Portfolio view.
+ */
+function programmeMembersTableHtml(programme) {
+    const currentProjectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : null;
+    const rows = programme.projects
+        .map(p => portfolioRowData(p, currentProjectId))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    const heads = ['Project Name', 'Project Manager', 'Status', 'Start Date', 'Finish Date', 'Latest Highlight']
+        .map(label => `<th>${label}</th>`).join('') + '<th style="text-align: center;">Actions</th>';
+    return '<div class="portfolio-table-container">' +
+        '<np-responsive-table priorities=\'{"Project Name":"primary","Status":"1","Finish Date":"2","Project Manager":"3"}\'>' +
+        '<table class="portfolio-projects-table programme-members-table"><thead><tr>' + heads + '</tr></thead><tbody>' +
+        rows.map(r => portfolioPlanRowHtml(r, { members: true })).join('') +
+        '</tbody></table></np-responsive-table></div>';
 }
 
 function portfolioProgrammeRowHtml(programme, children, expanded) {
@@ -1484,6 +1502,7 @@ if (typeof module !== 'undefined' && module.exports) {
         deriveProgrammes,
         createProgramme,
         buildPortfolioEntries,
+        programmeMembersTableHtml,
         slugify,
         setFrontMatterField,
         removeFrontMatterField,
