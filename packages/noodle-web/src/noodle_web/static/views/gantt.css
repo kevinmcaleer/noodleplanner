@@ -226,7 +226,12 @@
     width: 32px;
     min-width: 32px;
     max-width: 32px;
-    padding: var(--np-space-8) var(--np-space-4) !important;
+    /* No vertical padding: the 24px checkbox plus the cell's 8px either side
+       plus the 1px row border came to 41px, one pixel over the 40px bar row
+       it sits beside, so every task row drifted a pixel further from its bar
+       (phase rows have no checkbox and stayed at 40). */
+    padding: 0 var(--np-space-4) !important;
+    vertical-align: middle;
 }
 
 /* The Resources cell: the task row's people chips, and a word when the
