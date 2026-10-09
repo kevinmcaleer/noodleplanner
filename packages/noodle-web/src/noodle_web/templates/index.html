@@ -2277,12 +2277,13 @@ Build
                     <div id="programmeDashboard">
                         <div class="programme-landing-header">
                             <button type="button" class="btn-secondary btn-sm programme-all-link" onclick="showProgrammeIndex()">&larr; All programmes</button>
+                            <button type="button" class="btn-secondary btn-sm programme-details-btn" onclick="openProgrammeDetailsForm()">Programme details</button>
                             <h2 id="programmeViewTitle"></h2>
                             <p class="programme-landing-meta" id="programmeViewMeta"></p>
                         </div>
                         <div class="programme-section">
-                            <h3>SRO, Vision &amp; Outcomes</h3>
-                            <div id="programmeSroVision"></div>
+                            <h3>Member Projects</h3>
+                            <div class="portfolio-content" id="programmeViewProjects"></div>
                         </div>
                         <div class="programme-stat-tiles" id="programmeStatTiles"></div>
                         <div class="programme-section">
@@ -2309,18 +2310,6 @@ Build
                             <h3>Finance</h3>
                             <div id="programmeFinance"></div>
                         </div>
-                        <div class="programme-section">
-                            <h3>Stakeholders</h3>
-                            <div id="programmeStakeholders"></div>
-                        </div>
-                        <div class="programme-section">
-                            <h3>Information</h3>
-                            <div id="programmeInformation"></div>
-                        </div>
-                        <div class="programme-section">
-                            <h3>Member Projects</h3>
-                            <div class="portfolio-content" id="programmeViewProjects"></div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -2332,6 +2321,29 @@ Build
     <!-- Detail Pane (slide-out right panel) -->
     <div id="detailPaneOverlay" class="detail-pane-overlay"></div>
     <div id="detailPane" class="detail-pane" role="dialog" aria-modal="true" aria-label="Detail pane">
+
+        <!-- Programme Details Section (#1500): the programme-owned information,
+             kept out of the programme view the way project details are kept out of the plan. -->
+        <np-detail-sheet id="programmeDetailsSection" class="detail-pane-section" close-action="closeProgrammeDetailsForm">
+            <div class="modal-header" slot="header">
+                <h3 id="programmeDetailsTitle" class="modal-header-title" style="margin:0;flex:1;">Programme details</h3>
+                <np-close-button></np-close-button>
+            </div>
+            <div class="modal-body">
+                <div class="programme-section">
+                    <h3>SRO, Vision &amp; Outcomes</h3>
+                    <div id="programmeSroVision"></div>
+                </div>
+                <div class="programme-section">
+                    <h3>Stakeholders</h3>
+                    <div id="programmeStakeholders"></div>
+                </div>
+                <div class="programme-section">
+                    <h3>Information</h3>
+                    <div id="programmeInformation"></div>
+                </div>
+            </div>
+        </np-detail-sheet>
 
         <!-- Task Form Section -->
         <np-detail-sheet id="taskFormSection" class="detail-pane-section" close-action="closeTaskForm">
