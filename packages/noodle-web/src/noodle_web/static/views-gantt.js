@@ -274,8 +274,16 @@ function ganttX(day) {
     return (day - ganttFromDay) * ganttPixelsPerDay;
 }
 
+/** Last day drawn: the project's end, stretched so a short or zoomed-out
+ *  project still fills the chart pane instead of leaving blank space. */
+function ganttEndDay() {
+    const chartSide = document.querySelector('.gantt-chart-side');
+    const visibleDays = chartSide ? Math.ceil(chartSide.clientWidth / ganttPixelsPerDay) : 0;
+    return Math.max(ganttToDay, ganttFromDay + visibleDays - 1);
+}
+
 function ganttTotalWidth() {
-    return (ganttToDay - ganttFromDay + 1) * ganttPixelsPerDay;
+    return (ganttEndDay() - ganttFromDay + 1) * ganttPixelsPerDay;
 }
 
 /** Wire the zoom slider and the hidden scale <select> once. */
@@ -578,6 +586,12 @@ function relayoutGanttChart() {
     renderCriticalPathLines();
 }
 
+// The chart is stretched to the pane (ganttEndDay), so a resized window
+// needs the same relayout a zoom change gets.
+window.addEventListener('resize', () => {
+    if (ganttFromDay !== null && document.getElementById('ganttBody')) relayoutGanttChart();
+});
+
 /**
  * Position one chart element from its day numbers (`data-start-day`,
  * `data-finish-day`) and the current zoom. Every horizontal coordinate on
@@ -646,7 +660,7 @@ function scrollGanttToToday() {
     const chartSide = document.querySelector('.gantt-chart-side');
     if (!chartSide || ganttFromDay === null) return;
     const today = GanttScale.dayOf(new Date());
-    if (today < ganttFromDay || today > ganttToDay) return;
+    if (today < ganttFromDay || today > ganttEndDay()) return;
     chartSide.scrollLeft = Math.max(0, ganttX(today) - Math.max(ganttPixelsPerDay, 40));
 }
 
@@ -706,7 +720,7 @@ function renderGanttHeaders() {
     ganttHeader.style.minWidth = totalWidth + 'px';
 
     const today = GanttScale.dayOf(new Date());
-    const bands = GanttScale.headerBands(ganttFromDay, ganttToDay, ganttPixelsPerDay);
+    const bands = GanttScale.headerBands(ganttFromDay, ganttEndDay(), ganttPixelsPerDay);
     ganttHeader.dataset.fineUnit = bands[1].unit;
     bands.forEach(band => {
         const row = document.createElement('div');
@@ -1198,7 +1212,8 @@ function renderWeekendHighlights(container) {
     const fragment = document.createDocumentFragment();
 
     if (ganttPixelsPerDay >= GANTT_WEEKEND_MIN_PX) {
-        for (let day = ganttFromDay; day <= ganttToDay; day++) {
+        const endDay = ganttEndDay();
+        for (let day = ganttFromDay; day <= endDay; day++) {
             // day 0 (1970-01-01) was a Thursday: (day + 3) % 7 is 5/6 on Sat/Sun
             const weekday = ((day + 3) % 7 + 7) % 7;
             if (weekday < 5) continue;
@@ -1211,7 +1226,7 @@ function renderWeekendHighlights(container) {
     }
 
     // Full-column highlight for today, at any zoom (at least a hairline)
-    if (today >= ganttFromDay && today <= ganttToDay) {
+    if (today >= ganttFromDay && today <= ganttEndDay()) {
         const todayHighlight = document.createElement('div');
         todayHighlight.className = 'gantt-today-column';
         todayHighlight.style.left = ganttX(today) + 'px';
