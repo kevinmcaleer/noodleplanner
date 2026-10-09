@@ -97,6 +97,25 @@ function setInitiativeRag(planText, rag, comment, today) {
     return text;
 }
 
+/**
+ * Switch a plan between plan types (#1507) by changing the `type:` front
+ * matter line and nothing else: every other field and the whole body are
+ * returned untouched, so promoting and demoting loses no data. A plan
+ * already of the requested type is returned as is. A project is the
+ * default, so switching to it removes the `type:` line rather than writing
+ * `type: project`, which makes initiative -> project restore a plan that
+ * never had one exactly.
+ */
+function setPlanType(planText, type) {
+    const text = planText || '';
+    const target = type === PLAN_TYPE_INITIATIVE ? PLAN_TYPE_INITIATIVE : PLAN_TYPE_PROJECT;
+    if (extractPlanType(text) === target) return text;
+    if (target === PLAN_TYPE_INITIATIVE) return _frontMatterHelper('setFrontMatterField')(text, 'type', target);
+    // Removing the only field leaves an empty block; drop it, so a plan that
+    // had no front matter before getting `type:` comes back as it was.
+    return _frontMatterHelper('removeFrontMatterField')(text, 'type').replace(/^---\n\s*\n---\n/, '');
+}
+
 function _frontMatterHelper(name) {
     if (typeof window !== 'undefined' && typeof window[name] === 'function') return window[name];
     if (typeof require === 'function') return require('./portfolio-projects-table.js')[name];
@@ -283,6 +302,7 @@ if (typeof module !== 'undefined' && module.exports) {
         getInitiativeRag,
         setInitiativeRag,
         setInitiativeProgramme,
+        setPlanType,
         buildInitiativeTemplate,
         initiativeRagLabel,
     };
