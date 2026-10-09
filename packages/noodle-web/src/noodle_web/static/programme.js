@@ -936,37 +936,13 @@ function aggregateProgrammeResourceDemand(parsedProjects) {
 }
 
 /**
- * Render the member-project grid, reusing the portfolio grid card markup
- * (.portfolio-project-card) so it looks and dark-mode-behaves consistently
- * without new component CSS. `ragMap` is {[projectId]: 'red'|'amber'|
- * 'green'}; projects not yet in it (dashboard data still loading) get a
- * loading placeholder badge instead of a wrong/blank one.
+ * Render the programme's member plans as the portfolio table, filtered to
+ * this programme (programmeMembersTableHtml in portfolio-projects-table.js).
  */
-function renderProgrammeMemberGrid(programme, ragMap) {
+function renderProgrammeMemberGrid(programme) {
     const gridEl = document.getElementById('programmeViewProjects');
     if (!gridEl) return;
-    ragMap = ragMap || {};
-
-    const currentProjectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : null;
-    gridEl.innerHTML = '<div class="portfolio-projects-grid">' + programme.projects.map((project) => {
-        const isActive = project.id === currentProjectId;
-        const rag = ragMap[project.id];
-        const ragBadge = rag
-            ? `<span class="rag-badge rag-${rag}">${rag.toUpperCase()}</span>`
-            : '<span class="rag-badge programme-rag-loading">…</span>';
-        return `
-            <div class="portfolio-project-card${isActive ? ' active' : ''}">
-                <div class="portfolio-project-header">
-                    <h3>${escapeHtml(project.name)}${(typeof isInitiativePlan === 'function' && isInitiativePlan(project.planText || '')) ? ' <span class="initiative-badge">Initiative</span>' : ''}</h3>
-                    ${ragBadge}
-                    ${isActive ? '<span class="portfolio-active-badge">Active</span>' : ''}
-                </div>
-                <div class="portfolio-project-actions">
-                    <button type="button" class="btn-primary" data-open-programme-project="${escapeHtml(project.id)}">Open</button>
-                </div>
-            </div>
-        `;
-    }).join('') + '</div>';
+    gridEl.innerHTML = programmeMembersTableHtml(programme);
 }
 
 /** Render the "key metrics" stat tiles: programme RAG roll-up, benefits on track (real or stubbed), escalated risks & issues (real, #736). */
@@ -1257,7 +1233,6 @@ async function loadProgrammeDashboardData(programme) {
     programmeLinkableBenefitItems = allBenefitItems.filter((b) => (b.type || 'benefit').toLowerCase() === 'benefit');
     const outcomeContributions = computeOutcomeContributions(programmeData.outcomes, programmeData.benefitLinks, allBenefitItems);
 
-    renderProgrammeMemberGrid(programme, ragById(projectRags));
     renderProgrammeStatTiles(computeRagRollup(projectRags), aggregateBenefitsOnTrack(allBenefitItems), escalatedItems.length);
     renderProgrammeMilestones(pickKeyMilestones(allMilestones, 5));
     renderProgrammeEscalatedRisks(escalatedItems);
@@ -1335,7 +1310,7 @@ function renderProgrammeView() {
     if (benefitsEl) benefitsEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
     if (financeEl) financeEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
 
-    renderProgrammeMemberGrid(programme, {});
+    renderProgrammeMemberGrid(programme);
     loadProgrammeDashboardData(programme);
 }
 
@@ -1356,9 +1331,6 @@ if (typeof document !== 'undefined') {
     document.addEventListener('click', (e) => {
         const card = e.target.closest('.programme-index-card');
         if (card) openProgramme(card.dataset.programmeSlug);
-
-        const btn = e.target.closest('[data-open-programme-project]');
-        if (btn) openProjectFromProgramme(btn.dataset.openProgrammeProject);
 
         const escalatedRow = e.target.closest('[data-raid-item-id]');
         if (escalatedRow) {
