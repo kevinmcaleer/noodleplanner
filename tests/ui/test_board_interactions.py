@@ -485,3 +485,19 @@ def test_clicking_a_title_being_edited_does_not_open_the_peek(board):
     board.wait_for_timeout(400)
     assert field.is_visible()
     assert not board.evaluate(f"() => {PANE}.classList.contains('open')")
+
+
+def test_deleting_a_card_from_its_form_removes_it_from_the_markdown(board):
+    # No settle(): the app writes `rag:` into the front matter a moment after
+    # load, shifting every line, while the title click waits out a double-click.
+    open_card_peek(board, "Task A")
+    board.dialog_answer = ""  # accept the confirm()
+    board.locator('#taskFormSection [onclick="deleteTask()"]').click()
+    board.wait_for_function(
+        "() => !document.getElementById('planEditor').value.includes('Task A')"
+    )
+    board.wait_for_timeout(2500)  # past the form's 1s debounced save
+    assert "Task A" not in editor_text(board)
+    assert "Task A" not in card_names(board)
+    assert "Task C" in editor_text(board)
+    assert_responsive(board)
