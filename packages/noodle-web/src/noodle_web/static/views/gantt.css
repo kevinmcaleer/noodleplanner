@@ -343,8 +343,28 @@
 
 .gantt-chart-side {
     flex: 1;
-    overflow-x: auto;
+    min-width: 0;
+    overflow-x: scroll;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    /* Keep the horizontal scrollbar visible, not an overlay that fades out */
+    scrollbar-width: auto;
+    scrollbar-color: var(--np-border-control) var(--np-surface);
+}
+
+.gantt-chart-side::-webkit-scrollbar {
+    height: 14px;
+    width: 14px;
+}
+
+.gantt-chart-side::-webkit-scrollbar-track {
+    background: var(--np-surface);
+}
+
+.gantt-chart-side::-webkit-scrollbar-thumb {
+    background: var(--np-border-control);
+    border-radius: var(--np-radius-control);
+    border: 3px solid var(--np-surface);
 }
 
 .gantt-header {
