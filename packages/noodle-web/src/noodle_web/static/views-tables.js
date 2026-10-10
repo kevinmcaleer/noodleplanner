@@ -1749,7 +1749,7 @@ function updateTimesheet(tasks, frontMatter = {}) {
 function taskGridResourceDetails() {
     const editor = document.getElementById('planEditor');
     if (!editor || typeof parseResourceDetails !== 'function') return {};
-    try { return parseResourceDetails(editor.value); } catch { return {}; }
+    try { return (typeof resourceDetailsWithTasks === 'function' ? resourceDetailsWithTasks : parseResourceDetails)(editor.value); } catch { return {}; }
 }
 
 /**
@@ -1770,6 +1770,18 @@ function fillTaskGridPeople(cell, task, details) {
         stack.setAttribute('names', names);
         stack.setAttribute('max', '3');
         stack.details = details || taskGridResourceDetails();
+        // A double-click in this cell edits it as text, so a chip click waits
+        // out the double-click before opening the resource (#1524).
+        let pending = null;
+        stack.addEventListener('resource-activate', (event) => {
+            event.preventDefault();
+            const detail = event.detail;
+            clearTimeout(pending);
+            pending = setTimeout(() => stack.dispatchEvent(new CustomEvent('resource-open', {
+                bubbles: true, composed: true, cancelable: true, detail,
+            })), 300);
+        });
+        stack.addEventListener('dblclick', () => clearTimeout(pending));
         cell.appendChild(stack);
     }
     const notes = [];

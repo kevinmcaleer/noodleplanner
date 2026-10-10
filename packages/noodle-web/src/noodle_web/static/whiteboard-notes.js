@@ -3514,7 +3514,7 @@ function wbFillResourceStack(host, resources, cap, size, taskName) {
     stack.names = resources || [];
     if (typeof parseResourceDetails === 'function') {
         try {
-            stack.details = parseResourceDetails(wbLastPlanText || '');
+            stack.details = (typeof resourceDetailsWithTasks === 'function' ? resourceDetailsWithTasks : parseResourceDetails)(wbLastPlanText || '');
         } catch { /* front matter is optional; the card degrades to the name */ }
     }
 
@@ -3527,11 +3527,13 @@ function wbFillResourceStack(host, resources, cap, size, taskName) {
     if (taskName) {
         stack.addEventListener('resource-activate', (e) => {
             e.stopPropagation();
+            e.preventDefault();
             wbToggleResourceMenu(taskName, stack);
         });
     }
     stack.addEventListener('resource-open', (e) => {
         e.stopPropagation();
+        e.preventDefault();
         const shortname = e.detail && e.detail.shortname;
         if (shortname && typeof openResourceForm === 'function') openResourceForm(shortname);
     });

@@ -2141,13 +2141,17 @@ class KanbanBoard {
         if (task.resourcesArray.length > 0) {
             const resourcesEl = document.createElement('div');
             resourcesEl.className = 'kanban-card-resources';
-            task.resourcesArray.slice(0, 10).forEach(resource => {
-                const avatarEl = document.createElement('div');
-                avatarEl.className = 'resource-avatar';
-                avatarEl.title = resource;
-                avatarEl.textContent = this.getInitials(resource);
-                resourcesEl.appendChild(avatarEl);
-            });
+            // The resource smarttag (#1524): click opens the resource, hover
+            // shows the profile card.
+            const stack = document.createElement('np-resource-stack');
+            stack.setAttribute('max', '10');
+            stack.setAttribute('size', '24');
+            stack.names = task.resourcesArray;
+            if (typeof resourceDetailsWithTasks === 'function') {
+                const editor = document.getElementById('planEditor');
+                try { stack.details = resourceDetailsWithTasks(editor ? editor.value : ''); } catch { /* optional */ }
+            }
+            resourcesEl.appendChild(stack);
             metaEl.appendChild(resourcesEl);
         }
 

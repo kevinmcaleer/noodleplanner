@@ -189,8 +189,8 @@
             const registry = root.customElements;
             if (registry && registry.get('np-resource-stack')) fill();
             else if (registry) registry.whenDefined('np-resource-stack').then(fill);
-            circle.addEventListener('resource-activate', () => open(slot));
-            circle.addEventListener('resource-open', () => open(slot));
+            circle.addEventListener('resource-activate', (e) => { e.preventDefault(); open(slot); });
+            circle.addEventListener('resource-open', (e) => { e.preventDefault(); open(slot); });
         } else {
             circle = doc.createElement('button');
             circle.type = 'button';

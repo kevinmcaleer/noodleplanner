@@ -513,6 +513,7 @@ export class NpTaskRow extends HTMLElement {
         e.stack.addEventListener('resource-activate', (event) => {
             if (!this.hasAttribute('assignable')) return;
             event.stopPropagation();
+            event.preventDefault();
             assign(event.detail || null);
         });
 

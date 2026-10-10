@@ -50,6 +50,13 @@
  * assign menu -- so viewing who is on a task and changing it are one control
  * rather than a chip plus a detached `+`.
  *
+ * `details[x].tasks` (`[{ name, percent }]`) fills the card's "Up next" list --
+ * see _appendTasks().
+ *
+ * Clicking a chip emits a cancelable `resource-activate`; unless a host calls
+ * preventDefault() it then emits `resource-open`, which the app turns into the
+ * resource form (#1524).
+ *
  * `card-action` relabels the card's link for a stack of people who are not
  * resources: the ribbon's planning-session participants (#1347 follow-up)
  * read "Open session chat", and their `role` line is their presence.
@@ -181,13 +188,20 @@ TEMPLATE.innerHTML = `
       outline-offset: 2px;
     }
     .card ul { margin: 0; padding-left: var(--np-space-16); }
+    .card .tasks-heading {
+      display: block;
+      margin-top: var(--np-space-8);
+      color: var(--np-text-secondary);
+      font-weight: 700;
+    }
+    .card ul.tasks { overflow-wrap: anywhere; }
   </style>
   <span class="stack" part="stack"></span>
   <div class="card" part="card" role="dialog" hidden></div>
 `;
 
 export class NpResourceStack extends HTMLElement {
-    static get observedAttributes() { return ['names', 'max', 'size', 'card-action']; }
+    static get observedAttributes() { return ['names', 'max', 'size', 'card-action', 'max-tasks']; }
 
     constructor() {
         super();
@@ -269,8 +283,15 @@ export class NpResourceStack extends HTMLElement {
             chip.addEventListener('mouseleave', () => this._scheduleHide());
             chip.addEventListener('click', (event) => {
                 event.stopPropagation();
-                this.dispatchEvent(new CustomEvent('resource-activate', {
-                    bubbles: true, composed: true, detail: this._detailsFor(name),
+                const detail = this._detailsFor(name);
+                const handled = !this.dispatchEvent(new CustomEvent('resource-activate', {
+                    bubbles: true, composed: true, cancelable: true, detail,
+                }));
+                // A host that gave the chip another job calls preventDefault();
+                // otherwise a chip does what the card's link does (#1524).
+                if (handled) return;
+                this.dispatchEvent(new CustomEvent('resource-open', {
+                    bubbles: true, composed: true, cancelable: true, detail,
                 }));
             });
             return chip;
@@ -321,6 +342,7 @@ export class NpResourceStack extends HTMLElement {
                 email.textContent = d.email;
                 this._card.appendChild(email);
             }
+            this._appendTasks(d.tasks);
             const open = document.createElement('button');
             open.type = 'button';
             open.className = 'open';
@@ -328,7 +350,7 @@ export class NpResourceStack extends HTMLElement {
             open.addEventListener('click', (event) => {
                 event.stopPropagation();
                 this.dispatchEvent(new CustomEvent('resource-open', {
-                    bubbles: true, composed: true, detail: d,
+                    bubbles: true, composed: true, cancelable: true, detail: d,
                 }));
             });
             this._card.appendChild(open);
@@ -347,6 +369,33 @@ export class NpResourceStack extends HTMLElement {
 
         this._card.hidden = false;
         this._anchor = anchor;
+    }
+
+    /**
+     * The card's task list (#1527): what the resource has coming up, at most
+     * `max-tasks` (5) of them. `tasks` is `[{ name, percent }]` in the order
+     * the host wants them read. Tasks still open win; a resource with nothing
+     * left shows the last few it finished instead, so the card is never
+     * empty for someone who has worked on the plan.
+     */
+    _appendTasks(tasks) {
+        if (!Array.isArray(tasks) || !tasks.length) return;
+        const cap = Number(this.getAttribute('max-tasks')) > 0 ? Number(this.getAttribute('max-tasks')) : 5;
+        const remaining = tasks.filter((t) => !(Number(t.percent) >= 100));
+        const upNext = remaining.length > 0;
+        const shown = upNext ? remaining.slice(0, cap) : tasks.slice(-cap);
+
+        const heading = document.createElement('span');
+        heading.className = 'tasks-heading';
+        heading.textContent = upNext ? 'Up next' : 'Recent tasks';
+        const list = document.createElement('ul');
+        list.className = 'tasks';
+        for (const t of shown) {
+            const item = document.createElement('li');
+            item.textContent = t.name;
+            list.appendChild(item);
+        }
+        this._card.append(heading, list);
     }
 
     _scheduleHide() {

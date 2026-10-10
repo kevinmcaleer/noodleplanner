@@ -105,3 +105,29 @@ export const SessionParticipants = {
         return wrap;
     },
 };
+
+/** The card's "Up next" list (#1527): open tasks first, at most five. A
+ * resource with nothing left shows its most recent tasks instead. */
+export const UpNextTasks = {
+    render: () => {
+        const el = document.createElement('np-resource-stack');
+        el.setAttribute('max', '2');
+        el.setAttribute('size', '28');
+        el.names = ['Sam Smith', 'Jo Lee'];
+        const tasks = (names, percent) => names.map((name) => ({ name, percent }));
+        el.details = {
+            'Sam Smith': {
+                name: 'Sam Smith', role: 'Developer', shortname: 'sam',
+                tasks: [...tasks(['Spec'], 100), ...tasks(['Build', 'Review', 'Test', 'Fix', 'Ship', 'Retro'], 0)],
+            },
+            'Jo Lee': {
+                name: 'Jo Lee', role: 'Designer', shortname: 'jo',
+                tasks: tasks(['Brief', 'Mockups', 'Handoff'], 100),
+            },
+        };
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'padding:8px 8px 260px;';
+        wrap.appendChild(el);
+        return wrap;
+    },
+};
