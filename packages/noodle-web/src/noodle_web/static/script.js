@@ -2469,9 +2469,9 @@ function calculateTaskDates(task, taskMap, lines, visited) {
     return task;
 }
 
-function openTaskFormByName(taskName) {
+function openTaskFormByName(taskName, opts) {
     const lineNumber = findTaskLineNumber({ name: taskName });
-    if (lineNumber > 0) openTaskForm(lineNumber);
+    if (lineNumber > 0) openTaskForm(lineNumber, opts);
 }
 
 /**
@@ -2493,7 +2493,45 @@ function setTaskFormTitle(title) {
 // Flag to prevent saveTask from firing while openTaskForm is populating fields
 let _taskFormPopulating = false;
 
-function openTaskForm(lineNumber) {
+// Tasks visited before the current one by drilling down from the open task
+// form (subtasks, dependencies). The ← Back button pops it. It lives only as
+// long as the form stays open: closing the form, or opening a task any other
+// way, starts it afresh.
+let _taskFormHistory = [];
+
+function updateTaskFormBackButton() {
+    const btn = document.getElementById('taskFormBackBtn');
+    if (btn) btn.hidden = _taskFormHistory.length === 0;
+}
+
+/** Open another task from inside the task form, remembering the current one. */
+function drillIntoTask(openFn) {
+    const nameField = document.getElementById('taskName');
+    if (currentTaskLineNumber !== null) {
+        _taskFormHistory.push({
+            name: nameField ? nameField.value : '',
+            line: currentTaskLineNumber,
+        });
+    }
+    const from = currentTaskLineNumber;
+    openFn();
+    // Nothing opened (task not found): don't leave a dead entry behind.
+    if (currentTaskLineNumber === from) _taskFormHistory.pop();
+    updateTaskFormBackButton();
+}
+
+/** Go back to the task the user drilled down from. */
+function taskFormBack() {
+    const prev = _taskFormHistory.pop();
+    if (!prev) return;
+    // edits can shift line numbers: find the task again by name first
+    const byName = prev.name ? findTaskLineNumber({ name: prev.name }) : -1;
+    openTaskForm(byName > 0 ? byName : prev.line, { keepHistory: true });
+}
+
+function openTaskForm(lineNumber, opts) {
+    if (!(opts && opts.keepHistory)) _taskFormHistory = [];
+    updateTaskFormBackButton();
     // Parse task name early so it is available for both the form title
     // and the catch-block fallback.
     let parsedTaskName = '';
@@ -3600,7 +3638,7 @@ function populateSubtasks(parentLineNumber, lines) {
         row.setAttribute('assignable', '');
         row.details = resourceDetails;
 
-        row.addEventListener('task-open', () => openTaskForm(subtask.lineNumber));
+        row.addEventListener('task-open', () => drillIntoTask(() => openTaskForm(subtask.lineNumber, { keepHistory: true })));
         row.addEventListener('task-toggle', (e) => {
             if (e.detail.checked && typeof spawnConfetti === 'function') spawnConfetti(row.checkbox);
             toggleSubtaskCompletion(subtask.lineNumber, e.detail.checked ? '100%' : '0%');
@@ -4363,6 +4401,8 @@ function updateEffortTotal() {
 }
 
 function closeTaskForm() {
+    _taskFormHistory = [];
+    updateTaskFormBackButton();
     closeDetailPane();
     currentTaskLineNumber = null;
 }
@@ -4446,7 +4486,7 @@ function addDependencyRow(taskName = '', depType = 'FS', lagLead = '') {
     };
     describe();
 
-    row.addEventListener('task-open', () => openTaskFormByName(taskName));
+    row.addEventListener('task-open', () => drillIntoTask(() => openTaskFormByName(taskName, { keepHistory: true })));
     row.addEventListener('relation-change', () => { describe(); saveTask(); });
     row.addEventListener('task-action', (e) => {
         if (e.detail.kind !== 'remove') return;
@@ -5492,7 +5532,7 @@ function returnToTaskFromResourceForm() {
     const created = back.assignNew && field ? field.value.trim().toLowerCase() : '';
     // front-matter edits shift the task's line: find it again by name
     const line = back.name ? findTaskLineNumber({ name: back.name }) : -1;
-    openTaskForm(line > 0 ? line : back.line);
+    openTaskForm(line > 0 ? line : back.line, { keepHistory: true });
     if (created && getAllResourceNames().includes(created)
         && !taskFormResourceList().some(r => r.toLowerCase() === created)) {
         setTaskFormResources([...taskFormResourceList(), created]);

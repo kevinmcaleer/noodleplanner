@@ -1670,6 +1670,10 @@ tr:hover .task-context-btn,
     transition: background-color 0.2s;
 }
 
+.panel-icon-btn[hidden] {
+    display: none;
+}
+
 .panel-icon-btn:hover {
     background: color-mix(in srgb, var(--np-on-accent) 15%, transparent);
 }

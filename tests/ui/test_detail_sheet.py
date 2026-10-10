@@ -147,7 +147,7 @@ def test_inspect_and_product_sit_on_the_peek_bar_and_delete_is_a_trashcan(phone,
     # no ⋯ menu any more (#1468); the trashcan is always in the header
     shadow = "document.getElementById('taskFormPanelHeader').shadowRoot"
     assert phone.evaluate(f"() => {shadow}.querySelector('.more').hidden")
-    trash = phone.locator("#taskFormPanelHeader > [slot=trailing]")
+    trash = phone.locator("#taskFormPanelHeader > [slot=trailing][data-destructive]")
     assert trash.get_attribute("aria-label") == "Delete task"
     assert trash.is_visible()
     # Inspect and Product are on the peek bar, right-aligned (#1462), and
