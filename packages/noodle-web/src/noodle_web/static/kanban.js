@@ -1043,10 +1043,13 @@ class KanbanBoard {
             anyTaskShortnames.has(shortname)
             && !realResourceShortnames.has(shortname);
 
+        // A stakeholder who is @-mentioned on a real task is working on it, so
+        // that task's resource column still shows them (a plan owner is often
+        // both).
         const shouldExclude = (shortname) =>
-            stakeholderSet.has(shortname)
-            || isQualityRoleToken(shortname)
-            || isProductRoleOnly(shortname);
+            isQualityRoleToken(shortname)
+            || (!realResourceShortnames.has(shortname)
+                && (stakeholderSet.has(shortname) || isProductRoleOnly(shortname)));
 
         // When drilling down, only show resources from current filtered tasks
         // Otherwise, show all resources from front matter
@@ -3589,6 +3592,9 @@ function switchKanbanView(mode) {
     }
 
     kanbanBoard.switchViewMode(mode);
+    // The Board Tools > View buttons mirror the mode; repaint them when it
+    // changes from anywhere else (e.g. the Group by menu).
+    if (typeof refreshRibbon === 'function') refreshRibbon();
 }
 
 /**
