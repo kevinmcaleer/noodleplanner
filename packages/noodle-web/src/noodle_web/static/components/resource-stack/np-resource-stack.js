@@ -153,9 +153,13 @@ TEMPLATE.innerHTML = `
     }
 
     .card {
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
+      /* Fixed and in the top layer (see _place), not absolute inside the host:
+         a card inside a scrolling column -- the board's, a table's -- was
+         clipped by that column's overflow. Reset the popover UA styles. */
+      position: fixed;
+      inset: auto;
+      margin: 0;
+      overflow: visible;
       z-index: 1500;
       min-width: 180px;
       max-width: 260px;
@@ -197,7 +201,7 @@ TEMPLATE.innerHTML = `
     .card ul.tasks { overflow-wrap: anywhere; }
   </style>
   <span class="stack" part="stack"></span>
-  <div class="card" part="card" role="dialog" hidden></div>
+  <div class="card" part="card" role="dialog" popover="manual" hidden></div>
 `;
 
 export class NpResourceStack extends HTMLElement {
@@ -369,6 +373,24 @@ export class NpResourceStack extends HTMLElement {
 
         this._card.hidden = false;
         this._anchor = anchor;
+        this._place(anchor);
+    }
+
+    /** Lift the card into the top layer and sit it under its chip, flipped
+     * above or shifted left when the viewport edge is in the way. */
+    _place(anchor) {
+        const card = this._card;
+        try { if (card.showPopover && !card.matches(':popover-open')) card.showPopover(); } catch { /* fixed still works */ }
+        const a = anchor.getBoundingClientRect();
+        const c = card.getBoundingClientRect();
+        const gap = 6;
+        let top = a.bottom + gap;
+        if (top + c.height > window.innerHeight - gap && a.top - gap - c.height >= 0) {
+            top = a.top - gap - c.height;
+        }
+        const left = Math.max(gap, Math.min(a.left, window.innerWidth - c.width - gap));
+        card.style.top = `${top}px`;
+        card.style.left = `${left}px`;
     }
 
     /**
@@ -421,7 +443,10 @@ export class NpResourceStack extends HTMLElement {
     }
 
     _hideCard() {
-        if (this._card) this._card.hidden = true;
+        if (this._card) {
+            try { if (this._card.hidePopover && this._card.matches(':popover-open')) this._card.hidePopover(); } catch { /* ignore */ }
+            this._card.hidden = true;
+        }
         this._anchor = null;
     }
 }
