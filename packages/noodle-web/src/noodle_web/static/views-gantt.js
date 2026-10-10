@@ -329,6 +329,21 @@ function setupGanttZoomControls() {
         }, { passive: false });
         chartSide.dataset.zoomWheel = 'true';
     }
+    if (chartSide && !chartSide.dataset.panWheel) {
+        // Shift + wheel pans the timeline sideways (a mouse wheel reports
+        // that as deltaY; some platforms already swap it to deltaX). Plain
+        // wheel and a trackpad's vertical/horizontal deltas keep the
+        // browser's own scrolling, so the chart pans in both axes.
+        chartSide.addEventListener('wheel', event => {
+            if (event.ctrlKey || event.metaKey || !event.shiftKey) return;
+            const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? chartSide.clientWidth : 1;
+            const delta = (event.deltaX || event.deltaY) * unit;
+            if (!delta) return;
+            event.preventDefault();
+            chartSide.scrollLeft += delta;
+        }, { passive: false });
+        chartSide.dataset.panWheel = 'true';
+    }
     if (chartSide && !chartSide.dataset.zoomPinch) {
         setupGanttPinchZoom(chartSide);
         chartSide.dataset.zoomPinch = 'true';
