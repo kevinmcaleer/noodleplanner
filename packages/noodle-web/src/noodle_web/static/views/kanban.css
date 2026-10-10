@@ -167,7 +167,7 @@
     overflow-y: hidden;
     padding: var(--np-space-20);
     flex: 1;
-    background: var(--np-surface-alt);
+    background: var(--np-paper);
     align-items: stretch;
     min-height: 0;
     width: 100%; /* Ensure board uses full width */
@@ -195,11 +195,14 @@
     min-width: 300px;
     flex: 1; /* Allow columns to grow to fill available space */
     max-width: 400px; /* Limit maximum width so columns don't get too wide */
-    background: var(--np-surface);
-    border-radius: 8px;
+    /* Soft, Trello-like layering: the column is a quiet tint one step darker
+       than the cards it holds, lifted off the board by a faint shadow, with no
+       hard outline. Cards (below) are the lightest layer. */
+    background: var(--np-surface-alt);
+    border-radius: var(--np-radius-xl);
     display: flex;
     flex-direction: column;
-    box-shadow: 0 2px 4px var(--np-shadow);
+    box-shadow: var(--np-elevation-1);
     height: 100%;
     max-height: 100%;
     transition: all 0.2s;
@@ -226,13 +229,12 @@
 
 .kanban-column-header {
     padding: var(--np-space-16);
-    /* Not --np-surface-alt: that is the board's own background, so the header
-       vanished into it. The info tint/ink pair is the one the duration chip
-       uses, already contrast-checked in both themes. */
-    background: var(--np-info-tint);
-    color: var(--np-info-ink);
-    border-bottom: 1px solid var(--np-border);
-    border-radius: 8px 8px 0 0;
+    /* No tint and no divider: the header is the top of the column, set apart
+       by its weight alone, as on Trello. The column itself already stands off
+       the board. */
+    background: transparent;
+    color: var(--np-ink);
+    border-radius: var(--np-radius-xl) var(--np-radius-xl) 0 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -371,8 +373,8 @@
 
 .kanban-column-footer {
     padding: var(--np-space-12);
-    background: var(--np-paper);
-    border-radius: 0 0 8px 8px;
+    background: transparent;
+    border-radius: 0 0 var(--np-radius-xl) var(--np-radius-xl);
     flex-shrink: 0;
 }
 
@@ -380,8 +382,8 @@
     width: 100%;
     padding: var(--np-space-8) var(--np-space-12);
     background: transparent;
-    border: 2px dashed var(--np-border);
-    border-radius: 4px;
+    border: 0;
+    border-radius: var(--np-radius-md);
     color: var(--np-muted);
     font-weight: 500;
     cursor: pointer;
@@ -389,9 +391,8 @@
 }
 
 .kanban-add-card-btn:hover {
-    background: var(--np-border);
-    border-color: var(--np-accent);
-    color: var(--np-accent-ink);
+    background: var(--np-sunken);
+    color: var(--np-ink);
 }
 
 .kanban-add-card-btn:focus {
@@ -472,12 +473,13 @@
 /* Kanban Cards */
 .kanban-card {
     background: var(--np-surface);
-    border-radius: 6px;
+    border-radius: var(--np-radius-lg);
     padding: var(--np-space-12);
-    margin-bottom: var(--np-space-12);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s;
-    border: 1px solid var(--np-border);
+    margin-bottom: var(--np-space-8);
+    box-shadow: var(--np-elevation-1);
+    transition: box-shadow 0.15s;
+    /* A hairline, not --np-border: the shadow does the separating. */
+    border: 1px solid var(--np-hairline);
     position: relative;
 }
 
@@ -488,9 +490,7 @@
 }
 
 .kanban-card:hover {
-    box-shadow: 0 2px 8px var(--np-shadow);
-    transform: translateY(-2px);
-    border-color: var(--np-accent);
+    box-shadow: var(--np-elevation-2);
 }
 
 .kanban-card:focus {
@@ -500,8 +500,7 @@
 }
 
 .kanban-card:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px var(--np-shadow);
+    box-shadow: var(--np-elevation-1);
 }
 
 .kanban-card {
@@ -780,19 +779,17 @@
     width: 100%;
     padding: var(--np-space-12);
     margin-top: var(--np-space-12);
-    background: var(--np-paper);
-    border: 2px dashed var(--np-border);
-    border-radius: 6px;
-    color: var(--np-accent);
+    background: transparent;
+    border: 0;
+    border-radius: var(--np-radius-md);
+    color: var(--np-accent-ink);
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .kanban-add-task-btn:hover {
-    background: var(--np-border);
-    border-color: var(--np-accent);
-    transform: translateY(-1px);
+    background: var(--np-sunken);
 }
 
 /* Mobile Responsive */
