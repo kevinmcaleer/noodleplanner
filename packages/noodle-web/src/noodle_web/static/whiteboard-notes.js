@@ -7772,7 +7772,7 @@ function wbParkingLotPanelChanged(returnFocus) {
     if (!returnFocus) return;
     Promise.resolve(refreshed).then(() => {
         const target = wbParkingLotRibbonButton() || document.getElementById('whiteboardContainer');
-        if (target) target.focus();
+        if (target) target.focus({ preventScroll: true });
     });
 }
 
@@ -8184,7 +8184,11 @@ function wbOpenParkingLotPanel() {
         panel.classList.add('open');
         wbParkingLotPanelChanged(false);
     });
-    closeBtn.focus();
+    // preventScroll: the panel is still translated off the container's right
+    // edge here, and focus() would scroll the (overflow:hidden) board sideways
+    // to reach it. That leaves the board panned by 30-200px and the panel
+    // docked short of the edge instead of flush with it.
+    closeBtn.focus({ preventScroll: true });
 }
 
 /** Toggle the panel open/closed -- what the toolbar button's click does

@@ -777,6 +777,29 @@ class TestParkingLotDetailAndRestore:
 
 
 
+class TestOpeningThePanelDoesNotPanTheBoard:
+    """The panel is built translated off the board's right edge and slid in on
+    the next frame. Focusing its close button while it was still off-screen
+    made the browser scroll the board's overflow:hidden container sideways to
+    reach it, so the board ended up panned by tens of pixels and the panel sat
+    short of the edge. That happened in roughly one open in twelve, which is
+    what made `open_parking_lot_panel()` time out on its docking check in CI.
+    """
+
+    def test_the_board_container_is_not_scrolled(self, page, app_server):
+        open_app(page, app_server)
+        load_plan(page, SAMPLE_PLAN)
+        switch_to_whiteboard(page, expected_notes=3)
+        for _ in range(15):
+            page.evaluate("() => wbOpenParkingLotPanel()")
+            scroll_left = page.evaluate(
+                "() => document.getElementById('whiteboardContainer').scrollLeft"
+            )
+            assert scroll_left == 0
+            page.evaluate("() => wbCloseParkingLotPanel()")
+            page.wait_for_selector(DIALOG, state="detached")
+
+
 class TestParkingLotRoundTrip:
     def test_parked_item_survives_a_page_reload(self, page, app_server):
         open_app(page, app_server)
