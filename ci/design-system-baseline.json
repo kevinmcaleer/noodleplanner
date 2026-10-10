@@ -184,7 +184,6 @@
         "background: #f3e5f5": 1,
         "border: 1px solid #bee5eb": 1,
         "border: 1px solid #c3e6cb": 1,
-        "box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1)": 1,
         "box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15)": 1,
         "color: #7b1fa2": 1
       },
