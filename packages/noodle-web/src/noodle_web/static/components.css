@@ -8876,3 +8876,8 @@ button.ribbon-breadcrumb-rung:hover {
 .resource-stakeholder-mini .rsm-dot {
     fill: var(--np-accent);
 }
+
+.resource-stakeholder-link {
+    min-height: var(--np-touch-target);
+    text-align: left;
+}
