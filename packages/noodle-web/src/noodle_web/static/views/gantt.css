@@ -143,6 +143,18 @@
     min-height: 0;
 }
 
+.gantt-wrapper,
+.gantt-info-table {
+    /* The one source for the Gantt's vertical rhythm. The task table and the
+       bar chart are two separately scrolling panes, so they only line up if
+       every row and both headers are *exactly* these heights -- never
+       measured, never padding-derived. The table cells, the bar rows, the
+       bars and the JS overlays (ganttRowHeight() reads --gantt-row-h) all
+       take it from here. */
+    --gantt-row-h: 40px;
+    --gantt-header-h: 52px;
+}
+
 .gantt-wrapper {
     display: flex;
     background: var(--np-surface);
@@ -197,11 +209,13 @@
 }
 
 .gantt-info-table th {
-    padding: var(--np-space-12) var(--np-space-12);
+    padding: 0 var(--np-space-12);
+    height: var(--gantt-header-h);
+    box-sizing: border-box;
     text-align: left;
     font-weight: 600;
     white-space: nowrap;
-    vertical-align: bottom;
+    vertical-align: middle;
 }
 
 .gantt-info-table td {
@@ -209,7 +223,7 @@
     border-bottom: 1px solid var(--np-hairline);
     white-space: nowrap;
     cursor: default;
-    height: 40px;
+    height: var(--gantt-row-h);
     box-sizing: border-box;
 }
 
@@ -262,6 +276,12 @@
 
     .gantt-done-cell np-checkbox {
         --np-checkbox-target: var(--np-touch-target);
+    }
+
+    /* In the Gantt table the box is one pixel short of the row, which spends
+       its last on the border; the tasks table keeps the full target. */
+    .gantt-wrapper .gantt-info-table .gantt-done-cell np-checkbox {
+        --np-checkbox-target: calc(var(--gantt-row-h) - 1px);
     }
 }
 
@@ -372,6 +392,10 @@
     flex-wrap: wrap;
     background: var(--np-paper);
     border-bottom: 2px solid var(--np-border);
+    /* Same height as the table's header row, by construction. */
+    height: var(--gantt-header-h);
+    box-sizing: border-box;
+    overflow: hidden;
     position: sticky;
     top: 0;
     z-index: 5;
@@ -479,7 +503,7 @@
 }
 
 .gantt-bar-row {
-    height: 40px;
+    height: var(--gantt-row-h);
     position: relative;
     border-bottom: 1px solid var(--np-hairline);
     box-sizing: border-box;
@@ -492,7 +516,7 @@
 .gantt-bar {
     position: absolute;
     height: 28px;
-    top: 6px;
+    top: calc((var(--gantt-row-h) - 28px) / 2);
     border-radius: 4px;
     cursor: pointer;
     /* Not left/width (#787): the zoom slider and the drag preview move bars
@@ -594,8 +618,10 @@ body.gantt-dragging * {
         width: 18px;
     }
 
-    .gantt-info-table td.editable {
-        min-height: 44px;
+    /* A finger-sized row, for the table and the bars alike. */
+    .gantt-wrapper,
+    .gantt-info-table {
+        --gantt-row-h: 45px; /* a 44px touch target and the row border */
     }
 }
 
@@ -1859,6 +1885,13 @@ input[type="text"]:focus-visible {
         min-height: var(--np-touch-target);
         font-size: var(--np-text-100);
         touch-action: none;
+    }
+
+    /* In the Gantt table the handle fills the row (less its border) rather
+       than the touch target, so the row stays the height of its bar. */
+    .gantt-wrapper .gantt-info-table .task-drag-handle {
+        min-height: 0;
+        height: calc(var(--gantt-row-h) - 1px);
     }
 }
 
