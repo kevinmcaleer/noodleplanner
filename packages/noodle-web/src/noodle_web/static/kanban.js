@@ -414,6 +414,7 @@ class KanbanBoard {
         inFrontMatter = false;
         let inStakeholdersSection = false;
         let inResourcesSection = false;
+        const declaredResources = new Set();
         for (let i = 0; i < lines.length; i++) {
             const rawLine = lines[i];
             const trimmedFM = rawLine.trim();
@@ -453,14 +454,19 @@ class KanbanBoard {
                     this.stakeholderShortnames.add(m[1].toLowerCase());
                 }
             }
+            if (inResourcesSection) {
+                const m = trimmedFM.match(/^-\s*@(\w+):/);
+                if (m) declaredResources.add(m[1].toLowerCase());
+            }
         }
 
         // Strip stakeholder shortnames from resourceMap — parseResourceMappings
         // is not section-aware and blindly pulls every `- @name:` front-matter
         // line, including stakeholders. Board resource columns should only
         // contain real resources.
+        // A name also declared under `resources:` keeps its full name.
         this.stakeholderShortnames.forEach(sn => {
-            delete this.resourceMap[sn];
+            if (!declaredResources.has(sn)) delete this.resourceMap[sn];
         });
 
         // Parse theme colours from front matter
@@ -1106,10 +1112,13 @@ class KanbanBoard {
             anyTaskShortnames.has(shortname)
             && !realResourceShortnames.has(shortname);
 
+        // A stakeholder who is @-mentioned on a real task is working on it, so
+        // that task's resource column still shows them (a plan owner is often
+        // both).
         const shouldExclude = (shortname) =>
-            stakeholderSet.has(shortname)
-            || isQualityRoleToken(shortname)
-            || isProductRoleOnly(shortname);
+            isQualityRoleToken(shortname)
+            || (!realResourceShortnames.has(shortname)
+                && (stakeholderSet.has(shortname) || isProductRoleOnly(shortname)));
 
         // When drilling down, only show resources from current filtered tasks
         // Otherwise, show all resources from front matter
@@ -3664,6 +3673,9 @@ function switchKanbanView(mode) {
     }
 
     kanbanBoard.switchViewMode(mode);
+    // The Board Tools > View buttons mirror the mode; repaint them when it
+    // changes from anywhere else (e.g. the Group by menu).
+    if (typeof refreshRibbon === 'function') refreshRibbon();
 }
 
 /**
