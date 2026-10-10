@@ -58,6 +58,10 @@
  *      `settings: detail_peek:` -- settings.js calls setDefaultPeekMode();
  *   3. a side peek.
  *
+ * A view can ask for a different mode for the form it opens (setPeekHint): the
+ * board opens a card as a centre peek. That sits between 2 and 3, only replaces
+ * a side peek, and ends when the pane closes.
+ *
  * Buttons slotted into `slot="peekbar-actions"` sit at the right of the same
  * bar (the task form's Inspect and Product, #1462). A phone always shows the
  * full page, so it has no switch -- the bar then shows only those buttons. The mode is
@@ -89,12 +93,16 @@ const SECTIONS_KEY = 'noodleplanner:sheet-sections';
 // The peek mode shared by every sheet: the project's default and the one
 // picked on a switch since the page loaded, which wins until the default
 // itself changes.
-const peek = { fallback: 'side', picked: null };
+const peek = { fallback: 'side', picked: null, hint: null };
 
 /** The mode forms open in on this screen: a phone is always a full page. */
 export function peekMode() {
   if (layout() === 'phone') return 'full';
-  return peek.picked || peek.fallback;
+  if (peek.picked) return peek.picked;
+  // A view can ask for a mode (the board opens a card as a centre peek) in
+  // place of a default of side peek; a project default of full page stays.
+  if (peek.hint && peek.fallback === 'side') return peek.hint;
+  return peek.fallback;
 }
 
 function announcePeek() {
@@ -109,6 +117,20 @@ export function setPeekMode(mode) {
   announcePeek();
 }
 
+/**
+ * Ask for a mode for the form being opened, until clearPeekHint() (the pane
+ * closing). Unlike setPeekMode it is not remembered as the user's pick, and a
+ * mode picked on a switch or a project default of full page still wins.
+ */
+export function setPeekHint(mode) {
+  const value = normalisePeek(mode);
+  if (value === peek.hint) return;
+  peek.hint = value || null;
+  announcePeek();
+}
+
+export function clearPeekHint() { setPeekHint(null); }
+
 /** The project's default (settings.js, from the front matter). A new default
  * replaces whatever was picked on a switch; the same one again does not. */
 export function setDefaultPeekMode(mode) {
@@ -121,7 +143,7 @@ export function setDefaultPeekMode(mode) {
 
 // settings.js is a classic script that can run before this module has loaded:
 // it leaves the default on window for this to pick up.
-window.NoodlePeek = { peekMode, setPeekMode, setDefaultPeekMode };
+window.NoodlePeek = { peekMode, setPeekMode, setDefaultPeekMode, setPeekHint, clearPeekHint };
 if (window.__npDetailPeekDefault) setDefaultPeekMode(window.__npDetailPeekDefault);
 
 const TEMPLATE = document.createElement('template');

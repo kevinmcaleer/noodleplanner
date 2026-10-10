@@ -421,3 +421,67 @@ def test_repeated_use_keeps_the_page_responsive(board):
     wait_for_column(board, "Review")
     assert_responsive(board)
     assert sorted(card_names(board)) == ["Task A", "Task B", "Task C"]
+
+
+# --- A card opens its task form as a centre peek ------------------------------
+
+PANE = "document.getElementById('detailPane')"
+
+
+def open_card_peek(page, name):
+    card(page, name).click()
+    page.wait_for_selector("#taskFormSection.active")
+    page.wait_for_timeout(350)  # the slide-in
+
+
+def pane_box(page):
+    return page.evaluate(
+        f"() => {{ const r = {PANE}.getBoundingClientRect();"
+        " return { left: r.left, top: r.top, width: r.width, height: r.height }; }"
+    )
+
+
+def test_clicking_a_card_opens_the_task_form_as_a_centre_peek(board):
+    open_card_peek(board, "Task A")
+    assert board.evaluate(f"() => {PANE}.dataset.peekMode") == "center"
+    box = pane_box(board)
+    assert abs(box["left"] + box["width"] / 2 - 950) <= 1  # centred in the 1900px window
+    assert board.evaluate("() => document.getElementById('taskName').value") == "Task A"
+
+
+def test_the_centre_peek_is_not_remembered_for_other_forms(board):
+    open_card_peek(board, "Task A")
+    board.keyboard.press("Escape")
+    board.wait_for_function(f"() => !{PANE}.classList.contains('open')")
+    # Opened any other way, the form is still a side peek.
+    board.evaluate("() => openTaskForm(findTaskLineNumber({ name: 'Task B' }))")
+    board.wait_for_selector("#taskFormSection.active")
+    board.wait_for_timeout(350)
+    assert board.evaluate(f"() => {PANE}.dataset.peekMode") == "side"
+
+
+def test_a_mode_picked_on_the_switch_beats_the_board(board):
+    board.evaluate("() => NoodlePeek.setPeekMode('side')")
+    open_card_peek(board, "Task A")
+    assert board.evaluate(f"() => {PANE}.dataset.peekMode") == "side"
+
+
+def test_back_still_works_inside_the_centre_peek(board):
+    open_card_peek(board, "Task A")
+    board.evaluate("() => drillIntoTask(() => openTaskForm(findTaskLineNumber({ name: 'Task B' }), { keepHistory: true }))")
+    board.wait_for_function("() => document.getElementById('taskName').value === 'Task B'")
+    back = board.locator("#taskFormBackBtn")
+    assert back.is_visible()
+    back.click()
+    board.wait_for_function("() => document.getElementById('taskName').value === 'Task A'")
+    assert board.evaluate(f"() => {PANE}.dataset.peekMode") == "center"
+
+
+def test_clicking_a_title_being_edited_does_not_open_the_peek(board):
+    board.evaluate("() => kanbanBoard.addNewCard(kanbanBoard.columns[0])")
+    field = board.locator(".kanban-card input").first
+    field.wait_for(state="visible")
+    field.click()
+    board.wait_for_timeout(400)
+    assert field.is_visible()
+    assert not board.evaluate(f"() => {PANE}.classList.contains('open')")
