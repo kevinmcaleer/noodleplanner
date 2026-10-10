@@ -1550,6 +1550,19 @@
                                 </div>
                             </div>
 
+                            <div class="kanban-filter" id="kanbanFilter" role="search">
+                                <div class="kanban-filter-field">
+                                    <svg class="kanban-filter-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M2 3.5h12M4.5 8h7M7 12.5h2"/></svg>
+                                    <input type="text" id="kanbanFilterInput" class="kanban-filter-input"
+                                           placeholder="Filter cards, e.g. label:must -status:Complete"
+                                           aria-label="Filter cards" aria-describedby="kanbanFilterError kanbanFilterSummary">
+                                    <button type="button" id="kanbanFilterClear" class="kanban-filter-clear" aria-label="Clear filter" hidden>&times;</button>
+                                    <ul id="kanbanFilterSuggestions" class="kanban-filter-suggestions" role="listbox" aria-label="Filter suggestions" hidden></ul>
+                                </div>
+                                <span id="kanbanFilterSummary" class="kanban-filter-summary" aria-live="polite"></span>
+                                <span id="kanbanFilterError" class="kanban-filter-error" role="alert" hidden></span>
+                            </div>
+
                             <div id="kanbanBreadcrumb" class="kanban-breadcrumb" style="padding: 10px 20px; background: var(--np-paper); border-bottom: 1px solid var(--np-border); font-size: 14px;">
                                 <!-- Breadcrumb will be rendered here -->
                             </div>
@@ -4057,6 +4070,7 @@ Build
     <script src="/static/views-tables.js?v={{ v }}"></script>
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/editor-visibility.js?v={{ v }}"></script>
+    <script src="/static/board-filter.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
     <script src="/static/notepad.js?v={{ v }}"></script>
     <script src="/static/local-file-access.js?v={{ v }}"></script>
