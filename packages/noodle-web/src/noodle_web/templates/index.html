@@ -2308,6 +2308,7 @@ Build
         <!-- Task Form Section -->
         <np-detail-sheet id="taskFormSection" class="detail-pane-section" close-action="closeTaskForm">
             <np-panel-header slot="header" id="taskFormPanelHeader" variant="accent" editable title="Task Name">
+                <button type="button" slot="trailing" class="panel-icon-btn" id="taskFormBackBtn" hidden onclick="taskFormBack()" title="Back to previous task" aria-label="Back to previous task"><i class="bi bi-arrow-left" aria-hidden="true"></i></button>
                 <button type="button" slot="trailing" class="panel-icon-btn" data-destructive onclick="deleteTask()" title="Delete task" aria-label="Delete task"><i class="bi bi-trash" aria-hidden="true"></i></button>
             </np-panel-header>
             <button class="task-form-inspect-btn task-form-peekbar-btn" slot="peekbar-actions" onclick="openTaskInspectorFromForm()" title="Inspect task" aria-label="Open task inspector">&#128269; Inspect</button>
