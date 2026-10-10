@@ -1348,6 +1348,12 @@ class KanbanBoard {
         boardContainer.setAttribute('role', 'main');
         boardContainer.setAttribute('aria-label', `Kanban board in ${this.viewMode} view`);
 
+        // A quick-add title being typed survives a re-render (renderText can
+        // redraw the board a beat after the add); detach it so removing the
+        // old input can't commit a half-typed name.
+        const quickAdd = this.quickAdd;
+        if (quickAdd) quickAdd.suspended = true;
+
         // Clear existing content
         boardContainer.innerHTML = '';
 
@@ -1382,6 +1388,10 @@ class KanbanBoard {
             const matchingCard = Array.from(boardContainer.querySelectorAll('.kanban-card'))
                 .find(card => card.dataset.taskName === focusedTaskName);
             matchingCard?.focus({ preventScroll: true });
+        }
+        if (quickAdd) {
+            this.quickAdd = null;
+            this.beginQuickAddRename(quickAdd.name, quickAdd.column, quickAdd.value);
         }
     }
 
@@ -2778,13 +2788,21 @@ class KanbanBoard {
         const oldName = task.name;
         let discard = false;
         let addAnother = false;
+        const state = opts.isNew
+            ? { name: oldName, column: opts.column, value: opts.value || oldName, suspended: false }
+            : null;
+        if (state) this.quickAdd = state;
         const input = document.createElement('input');
         input.type = 'text';
-        input.value = oldName;
+        input.value = opts.value || oldName;
         input.className = 'kanban-card-title-input';
         input.setAttribute('aria-label', `Rename task "${oldName}"`);
 
         const commitRename = () => {
+            if (state) {
+                if (state.suspended) return;
+                if (this.quickAdd === state) this.quickAdd = null;
+            }
             const newName = input.value.trim();
             if (input.parentNode) input.parentNode.removeChild(input);
             titleEl.textContent = oldName;
@@ -2817,13 +2835,18 @@ class KanbanBoard {
         });
         input.addEventListener('click', e => e.stopPropagation());
         input.addEventListener('dblclick', e => e.stopPropagation());
+        if (state) input.addEventListener('input', () => { state.value = input.value; });
         input.addEventListener('blur', () => commitRename(), { once: true });
 
         titleEl.textContent = '';
         titleEl.style.display = 'none';
         titleEl.parentNode.insertBefore(input, titleEl);
         input.focus();
-        input.select();
+        if (opts.value && opts.value !== oldName) {
+            input.setSelectionRange(input.value.length, input.value.length);
+        } else {
+            input.select();
+        }
     }
 
     removeQuickAddCard(task) {
@@ -3050,7 +3073,7 @@ class KanbanBoard {
     /**
      * Put the freshly added placeholder card's title into edit mode.
      */
-    beginQuickAddRename(placeholder, column) {
+    beginQuickAddRename(placeholder, column, value) {
         const task = this.tasks.find(t => t.name === placeholder);
         if (!task) return;
         const cardEl = Array.from(document.querySelectorAll('.kanban-card'))
@@ -3060,6 +3083,8 @@ class KanbanBoard {
         cardEl.scrollIntoView({ block: 'nearest' });
         this.startInlineCardTitleRename(titleEl, task, {
             isNew: true,
+            column,
+            value,
             onEnter: () => this.addNewCard(column)
         });
     }

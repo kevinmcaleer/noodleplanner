@@ -339,7 +339,12 @@ def test_add_task_to_a_column(board):
     # Rapid capture: no task form, and the title is already an input.
     input_ = column.locator(".kanban-card-title-input")
     assert input_.count() == 1
-    board.keyboard.type("Write brief")
+    # A late re-render (renderText) must not lose the edit in progress.
+    board.keyboard.type("Wri")
+    board.evaluate("() => kanbanBoard.render()")
+    board.wait_for_selector(".kanban-card-title-input")
+    assert board.locator(".kanban-card-title-input").input_value() == "Wri"
+    board.keyboard.type("te brief")
     board.keyboard.press("Enter")
     board.wait_for_function(
         "() => document.getElementById('planEditor').value.includes('Write brief')"
