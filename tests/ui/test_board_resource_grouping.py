@@ -13,8 +13,10 @@ PLAN = """\
 ---
 title: Undeclared
 start: 2026-01-05
+resources:
+- @kev: Kevin McAleer
 stakeholders:
-- @kev: Kevin, sponsor
+- @kev: Kevin McAleer, sponsor
 ---
 Phase One
   Task A 3d 0% @Kev
@@ -46,7 +48,7 @@ def columns(page):
 def test_undeclared_resources_form_columns_case_insensitively(board):
     board.evaluate("() => switchKanbanView('resource')")
     cols = columns(board)
-    assert sorted(cols["Kev"]) == ["Task A", "Task B"]
+    assert sorted(cols["Kevin McAleer"]) == ["Task A", "Task B"]
     assert cols["Sam"] == ["Task C"]
     assert cols["Unassigned"] == ["Task D"]
     assert len(cols) == 3

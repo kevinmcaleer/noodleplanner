@@ -351,6 +351,7 @@ class KanbanBoard {
         inFrontMatter = false;
         let inStakeholdersSection = false;
         let inResourcesSection = false;
+        const declaredResources = new Set();
         for (let i = 0; i < lines.length; i++) {
             const rawLine = lines[i];
             const trimmedFM = rawLine.trim();
@@ -390,14 +391,19 @@ class KanbanBoard {
                     this.stakeholderShortnames.add(m[1].toLowerCase());
                 }
             }
+            if (inResourcesSection) {
+                const m = trimmedFM.match(/^-\s*@(\w+):/);
+                if (m) declaredResources.add(m[1].toLowerCase());
+            }
         }
 
         // Strip stakeholder shortnames from resourceMap — parseResourceMappings
         // is not section-aware and blindly pulls every `- @name:` front-matter
         // line, including stakeholders. Board resource columns should only
         // contain real resources.
+        // A name also declared under `resources:` keeps its full name.
         this.stakeholderShortnames.forEach(sn => {
-            delete this.resourceMap[sn];
+            if (!declaredResources.has(sn)) delete this.resourceMap[sn];
         });
 
         // Parse theme colours from front matter
