@@ -111,26 +111,29 @@
     gap: var(--np-space-8);
     min-height: 34px;
     margin-bottom: var(--np-space-2);
+    /* .notepad-rows is a scrolling flex column; without this the rows
+       shrink below their content height and overlap. */
+    flex-shrink: 0;
+    position: relative;
     border: none;
     border-radius: 4px;
     transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .notepad-estimate-btn {
-    flex: 0 0 32px;
-    width: 32px;
+    /* Sits inside the input's right edge: the row is the positioning
+       context and .notepad-input reserves room for it. */
+    position: absolute;
+    right: var(--np-space-8);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
     justify-content: center;
-    padding-left: 0;
-    padding-right: 0;
+    padding: 0;
     border: none;
     background: transparent;
     color: var(--np-text-muted);
-}
-
-/* Reserves the estimate button's column on the draft row so every input
-   in the list ends at the same edge. */
-.notepad-estimate-btn--spacer {
-    visibility: hidden;
 }
 
 .notepad-row:hover {
@@ -186,7 +189,7 @@
     color: var(--np-text);
     font-size: 15px;
     font-family: inherit;
-    padding: var(--np-space-8) var(--np-space-4);
+    padding: var(--np-space-8) 44px var(--np-space-8) var(--np-space-4);
     border-radius: 4px;
 }
 
