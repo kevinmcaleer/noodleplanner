@@ -2416,7 +2416,20 @@ class KanbanBoard {
             // A card opens as a centre peek, not the side pane, so the board
             // stays in view behind it (unless the user picked a mode).
             if (window.NoodlePeek) window.NoodlePeek.setPeekHint('center');
-            openTaskForm(task.lineNumber);
+            // The card's line number is from the parse it was drawn from, and
+            // a click can land after the editor moved (the 250ms title-click
+            // wait, the app writing `rag:` into the front matter). Opening the
+            // form on that old line would make its save and delete act on
+            // another line, so find the task's line in the editor as it is now.
+            let line = task.lineNumber;
+            const editor = document.getElementById('planEditor');
+            if (editor && typeof NoodlePlanModel !== 'undefined') {
+                const model = NoodlePlanModel.modelForEditor(editor);
+                const node = this.resolveTaskNode(task, model);
+                if (node) line = model.lineNumber(node);
+                this.syncIfStale();
+            }
+            openTaskForm(line);
         } else {
             console.error('openTaskForm function not found. Make sure script.js is loaded.');
         }

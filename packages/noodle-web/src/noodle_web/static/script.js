@@ -286,8 +286,27 @@ function setEditorValuePreservingCursor(editor, newValue) {
         return prefixLength + Math.min(position - prefixLength, newMiddleLength);
     };
 
+    // The open task form follows its task: an automatic rewrite (front matter
+    // prepended) moves every line, and a form left on the old line number would
+    // save to, or delete, whatever now sits there. Delete would find nothing
+    // and leave the task in the Markdown.
+    let followedTaskLine = null;
+    if (typeof currentTaskLineNumber !== 'undefined' && currentTaskLineNumber !== null) {
+        let lineStart = 0;
+        for (let n = 1; n < currentTaskLineNumber; n++) {
+            const nl = oldValue.indexOf('\n', lineStart);
+            if (nl === -1) { lineStart = -1; break; }
+            lineStart = nl + 1;
+        }
+        if (lineStart !== -1 && (lineStart < prefixLength || lineStart >= oldSuffixStart)) {
+            const newStart = mapPosition(lineStart);
+            followedTaskLine = newValue.slice(0, newStart).split('\n').length;
+        }
+    }
+
     // Apply new value
     editor.value = newValue;
+    if (followedTaskLine !== null) currentTaskLineNumber = followedTaskLine;
 
     editor.setSelectionRange(mapPosition(prevStart), mapPosition(prevEnd));
 
