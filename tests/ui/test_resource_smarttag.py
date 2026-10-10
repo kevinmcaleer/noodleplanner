@@ -84,3 +84,40 @@ def test_resource_form_edits_interest_and_influence(page, app_server):
     page.select_option("#resourceInfluence", "")
     page.evaluate("() => saveResource()")
     assert "interest:" not in page.evaluate("() => document.getElementById('planEditor').value")
+
+
+BOARD_PLAN = """---
+title: Board
+Resources:
+- @kev: Kevin McAleer, Maker
+---
+
+Requirements
+  Pocket sized @kev 10d
+  Leather cover
+  Pen loop
+"""
+
+
+def test_hover_card_is_not_clipped_by_the_board_column(page, app_server):
+    from .helpers import open_project_view, set_editor_value
+
+    page.set_viewport_size({"width": 1500, "height": 900})
+    open_project_view(page, app_server)
+    set_editor_value(page, BOARD_PLAN)
+    page.evaluate("() => switchPlanSubnavToBoard()")
+    page.wait_for_selector(".kanban-card np-resource-stack .chip")
+    page.locator(".kanban-card np-resource-stack .chip").first.hover()
+    result = page.evaluate(
+        """() => { const s = document.querySelector('.kanban-card np-resource-stack');
+                   const c = s.shadowRoot.querySelector('.card');
+                   const r = c.getBoundingClientRect();
+                   const col = s.closest('.kanban-column').getBoundingClientRect();
+                   // The point just inside the card's right edge: on the column's
+                   // right, if the card escapes it. elementFromPoint finds the
+                   // card (retargeted to its stack) only when nothing clips it.
+                   const hit = document.elementFromPoint(r.right - 4, r.top + r.height / 2);
+                   return { open: !c.hidden, hit: hit && hit.tagName, over: r.right > col.right }; }"""
+    )
+    assert result["open"]
+    assert result["hit"] == "NP-RESOURCE-STACK", result
