@@ -1780,6 +1780,8 @@ function updateBenefits() {
         // No benefits section in plan text — clear items
         benefitItems = [];
         benefitNextId = 1;
+        // A plan with no benefits section must not inherit the previous plan's warning.
+        if (typeof clearStatusLogEntry === 'function') clearStatusLogEntry('benefits-redundant-links');
         const placeholder = document.querySelector('#benefits-view .benefits-placeholder');
         const content = document.querySelector('#benefits-view .benefits-content');
         if (placeholder) placeholder.style.display = '';

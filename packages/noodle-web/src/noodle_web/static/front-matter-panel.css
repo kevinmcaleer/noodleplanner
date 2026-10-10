@@ -26,9 +26,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--np-space-12);
+    gap: var(--np-space-4) var(--np-space-12);
     min-height: 38px;
     padding: 0 var(--np-space-12);
+    /* Wrap rather than overlap when the editor pane is narrow. */
+    flex-wrap: wrap;
 }
 
 .fm-panel-absent { color: #aaa; }
@@ -64,18 +66,16 @@
 
 .fm-title { font-weight: 600; }
 
-.fm-summary-count {
-    color: #8d8d8d;
-    font-weight: 400;
-}
-
 .fm-panel-controls,
 .fm-mode-toggle {
     display: flex;
     align-items: center;
 }
 
-.fm-panel-controls { gap: var(--np-space-8); }
+.fm-panel-controls {
+    flex-shrink: 0;
+    gap: var(--np-space-8);
+}
 
 .fm-mode-toggle {
     padding: 0;
