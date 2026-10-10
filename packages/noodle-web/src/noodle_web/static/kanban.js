@@ -77,6 +77,8 @@ class KanbanBoard {
         this.viewMode = viewMode; // 'phase', 'resource', 'progress', 'label', 'bucket'
         this.sortByPriority = false; // Sort tasks by priority within columns
         this.hideCompleted = false; // Hide tasks with 100% progress
+        this.filterQuery = ''; // Board filter text (#1542), e.g. "label:must -status:Complete"
+        this.filterParsed = { terms: [], errors: [] };
         this.createdBuckets = []; // User-created empty buckets
         this.tasks = [];
         this.columns = [];
@@ -113,12 +115,14 @@ class KanbanBoard {
         this.viewMode = this.defaultViewMode;
         this.sortByPriority = false;
         this.hideCompleted = false;
+        this.setFilterQuery('');
         try {
             const saved = JSON.parse(localStorage.getItem(key) || '{}');
             const modes = ['phase', 'resource', 'progress', 'label', 'bucket'];
             if (modes.includes(saved.viewMode)) this.viewMode = saved.viewMode;
             this.sortByPriority = saved.sortByPriority === true;
             this.hideCompleted = saved.hideCompleted === true;
+            if (typeof saved.filterQuery === 'string') this.setFilterQuery(saved.filterQuery);
         } catch (error) {
             console.warn('Could not restore Kanban preferences:', error);
         }
@@ -132,7 +136,8 @@ class KanbanBoard {
             localStorage.setItem(key, JSON.stringify({
                 viewMode: this.viewMode,
                 sortByPriority: this.sortByPriority,
-                hideCompleted: this.hideCompleted
+                hideCompleted: this.hideCompleted,
+                filterQuery: this.filterQuery
             }));
             this.loadedPreferenceKey = key;
         } catch (error) {
@@ -147,6 +152,64 @@ class KanbanBoard {
         if (mode) mode.value = this.viewMode;
         if (sort) sort.checked = this.sortByPriority;
         if (hide) hide.checked = this.hideCompleted;
+        if (this.filterField) this.filterField.set(this.filterQuery, true);
+    }
+
+    /** Store the board filter text and its parsed form (#1542). */
+    setFilterQuery(query) {
+        this.filterQuery = query || '';
+        this.filterParsed = (typeof BoardFilter !== 'undefined')
+            ? BoardFilter.parse(this.filterQuery)
+            : { terms: [], errors: [] };
+    }
+
+    hasFilter() {
+        return this.filterParsed.terms.length > 0;
+    }
+
+    /** Is the card shown, given the hide-completed toggle and the filter query? */
+    isTaskVisible(task) {
+        if (this.hideCompleted && this.getProgressStatus(task.percent) === 'complete') return false;
+        return !this.hasFilter() || BoardFilter.matches(task, this.filterParsed);
+    }
+
+    /** Bind the filter input above the board (once; the markup is static). */
+    initFilterField() {
+        if (this.filterField || typeof BoardFilter === 'undefined') return;
+        const input = document.getElementById('kanbanFilterInput');
+        const list = document.getElementById('kanbanFilterSuggestions');
+        if (!input || !list) return;
+        this.filterField = BoardFilter.BoardFilterField({
+            input,
+            list,
+            clear: document.getElementById('kanbanFilterClear'),
+            getVocab: () => BoardFilter.buildVocab(this.getAllTasks(), {
+                labels: this.labelsFromFrontMatter,
+                buckets: this.createdBuckets,
+                phases: this.phases,
+            }),
+            onChange: (parsed, query) => {
+                this.filterQuery = query;
+                this.filterParsed = parsed;
+                this.savePreferences();
+                this.render();
+            },
+        });
+        this.filterField.set(this.filterQuery, true);
+    }
+
+    /** "N of M cards" and any invalid-term message beside the filter field. */
+    updateFilterSummary(shown, total) {
+        const summary = document.getElementById('kanbanFilterSummary');
+        const error = document.getElementById('kanbanFilterError');
+        if (summary) {
+            summary.textContent = this.hasFilter() ? `${shown} of ${total} cards` : '';
+        }
+        if (error) {
+            const errs = this.filterParsed.errors;
+            error.textContent = errs.length ? errs.map(e => e.message).join('. ') : '';
+            error.hidden = !errs.length;
+        }
     }
 
     /**
@@ -1354,6 +1417,8 @@ class KanbanBoard {
         const quickAdd = this.quickAdd;
         if (quickAdd) quickAdd.suspended = true;
 
+        this.initFilterField();
+
         // Clear existing content
         boardContainer.innerHTML = '';
 
@@ -1366,6 +1431,16 @@ class KanbanBoard {
 
         // Render each column (skip empty columns when hiding completed tasks)
         const fragment = document.createDocumentFragment();
+        const allCards = this.columns.reduce((n, c) => n + c.tasks.length, 0);
+        const shownCards = this.columns.reduce((n, c) => n + c.tasks.filter(t => this.isTaskVisible(t)).length, 0);
+        this.updateFilterSummary(shownCards, allCards);
+        if (this.hasFilter() && allCards > 0 && shownCards === 0) {
+            const none = document.createElement('div');
+            none.className = 'kanban-filter-empty';
+            none.setAttribute('role', 'status');
+            none.textContent = 'No cards match this filter.';
+            boardContainer.appendChild(none);
+        }
         this.columns.forEach(column => {
             if (this.hideCompleted && this.isColumnEmptyAfterFilter(column)) {
                 return;
@@ -1685,8 +1760,8 @@ class KanbanBoard {
         columnEl.setAttribute('aria-label', `${column.name} column with ${column.tasks.length} task${column.tasks.length !== 1 ? 's' : ''}`);
 
         // Filter out completed tasks if hideCompleted is enabled
-        const visibleTasks = this.hideCompleted
-            ? column.tasks.filter(task => this.getProgressStatus(task.percent) !== 'complete')
+        const visibleTasks = (this.hideCompleted || this.hasFilter())
+            ? column.tasks.filter(task => this.isTaskVisible(task))
             : column.tasks;
         const visibleCount = visibleTasks.length;
 

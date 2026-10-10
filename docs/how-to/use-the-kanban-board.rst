@@ -84,6 +84,40 @@ Each card shows:
 Filter the Board
 -----------------
 
+Type in the filter field above the board to narrow the cards. It works like the
+GitHub Projects filter: one text field, and terms separated by spaces that must
+all match.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Term
+     - Shows cards that...
+   * - ``login``
+     - mention the word in their name or comment
+   * - ``label:must``
+     - carry the label ``must`` (``labels:`` also works)
+   * - ``status:Complete``
+     - are ``Not started``, ``In progress`` or ``Complete``
+   * - ``bucket:Doing``
+     - are in that bucket (``bucket:none`` for cards without one)
+   * - ``resource:kev``
+     - are assigned to that resource, by short name or full name
+   * - ``phase:"Phase 1"``
+     - are in that phase; quote values that contain spaces
+   * - ``-status:Complete``
+     - do **not** match: a leading ``-`` excludes any term
+   * - ``label:must,should``
+     - carry either label: commas between values mean "or"
+
+Combine terms, for example ``label:must -status:Complete phase:Design``. As you
+type, the field suggests the available filters (``label:``, ``status:``,
+``bucket:``, ``resource:``, ``phase:``) and then the values that exist in your
+plan. Use the arrow keys with ``Enter`` or ``Tab`` to accept one, and ``Esc`` to
+dismiss the list. A filter the board doesn't understand is flagged beside the
+field and ignored. The filter is remembered for each project.
+
 Use **Hide Completed** to filter out completed cards and **Sort by Priority** to
 order visible cards. Use the triangle in a column header to collapse or expand
 that column.
