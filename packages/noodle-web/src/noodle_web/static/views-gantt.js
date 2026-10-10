@@ -206,9 +206,15 @@ function wouldCreateLoop(taskId, proposedDepIds, tasks) {
 // the header bands, the drag snap unit and every bar's position from it, so
 // there is one rendering rule at every zoom rather than one per scale.
 
-/** Row height of `.gantt-bar-row` (views/gantt.css). The overlays compute
+/** Row height of `.gantt-bar-row`, read from the `--gantt-row-h` token on
+ *  `.gantt-wrapper` (views/gantt.css) -- the same token the table rows use, so
+ *  the overlays, the bars and the table cannot disagree. The overlays compute
  *  their Y positions from it rather than reading the DOM back. */
-const GANTT_ROW_HEIGHT = 40;
+function ganttRowHeight() {
+    const wrapper = document.querySelector('.gantt-wrapper');
+    const value = wrapper && parseFloat(getComputedStyle(wrapper).getPropertyValue('--gantt-row-h'));
+    return value > 0 ? value : 40;
+}
 /** A pointer must travel this far before a press becomes a drag. */
 const GANTT_DRAG_THRESHOLD_PX = 5;
 const GANTT_ZOOM_KEY_PREFIX = 'noodle_gantt_zoom_';
@@ -566,9 +572,6 @@ function renderGanttChart() {
     renderGanttHeaders();
     renderGanttRows();
 
-    // Align task rows with Gantt bars by compensating for header height differences
-    alignGanttRows();
-
     renderDependencyLines();
     renderCriticalPathLines();
 
@@ -596,7 +599,6 @@ function relayoutGanttChart() {
     ganttBody.querySelectorAll('.gantt-bar-row').forEach(row => { row.style.minWidth = totalWidth + 'px'; });
     renderWeekendHighlights(ganttBody);
     ganttBody.querySelectorAll('[data-gantt-kind]').forEach(placeGanttElement);
-    alignGanttRows();
     renderDependencyLines();
     renderCriticalPathLines();
 }
@@ -632,41 +634,6 @@ function placeGanttElement(el) {
     } else if (kind === 'float') {
         el.style.width = (Number(el.dataset.floatDays) * ganttPixelsPerDay) + 'px';
     }
-}
-
-/**
- * Align the Gantt chart body rows with the task list rows by compensating
- * for any difference in header heights (e.g. the month-title row in days view
- * makes the chart header taller than the table header).
- *
- * Both sides scroll vertically in sync. Both have sticky headers (the table
- * thead and the chart .gantt-header). When the chart header is taller, the
- * chart body starts lower, so we need to push the table body down by the
- * same amount. We achieve this by setting the table thead's min-height to
- * match the chart header height.
- */
-function alignGanttRows() {
-    const tableHead = document.querySelector('.gantt-info-table thead');
-    const chartHeader = document.getElementById('ganttHeader');
-
-    if (!tableHead || !chartHeader) return;
-
-    // Reset any previous override so we measure natural heights
-    const headRow = tableHead.querySelector('tr');
-    if (headRow) {
-        headRow.style.height = '';
-    }
-
-    // Use requestAnimationFrame to ensure layout is computed after render
-    requestAnimationFrame(() => {
-        const tableHeaderHeight = tableHead.offsetHeight;
-        const chartHeaderHeight = chartHeader.offsetHeight;
-
-        if (chartHeaderHeight > tableHeaderHeight && headRow) {
-            // Make the table header row taller to match the chart header
-            headRow.style.height = chartHeaderHeight + 'px';
-        }
-    });
 }
 
 function scrollGanttToToday() {
@@ -1352,10 +1319,11 @@ function ganttBarSpan(index) {
 function ganttVisibleRowCentres() {
     const rows = document.querySelectorAll('#ganttBody .gantt-bar-row');
     const centres = {};
+    const rowHeight = ganttRowHeight();
     let visible = 0;
     rows.forEach((row, i) => {
         if (row.style.display === 'none') return;
-        centres[i] = visible * GANTT_ROW_HEIGHT + GANTT_ROW_HEIGHT / 2;
+        centres[i] = visible * rowHeight + rowHeight / 2;
         visible++;
     });
     return centres;

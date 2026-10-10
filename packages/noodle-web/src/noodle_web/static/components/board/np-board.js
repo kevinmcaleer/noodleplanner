@@ -40,7 +40,7 @@ TEMPLATE.innerHTML = `
       overflow-x: auto;
       overflow-y: hidden;
       padding: 20px;
-      background: var(--np-bg-alt, #f0f2f5);
+      background: var(--np-paper, #f0f2f5);
       align-items: stretch;
     }
 
@@ -48,20 +48,19 @@ TEMPLATE.innerHTML = `
       min-width: 280px;
       max-width: 340px;
       flex: 1;
-      background: var(--np-surface, #ffffff);
-      border-radius: var(--np-radius-md, 8px);
+      background: var(--np-surface-alt, #f3eee5);
+      border-radius: var(--np-radius-xl, 12px);
       display: flex;
       flex-direction: column;
-      box-shadow: 0 2px 4px var(--np-shadow, rgba(0, 0, 0, 0.1));
+      box-shadow: var(--np-elevation-1, 0 1px 2px rgba(0, 0, 0, 0.1));
     }
 
     .column-header {
       padding: 15px;
-      background: var(--np-info-tint);
-      color: var(--np-info-ink);
-      border-bottom: 1px solid var(--np-border);
+      background: transparent;
+      color: var(--np-ink);
       border-top: 4px solid var(--column-colour, transparent);
-      border-radius: var(--np-radius-md, 8px) var(--np-radius-md, 8px) 0 0;
+      border-radius: var(--np-radius-xl, 12px) var(--np-radius-xl, 12px) 0 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -99,16 +98,16 @@ TEMPLATE.innerHTML = `
 
     .column-footer {
       padding: 10px;
-      background: var(--np-paper, #f8f9fa);
-      border-radius: 0 0 var(--np-radius-md, 8px) var(--np-radius-md, 8px);
+      background: transparent;
+      border-radius: 0 0 var(--np-radius-xl, 12px) var(--np-radius-xl, 12px);
     }
 
     .add-card-btn {
       width: 100%;
       padding: 8px 12px;
       background: transparent;
-      border: 2px dashed var(--np-border, #ced4da);
-      border-radius: 4px;
+      border: 0;
+      border-radius: var(--np-radius-md, 6px);
       color: var(--np-muted, #6c757d);
       font-weight: 500;
       font-family: inherit;
@@ -117,8 +116,7 @@ TEMPLATE.innerHTML = `
     }
     .add-card-btn:hover {
       background: var(--np-sunken, #e9ecef);
-      border-color: var(--np-accent, #EDB52A);
-      color: var(--np-accent-ink, #EDB52A);
+      color: var(--np-ink);
     }
     .add-card-btn:focus-visible {
       outline: var(--np-focus-ring-width, 2px) solid var(--np-focus-ring-color, currentColor);

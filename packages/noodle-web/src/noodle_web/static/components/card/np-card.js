@@ -29,27 +29,24 @@ TEMPLATE.innerHTML = `
 
     .card {
       background: var(--np-surface, #ffffff);
-      border-radius: var(--np-radius-sm, 6px);
+      border-radius: var(--np-radius-lg, 8px);
       padding: 12px;
-      box-shadow: 0 1px 3px var(--np-shadow, rgba(0, 0, 0, 0.12));
-      border: 1px solid var(--np-border, #e9ecef);
-      transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+      box-shadow: var(--np-elevation-1, 0 1px 2px rgba(0, 0, 0, 0.1));
+      border: 1px solid var(--np-hairline, #e9ecef);
+      transition: box-shadow 0.15s ease;
       cursor: pointer;
       outline: none;
     }
     .card:hover {
-      box-shadow: 0 4px 8px var(--np-shadow-strong, rgba(0, 0, 0, 0.15));
-      transform: translateY(-2px);
-      border-color: var(--np-accent, #EDB52A);
+      box-shadow: var(--np-elevation-2, 0 2px 4px rgba(0, 0, 0, 0.1));
     }
     .card:focus-visible {
       outline: var(--np-focus-ring-width, 2px) solid var(--np-focus-ring-color, currentColor);
       outline-offset: var(--np-focus-ring-offset, 2px);
-      box-shadow: 0 4px 8px var(--np-shadow-strong, rgba(0, 0, 0, 0.15));
+      box-shadow: var(--np-elevation-2, 0 2px 4px rgba(0, 0, 0, 0.1));
     }
     .card:active {
-      transform: translateY(0);
-      box-shadow: 0 2px 4px var(--np-shadow, rgba(0, 0, 0, 0.1));
+      box-shadow: var(--np-elevation-1, 0 1px 2px rgba(0, 0, 0, 0.1));
     }
 
     :host([dragging]) .card {
