@@ -423,6 +423,8 @@ function closeDetailPane() {
     overlay.classList.remove('active');
     pane.classList.remove('open');
     document.body.classList.remove('detail-pane-open');
+    // A view's request for a peek mode (the board's centre peek) ends with the form.
+    if (window.NoodlePeek) window.NoodlePeek.clearPeekHint();
 
     // Hide all sections after transition (tracked so openDetailPane can cancel it)
     closeDetailPaneTimer = setTimeout(() => {

@@ -2413,7 +2413,9 @@ class KanbanBoard {
     openTaskModal(task) {
         // Check if the openTaskForm function exists (from script.js)
         if (typeof openTaskForm === 'function') {
-            // Call the existing modal function with line number
+            // A card opens as a centre peek, not the side pane, so the board
+            // stays in view behind it (unless the user picked a mode).
+            if (window.NoodlePeek) window.NoodlePeek.setPeekHint('center');
             openTaskForm(task.lineNumber);
         } else {
             console.error('openTaskForm function not found. Make sure script.js is loaded.');
