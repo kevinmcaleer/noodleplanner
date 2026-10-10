@@ -182,5 +182,5 @@ def test_delete_is_a_trashcan(page, app_server):
         "() => document.getElementById('taskFormPanelHeader').shadowRoot.querySelector('.more').hidden"
     )
     page.once("dialog", lambda d: d.accept())
-    page.locator("#taskFormPanelHeader > [slot=trailing]").click()
+    page.locator("#taskFormPanelHeader > [slot=trailing][data-destructive]").click()
     page.wait_for_function("() => !document.getElementById('planEditor').value.includes('Research')")
