@@ -184,14 +184,8 @@ const FrontMatterPanel = (function () {
             if (this.commitTimer) clearTimeout(this.commitTimer);
             this.commitTimer = setTimeout(() => {
                 this.commit();
-                this.updateSummary();
                 this.commitTimer = null;
             }, 400);
-        }
-
-        updateSummary() {
-            const badge = this.container.querySelector('.fm-summary-count');
-            if (badge) badge.textContent = `(${NoodleFrontMatter.countKeys(this.rows)} keys)`;
         }
 
         nextRowId() {
@@ -269,24 +263,22 @@ const FrontMatterPanel = (function () {
         }
 
         _renderHeader() {
-            const count = NoodleFrontMatter.countKeys(this.rows);
             const rawMode = this.mode === 'raw';
             const chevron = el('span', { className: 'fm-chevron', text: this.collapsed ? '▸' : '▾' });
             const title = el('span', { className: 'fm-title', text: rawMode ? 'Markdown' : 'Properties' });
-            const badge = el('span', { className: 'fm-summary-count', text: `(${count} key${count === 1 ? '' : 's'})` });
             const summary = rawMode
                 ? el('div', { className: 'fm-summary-toggle fm-summary-static' }, [title])
                 : el('button', {
                     className: 'fm-summary-toggle', type: 'button',
                     'aria-expanded': String(!this.collapsed),
                     onclick: () => this.setCollapsed(!this.collapsed),
-                }, [chevron, title, badge]);
+                }, [chevron, title]);
 
             const controls = [];
-            if (rawMode || !this.collapsed) {
-                controls.push(this._renderModeToggle());
-                if (!rawMode) controls.push(this._renderAddKeyControl());
-            }
+            // The Properties/YAML switch stays visible even when collapsed, so
+            // the user can always reach the YAML view.
+            controls.push(this._renderModeToggle());
+            if (!rawMode && !this.collapsed) controls.push(this._renderAddKeyControl());
             const header = el('div', { className: 'fm-panel-header' }, [summary, el('div', { className: 'fm-panel-controls' }, controls)]);
             return header;
         }
@@ -415,7 +407,6 @@ const FrontMatterPanel = (function () {
                 row.key = value.toLowerCase();
                 if (row.kind === 'kv') NoodleFrontMatter.markDirty(row); else row.dirty = true;
                 this.scheduleCommit();
-                this.updateSummary();
             });
             return input;
         }
@@ -457,7 +448,6 @@ const FrontMatterPanel = (function () {
             select.addEventListener('change', () => {
                 NoodleFrontMatter.setScalarValue(row, select.value);
                 this.commit();
-                this.updateSummary();
             });
             return select;
         }
@@ -483,7 +473,6 @@ const FrontMatterPanel = (function () {
             select.addEventListener('change', () => {
                 NoodleFrontMatter.setScalarValue(row, select.value);
                 this.commit();
-                this.updateSummary();
             });
             return select;
         }
@@ -541,7 +530,6 @@ const FrontMatterPanel = (function () {
             const commitEntries = () => {
                 NoodleFrontMatter.setBlockChildTexts(row, listKind.serialize(entries));
                 this.scheduleCommit();
-                this.updateSummary();
             };
 
             const renderEntries = () => {

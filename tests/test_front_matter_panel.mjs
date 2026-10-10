@@ -149,7 +149,8 @@ test('panel with more than 10 lines of front matter starts collapsed', () => {
     const { container, panel } = buildPanel(lines.join('\n'));
     assert.equal(panel.collapsed, true);
     assert.equal(container.querySelector('.fm-row-list'), null);
-    assert.ok(container.querySelector('.fm-summary-count'));
+    assert.equal(container.querySelector('.fm-summary-count'), null);
+    assert.equal(container.querySelector('.fm-mode-btn').textContent, 'YAML');
 });
 
 test('a short front matter block starts expanded, in structured mode', () => {
