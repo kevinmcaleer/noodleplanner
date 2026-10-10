@@ -7712,6 +7712,18 @@ button.ribbon-breadcrumb-rung:hover {
     overflow: hidden;
 }
 
+/* "Just Tabs" peek: clicking a tab floats the full ribbon over the page,
+ * hung from the tab strip, so the page underneath doesn't shift. ribbon.js
+ * sets .ribbon-peek on the shell and clears it when a command is chosen. */
+.ribbon-shell.ribbon-peek > .ribbon-body {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 6;
+    box-shadow: var(--np-floating-shadow);
+}
+
 .ribbon-group {
     display: flex;
     flex-direction: column;
