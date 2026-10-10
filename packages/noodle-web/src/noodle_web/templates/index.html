@@ -3694,6 +3694,31 @@ Build
                         <small>Percentage of time allocated to this project (0-100%)</small>
                     </div>
 
+                    <div class="form-group resource-stakeholder">
+                        <label for="resourceInterest">Interest &amp; Influence</label>
+                        <div class="resource-stakeholder-row">
+                            <!-- Mini interest/influence grid: a dot in the resource's quadrant (updateResourceStakeholderMini in script.js). -->
+                            <svg id="resourceStakeholderMini" class="resource-stakeholder-mini" viewBox="0 0 20 20" role="img" aria-label="Not on the interest and influence grid">
+                                <rect class="rsm-cell" x="0" y="0" width="10" height="10"/>
+                                <rect class="rsm-cell" x="10" y="0" width="10" height="10"/>
+                                <rect class="rsm-cell" x="0" y="10" width="10" height="10"/>
+                                <rect class="rsm-cell" x="10" y="10" width="10" height="10"/>
+                                <circle id="resourceStakeholderDot" class="rsm-dot" r="2.5" cx="10" cy="10" style="display: none"/>
+                            </svg>
+                            <select id="resourceInterest" class="form-control" aria-label="Interest" onchange="autoSaveResource(); updateResourceStakeholderMini()">
+                                <option value="">Interest: not set</option>
+                                <option value="low">Interest: low</option>
+                                <option value="high">Interest: high</option>
+                            </select>
+                            <select id="resourceInfluence" class="form-control" aria-label="Influence" onchange="autoSaveResource(); updateResourceStakeholderMini()">
+                                <option value="">Influence: not set</option>
+                                <option value="low">Influence: low</option>
+                                <option value="high">Influence: high</option>
+                            </select>
+                        </div>
+                        <small>Where this person sits on the project's <a href="#" onclick="openStakeholderGridFromResourceForm(); return false;">interest/influence grid</a></small>
+                    </div>
+
                     <div class="form-group">
                         <label for="resourceNonWorkingDays">Non-Working Days</label>
                         <table class="nwd-exceptions-table" id="resourceNonWorkingDaysTable" role="grid" aria-label="Resource non-working days exceptions">

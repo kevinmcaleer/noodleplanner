@@ -62,3 +62,25 @@ def test_hover_card_lists_at_most_five_up_next_tasks(page, app_server):
     assert not items["hidden"]
     assert items["heading"] == "Up next"
     assert items["tasks"] == ["T2", "T3", "T4", "T5", "T6"]
+
+
+def test_resource_form_edits_interest_and_influence(page, app_server):
+    open_app(page, app_server)
+    load_plan(page, PLAN)
+    page.evaluate("() => openResourceForm('alex')")
+    page.wait_for_selector("#resourceFormSection.active")
+    assert page.input_value("#resourceInterest") == ""
+    assert page.locator("#resourceStakeholderDot").is_hidden()
+    page.select_option("#resourceInterest", "high")
+    page.select_option("#resourceInfluence", "low")
+    page.evaluate("() => saveResource()")
+    plan = page.evaluate("() => document.getElementById('planEditor').value")
+    assert "- @alex: Alex Archer, Designer, interest:high, influence:low" in plan
+    page.evaluate("() => openResourceForm('alex')")
+    assert page.input_value("#resourceInterest") == "high"
+    assert page.get_attribute("#resourceStakeholderDot", "cx") == "15"
+    assert page.get_attribute("#resourceStakeholderDot", "cy") == "15"
+    page.select_option("#resourceInterest", "")
+    page.select_option("#resourceInfluence", "")
+    page.evaluate("() => saveResource()")
+    assert "interest:" not in page.evaluate("() => document.getElementById('planEditor').value")

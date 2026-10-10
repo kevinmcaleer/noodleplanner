@@ -6288,11 +6288,15 @@ function openResourceForm(existingShortname = null, taskReturn = null) {
     document.getElementById('resourceEmail').value = '';
     document.getElementById('resourceAllocation').value = '';
     initNwdTable('resourceNonWorkingDaysTableBody', []);
+    document.getElementById('resourceInterest').value = '';
+    document.getElementById('resourceInfluence').value = '';
 
     // If editing existing resource, populate form
     if (existingShortname) {
         populateResourceForm(existingShortname);
+        populateResourceStakeholder(existingShortname);
     }
+    updateResourceStakeholderMini();
 
     openDetailPane('resourceFormSection');
 
@@ -6606,6 +6610,8 @@ function saveResourceInternal(closeModal = true) {
     editor.value = lines.join('\n');
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
+    saveResourceStakeholder(shortname, fullName, role);
+
     // Close form only if explicitly requested
     if (closeModal) {
         closeResourceForm();
@@ -6618,6 +6624,82 @@ function saveResourceInternal(closeModal = true) {
             window.kanbanBoard.render();
         }, 100);
     }
+}
+
+/**
+ * The resource form's Interest & Influence: a resource is a stakeholder when
+ * the Key Stakeholders front matter has an entry with its shortname, and that
+ * entry's interest/influence is what the stakeholder grid plots. Both selects
+ * "not set" means no entry.
+ */
+function populateResourceStakeholder(shortname) {
+    loadStakeholdersFromPlanText();
+    const sn = String(shortname || '').toLowerCase();
+    const item = stakeholderItems.find(i => (i.shortname || '').toLowerCase() === sn);
+    document.getElementById('resourceInterest').value = item ? item.interest : '';
+    document.getElementById('resourceInfluence').value = item ? item.influence : '';
+}
+
+/** Write the form's interest/influence back to the Key Stakeholders section. */
+function saveResourceStakeholder(shortname, fullName, role) {
+    const interestEl = document.getElementById('resourceInterest');
+    const influenceEl = document.getElementById('resourceInfluence');
+    if (!interestEl || !influenceEl) return;
+    const sn = shortname.toLowerCase();
+    const idx = stakeholderItems.findIndex(i => (i.shortname || '').toLowerCase() === sn);
+    const interest = interestEl.value;
+    const influence = influenceEl.value;
+
+    if (!interest && !influence) {
+        if (idx < 0) return;
+        stakeholderItems.splice(idx, 1);
+    } else {
+        // Only one set: the other defaults to low, the grid's own default.
+        const data = { shortname: sn, name: fullName, role, interest: interest || 'low', influence: influence || 'low' };
+        if (idx >= 0) {
+            const cur = stakeholderItems[idx];
+            if (cur.interest === data.interest && cur.influence === data.influence
+                && cur.name === fullName && cur.role === role) return;
+            stakeholderItems[idx] = { ...cur, ...data };
+        } else {
+            stakeholderItems.push({ ...data, id: stakeholderNextId++ });
+        }
+    }
+    renderStakeholderTable();
+    renderStakeholderGrid();
+    syncStakeholdersToFrontMatter();
+}
+
+/** Put the mini grid's dot in the quadrant the selects name (high interest
+ * is right, high influence is top, as on the full grid), or hide it. */
+function updateResourceStakeholderMini() {
+    const svg = document.getElementById('resourceStakeholderMini');
+    const dot = document.getElementById('resourceStakeholderDot');
+    if (!svg || !dot) return;
+    const interest = document.getElementById('resourceInterest').value;
+    const influence = document.getElementById('resourceInfluence').value;
+    if (!interest && !influence) {
+        dot.style.display = 'none';
+        svg.setAttribute('aria-label', 'Not on the interest and influence grid');
+        return;
+    }
+    const i = interest || 'low';
+    const f = influence || 'low';
+    dot.setAttribute('cx', i === 'high' ? 15 : 5);
+    dot.setAttribute('cy', f === 'high' ? 5 : 15);
+    dot.style.display = '';
+    svg.setAttribute('aria-label', `${i} interest, ${f} influence`);
+}
+
+/** The resource form's link to the project's interest/influence grid. */
+function openStakeholderGridFromResourceForm() {
+    if (resourceDebounceTimer) {
+        clearTimeout(resourceDebounceTimer);
+        resourceDebounceTimer = null;
+        saveResourceInternal(false);
+    }
+    closeDetailPane();
+    showInfluenceDiagram();
 }
 
 // ESC for resource form is handled by the unified detail pane handler

@@ -8852,3 +8852,27 @@ button.ribbon-breadcrumb-rung:hover {
 .programme-all-link {
     margin-bottom: var(--np-space-8);
 }
+
+/* Resource form: interest/influence selects beside a tiny quadrant grid. */
+.resource-stakeholder-row {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-8);
+}
+
+.resource-stakeholder-mini {
+    flex: none;
+    width: var(--np-space-24);
+    height: var(--np-space-24);
+    border-radius: var(--np-radius-xs);
+}
+
+.resource-stakeholder-mini .rsm-cell {
+    fill: var(--np-bg-alt);
+    stroke: var(--np-border);
+    stroke-width: 0.5;
+}
+
+.resource-stakeholder-mini .rsm-dot {
+    fill: var(--np-accent);
+}
