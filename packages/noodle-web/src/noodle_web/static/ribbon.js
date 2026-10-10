@@ -114,6 +114,9 @@ const ribbonState = {
     morePopoverOpen: false,
     displayMenuOpen: false,
     openGroupTrigger: null,
+    // "Just Tabs" mode: a tab click floats the full ribbon over the page
+    // until the user picks a command (or clicks away / presses Escape).
+    peekOpen: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -1567,14 +1570,17 @@ async function refreshRibbon() {
     }
 
     const collapsed = ribbonState.displayMode === 'tabs';
+    if (!collapsed) ribbonState.peekOpen = false;
+    const peek = collapsed && ribbonState.peekOpen;
     shell.classList.toggle('collapsed', collapsed);
+    shell.classList.toggle('ribbon-peek', peek);
     // For the touch layout's CSS (#1388), which arranges the Simple ribbon's
     // rows differently from the other two modes.
     shell.dataset.mode = ribbonState.displayMode;
-    if (bodyEl) bodyEl.style.display = collapsed ? 'none' : '';
+    if (bodyEl) bodyEl.style.display = collapsed && !peek ? 'none' : '';
 
     updateDocTitleAndAvatar();
-    if (!collapsed) requestAnimationFrame(applyBodyLayout);
+    if (!collapsed || peek) requestAnimationFrame(applyBodyLayout);
 }
 
 function updateDocTitleAndAvatar() {
@@ -1693,8 +1699,14 @@ function wireEvents(shell) {
         const tabBtn = e.target.closest('.ribbon-tab-btn');
         if (tabBtn) {
             closePopovers();
-            if (tabBtn.dataset.tab !== ribbonState.activeTab) ribbonState.animateTabSwitch = true;
+            const sameTab = tabBtn.dataset.tab === ribbonState.activeTab;
+            if (!sameTab) ribbonState.animateTabSwitch = true;
             ribbonState.activeTab = tabBtn.dataset.tab;
+            // Just Tabs: show the ribbon over the page; a second click on the
+            // open tab puts it away again, as Office does.
+            if (ribbonState.displayMode === 'tabs') {
+                ribbonState.peekOpen = !(ribbonState.peekOpen && sameTab);
+            }
             refreshRibbon();
             return;
         }
@@ -1720,6 +1732,7 @@ function wireEvents(shell) {
         const tabChoice = e.target.closest('[data-tab-choice]');
         if (tabChoice) {
             closePopovers();
+            if (ribbonState.displayMode === 'tabs') ribbonState.peekOpen = true;
             if (tabChoice.dataset.tabChoice !== ribbonState.activeTab) ribbonState.animateTabSwitch = true;
             ribbonState.activeTab = tabChoice.dataset.tabChoice;
             refreshRibbon();
@@ -1777,6 +1790,7 @@ function wireEvents(shell) {
             // which only re-renders the titlebar/tabstrip/body, would leave
             // a stale popover behind.
             closePopovers();
+            ribbonState.peekOpen = false;
             if (isValidMode) {
                 ribbonState.displayMode = next;
                 ribbonState.displayModeChosen = true;
@@ -1840,10 +1854,25 @@ function wireEvents(shell) {
     // removed -- this affected the pre-existing File-menu button too, not
     // just the new display-options one.
     document.addEventListener('click', (e) => {
-        if (!e.composedPath().includes(shell)) closePopovers();
+        if (e.composedPath().includes(shell)) return;
+        closePopovers();
+        if (ribbonState.peekOpen) { ribbonState.peekOpen = false; refreshRibbon(); }
     });
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') { closePopovers(); refreshRibbon(); }
+        if (e.key === 'Escape') { closePopovers(); ribbonState.peekOpen = false; refreshRibbon(); }
+    });
+    // Just Tabs: choosing a command (or an item from its menu) puts the
+    // floating ribbon away. A command that opened a menu keeps it up until
+    // the menu's own item is chosen, since the menu hangs off the body.
+    shell.addEventListener('click', (e) => {
+        if (!ribbonState.peekOpen) return;
+        const path = e.composedPath();
+        const isEl = (sel) => path.some((n) => n.matches && n.matches(sel));
+        const chose = isEl('.ribbon-lg-btn, .ribbon-sm-btn, .ribbon-launcher, .ribbon-file-menu-item, .ribbon-more-popover button, .ribbon-simple-group-popover button');
+        if (!chose) return;
+        if (document.querySelector('.ribbon-file-menu, .ribbon-more-popover, .ribbon-simple-group-popover')) return;
+        ribbonState.peekOpen = false;
+        refreshRibbon();
     });
     window.addEventListener('editorPanelVisibilityChanged', () => refreshRibbon());
 
