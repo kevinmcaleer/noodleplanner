@@ -332,10 +332,27 @@ def test_add_task_to_a_column(board):
     column = board.locator('.kanban-column[data-column-title="Phase Two"]')
     column.locator(".kanban-add-card-btn").click()
     board.wait_for_function(
-        "() => document.getElementById('planEditor').value.includes('New Task')"
+        "() => document.getElementById('planEditor').value.includes('untitled-1')"
     )
     assert_responsive(board)
     assert column.locator(".kanban-card").count() == 2
+    # Rapid capture: no task form, and the title is already an input.
+    input_ = column.locator(".kanban-card-title-input")
+    assert input_.count() == 1
+    board.keyboard.type("Write brief")
+    board.keyboard.press("Enter")
+    board.wait_for_function(
+        "() => document.getElementById('planEditor').value.includes('Write brief')"
+    )
+    # Enter commits and opens the next placeholder card for rapid entry.
+    board.wait_for_selector(".kanban-card-title-input")
+    assert "untitled-1" in editor_text(board)
+    board.keyboard.press("Escape")
+    board.wait_for_function(
+        "() => !document.getElementById('planEditor').value.includes('untitled-')"
+    )
+    assert "Write brief" in editor_text(board)
+    assert_responsive(board)
 
 
 def test_keyboard_moves_card_between_columns(board):

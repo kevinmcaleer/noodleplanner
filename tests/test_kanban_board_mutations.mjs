@@ -143,7 +143,7 @@ test('addNewCard() inserts a new task under the target phase, which shows up the
   board.parse();
 
   const updatedPhaseOne = board.columns.find(c => c.title === 'Phase One');
-  assert.deepEqual(namesOf(updatedPhaseOne.tasks), ['New Task', 'Task A']);
+  assert.deepEqual(namesOf(updatedPhaseOne.tasks), ['Task A', 'untitled-1']);
   // The other phase is untouched.
   const phaseTwo = board.columns.find(c => c.title === 'Phase Two');
   assert.deepEqual(namesOf(phaseTwo.tasks), ['Task B']);
@@ -161,15 +161,15 @@ test('addNewCard() in resource view tags the new task with that column\'s resour
   board.parse();
 
   const updated = board.columns.find(c => c.title === 'Kevin');
-  assert.deepEqual(namesOf(updated.tasks), ['New Task', 'Task A']);
-  assert.match(editor.value, /New Task @kev/);
+  assert.deepEqual(namesOf(updated.tasks), ['Task A', 'untitled-1']);
+  assert.match(editor.value, /untitled-1 @kev/);
 });
 
 test('addNewCard() in bucket view tags the new task with that bucket', () => {
   const { board, editor } = buildBoard('bucket');
   loadPlan(board, editor, '---\nbuckets: [Backlog]\n---\n\nTask A 0%');
   board.addNewCard(board.columns.find(column => column.title === 'Backlog'));
-  assert.match(editor.value, /New Task \{Backlog\}/);
+  assert.match(editor.value, /untitled-1 \{Backlog\}/);
 });
 
 test('addNewPhase() adds a new root-level phase column (stubbing the window.prompt() it uses for the name)', () => {
@@ -604,7 +604,7 @@ test('a sequence of create/move/remove mutations leaves no orphaned blank lines 
   const finalText = editor.value;
   board.parse();
   assert.deepEqual(editor.value, finalText, 'reparsing the same text is a no-op');
-  assert.deepEqual(namesOf(board.tasks), ['New Task', 'Task A', 'Task C'].sort());
+  assert.deepEqual(namesOf(board.tasks), ['untitled-1', 'Task A', 'Task C'].sort());
 });
 
 // ---------------------------------------------------------------------------

@@ -2774,8 +2774,10 @@ class KanbanBoard {
      * rename on blur/Enter (Escape cancels). Used for double-click-to-rename
      * on the card title (#956), mirroring startInlineBucketRename.
      */
-    startInlineCardTitleRename(titleEl, task) {
+    startInlineCardTitleRename(titleEl, task, opts = {}) {
         const oldName = task.name;
+        let discard = false;
+        let addAnother = false;
         const input = document.createElement('input');
         input.type = 'text';
         input.value = oldName;
@@ -2787,17 +2789,29 @@ class KanbanBoard {
             if (input.parentNode) input.parentNode.removeChild(input);
             titleEl.textContent = oldName;
             titleEl.style.display = '';
+            if (discard && newName === oldName) {
+                // Quick-add card left as the placeholder: drop it again.
+                this.removeQuickAddCard(task);
+                return;
+            }
             if (newName && newName !== oldName) {
                 this.renameTask(task, newName);
             }
+            if (addAnother && opts.onEnter) opts.onEnter();
         };
 
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
+                addAnother = !!opts.isNew;
                 input.blur();
             } else if (e.key === 'Escape') {
-                input.value = oldName;
+                e.stopPropagation();
+                if (opts.isNew) {
+                    discard = true;
+                } else {
+                    input.value = oldName;
+                }
                 input.blur();
             }
         });
@@ -2810,6 +2824,16 @@ class KanbanBoard {
         titleEl.parentNode.insertBefore(input, titleEl);
         input.focus();
         input.select();
+    }
+
+    removeQuickAddCard(task) {
+        const editor = document.getElementById('planEditor');
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const node = this.resolveTaskNode(task, model);
+        if (node && model.removeTask(node)) {
+            this.commitMarkdown(model.serialize(), { model: model });
+        }
     }
 
     /**
@@ -2953,7 +2977,8 @@ class KanbanBoard {
         const model = NoodlePlanModel.modelForEditor(editor);
 
         // Determine what to add based on view mode and column
-        let content = 'New Task';
+        const placeholder = this.nextPlaceholderName(model);
+        let content = placeholder;
 
         switch (this.viewMode) {
             case 'phase':
@@ -3002,7 +3027,40 @@ class KanbanBoard {
         const inserted = model.insertTaskAfter(anchor, indent, content);
         this.commitMarkdown(model.serialize(), {
             model: model,
-            openTaskLine: model.lineNumber(inserted)
+            renderAll: false
+        });
+        this.beginQuickAddRename(placeholder, column);
+        if (typeof renderText === 'function') {
+            Promise.resolve(renderText()).catch(error => {
+                console.error('Kanban update render failed:', error);
+            });
+        }
+    }
+
+    /**
+     * Next unused `untitled-N` name, for rapid capture without the task form.
+     */
+    nextPlaceholderName(model) {
+        const used = new Set(model.tasks.map(node => node.name));
+        let n = 1;
+        while (used.has(`untitled-${n}`)) n++;
+        return `untitled-${n}`;
+    }
+
+    /**
+     * Put the freshly added placeholder card's title into edit mode.
+     */
+    beginQuickAddRename(placeholder, column) {
+        const task = this.tasks.find(t => t.name === placeholder);
+        if (!task) return;
+        const cardEl = Array.from(document.querySelectorAll('.kanban-card'))
+            .find(el => el.getAttribute('data-task-name') === placeholder);
+        const titleEl = cardEl && cardEl.querySelector('.kanban-card-title');
+        if (!titleEl) return;
+        cardEl.scrollIntoView({ block: 'nearest' });
+        this.startInlineCardTitleRename(titleEl, task, {
+            isNew: true,
+            onEnter: () => this.addNewCard(column)
         });
     }
 
