@@ -349,14 +349,22 @@ def test_add_task_to_a_column(board):
     board.wait_for_function(
         "() => document.getElementById('planEditor').value.includes('Write brief')"
     )
-    # Enter commits and opens the next placeholder card for rapid entry.
+    # Enter only commits: no further card appears until Add Task is clicked.
+    assert board.locator(".kanban-card-title-input").count() == 0
+    assert "untitled-" not in editor_text(board)
+    assert column.locator(".kanban-card").count() == 2
+    assert_responsive(board)
+
+
+def test_escape_on_a_new_card_removes_it(board):
+    column = board.locator('.kanban-column[data-column-title="Phase Two"]')
+    column.locator(".kanban-add-card-btn").click()
     board.wait_for_selector(".kanban-card-title-input")
-    assert "untitled-1" in editor_text(board)
     board.keyboard.press("Escape")
     board.wait_for_function(
         "() => !document.getElementById('planEditor').value.includes('untitled-')"
     )
-    assert "Write brief" in editor_text(board)
+    assert column.locator(".kanban-card").count() == 1
     assert_responsive(board)
 
 
