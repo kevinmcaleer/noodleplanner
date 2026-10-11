@@ -7592,7 +7592,7 @@ button.ribbon-breadcrumb-rung:hover {
 }
 
 /* The cloud button beside the profile circle (static/sync-ui.js): opens
-   "Account and sync". Its ring says what sync is doing without a word. */
+   Settings > Sync. Its ring says what sync is doing without a word. */
 .sync-slot {
     display: inline-flex;
     align-items: center;
@@ -7651,29 +7651,31 @@ button.ribbon-breadcrumb-rung:hover {
     height: var(--np-touch-target);
 }
 
-.sync-dialog {
-    width: min(480px, calc(100vw - var(--np-space-32)));
-    max-height: calc(100vh - var(--np-space-32));
-    margin: auto;
-    padding: 0;
-    border: 1px solid var(--np-border);
-    border-radius: var(--np-radius-panel);
-    background: var(--np-modal-bg);
-    color: var(--np-text);
-    box-shadow: 0 20px 60px var(--np-shadow-strong);
-    overflow: auto;
+.sync-section {
+    margin-top: var(--np-space-20);
+    padding-top: var(--np-space-16);
+    border-top: 1px solid var(--np-border);
 }
 
-.sync-dialog::backdrop {
-    background: var(--np-overlay);
+.sync-section:first-of-type {
+    margin-top: var(--np-space-16);
 }
 
-.sync-dialog .modal-body {
-    padding: var(--np-space-24) var(--np-space-32);
+.sync-section h4 {
+    margin: 0 0 var(--np-space-4);
+    color: var(--np-ink);
+    font-size: var(--np-text-95);
 }
 
-.sync-dialog [hidden] {
+.sync-section [hidden] {
     display: none !important;
+}
+
+/* The one line under each heading that says what the section syncs and when. */
+.sync-scope {
+    margin: 0 0 var(--np-space-12);
+    color: var(--np-body);
+    font-size: var(--np-text-90);
 }
 
 .sync-note {

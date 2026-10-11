@@ -1,8 +1,9 @@
 /**
- * sync-ui.js -- the cloud button in the ribbon's title bar and the "Account
- * and sync" dialog (templates/_sync_dialog.html). The engine is
- * account-sync.js (window.NoodleSync.instance); this only shows its status
- * and forwards the buttons.
+ * sync-ui.js -- the cloud button in the ribbon's title bar and the "Sync with
+ * your account" section of Settings > Sync (templates/_sync_account_section.html).
+ * The button opens that tab. The engine is account-sync.js
+ * (window.NoodleSync.instance); this only shows its status and forwards the
+ * buttons.
  */
 (function (root) {
     'use strict';
@@ -52,7 +53,7 @@
         doc.querySelectorAll('.sync-slot').forEach(renderButton);
     }
 
-    // ---- the dialog ------------------------------------------------------
+    // ---- the Settings > Sync section -------------------------------------
 
     function ago(ms) {
         if (!ms) return 'not yet';
@@ -83,9 +84,8 @@
         if (el) el.hidden = !on;
     }
 
-    function renderDialog() {
-        const dialog = byId('syncDialog');
-        if (!dialog) return;
+    function renderSection() {
+        if (!byId('syncOn')) return;
         const e = engine();
         const st = e ? e.getStatus() : { kind: 'idle' };
         const kind = st.kind;
@@ -109,34 +109,25 @@
     }
 
     function open() {
-        const dialog = byId('syncDialog');
-        if (!dialog) return;
-        renderDialog();
-        if (!dialog.open) dialog.showModal();
+        if (typeof root.openSettingsPanel === 'function') root.openSettingsPanel('sync');
+        renderSection();
         const e = engine();
         if (e) e.sync();                                      // refresh who is signed in
     }
 
-    function close() {
-        const dialog = byId('syncDialog');
-        if (dialog && dialog.open) dialog.close();
-    }
-
     function init() {
         const e = engine();
-        if (e) e.subscribe(() => { renderButtons(); renderDialog(); });
+        if (e) e.subscribe(() => { renderButtons(); renderSection(); });
         renderButtons();
-        const dialog = byId('syncDialog');
-        if (!dialog) return;
-        byId('syncDialogClose').addEventListener('click', close);
-        dialog.addEventListener('click', (ev) => { if (ev.target === dialog) close(); });
+        if (!byId('syncOn')) return;
         byId('syncEnable').addEventListener('click', () => { if (e) e.enable(); });
-        byId('syncDisable').addEventListener('click', () => { if (e) { e.disable(); renderDialog(); } });
+        byId('syncDisable').addEventListener('click', () => { if (e) { e.disable(); renderSection(); } });
         byId('syncNow').addEventListener('click', () => { if (e) e.sync(); });
+        renderSection();
     }
 
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', init);
     else init();
 
-    root.NoodleSyncUI = { renderButton, renderButtons, open, close };
+    root.NoodleSyncUI = { renderButton, renderButtons, open };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
