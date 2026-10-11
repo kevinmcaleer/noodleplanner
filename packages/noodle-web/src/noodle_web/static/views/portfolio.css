@@ -13,105 +13,9 @@
     background: var(--np-paper);
 }
 
-.portfolio-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--np-space-12);
-    padding: var(--np-space-8) var(--np-space-12);
-    background: var(--np-surface);
-    border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    gap: var(--np-space-12);
-    flex-wrap: wrap;
-}
-
-.portfolio-header-left {
-    display: flex;
-    align-items: center;
-    gap: var(--np-space-16);
-    flex: 1;
-    min-width: 0;
-}
-
-.portfolio-actions {
-    display: flex;
-    gap: var(--np-space-8);
-    align-items: center;
-}
-
 .btn-sm {
     padding: var(--np-space-8) var(--np-space-16);
     font-size: 0.85em;
-}
-
-/* Portfolio more menu (three-dot dropdown) */
-.portfolio-more-menu-wrapper {
-    position: relative;
-}
-
-.portfolio-more-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    background: transparent;
-    border: 1px solid var(--np-border);
-    border-radius: 6px;
-    color: var(--np-muted);
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.portfolio-more-btn:hover {
-    background: var(--np-paper);
-    border-color: var(--np-faint);
-    color: var(--np-ink);
-}
-
-.portfolio-more-menu {
-    display: none;
-    position: absolute;
-    right: 0;
-    top: 100%;
-    margin-top: var(--np-space-4);
-    background: var(--np-surface);
-    border: 1px solid var(--np-border);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    min-width: 180px;
-    z-index: 1000;
-    overflow: hidden;
-}
-
-.portfolio-more-menu.show {
-    display: block;
-}
-
-.portfolio-more-menu-item {
-    display: flex;
-    align-items: center;
-    gap: var(--np-space-12);
-    width: 100%;
-    padding: var(--np-space-12) var(--np-space-16);
-    background: none;
-    border: none;
-    color: var(--np-ink);
-    font-size: 0.9em;
-    cursor: pointer;
-    transition: background 0.15s;
-    text-align: left;
-}
-
-.portfolio-more-menu-item:hover {
-    background: #e8eaf6;
-}
-
-.portfolio-more-menu-item svg {
-    flex-shrink: 0;
-    color: var(--np-muted);
 }
 
 .portfolio-content {
@@ -990,19 +894,6 @@
 
 /* Responsive design */
 @media (max-width: 768px) {
-    .portfolio-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--np-space-8);
-    }
-
-    .portfolio-header-left {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--np-space-8);
-        width: 100%;
-    }
-
     .portfolio-projects-grid {
         grid-template-columns: 1fr;
     }

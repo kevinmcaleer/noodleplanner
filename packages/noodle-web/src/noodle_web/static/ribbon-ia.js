@@ -389,6 +389,7 @@ export const CONTEXTUAL_TABS = [
         groups: [
             { name: 'Portfolio', launcher: 'Capacity', lg: [['board', 'Add Programme']], cols: [[['add', 'Add Project'], ['chart', 'Weighting']], [['refresh', 'Rebaseline'], ['save', 'Snapshot']]] },
             { name: 'Analyse', cols: [[['grid', 'Heat Map'], ['link', 'Dependencies']], [['resources', 'Capacity'], ['target', 'Benefits']]] },
+            { name: 'Import/Export', cols: [[['upload', 'Import Project'], ['download', 'Export Report']], [['download', 'Back Up All'], ['upload', 'Restore Backup']]] },
         ],
     },
 ];

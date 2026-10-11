@@ -1446,38 +1446,6 @@ body {
 }
 
 /* ---- Portfolio Pages ---- */
-[data-theme="dark"] .portfolio-header {
-    box-shadow: 0 2px 4px var(--np-shadow);
-}
-
-[data-theme="dark"] .portfolio-more-btn {
-    border-color: var(--np-border);
-    color: var(--np-text-secondary);
-}
-
-[data-theme="dark"] .portfolio-more-btn:hover {
-    background: var(--np-bg-hover);
-    border-color: var(--np-text-muted);
-    color: var(--np-text);
-}
-
-[data-theme="dark"] .portfolio-more-menu {
-    border-color: var(--np-border);
-    box-shadow: 0 4px 12px var(--np-shadow-strong);
-}
-
-[data-theme="dark"] .portfolio-more-menu-item {
-    color: var(--np-text);
-}
-
-[data-theme="dark"] .portfolio-more-menu-item:hover {
-    background: var(--np-bg-hover);
-}
-
-[data-theme="dark"] .portfolio-more-menu-item svg {
-    color: var(--np-text-secondary);
-}
-
 /* Portfolio project cards */
 [data-theme="dark"] .portfolio-project-card {
     box-shadow: 0 2px 4px var(--np-shadow);
