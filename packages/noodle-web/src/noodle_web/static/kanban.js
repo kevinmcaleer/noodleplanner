@@ -1757,23 +1757,24 @@ class KanbanBoard {
 
         breadcrumbContainer.innerHTML = '';
 
-        // Always show "All Tasks" as root
+        // At the top level the view tab strip already says "All Tasks", so the
+        // bar would only repeat it; it appears once you drill into a parent.
+        const drilledIn = this.hierarchyBreadcrumb.length > 0 || !!this.currentParentTask;
+        breadcrumbContainer.hidden = !drilledIn;
+        if (!drilledIn) return;
+
+        // "All Tasks" is the way back to the top level
         const rootCrumb = document.createElement('span');
         rootCrumb.className = 'breadcrumb-item';
-        if (this.hierarchyBreadcrumb.length === 0 && !this.currentParentTask) {
-            rootCrumb.classList.add('active');
-            rootCrumb.textContent = 'All Tasks';
-        } else {
-            rootCrumb.innerHTML = '<a href="#">All Tasks</a>';
-            rootCrumb.querySelector('a').addEventListener('click', (e) => {
-                e.preventDefault();
-                this.currentParentTask = null;
-                this.hierarchyBreadcrumb = [];
-                this.groupTasksByViewMode();
-                this.render();
-                this.renderBreadcrumb();
-            });
-        }
+        rootCrumb.innerHTML = '<a href="#">All Tasks</a>';
+        rootCrumb.querySelector('a').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.currentParentTask = null;
+            this.hierarchyBreadcrumb = [];
+            this.groupTasksByViewMode();
+            this.render();
+            this.renderBreadcrumb();
+        });
         breadcrumbContainer.appendChild(rootCrumb);
 
         // Render breadcrumb trail
