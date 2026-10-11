@@ -70,5 +70,10 @@ equal(context.parseTaskLine('Task 2026-01-01 2026-02-01 5d D2026-09-10', 1).fini
 equal(context.parseTaskLine('Task 5d', 1).deadline, '',
     'a task with no deadline reports an empty deadline');
 
+equal(context.parseTaskLine('Task 2d "line one\\nline two"', 1).comment, 'line one\nline two',
+    'an escaped \\n in a comment reads back as a line break');
+equal(context.parseTaskLine('Task 2d "a\\\\nb C:\\temp"', 1).comment, 'a\\nb C:\\temp',
+    'an escaped backslash stays a backslash and other sequences are untouched');
+
 if (failures) process.exit(1);
 console.log('\nAll tests passed');

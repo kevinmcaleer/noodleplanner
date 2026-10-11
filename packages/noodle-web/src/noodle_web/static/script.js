@@ -4678,7 +4678,8 @@ function saveTask() {
     const deadline = deadlineField ? deadlineField.value.trim() : '';
     const percent = document.getElementById('taskPercent').value.trim();
     const resources = document.getElementById('taskResources').value.trim();
-    const comment = document.getElementById('taskComment').value.trim();
+    const comment = document.getElementById('taskComment').value.trim()
+        .replace(/\r\n?/g, '\n').replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
     const dependencies = collectDependenciesFromTable();
 
     // Get previous task name for dependency check

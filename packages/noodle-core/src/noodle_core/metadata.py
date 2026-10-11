@@ -214,6 +214,11 @@ def generate_recurrence_occurrences(task, window_start, window_end):
     return occurrences
 
 
+def _decode_comment(text):
+    """Undo the one-line comment escaping: ``\\n`` -> newline, ``\\\\`` -> backslash."""
+    return re.sub(r'\\([\\n])', lambda m: '\n' if m.group(1) == 'n' else '\\', text)
+
+
 def extract_metadata(task_str, task_name=None):
     meta = {}
     task_str, star_lag = split_star_lag(task_str)
@@ -355,16 +360,17 @@ def extract_metadata(task_str, task_name=None):
     # Support both !"comment" and "comment" formats
     comment_match = _BANG_COMMENT.search(task_str)
     if comment_match:
-        meta['comment'] = comment_match.group(1) if comment_match.group(1) is not None else comment_match.group(2)
+        meta['comment'] = _decode_comment(
+            comment_match.group(1) if comment_match.group(1) is not None else comment_match.group(2))
     else:
         # Also support plain quoted text as comments
         comment_match = _DQ_COMMENT.search(task_str)
         if comment_match:
-            meta['comment'] = comment_match.group(1)
+            meta['comment'] = _decode_comment(comment_match.group(1))
         else:
             comment_match = _SQ_COMMENT.search(task_str)
             if comment_match:
-                meta['comment'] = comment_match.group(1)
+                meta['comment'] = _decode_comment(comment_match.group(1))
 
     # Extract effort using ~ prefix: ~8h, ~3d, ~8h/16h, ~2d/5d
     # Format: ~completed/total or ~total (if no slash, it's the total with 0 completed)
