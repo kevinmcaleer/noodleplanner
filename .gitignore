@@ -1,5 +1,8 @@
 .DS_Store
 test.db
+
+# Server-side accounts/plans database (mounted into the container)
+/data/
 *.xlsx
 
 # Cloudflared tunnel credentials (sensitive)

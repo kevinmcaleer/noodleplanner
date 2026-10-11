@@ -76,6 +76,10 @@ COPY --from=builder --chown=appuser:appuser /app /app
 # Copy environment config
 COPY --chown=appuser:appuser .env.example .env
 
+# Mount point for the SQLite database (docker-compose bind-mounts ./data here).
+RUN mkdir -p /data && chown appuser:appuser /data
+VOLUME /data
+
 USER appuser
 
 EXPOSE 8007

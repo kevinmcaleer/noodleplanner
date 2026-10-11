@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{% if page == 'login' %}Sign in{% elif page == 'register' %}Create account{% elif page == 'forgot' %}Reset password{% elif page == 'reset' %}Choose a new password{% else %}Account{% endif %} - Noodle Planner</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    {% include '_static_boot.html' %}
+    <script>
+    (function() {
+        var choice = 'light';
+        try { choice = localStorage.getItem('np-theme-choice') || 'light'; } catch (e) { /* storage blocked */ }
+        var theme = choice;
+        if (choice === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:wght@300;400;500&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/base.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/dark-mode.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/visual-system.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/account.css?v={{ v }}">
+</head>
+<body class="account-page">
+<main class="account-screen">
+    <div class="account-card">
+        <h1>
+            {%- if page == 'login' %}Sign in
+            {%- elif page == 'register' %}Create your account
+            {%- elif page == 'forgot' %}Reset your password
+            {%- elif page == 'reset' %}Choose a new password
+            {%- else %}Your account{% endif -%}
+        </h1>
+
+        {% if notice %}<p class="account-notice" role="status">{{ notice }}</p>{% endif %}
+        {% if error %}<p class="account-error" role="alert">{{ error }}</p>{% endif %}
+
+        {% if page == 'login' %}
+        <p class="account-sub">Sign in to keep your plans on the server and open them on any device.</p>
+        <form method="post" action="/account/login">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="username" value="{{ email or '' }}" required autofocus>
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <button type="submit" class="account-btn account-btn-primary">Sign in</button>
+        </form>
+        <p class="account-links">
+            <a href="/account/forgot">Forgot your password?</a>
+            {% if registration_open %}<a href="/account/register">Create an account</a>{% endif %}
+        </p>
+
+        {% elif page == 'register' %}
+        <p class="account-sub">Your plans stay private to your account.</p>
+        <form method="post" action="/account/register">
+            <label for="display_name">Name <span class="account-optional">(optional)</span></label>
+            <input id="display_name" name="display_name" maxlength="100" autocomplete="name" value="{{ display_name or '' }}">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="username" value="{{ email or '' }}" required>
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required>
+            <p class="account-hint">At least 10 characters.</p>
+            <label for="confirm">Confirm password</label>
+            <input id="confirm" name="confirm" type="password" autocomplete="new-password" minlength="10" required>
+            <button type="submit" class="account-btn account-btn-primary">Create account</button>
+        </form>
+        <p class="account-links"><a href="/account/login">I already have an account</a></p>
+
+        {% elif page == 'forgot' %}
+        <p class="account-sub">Enter your email and we'll send a link to choose a new password.</p>
+        <form method="post" action="/account/forgot">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="username" required autofocus>
+            <button type="submit" class="account-btn account-btn-primary">Send reset link</button>
+        </form>
+        <p class="account-links"><a href="/account/login">Back to sign in</a></p>
+
+        {% elif page == 'reset' %}
+        <form method="post" action="/account/reset">
+            <input type="hidden" name="token" value="{{ token }}">
+            <label for="password">New password</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required autofocus>
+            <p class="account-hint">At least 10 characters. You'll be signed out everywhere.</p>
+            <label for="confirm">Confirm new password</label>
+            <input id="confirm" name="confirm" type="password" autocomplete="new-password" minlength="10" required>
+            <button type="submit" class="account-btn account-btn-primary">Update password</button>
+        </form>
+
+        {% else %}
+        <p class="account-sub">Signed in as <strong>{{ user.email }}</strong> · {{ plan_count }} plan{{ '' if plan_count == 1 else 's' }} stored on the server.</p>
+
+        <section class="account-section">
+            <h2>Profile</h2>
+            <form method="post" action="/account/profile">
+                <label for="display_name">Name</label>
+                <input id="display_name" name="display_name" maxlength="100" value="{{ user.display_name }}">
+                <button type="submit" class="account-btn">Save name</button>
+            </form>
+        </section>
+
+        <section class="account-section">
+            <h2>Change password</h2>
+            <form method="post" action="/account/password">
+                <label for="current">Current password</label>
+                <input id="current" name="current" type="password" autocomplete="current-password" required>
+                <label for="password">New password</label>
+                <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required>
+                <label for="confirm">Confirm new password</label>
+                <input id="confirm" name="confirm" type="password" autocomplete="new-password" minlength="10" required>
+                <button type="submit" class="account-btn">Change password</button>
+            </form>
+        </section>
+
+        <section class="account-section">
+            <h2>Sign out</h2>
+            <form method="post" action="/account/logout">
+                <button type="submit" class="account-btn">Sign out</button>
+            </form>
+        </section>
+
+        <section class="account-section account-danger">
+            <h2>Delete account</h2>
+            <p class="account-sub">This permanently deletes your account and every plan stored on the server. Plans saved in your browser are not touched.</p>
+            <form method="post" action="/account/delete">
+                <label for="confirm_email">Type your email to confirm</label>
+                <input id="confirm_email" name="confirm_email" type="email" autocomplete="off" required>
+                <label for="delete_password">Password</label>
+                <input id="delete_password" name="password" type="password" autocomplete="current-password" required>
+                <button type="submit" class="account-btn account-btn-danger">Delete my account</button>
+            </form>
+        </section>
+
+        <p class="account-links"><a href="/">Back to the planner</a></p>
+        {% endif %}
+    </div>
+</main>
+</body>
+</html>

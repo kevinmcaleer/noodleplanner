@@ -1,0 +1,182 @@
+/* ========================================
+   Account pages (/account/*): sign in, register, reset password, and the
+   account settings page. Plain server-rendered forms, styled from the
+   design tokens only.
+   ======================================== */
+
+html,
+body.account-page {
+    min-height: 100%;
+}
+
+body.account-page {
+    margin: 0;
+    background: var(--np-paper);
+    color: var(--np-body);
+    font-family: var(--np-font-ui);
+}
+
+.account-screen {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 100vh;
+    padding: var(--np-space-24) var(--np-space-16);
+    box-sizing: border-box;
+}
+
+.account-card {
+    width: 100%;
+    max-width: 460px;
+    padding: var(--np-space-24);
+    border: 1px solid var(--np-border);
+    border-radius: var(--np-radius-card);
+    background: var(--np-surface);
+    box-shadow: var(--np-elevation-3);
+    box-sizing: border-box;
+}
+
+.account-card h1 {
+    margin: 0 0 var(--np-space-8);
+    color: var(--np-ink);
+    font-family: var(--np-font-heading);
+    font-size: var(--np-text-150);
+    font-weight: var(--np-weight-medium);
+}
+
+.account-card h2 {
+    margin: 0 0 var(--np-space-8);
+    color: var(--np-ink);
+    font-family: var(--np-font-heading);
+    font-size: var(--np-text-110);
+    font-weight: var(--np-weight-medium);
+}
+
+.account-sub {
+    margin: 0 0 var(--np-space-16);
+    color: var(--np-muted);
+    font-size: var(--np-text-90);
+}
+
+.account-hint {
+    margin: calc(-1 * var(--np-space-8)) 0 var(--np-space-16);
+    color: var(--np-muted);
+    font-size: var(--np-text-85);
+}
+
+.account-optional {
+    color: var(--np-muted);
+}
+
+.account-notice,
+.account-error {
+    margin: 0 0 var(--np-space-16);
+    padding: var(--np-space-8) var(--np-space-12);
+    border-radius: var(--np-radius-control);
+    font-size: var(--np-text-90);
+}
+
+.account-notice {
+    background: var(--np-accent-tint);
+    color: var(--np-accent-ink);
+}
+
+.account-error {
+    background: var(--np-danger-tint);
+    color: var(--np-danger-ink);
+}
+
+.account-card label {
+    display: block;
+    margin-bottom: var(--np-space-4);
+    color: var(--np-muted);
+    font-size: var(--np-text-85);
+}
+
+.account-card input {
+    display: block;
+    width: 100%;
+    margin-bottom: var(--np-space-16);
+    padding: var(--np-space-8) var(--np-space-12);
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-control);
+    background: var(--np-input-bg);
+    color: var(--np-ink);
+    font: inherit;
+    box-sizing: border-box;
+}
+
+.account-card input:focus-visible {
+    outline: var(--np-focus-ring);
+    outline-offset: var(--np-focus-ring-offset);
+}
+
+.account-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--np-space-8) var(--np-space-16);
+    margin: var(--np-space-16) 0 0;
+    font-size: var(--np-text-90);
+}
+
+.account-links a {
+    color: var(--np-link);
+}
+
+.account-links a:focus-visible {
+    outline: var(--np-focus-ring);
+    outline-offset: var(--np-focus-ring-offset);
+}
+
+.account-section {
+    margin-top: var(--np-space-24);
+    padding-top: var(--np-space-16);
+    border-top: 1px solid var(--np-border);
+}
+
+/* ---- Buttons ---- */
+
+.account-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--np-space-8) var(--np-space-16);
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-control);
+    background: var(--np-surface);
+    color: var(--np-ink);
+    font: inherit;
+    font-size: var(--np-text-90);
+    cursor: pointer;
+}
+
+.account-btn:hover {
+    background: var(--np-bg-hover);
+}
+
+.account-btn:focus-visible {
+    outline: var(--np-focus-ring);
+    outline-offset: var(--np-focus-ring-offset);
+}
+
+.account-btn-primary {
+    width: 100%;
+    border-color: var(--np-accent);
+    background: var(--np-accent);
+    color: var(--np-on-accent);
+    font-weight: var(--np-weight-semibold);
+}
+
+.account-btn-primary:hover {
+    background: var(--np-accent-hover);
+}
+
+.account-btn-danger {
+    border-color: var(--np-danger);
+    color: var(--np-danger-ink);
+}
+
+.account-btn-danger:hover {
+    background: var(--np-danger-tint);
+}
