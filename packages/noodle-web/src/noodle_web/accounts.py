@@ -41,6 +41,7 @@ DEFAULT_DB_PATH = "data/noodleplanner.db"
 SESSION_TTL = int(os.getenv("SESSION_TTL_SECONDS", str(30 * 24 * 3600)))  # 30 days
 RESET_TTL = int(os.getenv("RESET_TTL_SECONDS", str(3600)))  # 1 hour
 MAX_PLANS_PER_USER = int(os.getenv("MAX_PLANS_PER_USER", "500"))
+MAX_VERSIONS_PER_PLAN = int(os.getenv("MAX_VERSIONS_PER_PLAN", "50"))
 
 MIN_PASSWORD_LENGTH = 10
 MAX_PASSWORD_LENGTH = 256
@@ -51,9 +52,7 @@ _EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]{2,}$")
 # for a small self-hosted box.
 _SCRYPT_N, _SCRYPT_R, _SCRYPT_P = 2 ** 14, 8, 1
 
-_SCHEMA_VERSION = 1
-
-_SCHEMA = """
+_SCHEMA_V1 = """
 CREATE TABLE users (
     id            TEXT PRIMARY KEY,
     email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -89,6 +88,27 @@ CREATE TABLE plans (
 CREATE INDEX plans_user ON plans(user_id, updated_at DESC);
 """
 
+# Version history of a plan: one row per version string (the editor keeps one
+# snapshot per version too), newest MAX_VERSIONS_PER_PLAN kept. history_rev
+# counts changes, so a client can tell from the plan list alone that there is
+# something new to fetch.
+_SCHEMA_V2 = """
+ALTER TABLE plans ADD COLUMN history_rev INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE plan_versions (
+    plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+    version TEXT NOT NULL,
+    date    TEXT NOT NULL,
+    rag     TEXT NOT NULL DEFAULT '',
+    content BLOB NOT NULL,
+    PRIMARY KEY (plan_id, version)
+);
+CREATE INDEX plan_versions_date ON plan_versions(plan_id, date DESC);
+"""
+
+_MIGRATIONS = {1: _SCHEMA_V1, 2: _SCHEMA_V2}
+_SCHEMA_VERSION = max(_MIGRATIONS)
+
 
 class AccountError(Exception):
     """A user-facing failure (bad input, duplicate email, wrong password...)."""
@@ -116,6 +136,18 @@ class User:
 
 
 @dataclass(frozen=True)
+class PlanVersion:
+    version: str
+    date: str
+    rag: str
+    content: bytes
+
+    @property
+    def size(self) -> int:
+        return len(self.content)
+
+
+@dataclass(frozen=True)
 class Plan:
     id: str
     name: str
@@ -123,6 +155,7 @@ class Plan:
     revision: int
     created_at: float
     updated_at: float
+    history_rev: int = 0
 
     @property
     def size(self) -> int:
@@ -234,14 +267,14 @@ class AccountStore:
         with self._raw_conn() as conn:
             conn.execute("PRAGMA journal_mode = WAL")
             version = conn.execute("PRAGMA user_version").fetchone()[0]
-            if version == 0:
-                conn.executescript(_SCHEMA)
-                conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
-            elif version > _SCHEMA_VERSION:
+            if version > _SCHEMA_VERSION:
                 raise RuntimeError(
                     f"{self.path} was written by a newer NoodlePlanner "
                     f"(schema {version}, this build understands {_SCHEMA_VERSION})."
                 )
+            for step in range(version + 1, _SCHEMA_VERSION + 1):
+                conn.executescript(_MIGRATIONS[step])
+                conn.execute(f"PRAGMA user_version = {step}")
 
     # -- users -------------------------------------------------------------
 
@@ -379,7 +412,7 @@ class AccountStore:
     @staticmethod
     def _plan(row: sqlite3.Row) -> Plan:
         return Plan(row["id"], row["name"], bytes(row["content"]), row["revision"],
-                    row["created_at"], row["updated_at"])
+                    row["created_at"], row["updated_at"], row["history_rev"])
 
     def list_plans(self, user_id: str) -> list[Plan]:
         with self._conn() as conn:
@@ -444,3 +477,69 @@ class AccountStore:
         with self._conn() as conn:
             cur = conn.execute("DELETE FROM plans WHERE id = ? AND user_id = ?", (plan_id, user_id))
         return cur.rowcount > 0
+
+    # -- plan version history ----------------------------------------------
+
+    def _owns(self, conn: sqlite3.Connection, user_id: str, plan_id: str) -> Optional[sqlite3.Row]:
+        return conn.execute(
+            "SELECT id, history_rev FROM plans WHERE id = ? AND user_id = ?", (plan_id, user_id)
+        ).fetchone()
+
+    def list_versions(self, user_id: str, plan_id: str) -> Optional[tuple[int, list[dict]]]:
+        """(history_rev, [{version, date, rag, size}] newest first), without the
+        text; None if the plan is not this user's."""
+        with self._conn() as conn:
+            plan = self._owns(conn, user_id, plan_id)
+            if plan is None:
+                return None
+            rows = conn.execute(
+                "SELECT version, date, rag, length(content) AS size FROM plan_versions "
+                "WHERE plan_id = ? ORDER BY date DESC, version DESC", (plan_id,)
+            ).fetchall()
+        return plan["history_rev"], [dict(r) for r in rows]
+
+    def get_version(self, user_id: str, plan_id: str, version: str) -> Optional[PlanVersion]:
+        with self._conn() as conn:
+            if self._owns(conn, user_id, plan_id) is None:
+                return None
+            r = conn.execute(
+                "SELECT version, date, rag, content FROM plan_versions WHERE plan_id = ? AND version = ?",
+                (plan_id, version),
+            ).fetchone()
+        return PlanVersion(r["version"], r["date"], r["rag"], bytes(r["content"])) if r else None
+
+    def put_version(
+        self, user_id: str, plan_id: str, version: str, date: str, rag: str, content: bytes
+    ) -> Optional[tuple[bool, int]]:
+        """Upsert one version. A version already stored with a newer date is
+        left alone, and so is one that is older than all MAX_VERSIONS_PER_PLAN
+        kept. Returns (applied, history_rev), or None if the plan is not this
+        user's."""
+        with self._conn() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            plan = self._owns(conn, user_id, plan_id)
+            if plan is None:
+                return None
+            existing = conn.execute(
+                "SELECT date FROM plan_versions WHERE plan_id = ? AND version = ?", (plan_id, version)
+            ).fetchone()
+            if existing is not None and existing["date"] > date:
+                return False, plan["history_rev"]
+            conn.execute(
+                "INSERT INTO plan_versions (plan_id, version, date, rag, content) VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(plan_id, version) DO UPDATE SET date = excluded.date, "
+                "rag = excluded.rag, content = excluded.content",
+                (plan_id, version, date, rag, content),
+            )
+            conn.execute(
+                "DELETE FROM plan_versions WHERE plan_id = ? AND version NOT IN ("
+                "SELECT version FROM plan_versions WHERE plan_id = ? ORDER BY date DESC, version DESC LIMIT ?)",
+                (plan_id, plan_id, MAX_VERSIONS_PER_PLAN),
+            )
+            kept = conn.execute(
+                "SELECT 1 FROM plan_versions WHERE plan_id = ? AND version = ?", (plan_id, version)
+            ).fetchone()
+            if kept is None:                      # older than everything kept
+                return False, plan["history_rev"]
+            conn.execute("UPDATE plans SET history_rev = history_rev + 1 WHERE id = ?", (plan_id,))
+            return True, plan["history_rev"] + 1

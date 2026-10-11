@@ -126,3 +126,55 @@ class TestSignedIn:
         assert page.evaluate("() => Object.values(getAllProjects()).some(p => p.name === 'Stays')")
         state = json.loads(page.evaluate("() => localStorage.getItem('np-sync-state')"))
         assert state["enabled"] is False
+
+
+class TestVersionHistory:
+    def test_history_goes_to_the_account_and_comes_back(self, page, app_server):
+        new_account(page, app_server)
+        open_app(page, app_server)
+        pid = page.evaluate(
+            """() => {
+                const p = createProject('With history', 'Task 1 3d');
+                saveVersionHistory(p.id, [
+                    {version: '1.1', date: '2026-10-11T10:00:00.000Z', planText: 'second', rag: 'amber'},
+                    {version: '1.0', date: '2026-10-11T09:00:00.000Z', planText: 'first', rag: ''},
+                ]);
+                return p.id;
+            }"""
+        )
+        open_dialog(page)
+        page.locator("#syncEnable").click()
+        page.wait_for_selector(f"{BUTTON}[data-state='ok']")
+
+        plans = api(page, "GET", "/api/v1/plans")[1]["plans"]
+        server_id = [p for p in plans if p["name"] == "With history"][0]["id"]
+        versions = api(page, "GET", f"/api/v1/plans/{server_id}/versions")[1]["versions"]
+        assert [v["version"] for v in versions] == ["1.1", "1.0"]
+
+        # A snapshot made on another device appears here after "Sync now".
+        status, body = api(page, "PUT", f"/api/v1/plans/{server_id}/versions", {
+            "version": "1.2", "date": "2026-10-11T11:00:00.000Z", "rag": "green", "content": "third",
+        })
+        assert status == 200 and body["applied"] is True
+        page.locator("#syncNow").click()
+        page.wait_for_function(
+            "pid => getVersionHistory(pid).some(e => e.version === '1.2' && e.planText === 'third')", arg=pid
+        )
+        assert page.evaluate("pid => getVersionHistory(pid).map(e => e.version)", pid) == ["1.2", "1.1", "1.0"]
+
+    def test_history_of_a_downloaded_plan_arrives_with_it(self, page, app_server):
+        new_account(page, app_server)
+        open_app(page, app_server)
+        status, plan = api(page, "POST", "/api/v1/plans", {"name": "Elsewhere", "content": "Task A 1d"})
+        assert status == 201
+        status, _ = api(page, "PUT", f"/api/v1/plans/{plan['id']}/versions", {
+            "version": "1.0", "date": "2026-10-11T09:00:00.000Z", "rag": "", "content": "older text",
+        })
+        assert status == 200
+        open_app(page, app_server)
+        open_dialog(page)
+        page.locator("#syncEnable").click()
+        page.wait_for_function(
+            """() => Object.values(getAllProjects()).some(p => p.name === 'Elsewhere' &&
+                getVersionHistory(p.id).some(e => e.planText === 'older text'))"""
+        )

@@ -11,6 +11,9 @@ API (cookie session, JSON):
     POST   /api/v1/plans
     GET    /api/v1/plans/{id}
     PUT    /api/v1/plans/{id}       -- needs ``base_revision``; 409 on conflict
+    GET    /api/v1/plans/{id}/versions            -- version history, metadata only
+    GET    /api/v1/plans/{id}/version?version=X   -- one snapshot with its text
+    PUT    /api/v1/plans/{id}/versions            -- upsert one snapshot (newer date wins)
     DELETE /api/v1/plans/{id}
 
 See accounts.py for storage and security notes.
@@ -139,6 +142,16 @@ def _send_reset_link(request: Request, email: str, token: str) -> None:
 class PlanCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     content: str = Field("", max_length=MAX_PLAN_BYTES)
+
+_VERSION_DATE = r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$"
+
+
+class VersionPut(BaseModel):
+    version: str = Field(..., min_length=1, max_length=64)
+    date: str = Field(..., pattern=_VERSION_DATE)   # ISO 8601 UTC, as JS toISOString()
+    rag: str = Field("", max_length=16)
+    content: str = Field("", max_length=MAX_PLAN_BYTES)
+
 
 class PlanUpdate(BaseModel):
     base_revision: int = Field(..., ge=1)
@@ -347,6 +360,7 @@ def build_router(templates: Jinja2Templates, static_version: str, store: Optiona
         return {
             "id": plan.id, "name": plan.name, "revision": plan.revision,
             "size": plan.size, "created_at": plan.created_at, "updated_at": plan.updated_at,
+            "history_rev": plan.history_rev,
         }
 
     def full(plan: Plan) -> dict:
@@ -387,6 +401,32 @@ def build_router(templates: Jinja2Templates, static_version: str, store: Optiona
         if plan is None:
             raise HTTPException(status_code=404, detail="Plan not found.")
         return full(plan)
+
+    def version_summary(v) -> dict:
+        return {"version": v.version, "date": v.date, "rag": v.rag, "size": v.size}
+
+    @router.get("/api/v1/plans/{plan_id}/versions")
+    def list_versions(plan_id: str, user: User = Depends(require_user)):
+        found = db.list_versions(user.id, plan_id)
+        if found is None:
+            raise HTTPException(status_code=404, detail="Plan not found.")
+        rev, versions = found
+        return {"history_rev": rev, "versions": versions}
+
+    @router.get("/api/v1/plans/{plan_id}/version")
+    def get_version(plan_id: str, version: str, user: User = Depends(require_user)):
+        v = db.get_version(user.id, plan_id, version)
+        if v is None:
+            raise HTTPException(status_code=404, detail="Version not found.")
+        return {**version_summary(v), "content": v.content.decode("utf-8")}
+
+    @router.put("/api/v1/plans/{plan_id}/versions", dependencies=[Depends(same_origin)])
+    def put_version(plan_id: str, body: VersionPut, user: User = Depends(require_user)):
+        result = db.put_version(user.id, plan_id, body.version, body.date, body.rag, encode(body.content))
+        if result is None:
+            raise HTTPException(status_code=404, detail="Plan not found.")
+        applied, rev = result
+        return {"applied": applied, "history_rev": rev}
 
     @router.put("/api/v1/plans/{plan_id}", dependencies=[Depends(same_origin)])
     def update_plan(plan_id: str, body: PlanUpdate, user: User = Depends(require_user)):

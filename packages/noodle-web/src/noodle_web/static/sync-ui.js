@@ -71,6 +71,9 @@
         if (s.downloaded) parts.push(s.downloaded + ' downloaded');
         if (s.pulled) parts.push(s.pulled + ' updated');
         if (s.deleted || s.removedLocal) parts.push((s.deleted + s.removedLocal) + ' deleted');
+        if (s.versionsPushed || s.versionsPulled) {
+            parts.push((s.versionsPushed + s.versionsPulled) + ' version' + (s.versionsPushed + s.versionsPulled === 1 ? '' : 's'));
+        }
         if (s.conflicts) parts.push(s.conflicts + ' conflict' + (s.conflicts === 1 ? '' : 's') + ' kept as copies');
         return parts.length ? ' · ' + parts.join(', ') : '';
     }
