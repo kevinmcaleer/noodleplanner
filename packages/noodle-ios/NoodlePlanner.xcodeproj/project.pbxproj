@@ -21,6 +21,7 @@
 		A10012 /* KanbanBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10012 /* KanbanBoardView.swift */; };
 		A10013 /* PlanTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10013 /* PlanTemplates.swift */; };
 		A10014 /* TemplatePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10014 /* TemplatePickerView.swift */; };
+		A10020 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10020 /* Theme.swift */; };
 		A10015 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10015 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -39,6 +40,7 @@
 		B10012 /* KanbanBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanbanBoardView.swift; sourceTree = "<group>"; };
 		B10013 /* PlanTemplates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanTemplates.swift; sourceTree = "<group>"; };
 		B10014 /* TemplatePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplatePickerView.swift; sourceTree = "<group>"; };
+		B10020 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		B10015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B10099 /* NoodlePlanner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoodlePlanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -72,6 +74,7 @@
 				D10005 /* ViewModels */,
 				D10006 /* Views */,
 				D10007 /* Templates */,
+				D10020 /* Theme */,
 				B10015 /* Assets.xcassets */,
 			);
 			path = NoodlePlanner;
@@ -122,6 +125,14 @@
 				B10013 /* PlanTemplates.swift */,
 			);
 			path = Templates;
+			sourceTree = "<group>";
+		};
+		D10020 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				B10020 /* Theme.swift */,
+			);
+			path = Theme;
 			sourceTree = "<group>";
 		};
 		D10099 /* Products */ = {
@@ -215,6 +226,7 @@
 				A10012 /* KanbanBoardView.swift in Sources */,
 				A10013 /* PlanTemplates.swift in Sources */,
 				A10014 /* TemplatePickerView.swift in Sources */,
+				A10020 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

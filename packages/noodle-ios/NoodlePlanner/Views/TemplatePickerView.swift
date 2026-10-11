@@ -17,6 +17,7 @@ struct TemplatePickerView: View {
                 }
                 .padding()
             }
+            .npScreen()
             .navigationTitle("Choose a Template")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -35,30 +36,30 @@ struct TemplatePickerView: View {
             VStack(spacing: 12) {
                 Image(systemName: template.icon)
                     .font(.largeTitle)
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(NP.accentInk)
                     .frame(height: 50)
 
                 VStack(spacing: 4) {
                     Text(template.name)
-                        .font(.subheadline.bold())
+                        .font(NP.heading(.subheadline))
+                        .foregroundStyle(NP.ink)
                         .multilineTextAlignment(.center)
 
                     Text(template.category)
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(NP.muted)
                         .textCase(.uppercase)
                 }
 
                 Text(template.description)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(NP.body)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
             }
             .padding()
             .frame(maxWidth: .infinity, minHeight: 180)
-            .background(Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .npCard()
         }
         .buttonStyle(.plain)
     }

@@ -17,6 +17,7 @@ struct ProjectListView: View {
                     planList
                 }
             }
+            .npScreen()
             .navigationTitle("Noodle Planner")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -64,9 +65,12 @@ struct ProjectListView: View {
                 NavigationLink(destination: PlanDetailView(plan: plan)) {
                     PlanRowView(plan: plan)
                 }
+                .listRowBackground(NP.surface)
+                .listRowSeparatorTint(NP.hairline)
             }
             .onDelete(perform: deletePlans)
         }
+        .scrollContentBackground(.hidden)
     }
 
     // MARK: - Actions
@@ -95,13 +99,14 @@ struct PlanRowView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(plan.title)
-                    .font(.headline)
+                    .font(NP.heading(.headline))
+                    .foregroundStyle(NP.ink)
                 Spacer()
                 ragBadge
             }
             Text(plan.updatedAt, style: .relative)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(NP.muted)
             if !plan.rawText.isEmpty {
                 let vm = PlanViewModel(plan: plan)
                 HStack(spacing: 12) {
@@ -109,7 +114,7 @@ struct PlanRowView: View {
                     Label("\(vm.overallPercent)%", systemImage: "chart.bar.fill")
                 }
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(NP.muted)
             }
         }
         .padding(.vertical, 4)
@@ -117,8 +122,7 @@ struct PlanRowView: View {
 
     private var ragBadge: some View {
         let vm = PlanViewModel(plan: plan)
-        return Text(vm.ragStatus.emoji)
-            .font(.title3)
+        return RAGBadge(status: vm.ragStatus)
     }
 }
 
