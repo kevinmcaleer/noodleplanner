@@ -4,6 +4,13 @@ This module defines session-scoped fixtures that are shared across all tests
 to avoid expensive re-initialization overhead. See issue #443.
 """
 
+import os
+import tempfile
+
+# Accounts keep a SQLite file (accounts.py). Point it at a throwaway directory
+# before anything imports the app, so no test ever writes to ./data.
+os.environ.setdefault("NOODLE_DB_PATH", os.path.join(tempfile.mkdtemp(prefix="noodle-test-db-"), "np.db"))
+
 import pytest
 from io import BytesIO
 import openpyxl

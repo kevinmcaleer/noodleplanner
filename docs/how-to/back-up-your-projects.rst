@@ -1,9 +1,10 @@
 How to Back Up and Restore Your Projects
 =========================================
 
-NoodlePlanner stores your projects in your browser only. There is no
-account and no server copy, so a backup is the only way to survive a
-cleared browser profile, a lost laptop, or a move to a new machine. This
+NoodlePlanner stores your projects in your browser. Unless you have turned on
+sync with an account (see :doc:`sync-your-plans-with-an-account`) there is no
+server copy, so a backup is the way to survive a cleared browser profile, a
+lost laptop, or a move to a new machine. This
 guide covers backing up everything at once, restoring a backup, and
 tidying up after the move from the old storage.
 

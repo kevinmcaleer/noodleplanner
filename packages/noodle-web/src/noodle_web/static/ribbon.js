@@ -860,6 +860,7 @@ function renderTitleBar(ia, live) {
         <span class="ribbon-doc-title" id="ribbonDocTitle"></span>
         <div class="ribbon-titlebar-spacer"></div>
         ${renderSearchBox()}
+        <span class="sync-slot" id="ribbonSync"></span>
         <span class="user-profile-slot" id="ribbonAvatar"></span>
     `;
 }
@@ -1593,6 +1594,8 @@ function updateDocTitleAndAvatar() {
     // The user's own profile circle (#1377) -- drawn, and redrawn when the
     // profile changes, by user-profile.js. The title bar was just rebuilt,
     // so its slot is empty again.
+    const syncEl = document.getElementById('ribbonSync');
+    if (syncEl && typeof NoodleSyncUI !== 'undefined') NoodleSyncUI.renderButton(syncEl);
     const avatarEl = document.getElementById('ribbonAvatar');
     if (avatarEl && typeof NoodleUserProfile !== 'undefined') NoodleUserProfile.renderCircle(avatarEl);
 }

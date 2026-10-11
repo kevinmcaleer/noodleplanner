@@ -5,6 +5,7 @@ Pages (no JavaScript needed):
     /account (change password, sign out, delete account)
 
 API (cookie session, JSON):
+    GET    /api/v1/session           -- {user: null} when signed out, never a 401
     GET    /api/v1/me
     GET    /api/v1/plans
     POST   /api/v1/plans
@@ -356,6 +357,14 @@ def build_router(templates: Jinja2Templates, static_version: str, store: Optiona
         if len(data) > MAX_PLAN_BYTES:
             raise HTTPException(status_code=413, detail="Plan is too large.")
         return data
+
+    @router.get("/api/v1/session")
+    def session(user: Optional[User] = Depends(current_user)):
+        """Who is signed in, as a 200 either way: the page asks this on every
+        load, and a 401 would put a console error on every signed-out page."""
+        if user is None:
+            return {"user": None}
+        return {"user": {"id": user.id, "email": user.email, "display_name": user.display_name}}
 
     @router.get("/api/v1/me")
     def me(user: User = Depends(require_user)):

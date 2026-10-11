@@ -7591,6 +7591,139 @@ button.ribbon-breadcrumb-rung:hover {
     stroke-linecap: round;
 }
 
+/* The cloud button beside the profile circle (static/sync-ui.js): opens
+   "Account and sync". Its ring says what sync is doing without a word. */
+.sync-slot {
+    display: inline-flex;
+    align-items: center;
+    margin-inline-end: var(--np-space-8);
+}
+
+.sync-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: var(--np-space-24);
+    height: var(--np-space-24);
+    padding: 0;
+    border: 1px solid var(--np-border-control);
+    border-radius: var(--np-radius-circle);
+    background: var(--np-surface);
+    color: var(--np-text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.sync-button:hover {
+    color: var(--np-ink);
+}
+
+.sync-button:focus-visible {
+    outline: var(--np-focus-ring-width) solid var(--np-focus-ring-color);
+    outline-offset: 2px;
+}
+
+.sync-button svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.sync-button[data-state="ok"] {
+    border-color: var(--np-success);
+    color: var(--np-success);
+}
+
+.sync-button[data-state="error"] {
+    border-color: var(--np-danger);
+    color: var(--np-danger);
+}
+
+.sync-button[data-state="syncing"] {
+    border-style: dashed;
+}
+
+:root[data-pointer="coarse"] body .ribbon-titlebar .sync-button {
+    width: var(--np-touch-target);
+    height: var(--np-touch-target);
+}
+
+.sync-dialog {
+    width: min(480px, calc(100vw - var(--np-space-32)));
+    max-height: calc(100vh - var(--np-space-32));
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--np-border);
+    border-radius: var(--np-radius-panel);
+    background: var(--np-modal-bg);
+    color: var(--np-text);
+    box-shadow: 0 20px 60px var(--np-shadow-strong);
+    overflow: auto;
+}
+
+.sync-dialog::backdrop {
+    background: var(--np-overlay);
+}
+
+.sync-dialog .modal-body {
+    padding: var(--np-space-24) var(--np-space-32);
+}
+
+.sync-dialog [hidden] {
+    display: none !important;
+}
+
+.sync-note {
+    margin: 0 0 var(--np-space-12);
+    color: var(--np-text-secondary);
+    font-size: var(--np-text-90);
+}
+
+.sync-fineprint {
+    margin: var(--np-space-16) 0 0;
+    font-size: var(--np-text-85);
+}
+
+.sync-status {
+    margin: 0 0 var(--np-space-12);
+    color: var(--np-text);
+    font-size: var(--np-text-90);
+}
+
+.sync-error {
+    margin: 0 0 var(--np-space-12);
+    padding: var(--np-space-8) var(--np-space-12);
+    border-radius: var(--np-radius-control);
+    background: var(--np-danger-tint);
+    color: var(--np-danger-ink);
+    font-size: var(--np-text-85);
+    white-space: pre-line;
+}
+
+.sync-actions {
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--np-space-12);
+    flex-wrap: wrap;
+}
+
+.sync-link {
+    color: var(--np-link);
+    font-size: var(--np-text-90);
+}
+
+.sync-link-primary {
+    padding: var(--np-space-8) var(--np-space-16);
+    border-radius: var(--np-radius-control);
+    background: var(--np-accent);
+    color: var(--np-on-accent);
+    font-weight: var(--np-weight-semibold);
+    text-decoration: none;
+}
+
 /* "Your profile" (#1377): static/user-profile.js. A native modal <dialog>,
    so focus stays inside it and Esc closes it, on both the app and the join
    page -- which is why it is styled here, a sheet both load, and not in
