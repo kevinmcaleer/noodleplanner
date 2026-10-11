@@ -3465,7 +3465,6 @@ class KanbanBoard {
     startInlineCardTitleRename(titleEl, task, opts = {}) {
         const oldName = task.name;
         let discard = false;
-        let addAnother = false;
         const state = opts.isNew
             ? { name: oldName, column: opts.column, value: opts.value || oldName, suspended: false }
             : null;
@@ -3493,13 +3492,11 @@ class KanbanBoard {
             if (newName && newName !== oldName) {
                 this.renameTask(task, newName);
             }
-            if (addAnother && opts.onEnter) opts.onEnter();
         };
 
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                addAnother = !!opts.isNew;
                 input.blur();
             } else if (e.key === 'Escape') {
                 e.stopPropagation();
@@ -3762,8 +3759,7 @@ class KanbanBoard {
         this.startInlineCardTitleRename(titleEl, task, {
             isNew: true,
             column,
-            value,
-            onEnter: () => this.addNewCard(column)
+            value
         });
     }
 
