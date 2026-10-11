@@ -675,3 +675,32 @@ test('every template task is named as the engine names it', () => {
     assert.ok(model.tasks.every(node => !/\b\d+(?:days?|weeks?|months?)\b|\d%/.test(node.name)),
         model.tasks.map(node => node.name).filter(name => /\d(?:days?|weeks?|months?|%)/.test(name)).join(', '));
 });
+
+test('quality-role suffixes (@name:P/R/A) are not part of the task name', () => {
+    // The Outline showed `Definition Stage :P :R :A`: the @name was stripped
+    // from the title but its `:role` suffix was left behind. Run the fallback
+    // naming path (node loads no tokenizer) and the shared tokenizer's.
+    const text = [
+        'Definition Stage $definition [depends $gw1] @Kevin:P @Agne:R @julian:A',
+        '  *Produce Plan $plan @Kevin 100% @agne:A @katie:R',
+        '  Asset Lists - SCCM VMWare Rapid 7 $servers 5d @James @vergnano:P @kev.m:R',
+        '',
+    ].join('\n');
+    const names = ['Definition Stage', 'Produce Plan', 'Asset Lists - SCCM VMWare Rapid 7'];
+    assert.deepEqual(PlanModel.parse(text).tasks.map(task => task.name), names);
+
+    const source = readFileSync(join(repo, 'packages/noodle-web/src/noodle_web/static/task-tokenizer.js'), 'utf8');
+    globalThis.TaskLineTokenizer = new Function(`${source}; return TaskLineTokenizer;`)();
+    try {
+        assert.deepEqual(PlanModel.parse(text).tasks.map(task => task.name), names);
+    } finally {
+        delete globalThis.TaskLineTokenizer;
+    }
+});
+
+test('renaming a task keeps its quality-role assignments', () => {
+    const model = PlanModel.parse('Definition Stage $definition @Kevin:P @Agne:R @julian:A\n');
+    assert.equal(model.tasks[0].name, 'Definition Stage');
+    model.rename(model.tasks[0], 'Discovery Stage');
+    assert.equal(model.serialize(), 'Discovery Stage $definition @Kevin:P @Agne:R @julian:A\n');
+});

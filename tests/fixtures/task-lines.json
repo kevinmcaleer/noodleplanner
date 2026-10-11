@@ -66,33 +66,23 @@
    "line": "Build 3d @alex:P",
    "note": "quality role P",
    "xfail": {
-    "form": "#1566",
-    "roundtrip": "#1566"
+    "roundtrip": "#1567"
    }
   },
   {
    "line": "Build 3d @alex:R @bob",
    "note": "quality role beside a plain resource",
    "xfail": {
-    "form": "#1566",
-    "roundtrip": "#1566"
+    "roundtrip": "#1567"
    }
   },
   {
    "line": "Build 3d @a-b",
-   "note": "hyphen in a resource shortname",
-   "xfail": {
-    "form": "#1566",
-    "roundtrip": "#1566"
-   }
+   "note": "hyphen in a resource shortname"
   },
   {
    "line": "Build 3d @kev.m",
-   "note": "dot in a resource shortname",
-   "xfail": {
-    "form": "#1566",
-    "roundtrip": "#1566"
-   }
+   "note": "dot in a resource shortname"
   },
   {
    "line": "Build 3d \"First\"",

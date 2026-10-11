@@ -6,7 +6,7 @@ const TaskLineTokenizer = (() => {
         ['recurrence', /\[repeats\s+[^\]]+\]/gi],
         ['bucket', /\{[^}]+\}/g],
     ];
-    const tokenPattern = /~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?|(?<![\w!])(!!!|!!|!)(?![\w!"'{])|(?<!\w)@\w+(?:\[\d+%\])?|#\w+|[/^]?\$[A-Za-z_][A-Za-z0-9_-]*|\b\d+(?:days?|weeks?|months?|[dmwy])\b|(?<!\w)\d+%(?!\w)|\bD\d{4}-\d{2}-\d{2}\b|\b\d{4}-\d{2}-\d{2}\b/g;
+    const tokenPattern = /~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?|(?<![\w!])(!!!|!!|!)(?![\w!"'{])|(?<!\w)@[\w.-]+(?::[A-Za-z])?(?:\[\d+%\])?|#\w+|[/^]?\$[A-Za-z_][A-Za-z0-9_-]*|\b\d+(?:days?|weeks?|months?|[dmwy])\b|(?<!\w)\d+%(?!\w)|\bD\d{4}-\d{2}-\d{2}\b|\b\d{4}-\d{2}-\d{2}\b/g;
 
     function addToken(tokens, line, type, start, end) {
         tokens.push({ type, start, end, text: line.slice(start, end) });
@@ -43,7 +43,7 @@ const TaskLineTokenizer = (() => {
             const text = match[0];
             const type = text[0] === '~' ? 'effort'
                 : text[0] === '!' ? 'priority'
-                : text[0] === '@' ? 'resource'
+                : text[0] === '@' ? (/:[A-Za-z]$/.test(text) ? 'quality-role' : 'resource')
                 : text[0] === '#' ? 'label'
                 : text.includes('$') ? 'product'
                 : text.endsWith('%') ? 'percent'

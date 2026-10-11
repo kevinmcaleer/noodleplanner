@@ -247,7 +247,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             const classByType = {
                 star: 'syntax-star', 'star-lag': 'syntax-lag-lead', effort: 'syntax-effort',
                 comment: 'syntax-comment', recurrence: 'syntax-recurrence', bucket: 'syntax-bucket',
-                priority: 'syntax-priority', resource: 'syntax-resource', label: 'syntax-label',
+                priority: 'syntax-priority', resource: 'syntax-resource', 'quality-role': 'syntax-resource', label: 'syntax-label',
                 duration: 'syntax-duration', percent: 'syntax-percent', date: 'syntax-date',
                 deadline: 'syntax-deadline', product: 'syntax-product'
             };
