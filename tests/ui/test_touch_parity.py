@@ -162,6 +162,7 @@ SURFACES = {
     "report-raid": ("project-report", "#reportRaidTableBody tr"),
     "tasks": ("tasks", "#tasksTableBody tr td:nth-child(4)"),
     "gantt": ("gantt", "#ganttInfoBody tr td:nth-child(4)"),
+    "board-card": ("kanban", ".kanban-card"),
     "products": ("pbs", ".pbs-node[data-deliverable='Spec']"),
     "outline": ("whiteboard", ".wb-outline-row"),
     "whiteboard": ("whiteboard", "#whiteboardContainer"),

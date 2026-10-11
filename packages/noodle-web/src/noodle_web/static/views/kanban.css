@@ -1175,3 +1175,10 @@
         min-height: var(--np-touch-target);
     }
 }
+
+/* The card's action menu is a body-level popup like any other, so it sits
+   above the status bar (z-index 1050), which would otherwise cover its last
+   rows on a short board. */
+np-menu.kanban-card-menu {
+    z-index: 1100;
+}

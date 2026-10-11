@@ -21,6 +21,7 @@
         { id: 'report-raid', selector: '#reportRaidTableBody tr', menu: 'RAID item' },
         { id: 'tasks', selector: '#tasksTableBody tr', menu: 'task' },
         { id: 'gantt', selector: '#ganttInfoBody tr', menu: 'task' },
+        { id: 'board-card', selector: '.kanban-card', menu: 'board card' },
         { id: 'products', selector: '.pbs-node', menu: 'product' },
         { id: 'outline', selector: '.wb-outline-row', menu: 'outline row' },
         // The board's own background. A note is pressed to lift it and drag
