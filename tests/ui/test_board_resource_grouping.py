@@ -71,3 +71,13 @@ def test_group_by_menu_moves_the_view_toggle(board):
     board.wait_for_timeout(800)
     assert active_view_buttons(board) == ["Progress"]
 
+
+
+def test_add_bucket_button_creates_a_bucket_column(board):
+    board.locator('.ribbon-tab-btn[data-tab="__ctx"]').click()
+    board.wait_for_selector('.ribbon-shell [data-label="Add Bucket"]')
+    board.once("dialog", lambda dialog: dialog.accept("Sprint 1"))
+    board.locator('.ribbon-shell [data-label="Add Bucket"]').click()
+    board.wait_for_selector('.kanban-column-title:text("Sprint 1")')
+    assert board.evaluate("() => kanbanBoard.viewMode") == "bucket"
+    assert board.evaluate("() => kanbanBoard.createdBuckets") == ["Sprint 1"]
