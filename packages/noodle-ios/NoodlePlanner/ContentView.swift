@@ -4,6 +4,7 @@ import SwiftData
 struct ContentView: View {
     var body: some View {
         ProjectListView()
+            .tint(NP.accentInk)
     }
 }
 

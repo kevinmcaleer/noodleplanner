@@ -35,7 +35,7 @@ struct GanttChartView: View {
                 }
             }
         }
-        .background(Color(.systemBackground))
+        .background(NP.surface)
     }
 
     // MARK: - Header
@@ -46,6 +46,7 @@ struct GanttChartView: View {
             // Label column
             Text("Task")
                 .font(.caption.bold())
+                .foregroundStyle(NP.ink)
                 .frame(width: labelWidth, alignment: .leading)
                 .padding(.horizontal, 8)
 
@@ -54,14 +55,14 @@ struct GanttChartView: View {
                 // Month markers
                 ForEach(monthMarkers(start: start, totalDays: totalDays), id: \.offset) { marker in
                     Text(marker.label)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(NP.data(.caption2))
+                        .foregroundStyle(NP.muted)
                         .offset(x: CGFloat(marker.offset) * dayWidth)
                 }
             }
             .frame(width: chartWidth, height: 24, alignment: .leading)
         }
-        .background(Color(.secondarySystemBackground))
+        .background(NP.surfaceAlt)
     }
 
     private struct MonthMarker {
@@ -105,11 +106,12 @@ struct GanttChartView: View {
                 if task.isSummary {
                     Image(systemName: "folder")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(NP.muted)
                 }
                 Text(task.name)
                     .font(.caption)
                     .fontWeight(task.isSummary ? .semibold : .regular)
+                    .foregroundStyle(NP.ink)
                     .lineLimit(1)
             }
             .padding(.leading, CGFloat(task.level) * 12 + 8)
@@ -121,7 +123,7 @@ struct GanttChartView: View {
                 let todayOffset = calendar.dateComponents([.day], from: planStart, to: Date()).day ?? 0
                 if todayOffset >= 0 && todayOffset <= totalDays {
                     Rectangle()
-                        .fill(Color.red.opacity(0.3))
+                        .fill(NP.danger.opacity(0.4))
                         .frame(width: 1)
                         .offset(x: CGFloat(todayOffset) * dayWidth)
                 }
@@ -130,7 +132,7 @@ struct GanttChartView: View {
                     // Diamond for milestones
                     Image(systemName: "diamond.fill")
                         .font(.caption)
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(NP.purple)
                         .offset(x: CGFloat(startOffset) * dayWidth - 4)
                 } else {
                     // Task bar
@@ -153,13 +155,13 @@ struct GanttChartView: View {
             .frame(width: chartWidth, height: rowHeight, alignment: .leading)
         }
         .frame(height: rowHeight)
-        .background(task.isSummary ? Color(.tertiarySystemBackground) : Color.clear)
+        .background(task.isSummary ? NP.sunken : Color.clear)
     }
 
     private func barColor(for task: ScheduledTask) -> Color {
-        if task.percent >= 100 { return .green }
-        if let finish = task.finish, finish < Date() && task.percent < 100 { return .red }
-        if !task.resources.isEmpty { return .blue }
-        return .accentColor
+        if task.percent >= 100 { return NP.success }
+        if let finish = task.finish, finish < Date() && task.percent < 100 { return NP.danger }
+        if !task.resources.isEmpty { return NP.info }
+        return NP.accent
     }
 }

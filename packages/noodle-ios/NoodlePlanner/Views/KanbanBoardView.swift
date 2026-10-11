@@ -75,19 +75,15 @@ struct KanbanColumnView: View {
             // Column header
             HStack {
                 Text(title)
-                    .font(.subheadline.bold())
+                    .font(NP.heading(.subheadline))
+                    .foregroundStyle(NP.ink)
                 Spacer()
-                Text("\(tasks.count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(Color(.tertiarySystemFill)))
+                NPChip(text: "\(tasks.count)", foreground: NP.body, background: NP.selected)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .background(NP.surfaceAlt)
+            .clipShape(RoundedRectangle(cornerRadius: NP.Radius.lg))
 
             // Cards
             ScrollView(.vertical) {
@@ -113,23 +109,20 @@ struct KanbanCardView: View {
             Text(task.name)
                 .font(.subheadline)
                 .fontWeight(.medium)
+                .foregroundStyle(NP.ink)
                 .lineLimit(2)
 
             // Progress bar
             if task.percent > 0 {
                 ProgressView(value: Double(task.percent), total: 100)
-                    .tint(task.percent >= 100 ? .green : .blue)
+                    .tint(task.percent >= 100 ? NP.success : NP.accent)
             }
 
             HStack(spacing: 6) {
                 // Resources
                 if !task.resources.isEmpty {
                     ForEach(task.resources, id: \.self) { resource in
-                        Text("@\(resource)")
-                            .font(.caption2)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.blue.opacity(0.15)))
+                        NPChip(text: "@\(resource)", foreground: NP.infoInk, background: NP.infoTint)
                     }
                 }
 
@@ -138,12 +131,12 @@ struct KanbanCardView: View {
                 // Duration
                 if task.durationDays > 0 {
                     Text("\(task.durationDays)d")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(NP.data(.caption2))
+                        .foregroundStyle(NP.muted)
                 } else {
                     Image(systemName: "diamond.fill")
                         .font(.caption2)
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(NP.purple)
                 }
             }
 
@@ -151,8 +144,8 @@ struct KanbanCardView: View {
             HStack {
                 if let start = task.start {
                     Text(start, format: .dateTime.month(.abbreviated).day())
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(NP.data(.caption2))
+                        .foregroundStyle(NP.muted)
                 }
                 Spacer()
                 priorityBadge
@@ -162,34 +155,34 @@ struct KanbanCardView: View {
             if !task.comment.isEmpty {
                 Text(task.comment)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(NP.muted)
                     .lineLimit(2)
             }
         }
         .padding(12)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
+        .npCard()
     }
 
     @ViewBuilder
     private var priorityBadge: some View {
         if task.priority != .low {
-            Text(task.priority.rawValue)
-                .font(.caption2)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(priorityColor.opacity(0.15)))
-                .foregroundStyle(priorityColor)
+            NPChip(text: task.priority.rawValue, foreground: priorityInk, background: priorityTint)
         }
     }
 
-    private var priorityColor: Color {
+    private var priorityInk: Color {
         switch task.priority {
-        case .urgent: return .red
-        case .important: return .orange
-        case .medium: return .yellow
-        case .low: return .gray
+        case .urgent: return NP.dangerInk
+        case .important, .medium: return NP.accentInk
+        case .low: return NP.body
+        }
+    }
+
+    private var priorityTint: Color {
+        switch task.priority {
+        case .urgent: return NP.dangerTint
+        case .important, .medium: return NP.accentTint
+        case .low: return NP.sunken
         }
     }
 }

@@ -23,19 +23,18 @@ struct PlanEditorView: View {
 
     private var summaryBar: some View {
         HStack(spacing: 16) {
-            Label(viewModel.ragStatus.emoji, systemImage: "circle.fill")
-                .labelStyle(.titleOnly)
+            RAGBadge(status: viewModel.ragStatus)
 
             Spacer()
 
             let leafCount = viewModel.scheduledTasks.filter { !$0.isSummary }.count
             Text("\(leafCount) tasks")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(NP.data())
+                .foregroundStyle(NP.muted)
 
             Text("\(viewModel.overallPercent)% complete")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(NP.data())
+                .foregroundStyle(NP.muted)
 
             Button {
                 showingTaskList.toggle()
@@ -47,7 +46,7 @@ struct PlanEditorView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(.bar)
+        .background(NP.surfaceAlt)
     }
 
     // MARK: - Editor
@@ -57,22 +56,23 @@ struct PlanEditorView: View {
             if let error = viewModel.parseError {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(NP.accentInk)
                     Text(error)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(NP.body)
                     Spacer()
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 6)
-                .background(Color.yellow.opacity(0.1))
+                .background(NP.accentTint)
             }
 
             TextEditor(text: Binding(
                 get: { viewModel.plan.rawText },
                 set: { viewModel.updateText($0) }
             ))
-            .font(.system(.body, design: .monospaced))
+            .font(NP.data(.body))
+            .foregroundStyle(NP.ink)
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)
             .focused($editorFocused)
@@ -86,7 +86,7 @@ struct PlanEditorView: View {
     private var taskListPanel: some View {
         List {
             ForEach(viewModel.phases, id: \.self) { phase in
-                Section(header: Text(phase).font(.headline)) {
+                Section(header: Text(phase).font(NP.heading(.headline)).foregroundStyle(NP.ink)) {
                     let tasks = viewModel.tasksByPhase[phase] ?? []
                     ForEach(tasks) { task in
                         TaskRowView(task: task)
@@ -95,6 +95,7 @@ struct PlanEditorView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
     }
 }
 
@@ -114,7 +115,7 @@ struct TaskRowView: View {
                 if task.percent > 0 {
                     Text("\(task.percent)%")
                         .font(.caption)
-                        .foregroundStyle(task.percent >= 100 ? .green : .orange)
+                        .foregroundStyle(task.percent >= 100 ? NP.successInk : NP.accentInk)
                 }
             }
 
@@ -122,26 +123,26 @@ struct TaskRowView: View {
                 if !task.resources.isEmpty {
                     Label(task.resources.joined(separator: ", "), systemImage: "person")
                         .font(.caption2)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(NP.infoInk)
                 }
                 if task.durationDays > 0 {
                     Label("\(task.durationDays)d", systemImage: "clock")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(NP.muted)
                 } else {
                     Label("Milestone", systemImage: "diamond")
                         .font(.caption2)
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(NP.purple)
                 }
                 if let start = task.start {
                     Text(start, format: .dateTime.month(.abbreviated).day())
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(NP.muted)
                 }
                 if !task.comment.isEmpty {
                     Label(task.comment, systemImage: "text.bubble")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(NP.muted)
                         .lineLimit(1)
                 }
             }

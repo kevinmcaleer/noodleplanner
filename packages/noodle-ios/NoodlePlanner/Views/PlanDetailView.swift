@@ -35,6 +35,7 @@ struct PlanDetailView: View {
                 }
             }
         }
+        .npScreen()
         .navigationTitle(plan.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
