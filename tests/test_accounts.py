@@ -204,6 +204,16 @@ class TestPages:
         assert r.status_code == 403
 
 
+class TestSession:
+    def test_signed_out_is_a_200_not_a_401(self, client):
+        r = client.get("/api/v1/session")
+        assert r.status_code == 200 and r.json() == {"user": None}
+
+    def test_signed_in_names_the_user(self, client):
+        register(client)
+        assert client.get("/api/v1/session").json()["user"]["email"] == "kev@example.com"
+
+
 class TestPlanApi:
     def test_requires_sign_in(self, client):
         assert client.get("/api/v1/plans").status_code == 401

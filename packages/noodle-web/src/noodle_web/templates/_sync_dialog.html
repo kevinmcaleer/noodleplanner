@@ -1,0 +1,48 @@
+    <!-- "Account and sync", opened from the cloud button at the right of the
+         ribbon's title bar. static/sync-ui.js owns every control in here and
+         shows the one section that matches the account's state; the engine is
+         static/account-sync.js. -->
+    <dialog id="syncDialog" class="sync-dialog" aria-labelledby="syncDialogTitle">
+        <div class="sync-panel">
+            <div class="modal-header">
+                <h2 id="syncDialogTitle">Account and sync</h2>
+                <np-close-button id="syncDialogClose" label="Close account and sync"></np-close-button>
+            </div>
+            <div class="modal-body">
+                <p class="sync-note" id="syncChecking">Checking your account…</p>
+
+                <section id="syncSignedOut" hidden>
+                    <p class="sync-note">Sign in to keep your plans on the server and open them on any device.
+                        Plans stay in this browser either way.</p>
+                    <div class="form-actions sync-actions">
+                        <a class="sync-link" href="/account/register">Create an account</a>
+                        <a class="sync-link sync-link-primary" href="/account/login">Sign in</a>
+                    </div>
+                </section>
+
+                <section id="syncOff" hidden>
+                    <p class="sync-note">Signed in as <strong id="syncOffEmail"></strong>.</p>
+                    <p class="sync-note">Turn on sync to upload the plans in this browser to your account and
+                        download the plans already there. After that, changes travel both ways.</p>
+                    <div class="form-actions sync-actions">
+                        <a class="sync-link" href="/account">Manage account</a>
+                        <np-button variant="primary" id="syncEnable">Turn on sync</np-button>
+                    </div>
+                </section>
+
+                <section id="syncOn" hidden>
+                    <p class="sync-note">Signed in as <strong id="syncOnEmail"></strong>.</p>
+                    <p class="sync-status" id="syncStatusLine" role="status"></p>
+                    <p class="sync-error" id="syncError" role="alert" hidden></p>
+                    <div class="form-actions sync-actions">
+                        <a class="sync-link" href="/account">Manage account</a>
+                        <np-button outline id="syncDisable">Turn off sync</np-button>
+                        <np-button variant="primary" id="syncNow">Sync now</np-button>
+                    </div>
+                    <p class="sync-note sync-fineprint">Plan text and names are synced. Version history, file links
+                        and settings stay in this browser. If two devices edit the same plan, the newer server copy
+                        is kept and your text is saved beside it as a "conflict" plan.</p>
+                </section>
+            </div>
+        </div>
+    </dialog>
