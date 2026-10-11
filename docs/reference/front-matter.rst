@@ -19,6 +19,40 @@ The front matter block appears at the top of a plan file between ``---`` delimit
 
 All fields are optional.
 
+.. _front-matter-views:
+
+Saved board views
+-----------------
+
+``Views`` holds the saved filters that appear as tabs on the board, next to
+**All Tasks**. It is a YAML list; the order of the list is the order of the tabs.
+
+.. code-block:: yaml
+
+   ---
+   Views:
+     - name: "Must haves"
+       filter: "label:must -status:Complete"
+     - name: "Kev's open work"
+       filter: 'resource:kev -status:Complete phase:"Phase 1"'
+   ---
+
+Each entry has:
+
+``name``
+   The tab label. Required, and unique within the plan (case is ignored).
+
+``filter``
+   The board filter query, written exactly as you would type it into the filter
+   field (see :doc:`../how-to/use-the-kanban-board`). Put it in quotes so the
+   ``:`` and any ``"`` inside it survive.
+
+**All Tasks** is always present and is not stored. An entry with no name, or with
+the same name as an earlier one, is ignored. Keys other than ``name`` and
+``filter`` are ignored too, so the board never loses anything it doesn't
+understand. You can edit the block by hand in the editor, or manage views from
+the board's tabs, which rewrite only this block.
+
 Editing front matter
 ---------------------
 

@@ -118,6 +118,32 @@ plan. Use the arrow keys with ``Enter`` or ``Tab`` to accept one, and ``Esc`` to
 dismiss the list. A filter the board doesn't understand is flagged beside the
 field and ignored. The filter is remembered for each project.
 
+Save a Filter as a View
+-----------------------
+
+A filter you use often can be saved as a **view**, which appears as a tab above
+the filter field, next to **All Tasks**.
+
+1. Type a filter, for example ``label:must -status:Complete``.
+2. Click **Save as view**, give the view a name and choose **Save view**.
+
+The new tab is selected. Click a tab to apply its filter, and click **All Tasks**
+to clear the filter and see every card. If you change the filter while a view is
+selected, a dot appears on its tab and three buttons appear beside the field:
+**Save** keeps your change in that view, **Discard** goes back to the saved
+filter, and **Save as new view** keeps the original and adds another tab.
+
+The selected view's tab has a small arrow with a menu:
+
+- **Rename view** changes the name.
+- **Edit view** changes the name and the filter together.
+- **Move view left** and **Move view right** change the tab order (they are
+  greyed out at either end).
+- **Remove view** deletes the view after you confirm. The tasks are not affected.
+
+Views are stored in the plan's front matter, so they travel with the file; see
+:ref:`front-matter-views`.
+
 Use **Hide Completed** to filter out completed cards and **Sort by Priority** to
 order visible cards. Use the triangle in a column header to collapse or expand
 that column.
