@@ -550,6 +550,22 @@ if (typeof window !== 'undefined') {
         }
     });
 
+    // A sync run pulled plans in from the server (account-sync.js). The
+    // cache, the project pickers and the portfolio were built from the store
+    // as it was at load, so rebuild them now instead of waiting for a reload
+    // or the five-minute refresh below.
+    if (typeof document.addEventListener === 'function') document.addEventListener('np-projects-synced', () => {
+        clearProjectCache();
+        loadAllProjectsIntoCache();
+        refreshProjectSelectors();
+        const portfolio = document.getElementById('portfolioProjectsList');
+        // Only when the portfolio is on screen; otherwise it renders when opened.
+        if (portfolio && typeof switchPortfolioView === 'function'
+            && portfolio.parentElement && portfolio.parentElement.offsetParent !== null) {
+            switchPortfolioView(currentPortfolioSubview || 'projects');
+        }
+    });
+
     function initMultiPlanLoader() {
         // Load all projects into cache on startup
         loadAllProjectsIntoCache();
