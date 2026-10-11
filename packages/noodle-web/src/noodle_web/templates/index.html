@@ -3562,11 +3562,16 @@ Build
                 <!-- Sync Tab (issue #761) -->
                 <div id="settingsTab-sync" class="settings-tab-content" role="tabpanel">
                     <h3>Sync</h3>
-                    <p class="settings-ai-description">Files this plan is linked to, and when they last synced. Nothing syncs automatically — sync only runs when you trigger it here or with Sync on the Report ribbon.</p>
-                    <div id="syncSettingsList" class="sync-settings-list"></div>
-                    <div class="settings-sync-files-actions">
-                        <np-button variant="secondary" id="settingsSyncFilesBtn" onclick="openSyncFiles()">Manage synced files&hellip;</np-button>
-                    </div>
+                    <p class="settings-ai-description">Two separate things can sync. Your account keeps all your plans on the server, automatically. Linked files keep the current plan in step with an Excel or MS Project file, only when you ask.</p>
+                    {% include "_sync_account_section.html" %}
+                    <section class="sync-section" aria-labelledby="syncFilesHeading">
+                        <h4 id="syncFilesHeading">Sync with files</h4>
+                        <p class="sync-scope">Links <strong>the current plan</strong> to a workbook or MS Project file on this computer. Nothing syncs automatically &mdash; it runs only when you trigger it here or with Sync on the Report ribbon.</p>
+                        <div id="syncSettingsList" class="sync-settings-list"></div>
+                        <div class="settings-sync-files-actions">
+                            <np-button variant="secondary" id="settingsSyncFilesBtn" onclick="openSyncFiles()">Manage synced files&hellip;</np-button>
+                        </div>
+                    </section>
                 </div>
             </div>
         </np-detail-sheet>
@@ -4149,7 +4154,6 @@ Build
     <script type="module" src="/static/components/qr-code/np-qr-code.js?v={{ v }}"></script>
 
     {% include "_user_profile_dialog.html" %}
-    {% include "_sync_dialog.html" %}
 
     <!-- Collab Session Modal (#963) -->
     <div id="collabSessionOverlay" class="modal-overlay" onclick="if(event.target===this) closeCollabSessionModal()" role="dialog" aria-modal="true" aria-label="Planning session">

@@ -1,5 +1,6 @@
-"""Sign in and sync: the cloud button, the "Account and sync" dialog, and plans
-moving between this browser and the account on the server.
+"""Sign in and sync: the cloud button, the "Sync with your account" section of
+Settings > Sync, and plans moving between this browser and the account on the
+server.
 
 Usage:
     uv run pytest tests/ui/test_account_sync.py -q
@@ -11,7 +12,7 @@ import json
 from .helpers import actionable_console_errors, open_app
 
 BUTTON = "#ribbonSync .sync-button"
-DIALOG = "#syncDialog"
+DIALOG = "#settingsTab-sync"  # the Sync tab of the Settings panel
 _emails = itertools.count(1)
 
 
@@ -41,8 +42,9 @@ def api(page, method, path, body=None):
 
 
 def open_dialog(page):
+    """The cloud button opens Settings on the Sync tab."""
     page.locator(BUTTON).click()
-    page.wait_for_function(f"() => document.querySelector('{DIALOG}').open")
+    page.locator(DIALOG).wait_for(state="visible")
 
 
 class TestSignedOut:
@@ -178,3 +180,17 @@ class TestVersionHistory:
             """() => Object.values(getAllProjects()).some(p => p.name === 'Elsewhere' &&
                 getVersionHistory(p.id).some(e => e.planText === 'older text'))"""
         )
+
+
+class TestOneSyncForm:
+    def test_both_kinds_of_sync_sit_in_one_tab_and_say_what_they_do(self, page, app_server):
+        open_app(page, app_server)
+        page.wait_for_selector(f"{BUTTON}[data-state='signed-out']")
+        open_dialog(page)
+        headings = page.locator(f"{DIALOG} .sync-section h4")
+        assert headings.all_inner_texts() == ["Sync with your account", "Sync with files"]
+        scopes = page.locator(f"{DIALOG} .sync-scope").all_inner_texts()
+        assert "all your plans" in scopes[0] and "automatically" in scopes[0]
+        assert "current plan" in scopes[1] and "Nothing syncs automatically" in scopes[1]
+        assert page.locator("#syncSettingsList").count() == 1
+        assert page.locator("#syncDialog").count() == 0

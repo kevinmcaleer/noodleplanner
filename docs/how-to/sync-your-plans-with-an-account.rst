@@ -8,6 +8,15 @@ your account, so the same plans open on your other computers and phones.
 The browser stays your working copy: plans keep working offline and signed
 out, and the server holds a synced copy.
 
+Everything lives in one place, **Settings > Sync** (the cloud button at the
+right of the title bar opens it). The tab has two sections that do different
+things:
+
+* **Sync with your account** keeps *all your plans* on the server and runs
+  automatically. This page is about that section.
+* **Sync with files** links *the current plan* to an Excel or MS Project file
+  on your computer, and runs only when you ask.
+
 Create an account and sign in
 -----------------------------
 
@@ -24,7 +33,8 @@ has no email set up (ask whoever runs it).
 Turn on sync
 ------------
 
-1. Click the cloud button and choose **Turn on sync**. Nothing is uploaded
+1. Click the cloud button, then **Turn on sync** under **Sync with your
+   account**. Nothing is uploaded
    until you do.
 2. The plans in this browser are uploaded, and any plans already on your
    account are downloaded.
@@ -63,7 +73,7 @@ not create conflicts.
 Turn sync off
 -------------
 
-Choose **Turn off sync** in the same dialog. Your plans stay in this browser
+Choose **Turn off sync** in the same section. Your plans stay in this browser
 and on the server; they simply stop being connected. Signing in as a different
 account on the same browser never uploads this browser's plans to it until you
 turn sync on there too.
