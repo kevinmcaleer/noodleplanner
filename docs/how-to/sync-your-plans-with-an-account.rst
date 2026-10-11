@@ -36,8 +36,15 @@ in sync, red when something needs attention, dashed while syncing.
 What is synced
 --------------
 
-Each plan's text and name. Version history, links to files on disk, and your
-profile and settings stay in the browser they were made in.
+Each plan's text and name, and its version history. Links to files on disk, and
+your profile and settings, stay in the browser they were made in.
+
+Version history is merged rather than copied: snapshots are matched by version
+number and the most recently saved one wins, so a second device gets the
+history of every plan it downloads, and snapshots made on either device appear
+on both. The server keeps the newest 50 snapshots per plan. Snapshots older
+than your version-retention setting are not downloaded, and removing a
+snapshot on one device does not remove it from your account or other devices.
 
 Plans you delete on one device are deleted on the others. A plan that
 disappears from the server is removed here only if you have not edited it and

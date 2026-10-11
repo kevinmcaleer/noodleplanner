@@ -30,7 +30,7 @@ function makeServer() {
     const users = { alice: { id: 'u-alice', email: 'a@example.com' }, bob: { id: 'u-bob', email: 'b@example.com' } };
     const plans = { 'u-alice': new Map(), 'u-bob': new Map() };
     let seq = 0;
-    const server = { plans, failNext: null, requests: [], of: (id) => plans[id] };
+    const server = { plans, failNext: null, requests: [], versionPuts: [], rejectVersion: null, of: (id) => plans[id] };
     server.fetchFor = (who) => async (url, init) => {
         const method = init.method;
         server.requests.push(method + ' ' + url);
@@ -42,7 +42,31 @@ function makeServer() {
         const mine = plans[user.id];
         const body = init.body ? JSON.parse(init.body) : null;
         const full = (p) => ({ ...p });
-        const summary = (p) => ({ id: p.id, name: p.name, revision: p.revision });
+        const summary = (p) => ({ id: p.id, name: p.name, revision: p.revision, history_rev: p.history_rev || 0 });
+        const vm = url.match(/^\/api\/v1\/plans\/([^/?]+)\/(versions|version)(?:\?version=(.*))?$/);
+        if (vm) {
+            const plan = mine.get(decodeURIComponent(vm[1]));
+            if (!plan) return reply(404, { detail: 'Plan not found.' });
+            plan.versions = plan.versions || new Map();
+            if (vm[2] === 'versions' && method === 'GET') {
+                const list = [...plan.versions.values()].sort((a, b) => (a.date < b.date ? 1 : -1))
+                    .map(({ version, date, rag, content }) => ({ version, date, rag, size: content.length }));
+                return reply(200, { history_rev: plan.history_rev || 0, versions: list });
+            }
+            if (vm[2] === 'version' && method === 'GET') {
+                const v = plan.versions.get(decodeURIComponent(vm[3]));
+                return v ? reply(200, { ...v, size: v.content.length }) : reply(404, { detail: 'Version not found.' });
+            }
+            if (vm[2] === 'versions' && method === 'PUT') {
+                server.versionPuts.push(body.version);
+                if (server.rejectVersion === body.version) return reply(422, { detail: 'Plan is too large.' });
+                const existing = plan.versions.get(body.version);
+                if (existing && existing.date > body.date) return reply(200, { applied: false, history_rev: plan.history_rev || 0 });
+                plan.versions.set(body.version, { version: body.version, date: body.date, rag: body.rag, content: body.content });
+                plan.history_rev = (plan.history_rev || 0) + 1;
+                return reply(200, { applied: true, history_rev: plan.history_rev });
+            }
+        }
         if (url === '/api/v1/me') return reply(200, user);
         if (url === '/api/v1/plans' && method === 'GET') return reply(200, { plans: [...mine.values()].map(summary) });
         if (url === '/api/v1/plans' && method === 'POST') {
@@ -74,8 +98,18 @@ function makeServer() {
 function makeBrowser(server, who, initial = {}) {
     const projects = new Map(Object.entries(initial).map(([id, [name, text]]) => [id, { id, name, planText: text }]));
     let n = 0;
+    const histories = new Map();
     const browser = {
-        projects, current: null, editor: null, reloads: [], changed: 0,
+        projects, histories, current: null, editor: null, reloads: [], changed: 0, historyChanged: [], retentionDays: 14,
+        snapshot(id, version, date, text, rag = '') {
+            const list = histories.get(id) || [];
+            const i = list.findIndex((e) => e.version === version);
+            const entry = { version, date, planText: text, rag };
+            if (i >= 0) list[i] = entry; else list.unshift(entry);
+            histories.set(id, list);
+        },
+        // Array.from: entries written by the sandboxed script belong to another realm's Array.
+        history(id) { return Array.from(histories.get(id) || [], (e) => e.version + '@' + e.planText).sort(); },
         storage: new Map(),
         who,
         store: {
@@ -85,6 +119,12 @@ function makeBrowser(server, who, initial = {}) {
             remove(id) { projects.delete(id); },
             currentId: () => browser.current,
             editorText: () => browser.editor,
+            history: {
+                get: (id) => (histories.get(id) || []).map((e) => ({ ...e })),
+                set: (id, entries) => { histories.set(id, entries.map((e) => ({ ...e }))); },
+                retentionDays: () => browser.retentionDays,
+                changed: (id) => { browser.historyChanged.push(id); },
+            },
             flush() {},
             reloadCurrent(id) { browser.reloads.push(id); },
         },
@@ -94,6 +134,7 @@ function makeBrowser(server, who, initial = {}) {
         store: browser.store,
         storage: { getItem: (k) => browser.storage.get(k) ?? null, setItem: (k, v) => browser.storage.set(k, v) },
         now: () => Date.UTC(2026, 9, 11, 12, 0, 0),
+        ...(browser.depsExtra || {}),
         onChanged: () => { browser.changed++; },
     });
     return browser;
@@ -300,4 +341,159 @@ test('disabling stops syncing and leaves both sides alone', async () => {
     await a.sync.sync();
     assert.equal(server.plans['u-alice'].size, 1);
     assert.equal(a.sync.getStatus().kind, 'off');
+});
+
+
+// ---- version history ----------------------------------------------------------
+
+const D = (h, m = 0) => `2026-10-11T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`;
+
+test('history goes up with the plan and down to a second device', async () => {
+    const server = makeServer();
+    const a = makeBrowser(server, 'alice', { p1: ['Launch', 'v2 text'] });
+    a.snapshot('p1', '1.0', D(9), 'v1 text', 'green');
+    a.snapshot('p1', '1.1', D(10), 'v2 text');
+    await a.sync.enable();
+    assert.equal(a.sync.getStatus().summary.versionsPushed, 2);
+
+    const b = makeBrowser(server, 'alice');
+    await b.sync.enable();
+    const [bid] = [...b.projects.keys()];
+    assert.deepEqual(b.history(bid), ['1.0@v1 text', '1.1@v2 text']);
+    assert.equal(b.histories.get(bid)[0].version, '1.1');                 // newest first
+    assert.equal(b.histories.get(bid).find((e) => e.version === '1.0').rag, 'green');
+    assert.equal(b.sync.getStatus().summary.versionsPulled, 2);
+    assert.ok(b.historyChanged.includes(bid));
+});
+
+test('nothing is sent when history has not changed, nor for an autosave timestamp alone', async () => {
+    const server = makeServer();
+    const stamp = (t) => `---\nlast_saved: ${t}\n---\nTask`;
+    const a = makeBrowser(server, 'alice', { p1: ['Launch', stamp('10:00')] });
+    a.snapshot('p1', '1.0', D(9), stamp('10:00'));
+    await a.sync.enable();
+    server.versionPuts.length = 0;
+    server.requests.length = 0;
+    await a.sync.sync();
+    assert.deepEqual(server.requests.filter((r) => r.includes('version')), []);   // not even a listing
+
+    // The editor's autosave re-saves the head snapshot with a new date and timestamp.
+    a.snapshot('p1', '1.0', D(9, 1), stamp('10:01'));
+    await a.sync.sync();
+    assert.deepEqual(server.versionPuts, []);
+});
+
+test('an edited head snapshot replaces the old one on the other device', async () => {
+    const server = makeServer();
+    const a = makeBrowser(server, 'alice', { p1: ['Launch', 'x'] });
+    a.snapshot('p1', '1.0', D(9), 'first draft');
+    await a.sync.enable();
+    const b = makeBrowser(server, 'alice');
+    await b.sync.enable();
+    const [bid] = [...b.projects.keys()];
+
+    a.snapshot('p1', '1.0', D(11), 'second draft');
+    await a.sync.sync();
+    await b.sync.sync();
+    assert.deepEqual(b.history(bid), ['1.0@second draft']);
+});
+
+test('both devices change the same version: the newest date wins everywhere', async () => {
+    const server = makeServer();
+    const a = makeBrowser(server, 'alice', { p1: ['Launch', 'x'] });
+    a.snapshot('p1', '1.0', D(9), 'base');
+    await a.sync.enable();
+    const b = makeBrowser(server, 'alice');
+    await b.sync.enable();
+    const [bid] = [...b.projects.keys()];
+
+    a.snapshot('p1', '1.0', D(10), 'from A');
+    b.snapshot(bid, '1.0', D(11), 'from B');
+    await a.sync.sync();                                  // server: from A
+    await b.sync.sync();                                  // B is newer: pushes
+    await a.sync.sync();
+    assert.deepEqual(a.history('p1'), ['1.0@from B']);
+    assert.deepEqual(b.history(bid), ['1.0@from B']);
+});
+
+test('removing a snapshot here neither deletes it on the server nor brings it back', async () => {
+    const server = makeServer();
+    const a = makeBrowser(server, 'alice', { p1: ['Launch', 'x'] });
+    a.snapshot('p1', '1.0', D(9), 'old');
+    a.snapshot('p1', '1.1', D(10), 'new');
+    await a.sync.enable();
+    a.histories.set('p1', a.histories.get('p1').filter((e) => e.version !== '1.0'));
+    await a.sync.sync();
+    await a.sync.sync();
+    assert.deepEqual(a.history('p1'), ['1.1@new']);
+    const [plan] = [...server.plans['u-alice'].values()];
+    assert.equal(plan.versions.size, 2);
+});
+
+test('snapshots older than the retention window are not downloaded', async () => {
+    const server = makeServer();
+    const a = makeBrowser(server, 'alice', { p1: ['Launch', 'x'] });
+    a.snapshot('p1', '0.9', '2026-09-01T09:00:00.000Z', 'ancient');
+    a.snapshot('p1', '1.0', D(9), 'recent');
+    await a.sync.enable();
+    const b = makeBrowser(server, 'alice');                // retention 14 days; "now" is 11 Oct
+    await b.sync.enable();
+    const [bid] = [...b.projects.keys()];
+    assert.deepEqual(b.history(bid), ['1.0@recent']);
+});
+
+test('a snapshot saved on the open plan while a pull was in flight is not overwritten', async () => {
+    const server = makeServer();
+    const a = makeBrowser(server, 'alice', { p1: ['Launch', 'x'] });
+    a.snapshot('p1', '1.0', D(9), 'from A');
+    await a.sync.enable();
+    const b = makeBrowser(server, 'alice');
+    await b.sync.enable();
+    const [bid] = [...b.projects.keys()];
+
+    a.snapshot('p1', '1.0', D(10), 'A edit');
+    await a.sync.sync();
+    // While B fetches that snapshot, its editor saves a different one.
+    const realFetch = server.fetchFor('alice');
+    let injected = false;
+    const sync = createSync({
+        fetch: async (url, init) => {
+            const res = await realFetch(url, init);
+            if (!injected && url.includes('/version?')) { injected = true; b.snapshot(bid, '1.0', D(10, 30), 'typed on B'); }
+            return res;
+        },
+        store: b.store,
+        storage: { getItem: (k) => b.storage.get(k) ?? null, setItem: (k, v) => b.storage.set(k, v) },
+        now: () => Date.UTC(2026, 9, 11, 12, 0, 0),
+    });
+    await sync.sync();
+    assert.deepEqual(b.history(bid), ['1.0@typed on B']);
+    await sync.sync();                                    // next run: both changed, B's is newer
+    assert.deepEqual(b.history(bid), ['1.0@typed on B']);
+    assert.equal([...server.plans['u-alice'].values()][0].versions.get('1.0').content, 'typed on B');
+});
+
+test('a snapshot the server rejects is reported once and not retried', async () => {
+    const server = makeServer();
+    server.rejectVersion = '1.0';
+    const a = makeBrowser(server, 'alice', { p1: ['Launch', 'x'] });
+    a.snapshot('p1', '1.0', D(9), 'huge');
+    a.snapshot('p1', '1.1', D(10), 'fine');
+    await a.sync.enable();
+    assert.match(a.sync.getStatus().error, /Version 1.0 could not be stored/);
+    server.versionPuts.length = 0;
+    await a.sync.sync();
+    assert.equal(a.sync.getStatus().kind, 'ok');
+    assert.deepEqual(server.versionPuts, []);
+    assert.equal([...server.plans['u-alice'].values()][0].versions.has('1.1'), true);
+});
+
+test('snapshots with no usable date or version are left out', async () => {
+    const server = makeServer();
+    const a = makeBrowser(server, 'alice', { p1: ['Launch', 'x'] });
+    a.snapshot('p1', '1.0', 'Oct 11', 'legacy date');
+    a.snapshot('p1', '1.1', D(10), 'good');
+    await a.sync.enable();
+    assert.equal(a.sync.getStatus().kind, 'ok');
+    assert.equal([...server.plans['u-alice'].values()][0].versions.size, 1);
 });

@@ -256,3 +256,92 @@ class TestPlanApi:
         register(client)
         big = "x" * (accounts_routes.MAX_PLAN_BYTES + 1)
         assert client.post("/api/v1/plans", json={"name": "P", "content": big}).status_code == 422
+
+
+def _plan(client):
+    register(client)
+    return client.post("/api/v1/plans", json={"name": "P", "content": "x"}).json()["id"]
+
+
+def _put_version(client, plan_id, version="1.0", date="2026-10-11T10:00:00.000Z", content="v1", rag=""):
+    return client.put(f"/api/v1/plans/{plan_id}/versions",
+                      json={"version": version, "date": date, "rag": rag, "content": content})
+
+
+class TestVersionHistory:
+    def test_upsert_list_and_get(self, client):
+        pid = _plan(client)
+        assert client.get("/api/v1/plans").json()["plans"][0]["history_rev"] == 0
+        r = _put_version(client, pid, "1.0", "2026-10-11T10:00:00.000Z", "one", "green")
+        assert r.json() == {"applied": True, "history_rev": 1}
+        _put_version(client, pid, "1.1", "2026-10-11T11:00:00.000Z", "two")
+        listing = client.get(f"/api/v1/plans/{pid}/versions").json()
+        assert listing["history_rev"] == 2
+        assert [v["version"] for v in listing["versions"]] == ["1.1", "1.0"]       # newest first
+        assert "content" not in listing["versions"][0]
+        one = client.get(f"/api/v1/plans/{pid}/version", params={"version": "1.0"}).json()
+        assert one["content"] == "one" and one["rag"] == "green"
+        assert client.get("/api/v1/plans").json()["plans"][0]["history_rev"] == 2
+
+    def test_same_version_newer_date_replaces_older_is_ignored(self, client):
+        pid = _plan(client)
+        _put_version(client, pid, "1.0", "2026-10-11T10:00:00.000Z", "first")
+        assert _put_version(client, pid, "1.0", "2026-10-11T10:05:00.000Z", "second").json()["applied"] is True
+        stale = _put_version(client, pid, "1.0", "2026-10-11T09:00:00.000Z", "old")
+        assert stale.json() == {"applied": False, "history_rev": 2}
+        got = client.get(f"/api/v1/plans/{pid}/version", params={"version": "1.0"}).json()
+        assert got["content"] == "second"
+
+    def test_keeps_only_the_newest_fifty(self, client, monkeypatch):
+        from noodle_web import accounts
+        monkeypatch.setattr(accounts, "MAX_VERSIONS_PER_PLAN", 3)
+        pid = _plan(client)
+        for i in range(5):
+            _put_version(client, pid, f"1.{i}", f"2026-10-11T10:0{i}:00.000Z", f"t{i}")
+        versions = client.get(f"/api/v1/plans/{pid}/versions").json()["versions"]
+        assert [v["version"] for v in versions] == ["1.4", "1.3", "1.2"]
+        # Older than everything kept: not stored.
+        r = _put_version(client, pid, "0.9", "2026-10-10T00:00:00.000Z", "ancient")
+        assert r.json()["applied"] is False
+
+    def test_validation(self, client):
+        pid = _plan(client)
+        assert _put_version(client, pid, "", "2026-10-11T10:00:00.000Z").status_code == 422
+        assert _put_version(client, pid, "1.0", "yesterday").status_code == 422
+
+    def test_private_to_owner_and_gone_with_the_plan(self, client):
+        pid = _plan(client)
+        _put_version(client, pid)
+        client.cookies.clear()
+        register(client, "other@example.com")
+        assert client.get(f"/api/v1/plans/{pid}/versions").status_code == 404
+        assert client.get(f"/api/v1/plans/{pid}/version", params={"version": "1.0"}).status_code == 404
+        assert _put_version(client, pid).status_code == 404
+        client.cookies.clear()
+        client.post("/account/login", data={"email": "kev@example.com", "password": PASSWORD})
+        client.delete(f"/api/v1/plans/{pid}")
+        assert client.get(f"/api/v1/plans/{pid}/versions").status_code == 404
+
+    def test_requires_sign_in(self, client):
+        assert client.get("/api/v1/plans/x/versions").status_code == 401
+
+
+class TestMigration:
+    def test_a_v1_database_gains_version_history(self, tmp_path):
+        import sqlite3
+        from noodle_web import accounts
+        path = str(tmp_path / "old.db")
+        conn = sqlite3.connect(path)
+        conn.executescript(accounts._SCHEMA_V1)
+        conn.execute("PRAGMA user_version = 1")
+        conn.execute("INSERT INTO users VALUES ('u', 'a@example.com', '', 'x', 0)")
+        conn.execute("INSERT INTO plans VALUES ('p', 'u', 'Old plan', x'6162', 3, 0, 0)")
+        conn.commit()
+        conn.close()
+
+        store = AccountStore(path)
+        plan = store.get_plan("u", "p")
+        assert (plan.name, plan.revision, plan.history_rev) == ("Old plan", 3, 0)
+        assert store.put_version("u", "p", "1.0", "2026-10-11T10:00:00.000Z", "", b"snap") == (True, 1)
+        with store._conn() as c:
+            assert c.execute("PRAGMA user_version").fetchone()[0] == accounts._SCHEMA_VERSION

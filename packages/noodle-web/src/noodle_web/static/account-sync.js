@@ -2,8 +2,8 @@
  * account-sync.js -- keep this browser's plans in step with the signed-in
  * account's plans on the server (accounts.py / accounts_routes.py).
  *
- * The browser store stays the working copy. Sync only moves plan *text and
- * name* to and from /api/v1/plans; version history, file links and the other
+ * The browser store stays the working copy. Sync moves each plan's text, name
+ * and version history to and from /api/v1/plans; file links and the other
  * per-browser fields stay where they are. Signed out, or with sync off,
  * nothing here touches the store.
  *
@@ -21,6 +21,11 @@
  *   server plan with no link    -> download as a new local plan
  *   linked plan deleted here    -> delete it on the server
  *   linked plan gone from server-> delete it here, if untouched and not open
+ *
+ * Version history rides along (syncHistory): each plan's snapshots are
+ * matched by version string, the newest date wins, and nothing is deleted on
+ * either side -- removing a snapshot here (by hand, or by retention) only
+ * stops it being fetched again.
  *
  * `sync` is created by createSync() with its collaborators passed in (fetch,
  * the store adapter, storage), which is how tests/test_account_sync.mjs runs
@@ -56,6 +61,24 @@
         return meaningful(a) === meaningful(b);
     }
 
+    /** A fast non-cryptographic hash (cyrb53), to tell snapshot texts apart
+     * without keeping them. Not for security. */
+    function hashText(str) {
+        let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+        for (let i = 0; i < str.length; i++) {
+            const ch = str.charCodeAt(i);
+            h1 = Math.imul(h1 ^ ch, 2654435761);
+            h2 = Math.imul(h2 ^ ch, 1597334677);
+        }
+        h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+        h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+        return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+    }
+
+    const ISO_DATE = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/;
+    const MAX_VERSIONS = 50;
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
     function emptyState() {
         return { userId: '', enabled: false, links: {}, lastSync: 0 };
     }
@@ -65,7 +88,8 @@
      * @param {function} deps.fetch        window.fetch-compatible
      * @param {object}   deps.store        adapter: list(), create(name, text) -> id,
      *                                     update(id, {name, planText}), remove(id),
-     *                                     currentId(), flush(), reloadCurrent(id), editorText() (optional)
+     *                                     currentId(), flush(), reloadCurrent(id), editorText() (optional),
+     *                                     history {get(id), set(id, entries), retentionDays(), changed(id)} (optional)
      * @param {object}   deps.storage      localStorage-like (may throw)
      * @param {function} [deps.now]
      * @param {function} [deps.ready]     resolves when the store can be read
@@ -135,11 +159,15 @@
         }
 
         function link(localId, plan, name) {
+            const prev = state.links[localId];
             state.links[localId] = {
                 serverId: plan.id,
                 revision: plan.revision,
                 text: plan.content,
                 name: normName(name !== undefined ? name : plan.name),
+                // Version-history bookkeeping survives a re-link of the same server plan.
+                hrev: prev && prev.serverId === plan.id ? prev.hrev : undefined,
+                hist: prev && prev.serverId === plan.id ? prev.hist : undefined,
             };
         }
 
@@ -222,6 +250,134 @@
             summary.downloaded++;
         }
 
+        // ---- version history -----------------------------------------------
+
+        const hashMemo = new Map();
+
+        /** Hash of what makes a snapshot "the same": its text without the
+         * autosave timestamp, and its RAG. Memoised on version, date and size
+         * so an unchanged snapshot is not re-hashed every cycle. */
+        function entryHash(e) {
+            const key = e.version + '|' + e.date + '|' + (e.planText || '').length + '|' + (e.rag || '');
+            let h = hashMemo.get(key);
+            if (h === undefined) {
+                h = hashText(meaningful(e.planText) + '\u0000' + (e.rag || ''));
+                if (hashMemo.size > 5000) hashMemo.clear();
+                hashMemo.set(key, h);
+            }
+            return h;
+        }
+
+        function syncable(e) {
+            return e && typeof e.version === 'string' && e.version.length > 0 && e.version.length <= 64 &&
+                typeof e.date === 'string' && ISO_DATE.test(e.date) && typeof e.planText === 'string';
+        }
+
+        async function syncHistory(localId, serverRev, summary) {
+            const lnk = state.links[localId];
+            const hist = store.history;
+            if (!lnk || !hist) return;
+            const known = lnk.hist || {};
+            const local = (hist.get(localId) || []).filter(syncable);
+            const localDirty = local.some((e) => !known[e.version] || known[e.version].hash !== entryHash(e));
+            const serverDirty = serverRev === undefined || serverRev !== lnk.hrev;
+            if (!localDirty && !serverDirty) return;
+
+            const listing = await api('GET', '/api/v1/plans/' + encodeURIComponent(lnk.serverId) + '/versions');
+            if (listing.status !== 200) {
+                summary.errors.push('Version history: ' + describe(listing));
+                return;
+            }
+            const serverBy = new Map(listing.data.versions.map((v) => [v.version, v]));
+            const localBy = new Map();
+            local.forEach((e) => { if (!localBy.has(e.version)) localBy.set(e.version, e); });
+            const cutoff = new Date(now() - (typeof hist.retentionDays === 'function' ? hist.retentionDays() : 14) * DAY_MS).toISOString();
+
+            let rev = listing.data.history_rev;
+            let clean = true;                                  // no other device wrote during this run
+            const pulled = [];                                 // {entry, seenHash}
+            const nextKnown = Object.assign({}, known);
+            const versions = new Set([...localBy.keys(), ...serverBy.keys()]);
+
+            for (const v of versions) {
+                const L = localBy.get(v);
+                const S = serverBy.get(v);
+                const K = known[v];
+                let action = null;
+                if (L && !S) action = K ? null : 'push';
+                else if (!L && S) action = (K || S.date < cutoff) ? null : 'pull';
+                else {
+                    const lc = !K || K.hash !== entryHash(L);
+                    const sc = !K || K.date !== S.date;
+                    if (lc && !sc) action = 'push';
+                    else if (!lc && sc) action = 'pull';
+                    else if (lc && sc) action = S.date >= L.date ? 'pull' : 'push';
+                }
+                if (action === 'push') {
+                    const res = await api('PUT', '/api/v1/plans/' + encodeURIComponent(lnk.serverId) + '/versions', {
+                        version: v, date: L.date, rag: L.rag || '', content: L.planText,
+                    });
+                    if (res.status === 200 && res.data.applied) {
+                        nextKnown[v] = { date: L.date, hash: entryHash(L) };
+                        summary.versionsPushed++;
+                        if (res.data.history_rev === rev + 1) rev = res.data.history_rev; else clean = false;
+                    } else if (res.status === 200) {
+                        action = 'pull';                       // the server's copy is newer, or ours is too old to keep
+                        if (!S || S.date <= L.date) {
+                            nextKnown[v] = { date: L.date, hash: entryHash(L) };   // too old to keep: stop offering it
+                            action = null;
+                        }
+                    } else if (res.status === 413 || res.status === 422) {
+                        nextKnown[v] = { date: L.date, hash: entryHash(L) };       // will never be accepted: stop retrying
+                        summary.errors.push('Version ' + v + ' could not be stored: ' + describe(res));
+                    } else {
+                        summary.errors.push('Version ' + v + ': ' + describe(res));
+                        clean = false;
+                    }
+                }
+                if (action === 'pull') {
+                    const got = await api('GET', '/api/v1/plans/' + encodeURIComponent(lnk.serverId) +
+                        '/version?version=' + encodeURIComponent(v));
+                    if (got.status !== 200) {
+                        summary.errors.push('Version ' + v + ': ' + describe(got));
+                        clean = false;
+                        continue;
+                    }
+                    const entry = { version: v, date: got.data.date, rag: got.data.rag || '', planText: got.data.content };
+                    pulled.push({ entry, seenHash: L ? entryHash(L) : null });
+                    nextKnown[v] = { date: entry.date, hash: entryHash(entry) };
+                }
+            }
+
+            if (pulled.length) {
+                // Re-read the store: the editor may have saved a snapshot while we were on the network.
+                const fresh = new Map((hist.get(localId) || []).map((e) => [e.version, e]));
+                let changed = false;
+                for (const { entry, seenHash } of pulled) {
+                    const cur = fresh.get(entry.version);
+                    if (cur && seenHash !== null && entryHash(cur) !== seenHash) {
+                        // Edited meanwhile: leave the record as it was so the next run sees both sides.
+                        if (known[entry.version]) nextKnown[entry.version] = known[entry.version];
+                        else delete nextKnown[entry.version];
+                        continue;
+                    }
+                    if (cur && entryHash(cur) === entryHash(entry)) continue;
+                    fresh.set(entry.version, entry);
+                    changed = true;
+                    summary.versionsPulled++;
+                }
+                if (changed) {
+                    const merged = [...fresh.values()].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+                        .slice(0, MAX_VERSIONS);
+                    hist.set(localId, merged);
+                    if (typeof hist.changed === 'function') hist.changed(localId);
+                }
+            }
+
+            lnk.hist = nextKnown;
+            lnk.hrev = clean ? rev : listing.data.history_rev;
+        }
+
         /** True when the open editor holds text the store does not (yet). */
         function typedSince(localPlan) {
             const text = typeof store.editorText === 'function' ? store.editorText() : null;
@@ -231,7 +387,8 @@
         async function runOnce() {
             const summary = {
                 pushed: 0, pulled: 0, created: 0, downloaded: 0, deleted: 0,
-                removedLocal: 0, conflicts: 0, errors: [], reloadCurrent: false,
+                removedLocal: 0, conflicts: 0, versionsPushed: 0, versionsPulled: 0,
+                errors: [], reloadCurrent: false,
             };
 
             // The store hydrates from IndexedDB asynchronously; until it has,
@@ -332,6 +489,18 @@
                 if (!linkedServerIds.has(serverId)) await download(serverId, summary);
             }
 
+            // 4. Version history, for every linked plan.
+            if (store.history) {
+                for (const localId of Object.keys(state.links)) {
+                    const sp = serverById.get(state.links[localId].serverId);
+                    try {
+                        await syncHistory(localId, sp ? sp.history_rev : undefined, summary);
+                    } catch (e) {
+                        summary.errors.push('Version history: ' + e.message);
+                    }
+                }
+            }
+
             state.lastSync = now();
             writeState();
             if (summary.reloadCurrent) store.reloadCurrent(store.currentId());
@@ -342,7 +511,7 @@
                 summary,
             });
             if (summary.pushed + summary.pulled + summary.created + summary.downloaded +
-                summary.deleted + summary.removedLocal + summary.conflicts > 0 && typeof deps.onChanged === 'function') {
+                summary.deleted + summary.removedLocal + summary.conflicts + summary.versionsPushed + summary.versionsPulled > 0 && typeof deps.onChanged === 'function') {
                 deps.onChanged(summary);
             }
         }
@@ -412,6 +581,17 @@
             update(id, fields) { root.saveProject(id, fields); },
             remove(id) { root.deleteProject(id); },
             currentId() { return root.getCurrentProjectId(); },
+            history: {
+                get(id) { return typeof root.getVersionHistory === 'function' ? root.getVersionHistory(id) : []; },
+                set(id, entries) { root.saveVersionHistory(id, entries); },
+                retentionDays() { return typeof root.getRetentionDays === 'function' ? root.getRetentionDays() : 14; },
+                changed(id) {
+                    if (typeof root.renderVersionHistoryList === 'function' && root.getCurrentProjectId() === id) {
+                        root.renderVersionHistoryList(id);
+                    }
+                    if (typeof root.updateVersionBadge === 'function') root.updateVersionBadge();
+                },
+            },
             editorText() {
                 const el = root.document.getElementById('planEditor');
                 return el ? el.value : null;
