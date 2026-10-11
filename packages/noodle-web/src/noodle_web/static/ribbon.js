@@ -417,6 +417,10 @@ function scopedAction(scopeId, label) {
         'portfolio:Dependencies': switchPortfolioSubview('dependencies'),
         'portfolio:Benefits': switchPortfolioSubview('benefits'),
         'portfolio:Capacity': switchPortfolioSubview('resources'),
+        'portfolio:Import Project': () => showImportProjectDialog(),
+        'portfolio:Export Report': () => exportPortfolioReport(),
+        'portfolio:Back Up All': () => downloadStoreBackup(),
+        'portfolio:Restore Backup': () => restoreStoreBackup(),
 
         // #1047 ribbon follow-up: Plan tab's Schedule group "Calendars" --
         // see the 'resources:Calendars' comment above for the full story.
