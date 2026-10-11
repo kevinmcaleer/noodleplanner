@@ -509,6 +509,14 @@ function scopedAction(scopeId, label) {
         'kanban:Resource': () => switchKanbanView('resource'),
         'kanban:Progress': () => switchKanbanView('progress'),
         'kanban:Label': () => switchKanbanView('label'),
+        // Same prompt-and-write-to-front-matter flow as the board's own
+        // "+ Add Bucket" tile (kanban.js addNewBucket()). Buckets only show
+        // as columns when the board is grouped by bucket, so switch to it
+        // first rather than leaving the new bucket invisible.
+        'kanban:Add Bucket': () => {
+            switchKanbanView('bucket');
+            kanbanBoard.addNewBucket();
+        },
         'kanban:Group by': () => openFormatMenu(KANBAN_GROUP_MODES, 'Group by'),
         'whiteboard:Mind Map': switchView('mindmap'),
         'whiteboard:Whiteboard': switchView('whiteboard'),
