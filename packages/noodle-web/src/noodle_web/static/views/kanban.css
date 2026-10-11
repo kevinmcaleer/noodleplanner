@@ -1156,4 +1156,22 @@
         height: 44px;
         right: 0;
     }
+
+    .kanban-view-tab {
+        min-height: var(--np-touch-target);
+    }
+
+    .kanban-view-tab-menu-btn {
+        width: var(--np-touch-target);
+        height: var(--np-touch-target);
+    }
+
+    .kanban-view-menu-item {
+        min-height: var(--np-touch-target);
+    }
+
+    .kanban-view-actions np-button,
+    .kanban-view-dialog-actions np-button {
+        min-height: var(--np-touch-target);
+    }
 }
