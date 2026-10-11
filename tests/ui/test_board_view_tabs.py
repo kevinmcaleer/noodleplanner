@@ -303,3 +303,41 @@ def test_hand_edited_views_block_updates_the_tabs(page, app_server):
     set_editor_value(page, text)
     page.evaluate("() => syncKanbanFromEditor()")
     assert tab_names(page) == ["All Tasks", "Edited by hand", "Kev's work"]
+
+
+DRILL_PLAN = """\
+---
+title: Drill
+start: 2026-01-05
+Views:
+  - name: "Not done"
+    filter: "-status:Complete"
+---
+
+  Stage
+    Gap analysis 3d 0%
+      review session 1 1d 0%
+      review session 2 1d 0%
+"""
+
+
+def test_only_the_tab_strip_says_all_tasks_at_the_top_level(page, app_server):
+    # The view tabs already name the unfiltered board, so the old
+    # "All Tasks" heading bar below the filter must not repeat it.
+    load(page, app_server, DRILL_PLAN)
+    assert tab_names(page)[0] == "All Tasks"
+    assert not page.locator("#kanbanBreadcrumb").is_visible()
+
+
+def test_drilling_in_brings_back_a_way_to_the_top_level(page, app_server):
+    load(page, app_server, DRILL_PLAN)
+    page.locator('.kanban-card[data-task-name="Gap analysis"]').focus()
+    page.keyboard.press("Shift+Enter")
+    page.wait_for_function(
+        "() => [...document.querySelectorAll('.kanban-card')].some(c => c.dataset.taskName === 'review session 1')")
+    crumb = page.locator("#kanbanBreadcrumb")
+    assert crumb.is_visible()
+    crumb.get_by_role("link", name="All Tasks").click()
+    page.wait_for_function(
+        "() => [...document.querySelectorAll('.kanban-card')].some(c => c.dataset.taskName === 'Gap analysis')")
+    assert not crumb.is_visible()
