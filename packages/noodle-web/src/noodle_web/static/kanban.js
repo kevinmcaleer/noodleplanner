@@ -214,6 +214,7 @@ class KanbanBoard {
 
     /** Select a view tab (null is All Tasks): apply its filter to the board (#1553). */
     selectView(name) {
+        this.closeViewMenu();
         const view = name ? this.findView(name) : null;
         this.activeViewName = view ? view.name : null;
         this.setFilterQuery(view ? view.filter : '');
@@ -231,7 +232,11 @@ class KanbanBoard {
         if (!strip) return;
         strip.innerHTML = '';
         strip.hidden = this.savedViews.length === 0;
-        if (strip.hidden) return;
+        if (strip.hidden) {
+            this.closeViewMenu();
+            this.renderViewActions();
+            return;
+        }
 
         const tabs = [{ name: null, label: 'All Tasks' }]
             .concat(this.savedViews.map(v => ({ name: v.name, label: v.name })));
@@ -250,8 +255,339 @@ class KanbanBoard {
             btn.textContent = tab.label;
             btn.addEventListener('click', () => this.selectView(tab.name));
             btn.addEventListener('keydown', event => this.onViewTabKey(event, tabs));
-            strip.appendChild(btn);
+            if (!(selected && tab.name !== null)) {
+                strip.appendChild(btn);
+                return;
+            }
+            // The selected saved view carries its options menu beside it
+            const wrap = document.createElement('span');
+            wrap.className = 'kanban-view-tab-group active';
+            wrap.setAttribute('role', 'none');
+            const menuBtn = document.createElement('button');
+            menuBtn.type = 'button';
+            menuBtn.className = 'kanban-view-tab-menu-btn';
+            menuBtn.setAttribute('aria-haspopup', 'menu');
+            menuBtn.setAttribute('aria-expanded', 'false');
+            menuBtn.setAttribute('aria-label', `Options for view ${tab.name}`);
+            menuBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.5 6 8l3.5-3.5"/></svg>';
+            menuBtn.addEventListener('click', () => this.openViewMenu(menuBtn, tab.name));
+            wrap.append(btn, menuBtn);
+            strip.appendChild(wrap);
         });
+        this.reanchorViewMenu();
+        this.renderViewActions();
+    }
+
+    /**
+     * The board re-renders after every plan write, sometimes a beat late. Keep
+     * an open options menu attached to its view's new button rather than
+     * closing it under the user; close it only if that view is gone.
+     */
+    reanchorViewMenu() {
+        const open = this.viewMenu;
+        if (!open) return;
+        const button = document.querySelector('#kanbanViewTabs .kanban-view-tab-menu-btn');
+        if (!button || button.getAttribute('aria-label') !== open.anchor.getAttribute('aria-label')) {
+            this.closeViewMenu();
+            return;
+        }
+        open.anchor = button;
+        button.setAttribute('aria-expanded', 'true');
+    }
+
+    /** Persist a new view list into the plan's front matter (#1556). */
+    commitViews(views, { activeName } = {}) {
+        const editor = document.getElementById('planEditor');
+        if (!editor || typeof BoardViews === 'undefined') return false;
+        if (activeName !== undefined) this.activeViewName = activeName;
+        this.savedViews = views;
+        this.savePreferences();
+        const changed = this.commitMarkdown(BoardViews.buildPlanTextWithViews(editor.value, views));
+        // commitMarkdown only re-renders on a text change; the tab strip and
+        // actions still need to follow a selection-only change.
+        if (!changed) this.render();
+        return changed;
+    }
+
+    /** Save / Discard / Save as new view beside the filter field (#1554). */
+    renderViewActions() {
+        const host = document.getElementById('kanbanViewActions');
+        if (!host) return;
+        host.replaceChildren();
+        const query = this.filterQuery.trim();
+        const view = this.activeViewName ? this.findView(this.activeViewName) : null;
+        const modified = query !== this.activeViewFilter().trim();
+        const add = (label, variant, onClick, action) => {
+            const btn = document.createElement('np-button');
+            btn.setAttribute('variant', variant);
+            btn.setAttribute('size', 'small');
+            btn.dataset.action = action;
+            btn.textContent = label;
+            btn.addEventListener('click', onClick);
+            host.appendChild(btn);
+        };
+        if (view && modified) {
+            add('Save', 'primary', () => this.saveViewFilter(), 'save-view');
+            add('Discard', 'neutral', () => this.selectView(view.name), 'discard-view');
+            add('Save as new view', 'neutral', () => this.promptNewView(), 'save-new-view');
+        } else if (!view && query) {
+            add('Save as view', 'neutral', () => this.promptNewView(), 'save-new-view');
+        }
+    }
+
+    /** Write the current filter text into the selected view. */
+    saveViewFilter() {
+        const view = this.findView(this.activeViewName);
+        if (!view) return;
+        this.commitViews(
+            this.savedViews.map(v => (v === view ? { ...v, filter: this.filterQuery.trim() } : v)),
+            { activeName: view.name });
+    }
+
+    /** Ask for a name, then save the current filter as a new view. */
+    promptNewView() {
+        const opener = document.activeElement;
+        this.openViewDialog({
+            title: 'Save as view',
+            name: '',
+            filter: this.filterQuery.trim(),
+            fields: ['name'],
+            submitLabel: 'Save view',
+            opener,
+            onSubmit: ({ name }) => {
+                this.commitViews(
+                    this.savedViews.concat({ name, filter: this.filterQuery.trim() }),
+                    { activeName: name });
+            },
+        });
+    }
+
+    /**
+     * Small modal form for naming / editing a view. `fields` picks which of
+     * name and filter are shown; validation errors appear inline.
+     */
+    openViewDialog({ title, name, filter, fields, submitLabel, ignoreName, opener, onSubmit }) {
+        this.closeViewDialog();
+        const dialog = document.createElement('dialog');
+        dialog.className = 'kanban-view-dialog';
+        dialog.setAttribute('aria-labelledby', 'kanbanViewDialogTitle');
+        const form = document.createElement('form');
+        form.method = 'dialog';
+        form.noValidate = true;
+        const heading = document.createElement('h3');
+        heading.id = 'kanbanViewDialogTitle';
+        heading.textContent = title;
+        form.appendChild(heading);
+
+        const inputs = {};
+        const addField = (key, label, value, hint) => {
+            const row = document.createElement('label');
+            row.className = 'kanban-view-dialog-field';
+            const text = document.createElement('span');
+            text.textContent = label;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = value;
+            input.autocomplete = 'off';
+            input.spellcheck = false;
+            row.append(text, input);
+            if (hint) {
+                const note = document.createElement('small');
+                note.textContent = hint;
+                row.appendChild(note);
+            }
+            form.appendChild(row);
+            inputs[key] = input;
+        };
+        if (fields.includes('name')) addField('name', 'View name', name);
+        if (fields.includes('filter')) addField('filter', 'Filter', filter, 'For example label:must -status:Complete');
+
+        const error = document.createElement('p');
+        error.className = 'kanban-view-dialog-error';
+        error.setAttribute('role', 'alert');
+        error.hidden = true;
+        form.appendChild(error);
+
+        const actions = document.createElement('div');
+        actions.className = 'kanban-view-dialog-actions';
+        const cancel = document.createElement('np-button');
+        cancel.setAttribute('variant', 'neutral');
+        cancel.dataset.action = 'cancel';
+        cancel.textContent = 'Cancel';
+        const submit = document.createElement('np-button');
+        submit.setAttribute('variant', 'primary');
+        submit.dataset.action = 'submit';
+        submit.textContent = submitLabel;
+        actions.append(cancel, submit);
+        form.appendChild(actions);
+        dialog.appendChild(form);
+
+        const finish = () => {
+            this.closeViewDialog();
+            if (opener && opener.isConnected && opener.focus) opener.focus();
+        };
+        const attempt = () => {
+            const result = { name: inputs.name ? inputs.name.value.trim() : name };
+            result.filter = inputs.filter ? inputs.filter.value.trim() : filter;
+            let message = '';
+            if (inputs.name && !result.name) {
+                message = 'Give the view a name.';
+            } else if (inputs.name && !BoardViews.isNameAvailable(this.savedViews, result.name, ignoreName)) {
+                message = `A view called "${result.name}" already exists.`;
+            } else if (inputs.filter && typeof BoardFilter !== 'undefined') {
+                const errs = BoardFilter.parse(result.filter).errors;
+                if (errs.length) message = errs.map(e => e.message).join('. ');
+            }
+            error.textContent = message;
+            error.hidden = !message;
+            if (message) return;
+            this.closeViewDialog();
+            onSubmit(result);
+            this.focusActiveViewTab();
+        };
+        Object.values(inputs).forEach(input => input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') { event.preventDefault(); attempt(); }
+        }));
+        submit.addEventListener('click', attempt);
+        cancel.addEventListener('click', finish);
+        form.addEventListener('submit', event => { event.preventDefault(); attempt(); });
+        dialog.addEventListener('cancel', event => { event.preventDefault(); finish(); });
+
+        document.body.appendChild(dialog);
+        this.viewDialog = dialog;
+        dialog.showModal();
+        const first = inputs.name || inputs.filter;
+        first.focus();
+        first.select();
+    }
+
+    closeViewDialog() {
+        if (!this.viewDialog) return;
+        if (this.viewDialog.open) this.viewDialog.close();
+        this.viewDialog.remove();
+        this.viewDialog = null;
+    }
+
+    focusActiveViewTab() {
+        const strip = document.getElementById('kanbanViewTabs');
+        const el = strip && strip.querySelector('[role="tab"][aria-selected="true"]');
+        if (el) el.focus();
+    }
+
+    /** The per-tab options menu: rename, edit, move, remove (#1555). */
+    openViewMenu(anchor, name) {
+        if (this.viewMenu && this.viewMenu.anchor === anchor) { this.closeViewMenu(true); return; }
+        this.closeViewMenu();
+        const index = this.savedViews.findIndex(v => v.name === name);
+        if (index < 0) return;
+        const last = this.savedViews.length - 1;
+        const items = [
+            { id: 'rename', label: 'Rename view' },
+            { id: 'edit', label: 'Edit view' },
+            { id: 'move-left', label: 'Move view left', disabled: index === 0 },
+            { id: 'move-right', label: 'Move view right', disabled: index === last },
+            { id: 'remove', label: 'Remove view', destructive: true },
+        ];
+        const menu = document.createElement('div');
+        menu.className = 'kanban-view-menu';
+        menu.setAttribute('role', 'menu');
+        menu.setAttribute('aria-label', `Options for view ${name}`);
+        items.forEach(item => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.setAttribute('role', 'menuitem');
+            btn.className = 'kanban-view-menu-item' + (item.destructive ? ' destructive' : '');
+            btn.dataset.action = item.id;
+            btn.textContent = item.label;
+            if (item.disabled) btn.setAttribute('aria-disabled', 'true');
+            btn.addEventListener('click', () => {
+                if (item.disabled) return;
+                this.closeViewMenu(false);
+                this.runViewMenuAction(item.id, name, anchor);
+            });
+            menu.appendChild(btn);
+        });
+        menu.addEventListener('keydown', event => this.onViewMenuKey(event));
+        document.body.appendChild(menu);
+        const rect = anchor.getBoundingClientRect();
+        const width = menu.offsetWidth;
+        menu.style.top = `${Math.round(rect.bottom + 4)}px`;
+        menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
+        anchor.setAttribute('aria-expanded', 'true');
+        const outside = event => {
+            const current = this.viewMenu ? this.viewMenu.anchor : anchor;
+            if (!menu.contains(event.target) && !current.contains(event.target)) {
+                this.closeViewMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', outside, true);
+        this.viewMenu = { menu, anchor, outside };
+        menu.querySelector('[role="menuitem"]:not([aria-disabled="true"])').focus();
+    }
+
+    closeViewMenu(refocus = false) {
+        const open = this.viewMenu;
+        if (!open) return;
+        this.viewMenu = null;
+        document.removeEventListener('mousedown', open.outside, true);
+        open.menu.remove();
+        open.anchor.setAttribute('aria-expanded', 'false');
+        if (refocus && open.anchor.isConnected) open.anchor.focus();
+    }
+
+    onViewMenuKey(event) {
+        const items = Array.from(this.viewMenu.menu.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"])'));
+        const at = items.indexOf(document.activeElement);
+        if (event.key === 'Escape' || event.key === 'Tab') {
+            event.preventDefault();
+            this.closeViewMenu(true);
+        } else if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            items[(at + 1) % items.length].focus();
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            items[(at - 1 + items.length) % items.length].focus();
+        } else if (event.key === 'Home') {
+            event.preventDefault();
+            items[0].focus();
+        } else if (event.key === 'End') {
+            event.preventDefault();
+            items[items.length - 1].focus();
+        }
+    }
+
+    runViewMenuAction(action, name, opener) {
+        const index = this.savedViews.findIndex(v => v.name === name);
+        if (index < 0) return;
+        const view = this.savedViews[index];
+        const replace = next => this.savedViews.map((v, i) => (i === index ? next : v));
+        if (action === 'rename') {
+            this.openViewDialog({
+                title: 'Rename view', name: view.name, filter: view.filter, fields: ['name'],
+                submitLabel: 'Rename', ignoreName: view.name, opener,
+                onSubmit: ({ name: next }) => this.commitViews(replace({ ...view, name: next }), { activeName: next }),
+            });
+        } else if (action === 'edit') {
+            this.openViewDialog({
+                title: 'Edit view', name: view.name, filter: view.filter, fields: ['name', 'filter'],
+                submitLabel: 'Save changes', ignoreName: view.name, opener,
+                onSubmit: ({ name: next, filter }) => {
+                    this.setFilterQuery(filter);
+                    if (this.filterField) this.filterField.set(filter, true);
+                    this.commitViews(replace({ ...view, name: next, filter }), { activeName: next });
+                },
+            });
+        } else if (action === 'move-left' || action === 'move-right') {
+            this.commitViews(BoardViews.moveView(this.savedViews, index, action === 'move-left' ? -1 : 1),
+                { activeName: view.name });
+            this.focusActiveViewTab();
+        } else if (action === 'remove') {
+            if (!confirm(`Remove view "${view.name}"? The tasks are not affected.`)) return;
+            this.setFilterQuery('');
+            if (this.filterField) this.filterField.set('', true);
+            this.commitViews(this.savedViews.filter((_, i) => i !== index), { activeName: null });
+            this.focusActiveViewTab();
+        }
     }
 
     onViewTabKey(event, tabs) {

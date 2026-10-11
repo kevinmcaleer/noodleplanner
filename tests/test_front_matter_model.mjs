@@ -310,3 +310,24 @@ test('malformed / stray lines in front matter are preserved, not dropped', () =>
     assert.ok(rows.some(r => r.kind === 'raw' && r.raw[0].text === ':::not-a-key:::'));
     assert.equal(reserialize(model, loc, rows), text);
 });
+
+test('a saved-views Views: block survives editing another key (#1551)', () => {
+    const text = [
+        '---',
+        'title: My Project',
+        'Views:',
+        '  - name: "Must haves"',
+        '    filter: "label:must -status:Complete"',
+        '  - name: "Kev\'s work"',
+        '    filter: "resource:kev"',
+        'status: Green',
+        '---',
+        '',
+        'Phase',
+        '  Task 1d',
+        '',
+    ].join('\n');
+    const { model, rows, loc } = parseFm(text);
+    FM.setScalarValue(rows.find(r => r.kind === 'kv' && r.key === 'title'), 'Renamed');
+    assert.equal(reserialize(model, loc, rows), text.replace('title: My Project', 'title: Renamed'));
+});

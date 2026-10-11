@@ -631,3 +631,20 @@ class TestInitiativeResourcesAndStakeholders:
     def test_programme_membership_is_shared_with_projects(self):
         parser = FrontMatterParser(INITIATIVE_WITH_PEOPLE)
         assert parser.parse_programme() == {'slug': 'knowledge', 'name': 'Knowledge'}
+
+
+def test_saved_views_block_does_not_disturb_other_keys():
+    """A Views: list of name/filter maps (#1551) must not break the other keys."""
+    text = (
+        "---\n"
+        "title: My Project\n"
+        "Views:\n"
+        '  - name: "Must haves"\n'
+        '    filter: "label:must -status:Complete"\n'
+        "status: active\n"
+        "---\n"
+        "Phase 1\n"
+        "  Task A 3d\n"
+    )
+    parser = FrontMatterParser(text)
+    assert parser.parse_title() == "My Project"
