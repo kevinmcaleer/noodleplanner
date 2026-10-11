@@ -2792,6 +2792,59 @@ tr:hover .task-context-btn,
     transition: all 0.2s;
 }
 
+/* Saved board view tabs (#1553) */
+.kanban-view-tabs {
+    display: flex;
+    gap: var(--np-space-4);
+    padding: 0 var(--np-space-20);
+    border-bottom: 1px solid var(--np-border);
+    overflow-x: auto;
+}
+
+.kanban-view-tabs[hidden] {
+    display: none;
+}
+
+.kanban-view-tab {
+    padding: var(--np-space-8) var(--np-space-12);
+    border: none;
+    background: none;
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--np-body);
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+    border-radius: 6px 6px 0 0;
+    transition: color var(--np-anim-duration) var(--np-anim-easing),
+                border-color var(--np-anim-duration) var(--np-anim-easing),
+                background-color var(--np-anim-duration) var(--np-anim-easing);
+}
+
+.kanban-view-tab:hover {
+    color: var(--np-accent);
+    background-color: var(--np-surface-alt);
+}
+
+.kanban-view-tab.active {
+    color: var(--np-accent);
+    border-bottom-color: var(--np-accent);
+}
+
+/* The selected tab's filter has been edited and not saved yet */
+.kanban-view-tab[data-modified="true"]::after {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-left: var(--np-space-8);
+    border-radius: 50%;
+    background: var(--np-accent);
+    vertical-align: middle;
+}
+
 /* Kanban Breadcrumb Navigation */
 .kanban-breadcrumb {
     display: flex;

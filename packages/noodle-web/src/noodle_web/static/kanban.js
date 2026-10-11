@@ -79,6 +79,8 @@ class KanbanBoard {
         this.hideCompleted = false; // Hide tasks with 100% progress
         this.filterQuery = ''; // Board filter text (#1542), e.g. "label:must -status:Complete"
         this.filterParsed = { terms: [], errors: [] };
+        this.savedViews = []; // Saved board views from the plan's Views: front matter (#1551)
+        this.activeViewName = null; // Selected view tab; null is "All Tasks"
         this.createdBuckets = []; // User-created empty buckets
         this.tasks = [];
         this.columns = [];
@@ -123,6 +125,7 @@ class KanbanBoard {
             this.sortByPriority = saved.sortByPriority === true;
             this.hideCompleted = saved.hideCompleted === true;
             if (typeof saved.filterQuery === 'string') this.setFilterQuery(saved.filterQuery);
+            this.activeViewName = typeof saved.activeViewName === 'string' ? saved.activeViewName : null;
         } catch (error) {
             console.warn('Could not restore Kanban preferences:', error);
         }
@@ -137,7 +140,8 @@ class KanbanBoard {
                 viewMode: this.viewMode,
                 sortByPriority: this.sortByPriority,
                 hideCompleted: this.hideCompleted,
-                filterQuery: this.filterQuery
+                filterQuery: this.filterQuery,
+                activeViewName: this.activeViewName
             }));
             this.loadedPreferenceKey = key;
         } catch (error) {
@@ -196,6 +200,74 @@ class KanbanBoard {
             },
         });
         this.filterField.set(this.filterQuery, true);
+    }
+
+    findView(name) {
+        return this.savedViews.find(v => v.name === name) || null;
+    }
+
+    /** The filter text the selected tab stands for ("" for All Tasks). */
+    activeViewFilter() {
+        const view = this.activeViewName ? this.findView(this.activeViewName) : null;
+        return view ? view.filter : '';
+    }
+
+    /** Select a view tab (null is All Tasks): apply its filter to the board (#1553). */
+    selectView(name) {
+        const view = name ? this.findView(name) : null;
+        this.activeViewName = view ? view.name : null;
+        this.setFilterQuery(view ? view.filter : '');
+        if (this.filterField) this.filterField.set(this.filterQuery, true);
+        this.savePreferences();
+        this.render();
+    }
+
+    /**
+     * Render the "All Tasks" + saved-view tab strip above the filter field.
+     * Hidden until the plan has at least one saved view.
+     */
+    renderViewTabs() {
+        const strip = document.getElementById('kanbanViewTabs');
+        if (!strip) return;
+        strip.innerHTML = '';
+        strip.hidden = this.savedViews.length === 0;
+        if (strip.hidden) return;
+
+        const tabs = [{ name: null, label: 'All Tasks' }]
+            .concat(this.savedViews.map(v => ({ name: v.name, label: v.name })));
+        const modified = this.filterQuery.trim() !== this.activeViewFilter().trim();
+        tabs.forEach(tab => {
+            const selected = tab.name === this.activeViewName;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'kanban-view-tab' + (selected ? ' active' : '');
+            btn.setAttribute('role', 'tab');
+            btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+            btn.tabIndex = selected ? 0 : -1;
+            btn.dataset.view = tab.name === null ? '' : tab.name;
+            if (selected && modified) btn.dataset.modified = 'true';
+            // The name is plan text: set it as text, never as markup
+            btn.textContent = tab.label;
+            btn.addEventListener('click', () => this.selectView(tab.name));
+            btn.addEventListener('keydown', event => this.onViewTabKey(event, tabs));
+            strip.appendChild(btn);
+        });
+    }
+
+    onViewTabKey(event, tabs) {
+        const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+        if (!keys.includes(event.key)) return;
+        event.preventDefault();
+        const at = tabs.findIndex(t => t.name === this.activeViewName);
+        let next = at;
+        if (event.key === 'ArrowLeft') next = (at - 1 + tabs.length) % tabs.length;
+        else if (event.key === 'ArrowRight') next = (at + 1) % tabs.length;
+        else if (event.key === 'Home') next = 0;
+        else next = tabs.length - 1;
+        this.selectView(tabs[next].name);
+        const strip = document.getElementById('kanbanViewTabs');
+        const el = strip && strip.querySelector('[aria-selected="true"]');
+        if (el) el.focus();
     }
 
     /** "N of M cards" and any invalid-term message beside the filter field. */
@@ -333,6 +405,8 @@ class KanbanBoard {
         this.labelsFromFrontMatter = [];
         this.createdBuckets = [];
         this.themeColours = {};
+        this.savedViews = typeof BoardViews !== 'undefined' ? BoardViews.parseViews(planText).views : [];
+        if (this.activeViewName && !this.findView(this.activeViewName)) this.activeViewName = null;
         if (!planText || !planText.trim()) {
             return;
         }
@@ -1427,6 +1501,7 @@ class KanbanBoard {
         if (quickAdd) quickAdd.suspended = true;
 
         this.initFilterField();
+        this.renderViewTabs();
 
         // Clear existing content
         boardContainer.innerHTML = '';
