@@ -55,6 +55,12 @@ const TaskLineTokenizer = (() => {
         return tokens.sort((a, b) => a.start - b.start || b.end - a.end);
     }
 
+    // A comment sits on one markdown line: line breaks are stored as `\n` and
+    // backslashes as `\\`. Other backslash sequences are left as written.
+    function decodeComment(text) {
+        return text.replace(/\\([\\n])/g, (_, c) => (c === 'n' ? '\n' : '\\'));
+    }
+
     function metadata(line) {
         const tokens = tokenize(line);
         const values = {
@@ -75,7 +81,7 @@ const TaskLineTokenizer = (() => {
             const text = token.text;
             if (token.type === 'star') values.hasStar = true;
             else if (token.type === 'star-lag') values.starLagLead = text;
-            else if (token.type === 'comment' && !values.comment) values.comment = text.slice(1, -1);
+            else if (token.type === 'comment' && !values.comment) values.comment = decodeComment(text.slice(1, -1));
             else if (token.type === 'bucket' && !values.bucket) values.bucket = text.slice(1, -1).trim();
             else if (token.type === 'priority') values.priority = text === '!!!' ? 'Urgent' : text === '!!' ? 'Important' : 'Medium';
             else if (token.type === 'recurrence' && !values.recurrence) values.recurrence = text.replace(/^\[repeats\s+|\]$/gi, '').trim().toLowerCase();

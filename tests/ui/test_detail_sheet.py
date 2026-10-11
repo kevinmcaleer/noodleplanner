@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from .helpers import load_plan, open_app
+from .helpers import load_plan, open_app, plan_text
 
 PLAN = """---
 title: Detail sheets
@@ -244,3 +244,15 @@ def test_task_sections_collapse_and_are_remembered(phone, app_server):
     phone.wait_for_timeout(350)
     _open(phone, "task")
     assert dict(phone.evaluate(state))["task-notes"] is True
+
+
+def test_a_multi_line_comment_is_stored_on_one_markdown_line(page, app_server):
+    open_app(page, app_server)
+    load_plan(page, PLAN)
+    _open(page, "task")
+    page.locator("#taskComment").fill("first\nsecond \\ slash")
+    page.evaluate("() => saveTask()")
+    line = next(l for l in plan_text(page).splitlines() if l.strip().startswith("Research"))
+    assert '"first\\nsecond \\\\ slash"' in line
+    _open(page, "task")
+    assert page.locator("#taskComment").input_value() == "first\nsecond \\ slash"

@@ -233,3 +233,8 @@ test("a sequential lag is neither the duration nor part of the name", () => {
   assert.equal(extractMetadata("*Build 3d").sequential_lag, undefined);
   assert.equal(extractMetadata("Build [depends A +2d] 3d").sequential_lag, undefined);
 });
+
+test("a comment's escaped line breaks and backslashes are decoded", () => {
+  assert.equal(extractMetadata('Task 2d "one\\ntwo"').comment, "one\ntwo");
+  assert.equal(extractMetadata('Task 2d "a\\\\nb C:\\temp"').comment, "a\\nb C:\\temp");
+});

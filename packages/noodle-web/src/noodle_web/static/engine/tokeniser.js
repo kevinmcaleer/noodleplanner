@@ -15,6 +15,14 @@
  */
 import { durationToDays, parseDurationToDays } from "./date-math.js";
 
+// A comment lives on one markdown line, so a line break in it is stored as a
+// literal `\n` and a backslash as `\\` (same escaping as whiteboard text
+// cells). Anything else after a backslash is left alone, so older comments
+// such as `C:\temp` read back unchanged.
+function decodeCommentText(text) {
+  return text.replace(/\\([\\n])/g, (_, c) => (c === "n" ? "\n" : "\\"));
+}
+
 // Mirrors metadata.py's compiled patterns, one for one.
 const TOKEN_SPLIT = /(?<!\\)\s+/;
 const QUALITY_ROLE = /^(.+?):(P|R|A)$/i;
@@ -222,14 +230,14 @@ export function extractMetadata(taskStr, taskName = null) {
   // --- comment: !"…", then "…", then '…' ---
   const bang = BANG_COMMENT.exec(line);
   if (bang) {
-    meta.comment = bang[1] !== undefined ? bang[1] : bang[2];
+    meta.comment = decodeCommentText(bang[1] !== undefined ? bang[1] : bang[2]);
   } else {
     const dq = DQ_COMMENT.exec(line);
     if (dq) {
-      meta.comment = dq[1];
+      meta.comment = decodeCommentText(dq[1]);
     } else {
       const sq = SQ_COMMENT.exec(line);
-      if (sq) meta.comment = sq[1];
+      if (sq) meta.comment = decodeCommentText(sq[1]);
     }
   }
 
