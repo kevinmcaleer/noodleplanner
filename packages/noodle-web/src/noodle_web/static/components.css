@@ -2853,6 +2853,10 @@ tr:hover .task-context-btn,
     flex-wrap: wrap;
 }
 
+.kanban-breadcrumb[hidden] {
+    display: none;
+}
+
 .breadcrumb-item {
     color: var(--np-body);
 }
