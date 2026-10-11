@@ -57,6 +57,13 @@
  * is not a supported combination and meant the selected colour was never
  * announced.
  *
+ * ## Toggles and text entry
+ *
+ * An item with a boolean `checked` is a `menuitemcheckbox` with a tick
+ * (the labels already on a card). `disabled` greys it and drops the click.
+ * A section of `{ input: { id, placeholder, submitLabel } }` is a one-line
+ * entry that emits `select` with `{ id, value }` -- "New label...".
+ *
  * ## Emits
  *
  * `select` with `{ id }` for an action, or `{ id: 'colour', colour }` for a
@@ -132,6 +139,10 @@ export class NpMenu extends HTMLElement {
                 list.appendChild(this._buildSwatchGrid(section));
                 return;
             }
+            if (section.input) {
+                list.appendChild(this._buildInput(section.input));
+                return;
+            }
             for (const item of section.items || []) {
                 list.appendChild(this._buildItem(item));
             }
@@ -145,7 +156,12 @@ export class NpMenu extends HTMLElement {
         li.setAttribute('role', 'none');
         const button = document.createElement('button');
         button.type = 'button';
-        button.setAttribute('role', 'menuitem');
+        // `checked` is a toggle (a label already on the card): menuitemcheckbox
+        // so the state is announced, not a menuitem with a tick painted on.
+        const toggles = typeof item.checked === 'boolean';
+        button.setAttribute('role', toggles ? 'menuitemcheckbox' : 'menuitem');
+        if (toggles) button.setAttribute('aria-checked', item.checked ? 'true' : 'false');
+        if (item.disabled) button.setAttribute('aria-disabled', 'true');
         // The class names the app's own stylesheet and tests use. `data-action`
         // is the stable hook: four of these classes render identically, and the
         // only reason they are different names is that one of them is how a
@@ -154,15 +170,56 @@ export class NpMenu extends HTMLElement {
             ? (item.confirms ? 'wb-note-menu-remove wb-note-menu-delete' : 'wb-note-menu-remove')
             : (item.className || 'wb-note-menu-action');
         button.dataset.action = item.id;
-        button.textContent = item.label;
+        if (toggles) {
+            const tick = document.createElement('span');
+            tick.className = 'wb-note-menu-tick';
+            tick.setAttribute('aria-hidden', 'true');
+            tick.textContent = item.checked ? '✓' : '';
+            button.appendChild(tick);
+        }
+        button.appendChild(document.createTextNode(item.label));
         if (item.description) button.title = item.description;
         button.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (item.disabled) return;
             this.dispatchEvent(new CustomEvent('select', {
                 bubbles: true, composed: true, detail: { id: item.id },
             }));
         });
         li.appendChild(button);
+        return li;
+    }
+
+    /**
+     * A one-line text entry ("New label...") that ends a section. Submitting
+     * emits `select` with `{ id, value }`; an empty submit is dropped.
+     */
+    _buildInput(spec) {
+        const li = document.createElement('li');
+        li.setAttribute('role', 'none');
+        const form = document.createElement('form');
+        form.className = 'wb-note-menu-form';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'wb-note-menu-input';
+        input.placeholder = spec.placeholder || '';
+        input.setAttribute('aria-label', spec.label || spec.placeholder || 'New value');
+        input.autocomplete = 'off';
+        const submit = document.createElement('button');
+        submit.type = 'submit';
+        submit.className = 'wb-note-menu-action wb-note-menu-input-submit';
+        submit.textContent = spec.submitLabel || 'Add';
+        form.append(input, submit);
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const value = input.value.trim();
+            if (!value) { input.focus(); return; }
+            this.dispatchEvent(new CustomEvent('select', {
+                bubbles: true, composed: true, detail: { id: spec.id, value },
+            }));
+        });
+        li.appendChild(form);
         return li;
     }
 
@@ -210,6 +267,10 @@ export class NpMenu extends HTMLElement {
         const items = this.items;
         if (!items.length) return;
         const index = items.indexOf(document.activeElement);
+        // In a text entry the caret keys are the field's own; only Escape,
+        // Tab (below) and Up/Down (out of the field) belong to the menu.
+        const typing = event.target && event.target.matches && event.target.matches('input');
+        if (typing && !['Escape', 'Tab', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
 
         if (event.key === 'Escape' || event.key === 'Tab') {
             // Tab included: every item is a real button and nothing used to
@@ -253,6 +314,11 @@ export class NpMenu extends HTMLElement {
             return move(edge);
         }
 
+        if (typing) {
+            // Out of the field: the entry sits last, so Up lands on the item
+            // above it and Down wraps to the first.
+            return move(event.key === 'ArrowDown' ? 0 : items.length - 1);
+        }
         if (event.key === 'ArrowDown') return move(index < 0 ? 0 : index + 1);
         if (event.key === 'ArrowUp') return move(index < 0 ? items.length - 1 : index - 1);
     }

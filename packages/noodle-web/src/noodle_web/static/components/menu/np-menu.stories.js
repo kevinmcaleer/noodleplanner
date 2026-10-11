@@ -86,3 +86,26 @@ export const DestructiveGroup = {
         return menu;
     },
 };
+
+/** The board card's menu once Label is picked: ticked rows toggle, and the
+ * last row is a text entry. */
+export const TogglesAndEntry = {
+    render: () => {
+        const menu = document.createElement('np-menu');
+        menu.setAttribute('aria-label', 'Labels');
+        menu.style.cssText = 'position:static;display:inline-block;';
+        menu.sections = [
+            { items: [{ id: 'back', label: '‹ Back' }] },
+            {
+                label: 'Labels',
+                items: [
+                    { id: 'label:design', label: 'design', checked: true },
+                    { id: 'label:urgent', label: 'urgent', checked: false },
+                ],
+            },
+            { input: { id: 'new-label', placeholder: 'New label…', submitLabel: 'Add' } },
+        ];
+        menu.addEventListener('select', (e) => console.log('select', e.detail));
+        return menu;
+    },
+};

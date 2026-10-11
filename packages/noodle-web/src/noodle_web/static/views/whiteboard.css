@@ -3091,6 +3091,42 @@ body.wb-linking * {
     color: var(--np-text);
 }
 
+/* A toggle row in <np-menu> (a label already on the card): the tick has a
+   fixed column so ticked and unticked rows line up. */
+.wb-note-menu-tick {
+    display: inline-block;
+    width: var(--np-space-16);
+    color: var(--np-accent);
+    font-weight: 700;
+}
+
+/* <np-menu>'s one-line text entry ("New label..."). */
+.wb-note-menu-form {
+    display: flex;
+    gap: var(--np-space-4);
+    align-items: stretch;
+}
+
+.wb-note-menu-input {
+    flex: 1;
+    min-width: 0;
+    padding: var(--np-space-8);
+    border: 1px solid var(--np-border);
+    border-radius: 6px;
+    background: var(--np-surface);
+    color: var(--np-text);
+    font-size: 12px;
+}
+
+.wb-note-menu-input:focus-visible {
+    outline: 2px solid var(--np-accent);
+    outline-offset: 1px;
+}
+
+.wb-note-menu-input-submit {
+    width: auto;
+}
+
 /* Indent and Outdent, on a note's menu and a Plan structure row's, stay
    listed when the task has nowhere to go, so they stay focusable and are
    only greyed out -- aria-disabled, not disabled. */

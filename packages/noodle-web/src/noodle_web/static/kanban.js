@@ -2507,6 +2507,15 @@ class KanbanBoard {
 
         this.setupPointerCardDrag(cardEl, task, column);
 
+        // Right-click, or a long-press on touch (touch-parity.js), opens the
+        // card's action menu (kanban-card-menu.js). Text fields keep their own.
+        cardEl.addEventListener('contextmenu', (e) => {
+            if (e.target.closest('input[type="text"], textarea') || typeof KanbanCardMenu === 'undefined') return;
+            e.preventDefault();
+            e.stopPropagation();
+            KanbanCardMenu.open(this, task, column, cardEl, e);
+        });
+
         // Drag over card for reordering within column
         cardEl.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -3253,6 +3262,164 @@ class KanbanBoard {
             tokens.splice(insertIndex, 0, `@${shortname}`);
             return indent + tokens.join(' ');
         }
+    }
+
+    // ── Card context menu (right-click / long-press) ──────────────────────
+    // kanban-card-menu.js builds the menu; everything it changes goes through
+    // these, so each is one model edit and one commitMarkdown().
+
+    /** Labels known to the plan: the front-matter list, then any on a task. */
+    knownLabels() {
+        const labels = new Set(this.labelsFromFrontMatter);
+        this.getAllTasks().forEach(task => task.labelsArray.forEach(label => labels.add(label)));
+        return [...labels];
+    }
+
+    /** Buckets known to the plan: created ones first, then any on a task. */
+    knownBuckets() {
+        const buckets = new Set(this.createdBuckets);
+        this.getAllTasks().forEach(task => {
+            const bucket = task.bucket ? task.bucket.trim() : '';
+            if (bucket) buckets.add(bucket);
+        });
+        return [...buckets];
+    }
+
+    /** Resources a card can take: `{ shortname, name }`, minus stakeholders. */
+    knownResources() {
+        const known = new Map();
+        Object.keys(this.resourceMap).forEach(shortname => known.set(shortname, this.resourceMap[shortname]));
+        this.getAllTasks().forEach(task => task.resourceShortnames.forEach((shortname, index) => {
+            if (!known.has(shortname)) known.set(shortname, task.resourcesArray[index]);
+        }));
+        return [...known]
+            .filter(([shortname]) => !this.stakeholderShortnames.has(shortname)
+                && !/^[^:]+:[pra]$/i.test(shortname))
+            .map(([shortname, name]) => ({ shortname, name }));
+    }
+
+    /** Insert `token` before a line's trailing percent / date / comment / [depends]. */
+    insertBeforeTrailingMetadata(line, token) {
+        const indent = line.match(/^(\s*)/)[1];
+        const tokens = line.trim().split(/\s+/);
+        let insertIndex = tokens.length;
+        for (let i = tokens.length - 1; i >= 0; i--) {
+            const t = tokens[i];
+            if (t.match(/^\d+%$/) || t.match(/^\d{4}-\d{2}-\d{2}$/) ||
+                t.startsWith('"') || t.startsWith('[depends')) {
+                insertIndex = i;
+            } else {
+                break;
+            }
+        }
+        tokens.splice(insertIndex, 0, token);
+        return indent + tokens.join(' ');
+    }
+
+    addLabelToTaskLine(line, label) {
+        const present = new RegExp(`#${this.escapeRegExp(label)}(?=\\s|$)`, 'i');
+        return present.test(line) ? line : this.insertBeforeTrailingMetadata(line, `#${label}`);
+    }
+
+    removeLabelFromTaskLine(line, label) {
+        const indent = line.match(/^(\s*)/)[1];
+        const pattern = new RegExp(`#${this.escapeRegExp(label)}(?=\\s|$)`, 'gi');
+        return indent + line.trim().replace(pattern, '').replace(/\s+/g, ' ').trim();
+    }
+
+    removeResourceFromTaskLine(line, shortname) {
+        const indent = line.match(/^(\s*)/)[1];
+        const pattern = new RegExp(`@${this.escapeRegExp(shortname)}(?=\\s|$)`, 'gi');
+        return indent + line.trim().replace(pattern, '').replace(/\s+/g, ' ').trim();
+    }
+
+    /**
+     * Apply `edit(model, node)` to a card's task and commit it. When `frontMatter`
+     * names a list (`labels` / `buckets`) and a value the plan does not list yet,
+     * the value is added to that list in the same commit.
+     */
+    editCardTask(task, edit, frontMatter = null) {
+        const editor = document.getElementById('planEditor');
+        if (!editor || typeof NoodlePlanModel === 'undefined') return false;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const node = this.resolveTaskNode(task, model);
+        if (!node || edit(model, node) === false) return false;
+        let text = model.serialize();
+        if (frontMatter && frontMatter.value) {
+            const known = frontMatter.key === 'labels' ? this.labelsFromFrontMatter : this.createdBuckets;
+            if (!known.some(value => value.toLowerCase() === frontMatter.value.toLowerCase())) {
+                const lines = text.split('\n');
+                this.addFrontMatterListValue(lines, frontMatter.key, frontMatter.value);
+                return this.commitMarkdown(lines.join('\n'));
+            }
+        }
+        return this.commitMarkdown(text, { model: model });
+    }
+
+    /** Labels are `#word` tokens: lower-case, anything else becomes `_`. */
+    normaliseLabel(name) {
+        return String(name || '').trim().toLowerCase().replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+    }
+
+    toggleCardLabel(task, label) {
+        const applied = task.labelsArray.some(value => value.toLowerCase() === label.toLowerCase());
+        return this.editCardTask(task, (model, node) => model.updateLine(node, line => applied
+            ? this.removeLabelFromTaskLine(line, label)
+            : this.addLabelToTaskLine(line, label)), applied ? null : { key: 'labels', value: label });
+    }
+
+    /** A card is in one bucket: picking its own bucket again takes it out. */
+    setCardBucket(task, bucket) {
+        const current = task.bucket ? task.bucket.trim() : '';
+        const clear = !bucket || bucket === current;
+        return this.editCardTask(task, (model, node) => model.updateLine(node, line => clear
+            ? this.removeBucketFromTaskLine(line)
+            : this.replaceBucketInTaskLine(line, bucket)), clear ? null : { key: 'buckets', value: bucket });
+    }
+
+    toggleCardResource(task, shortname) {
+        const applied = task.resourceShortnames.includes(shortname.toLowerCase());
+        return this.editCardTask(task, (model, node) => model.updateLine(node, line => applied
+            ? this.removeResourceFromTaskLine(line, shortname)
+            : this.addResourceToTaskLine(line, shortname)));
+    }
+
+    /** Delete a card's task and its subtasks, after the same confirmation the task form asks. */
+    deleteCardTask(task) {
+        const editor = document.getElementById('planEditor');
+        if (!editor || typeof NoodlePlanModel === 'undefined') return false;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const node = this.resolveTaskNode(task, model);
+        if (!node) return false;
+        let subtasks = 0;
+        const count = child => child.children.forEach(grandchild => { subtasks++; count(grandchild); });
+        count(node);
+        let message = `Are you sure you want to delete "${node.name || 'this task'}"?`;
+        if (subtasks) message += `\n\nThis will also delete ${subtasks} subtask(s) beneath it.`;
+        message += '\n\nThis cannot be undone.';
+        if (!confirm(message)) return false;
+        model.removeSubtree(node);
+        return this.commitMarkdown(model.serialize(), { model: model });
+    }
+
+    /** Add a task that depends on this one, straight after it, named inline. */
+    addDependentTask(task, column) {
+        const editor = document.getElementById('planEditor');
+        if (!editor || typeof NoodlePlanModel === 'undefined') return false;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const node = this.resolveTaskNode(task, model);
+        if (!node || node.children.length) return false;
+        const placeholder = this.nextPlaceholderName(model);
+        const created = model.insertTaskAfter(node, node.indent, placeholder);
+        if (!model.addDependency(created, node)) return false;
+        this.commitMarkdown(model.serialize(), { model: model, renderAll: false });
+        this.beginQuickAddRename(placeholder, column);
+        if (typeof renderText === 'function') {
+            Promise.resolve(renderText()).catch(error => {
+                console.error('Kanban update render failed:', error);
+            });
+        }
+        return true;
     }
 
     /**
