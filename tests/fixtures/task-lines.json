@@ -1,0 +1,717 @@
+{
+ "about": "Task lines shared by tests/test_task_line_contract.py (parser parity and the task form's unedited round trip). `cases` are curated, one grammar feature or awkward input each; an `xfail` entry names the check (engine, form, roundtrip) a line fails today and the issue tracking it, strictly: remove the entry when the fix lands. `generated` are seeded combinations of the features that round-trip cleanly today, as a regression guard; regenerate deliberately, never by hand.",
+ "cases": [
+  {
+   "line": "Build",
+   "note": "bare name"
+  },
+  {
+   "line": "Build 3d",
+   "note": "duration in days"
+  },
+  {
+   "line": "Build 2w",
+   "note": "duration in weeks",
+   "xfail": {
+    "roundtrip": "#1567"
+   }
+  },
+  {
+   "line": "Build 1m",
+   "note": "duration in months",
+   "xfail": {
+    "roundtrip": "#1567"
+   }
+  },
+  {
+   "line": "Build 2y",
+   "note": "duration in years",
+   "xfail": {
+    "roundtrip": "#1567"
+   }
+  },
+  {
+   "line": "Build 10d",
+   "note": "two-digit duration"
+  },
+  {
+   "line": "Build :p10d",
+   "note": "legacy duration",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1567"
+   }
+  },
+  {
+   "line": "Build 3days",
+   "note": "spelled-out unit (tokenizer accepts, metadata.py does not)",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1567"
+   }
+  },
+  {
+   "line": "Build 3d @alex",
+   "note": "one resource"
+  },
+  {
+   "line": "Build 3d @alex @bob",
+   "note": "two resources"
+  },
+  {
+   "line": "Build 3d @dev[30%]",
+   "note": "resource allocation share, not percent complete"
+  },
+  {
+   "line": "Build 3d @alex:P",
+   "note": "quality role P",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d @alex:R @bob",
+   "note": "quality role beside a plain resource",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d @a-b",
+   "note": "hyphen in a resource shortname",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d @kev.m",
+   "note": "dot in a resource shortname",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d \"First\"",
+   "note": "double-quoted comment"
+  },
+  {
+   "line": "Build 3d 'note'",
+   "note": "single-quoted comment",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d !\"bang\"",
+   "note": "bang comment",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d \"one\\ntwo\"",
+   "note": "escaped line break (#1562)"
+  },
+  {
+   "line": "Build 3d \"C:\\temp\"",
+   "note": "backslash left alone (#1562)"
+  },
+  {
+   "line": "Build 3d \"it's\"",
+   "note": "apostrophe inside a comment"
+  },
+  {
+   "line": "Build 3d #urgent",
+   "note": "one label"
+  },
+  {
+   "line": "Build 3d #DEV #ops",
+   "note": "two labels"
+  },
+  {
+   "line": "Build 3d #front-end",
+   "note": "hyphen in a label",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d #v1.2",
+   "note": "dot in a label",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d [depends Research]",
+   "note": "one dependency"
+  },
+  {
+   "line": "Build 3d [depends: Research]",
+   "note": "colon form, as the .mpp importer writes"
+  },
+  {
+   "line": "Build 3d [depends A, B]",
+   "note": "two dependencies"
+  },
+  {
+   "line": "Build 3d [depends Research:SS]",
+   "note": "typed dependency"
+  },
+  {
+   "line": "Build 3d [depends Research +2d]",
+   "note": "lagged dependency"
+  },
+  {
+   "line": "Build 3d [depends Research:SS +2d, B -1w]",
+   "note": "typed and lagged"
+  },
+  {
+   "line": "Build 3d [depends $core]",
+   "note": "dependency on a product id",
+   "xfail": {
+    "roundtrip": "#1567"
+   }
+  },
+  {
+   "line": "Build 3d 2026-03-02",
+   "note": "start date"
+  },
+  {
+   "line": "Build 3d 2026-03-02 2026-03-09",
+   "note": "start and finish dates"
+  },
+  {
+   "line": "Build 3d D2026-09-10",
+   "note": "deadline"
+  },
+  {
+   "line": "Build 3d 2026-03-02 D2026-09-10",
+   "note": "start and deadline"
+  },
+  {
+   "line": "Build ~8h",
+   "note": "effort total"
+  },
+  {
+   "line": "Build ~4h/8h",
+   "note": "effort completed/total"
+  },
+  {
+   "line": "Build ~1.5d/3d",
+   "note": "fractional effort in days (metadata.py reads 5d as the duration)",
+   "xfail": {
+    "form": "#1571",
+    "roundtrip": "#1571"
+   }
+  },
+  {
+   "line": "Build ~0h/8h",
+   "note": "nothing completed yet"
+  },
+  {
+   "line": "Build ~4h/1d",
+   "note": "mixed effort units",
+   "xfail": {
+    "roundtrip": "#1567"
+   }
+  },
+  {
+   "line": "Build 3d 0%",
+   "note": "zero percent"
+  },
+  {
+   "line": "Build 3d 50%",
+   "note": "percent complete"
+  },
+  {
+   "line": "Build 3d 100%",
+   "note": "done"
+  },
+  {
+   "line": "Build 3d 150%",
+   "note": "over 100 (clamped by metadata.py)"
+  },
+  {
+   "line": "Build 3d 1000%",
+   "note": "four digits (metadata.py reads 000%)",
+   "xfail": {
+    "form": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d p50",
+   "note": "legacy percent",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d !",
+   "note": "medium priority"
+  },
+  {
+   "line": "Build 3d !!",
+   "note": "important"
+  },
+  {
+   "line": "Build 3d !!!",
+   "note": "urgent"
+  },
+  {
+   "line": "Build 3d {Backlog}",
+   "note": "bucket"
+  },
+  {
+   "line": "Build 3d {In Progress}",
+   "note": "bucket with a space"
+  },
+  {
+   "line": "Build 3d [repeats daily]",
+   "note": "recurrence daily"
+  },
+  {
+   "line": "Build 3d [repeats weekly mon,wed]",
+   "note": "recurrence weekly with days"
+  },
+  {
+   "line": "Build 3d [repeats monthly 3rd thu]",
+   "note": "recurrence monthly"
+  },
+  {
+   "line": "Build 3d [repeats yearly]",
+   "note": "recurrence yearly"
+  },
+  {
+   "line": "Build $core 3d",
+   "note": "internal product"
+  },
+  {
+   "line": "Build /$grp 3d",
+   "note": "group product"
+  },
+  {
+   "line": "Build ^$ext 3d",
+   "note": "external product"
+  },
+  {
+   "line": "Build 3d [levelled @alex 2026-04-01]",
+   "note": "resource levelling flag",
+   "xfail": {
+    "form": "#1567",
+    "roundtrip": "#1567"
+   }
+  },
+  {
+   "line": "Build 3d [pin top-left]",
+   "note": "noodle view pin (engine only)",
+   "xfail": {
+    "form": "#1567"
+   }
+  },
+  {
+   "line": "Build 3d [relates Research]",
+   "note": "noodle view associative link (engine only)",
+   "xfail": {
+    "form": "#1567"
+   }
+  },
+  {
+   "line": "* Build 3d",
+   "note": "sequential"
+  },
+  {
+   "line": "*Build 3d",
+   "note": "sequential, no space"
+  },
+  {
+   "line": "* +2d Build 3d",
+   "note": "sequential with lag"
+  },
+  {
+   "line": "* -1d Build 3d",
+   "note": "sequential with lead"
+  },
+  {
+   "line": "    Build 3d",
+   "note": "indented (a subtask)"
+  },
+  {
+   "line": "Launch! 3d",
+   "note": "exclamation in a name is not a priority",
+   "xfail": {
+    "form": "#1566"
+   }
+  },
+  {
+   "line": "Go!!! 3d",
+   "note": "three exclamations in a name",
+   "xfail": {
+    "form": "#1566"
+   }
+  },
+  {
+   "line": "Phase 2 review 3d",
+   "note": "digit in a name"
+  },
+  {
+   "line": "Fix bug #42 3d",
+   "note": "hash in a name"
+  },
+  {
+   "line": "Email bob@example.com 3d",
+   "note": "at-sign in a name",
+   "xfail": {
+    "form": "#1566"
+   }
+  },
+  {
+   "line": "Pay £5 3d",
+   "note": "non-ASCII"
+  },
+  {
+   "line": "Draft 2nd 3d",
+   "note": "ordinal in a name"
+  },
+  {
+   "line": "Do it 100% 3d",
+   "note": "percent in a name"
+  },
+  {
+   "line": "Set D2026 target 3d",
+   "note": "D followed by digits in a name"
+  },
+  {
+   "line": "Meet 3pm 3d",
+   "note": "digit+letters in a name"
+  },
+  {
+   "line": "Task-A 3d",
+   "note": "hyphen in a name"
+  },
+  {
+   "line": "Ship v1.2 3d",
+   "note": "version in a name"
+  },
+  {
+   "line": "Q&A 3d",
+   "note": "ampersand"
+  },
+  {
+   "line": "A/B test 3d",
+   "note": "slash in a name"
+  },
+  {
+   "line": "Review: docs 3d",
+   "note": "colon in a name"
+  },
+  {
+   "line": "Rob's task 3d",
+   "note": "apostrophe in a name is not a comment"
+  },
+  {
+   "line": "Plan (v2) 3d",
+   "note": "parentheses"
+  },
+  {
+   "line": "Build 3d \"needs @alex review\"",
+   "note": "resource-shaped word in a comment",
+   "xfail": {
+    "form": "#1564"
+   }
+  },
+  {
+   "line": "Build 3d \"50% done\"",
+   "note": "percent in a comment",
+   "xfail": {
+    "form": "#1564"
+   }
+  },
+  {
+   "line": "Build 3d \"due 2026-01-01\"",
+   "note": "date in a comment",
+   "xfail": {
+    "form": "#1564"
+   }
+  },
+  {
+   "line": "Build 3d 2026-03-02 \"due 2026-01-01\"",
+   "note": "date in a comment beside a real start date"
+  },
+  {
+   "line": "Build \"has #hash\" 3d",
+   "note": "label in a comment",
+   "xfail": {
+    "form": "#1564"
+   }
+  },
+  {
+   "line": "Build \"2d later\"",
+   "note": "duration in a comment",
+   "xfail": {
+    "form": "#1564",
+    "roundtrip": "#1564"
+   }
+  },
+  {
+   "line": "Build 3d \"see {Backlog}\"",
+   "note": "bucket in a comment"
+  },
+  {
+   "line": "Build 3d \"see [depends X]\"",
+   "note": "depends in a comment"
+  },
+  {
+   "line": "Build 3d \"~2h\"",
+   "note": "effort in a comment",
+   "xfail": {
+    "form": "#1564"
+   }
+  },
+  {
+   "line": "Build 3d \"costs $5k\"",
+   "note": "dollar in a comment (not a product id)"
+  },
+  {
+   "line": "Build 3d [depends Fix bug #42]",
+   "note": "label-shaped predecessor name",
+   "xfail": {
+    "form": "#1565"
+   }
+  },
+  {
+   "line": "Build 3d [depends @alex review]",
+   "note": "resource-shaped predecessor name",
+   "xfail": {
+    "form": "#1565"
+   }
+  },
+  {
+   "line": "Build 3d [depends Sprint 2026-01-05]",
+   "note": "date in a predecessor name",
+   "xfail": {
+    "form": "#1565"
+   }
+  },
+  {
+   "line": "Build 3d [depends Task 50%]",
+   "note": "percent in a predecessor name",
+   "xfail": {
+    "form": "#1565"
+   }
+  },
+  {
+   "line": "Build [depends Phase 2d]",
+   "note": "duration in a predecessor name",
+   "xfail": {
+    "form": "#1565",
+    "roundtrip": "#1565"
+   }
+  },
+  {
+   "line": "Build [depends A +2d] 10d",
+   "note": "a lag before the duration is read as the duration",
+   "xfail": {
+    "form": "#1565",
+    "roundtrip": "#1565"
+   }
+  },
+  {
+   "line": "Build 10d [depends A +2d]",
+   "note": "a lag after the duration"
+  },
+  {
+   "line": "Build [depends A -1w]",
+   "note": "a lead with no duration",
+   "xfail": {
+    "form": "#1565",
+    "roundtrip": "#1565"
+   }
+  },
+  {
+   "line": "Build 3d \"a\" \"b\"",
+   "note": "two comments: first wins"
+  },
+  {
+   "line": "Build 3d {Backlog} {Other}",
+   "note": "two buckets: first wins"
+  },
+  {
+   "line": "Build 3d 2d",
+   "note": "two durations: first wins",
+   "xfail": {
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d 50% 0%",
+   "note": "two percents",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d ! !!!",
+   "note": "two priorities",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build 3d “fancy quotes”",
+   "note": "curly quotes (tokenizer treats as a comment)",
+   "xfail": {
+    "form": "#1566",
+    "roundtrip": "#1566"
+   }
+  },
+  {
+   "line": "Build $core 3d ~4h/8h @alex @bob 50% 2026-03-02 D2026-09-10 !! {Backlog} \"note\" [depends Research:SS +2d, B] #tag #ops [repeats weekly mon,wed]",
+   "note": "every form field at once"
+  },
+  {
+   "line": "* +2d Design /$ui 2w ~4h/8h @kev.m @alex:R 2026-03-02 2026-03-09 D2026-09-10 !!! {In Progress} !\"bang\" [depends Fix bug #42, $core -1w] #front-end #v1.2 [repeats monthly 3rd thu] [levelled @alex 2026-04-01] [pin top] [relates Research]",
+   "note": "everything the fuzz found awkward, on one line",
+   "xfail": {
+    "form": "#1567",
+    "roundtrip": "#1567"
+   }
+  }
+ ],
+ "generated": {
+  "seed": 1563,
+  "lines": [
+   "* +2d A/B test #urgent 100% @dev[30%] \"First\" {In Progress} !! [repeats daily] [depends: X] D2026-09-10",
+   "* +2d A/B test 0% [depends Research] @alex @bob [repeats daily] D2026-09-10 ~4h/8h",
+   "* +2d A/B test 2026-03-02 2026-03-09 \"one\\ntwo\" D2026-09-10 ~2d/3d 0% /$grp [depends Research] !! 2d",
+   "* +2d A/B test [depends: X] 100% ~4h/8h [repeats weekly mon,wed] ! D2026-09-10 \"First\"",
+   "* +2d A/B test [repeats monthly 3rd thu] #urgent !!! ~8h $core @alex @bob 2026-03-02 \"First\" 100% 2d D2026-09-10",
+   "* +2d A/B test ~8h 100% !! 2026-03-02 \"First\" [repeats weekly mon,wed] {Backlog} #urgent",
+   "* +2d Build !!! [depends Research] ~2d/3d @alex #DEV #ops 100% {In Progress} 2026-03-02 \"one\\ntwo\" $core",
+   "* +2d Build \"one\\ntwo\" /$grp #DEV #ops [depends Research] 100% 2026-03-02 2026-03-09 !!",
+   "* +2d Build 10d !!! ~2d/3d {Backlog} 2026-03-02 @alex #DEV #ops [repeats weekly mon,wed] ^$ext 0%",
+   "* +2d Build 50% [repeats daily] $core !! @dev[30%] 10d #urgent ~4h/8h D2026-09-10 [depends: X]",
+   "* +2d Build {Backlog} !! 2d ^$ext @alex [repeats weekly mon,wed] 2026-03-02 2026-03-09 ~2d/3d \"First\" [depends Research:SS, B:FF] 100% #urgent",
+   "* +2d Draft 2nd @alex 100% {In Progress} 2d !! \"First\" $core ~8h",
+   "* +2d Phase 2 review \"one\\ntwo\" #urgent ~4h/8h 2d [repeats monthly 3rd thu] 2026-03-02 2026-03-09 ^$ext !",
+   "* +2d Phase 2 review #DEV #ops ~2d/3d 2d @alex @bob 50% {Backlog} D2026-09-10 /$grp",
+   "* +2d Phase 2 review @dev[30%] 2026-03-02 D2026-09-10 $core \"one\\ntwo\" [repeats monthly 3rd thu] #urgent {Backlog} ~2d/3d [depends Research] 2d ! 0%",
+   "* +2d Phase 2 review [depends Research] #urgent [repeats weekly mon,wed] {Backlog} \"First\" @alex 10d 100% !!!",
+   "* +2d Phase 2 review [depends Research] 100% !! @dev[30%] #urgent [repeats monthly 3rd thu] {Backlog} $core ~2d/3d 2026-03-02 2026-03-09",
+   "* +2d Phase 2 review ~4h/8h [depends Research] !! {In Progress} 2d \"First\" #DEV #ops $core 50%",
+   "* +2d Phase 2 review ~8h 10d {In Progress} @alex @bob 2026-03-02 2026-03-09 D2026-09-10 [repeats weekly mon,wed]",
+   "* +2d Plan (v2) !!! ~8h {In Progress} ^$ext #urgent 2d D2026-09-10",
+   "* +2d Plan (v2) \"First\" @alex @bob #DEV #ops [depends: X] 10d [repeats monthly 3rd thu] /$grp ~2d/3d 100% {In Progress} !!!",
+   "* +2d Plan (v2) #urgent @alex @bob [depends Research] /$grp 50% [repeats monthly 3rd thu] 2026-03-02 \"one\\ntwo\"",
+   "* +2d Plan (v2) /$grp #DEV #ops 0% 2d 2026-03-02 \"one\\ntwo\" D2026-09-10 {Backlog} ~2d/3d [repeats monthly 3rd thu] @alex @bob",
+   "* +2d Plan (v2) 2d ^$ext [depends Research] 2026-03-02 !! [repeats weekly mon,wed] {Backlog} @dev[30%] ~4h/8h",
+   "* +2d Plan (v2) 50% \"one\\ntwo\" !! [depends Research] ~8h #DEV #ops @alex 2d",
+   "* +2d Plan (v2) D2026-09-10 [depends: X] 0% 2026-03-02 2026-03-09 !! ^$ext {In Progress} [repeats weekly mon,wed]",
+   "* +2d Plan (v2) [depends Research] 50% 2026-03-02 2026-03-09 \"one\\ntwo\" ~2d/3d 10d ! #urgent /$grp {In Progress}",
+   "* +2d Plan (v2) ^$ext 10d [repeats monthly 3rd thu] #urgent !! {Backlog} 2026-03-02 [depends: X]",
+   "* +2d Plan (v2) ~4h/8h #urgent \"First\" @alex [repeats monthly 3rd thu] 100% D2026-09-10 {In Progress} [depends Research:SS, B:FF] 10d",
+   "* +2d Review: docs !!! 0% ~8h 10d /$grp \"one\\ntwo\" D2026-09-10 #urgent [depends: X]",
+   "* +2d Review: docs \"First\" #urgent {Backlog} ~8h !! 2026-03-02 2026-03-09 $core 2d",
+   "* +2d Review: docs #urgent !!! [repeats daily] 2d 0% \"First\" 2026-03-02 2026-03-09 /$grp ~4h/8h",
+   "* +2d Review: docs 2026-03-02 #urgent ~2d/3d [repeats monthly 3rd thu] 2d /$grp @dev[30%] ! 0% \"First\"",
+   "* +2d Review: docs [depends: X] @dev[30%] 100% [repeats monthly 3rd thu] ~2d/3d 10d /$grp {In Progress} D2026-09-10 2026-03-02 #urgent !!!",
+   "* +2d Review: docs {In Progress} [depends Research] [repeats weekly mon,wed] !! 2026-03-02 $core",
+   "* +2d Review: docs {In Progress} [repeats weekly mon,wed] @alex @bob [depends Research] 50% #urgent ~2d/3d ^$ext \"one\\ntwo\" !!",
+   "* +2d Ship v1.2 $core 2026-03-02 2026-03-09 #urgent 2d \"one\\ntwo\" {In Progress} D2026-09-10 ~8h 50% ! [depends Research:SS, B:FF] [repeats monthly 3rd thu]",
+   "* +2d Ship v1.2 D2026-09-10 {In Progress} [depends: X] ~4h/8h 2026-03-02 ! /$grp 0% @alex @bob 10d",
+   "* +2d Ship v1.2 D2026-09-10 ~4h/8h {In Progress} @alex @bob [repeats daily] 2026-03-02 2026-03-09 [depends Research] !",
+   "* +2d Ship v1.2 [repeats daily] 2026-03-02 2026-03-09 $core 0% ~8h @alex \"First\"",
+   "* +2d Ship v1.2 {In Progress} /$grp ~2d/3d \"one\\ntwo\" 2026-03-02 2026-03-09 [depends: X] #DEV #ops 2d [repeats daily]",
+   "* A/B test ! ~4h/8h [depends Research] 50% #DEV #ops \"one\\ntwo\" 10d D2026-09-10 {Backlog} @dev[30%] [repeats monthly 3rd thu]",
+   "* A/B test !! #urgent [depends Research:SS, B:FF] D2026-09-10 10d [repeats monthly 3rd thu] $core @alex",
+   "* A/B test 0% ! $core 2026-03-02 2026-03-09 [depends: X] @dev[30%] \"one\\ntwo\" #urgent ~8h [repeats daily]",
+   "* A/B test 10d D2026-09-10 @alex 50% [depends Research] #DEV #ops [repeats weekly mon,wed]",
+   "* A/B test 2026-03-02 2026-03-09 ~8h [depends: X] !! D2026-09-10 #urgent [repeats weekly mon,wed] 100%",
+   "* A/B test [repeats daily] 10d #DEV #ops ^$ext ~4h/8h [depends Research] @dev[30%]",
+   "* Build 0% [repeats monthly 3rd thu] #urgent ! 2026-03-02 \"First\" ~8h 2d /$grp",
+   "* Build 2026-03-02 2026-03-09 #DEV #ops 50% @dev[30%] /$grp [depends Research] ~4h/8h D2026-09-10",
+   "* Build 2d ^$ext [depends Research:SS, B:FF] \"one\\ntwo\" 50% ~8h @alex @bob D2026-09-10 #DEV #ops",
+   "* Build D2026-09-10 2d !!! 100% @alex [depends: X] ~2d/3d",
+   "* Build [depends Research] [repeats weekly mon,wed] 2026-03-02 50% 2d !! ~2d/3d #DEV #ops D2026-09-10 {In Progress} ^$ext \"First\"",
+   "* Build [depends: X] $core @alex @bob #urgent 10d D2026-09-10 {In Progress} 0%",
+   "* Build {Backlog} !! [depends: X] ~8h #urgent [repeats weekly mon,wed]",
+   "* Build {Backlog} 2d @alex [depends Research:SS, B:FF] !! [repeats weekly mon,wed] ~8h",
+   "* Draft 2nd !!! /$grp [repeats daily] {Backlog} @dev[30%] 100% D2026-09-10 10d \"one\\ntwo\"",
+   "* Draft 2nd #DEV #ops {In Progress} D2026-09-10 @alex @bob 2d 2026-03-02 $core !! [repeats weekly mon,wed] 0%",
+   "* Draft 2nd /$grp ~4h/8h \"one\\ntwo\" [repeats weekly mon,wed] 10d [depends Research:SS, B:FF] {In Progress} #DEV #ops",
+   "* Draft 2nd 10d {Backlog} [depends Research] \"one\\ntwo\" ~2d/3d 50% @dev[30%] 2026-03-02 2026-03-09 [repeats weekly mon,wed]",
+   "* Phase 2 review ! /$grp ~2d/3d \"one\\ntwo\" D2026-09-10 2026-03-02 2026-03-09 10d @alex @bob #DEV #ops 100% {In Progress}",
+   "* Phase 2 review 10d ~8h 2026-03-02 #DEV #ops [repeats daily] [depends Research:SS, B:FF] @alex D2026-09-10",
+   "* Phase 2 review 2d D2026-09-10 $core [depends: X] {In Progress} 2026-03-02 2026-03-09 \"one\\ntwo\" [repeats daily] ~8h",
+   "* Phase 2 review 2d [repeats monthly 3rd thu] $core \"First\" !! 2026-03-02 100% [depends: X] {Backlog} ~4h/8h",
+   "* Phase 2 review [repeats weekly mon,wed] \"First\" D2026-09-10 /$grp #urgent {Backlog} 10d 50% 2026-03-02 2026-03-09 [depends Research:SS, B:FF]",
+   "* Phase 2 review ^$ext [repeats daily] D2026-09-10 {Backlog} @alex ~4h/8h [depends Research:SS, B:FF] 10d #urgent 2026-03-02 100%",
+   "* Plan (v2) #urgent {Backlog} 10d !! $core 2026-03-02 \"one\\ntwo\" 50% [depends Research]",
+   "* Plan (v2) 10d [depends Research:SS, B:FF] ~4h/8h !!! @dev[30%] /$grp {In Progress} 2026-03-02 2026-03-09 0%",
+   "* Plan (v2) D2026-09-10 {In Progress} !! #DEV #ops [depends: X] 2d ~2d/3d @alex ^$ext 0% 2026-03-02 \"First\"",
+   "* Plan (v2) [depends Research] !!! #DEV #ops ~4h/8h [repeats weekly mon,wed] D2026-09-10 50% {Backlog}",
+   "* Review: docs #DEV #ops D2026-09-10 [repeats daily] ~8h 2026-03-02 100% !! @alex @bob {In Progress} \"one\\ntwo\"",
+   "* Review: docs #urgent ~4h/8h /$grp 2d [depends Research] 100% \"one\\ntwo\" ! 2026-03-02 2026-03-09 {In Progress} [repeats weekly mon,wed] D2026-09-10 @dev[30%]",
+   "* Review: docs 2d [repeats weekly mon,wed] #DEV #ops D2026-09-10 /$grp \"one\\ntwo\" {In Progress} ~8h @dev[30%]",
+   "* Review: docs @dev[30%] {Backlog} [depends Research:SS, B:FF] [repeats weekly mon,wed] 2026-03-02 2026-03-09 ^$ext ~2d/3d \"one\\ntwo\" #urgent D2026-09-10",
+   "* Review: docs D2026-09-10 #DEV #ops ~8h [depends: X] {Backlog} @alex @bob \"one\\ntwo\" !! 100% [repeats weekly mon,wed]",
+   "* Review: docs {In Progress} !! \"one\\ntwo\" 10d [depends Research:SS, B:FF] 2026-03-02 2026-03-09",
+   "* Ship v1.2 \"First\" 10d @dev[30%] D2026-09-10 {In Progress} !!! 2026-03-02 ~2d/3d $core #urgent",
+   "* Ship v1.2 \"First\" ~4h/8h {Backlog} 100% 2026-03-02 [repeats monthly 3rd thu] [depends Research] /$grp !!",
+   "* Ship v1.2 #DEV #ops ^$ext !! \"one\\ntwo\" 2d [depends: X] @dev[30%] 0% [repeats weekly mon,wed] ~4h/8h",
+   "* Ship v1.2 /$grp !!! \"First\" D2026-09-10 2026-03-02 2026-03-09 @alex @bob [depends Research] [repeats monthly 3rd thu] {Backlog} #DEV #ops",
+   "* Ship v1.2 2026-03-02 #urgent 2d {Backlog} [repeats weekly mon,wed]",
+   "* Ship v1.2 @alex 10d 2026-03-02 2026-03-09 [depends Research:SS, B:FF] /$grp [repeats monthly 3rd thu] \"First\"",
+   "* Ship v1.2 [depends Research:SS, B:FF] ~2d/3d $core 100% \"one\\ntwo\" D2026-09-10 [repeats monthly 3rd thu] #urgent 2026-03-02",
+   "* Ship v1.2 {In Progress} [repeats weekly mon,wed] /$grp @alex @bob 0% !! 2026-03-02",
+   "A/B test !! @alex @bob ^$ext #urgent [repeats weekly mon,wed] ~2d/3d \"one\\ntwo\"",
+   "A/B test [repeats weekly mon,wed] {In Progress} 10d \"one\\ntwo\" 0% !!! D2026-09-10 @alex 2026-03-02 2026-03-09",
+   "A/B test ~4h/8h \"one\\ntwo\" [depends Research] 2026-03-02 #urgent D2026-09-10 [repeats daily] /$grp {Backlog}",
+   "A/B test ~4h/8h ^$ext #urgent [depends: X] !!! @alex @bob",
+   "Build 0% 10d [depends Research] /$grp ~2d/3d 2026-03-02 !! @alex #urgent [repeats weekly mon,wed] D2026-09-10",
+   "Build 10d 0% $core #urgent ~2d/3d @alex D2026-09-10 \"one\\ntwo\" !!!",
+   "Build 50% [repeats monthly 3rd thu] {Backlog} [depends: X] D2026-09-10 ^$ext \"First\"",
+   "Build {Backlog} ! ^$ext [depends: X] #urgent \"First\" 100% 2026-03-02 2026-03-09",
+   "Build ~2d/3d 10d 100% 2026-03-02 2026-03-09 [repeats weekly mon,wed] D2026-09-10 #DEV #ops \"First\" [depends Research:SS, B:FF] !! @alex",
+   "Draft 2nd #DEV #ops @alex @bob 100% [depends: X] 2026-03-02",
+   "Draft 2nd D2026-09-10 [repeats weekly mon,wed] {Backlog} \"First\" [depends: X] 10d ! #urgent /$grp 2026-03-02 2026-03-09",
+   "Draft 2nd ^$ext @alex @bob ~8h 2d [repeats weekly mon,wed] 50% [depends Research] #urgent 2026-03-02",
+   "Phase 2 review #DEV #ops \"First\" ! 100% [repeats weekly mon,wed] @dev[30%] {In Progress} 2026-03-02 /$grp",
+   "Phase 2 review $core 2026-03-02 \"one\\ntwo\" [repeats daily] 10d [depends: X] ~4h/8h @dev[30%] 50%",
+   "Phase 2 review 2026-03-02 2026-03-09 50% #urgent ~2d/3d /$grp {Backlog}",
+   "Phase 2 review [repeats daily] 2026-03-02 \"First\" ~8h 50% ! {In Progress} [depends Research:SS, B:FF]",
+   "Phase 2 review {Backlog} 0% #urgent 10d !!! ~8h [repeats monthly 3rd thu] 2026-03-02 \"one\\ntwo\" $core @alex",
+   "Phase 2 review ~4h/8h ! 2026-03-02 \"one\\ntwo\" {In Progress} [repeats daily] $core 50%",
+   "Plan (v2) !! [repeats monthly 3rd thu] \"one\\ntwo\" 100% /$grp 2026-03-02 2d @alex @bob #DEV #ops",
+   "Plan (v2) 10d ! [repeats daily] 100% @alex $core",
+   "Plan (v2) 2026-03-02 !! @alex D2026-09-10 [repeats weekly mon,wed] 0% 2d ~8h",
+   "Plan (v2) [depends Research] ~4h/8h [repeats daily] #DEV #ops 0% 2026-03-02 10d @dev[30%] {Backlog}",
+   "Plan (v2) ~8h ! 0% [depends: X] [repeats daily] 2d \"one\\ntwo\" {Backlog}",
+   "Review: docs /$grp [depends: X] {Backlog} \"First\" !!! #urgent ~4h/8h 2026-03-02 @alex 0%",
+   "Review: docs /$grp ~8h D2026-09-10 !!! [repeats monthly 3rd thu] [depends: X] 100% 2026-03-02 2026-03-09",
+   "Review: docs 100% #urgent ! $core {Backlog} D2026-09-10 ~4h/8h [repeats daily]",
+   "Review: docs 10d 2026-03-02 #DEV #ops D2026-09-10 ~4h/8h !! \"First\" [repeats weekly mon,wed] 50% {In Progress} [depends Research:SS, B:FF] ^$ext",
+   "Review: docs 2026-03-02 2026-03-09 /$grp 0% @alex @bob !!! ~4h/8h [repeats monthly 3rd thu] [depends Research:SS, B:FF] D2026-09-10 \"First\" #urgent",
+   "Review: docs 2026-03-02 2026-03-09 {Backlog} 100% @alex !!! [depends Research:SS, B:FF] ~2d/3d [repeats daily]",
+   "Review: docs @alex @bob [depends: X] {Backlog} 2d $core !! \"First\" 2026-03-02 #urgent ~8h [repeats daily]",
+   "Review: docs @alex @bob ~2d/3d 2026-03-02 2026-03-09 {Backlog} \"First\" 50% !! ^$ext D2026-09-10 [repeats weekly mon,wed]",
+   "Review: docs D2026-09-10 $core @alex {In Progress} 0% [depends Research] !! \"one\\ntwo\" 2026-03-02 2026-03-09 [repeats weekly mon,wed]",
+   "Review: docs D2026-09-10 [depends: X] 2026-03-02 2026-03-09 100% @alex #urgent /$grp ! \"First\" {In Progress} 10d",
+   "Review: docs ~8h {In Progress} ^$ext [repeats daily] \"First\" @alex",
+   "Ship v1.2 /$grp ! 50% [repeats daily] [depends: X] 2026-03-02 ~2d/3d \"First\" @alex #DEV #ops",
+   "Ship v1.2 @alex @bob \"First\" ~2d/3d 2026-03-02 2026-03-09 [depends: X] ^$ext !! {Backlog}",
+   "Ship v1.2 [repeats daily] #urgent 2d [depends Research] 2026-03-02 2026-03-09 {In Progress} ~4h/8h ^$ext !! \"one\\ntwo\" 50%"
+  ]
+ }
+}
