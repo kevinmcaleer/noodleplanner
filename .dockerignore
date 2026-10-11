@@ -69,3 +69,6 @@ plan.md
 requirements-webapp.txt
 noodleplanner-icons-integration.md
 noodleplanner-icons.html
+
+# Server-side database (bind-mounted at runtime, never baked into the image)
+data/

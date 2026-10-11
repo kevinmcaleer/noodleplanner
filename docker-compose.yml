@@ -12,11 +12,17 @@ services:
       - MAX_FILE_SIZE=1048576
       - RELOAD=true
       - ENABLE_ACTIVITY_LOGGING=false
+      # Accounts and server-side plans live in this SQLite file. /data is a
+      # bind mount from ./data on the host, so it survives restarts and rebuilds.
+      - NOODLE_DB_PATH=/data/noodleplanner.db
     command: ["uv", "run", "uvicorn", "noodle_web.app:app", "--host", "0.0.0.0", "--port", "8007", "--reload", "--reload-dir", "/app/packages"]
     volumes:
       # Mount packages for development (optional - comment out for production)
       - ./packages:/app/packages
       - ./templates:/app/templates
+      # The database. The host directory must be writable by uid 1000 (the
+      # container's appuser): `mkdir -p data && sudo chown 1000:1000 data`.
+      - ./data:/data
     dns:
       - 8.8.8.8
       - 1.1.1.1

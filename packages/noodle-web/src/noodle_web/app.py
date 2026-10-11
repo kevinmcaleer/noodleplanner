@@ -158,6 +158,11 @@ def _static_version():
 
 STATIC_VERSION = _static_version()
 
+# Accounts + server-side plan storage (SQLite). The database file is created
+# lazily on first use, at NOODLE_DB_PATH.
+from .accounts_routes import build_router as _build_accounts_router  # noqa: E402
+app.include_router(_build_accounts_router(templates, STATIC_VERSION))
+
 
 def _static_import_map(version):
     """JSON import map sending every /static/ module to its ?v=<hash> URL.
