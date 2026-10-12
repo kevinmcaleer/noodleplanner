@@ -272,6 +272,19 @@ def test_a_dependency_name_opens_the_predecessor(loaded):
     loaded.wait_for_function("() => document.getElementById('taskName').value === 'Research'")
 
 
+def test_a_product_dependency_shows_its_title_behind_the_product_icon(page, app_server):
+    open_app(page, app_server)
+    load_plan(page, "Spec $spec 2d\nBuild 3d [depends $spec]\n")
+    _open_task(page, "Build")
+    row = page.locator("#dependenciesList np-task-row")
+    # Written back as $spec, shown as the product's title with its icon.
+    assert row.get_attribute("name") == "$spec"
+    assert row.locator("button.name").inner_text() == "Spec"
+    assert row.locator(".icon").inner_text() == "\U0001F4E6"
+    row.locator("button.name").click()
+    page.wait_for_function("() => document.getElementById('taskName').value === 'Spec'")
+
+
 # ── Product activities ──────────────────────────────────────────────────
 
 
