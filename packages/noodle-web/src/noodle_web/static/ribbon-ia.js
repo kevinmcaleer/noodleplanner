@@ -332,7 +332,7 @@ export const CONTEXTUAL_TABS = [
         trigger: 'Kanban board open',
         groups: [
             { name: 'Cards', lg: [['add', 'Add Card']], cols: [[['doc', 'Edit'], ['delete', 'Delete']], [['people', 'Assign'], ['pin', 'Label']]] },
-            { name: 'Columns', cols: [[['add', 'Add Column'], ['doc', 'Rename']], [['add', 'Add Bucket'], ['target', 'WIP Limit']], [['sort', 'Group by', 'caret']]] },
+            { name: 'Columns', cols: [[['add', 'Add Column'], ['doc', 'Rename']], [['add', 'Add Bucket'], ['target', 'WIP Limit']], [['sort', 'Group by', 'caret'], ['filter', 'Hide Empty']]] },
             { name: 'View', cols: [[['board', 'Phase'], ['resources', 'Resource']], [['chart', 'Progress'], ['pin', 'Label']], [['task-list', 'Bucket']]] },
         ],
     },
