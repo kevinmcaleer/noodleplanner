@@ -11,7 +11,7 @@ Click **Tracking** in the project sub-navigation, then select **RAID Log** from 
 Add an Item
 -----------
 
-1. Click **Add Item** (or the **+** button)
+1. Choose **New Risk**, **New Issue**, **New Action**, **New Decision** or **New Dependency** on the RAID Log ribbon tab (or use the **+** button)
 2. Fill in the form:
 
    - **Type** — Risk, Action, Issue, Decision, or Dependency

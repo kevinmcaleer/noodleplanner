@@ -430,10 +430,11 @@ function scopedAction(scopeId, label) {
 
         'raid:Import': () => openFormatMenu(RAID_IMPORT_FORMATS, 'Import'),
         'raid:Export': () => openFormatMenu(RAID_EXPORT_FORMATS, 'Export'),
-        'raid:New Risk': () => addRaidItem(),
-        'raid:New Issue': () => addRaidItem(),
-        'raid:Assumption': () => addRaidItem(),
-        'raid:Dependency': () => addRaidItem(),
+        'raid:New Risk': () => openRaidFormWithType('risk'),
+        'raid:New Issue': () => openRaidFormWithType('issue'),
+        'raid:New Action': () => openRaidFormWithType('action'),
+        'raid:New Decision': () => openRaidFormWithType('decision'),
+        'raid:New Dependency': () => openRaidFormWithType('dependency'),
 
         // #1113: the Track ribbon's RAID group buttons used to all fall back
         // to the generic "Risk" default (or, for Assumption/Dependency, do

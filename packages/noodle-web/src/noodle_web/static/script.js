@@ -936,6 +936,8 @@ NavigationController.register('actions', {
     activate() {
         deactivateKanban();
         activateTabContent('actions');
+        // Actions live in the RAID log; refresh in case it changed while hidden.
+        renderActionsTable();
         updateRaidExportVisibility('actions');
         closeAllNavMenus();
         setActiveNavTab('planTab');
@@ -8368,6 +8370,9 @@ function renderRaidTable() {
         console.warn('RAID table elements not found in DOM');
         return;
     }
+    // The Actions tracker is a view of the RAID log's action items, so any
+    // change to the log (edit, import, sync, markdown) refreshes it too.
+    renderActionsTable();
     const filterTypeEl = document.getElementById('raidFilterType');
     const filterStatusEl = document.getElementById('raidFilterStatus');
     const filterType = filterTypeEl ? filterTypeEl.value : 'all';
@@ -8427,9 +8432,11 @@ function renderRaidTable() {
             <td>${escapeHtml(item.priority || '')}</td>
             <td>${escapeHtml(item.target_date || '')}</td>
             <td>
+              <span class="row-actions">
                 <np-button icon-only variant="neutral" size="small" title="Edit" label="Edit" onclick="openRaidForm(${item.id})"><span slot="icon">✏️</span></np-button>
                 <np-button icon-only variant="neutral" size="small" title="Open source row in plan editor" label="Open source row in plan editor" onclick="SectionFolding.jumpToBackMatterSection('---raid log---', ${item.id}, 'tasks')"><i class="bi bi-code-slash" slot="icon"></i></np-button>
-                <np-button icon-only variant="danger" size="small" title="Delete" label="Delete" onclick="deleteRaidItem(${item.id})"><span slot="icon">🗑️</span></np-button>
+                <np-button icon-only variant="neutral" size="small" title="Delete" label="Delete" onclick="deleteRaidItem(${item.id})"><i class="bi bi-trash" slot="icon"></i></np-button>
+              </span>
             </td>
         `;
 
@@ -17035,10 +17042,10 @@ function renderActionsTable() {
                 '<td><span class="actions-priority-badge ' + priorityClass + '">' + (item.priority || 'medium') + '</span></td>' +
                 '<td>' + targetDate + '</td>' +
                 '<td><span class="actions-status-badge ' + statusClass + '">' + (item.status || 'open') + '</span></td>' +
-                '<td>' +
-                    '<np-button icon-only variant="primary" size="medium" title="Edit" label="Edit" onclick="openActionForm(' + item.id + ')"><span slot="icon">✏️</span></np-button>' +
-                    '<np-button icon-only variant="danger" size="medium" title="Delete" label="Delete" onclick="deleteAction(' + item.id + ')"><span slot="icon">🗑️</span></np-button>' +
-                '</td>';
+                '<td><span class="row-actions">' +
+                    '<np-button icon-only variant="neutral" size="small" title="Edit" label="Edit" onclick="openActionForm(' + item.id + ')"><span slot="icon">✏️</span></np-button>' +
+                    '<np-button icon-only variant="neutral" size="small" title="Delete" label="Delete" onclick="deleteAction(' + item.id + ')"><i class="bi bi-trash" slot="icon"></i></np-button>' +
+                '</span></td>';
             // On a phone the row is a card (#1387): tapping it opens the
             // action, as a RAID card does. A wide table keeps its Edit button.
             row.addEventListener('click', (e) => {

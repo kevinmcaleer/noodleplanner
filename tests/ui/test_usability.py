@@ -352,7 +352,13 @@ class TestSubNavigation:
 
     def test_actions_tab_has_sub_views(self, page, app_server):
         """The actions view should render its default table view."""
-        self._go_to_actions_tab(page, app_server)
+        open_project_view(page, app_server)
+        # An empty log shows the empty state instead of the table.
+        page.evaluate(
+            "() => { raidItems = [{id: 1, type: 'action', title: 'Book', status: 'open'}]; renderRaidTable(); }"
+        )
+        page.evaluate("() => switchToView('actions')")
+        page.wait_for_selector("#actionsTasksView.active")
         assert "active" in (page.locator("#actionsTasksView").get_attribute("class") or "")
         assert page.locator("#actionsTable").is_visible()
 
