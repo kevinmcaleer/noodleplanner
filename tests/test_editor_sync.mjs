@@ -252,3 +252,9 @@ test('front matter, comments and blank lines do not shift a rendered task off it
     const changed = runSync(text, 'percent', 2);
     assert.deepEqual(changed, { 8: 'Design 2d 50%' });
 });
+
+test('a multi-line comment edit stays on the task\'s own line (#1562)', () => {
+    const { sandbox, editor } = load('Build 3d\n  Child 1d\n');
+    sandbox.syncGanttEditToEditor({ _uid: 0 }, 0, 'comment', 'one\n* two \\ three');
+    assert.equal(editor.value, 'Build 3d "one\\n* two \\\\ three"\n  Child 1d\n');
+});

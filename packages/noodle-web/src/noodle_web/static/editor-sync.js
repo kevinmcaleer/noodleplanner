@@ -105,7 +105,7 @@ function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null)
                     .map(person => '@' + person.replace(/^@/, ''));
                 return updateLineField(line, 'resource', people.join(' '), { all: true, skip: isNotAResource });
             }
-            if (field === 'comment') return updateLineField(line, 'comment', value && `"${value}"`, { all: true, append: true });
+            if (field === 'comment') return updateLineField(line, 'comment', value && `"${TaskLineTokenizer.encodeComment(value)}"`, { all: true, append: true });
             if (field === 'bucket') return updateLineField(line, 'bucket', value && `{${value}}`, { append: true });
             return line;
         });

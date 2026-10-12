@@ -61,6 +61,10 @@ const TaskLineTokenizer = (() => {
         return text.replace(/\\([\\n])/g, (_, c) => (c === 'n' ? '\n' : '\\'));
     }
 
+    function encodeComment(text) {
+        return String(text).replace(/\r\n?/g, '\n').replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
+    }
+
     function metadata(line) {
         const tokens = tokenize(line);
         const values = {
@@ -123,5 +127,5 @@ const TaskLineTokenizer = (() => {
         return { tokens, values };
     }
 
-    return { tokenize, metadata };
+    return { tokenize, metadata, encodeComment };
 })();

@@ -3709,7 +3709,7 @@ function saveProductForm() {
 
     const newTitle = (document.getElementById('productTitle').value || '').trim();
     const newId = (document.getElementById('productIdentifier').value || '').trim();
-    const newPurpose = (document.getElementById('productPurpose').value || '').trim();
+    const newPurpose = TaskLineTokenizer.encodeComment((document.getElementById('productPurpose').value || '').trim());
     const newDeps = productGetDepsFromTags();
 
     // Preserve indent and * prefix from original line
