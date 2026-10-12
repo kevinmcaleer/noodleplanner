@@ -715,7 +715,9 @@ function portfolioPlanRowHtml(project, opts) {
     html += `<td><span class="status-badge ${statusBadge}">${escapeHtml(project.status)}</span></td>`;
     html += `<td>${formatDateForTable(project.startDate)}</td>`;
     html += `<td>${formatDateForTable(project.finishDate)}</td>`;
-    html += `<td class="highlight-cell">${highlightText}</td>`;
+    const highlightTitle = project.highlight
+        ? ` title="${escapeHtml(project.highlight.date + ' @' + project.highlight.author + ': ' + project.highlight.preview)}"` : '';
+    html += `<td class="highlight-cell"${highlightTitle}>${highlightText}</td>`;
     html += `<td class="project-actions-cell" style="text-align: center; white-space: nowrap;">`;
     html += `<button class="project-action-btn project-action-save" onclick="event.stopPropagation(); exportProject('${project.id}')" title="Download project">` +
         `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
