@@ -77,6 +77,8 @@
  *
  * ## Events (all bubble and cross the shadow boundary)
  *
+ *   (attributes label / icon: text shown in place of `name`, and a glyph before it)
+ *   (label / icon attributes: text shown in place of `name`, and a glyph before it)
  *   task-open        the name was activated          { name, taskId }
  *   task-toggle      the checkbox was ticked/unticked { name, checked }
  *   task-action      the trailing action was clicked { name, kind }
@@ -188,6 +190,8 @@ TEMPLATE.innerHTML = `
       white-space: nowrap;
     }
 
+    .icon { flex: none; line-height: var(--np-space-24); }
+    .icon[hidden] { display: none; }
     .name {
       flex: 1 1 auto;
       min-width: 0;
@@ -362,6 +366,7 @@ TEMPLATE.innerHTML = `
     <span class="spacer" aria-hidden="true"></span>
     <np-checkbox part="checkbox"></np-checkbox>
     <span class="id" part="id"></span>
+    <span class="icon" part="icon" aria-hidden="true"></span>
     <button type="button" class="name" part="name"></button>
     <span class="name" part="name"></span>
     <input class="name-input" part="name-input" type="text" autocomplete="off" />
@@ -389,6 +394,7 @@ export class NpTaskRow extends HTMLElement {
             'meta', 'rag', 'rag-label', 'resources', 'assignable', 'relation', 'lag',
             'editing', 'placeholder', 'selected', 'handle', 'action', 'depth',
             'collapsible', 'collapsed', 'readonly', 'driving', 'count', 'action-label',
+            'label', 'icon',
         ];
     }
 
@@ -407,6 +413,7 @@ export class NpTaskRow extends HTMLElement {
             spacer: $('.spacer'),
             checkbox: $('np-checkbox'),
             id: $('.id'),
+            icon: $('.icon'),
             nameButton: $('button.name'),
             nameText: $('span.name'),
             nameInput: $('.name-input'),
@@ -637,10 +644,17 @@ export class NpTaskRow extends HTMLElement {
         // Name: a button that opens the task, plain text in a picker, an
         // input while editing a list or outline row.
         const editsName = editing && type !== 'relation';
-        e.nameButton.textContent = name;
-        e.nameButton.title = name;
-        e.nameText.textContent = name;
-        e.nameText.title = name;
+        // `label` is what is shown when it differs from `name`, the identity
+        // the events report (a product is named "$id" in the plan but shown
+        // by its title); `icon` is a glyph before it.
+        const shown = this.getAttribute('label') || name;
+        e.nameButton.textContent = shown;
+        e.nameButton.title = shown;
+        e.nameText.textContent = shown;
+        e.nameText.title = shown;
+        const icon = this.getAttribute('icon') || '';
+        e.icon.textContent = icon;
+        e.icon.hidden = !icon;
         e.nameButton.hidden = editsName || type === 'picker';
         e.nameText.hidden = editsName || type !== 'picker';
         e.nameInput.hidden = !editsName;

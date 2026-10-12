@@ -4489,10 +4489,24 @@ function addDependencyRow(taskName = '', depType = 'FS', lagLead = '') {
     if (lagLead) row.setAttribute('lag', lagLead);
     row.setAttribute('action', 'remove');
 
+    // A product is depended on as "$id". The row keeps that as its name (it
+    // is what is written back to [depends]) but shows the product's title
+    // behind the product icon, with no "$".
+    const productRef = taskName.match(/^[/^]?\$(.+)$/);
+    let predecessor;
+    let openName = taskName;
+    if (productRef) {
+        const id = productRef[1].toLowerCase();
+        predecessor = (lastRenderedTasks || []).find(t => String(t.deliverable || '').toLowerCase() === id);
+        if (predecessor) openName = predecessor.name;
+        row.setAttribute('icon', '\uD83D\uDCE6');
+        row.setAttribute('label', predecessor ? predecessor.name : productRef[1]);
+    }
+
     // What the predecessor is doing, from the engine: its ID, status,
     // progress, and the date this link hangs off -- its finish for FS/FF,
     // its start for SS/SF.
-    const predecessor = (lastRenderedTasks || []).find(t => t.name === taskName);
+    if (!productRef) predecessor = (lastRenderedTasks || []).find(t => t.name === taskName);
     const editor = document.getElementById('planEditor');
     const describe = () => {
         if (!predecessor) return;
@@ -4509,7 +4523,7 @@ function addDependencyRow(taskName = '', depType = 'FS', lagLead = '') {
     };
     describe();
 
-    row.addEventListener('task-open', () => drillIntoTask(() => openTaskFormByName(taskName, { keepHistory: true })));
+    row.addEventListener('task-open', () => drillIntoTask(() => openTaskFormByName(openName, { keepHistory: true })));
     row.addEventListener('relation-change', () => { describe(); saveTask(); });
     row.addEventListener('task-action', (e) => {
         if (e.detail.kind !== 'remove') return;
