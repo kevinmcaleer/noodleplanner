@@ -936,6 +936,8 @@ NavigationController.register('actions', {
     activate() {
         deactivateKanban();
         activateTabContent('actions');
+        // Actions live in the RAID log; refresh in case it changed while hidden.
+        renderActionsTable();
         updateRaidExportVisibility('actions');
         closeAllNavMenus();
         setActiveNavTab('planTab');
@@ -8368,6 +8370,9 @@ function renderRaidTable() {
         console.warn('RAID table elements not found in DOM');
         return;
     }
+    // The Actions tracker is a view of the RAID log's action items, so any
+    // change to the log (edit, import, sync, markdown) refreshes it too.
+    renderActionsTable();
     const filterTypeEl = document.getElementById('raidFilterType');
     const filterStatusEl = document.getElementById('raidFilterStatus');
     const filterType = filterTypeEl ? filterTypeEl.value : 'all';
