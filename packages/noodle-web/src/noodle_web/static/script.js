@@ -6380,9 +6380,15 @@ function openResourceForm(existingShortname = null, taskReturn = null) {
     // Populate assigned tasks
     populateResourceAssignedTasks(existingShortname);
 
-    // Focus on first field
+    // Focus on first field -- once the pane has settled, and only if focus is
+    // where it was when the form opened. Taking it back from a field the user
+    // had already moved to sent their next keystrokes into the shortname (it
+    // showed up as "joJo Lee" with the full name empty).
+    const focusedAtOpen = document.activeElement;
     setTimeout(() => {
-        document.getElementById('resourceShortname').focus();
+        if (document.activeElement === focusedAtOpen) {
+            document.getElementById('resourceShortname').focus();
+        }
     }, 100);
 }
 

@@ -141,6 +141,23 @@ def test_a_resource_can_be_defined_from_the_dropdown_and_assigned(page, app_serv
     assert "@jo" in _plan_line(page, "Research")
 
 
+def test_the_resource_form_does_not_take_focus_back_from_a_field_being_typed_in(page, app_server):
+    # openResourceForm focuses the shortname 100ms after the pane opens. That
+    # used to fire even when the user (or a fast test) was already typing in
+    # the full name, so the rest of the text landed in the shortname and Done
+    # alerted "Shortname and Full Name are required" -- the CI flake in
+    # test_a_resource_can_be_defined_from_the_dropdown_and_assigned.
+    open_app(page, app_server)
+    load_plan(page, PLAN)
+    page.evaluate("() => { openResourceForm(null); document.getElementById('resourceFullName').focus(); }")
+    page.wait_for_timeout(250)
+    assert page.evaluate("() => document.activeElement.id") == "resourceFullName"
+
+    # left alone, the form still starts on the shortname
+    page.evaluate("() => { dismissResourceForm(); openResourceForm(null); }")
+    page.wait_for_function("() => document.activeElement.id === 'resourceShortname'")
+
+
 def test_clicking_a_resource_opens_its_form_and_closing_returns(page, app_server):
     open_app(page, app_server)
     load_plan(page, PLAN)
