@@ -77,6 +77,7 @@ class KanbanBoard {
         this.viewMode = viewMode; // 'phase', 'resource', 'progress', 'label', 'bucket'
         this.sortByPriority = false; // Sort tasks by priority within columns
         this.hideCompleted = false; // Hide tasks with 100% progress
+        this.hideEmptyColumns = false; // While a filter is applied, hide columns with no matching cards
         this.filterQuery = ''; // Board filter text (#1542), e.g. "label:must -status:Complete"
         this.filterParsed = { terms: [], errors: [] };
         this.savedViews = []; // Saved board views from the plan's Views: front matter (#1551)
@@ -117,6 +118,7 @@ class KanbanBoard {
         this.viewMode = this.defaultViewMode;
         this.sortByPriority = false;
         this.hideCompleted = false;
+        this.hideEmptyColumns = false;
         this.setFilterQuery('');
         try {
             const saved = JSON.parse(localStorage.getItem(key) || '{}');
@@ -124,6 +126,7 @@ class KanbanBoard {
             if (modes.includes(saved.viewMode)) this.viewMode = saved.viewMode;
             this.sortByPriority = saved.sortByPriority === true;
             this.hideCompleted = saved.hideCompleted === true;
+            this.hideEmptyColumns = saved.hideEmptyColumns === true;
             if (typeof saved.filterQuery === 'string') this.setFilterQuery(saved.filterQuery);
             this.activeViewName = typeof saved.activeViewName === 'string' ? saved.activeViewName : null;
         } catch (error) {
@@ -140,6 +143,7 @@ class KanbanBoard {
                 viewMode: this.viewMode,
                 sortByPriority: this.sortByPriority,
                 hideCompleted: this.hideCompleted,
+                hideEmptyColumns: this.hideEmptyColumns,
                 filterQuery: this.filterQuery,
                 activeViewName: this.activeViewName
             }));
@@ -1342,8 +1346,10 @@ class KanbanBoard {
         // Filter tasks by hierarchy level first
         const filteredTasks = this.filterTasksByHierarchyLevel();
 
-        // Temporarily replace this.tasks with filtered tasks for grouping
-        this.tasks = filteredTasks;
+        // Temporarily replace this.tasks with filtered tasks for grouping.
+        // Buckets cut across the outline, so the bucket view groups every task
+        // at any depth, not just the top two levels the phase columns show.
+        this.tasks = this.viewMode === 'bucket' && !this.currentParentTask ? allTasks : filteredTasks;
 
         switch (this.viewMode) {
             case 'phase':
@@ -1864,6 +1870,9 @@ class KanbanBoard {
         }
         this.columns.forEach(column => {
             if (this.hideCompleted && this.isColumnEmptyAfterFilter(column)) {
+                return;
+            }
+            if (this.hideEmptyColumns && this.hasFilter() && !column.tasks.some(t => this.isTaskVisible(t))) {
                 return;
             }
             const columnEl = this.renderColumn(column);
@@ -4283,6 +4292,21 @@ function toggleKanbanHideCompleted(enabled) {
     kanbanBoard.parse();
     kanbanBoard.render();
     if (typeof syncToolbarToSettings === 'function') syncToolbarToSettings('board_hide_completed', enabled);
+}
+
+/**
+ * Toggle hiding columns with no matching cards while a filter is applied
+ */
+function toggleKanbanHideEmptyColumns(enabled) {
+    if (!kanbanBoard) {
+        initializeKanban();
+        kanbanBoard.parse();
+    }
+
+    kanbanBoard.hideEmptyColumns = typeof enabled === 'boolean' ? enabled : !kanbanBoard.hideEmptyColumns;
+    kanbanBoard.savePreferences();
+    kanbanBoard.render();
+    if (typeof refreshRibbon === 'function') refreshRibbon();
 }
 
 /**

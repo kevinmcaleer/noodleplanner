@@ -135,6 +135,7 @@ function getLiveState() {
         // Who has joined it, for the title bar's people chips.
         collabParticipants: (typeof collabSessionParticipants === 'function') ? collabSessionParticipants() : [],
         kanbanViewMode: (typeof kanbanBoard !== 'undefined' && kanbanBoard) ? kanbanBoard.viewMode : null,
+        kanbanHideEmptyColumns: (typeof kanbanBoard !== 'undefined' && kanbanBoard) ? kanbanBoard.hideEmptyColumns : false,
         ganttShowCriticalPath: !!document.getElementById('ganttShowCriticalPath')?.checked,
         ganttShowBaseline: !!document.getElementById('ganttShowBaseline')?.checked,
         ganttShowDependencies: !!document.getElementById('ganttShowDependencies')?.checked,
@@ -344,6 +345,7 @@ const LABEL_HELP = {
     'Show Dependencies': 'Toggle dependency syntax highlighting in the markdown editor (opens it if hidden)',
     'Highlight Preset': 'Choose a markdown editor syntax-highlighting preset (opens the editor if hidden)',
     Editor: 'Show or hide the markdown editor panel',
+    'Hide Empty': 'While a filter or saved view is applied, hide board columns that have no matching cards',
     // #1341: the whiteboard's Group. Only on the Whiteboard tab, so the
     // bare label cannot collide with another tab's button.
     Group: 'Draw a named boundary round the selected notes (select two or more first)',
@@ -510,6 +512,7 @@ function scopedAction(scopeId, label) {
         'kanban:Resource': () => switchKanbanView('resource'),
         'kanban:Progress': () => switchKanbanView('progress'),
         'kanban:Label': () => switchKanbanView('label'),
+        'kanban:Bucket': () => switchKanbanView('bucket'),
         // Same prompt-and-write-to-front-matter flow as the board's own
         // "+ Add Bucket" tile (kanban.js addNewBucket()). Buckets only show
         // as columns when the board is grouped by bucket, so switch to it
@@ -519,6 +522,7 @@ function scopedAction(scopeId, label) {
             kanbanBoard.addNewBucket();
         },
         'kanban:Group by': () => openFormatMenu(KANBAN_GROUP_MODES, 'Group by'),
+        'kanban:Hide Empty': () => toggleKanbanHideEmptyColumns(),
         'whiteboard:Mind Map': switchView('mindmap'),
         'whiteboard:Whiteboard': switchView('whiteboard'),
         // #1109: previously unwired -- opens the selected note's colour
@@ -1148,6 +1152,8 @@ function isButtonActive(scopeId, label, live) {
         if (label === 'Resource') return live.kanbanViewMode === 'resource';
         if (label === 'Progress') return live.kanbanViewMode === 'progress';
         if (label === 'Label') return live.kanbanViewMode === 'label';
+        if (label === 'Bucket') return live.kanbanViewMode === 'bucket';
+        if (label === 'Hide Empty') return !!live.kanbanHideEmptyColumns;
     }
     if (VIEW_FOR_LABEL[label]) return live.view === VIEW_FOR_LABEL[label];
     return false;
