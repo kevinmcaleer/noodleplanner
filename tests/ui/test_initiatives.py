@@ -55,11 +55,12 @@ def test_stating_a_rag_writes_it_to_the_front_matter(page, app_server):
     page.evaluate("() => openInitiativeRagDialog()")
     page.check('input[name="rag"][value="amber"]')
     page.fill('input[name="comment"]', "Waiting on access")
-    page.evaluate("() => document.querySelector('.initiative-rag-form').requestSubmit()")
+    page.click('.initiative-rag-dialog [data-action="save"]')
 
     text = page.evaluate("() => document.getElementById('planEditor').value")
     assert "rag: amber" in text
     assert "rag_comment: Waiting on access" in text
+    assert not page.is_visible(".initiative-rag-dialog")
 
 
 def test_initiative_can_be_moved_under_an_existing_programme(page, app_server):
@@ -71,7 +72,7 @@ def test_initiative_can_be_moved_under_an_existing_programme(page, app_server):
 
     page.evaluate("() => openInitiativeProgrammeDialog()")
     page.select_option('select[name="programme"]', "digital")
-    page.evaluate("() => document.querySelector('.initiative-programme-form').requestSubmit()")
+    page.click('.initiative-programme-dialog [data-action="save"]')
 
     text = page.evaluate("() => document.getElementById('planEditor').value")
     assert "programme: digital" in text

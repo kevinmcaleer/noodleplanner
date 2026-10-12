@@ -210,6 +210,9 @@ function openInitiativeRagDialog() {
     document.body.appendChild(dialog);
     const close = () => { dialog.close(); dialog.remove(); };
     dialog.querySelector('[data-action="cancel"]').addEventListener('click', close);
+    // <np-button type="submit"> keeps its real <button> in a shadow root, so
+    // clicking it never reaches this light-DOM form: submit it ourselves.
+    dialog.querySelector('[data-action="save"]').addEventListener('click', () => dialog.querySelector('form').requestSubmit());
     dialog.querySelector('form').addEventListener('submit', event => {
         event.preventDefault();
         const form = event.target;
@@ -255,6 +258,9 @@ function openInitiativeProgrammeDialog() {
     document.body.appendChild(dialog);
     const close = () => { dialog.close(); dialog.remove(); };
     dialog.querySelector('[data-action="cancel"]').addEventListener('click', close);
+    // <np-button type="submit"> keeps its real <button> in a shadow root, so
+    // clicking it never reaches this light-DOM form: submit it ourselves.
+    dialog.querySelector('[data-action="save"]').addEventListener('click', () => dialog.querySelector('form').requestSubmit());
     dialog.querySelector('form').addEventListener('submit', event => {
         event.preventDefault();
         const chosen = programmes.find(p => p.slug === event.target.programme.value) || null;
