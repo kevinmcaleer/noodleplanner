@@ -3,6 +3,39 @@
  * Depends on: state.js (globals)
  */
 
+/**
+ * A phase's progress as the timeline draws it: the percent complete of
+ * everything beneath it, weighted by duration, so a long half-done task moves
+ * the band further than a short finished one. `tasks` is the flat, ordered
+ * task list; a phase's descendants are the rows after it that sit deeper than
+ * it. Nested phases are not counted themselves -- their own subtasks are --
+ * so a phase holding both tasks and a sub-phase still reflects all of it.
+ * A phase with no dated subtasks falls back to its own percent.
+ */
+function phaseRolledUpPercent(phase, tasks) {
+    const own = parseFloat(phase.percent) || 0;
+    const start = tasks.indexOf(phase);
+    if (start < 0) return own;
+
+    const leaves = [];
+    for (let i = start + 1; i < tasks.length && tasks[i].level > phase.level; i++) {
+        if (!tasks[i].is_summary) leaves.push(tasks[i]);
+    }
+    if (leaves.length === 0) return own;
+
+    // Milestones carry no duration; if nothing does, weigh every subtask alike.
+    const totalDays = leaves.reduce((sum, t) => sum + (t.duration_days || 0), 0);
+    const weight = totalDays > 0 ? t => t.duration_days || 0 : () => 1;
+    let weighted = 0;
+    let weights = 0;
+    leaves.forEach(t => {
+        const w = weight(t);
+        weighted += w * Math.min(100, Math.max(0, parseFloat(t.percent) || 0));
+        weights += w;
+    });
+    return Math.round(weighted / weights);
+}
+
 function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays, timelineWidth) {
     // Remove existing detailed timeline if present
     const existing = container.querySelector('.detailed-timeline-container');
@@ -47,7 +80,7 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
     rows.forEach((phaseInfo, index) => {
         const phase = phaseInfo.phase;
         const row = phaseInfo.row;
-        const percent = parseFloat(phase.percent) || 0;
+        const percent = phaseRolledUpPercent(phase, tasks);
         const isComplete = percent >= 100;
 
         const phaseStart = parseLocalDate(phase.start);
@@ -86,10 +119,9 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
         bgRect.addEventListener('click', () => openMilestoneTaskForm(phase.name));
         svg.appendChild(bgRect);
 
-        // Draw the percent complete overlay (darker shade on the left portion)
+        // Draw the percent complete overlay (the usual green band, on the left)
         if (percent > 0 && percent < 100) {
             const progressWidth = (percent / 100) * width;
-            const darkerColor = darkenColor(bgColor, 0.35);
             const progressRect = document.createElementNS(svgNS, 'rect');
             progressRect.setAttribute('x', x);
             progressRect.setAttribute('y', y);
@@ -97,7 +129,7 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
             progressRect.setAttribute('height', blockHeight);
             progressRect.setAttribute('rx', 3);
             progressRect.setAttribute('ry', 3);
-            progressRect.setAttribute('fill', darkerColor);
+            progressRect.setAttribute('fill', greenComplete);
             progressRect.setAttribute('opacity', '0.9');
             progressRect.setAttribute('class', 'timeline-clickable timeline-phase-animated');
             progressRect.style.animationDelay = (index * 0.06) + 's';
@@ -381,7 +413,7 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
         rows.forEach((phaseInfo, index) => {
             const phase = phaseInfo.phase;
             const row = phaseInfo.row;
-            const percent = parseFloat(phase.percent) || 0;
+            const percent = phaseRolledUpPercent(phase, tasks);
             const isComplete = percent >= 100;
 
             const phaseStart = parseLocalDate(phase.start);
