@@ -3499,8 +3499,8 @@ function findDirectChildLineNumbers(parentLineNumber, lines) {
         const line = lines[i];
         const trimmed = line.trim();
 
-        // Skip empty lines
-        if (!trimmed) continue;
+        // Skip empty lines, and `//` plan comments (the parsers skip those too)
+        if (!trimmed || trimmed.startsWith('//')) continue;
 
         // Back-matter marker (RAID log, comms, baseline, etc.) -- the task
         // outline is over, so stop scanning rather than skipping past it
@@ -3552,7 +3552,7 @@ function getTaskDescendants(parentLineNumber, lines) {
         const line = lines[i];
         const trimmed = line.trim();
 
-        if (!trimmed) continue;
+        if (!trimmed || trimmed.startsWith('//')) continue;
         if (trimmed.startsWith('---') || trimmed.startsWith('#') || trimmed.includes('===')) break;
 
         const indent = getIndentWidth(line);

@@ -82,3 +82,7 @@ if (failures) {
     process.exit(1);
 }
 console.log('\nAll tests passed.');
+
+// ── `//` plan comments are not sub-tasks ───────────────────────────
+equal(children('Summary task\n  Child 1\n  // *termination of fibre\n  Child 2', 1), [2, 4],
+    'a // comment line inside the subtree is not a child');
