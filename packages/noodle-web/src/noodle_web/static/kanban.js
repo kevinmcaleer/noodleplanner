@@ -1346,8 +1346,10 @@ class KanbanBoard {
         // Filter tasks by hierarchy level first
         const filteredTasks = this.filterTasksByHierarchyLevel();
 
-        // Temporarily replace this.tasks with filtered tasks for grouping
-        this.tasks = filteredTasks;
+        // Temporarily replace this.tasks with filtered tasks for grouping.
+        // Buckets cut across the outline, so the bucket view groups every task
+        // at any depth, not just the top two levels the phase columns show.
+        this.tasks = this.viewMode === 'bucket' && !this.currentParentTask ? allTasks : filteredTasks;
 
         switch (this.viewMode) {
             case 'phase':
