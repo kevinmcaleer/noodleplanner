@@ -983,13 +983,27 @@
     font-size: 0.95em;
 }
 
+/* A regular grid: a rule between every column as well as every row, so a value
+   reads straight down to its header. */
+.portfolio-projects-table th,
+.portfolio-projects-table td {
+    border: 1px solid var(--np-border);
+}
+
+.portfolio-projects-table th:first-child,
+.portfolio-projects-table td:first-child { border-left: none; }
+.portfolio-projects-table th:last-child,
+.portfolio-projects-table td:last-child { border-right: none; }
+.portfolio-projects-table thead th { border-top: none; }
+.portfolio-projects-table tbody tr:last-child td { border-bottom: none; }
+
 .portfolio-projects-table thead {
     background: var(--np-paper);
     border-bottom: 2px solid var(--np-border);
 }
 
 .portfolio-projects-table th {
-    padding: var(--np-space-16) var(--np-space-12);
+    padding: var(--np-space-8) var(--np-space-12);
     text-align: left;
     font-weight: 600;
     color: var(--np-body);
@@ -1032,8 +1046,8 @@
 }
 
 .portfolio-projects-table td {
-    padding: var(--np-space-16) var(--np-space-12);
-    vertical-align: top;
+    padding: var(--np-space-4) var(--np-space-12);
+    vertical-align: middle;
 }
 
 .project-name-cell {
@@ -1133,10 +1147,20 @@
     max-width: 400px;
 }
 
+.highlight-cell {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* One line; the full report is in the cell's title (hover). */
 .highlight-preview {
     font-size: 0.9em;
     color: var(--np-muted);
     line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .highlight-date {
@@ -1169,6 +1193,31 @@
 
 .project-select-checkbox {
     cursor: pointer;
+}
+
+/* Drag handle, checkbox and the row's action buttons appear on hover or
+   keyboard focus; a touch screen has no hover, so there they are always shown.
+   A selected row (and every row while a selection exists) keeps its checkbox. */
+.portfolio-projects-table .project-drag-handle,
+.portfolio-projects-table .project-select-checkbox,
+.portfolio-projects-table .project-actions-cell .project-action-btn {
+    opacity: 0;
+    transition: opacity 120ms ease;
+}
+
+.portfolio-projects-table tbody tr:hover .project-drag-handle,
+.portfolio-projects-table tbody tr:hover .project-select-checkbox,
+.portfolio-projects-table tbody tr:hover .project-action-btn,
+.portfolio-projects-table tbody tr:focus-within .project-drag-handle,
+.portfolio-projects-table tbody tr:focus-within .project-select-checkbox,
+.portfolio-projects-table tbody tr:focus-within .project-action-btn,
+.portfolio-projects-table:has(.project-row-selected) .project-select-checkbox,
+.portfolio-projects-table .project-select-checkbox:checked { opacity: 1; }
+
+@media (hover: none) {
+    .portfolio-projects-table .project-drag-handle,
+    .portfolio-projects-table .project-select-checkbox,
+    .portfolio-projects-table .project-actions-cell .project-action-btn { opacity: 1; }
 }
 
 .project-table-row.project-row-selected {
@@ -1282,7 +1331,7 @@
 
     .portfolio-projects-table th,
     .portfolio-projects-table td {
-        padding: var(--np-space-12) var(--np-space-8);
+        padding: var(--np-space-4) var(--np-space-8);
     }
 
     .highlight-cell {
@@ -1302,7 +1351,7 @@
 
     .portfolio-projects-table th,
     .portfolio-projects-table td {
-        padding: var(--np-space-12) var(--np-space-8);
+        padding: var(--np-space-4) var(--np-space-8);
     }
 }
 
@@ -1313,7 +1362,7 @@
 
     .portfolio-projects-table th,
     .portfolio-projects-table td {
-        padding: var(--np-space-16) var(--np-space-12);
+        padding: var(--np-space-4) var(--np-space-12);
     }
 
     .highlight-cell {
