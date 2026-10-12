@@ -195,6 +195,7 @@ test('the RAID log table escapes every field it writes into a row', () => {
     raidSortColumn: 'id',
     raidSortAsc: true,
     renderEscalationsView() {},
+    renderActionsTable() {},
     updateRaidSortIndicators() {},
     updateRaidMarkdownEditor() {},
     syncRaidLogToPlanText() {},
