@@ -203,14 +203,14 @@ export const PROGRAMME_TABS = [
 /**
  * Initiative plans (#1479). An initiative is a task list with no milestones
  * or gateways, so its Project-scope ribbon keeps only the task list, board,
- * actions, resources and stakeholders, plus Rate to state its RAG (#1481).
+ * actions, resources and stakeholders, task Link/Unlink, plus Rate to state its RAG (#1481).
  * Every label here is also used by TABS, so it resolves to the same action.
  */
 export const INITIATIVE_TABS = [
     {
         id: 'home', label: 'Home',
         groups: [
-            { name: 'Plan', lg: [['task-list', 'New Task']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['delete', 'Delete'], ['doc', 'Details']]] },
+            { name: 'Plan', lg: [['task-list', 'New Task']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['link', 'Link'], ['unlink', 'Unlink']], [['delete', 'Delete'], ['doc', 'Details']]] },
             { name: 'Views', lg: [['board', 'Board'], ['task-list', 'Outline']], cols: [[['task-list', 'Tasks']]] },
             { name: 'Track', lg: [['flag', 'Rate']], cols: [[['check', 'Actions'], ['highlights', 'Highlights']], [['portfolio', 'Programme']]] },
             { name: 'Report', cols: [[['download', 'Export', 'caret'], ['print', 'Print']], [['save', 'Save'], ['upload', 'Import', 'caret']]] },
