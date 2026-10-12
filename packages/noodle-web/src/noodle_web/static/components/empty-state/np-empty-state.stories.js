@@ -80,7 +80,7 @@ export const CardWithHeading = {
   args: {
     variant: 'card',
     heading: 'RAID Log',
-    body: 'Track Risks, Actions, Issues, Decisions, and Dependencies.\nClick "+ Add Item" to get started, or upload an existing RAID log.',
+    body: 'Track Risks, Actions, Issues, Decisions, and Dependencies.\nUse the RAID Log ribbon to add an entry, or upload an existing RAID log.',
   },
   parameters: {
     docs: {

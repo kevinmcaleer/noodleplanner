@@ -116,7 +116,7 @@ Click **Board** to see your tasks as a Kanban board. Use the grouping dropdown t
 Step 8: Add a RAID Log Entry
 -----------------------------
 
-Navigate to **Tracking** → **RAID Log**. Click **Add Item** and fill in:
+Navigate to **Tracking** → **RAID Log**. Choose **New Risk** on the RAID Log ribbon tab and fill in:
 
 - **Type**: Risk
 - **Title**: Third-party API dependency

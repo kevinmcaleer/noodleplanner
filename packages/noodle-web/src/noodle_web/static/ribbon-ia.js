@@ -267,7 +267,7 @@ export const CONTEXTUAL_TABS = [
         id: 'raid', label: 'RAID Log', icon: 'raid-log', accent: '#c21d1d', accentToken: '--np-red', tint: '#faeaea', onAccent: '#ffffff',
         trigger: 'RAID Log view open',
         groups: [
-            { name: 'Entries', lg: [['flag', 'New Risk'], ['warn', 'New Issue']], cols: [[['doc', 'Assumption'], ['link', 'Dependency']], [['target', 'Escalate'], ['check', 'Close']]] },
+            { name: 'Entries', lg: [['flag', 'New Risk'], ['warn', 'New Issue']], cols: [[['check', 'New Action'], ['doc', 'New Decision']], [['link', 'New Dependency'], ['target', 'Escalate']], [['check', 'Close']]] },
             { name: 'Score', cols: [[['chart', 'Probability'], ['chart', 'Impact']], [['grid', 'Heat Map'], ['flag', 'RAG']]] },
             { name: 'Data', cols: [[['filter', 'Filter'], ['sort', 'Sort']], [['upload', 'Import'], ['download', 'Export']]] },
         ],

@@ -3476,6 +3476,26 @@ tr:hover .task-context-btn,
     text-overflow: ellipsis;
 }
 
+/* RAID and Actions rows: Edit / open in plan editor / Delete appear on hover or
+   keyboard focus; a touch screen has no hover, so there they are always shown. */
+.raid-table .row-actions,
+.actions-table .row-actions {
+    display: inline-flex;
+    gap: var(--np-space-4);
+    opacity: 0;
+    transition: opacity 120ms ease;
+}
+
+.raid-table tbody tr:hover .row-actions,
+.raid-table tbody tr:focus-within .row-actions,
+.actions-table tbody tr:hover .row-actions,
+.actions-table tbody tr:focus-within .row-actions { opacity: 1; }
+
+@media (hover: none) {
+    .raid-table .row-actions,
+    .actions-table .row-actions { opacity: 1; }
+}
+
 .raid-table tbody tr:hover {
     background: var(--np-table-hover);
 }
@@ -4871,8 +4891,6 @@ tr:hover .task-context-btn,
 
 .actions-container {
     padding: var(--np-space-20);
-    max-width: 1400px;
-    margin: 0 auto;
     flex: 1;
     min-height: 0;
     overflow: auto;

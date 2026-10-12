@@ -38,3 +38,37 @@ def test_actions_tracker_refreshes_when_opened(page, app_server):
     page.evaluate("items => { raidItems = items; }", ITEMS)
     page.evaluate("switchToView('actions')")
     assert page.locator("#actionsTableBody tr").count() == 2
+
+
+def test_row_buttons_show_only_on_hover_and_delete_is_not_red(page, app_server):
+    open_project_view(page, app_server)
+    page.evaluate("items => { raidItems = items; renderRaidTable(); }", ITEMS)
+    page.evaluate("switchToView('raid')")
+    first = page.locator("#raidTableBody tr").first
+    buttons = first.locator(".row-actions")
+    assert buttons.evaluate("el => getComputedStyle(el).opacity") == "0"
+    first.hover()
+    page.wait_for_function(
+        "() => getComputedStyle(document.querySelector('#raidTableBody .row-actions')).opacity === '1'"
+    )
+    assert first.locator("np-button[variant=danger]").count() == 0
+    assert first.locator("np-button .bi-trash").count() == 1
+
+
+def test_raid_ribbon_has_new_action_decision_dependency(page, app_server):
+    open_project_view(page, app_server)
+    page.evaluate("switchToView('raid')")
+    page.wait_for_selector("#raid-tab.active")
+    page.get_by_text("RAID Log", exact=True).first.click()
+    assert page.locator("#raid-tab .raid-toolbar").get_by_text("+ Add Item").count() == 0
+    for label in ("New Action", "New Decision", "New Dependency"):
+        assert page.get_by_text(label, exact=True).first.is_visible()
+
+
+def test_action_added_through_the_raid_form_appears_in_the_tracker(page, app_server):
+    open_project_view(page, app_server)
+    page.evaluate("openRaidFormWithType('action')")
+    page.fill("#raidItemTitle", "Order the cake")
+    page.evaluate("saveRaidItemFromForm()")
+    page.evaluate("switchToView('actions')")
+    assert "Order the cake" in page.locator("#actionsTableBody").inner_text()
