@@ -26,6 +26,9 @@ def test_new_initiative_opens_with_the_initiative_template_and_ribbon(page, app_
     labels = page.evaluate("() => [...document.querySelectorAll('[data-label]')].map(e => e.dataset.label)")
     assert "Rate" in labels
     assert "Milestone" not in labels
+    # Tasks in an initiative can still be linked (dependencies).
+    assert "Link" in labels
+    assert "Unlink" in labels
 
 
 def test_projects_table_badges_and_filters_initiatives(page, app_server):
