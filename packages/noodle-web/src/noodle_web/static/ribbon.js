@@ -509,6 +509,7 @@ function scopedAction(scopeId, label) {
         'kanban:Resource': () => switchKanbanView('resource'),
         'kanban:Progress': () => switchKanbanView('progress'),
         'kanban:Label': () => switchKanbanView('label'),
+        'kanban:Bucket': () => switchKanbanView('bucket'),
         // Same prompt-and-write-to-front-matter flow as the board's own
         // "+ Add Bucket" tile (kanban.js addNewBucket()). Buckets only show
         // as columns when the board is grouped by bucket, so switch to it
@@ -1147,6 +1148,7 @@ function isButtonActive(scopeId, label, live) {
         if (label === 'Resource') return live.kanbanViewMode === 'resource';
         if (label === 'Progress') return live.kanbanViewMode === 'progress';
         if (label === 'Label') return live.kanbanViewMode === 'label';
+        if (label === 'Bucket') return live.kanbanViewMode === 'bucket';
     }
     if (VIEW_FOR_LABEL[label]) return live.view === VIEW_FOR_LABEL[label];
     return false;
