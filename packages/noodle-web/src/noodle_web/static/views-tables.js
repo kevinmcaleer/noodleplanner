@@ -657,6 +657,30 @@ function updateEmbeddedTimeline(viewId) {
     }
 }
 
+// The embedded timeline is sized from its wrapper's width at render time, so
+// any change to that width that is not a window resize (dragging the editor
+// divider, opening or closing the side panel) used to leave it short of the
+// pane. Watch the wrappers and redraw when the width changes.
+function watchEmbeddedTimelineWidth() {
+    if (typeof ResizeObserver === 'undefined') return;
+    ['tasks-view', 'gantt-view'].forEach(viewId => {
+        const wrapper = document.querySelector(`#${viewId} .embedded-timeline-wrapper`);
+        if (!wrapper || wrapper.dataset.widthWatched) return;
+        wrapper.dataset.widthWatched = '1';
+        let lastWidth = wrapper.offsetWidth;
+        let frame = 0;
+        new ResizeObserver(() => {
+            if (wrapper.offsetWidth === lastWidth || frame) return;
+            frame = requestAnimationFrame(() => {
+                frame = 0;
+                lastWidth = wrapper.offsetWidth;
+                updateEmbeddedTimeline(viewId);
+            });
+        }).observe(wrapper);
+    });
+}
+document.addEventListener('DOMContentLoaded', watchEmbeddedTimelineWidth);
+
 function toggleEmbeddedTimeline(viewId) {
     const section = document.querySelector(`#${viewId} .embedded-timeline-section`);
     if (!section) return;
