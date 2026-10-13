@@ -177,7 +177,7 @@ def convert_plan_format_to_standard(text: str) -> str:
         # Convert multi-word task names to snake_case for tasks with metadata
         # Only convert if line has @ or % or # or date or duration (has metadata)
         stripped = line.lstrip()
-        if stripped and any(c in stripped for c in ['@', '%', '#', 'd', 'w', 'm']):
+        if stripped and any(c in stripped for c in ['@', '%', '#', '{', 'd', 'w', 'm']):
             # Extract leading whitespace and * if present
             leading_ws = line[:len(line) - len(stripped)]
             is_sequential = stripped.startswith('*')
@@ -193,7 +193,7 @@ def convert_plan_format_to_standard(text: str) -> str:
 
             # Find where the metadata starts (@, #, number, date)
             metadata_start = len(stripped)
-            for char in ['@', '#', '!']:
+            for char in ['@', '#', '!', '{']:
                 pos = stripped.find(char)
                 if pos > 0:  # pos > 0 to ensure there's a task name before it
                     metadata_start = min(metadata_start, pos)
@@ -215,6 +215,14 @@ def convert_plan_format_to_standard(text: str) -> str:
             # Extract task name and metadata
             task_name = stripped[:metadata_start].strip()
             metadata = stripped[metadata_start:].strip()
+
+            # A `{bucket}` is metadata, never part of the name -- even ahead of
+            # the name (`{blueprint} Design`) or on a summary row with no other
+            # token to mark where the name ends.
+            leading_buckets = re.findall(r'\{[^}]*\}', task_name)
+            if leading_buckets:
+                task_name = re.sub(r'\s+', ' ', re.sub(r'\{[^}]*\}', '', task_name)).strip()
+                metadata = ' '.join(leading_buckets + ([metadata] if metadata else []))
 
             # Don't convert task names - preserve them as-is
             # Task names are for display and should keep spaces

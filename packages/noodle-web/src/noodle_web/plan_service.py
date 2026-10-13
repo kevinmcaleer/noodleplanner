@@ -756,6 +756,9 @@ class PlanService:
 
             task_name = task.get("description") or task.get("name", "")
             task_name = re.sub(r"\s*\b\d{1,3}%", "", task_name).strip()
+            # a `{bucket}` is metadata: summary rows take their name from the
+            # line's text, so the tag would otherwise show in every view
+            task_name = re.sub(r"\s*\{[^}]*\}", "", task_name).strip()
 
             tasks_data.append(
                 {

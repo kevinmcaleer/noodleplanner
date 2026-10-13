@@ -742,7 +742,11 @@ function taskToData(task, idx, resourceMap, currentDay) {
     }
   }
 
-  const name = String(task.description || task.name || "").replace(/\s*\b\d{1,3}%/g, "").trim();
+  // a `{bucket}` is metadata: summary rows take their name from the line's
+  // text, so the tag would otherwise show in every view (plan_service.py
+  // does the same)
+  const name = String(task.description || task.name || "")
+    .replace(/\s*\b\d{1,3}%/g, "").replace(/\s*\{[^}]*\}/g, "").trim();
 
   return {
     id: idx + 1,
