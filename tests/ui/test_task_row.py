@@ -659,3 +659,49 @@ def test_a_resource_with_no_tasks_says_so(staffed):
         "() => getComputedStyle(document.getElementById('resourceAssignedTasks'), '::after').content"
     )
     assert "No tasks assigned" in content
+
+
+# ── Inspector: how the start date is worked out ─────────────────────────
+
+START_PLAN = """---
+title: Start dates
+---
+
+Awareness $awareness
+  *Roadshows 2026-09-30
+  *Awareness complete 0d
+
+*Desire $desire [depends $awareness]
+  *Use cases 5d
+  Draft training 25d 2026-09-11
+  *Review 1d [depends Use cases]
+"""
+
+
+def _start_explain(page):
+    return page.evaluate(
+        """() => ({
+            headline: document.querySelector('#inspectorStartExplain .inspector-start-headline')?.textContent,
+            driving: [...document.querySelectorAll('#inspectorStartExplain li.driving')].map(li => li.textContent),
+            notes: [...document.querySelectorAll('#inspectorStartExplain .inspector-start-note')].map(n => n.textContent),
+        })"""
+    )
+
+
+def test_the_inspector_says_which_task_a_star_follows(page, app_server):
+    open_app(page, app_server)
+    load_plan(page, START_PLAN)
+    _open_inspector(page, "Use cases")
+    got = _start_explain(page)
+    assert "Follows the task above it" in got["headline"]
+    assert "Awareness complete" in got["headline"]
+    assert got["driving"] and "sets the start" in got["driving"][0]
+
+
+def test_the_inspector_explains_a_group_start_and_an_unapplied_group_dependency(page, app_server):
+    open_app(page, app_server)
+    load_plan(page, START_PLAN)
+    _open_inspector(page, "Desire")
+    got = _start_explain(page)
+    assert "Draft training" in got["headline"] and "2026-09-11" in got["headline"]
+    assert any("does not move the tasks inside it" in note for note in got["notes"])

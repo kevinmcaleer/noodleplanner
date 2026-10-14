@@ -16345,8 +16345,21 @@ function openTaskInspector(lineNumber) {
         }
     }
 
+    // The start date written on the line, before the fallback calculation
+    // below fills one in; the start-date explanation needs to know the
+    // difference.
+    const explicitStart = task.startDate || '';
+
     // Calculate dates (recursive dependency resolution)
     calculateTaskDates(task, taskMap, lines);
+
+    // The scheduler's answer is the one the Gantt and every other view show;
+    // show the same dates here so the explanation below matches them.
+    const scheduled = (lastRenderedTasks || []).find(bt => bt.name === task.name);
+    if (scheduled && scheduled.start) {
+        task.startDate = scheduled.start;
+        if (scheduled.finish) task.finishDate = scheduled.finish;
+    }
 
     // Calculate RAG info
     const ragInfo = calculateInspectorRag(task);
@@ -16359,7 +16372,43 @@ function openTaskInspector(lineNumber) {
 
     // Render the inspector
     renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber);
+    renderInspectorStartExplain(scheduled, { explicitStart, sequential: /^\s*\*/.test(taskLine) });
     openDetailPane('taskInspectorSection');
+}
+
+/**
+ * Fill the "How the start date is worked out" section of the inspector from
+ * the scheduler's own output (engine/start-explain.js).
+ */
+async function renderInspectorStartExplain(scheduled, options) {
+    const host = document.getElementById('inspectorStartExplain');
+    if (!host) return;
+    if (!scheduled || !scheduled.start) {
+        host.innerHTML = '<div class="inspector-no-deps">The schedule has not been calculated for this task yet.</div>';
+        return;
+    }
+    try {
+        const { explainStart } = await import('/static/engine/start-explain.js');
+        // the user may have moved to another task while the module loaded
+        if (document.getElementById('inspectorStartExplain') !== host) return;
+        const why = explainStart(lastRenderedTasks, scheduled, options);
+        let html = '<div class="inspector-start-headline">' + escapeHtml(why.headline) + '</div>';
+        if (why.steps.length) {
+            html += '<ul class="inspector-start-steps">';
+            for (const step of why.steps) {
+                html += '<li' + (step.driving ? ' class="driving"' : '') + '>' + escapeHtml(step.text)
+                    + (step.driving ? ' <span class="inspector-start-badge">sets the start</span>' : '') + '</li>';
+            }
+            html += '</ul>';
+        }
+        for (const note of why.notes) {
+            html += '<div class="inspector-start-note">' + escapeHtml(note) + '</div>';
+        }
+        host.innerHTML = html;
+    } catch (e) {
+        console.error('Start-date explanation failed:', e);
+        host.innerHTML = '';
+    }
 }
 
 /**
@@ -16743,6 +16792,12 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     }
 
     html += '  </div>';
+    html += '</div>';
+
+    // --- How the start date is worked out ---
+    html += '<div class="inspector-section">';
+    html += '  <div class="inspector-section-header"><span class="inspector-icon">🧭</span> How the Start Date Is Worked Out</div>';
+    html += '  <div class="inspector-section-body" id="inspectorStartExplain"></div>';
     html += '</div>';
 
     // --- Dependencies ---
