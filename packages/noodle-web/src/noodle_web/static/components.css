@@ -1505,6 +1505,42 @@ body.detail-pane-open {
     padding: var(--np-space-8) 0;
 }
 
+.inspector-start-headline {
+    color: var(--np-body);
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+
+.inspector-start-steps {
+    list-style: none;
+    margin: var(--np-space-8) 0 0;
+    padding: 0;
+    font-size: 0.85em;
+    color: var(--np-body);
+}
+
+.inspector-start-steps li {
+    padding: var(--np-space-4) 0;
+}
+
+.inspector-start-steps li.driving {
+    font-weight: 600;
+}
+
+.inspector-start-badge {
+    color: var(--np-muted);
+    font-size: 0.9em;
+    font-weight: 400;
+    font-style: italic;
+}
+
+.inspector-start-note {
+    color: var(--np-muted);
+    font-size: 0.85em;
+    line-height: 1.5;
+    margin-top: var(--np-space-8);
+}
+
 .inspector-progress-bar-wrapper {
     background: var(--np-selected);
     border-radius: 6px;
