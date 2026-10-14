@@ -742,7 +742,23 @@ document.addEventListener('summarycollapsechange', () => {
     if (ganttTasks && ganttTasks.length) renderGanttRows();
 });
 
+/**
+ * Redraw every row. The rebuild empties both panes for a moment, which clamps
+ * their vertical scroll to the top, so an edit (a tick of a task's checkbox,
+ * say) would otherwise send the list back to its first task. Each pane is put
+ * back where it was.
+ */
 function renderGanttRows() {
+    const tableSide = document.querySelector('.gantt-table-side');
+    const chartSide = document.querySelector('.gantt-chart-side');
+    const tableTop = tableSide ? tableSide.scrollTop : 0;
+    const chartTop = chartSide ? chartSide.scrollTop : 0;
+    buildGanttRows();
+    if (tableSide) tableSide.scrollTop = tableTop;
+    if (chartSide) chartSide.scrollTop = chartTop;
+}
+
+function buildGanttRows() {
     const ganttInfoBody = document.getElementById('ganttInfoBody');
     const ganttBody = document.getElementById('ganttBody');
 
