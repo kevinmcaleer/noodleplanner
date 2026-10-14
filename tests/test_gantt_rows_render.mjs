@@ -1,5 +1,5 @@
 /**
- * renderGanttRows() (views-gantt.js) builds the name -> row-id map for the
+ * renderGanttRows() (its work lives in buildGanttRows(), views-gantt.js) builds the name -> row-id map for the
  * Predecessors column once per render, and appends each info row once.
  *
  * The map is what turns a task's `depends` names into "3FS, 5SS+2d", and
@@ -89,10 +89,10 @@ function render(ganttTasks) {
     renderBaselineBar: noop,
     renderDeadlineMarker: noop,
   });
-  liftFunctions(sandbox, ['buildTaskNameToIdMap', 'formatPredecessors', 'renderGanttRows']);
+  liftFunctions(sandbox, ['buildTaskNameToIdMap', 'formatPredecessors', 'buildGanttRows']);
   const realMap = sandbox.buildTaskNameToIdMap;
   sandbox.buildTaskNameToIdMap = (tasks) => { counted.maps++; return realMap(tasks); };
-  sandbox.renderGanttRows();
+  sandbox.buildGanttRows();
   return { elements, counted };
 }
 

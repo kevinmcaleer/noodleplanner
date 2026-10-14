@@ -431,6 +431,99 @@
         scrollGanttToRow(target);
     }
 
+    // ── Scroll sync ──────────────────────────────────────────────────────
+    //
+    // Scrolling either pane by hand brings the other to the same place: the
+    // plan editor's top line and the Gantt's top task row are kept level, so
+    // an edit that redraws one of them does not leave the other somewhere
+    // else. Rows and lines are not the same height, so the match is by task,
+    // not by pixels. `syncing` swallows the scroll event a sync itself causes,
+    // so the two cannot chase each other.
+
+    var syncing = { editor: false, gantt: false };
+
+    function firstVisibleTaskRowIndex() {
+        var pane = document.querySelector('#gantt-view .gantt-table-side');
+        var body = el('ganttInfoBody');
+        if (!pane || !body) return -1;
+        var head = body.closest('table').tHead;
+        // The header is sticky: a row behind it is not on screen.
+        var top = pane.getBoundingClientRect().top + (head ? head.offsetHeight : 0);
+        var rows = body.querySelectorAll('tr[data-task-index]');
+        for (var i = 0; i < rows.length; i++) {
+            if (!rowIsVisible(rows[i])) continue;
+            var rect = rows[i].getBoundingClientRect();
+            if (rect.bottom > top + 1) return parseInt(rows[i].dataset.taskIndex, 10);
+        }
+        return -1;
+    }
+
+    function syncEditorToGantt() {
+        if (!isActive()) return;
+        var m = metrics();
+        if (!m || userIsBusyWith('editor')) return;
+        var index = firstVisibleTaskRowIndex();
+        if (index < 0) return;
+        var task = tasks()[index];
+        var rawLine = task ? taskLineNumber(task) : -1;
+        var mapped = visibleLineForRawLine(rawLine);
+        if (!(mapped.visibleLine > 0)) return;
+        var want = Math.max(0, m.paddingTop + (mapped.visibleLine - 1) * m.lineHeight);
+        if (Math.abs(want - m.editor.scrollTop) < 1) return;
+        var before = m.editor.scrollTop;
+        m.editor.scrollTop = want;
+        // A scroll event follows only if the position really moved.
+        syncing.editor = m.editor.scrollTop !== before;
+    }
+
+    function syncGanttToEditor() {
+        if (!isActive()) return;
+        var m = metrics();
+        var pane = document.querySelector('#gantt-view .gantt-table-side');
+        if (!m || !pane || userIsBusyWith('gantt')) return;
+        var topLine = Math.max(1, Math.round((m.editor.scrollTop - m.paddingTop) / m.lineHeight) + 1);
+        // The first task line at or below the editor's top edge.
+        for (var line = topLine; line < topLine + 200; line++) {
+            var gutterRow = gutterRowForVisibleLine(line);
+            if (!gutterRow) return;
+            if (gutterRow.dataset.foldHeader === 'true') continue;
+            var index = taskIndexForRawLine(parseInt(gutterRow.dataset.lineNumber, 10));
+            if (index < 0) continue;
+            var target = visibleRowIndex(index);
+            var row = target < 0 ? null : rowsForIndex(target).info;
+            if (!row || !rowIsVisible(row)) return;
+            var head = el('ganttInfoBody').closest('table').tHead;
+            var want = Math.max(0, pane.scrollTop
+                + (row.getBoundingClientRect().top - pane.getBoundingClientRect().top)
+                - (head ? head.offsetHeight : 0));
+            if (Math.abs(want - pane.scrollTop) < 1) return;
+            var before = pane.scrollTop;
+            pane.scrollTop = want;
+            syncing.gantt = pane.scrollTop !== before;
+            return;
+        }
+    }
+
+    function wireScrollSync() {
+        var editor = el('planEditor');
+        var pane = document.querySelector('#gantt-view .gantt-table-side');
+        if (editor) {
+            editor.addEventListener('scroll', function () {
+                if (syncing.editor) { syncing.editor = false; return; }
+                // A hover-driven scroll (see scrollEditorToLine) is not the user's.
+                if (programmaticScroll.editor) return;
+                syncGanttToEditor();
+            });
+        }
+        if (pane) {
+            pane.addEventListener('scroll', function () {
+                if (syncing.gantt) { syncing.gantt = false; return; }
+                if (programmaticScroll.gantt) return;
+                syncEditorToGantt();
+            });
+        }
+    }
+
     // ── Wiring ───────────────────────────────────────────────────────────
 
     function rowIndexFromEvent(event, selector) {
@@ -441,6 +534,7 @@
     }
 
     function init() {
+        wireScrollSync();
         if (!hoverCapable()) return;
 
         var infoBody = el('ganttInfoBody');

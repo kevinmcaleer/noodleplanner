@@ -983,9 +983,22 @@
         return editor._noodlePlanModel;
     }
 
+    function lineCount(text) { return String(text).split('\n').length; }
+
     function commitToEditor(editor, model) {
         if (!editor || !model) return false;
+        // Assigning `value` throws the textarea's scroll position away (the
+        // caret goes to the end), so an edit in place -- a tick, a rename, a
+        // field change; same number of lines -- puts the pane back where the
+        // user was. An edit that adds or removes lines keeps the old behaviour.
+        const previousValue = editor.value;
+        const scrollTop = editor.scrollTop;
+        const scrollLeft = editor.scrollLeft;
         editor.value = model.serialize();
+        if (lineCount(editor.value) === lineCount(previousValue)) {
+            editor.scrollTop = scrollTop;
+            editor.scrollLeft = scrollLeft;
+        }
         editor._noodlePlanModel = model;
         editor._noodlePlanModelText = editor.value;
         editor.dispatchEvent(new Event('input', { bubbles: true }));
