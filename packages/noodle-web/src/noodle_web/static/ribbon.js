@@ -647,7 +647,7 @@ const LABEL_ACTIONS = {
     // Baseline" button (#1266); this button opens the full Baseline dialog
     // (create/list/clear/delete) instead.
     Baseline: () => { if (typeof openBaselineDialog === 'function') openBaselineDialog(); },
-    // #1481: an initiative's RAG is stated, not computed.
+    // #1481: an initiative's RAG is stated, not computed; a project's can be overridden.
     Rate: () => { if (typeof openInitiativeRagDialog === 'function') openInitiativeRagDialog(); },
     // #1487: move an initiative under an existing programme.
     // The Programme tab's own button: the programme view, never a toast.

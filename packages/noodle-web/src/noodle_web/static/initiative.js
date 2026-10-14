@@ -74,6 +74,18 @@ function getInitiativeRag(planTextOrFrontMatter) {
     };
 }
 
+/**
+ * A project's RAG override: the same `rag:` / `rag_comment:` /
+ * `rag_updated:` fields an initiative uses. A project's computed RAG is also
+ * written to `rag:` (version-history.js) so `rag:` alone is not an override;
+ * `rag_updated:` is, because only a person's rating writes it. Returns the
+ * stated {rag, comment, updated}, or null when the project is computed.
+ */
+function getProjectRagOverride(planTextOrFrontMatter) {
+    const stated = getInitiativeRag(planTextOrFrontMatter);
+    return stated.rag && stated.updated ? stated : null;
+}
+
 function _stripQuotes(text) {
     return String(text || '').replace(/[\r\n]+/g, ' ').trim();
 }
@@ -183,23 +195,27 @@ function applyPlanTypeToDocument(planText) {
 
 function openInitiativeRagDialog() {
     const editor = document.getElementById('planEditor');
-    if (!editor || !isInitiativePlan(editor.value)) {
-        if (typeof showToast === 'function') showToast('Only initiatives have a stated RAG.', 'info');
+    if (!editor || extractPlanType(editor.value) === PLAN_TYPE_PROGRAMME) {
+        if (typeof showToast === 'function') showToast('Only projects and initiatives have a stated RAG.', 'info');
         return;
     }
-    const current = getInitiativeRag(editor.value);
+    // A project is computed unless a person overrides it, so its
+    // "none" choice reads "Computed" rather than "Not rated".
+    const isInitiative = isInitiativePlan(editor.value);
+    const current = isInitiative ? getInitiativeRag(editor.value) : (getProjectRagOverride(editor.value) || { rag: null, comment: '', updated: '' });
+    const noneLabel = isInitiative ? 'Not rated' : 'Computed from the schedule';
     const dialog = document.createElement('dialog');
     dialog.className = 'initiative-rag-dialog';
-    dialog.setAttribute('aria-label', 'Set initiative RAG');
+    dialog.setAttribute('aria-label', isInitiative ? 'Set initiative RAG' : 'Override project RAG');
     dialog.innerHTML =
         '<form method="dialog" class="initiative-rag-form">' +
-        '<h2>Initiative status</h2>' +
+        '<h2>' + (isInitiative ? 'Initiative status' : 'Project RAG override') + '</h2>' +
         '<fieldset><legend>RAG</legend>' +
         ['green', 'amber', 'red'].map(v =>
             '<label><input type="radio" name="rag" value="' + v + '"' + (current.rag === v ? ' checked' : '') + '> ' +
             '<np-rag status="' + v + '"></np-rag> ' + initiativeRagLabel(v) + '</label>'
         ).join('') +
-        '<label><input type="radio" name="rag" value=""' + (current.rag ? '' : ' checked') + '> Not rated</label>' +
+        '<label><input type="radio" name="rag" value=""' + (current.rag ? '' : ' checked') + '> ' + noneLabel + '</label>' +
         '</fieldset>' +
         '<label>Comment <input type="text" name="comment" maxlength="200"></label>' +
         '<div class="initiative-rag-actions">' +
@@ -308,6 +324,7 @@ if (typeof module !== 'undefined' && module.exports) {
         isInitiativeFrontMatter,
         normaliseInitiativeRag,
         getInitiativeRag,
+        getProjectRagOverride,
         setInitiativeRag,
         setInitiativeProgramme,
         setPlanType,

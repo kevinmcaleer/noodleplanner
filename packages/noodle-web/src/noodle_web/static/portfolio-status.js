@@ -43,6 +43,12 @@ function extractRAGStatus(frontMatter, tasks, completion) {
         return getInitiativeRag(frontMatter).rag || 'unrated';
     }
 
+    // A person's override on a project beats the computed RAG.
+    if (typeof getProjectRagOverride === 'function') {
+        const override = getProjectRagOverride(frontMatter);
+        if (override) return override.rag;
+    }
+
     // Compute RAG from actual task statuses. The front matter rag: field is
     // written as output (for version history) and should not override the
     // computed value — otherwise fixing a task leaves the plan stuck at amber/red.
@@ -118,6 +124,11 @@ function extractProjectStatusLabel(frontMatter, completion, ragStatus) {
 
     // An initiative's status is its stated RAG, not a schedule judgement.
     if (typeof isInitiativeFrontMatter === 'function' && isInitiativeFrontMatter(frontMatter)) {
+        return initiativeRagLabel(ragStatus);
+    }
+
+    // An overridden project reads as its stated RAG, as an initiative does.
+    if (typeof getProjectRagOverride === 'function' && getProjectRagOverride(frontMatter)) {
         return initiativeRagLabel(ragStatus);
     }
 
