@@ -77,7 +77,7 @@ export const TABS = [
         id: 'track', label: 'Track',
         groups: [
             { name: 'RAID', launcher: 'RAID Log', lg: [['raid-log', 'RAID Log']], cols: [[['flag', 'Risk'], ['warn', 'Issue']], [['doc', 'Assumption'], ['link', 'Dependency']], [['check', 'Action']]] },
-            { name: 'Progress', lg: [['highlights', 'Highlights']], cols: [[['check', 'Actions'], ['search', 'Lookahead']], [['chart', 'Analysis'], ['bulb', 'Lessons']]] },
+            { name: 'Progress', lg: [['highlights', 'Highlights']], cols: [[['check', 'Actions'], ['search', 'Lookahead']], [['chart', 'Analysis'], ['bulb', 'Lessons']], [['flag', 'Rate']]] },
             { name: 'Cost', launcher: 'Budget', lg: [['money', 'Budget']], cols: [[['chart', 'EVM'], ['refresh', 'Forecast']]] },
             { name: 'Benefits', lg: [['target', 'Benefits']], cols: [[['chart', 'Realisation']]] },
         ],

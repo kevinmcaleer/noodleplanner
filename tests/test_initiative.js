@@ -64,6 +64,16 @@ assertEqual((reRated.match(/^rag:/gm) || []).length, 1, 're-rating does not dupl
 const cleared = init.setInitiativeRag(reRated, null);
 assertEqual(init.getInitiativeRag(cleared), { rag: null, comment: '', updated: '' }, 'null clears back to unrated');
 
+// --- project RAG override: same front matter, but only `rag_updated:` marks it
+// a person's rating, because a project's computed RAG is also written to `rag:`.
+
+assertEqual(init.getProjectRagOverride(fm('title: T', 'rag: green')), null, 'a computed rag: alone is not an override');
+const overridden = init.setInitiativeRag(fm('title: T'), 'amber', 'Waiting on legal', '2026-10-14');
+assertEqual(init.getProjectRagOverride(overridden),
+    { rag: 'amber', comment: 'Waiting on legal', updated: '2026-10-14' }, 'a rated project has an override');
+assertEqual(init.extractPlanType(overridden), 'project', 'overriding keeps it a project');
+assertEqual(init.getProjectRagOverride(init.setInitiativeRag(overridden, null)), null, 'clearing returns to computed');
+
 // --- template (#1478) ----------------------------------------------------
 
 const template = init.buildInitiativeTemplate('Tidy the wiki');

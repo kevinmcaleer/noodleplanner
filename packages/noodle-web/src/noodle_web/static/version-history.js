@@ -648,6 +648,9 @@ function persistRagToFrontMatter(ragStatus) {
     // An initiative's rag: is stated by a person, not computed (#1481).
     if (typeof isInitiativePlan === 'function' && isInitiativePlan(editor.value)) return;
 
+    // So is a project's override: leave the stated RAG alone.
+    if (typeof getProjectRagOverride === 'function' && getProjectRagOverride(editor.value)) return;
+
     const current = getRagFromFrontMatter(editor.value);
     if (current === ragStatus) return; // no change
 
