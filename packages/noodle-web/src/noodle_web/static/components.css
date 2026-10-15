@@ -3933,6 +3933,21 @@ tr:hover .task-context-btn,
     gap: var(--np-space-4);
 }
 
+/* Edit / Delete appear while the card is hovered or holds keyboard focus; a
+   touch screen has no hover, so there they are always shown (same pattern as
+   the RAID and Actions rows). */
+.highlight-card .highlight-actions {
+    opacity: 0;
+    transition: opacity 120ms ease;
+}
+
+.highlight-card:hover .highlight-actions,
+.highlight-card:focus-within .highlight-actions { opacity: 1; }
+
+@media (hover: none) {
+    .highlight-card .highlight-actions { opacity: 1; }
+}
+
 .highlight-body {
     color: var(--np-ink);
     font-size: 0.95em;
