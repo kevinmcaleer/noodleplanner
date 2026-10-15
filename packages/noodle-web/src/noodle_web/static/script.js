@@ -15953,8 +15953,8 @@ function renderHighlightsList() {
                     <span class="highlight-author">@${escapeHtml(h.author)}</span>
                 </div>
                 <div class="highlight-actions">
-                    <np-button icon-only variant="neutral" size="small" title="Edit" label="Edit" onclick="editHighlight(${originalIdx})"><span slot="icon">&#9998;</span></np-button>
-                    <np-button icon-only variant="danger" size="small" title="Delete" label="Delete" onclick="deleteHighlight(${originalIdx})"><span slot="icon">&#128465;</span></np-button>
+                    <np-button icon-only variant="neutral" size="small" title="Edit" label="Edit" onclick="editHighlight(${originalIdx})"><span slot="icon">✏️</span></np-button>
+                    <np-button icon-only variant="neutral" size="small" title="Delete" label="Delete" onclick="deleteHighlight(${originalIdx})"><i class="bi bi-trash" slot="icon"></i></np-button>
                 </div>
             </div>
             <div class="highlight-body">${renderSimpleMarkdown(h.content)}</div>
