@@ -165,7 +165,7 @@ def parse_front_matter(plan_text: str) -> dict:
 
         # The dashboard: widget list is read client-side (dashboard-widgets.js);
         # its "- {id: ...}" lines are not key/value pairs, so skip them here.
-        if stripped.lower() == "dashboard:":
+        if stripped.lower() in ("dashboard:", "dashboard_tablet:", "dashboard_phone:"):
             in_dashboard = True
             continue
         if in_dashboard:

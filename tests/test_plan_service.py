@@ -517,3 +517,20 @@ class TestCircularDependencyFields:
         result = service.parse(sample_plan)
         assert all(t["circular_dependencies"] == [] for t in result.tasks)
         assert all(t["loop_warning"] == "" for t in result.tasks)
+
+
+def test_dashboard_layout_blocks_are_not_front_matter_keys():
+    """The per-device dashboard layouts (#779) are read client-side; their
+    `- {id: ...}` lines must not turn into junk keys, nor hide what follows."""
+    from noodle_web.plan_service import parse_front_matter
+
+    fm = parse_front_matter(
+        "---\n"
+        "title: Demo\n"
+        "dashboard:\n  - {id: timeline, w: 9}\n  - {id: risks, w: 6, hidden: true}\n"
+        "dashboard_tablet:\n  - {id: actions, w: 6, h: 2}\n"
+        "dashboard_phone:\n  - {id: budget, w: 1}\n"
+        "sponsor: Ann\n"
+        "---\n"
+    )
+    assert fm == {"title": "Demo", "sponsor": "Ann"}

@@ -68,7 +68,9 @@ An overview of the project:
 - **Risks & Issues** — open RAID items sorted by score
 - **Budget Summary** (when the plan has a budget) and **Open Actions**
 
-Each widget can be hidden, reordered and resized from **Customise dashboard**. Use the arrow buttons (keyboard friendly) or drag a row. The layout is saved in the plan's :ref:`dashboard front matter <front-matter-dashboard>`. On a narrow screen the widgets stack in one column.
+Press **Customise dashboard** to arrange it. Drag a widget's handle to move it, drag its bottom-right corner to resize it (whole columns wide, and rows tall), or use the buttons on its bar: arrows to move, **−** and **+** for width, and the double arrows for height. **×** hides a widget, and the tray above the dashboard brings hidden widgets back. **Reset this layout** returns the screen you are on to its default.
+
+A desktop has 12 columns, a tablet 6, and a phone is one column with arrows to reorder and a taller button. Each keeps its own layout, saved in the plan's :ref:`dashboard front matter <front-matter-dashboard>`, so arranging the dashboard on a phone does not change it on a desktop.
 
 Tasks
 ~~~~~~
