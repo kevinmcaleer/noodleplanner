@@ -147,6 +147,7 @@ def parse_front_matter(plan_text: str) -> dict:
     lines = plan_text.split("\n")
     in_front_matter = False
     in_settings = False
+    in_dashboard = False
     settings: dict = {}
 
     for line in lines:
@@ -161,6 +162,16 @@ def parse_front_matter(plan_text: str) -> dict:
             continue
 
         stripped = line.strip()
+
+        # The dashboard: widget list is read client-side (dashboard-widgets.js);
+        # its "- {id: ...}" lines are not key/value pairs, so skip them here.
+        if stripped.lower() == "dashboard:":
+            in_dashboard = True
+            continue
+        if in_dashboard:
+            if line.startswith((" ", "-")) and stripped:
+                continue
+            in_dashboard = False
 
         # Detect the settings: section header
         if stripped.lower() == "settings:":

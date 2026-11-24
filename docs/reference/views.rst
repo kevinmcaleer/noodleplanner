@@ -58,14 +58,17 @@ Project Views
 Dashboard
 ~~~~~~~~~~
 
-A quad-layout overview of the project:
+An overview of the project:
 
 - **Header** — project name, manager, RAG status badge, sponsor, budget, date
-- **Timeline** — milestone markers on a progress bar
-- **Milestones** (top-left) — next 10 incomplete milestones sorted by date
-- **Risks & Issues** (top-right) — open RAID items sorted by score
-- **Latest Highlight** (bottom-left) — most recent highlight entry
-- **Notes** (bottom-right) — placeholder for future use
+- **Timeline** and **Task completion** — milestone markers, and a completion chart
+- **Milestones** — next 10 incomplete milestones sorted by date
+- **Up Next** — tasks starting in the next two weeks
+- **Latest Highlight** — most recent highlight entry
+- **Risks & Issues** — open RAID items sorted by score
+- **Budget Summary** (when the plan has a budget) and **Open Actions**
+
+Each widget can be hidden, reordered and resized from **Customise dashboard**. Use the arrow buttons (keyboard friendly) or drag a row. The layout is saved in the plan's :ref:`dashboard front matter <front-matter-dashboard>`. On a narrow screen the widgets stack in one column.
 
 Tasks
 ~~~~~~

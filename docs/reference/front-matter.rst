@@ -168,6 +168,25 @@ The Project Settings panel's choices for this project, as indented ``key: value`
 
 The icons at the top left of every form switch between the three until the page is reloaded. A phone always opens a form as a full page.
 
+.. _front-matter-dashboard:
+
+``dashboard``
+~~~~~~~~~~~~~
+
+Which dashboard widgets show, in what order and at what size. Click **Customise dashboard** on the Dashboard to change it; the picker writes this block itself.
+
+.. code-block:: yaml
+
+   dashboard:
+     - {id: timeline, size: wide}
+     - {id: milestones, size: half}
+     - {id: risks, size: half, hidden: true}
+
+- ``id`` is one of ``timeline``, ``task_completion``, ``milestones``, ``up_next``, ``highlights``, ``risks``, ``budget`` and ``actions``.
+- ``size`` is ``full``, ``wide``, ``half`` or ``narrow``; leave it out for the widget's default.
+- ``hidden: true`` hides a widget but keeps its place. A widget that is not listed at all is shown, after the listed ones.
+- An id this version does not know is ignored and kept when you save. A plan with no ``dashboard:`` key shows the default layout, and **Reset to default** removes the key.
+
 ``Resources``
 ~~~~~~~~~~~~~
 

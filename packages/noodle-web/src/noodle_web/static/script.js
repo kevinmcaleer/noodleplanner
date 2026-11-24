@@ -1665,6 +1665,11 @@ function updateMilestonesView(result) {
 
 function updateReportView(result) {
     updateReportPage(result.tasks || [], result.project_name, result.front_matter || {});
+    // Widget order, sizes and visibility come from the plan's `dashboard:` block (#779).
+    if (typeof applyDashboardFromPlan === 'function') {
+        const ed = typeof getActiveEditor === 'function' ? getActiveEditor() : document.getElementById('planEditor');
+        applyDashboardFromPlan(ed ? ed.value : '');
+    }
 }
 
 function updateResourcesView(result) {

@@ -730,10 +730,6 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 :root body :is(.ns-col-header.selected, .ns-row-num.selected) { background: var(--np-selected); color: var(--np-ink); }
 :root body .modal-header { gap: 12px; border-radius: 14px 14px 0 0; }
 :root body .modal-header :is(h2, input) { min-width: 0; font-family: var(--np-font-heading); font-weight: 400; }
-:root body .timeline-donut-row { flex-wrap: wrap; }
-:root body .timeline-donut-timeline { flex-basis: 360px; overflow: hidden; }
-:root body .timeline-donut-chart { flex-basis: 220px; }
-:root body .quad-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 :root body .quad-cell { border-radius: 11px; border-color: var(--np-hairline-warm); box-shadow: none; }
 :root body .quad-cell h3 { font-family: var(--np-font-heading); font-weight: 400; color: var(--np-ink); }
 :root body .calendar-grid { background: var(--np-border); border-color: var(--np-border); grid-template-columns: repeat(7, minmax(0, 1fr)); }
@@ -744,7 +740,7 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 :root body .calendar-day-cell.calendar-today { background: var(--np-accent-tint); border-color: var(--np-accent); }
 :root body .calendar-day-number { color: var(--np-body); font-family: var(--np-font-data); }
 @media (max-width: 700px) {
-    :root body .quad-grid { grid-template-columns: minmax(0, 1fr); }
+    
     :root body .project-report-content { padding: 16px; }
     :root body .modal-header, :root body .modal-body { padding: 16px; }
 }
