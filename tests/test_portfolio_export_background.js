@@ -139,22 +139,58 @@ function projects(count) {
     })();
 
     const seen = [];
-    const images = await sandbox.captureProjectTimelineImages(projects(12), function(done, total) {
+    const images = await sandbox.captureProjectTimelineImages(projects(25), function(done, total) {
         seen.push({ done, total });
     });
     running = false;
 
-    // One html2canvas call for the lot: it costs ~2.5s fixed plus ~0.15s per
-    // block, so splitting the blocks across calls would pay that fixed cost
-    // again each time (#778). The export yields around the call instead.
-    assertEqual(record.batches.length, 1, 'the projects are still rasterised in one html2canvas call');
-    assertEqual(record.batches[0], 12, 'every project goes into that one call');
-    assertEqual(images.length, 12, 'every project gets an image back');
-    assert(ticks > 1, 'the main thread runs other work around the capture (' + ticks + ' turns)');
+    // A batch per html2canvas call: few enough blocks that one call is about
+    // a second of main-thread time, with a yield before each so the toast
+    // repaints and clicks land in between.
+    assertEqual(JSON.stringify(record.batches), '[10,10,5]', 'the projects are rasterised ten to a call');
+    assertEqual(images.length, 25, 'every project gets an image back');
+    assert(ticks > record.batches.length, 'the main thread runs other work between batches (' + ticks + ' turns)');
 
-    assertEqual(seen.length, 1, 'the capture reports progress, so the toast moves');
-    assertEqual(seen[0].done, 12, 'progress reports every project captured');
-    assertEqual(seen[0].total, 12, 'progress is reported against the project count');
+    assertEqual(JSON.stringify(seen.map(function(s) { return s.done; })), '[10,20,25]',
+        'the capture reports progress after each batch, so the toast moves');
+    assertEqual(seen[0].total, 25, 'progress is reported against the project count');
+})();
+
+(async function testAFailedBatchOnlyRetriesItsOwnProjects() {
+    const record = { batches: [] };
+    const sandbox = loadCaptureModule(record);
+    sandbox.rasteriseTimelineBlocks = function(blocks) {
+        record.batches.push(blocks.length);
+        // The second batch of ten fails as a batch, and works block by block.
+        if (record.batches.length === 2) return Promise.reject(new Error('html2canvas fell over'));
+        return Promise.resolve(blocks.map(function(html) { return 'png:' + html; }));
+    };
+
+    const images = await sandbox.captureProjectTimelineImages(projects(12));
+
+    assertEqual(JSON.stringify(record.batches), '[10,2,1,1]', 'only the failed batch is retried one at a time');
+    assertEqual(images.length, 12, 'every project still gets an image');
+    assertEqual(images[11], 'png:<div>Project 12</div>', 'and the images stay aligned with their projects');
+})();
+
+// --- html2canvas is not handed the whole page -------------------------------
+
+(function testCaptureLeavesTheRestOfThePageOutOfTheClone() {
+    const body = { tagName: 'BODY' };
+    const sandbox = loadModule({ document: { body } });
+    const host = { tagName: 'DIV', parentElement: body };
+    const options = sandbox.timelineCaptureOptions(host);
+    const el = function(tagName, parentElement) { return { tagName, parentElement }; };
+
+    assertEqual(options.scale, 2, 'the capture is still taken at 2x');
+    assertEqual(options.backgroundColor, '#ffffff', 'on a white background');
+    assert(options.ignoreElements(el('DIV', body)), 'the app\'s own top-level elements are not cloned');
+    assert(options.ignoreElements(el('NP-DIALOG', body)), 'whatever they are');
+    assert(!options.ignoreElements(host), 'the offscreen capture host is');
+    assert(!options.ignoreElements(el('DIV', host)), 'with everything inside it');
+    assert(!options.ignoreElements(el('STYLE', body)), 'a stylesheet in the body is kept');
+    assert(!options.ignoreElements(el('LINK', body)), 'linked or inline');
+    assert(!options.ignoreElements(el('HEAD', { tagName: 'HTML' })), 'and the head is left alone');
 })();
 
 (async function testCaptureFailureFallsBackBlockByBlock() {

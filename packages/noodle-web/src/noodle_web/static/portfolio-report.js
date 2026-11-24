@@ -39,6 +39,42 @@ const TIMELINE_CAPTURE_WIDTH = 1200;
 const PORTFOLIO_TIMELINE_CAPTURE_WIDTH = 1600;
 
 /**
+ * How many project timelines go into one html2canvas call.
+ *
+ * Small enough that one call is about a second of main-thread time rather
+ * than several, so the toast repaints and clicks land between batches; large
+ * enough that the per-call overhead that is left stays a small share.
+ */
+const TIMELINE_CAPTURE_BATCH = 10;
+
+/**
+ * The html2canvas options for capturing something inside `host`, an offscreen
+ * element appended to `<body>`.
+ *
+ * html2canvas does not clone just the element it is given: it clones the
+ * whole document, and copies every computed style property onto every clone.
+ * On this page that is tens of thousands of elements carrying several hundred
+ * properties each, for the sake of the few hundred being drawn -- measured at
+ * 54s of a 67s ten-project export, in two unbroken main-thread tasks of ~30s,
+ * and at over five minutes with a 200-task plan open. `ignoreElements` leaves
+ * the rest of the page out of the clone. The stylesheets stay (wherever they
+ * are), and so do `<html>` and `<body>` with their classes and attributes, so
+ * every rule that styled the capture still matches it and the pixels are the
+ * same.
+ */
+function timelineCaptureOptions(host) {
+    return {
+        backgroundColor: '#ffffff',
+        scale: TIMELINE_CAPTURE_SCALE,
+        ignoreElements: function(element) {
+            if (element === host || element.parentElement !== document.body) return false;
+            var tag = element.tagName;
+            return tag !== 'STYLE' && tag !== 'LINK';
+        }
+    };
+}
+
+/**
  * Hand the main thread back to the browser, so queued input and a paint can
  * run before the export takes it again (#1276).
  */
@@ -135,12 +171,12 @@ function buildTimelineBlockElement(innerHtml) {
 /**
  * Rasterise several timeline blocks in a single html2canvas call (issue #778).
  *
- * html2canvas clones the whole document into an iframe and re-resolves every
- * stylesheet against it on each call. On this page that fixed cost is ~2.2 s
- * -- an empty element costs the same as a swimlane -- and it used to be paid
- * once per project, which was 87% of a ten-project export's wall clock. The
- * blocks are laid out stacked in one offscreen container instead, rasterised
- * together, and cropped apart afterwards, so the clone is paid once.
+ * html2canvas builds an iframe and re-resolves every stylesheet against it on
+ * each call, a fixed cost an empty element pays as much as a swimlane. It
+ * used to be paid once per project, which was 87% of a ten-project export's
+ * wall clock. The blocks are laid out stacked in one offscreen container
+ * instead, rasterised together, and cropped apart afterwards, so it is paid
+ * once per batch.
  *
  * The pixels are unchanged: each block is the same element, at the same
  * width, with the same class and children as the container that used to be
@@ -203,10 +239,7 @@ async function rasteriseTimelineBlocks(blocks) {
             };
         });
 
-        var sheet = await html2canvas(container, {
-            backgroundColor: '#ffffff',
-            scale: TIMELINE_CAPTURE_SCALE
-        });
+        var sheet = await html2canvas(container, timelineCaptureOptions(container));
 
         drawable.forEach(function(entry, position) {
             var box = boxes[position];
@@ -230,10 +263,13 @@ async function rasteriseTimelineBlocks(blocks) {
 /**
  * Capture one timeline PNG per project.
  *
- * Takes the batched path, and falls back to one html2canvas call per project
- * if that fails, so a capture problem costs speed rather than the images.
+ * The projects are rasterised a batch at a time, with the main thread handed
+ * back between batches so the toast repaints and queued clicks run (#1276).
+ * A batch that fails is retried one project at a time, so a capture problem
+ * costs speed rather than the images.
  *
  * @param {Array<{tasks: Array, name: string}>} projects
+ * @param {(done: number, total: number) => void} [onProgress]
  * @returns {Promise<Array<string|null>>} Base64 PNGs, aligned with `projects`.
  */
 async function captureProjectTimelineImages(projects, onProgress) {
@@ -248,35 +284,32 @@ async function captureProjectTimelineImages(projects, onProgress) {
         }
     });
 
-    // Hand the main thread back before and after the capture. html2canvas
-    // itself is one long task -- measured at ~2.5s fixed plus ~0.15s per
-    // block on a ten-project portfolio -- and there is no way to chunk it
-    // from out here: splitting the blocks across calls pays that 2.5s again
-    // per call to shave under a second off the longest pause. So the export
-    // yields around it instead, which is what lets the toast repaint and the
-    // queued clicks run (#1276).
-    await yieldToUi();
+    var images = [];
+    for (var start = 0; start < blocks.length; start += TIMELINE_CAPTURE_BATCH) {
+        var batch = blocks.slice(start, start + TIMELINE_CAPTURE_BATCH);
 
-    var images;
-    try {
-        images = await rasteriseTimelineBlocks(blocks);
-    } catch (err) {
-        console.warn('Batched timeline capture failed, falling back to one at a time:', err);
-        images = [];
-        for (var i = 0; i < blocks.length; i++) {
-            await yieldToUi();
-            try {
-                images.push((await rasteriseTimelineBlocks([blocks[i]]))[0]);
-            } catch (inner) {
-                console.warn('Could not capture project timeline for ' + projects[i].name + ':', inner);
-                images.push(null);
-            }
+        // html2canvas is one long task per call and cannot be chunked from
+        // out here, so the export yields around each call instead.
+        await yieldToUi();
+
+        try {
+            images = images.concat(await rasteriseTimelineBlocks(batch));
             if (onProgress) onProgress(images.length, blocks.length);
+        } catch (err) {
+            console.warn('Batched timeline capture failed, falling back to one at a time:', err);
+            for (var i = 0; i < batch.length; i++) {
+                await yieldToUi();
+                try {
+                    images.push((await rasteriseTimelineBlocks([batch[i]]))[0]);
+                } catch (inner) {
+                    console.warn('Could not capture project timeline for ' + projects[start + i].name + ':', inner);
+                    images.push(null);
+                }
+                if (onProgress) onProgress(images.length, blocks.length);
+            }
         }
-        return images;
     }
 
-    if (onProgress) onProgress(images.length, blocks.length);
     await yieldToUi();
     return images;
 }
@@ -320,7 +353,7 @@ async function capturePortfolioTimelineImage(parsedProjects) {
     try {
         var target = host.querySelector('.portfolio-timeline-container');
         if (!target) return null;
-        var canvas = await html2canvas(target, { backgroundColor: '#ffffff', scale: TIMELINE_CAPTURE_SCALE });
+        var canvas = await html2canvas(target, timelineCaptureOptions(host));
         return canvas.toDataURL('image/png').split(',')[1] || null;
     } catch (err) {
         console.warn('Could not capture portfolio timeline as image:', err);
