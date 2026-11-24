@@ -1,0 +1,64 @@
+# Node deployment: runs the images CI publishes on every merge to main.
+#
+# Unlike the repo-root docker-compose.yml (a build-from-source, bind-mounted
+# dev/prod stack), nothing here mounts source or builds: the container runs
+# exactly what was merged. Watchtower pulls the new image and restarts the
+# labelled containers when :main changes. See README.md.
+services:
+  noodleplanner:
+    image: ghcr.io/kevinmcaleer/noodleplanner:main
+    container_name: noodleplanner
+    ports:
+      - "8007:8007"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8007
+      - MAX_FILE_SIZE=1048576
+      - ENABLE_ACTIVITY_LOGGING=false
+      - NOODLE_DB_PATH=/data/noodleplanner.db
+    volumes:
+      # Host dir must be writable by uid 1000: mkdir -p data && sudo chown 1000:1000 data
+      - ./data:/data
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8007/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  docs:
+    image: ghcr.io/kevinmcaleer/noodleplanner-docs:main
+    container_name: noodleplanner-docs
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    restart: unless-stopped
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: noodleplanner-tunnel
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ../cloudflared:/etc/cloudflared:ro
+    depends_on:
+      - noodleplanner
+      - docs
+    restart: unless-stopped
+
+  watchtower:
+    # Maintained fork of containrrr/watchtower (which is archived).
+    image: nickfedor/watchtower:latest
+    container_name: noodleplanner-watchtower
+    command: --label-enable --cleanup --interval 60
+    environment:
+      - TZ=Europe/London
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Registry login written by `docker login ghcr.io` (the packages are private).
+      - ${HOME}/.docker/config.json:/config.json:ro
+    restart: unless-stopped
