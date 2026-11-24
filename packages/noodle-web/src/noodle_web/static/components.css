@@ -705,64 +705,68 @@
     max-width: 100%;
 }
 
-/* Dashboard widgets (#779): one 12-column grid; each widget's data-size
-   picks its span, and data-widget-hidden removes it. */
+/* Dashboard widgets (#779): one grid per device -- 12 columns on a desktop, 6
+   on a tablet, one on a phone. A widget's --dashboard-w is the columns it spans
+   and --dashboard-h, when set, the rows it is tall (a row is --dashboard-row);
+   without --dashboard-h it is as tall as its content. Phones key off
+   <html data-layout>, never a width. */
 .dashboard-grid {
+    --dashboard-row: 170px;
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: var(--np-space-20);
     margin-top: var(--np-space-12);
 }
 
-.dashboard-grid > [data-size="full"] { grid-column: span 12; }
-.dashboard-grid > [data-size="wide"] { grid-column: span 9; }
-.dashboard-grid > [data-size="half"] { grid-column: span 6; }
-.dashboard-grid > [data-size="narrow"] { grid-column: span 3; }
+[data-layout="tablet"] .dashboard-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+[data-layout="phone"] .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+
+.dashboard-grid > [data-widget-id] {
+    grid-column: span var(--dashboard-w, 6);
+    min-width: 0;
+}
+
+[data-layout="phone"] .dashboard-grid > [data-widget-id] { grid-column: span 1; }
+
+.dashboard-grid > [data-h] > .dashboard-edit-bar { position: sticky; top: 0; }
+
+.dashboard-grid > [data-h] {
+    height: calc(var(--dashboard-h) * var(--dashboard-row) + (var(--dashboard-h) - 1) * var(--np-space-20));
+    overflow: auto;
+}
+
 .dashboard-grid > [data-widget-hidden] { display: none !important; }
-.dashboard-grid > [data-widget-id="timeline"] { min-width: 0; overflow: hidden; }
+.dashboard-grid > [data-widget-id="timeline"] { overflow-x: hidden; }
 
 .dashboard-toolbar {
     display: flex;
     justify-content: flex-end;
+    gap: var(--np-space-8);
     margin-bottom: var(--np-space-8);
 }
 
-.dashboard-customize-panel {
-    border: 1px solid var(--np-border);
-    border-radius: 8px;
-    padding: var(--np-space-16);
-    background: var(--np-surface);
-    margin-bottom: var(--np-space-16);
-    max-width: 520px;
-    margin-left: auto;
+.dashboard-toolbar > [hidden] { display: none; }
+
+.dashboard-tray {
+    margin-bottom: var(--np-space-12);
+    color: var(--np-muted);
+    font-size: 0.9em;
 }
 
-.dashboard-customize-panel[hidden] { display: none; }
+.dashboard-tray[hidden] { display: none; }
+.dashboard-tray-note { margin: 0 0 var(--np-space-8) 0; }
 
-.dashboard-panel-title {
-    margin: 0 0 var(--np-space-12) 0;
-    color: var(--np-ink);
-}
-
-.dashboard-panel-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.dashboard-panel-row {
+.dashboard-tray-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--np-space-8);
-    padding: var(--np-space-8);
-    border-bottom: 1px solid var(--np-hairline);
-    cursor: grab;
 }
 
-.dashboard-panel-row.drop-target { background: var(--np-hairline); }
-.dashboard-panel-label { flex: 1; color: var(--np-body); }
-
-.dashboard-panel-move {
+.dashboard-add-btn,
+.dashboard-edit-btn,
+.dashboard-grip,
+.dashboard-resize {
     min-width: 32px;
     min-height: 32px;
     border: 1px solid var(--np-border);
@@ -770,16 +774,58 @@
     background: var(--np-surface);
     color: var(--np-body);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.dashboard-panel-move:disabled { opacity: 0.4; cursor: default; }
+.dashboard-add-btn { padding: 0 var(--np-space-12); }
+.dashboard-edit-btn:disabled { opacity: 0.4; cursor: default; }
 
-.dashboard-panel-actions {
+/* Editing: each widget gets a bar (drag handle, title, move/size/hide buttons)
+   and a resize handle in its bottom-right corner. */
+.dashboard-grid[data-editing] > [data-widget-id] {
+    outline: 2px dashed var(--np-border);
+    outline-offset: -2px;
+    position: relative;
+}
+
+.dashboard-grid > .dashboard-dragging { opacity: 0.45; }
+.dashboard-grid > .dashboard-drop { outline: 2px solid var(--np-accent); outline-offset: 2px; }
+
+.dashboard-edit-bar {
+    position: relative;
+    z-index: 2;
+    flex: none;
     display: flex;
-    justify-content: flex-end;
-    gap: var(--np-space-8);
-    margin-top: var(--np-space-12);
+    align-items: center;
+    gap: var(--np-space-4);
+    flex-wrap: wrap;
+    padding: var(--np-space-4);
+    margin-bottom: var(--np-space-8);
+    background: var(--np-surface-alt);
+    border-radius: 6px;
 }
+
+.dashboard-grip { cursor: grab; touch-action: none; border-color: transparent; background: transparent; }
+.dashboard-edit-tools { display: inline-flex; gap: var(--np-space-4); flex-wrap: wrap; margin-left: auto; }
+
+.dashboard-resize {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    margin-left: auto;
+    cursor: nwse-resize;
+    touch-action: none;
+    border-color: transparent;
+    background: transparent;
+    width: 32px;
+    height: 32px;
+}
+
+[data-layout="phone"] .dashboard-edit-btn,
+[data-layout="phone"] .dashboard-add-btn { min-width: 44px; min-height: 44px; }
+[data-layout="phone"] .dashboard-grip { display: none; }
 
 /* Donut Chart */
 .donut-chart-section {
@@ -1117,12 +1163,7 @@
     padding-left: var(--np-space-20);
 }
 
-@media (max-width: 768px) {
-    .dashboard-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-    .dashboard-grid > [data-size] { grid-column: span 1; }
-}
+
 
 /* ========================================
    Global Focus Indicator (Accessibility)

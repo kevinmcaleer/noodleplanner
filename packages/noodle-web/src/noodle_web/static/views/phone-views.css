@@ -115,9 +115,7 @@
 
 /* On a phone the dashboard is one column, in the order someone checks it
    there: the plan's RAG and status (the header), the next milestones, what
-   is up next or overdue, the open risks -- then the rest. The two grids
-   step aside (display: contents) so their cells can be ordered with the
-   header and the timeline row. */
+   is up next or overdue, the open risks -- then the rest. */
 [data-layout="phone"] #project-report-view .project-report-content {
     display: flex;
     flex-direction: column;
@@ -125,29 +123,13 @@
     padding: var(--np-space-16);
 }
 
-[data-layout="phone"] #project-report-view .dashboard-grid {
-    display: contents;
-}
-
 [data-layout="phone"] #project-report-view .project-report-header {
     order: 0;
     margin-bottom: 0;
 }
 
-[data-layout="phone"] #project-report-view .dashboard-toolbar,
-[data-layout="phone"] #project-report-view .dashboard-customize-panel { order: 9; }
-
-/* Dashboard widgets are laid out by the plan's `dashboard:` front matter
-   (#779); on a phone the default order is the one someone checks it in, and a
-   customised dashboard (data-custom) keeps the order the PM chose. */
-[data-layout="phone"] #project-report-view .dashboard-grid:not([data-custom]) > [data-widget-id="milestones"] { order: 1; }
-[data-layout="phone"] #project-report-view .dashboard-grid:not([data-custom]) > [data-widget-id="up_next"] { order: 2; }
-[data-layout="phone"] #project-report-view .dashboard-grid:not([data-custom]) > [data-widget-id="risks"] { order: 3; }
-[data-layout="phone"] #project-report-view .dashboard-grid:not([data-custom]) > [data-widget-id="actions"] { order: 4; }
-[data-layout="phone"] #project-report-view .dashboard-grid:not([data-custom]) > [data-widget-id="highlights"] { order: 5; }
-[data-layout="phone"] #project-report-view .dashboard-grid:not([data-custom]) > [data-widget-id="budget"] { order: 6; }
-[data-layout="phone"] #project-report-view .dashboard-grid:not([data-custom]) > :is([data-widget-id="timeline"], [data-widget-id="task_completion"]) { order: 7; }
-[data-layout="phone"] #project-report-view .dashboard-grid[data-custom] > [data-widget-id] { order: 1; }
+/* The phone dashboard is one column in the order its layout gives; the default
+   phone layout (dashboard-widgets.js) is the order someone checks it in. */
 
 [data-layout="phone"] #project-report-view .quad-cell {
     min-width: 0;

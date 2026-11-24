@@ -295,11 +295,13 @@
 
                                 <!-- Dashboard widgets (#779). Each child of #dashboardWidgets is a
                                      widget with a stable data-widget-id; dashboard-widgets.js shows,
-                                     hides and reorders them from the plan's `dashboard:` front matter. -->
+                                     moves, resizes and hides them per device from the plan's `dashboard:`,
+                                     `dashboard_tablet:` and `dashboard_phone:` front matter. -->
                                 <div class="dashboard-toolbar" id="dashboardToolbar">
-                                    <np-button variant="secondary" size="large" id="dashboardCustomizeBtn" aria-haspopup="dialog" aria-controls="dashboardCustomizePanel" aria-expanded="false">Customise dashboard</np-button>
+                                    <np-button variant="secondary" size="large" id="dashboardResetBtn" hidden>Reset this layout</np-button>
+                                    <np-button variant="secondary" size="large" id="dashboardCustomizeBtn" aria-pressed="false">Customise dashboard</np-button>
                                 </div>
-                                <div class="dashboard-customize-panel" id="dashboardCustomizePanel" role="dialog" aria-label="Customise dashboard" hidden></div>
+                                <div class="dashboard-tray" id="dashboardTray" hidden></div>
                                 <div class="dashboard-grid" id="dashboardWidgets">
                                     <div class="project-report-section" data-widget-id="timeline">
                                         <div class="quad-header">

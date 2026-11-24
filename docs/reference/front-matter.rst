@@ -170,22 +170,28 @@ The icons at the top left of every form switch between the three until the page 
 
 .. _front-matter-dashboard:
 
-``dashboard``
-~~~~~~~~~~~~~
+``dashboard``, ``dashboard_tablet``, ``dashboard_phone``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Which dashboard widgets show, in what order and at what size. Click **Customise dashboard** on the Dashboard to change it; the picker writes this block itself.
+Which dashboard widgets show, in what order and at what size, for each kind of screen. Click **Customise dashboard** on the Dashboard to change the layout of the screen you are on; the dashboard writes these blocks itself. ``dashboard`` is the desktop layout, ``dashboard_tablet`` the tablet's and ``dashboard_phone`` the phone's, and arranging one never changes the others.
 
 .. code-block:: yaml
 
    dashboard:
-     - {id: timeline, size: wide}
-     - {id: milestones, size: half}
-     - {id: risks, size: half, hidden: true}
+     - {id: timeline, w: 9}
+     - {id: milestones, w: 6, h: 2}
+     - {id: risks, w: 6, hidden: true}
+   dashboard_tablet:
+     - {id: actions, w: 6, h: 2}
+   dashboard_phone:
+     - {id: milestones, w: 1}
 
 - ``id`` is one of ``timeline``, ``task_completion``, ``milestones``, ``up_next``, ``highlights``, ``risks``, ``budget`` and ``actions``.
-- ``size`` is ``full``, ``wide``, ``half`` or ``narrow``; leave it out for the widget's default.
+- ``w`` is how many columns the widget spans: of 12 on a desktop (at least 3), of 6 on a tablet (at least 2). A phone is one column, so it is always ``1``.
+- ``h`` is how many rows tall the widget is (1 to 8, each about 170 pixels); a widget that taller content does not fit scrolls. Leave it out and the widget is as tall as its content.
 - ``hidden: true`` hides a widget but keeps its place. A widget that is not listed at all is shown, after the listed ones.
-- An id this version does not know is ignored and kept when you save. A plan with no ``dashboard:`` key shows the default layout, and **Reset to default** removes the key.
+- ``size`` (``full``, ``wide``, ``half`` or ``narrow``) was the earlier way to write ``w`` in ``dashboard``; it is still read, and replaced by ``w`` the next time the layout is changed.
+- An id this version does not know is ignored and kept when you save. A screen with no block shows its default layout, and **Reset this layout** removes that screen's block.
 
 ``Resources``
 ~~~~~~~~~~~~~
