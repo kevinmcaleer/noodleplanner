@@ -705,28 +705,80 @@
     max-width: 100%;
 }
 
-/* Timeline + Donut Chart Row */
-.timeline-donut-row {
+/* Dashboard widgets (#779): one 12-column grid; each widget's data-size
+   picks its span, and data-widget-hidden removes it. */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--np-space-20);
+    margin-top: var(--np-space-12);
+}
+
+.dashboard-grid > [data-size="full"] { grid-column: span 12; }
+.dashboard-grid > [data-size="wide"] { grid-column: span 9; }
+.dashboard-grid > [data-size="half"] { grid-column: span 6; }
+.dashboard-grid > [data-size="narrow"] { grid-column: span 3; }
+.dashboard-grid > [data-widget-hidden] { display: none !important; }
+.dashboard-grid > [data-widget-id="timeline"] { min-width: 0; overflow: hidden; }
+
+.dashboard-toolbar {
     display: flex;
-    gap: var(--np-space-16);
-    align-items: stretch;
-    margin-bottom: var(--np-space-12);
+    justify-content: flex-end;
+    margin-bottom: var(--np-space-8);
 }
 
-.timeline-donut-timeline {
-    flex: 4;
-    min-width: 0;
+.dashboard-customize-panel {
+    border: 1px solid var(--np-border);
+    border-radius: 8px;
+    padding: var(--np-space-16);
+    background: var(--np-surface);
+    margin-bottom: var(--np-space-16);
+    max-width: 520px;
+    margin-left: auto;
 }
 
-.timeline-donut-chart {
-    flex: 1;
-    min-width: 180px;
+.dashboard-customize-panel[hidden] { display: none; }
+
+.dashboard-panel-title {
+    margin: 0 0 var(--np-space-12) 0;
+    color: var(--np-ink);
 }
 
-@media (max-width: 768px) {
-    .timeline-donut-row {
-        flex-direction: column;
-    }
+.dashboard-panel-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.dashboard-panel-row {
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-8);
+    padding: var(--np-space-8);
+    border-bottom: 1px solid var(--np-hairline);
+    cursor: grab;
+}
+
+.dashboard-panel-row.drop-target { background: var(--np-hairline); }
+.dashboard-panel-label { flex: 1; color: var(--np-body); }
+
+.dashboard-panel-move {
+    min-width: 32px;
+    min-height: 32px;
+    border: 1px solid var(--np-border);
+    border-radius: 6px;
+    background: var(--np-surface);
+    color: var(--np-body);
+    cursor: pointer;
+}
+
+.dashboard-panel-move:disabled { opacity: 0.4; cursor: default; }
+
+.dashboard-panel-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--np-space-8);
+    margin-top: var(--np-space-12);
 }
 
 /* Donut Chart */
@@ -1066,9 +1118,10 @@
 }
 
 @media (max-width: 768px) {
-    .quad-grid {
-        grid-template-columns: 1fr;
+    .dashboard-grid {
+        grid-template-columns: minmax(0, 1fr);
     }
+    .dashboard-grid > [data-size] { grid-column: span 1; }
 }
 
 /* ========================================

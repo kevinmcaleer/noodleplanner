@@ -293,9 +293,15 @@
                                     </div>
                                 </div>
 
-                                <!-- Timeline + Donut Chart Row -->
-                                <div class="timeline-donut-row">
-                                    <div class="project-report-section timeline-donut-timeline">
+                                <!-- Dashboard widgets (#779). Each child of #dashboardWidgets is a
+                                     widget with a stable data-widget-id; dashboard-widgets.js shows,
+                                     hides and reorders them from the plan's `dashboard:` front matter. -->
+                                <div class="dashboard-toolbar" id="dashboardToolbar">
+                                    <np-button variant="secondary" size="large" id="dashboardCustomizeBtn" aria-haspopup="dialog" aria-controls="dashboardCustomizePanel" aria-expanded="false">Customise dashboard</np-button>
+                                </div>
+                                <div class="dashboard-customize-panel" id="dashboardCustomizePanel" role="dialog" aria-label="Customise dashboard" hidden></div>
+                                <div class="dashboard-grid" id="dashboardWidgets">
+                                    <div class="project-report-section" data-widget-id="timeline">
                                         <div class="quad-header">
                                             <h3>Timeline</h3>
                                             <span class="widget-shortcut" onclick="switchToView('timeline')" title="Open Timeline"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span>
@@ -307,7 +313,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="project-report-section donut-chart-section timeline-donut-chart">
+                                    <div class="project-report-section donut-chart-section" data-widget-id="task_completion">
                                         <h3>Task completion</h3>
                                         <div class="donut-chart-container" id="reportDonutChart">
                                             <!-- SVG donut chart rendered by JavaScript -->
@@ -316,12 +322,9 @@
                                             <!-- Completion sparkline rendered by JavaScript -->
                                         </div>
                                     </div>
-                                </div>
 
-                                <!-- Quad Grid Layout -->
-                                <div class="quad-grid">
-                                    <!-- Top Left: Milestones -->
-                                    <div class="quad-cell">
+                                    <!-- Milestones -->
+                                    <div class="quad-cell" data-widget-id="milestones">
                                         <div class="quad-header">
                                             <h3>Milestones</h3>
                                             <button type="button" class="widget-shortcut" onclick="copyTableAsText(document.getElementById('reportMilestonesTable'), this)" title="Copy milestones as text" aria-label="Copy milestones as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
@@ -332,8 +335,8 @@
                                              aria-label="Milestones" data-empty="No upcoming milestones."></div>
                                     </div>
 
-                                    <!-- Top Right: Up Next -->
-                                    <div class="quad-cell">
+                                    <!-- Up Next -->
+                                    <div class="quad-cell" data-widget-id="up_next">
                                         <div class="quad-header">
                                             <h3>Up Next</h3>
                                             <button type="button" class="widget-shortcut" onclick="copyTableAsText(document.getElementById('reportUpNextTable'), this)" title="Copy up next as text" aria-label="Copy up next as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
@@ -344,8 +347,8 @@
                                              aria-label="Up next tasks" data-empty="No upcoming tasks in the next 2 weeks."></div>
                                     </div>
 
-                                    <!-- Bottom Left: Highlights -->
-                                    <div class="quad-cell">
+                                    <!-- Highlights -->
+                                    <div class="quad-cell" data-widget-id="highlights">
                                         <div class="quad-header">
                                             <h3>Latest Highlight</h3>
                                             <span class="quad-header-actions"><span class="widget-shortcut" onclick="switchToView('highlights')" title="Open Highlights"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span><button class="quad-add-btn" onclick="addHighlight()" title="Add new highlight">+</button></span>
@@ -355,8 +358,8 @@
                                         </div>
                                     </div>
 
-                                    <!-- Bottom Right: RAID Log -->
-                                    <div class="quad-cell">
+                                    <!-- RAID Log -->
+                                    <div class="quad-cell" data-widget-id="risks">
                                         <div class="quad-header">
                                             <h3>Risks &amp; Issues</h3>
                                             <span class="quad-header-actions"><span class="widget-shortcut" onclick="switchToView('raid')" title="Open RAID Log"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span><button class="quad-add-btn" onclick="openRaidForm()" title="Add new risk or issue">+</button></span>
@@ -379,13 +382,9 @@
                                             <np-empty-state id="reportRaidEmpty" style="display: none;">No open risks or issues.</np-empty-state>
                                         </div>
                                     </div>
-                                </div>
-
-                                <!-- Budget + Actions Row -->
-                                <div class="quad-grid" style="margin-top: 20px;">
 
                                 <!-- Budget Summary Widget -->
-                                <div class="quad-cell budget-widget" id="reportBudgetWidget" style="display: none;">
+                                <div class="quad-cell budget-widget" id="reportBudgetWidget" data-widget-id="budget" style="display: none;">
                                     <div class="quad-header">
                                         <h3>Budget Summary</h3>
                                         <span class="quad-header-actions"><span class="widget-shortcut" onclick="switchToView('budget')" title="Open Budget"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span><button class="quad-add-btn" onclick="openBudgetForm(null)" title="Add budget item">+</button></span>
@@ -420,7 +419,7 @@
                                 </div>
 
                                 <!-- Open Actions Section -->
-                                <div class="quad-cell">
+                                <div class="quad-cell" data-widget-id="actions">
                                     <div class="quad-header">
                                         <h3>Open Actions</h3>
                                         <span class="quad-header-actions"><span class="widget-shortcut" onclick="switchToView('actions')" title="Open Actions"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span><button class="quad-add-btn" onclick="addAction()" title="Add new action">+</button></span>
@@ -446,7 +445,7 @@
                                     </div>
                                 </div>
 
-                                </div><!-- end Budget + Actions Row -->
+                                </div><!-- end #dashboardWidgets -->
 
                                 <div style="display: none;">
                                 </div>
@@ -4018,6 +4017,7 @@ Build
     <script src="/static/status-bar.js?v={{ v }}"></script>
     <script src="/static/theme.js?v={{ v }}"></script>
     <script src="/static/settings.js?v={{ v }}"></script>
+    <script src="/static/dashboard-widgets.js?v={{ v }}"></script>
     <script src="/static/breadcrumb.js?v={{ v }}"></script>
     <script src="/static/nav.js?v={{ v }}"></script>
     <script src="/static/task-tokenizer.js?v={{ v }}"></script>
