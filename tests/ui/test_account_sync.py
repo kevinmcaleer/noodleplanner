@@ -6,6 +6,7 @@ Usage:
     uv run pytest tests/ui/test_account_sync.py -q
 """
 
+import datetime
 import itertools
 import json
 
@@ -14,6 +15,11 @@ from .helpers import actionable_console_errors, open_app
 BUTTON = "#ribbonSync .sync-button"
 DIALOG = "#settingsTab-sync"  # the Sync tab of the Settings panel
 _emails = itertools.count(1)
+
+# The day the version-history snapshots below are dated. Sync drops snapshots
+# older than the retention window, so a date written into the test ages out of
+# it and the snapshots stop arriving; yesterday never does.
+SNAPSHOT_DAY = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 
 
 def new_account(page, app_server):
@@ -142,7 +148,7 @@ class TestVersionHistory:
                     {version: '1.0', date: '2026-10-11T09:00:00.000Z', planText: 'first', rag: ''},
                 ]);
                 return p.id;
-            }"""
+            }""".replace("2026-10-11", SNAPSHOT_DAY)
         )
         open_dialog(page)
         page.locator("#syncEnable").click()
@@ -155,7 +161,7 @@ class TestVersionHistory:
 
         # A snapshot made on another device appears here after "Sync now".
         status, body = api(page, "PUT", f"/api/v1/plans/{server_id}/versions", {
-            "version": "1.2", "date": "2026-10-11T11:00:00.000Z", "rag": "green", "content": "third",
+            "version": "1.2", "date": f"{SNAPSHOT_DAY}T11:00:00.000Z", "rag": "green", "content": "third",
         })
         assert status == 200 and body["applied"] is True
         page.locator("#syncNow").click()
@@ -170,7 +176,7 @@ class TestVersionHistory:
         status, plan = api(page, "POST", "/api/v1/plans", {"name": "Elsewhere", "content": "Task A 1d"})
         assert status == 201
         status, _ = api(page, "PUT", f"/api/v1/plans/{plan['id']}/versions", {
-            "version": "1.0", "date": "2026-10-11T09:00:00.000Z", "rag": "", "content": "older text",
+            "version": "1.0", "date": f"{SNAPSHOT_DAY}T09:00:00.000Z", "rag": "", "content": "older text",
         })
         assert status == 200
         open_app(page, app_server)
