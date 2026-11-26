@@ -51,10 +51,40 @@ TABS = """() => [...document.getElementById('tableShellTabs').shadowRoot
     .querySelectorAll('button[data-id]')].map(b => b.dataset.id)"""
 
 
+# The toolbar's buttons: inline ones (a trailing * marks a pressed toggle)
+# and the menus pinned to its end.
+TOOLS = """() => {
+    const root = document.getElementById('tableShellTools').shadowRoot;
+    const text = (b) => b.textContent.trim() + (b.getAttribute('aria-pressed') === 'true' ? '*' : '');
+    return {
+        hidden: document.getElementById('tableShellTools').hidden,
+        inline: [...root.querySelectorAll('.strip button')].map(text),
+        menus: [...root.querySelectorAll('.end button')].map(text),
+        open: [...root.querySelectorAll('.menu button')].map(text),
+    };
+}"""
+
+
+def tool_click(pg, label, where=".strip, .end"):
+    pg.evaluate(
+        """([label, where]) => {
+            const root = document.getElementById('tableShellTools').shadowRoot;
+            const scope = [...root.querySelectorAll(where)];
+            const button = scope.flatMap(el => [...el.querySelectorAll('button')])
+                .find(b => b.textContent.trim() === label);
+            if (!button) throw new Error('no toolbar button ' + label);
+            button.click();
+        }""",
+        [label, where],
+    )
+
+
 def open_tables(pg, app_server, plan=PLAN):
     pg.goto(app_server + "/?ui=tables", wait_until="domcontentloaded")
     pg.wait_for_selector(".ribbon-scope-btn, np-app-bar", state="attached")
-    pg.wait_for_function("() => !!window.NoodleTableShell && !!customElements.get('np-side-nav')")
+    pg.wait_for_function(
+        "() => !!window.NoodleTableShell && !!customElements.get('np-side-nav') && !!customElements.get('np-toolbar')"
+    )
     if plan:
         load_plan(pg, plan)
     return pg
@@ -259,13 +289,14 @@ def test_the_commands_button_opens_the_ribbon_s_commands_for_the_view(page, app_
 
 def test_outside_a_project_s_tables_the_bar_and_markdown_step_aside(page, app_server):
     open_tables(page, app_server)
-    page.evaluate("() => switchToView('portfolio')")
-    page.wait_for_function("() => NavigationController.getCurrentView() === 'portfolio'")
+    page.evaluate("() => switchToView('guide')")
+    page.wait_for_function("() => NavigationController.getCurrentView() === 'guide'")
     state = page.evaluate(SHELL_STATE)
     assert state["side"] and not state["bar"]
     assert not page.locator("#tableShellMarkdown").is_visible()
+    assert not page.locator("#tableShellTools").is_visible()
     widths = page.evaluate(
-        """() => [document.getElementById('portfolio-tab').getBoundingClientRect().width,
+        """() => [document.getElementById('guide-tab').getBoundingClientRect().width,
                   document.getElementById('main-content').getBoundingClientRect().width,
                   document.getElementById('tableShellSide').getBoundingClientRect().width]"""
     )
@@ -273,6 +304,118 @@ def test_outside_a_project_s_tables_the_bar_and_markdown_step_aside(page, app_se
 
     side_click(page, "table:plan")
     assert page.evaluate(SHELL_STATE)["bar"]
+
+
+def test_the_portfolio_keeps_the_bar_with_its_sub_views_as_tabs(page, app_server):
+    """The ribbon was the portfolio's only navigation (#1513); with it hidden
+    the bar has to be."""
+    open_tables(page, app_server)
+    page.evaluate("() => switchToView('portfolio')")
+    page.wait_for_function("() => NavigationController.getCurrentView() === 'portfolio'")
+    page.wait_for_function("() => document.documentElement.dataset.tableScope === 'portfolio'")
+    assert page.evaluate(SHELL_STATE)["bar"]
+    assert page.inner_text("#tableShellTitle") == "Portfolio"
+    assert page.evaluate(TABS) == page.evaluate("() => NoodleViewCatalogue.portfolioViews().map(v => v.id)")
+    # No plan text to show beside a portfolio.
+    assert not page.locator("#tableShellMarkdown").is_visible()
+    assert not page.locator("#tableShellMarkdownBtn").is_visible()
+
+    page.evaluate(
+        """() => document.getElementById('tableShellTabs').shadowRoot
+            .querySelector('button[data-id="status"]').click()"""
+    )
+    page.wait_for_function("() => currentPortfolioSubview === 'status'")
+    assert page.get_attribute("#tableShellTabs", "active") == "status"
+    # Its commands that are not view switches are on the toolbar.
+    page.wait_for_function("(js) => eval(js)().inline.includes('New Project')", arg=TOOLS)
+
+
+def test_the_toolbar_shows_the_view_s_commands_and_the_report_menus(page, app_server):
+    open_tables(page, app_server)
+    side_click(page, "table:plan")
+    tab_click(page, "gantt")
+    page.wait_for_function("(js) => eval(js)().inline.includes('Critical Path')", arg=TOOLS)
+    tools = page.evaluate(TOOLS)
+    assert not tools["hidden"] and page.locator("#tableShellTools").is_visible()
+    # Gantt Tools, in the ribbon's own groups; the scale in use is pressed.
+    assert {"Link", "Critical Path", "Weeks", "Months", "Set Baseline"} <= set(tools["inline"])
+    assert sum(1 for label in tools["inline"] if label.rstrip("*") in ("Days", "Weeks", "Months", "Quarters", "Years")
+               and label.endswith("*")) == 1
+    assert tools["menus"] == ["Reports", "Export", "Import"]
+    # Nothing that only switches view (the tabs do that), and nothing the
+    # ribbon marks "not available yet".
+    labels = {label.rstrip("*") for label in tools["inline"]}
+    assert not labels & {"Gantt", "Board", "Tasks", "Timeline", "Calendar"}
+    unavailable = page.evaluate(
+        """async () => (await ribbonCommandTabs()).flatMap(t => t.groups.flatMap(g => g.items))
+            .filter(i => i.disabled).map(i => i.label)"""
+    )
+    assert not labels & set(unavailable)
+
+
+def test_a_toolbar_toggle_runs_the_ribbon_command_and_shows_pressed(page, app_server):
+    open_tables(page, app_server)
+    side_click(page, "table:plan")
+    tab_click(page, "gantt")
+    page.wait_for_function("(js) => eval(js)().inline.some(l => l.startsWith('Weeks'))", arg=TOOLS)
+    tool_click(page, "Weeks")
+    page.wait_for_function("(js) => eval(js)().inline.includes('Weeks*')", arg=TOOLS)
+    assert page.evaluate("() => ganttScale") == "weeks"
+    assert "Days" in page.evaluate(TOOLS)["inline"]
+
+
+def test_export_opens_the_ribbon_s_formats_as_a_menu_under_the_button(page, app_server):
+    open_tables(page, app_server)
+    side_click(page, "table:plan")
+    page.wait_for_function("(js) => eval(js)().menus.includes('Export')", arg=TOOLS)
+    tool_click(page, "Export")
+    page.wait_for_function("(js) => eval(js)().open.length > 0", arg=TOOLS)
+    formats = page.evaluate(TOOLS)["open"]
+    assert "PDF" in formats and "PowerPoint" in formats and any("Excel" in f for f in formats)
+    # A menu, not the phone's sheet, and placed under its button.
+    assert not page.evaluate("() => document.getElementById('phoneSheet').isOpen")
+    boxes = page.evaluate(
+        """() => {
+            const root = document.getElementById('tableShellTools').shadowRoot;
+            const button = [...root.querySelectorAll('.end button')].find(b => b.textContent.trim() === 'Export');
+            const menu = root.querySelector('.menu').getBoundingClientRect();
+            const b = button.getBoundingClientRect();
+            return { below: menu.top >= b.bottom, inside: menu.right <= window.innerWidth && menu.left >= 0,
+                     expanded: button.getAttribute('aria-expanded') };
+        }"""
+    )
+    assert boxes == {"below": True, "inside": True, "expanded": "true"}
+
+    page.keyboard.press("Escape")
+    page.wait_for_function("(js) => eval(js)().open.length === 0", arg=TOOLS)
+    focused = page.evaluate(
+        "() => document.getElementById('tableShellTools').shadowRoot.activeElement?.textContent.trim()"
+    )
+    assert focused == "Export"
+
+
+def test_the_reports_menu_opens_a_report(page, app_server):
+    open_tables(page, app_server)
+    side_click(page, "table:plan")
+    page.wait_for_function("(js) => eval(js)().menus.includes('Reports')", arg=TOOLS)
+    tool_click(page, "Reports")
+    page.wait_for_function("(js) => eval(js)().open.includes('Slippage')", arg=TOOLS)
+    assert {"Project Report", "Highlights", "Analysis", "By Assignment"} <= set(page.evaluate(TOOLS)["open"])
+    tool_click(page, "Slippage", where=".menu")
+    page.wait_for_function("() => NavigationController.getCurrentView() === 'slippage'")
+    assert page.get_attribute("#tableShellTabs", "active") == "slippage"
+
+
+def test_a_view_s_own_export_is_told_apart_from_the_plan_s(page, app_server):
+    open_tables(page, app_server)
+    side_click(page, "table:raid")
+    page.wait_for_function("(js) => eval(js)().inline.includes('New Risk')", arg=TOOLS)
+    tools = page.evaluate(TOOLS)
+    assert "Export" in tools["inline"]
+    assert tools["menus"] == ["Reports", "Export plan", "Import plan"]
+    tool_click(page, "Export", where=".strip")
+    page.wait_for_function("(js) => eval(js)().open.length > 0", arg=TOOLS)
+    assert page.evaluate(TOOLS)["open"] == ["Excel (.xlsx)", "Markdown (.md)"]
 
 
 def test_switching_back_to_classic_restores_the_ribbon_without_a_reload(page, app_server):
@@ -323,6 +466,7 @@ def test_a_tablet_starts_on_the_icon_rail_with_touch_targets(device, device_page
             };
             walk(document.getElementById('tableShellSide'));
             walk(document.getElementById('tableShellBar'));
+            walk(document.getElementById('tableShellTools'));
             return out;
         }"""
     )

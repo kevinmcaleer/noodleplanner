@@ -7,6 +7,8 @@
      #tableShellSide      the tables, down the left (<np-side-nav>)
      #tableShellBar       the open table's name, its views as tabs, and the
                           Markdown, New and commands buttons
+     #tableShellTools     the open view's commands at one row, with the
+                          Reports, Export and Import menus (<np-toolbar>)
      #tableShellMarkdown  the plan's Markdown, to the left of whatever view
                           is open
 
@@ -20,6 +22,7 @@
 
 .table-shell-side,
 .table-shell-bar,
+.table-shell-tools,
 .table-shell-markdown {
     display: none;
 }
@@ -27,7 +30,7 @@
 [data-ui="tables"]:not([data-layout="phone"]) #main-content {
     display: grid;
     grid-template-columns: auto auto minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
 }
 
 [data-ui="tables"]:not([data-layout="phone"]) #ribbonShell {
@@ -47,7 +50,7 @@
 [data-ui="tables"]:not([data-layout="phone"]) .table-shell-side {
     display: flex;
     grid-column: 1;
-    grid-row: 2 / 4;
+    grid-row: 2 / 5;
 }
 
 [data-ui="tables"]:not([data-layout="phone"]) .table-shell-bar {
@@ -62,31 +65,54 @@
     border-bottom: 1px solid var(--np-border);
 }
 
+[data-ui="tables"]:not([data-layout="phone"]) .table-shell-tools {
+    display: flex;
+    grid-column: 2 / 4;
+    grid-row: 3;
+}
+
+/* A view with no commands of its own and no menus leaves no empty strip. */
+[data-ui="tables"]:not([data-layout="phone"]) .table-shell-tools[hidden] {
+    display: none;
+}
+
 [data-ui="tables"]:not([data-layout="phone"]) .table-shell-markdown {
     display: flex;
     grid-column: 2;
-    grid-row: 3;
+    grid-row: 4;
     min-height: 0;
 }
 
 [data-ui="tables"]:not([data-layout="phone"]) #main-content > .tab-content.active {
     grid-column: 3;
-    grid-row: 3;
+    grid-row: 4;
     min-width: 0;
     min-height: 0;
 }
 
-/* Outside a project's tables -- the portfolio, a programme, File, search --
-   there are no views to tab between and no plan text to show: the view takes
-   the bar's and the Markdown's space too. */
+/* The portfolio has views and commands but no plan text: the bar and the
+   toolbar stay, and the view takes the Markdown's space. */
+[data-ui="tables"][data-table-scope="portfolio"]:not([data-layout="phone"]) .table-shell-markdown,
+[data-ui="tables"][data-table-scope="portfolio"]:not([data-layout="phone"]) #tableShellMarkdownBtn {
+    display: none;
+}
+
+[data-ui="tables"][data-table-scope="portfolio"]:not([data-layout="phone"]) #main-content > .tab-content.active {
+    grid-column: 2 / 4;
+}
+
+/* Elsewhere outside a project's tables -- a programme, File, search, the
+   syntax guide -- there are no views to tab between and nothing to act on:
+   the view takes the bar's, the toolbar's and the Markdown's space too. */
 [data-ui="tables"][data-table-scope="other"]:not([data-layout="phone"]) .table-shell-bar,
+[data-ui="tables"][data-table-scope="other"]:not([data-layout="phone"]) .table-shell-tools,
 [data-ui="tables"][data-table-scope="other"]:not([data-layout="phone"]) .table-shell-markdown {
     display: none;
 }
 
 [data-ui="tables"][data-table-scope="other"]:not([data-layout="phone"]) #main-content > .tab-content.active {
     grid-column: 2 / 4;
-    grid-row: 2 / 4;
+    grid-row: 2 / 5;
 }
 
 /* ---- The bar ---- */
