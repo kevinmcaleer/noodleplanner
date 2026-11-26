@@ -83,6 +83,10 @@
  * `aria-expanded` on a popup-trigger button (exactly as it would on a
  * plain `<button>`) needs that relayed through for the same reason.
  *
+ * `aria-pressed` forwards the same way, for a toggle (the table views bar's
+ * "Markdown" button). A pressed `variant="neutral"` button is drawn in the
+ * accent tint, so on and off differ by more than the announcement.
+ *
  * A click on the internal <button> is a real DOM click event, composed
  * across the shadow boundary, so existing code can listen on the host
  * element exactly as it would on a plain <button>.
@@ -162,6 +166,12 @@ TEMPLATE.innerHTML = `
     }
     :host([variant='neutral']) button:not(:disabled):hover {
       background: var(--np-bg-hover, #f0f1f4);
+    }
+    :host([variant='neutral'][aria-pressed='true']) button,
+    :host([variant='neutral'][aria-pressed='true']) button:not(:disabled):hover {
+      background: var(--np-accent-tint, #FBEFCE);
+      color: var(--np-accent-ink, #8A6205);
+      border-color: var(--np-accent, #EDB52A);
     }
 
     :host([variant='danger']) button {
@@ -291,7 +301,7 @@ TEMPLATE.innerHTML = `
 // trigger's aria-expanded) or set once (aria-haspopup) -- same forwarding
 // problem _syncLabel solves for aria-label, generalised to the specific
 // attributes actually in use rather than every possible aria-* name.
-const ARIA_PASSTHROUGH = ['aria-haspopup', 'aria-expanded'];
+const ARIA_PASSTHROUGH = ['aria-haspopup', 'aria-expanded', 'aria-pressed'];
 
 export class NpButton extends HTMLElement {
   static get observedAttributes() {

@@ -1,0 +1,176 @@
+/* ========================================
+   Table views shell (table-shell.js)
+
+   With <html data-ui="tables"> (ui-mode.js) on a tablet or a desktop, the
+   ribbon's tabs and body give way to:
+
+     #tableShellSide      the tables, down the left (<np-side-nav>)
+     #tableShellBar       the open table's name, its views as tabs, and the
+                          Markdown, New and commands buttons
+     #tableShellMarkdown  the plan's Markdown, to the left of whatever view
+                          is open
+
+   #main-content becomes a grid for it. The views themselves are untouched:
+   whichever .tab-content the router has made active takes the last cell.
+
+   A phone keeps its own shell (phone-shell.css), fed the same tables by
+   phone-shell.js, so nothing here applies under data-layout="phone".
+   Nothing here applies to the classic interface either.
+   ======================================== */
+
+.table-shell-side,
+.table-shell-bar,
+.table-shell-markdown {
+    display: none;
+}
+
+[data-ui="tables"]:not([data-layout="phone"]) #main-content {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+[data-ui="tables"]:not([data-layout="phone"]) #ribbonShell {
+    grid-column: 1 / -1;
+    grid-row: 1;
+}
+
+/* The title bar stays: the Project / Programme / Portfolio switch, Save,
+   Undo, the plan's name, search and sync all live there. The tabs and the
+   command groups under it are what the sidebar and the bar replace; their
+   commands open from the bar's "..." instead. */
+[data-ui="tables"]:not([data-layout="phone"]) .ribbon-tabstrip,
+[data-ui="tables"]:not([data-layout="phone"]) .ribbon-body {
+    display: none;
+}
+
+[data-ui="tables"]:not([data-layout="phone"]) .table-shell-side {
+    display: flex;
+    grid-column: 1;
+    grid-row: 2 / 4;
+}
+
+[data-ui="tables"]:not([data-layout="phone"]) .table-shell-bar {
+    display: flex;
+    grid-column: 2 / 4;
+    grid-row: 2;
+    align-items: center;
+    gap: var(--np-space-8);
+    min-width: 0;
+    padding: 0 var(--np-space-12) 0 var(--np-space-16);
+    background: var(--np-surface);
+    border-bottom: 1px solid var(--np-border);
+}
+
+[data-ui="tables"]:not([data-layout="phone"]) .table-shell-markdown {
+    display: flex;
+    grid-column: 2;
+    grid-row: 3;
+    min-height: 0;
+}
+
+[data-ui="tables"]:not([data-layout="phone"]) #main-content > .tab-content.active {
+    grid-column: 3;
+    grid-row: 3;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* Outside a project's tables -- the portfolio, a programme, File, search --
+   there are no views to tab between and no plan text to show: the view takes
+   the bar's and the Markdown's space too. */
+[data-ui="tables"][data-table-scope="other"]:not([data-layout="phone"]) .table-shell-bar,
+[data-ui="tables"][data-table-scope="other"]:not([data-layout="phone"]) .table-shell-markdown {
+    display: none;
+}
+
+[data-ui="tables"][data-table-scope="other"]:not([data-layout="phone"]) #main-content > .tab-content.active {
+    grid-column: 2 / 4;
+    grid-row: 2 / 4;
+}
+
+/* ---- The bar ---- */
+
+.table-shell-title {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: var(--np-text-125);
+    line-height: 1.2;
+    color: var(--np-ink);
+    white-space: nowrap;
+}
+
+.table-shell-tabs {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.table-shell-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--np-space-8);
+}
+
+/* A tablet has less width than the three of them need: the title is the one
+   the sidebar already says. */
+[data-layout="tablet"] .table-shell-title {
+    display: none;
+}
+
+[data-layout="tablet"] .table-shell-bar {
+    padding-left: var(--np-space-4);
+}
+
+/* ---- The Markdown, beside any view ----
+
+   The editor panel and its splitter are the classic interface's own
+   (layout.css), lifted here by table-shell.js, so collapsing, dragging to
+   resize and the remembered width are the same code. Only its width limits
+   change: it is measured against the window, not a layout it has left. */
+#tableShellMarkdown .editor-panel {
+    width: 420px;
+    max-width: min(60vw, calc(100vw - 400px));
+}
+
+/* Closed, the panel leaves nothing behind: the bar's Markdown button brings
+   it back, so the classic collapsed strip would only cost the view width. */
+#tableShellMarkdown .editor-splitter.collapsed {
+    display: none;
+}
+
+/* responsive.css stacks the classic editor above the view at 768px and
+   under, full width and 40vh tall. Beside a view it is a column again, at a
+   fixed share of a narrow screen, with the bar's button rather than a drag
+   to size it. */
+@media (max-width: 768px) {
+    #tableShellMarkdown .editor-panel {
+        width: min(340px, 48vw) !important;
+        max-width: none;
+        height: auto;
+        min-height: 0;
+    }
+
+    #tableShellMarkdown .editor-panel.collapsed {
+        width: 0 !important;
+        height: auto;
+    }
+
+    #tableShellMarkdown .editor-splitter {
+        display: none;
+    }
+}
+
+/* A finger gets the 44px target on the bar's buttons too. */
+[data-pointer="coarse"] .table-shell-actions np-button::part(button),
+[data-layout="tablet"] .table-shell-actions np-button::part(button) {
+    min-height: var(--np-touch-target);
+    min-width: var(--np-touch-target);
+}
+
+/* The board keeps a second copy of the editor for the classic interface.
+   Here the one beside every view is already beside the board. */
+[data-ui="tables"]:not([data-layout="phone"]) #kanbanEditorPanel,
+[data-ui="tables"]:not([data-layout="phone"]) #kanbanSplitter {
+    display: none;
+}

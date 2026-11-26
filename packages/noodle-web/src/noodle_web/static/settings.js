@@ -366,6 +366,11 @@ function populateSettingsPanelFromState() {
     const layoutRadio = document.querySelector(`input[name="settingsLayout"][value="${layout}"]`);
     if (layoutRadio) layoutRadio.checked = true;
 
+    // The interface (ui-mode.js) is per browser too.
+    const uiMode = (window.NoodleUiMode && window.NoodleUiMode.get()) || 'classic';
+    const uiRadio = document.querySelector(`input[name="settingsUiMode"][value="${uiMode}"]`);
+    if (uiRadio) uiRadio.checked = true;
+
     // Activate the first tab by default
     switchSettingsTab('gantt');
 }
@@ -377,6 +382,14 @@ function populateSettingsPanelFromState() {
  */
 function setLayoutMode(value) {
     if (window.NoodleLayout) window.NoodleLayout.setOverride(value);
+}
+
+/**
+ * Settings -> Layout -> Interface: the classic ribbon or the table views
+ * shell (ui-mode.js). Per browser, like the layout, so not front matter.
+ */
+function setUiMode(value) {
+    if (window.NoodleUiMode) window.NoodleUiMode.set(value);
 }
 
 function setChecked(id, val) {

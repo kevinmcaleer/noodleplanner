@@ -154,9 +154,13 @@
     <!-- Layout mode (#1379): sets <html data-layout="phone|tablet|desktop">
          before the body renders, so the first paint is already the right layout. -->
     <script src="/static/layout-mode.js?v={{ v }}"></script>
+    <!-- Interface (ui-mode.js): sets <html data-ui="classic|tables"> before the
+         body renders, so the table views shell never flashes the ribbon. -->
+    <script src="/static/ui-mode.js?v={{ v }}"></script>
     <link rel="stylesheet" href="/static/animations.css?v={{ v }}">
     <link rel="stylesheet" href="/static/responsive.css?v={{ v }}">
     <link rel="stylesheet" href="/static/phone-shell.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/table-shell.css?v={{ v }}">
     <link rel="stylesheet" href="/static/noodlesheet.css?v={{ v }}">
     <link rel="stylesheet" href="/static/ai-chat.css?v={{ v }}">
     <link rel="stylesheet" href="/static/front-matter-panel.css?v={{ v }}">
@@ -213,6 +217,31 @@
 
             <!-- Ribbon (#833 follow-up, design handoff "Ribbon Toolbar option 2a"): renders from ribbon-ia.js -->
             <div id="ribbonShell" class="ribbon-shell"></div>
+
+            <!-- Table views shell (table-shell.js): with <html data-ui="tables">
+                 on a tablet or a desktop the ribbon's tabs give way to a list of
+                 tables down the left and a bar of the open table's views. Hidden
+                 otherwise (table-shell.css). The Markdown editor moves into
+                 #tableShellMarkdown so it can sit to the left of any view. -->
+            <np-side-nav id="tableShellSide" class="table-shell-side" label="Tables"></np-side-nav>
+            <div id="tableShellBar" class="table-shell-bar">
+                <h1 id="tableShellTitle" class="table-shell-title"></h1>
+                <np-view-chips id="tableShellTabs" class="table-shell-tabs" variant="tabs"></np-view-chips>
+                <div class="table-shell-actions">
+                    <np-button id="tableShellMarkdownBtn" variant="neutral" size="small" aria-pressed="false" title="Show or hide the plan's Markdown beside this view">
+                        <svg slot="icon" class="icon" aria-hidden="true"><use href="#icon-doc"/></svg>
+                        Markdown
+                    </np-button>
+                    <np-button id="tableShellNewBtn" variant="primary" size="small" hidden>
+                        <svg slot="icon" class="icon" aria-hidden="true"><use href="#icon-add"/></svg>
+                        <span id="tableShellNewLabel">New</span>
+                    </np-button>
+                    <np-button id="tableShellMoreBtn" variant="neutral" icon-only label="Commands for this view" title="Commands for this view" aria-haspopup="dialog">
+                        <svg slot="icon" class="icon" aria-hidden="true"><use href="#icon-more"/></svg>
+                    </np-button>
+                </div>
+            </div>
+            <div id="tableShellMarkdown" class="table-shell-markdown" aria-label="Plan Markdown"></div>
 
             <!-- Loading indicator for Portfolio/Project context switches (#581 / UX-3) -->
             <div id="contextLoadingIndicator" class="np-context-loading" aria-live="polite">
@@ -3505,6 +3534,22 @@ Build
                     </div>
                     <small>Auto picks a layout from the screen width. Saved in this browser only, not in the plan.</small>
 
+                    <!-- The table views interface (ui-mode.js, table-shell.js)
+                         is opt-in while it is built out. Per browser, like the
+                         layout above. -->
+                    <h3>Interface</h3>
+                    <div class="settings-theme-options" role="radiogroup" aria-label="Interface">
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsUiMode" value="classic" onchange="setUiMode(this.value)">
+                            <span><i class="bi bi-window-dock" aria-hidden="true"></i> Classic ribbon</span>
+                        </label>
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsUiMode" value="tables" onchange="setUiMode(this.value)">
+                            <span><i class="bi bi-table" aria-hidden="true"></i> Table views (preview)</span>
+                        </label>
+                    </div>
+                    <small>Table views lists the project's tables down the left (Plan, RAID log, Budget, Resources and so on) with each table's views as tabs, and keeps the Markdown beside any view. Saved in this browser only, not in the plan.</small>
+
                     <!-- #1409: how the detail forms open by default. Unlike the
                          layout above, this is the project's, kept in the plan's
                          front matter as settings: detail_peek. -->
@@ -4016,6 +4061,7 @@ Build
     <script src="/static/touch-gestures.js?v={{ v }}"></script>
     <script src="/static/touch-parity.js?v={{ v }}"></script>
     <script src="/static/view-catalogue.js?v={{ v }}"></script>
+    <script src="/static/table-catalogue.js?v={{ v }}"></script>
     <script src="/static/status-bar.js?v={{ v }}"></script>
     <script src="/static/theme.js?v={{ v }}"></script>
     <script src="/static/settings.js?v={{ v }}"></script>
@@ -4116,6 +4162,7 @@ Build
     <script src="/static/sync-ui.js?v={{ v }}"></script>
     <script src="/static/collab-session.js?v={{ v }}"></script>
     <script src="/static/ribbon.js?v={{ v }}"></script>
+    <script src="/static/table-shell.js?v={{ v }}"></script>
     <script src="/static/phone-shell.js?v={{ v }}"></script>
     <script src="/static/phone-commands.js?v={{ v }}"></script>
     <script src="/static/date-detect.js?v={{ v }}"></script>
@@ -4146,6 +4193,7 @@ Build
     <!-- The phone shell's components (#1380, #1382). -->
     <script type="module" src="/static/components/app-bar/np-app-bar.js?v={{ v }}"></script>
     <script type="module" src="/static/components/view-chips/np-view-chips.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/side-nav/np-side-nav.js?v={{ v }}"></script>
     <script type="module" src="/static/components/nav-drawer/np-nav-drawer.js?v={{ v }}"></script>
     <script type="module" src="/static/components/action-sheet/np-action-sheet.js?v={{ v }}"></script>
     <script type="module" src="/static/components/fab/np-fab.js?v={{ v }}"></script>

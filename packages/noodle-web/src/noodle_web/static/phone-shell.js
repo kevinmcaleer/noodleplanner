@@ -94,6 +94,13 @@
         switchToView(key);
     }
 
+    /** The table views interface (table-shell.js), when it is switched on:
+     * the drawer then lists tables and the chips are the open table's views. */
+    function tableShell() {
+        const shell = window.NoodleTableShell;
+        return shell && shell.enabled() ? shell : null;
+    }
+
     function switchScope(scope) {
         if (scope === 'portfolio') switchToView('portfolio');
         else if (scope === 'project') switchToView('editor');
@@ -127,8 +134,17 @@
             .map((view, i) => ({ view, i }))
             .sort((a, b) => (RANK[a.view.tier] ?? 1) - (RANK[b.view.tier] ?? 1) || a.i - b.i)
             .map(({ view }) => view);
+        const tables = tableShell();
+        if (tables) {
+            // The same tables as the sidebar on a bigger screen; a table's
+            // views are the chips once it is open.
+            for (const section of tables.sideSections()) {
+                if (section.end) continue;
+                sections.push({ id: section.id, label: section.label || 'Project', items: section.items });
+            }
+        }
         if (catalogue) {
-            for (const group of catalogue.groups()) {
+            for (const group of (tables ? [] : catalogue.groups())) {
                 sections.push({
                     id: group.id,
                     label: group.label,
@@ -182,6 +198,7 @@
             id: 'help',
             label: 'Help',
             items: [
+                ...(tables ? [{ id: 'view:guide', label: 'Syntax guide', icon: 'doc', current: here === 'guide' }] : []),
                 { id: 'cmd:tour', label: 'Take the tour', icon: 'bulb' },
                 { id: 'cmd:docs', label: 'Documentation', icon: 'external', note: 'Opens in a new tab' },
             ],
@@ -204,6 +221,7 @@
     function onDrawerSelect(event) {
         const id = event.detail.id;
         if (id.indexOf('view:') === 0) navigate(id.slice(5));
+        else if (id.indexOf('table:') === 0 && tableShell()) tableShell().openTable(id.slice(6));
         else if (id.indexOf('scope:') === 0) switchScope(id.slice(6));
         else if (id.indexOf('cmd:') === 0 && COMMANDS[id.slice(4)]) COMMANDS[id.slice(4)]();
     }
@@ -310,10 +328,28 @@
         const key = currentKey();
         appBar.setAttribute('heading', planName());
         appBar.setAttribute('subheading', viewLabel(key));
+        syncChips();
         if (chips) {
             if (key) chips.setAttribute('active', key);
             else chips.removeAttribute('active');
         }
+    }
+
+    /** The chips: the phone-first views, or in the table views interface
+     * the views of the table that is open. */
+    function syncChips() {
+        if (!chips || !window.NoodleViewCatalogue) return;
+        const tables = tableShell();
+        const table = tables && tables.currentTable();
+        const views = table
+            ? table.views
+            : window.NoodleViewCatalogue.phoneFirst().map((v) => ({ id: v.id, label: v.label }));
+        const ids = views.map((view) => view.id).join(' ');
+        if (chips.dataset.views === ids) return;
+        chips.dataset.views = ids;
+        chips.views = views;
+        // One view is nothing to switch between.
+        chips.hidden = views.length < 2;
     }
 
     // -----------------------------------------------------------------
@@ -389,8 +425,8 @@
         sheet = $('phoneSheet');
         if (!appBar || !drawer) return;
 
-        if (chips && window.NoodleViewCatalogue) {
-            chips.views = window.NoodleViewCatalogue.phoneFirst().map((v) => ({ id: v.id, label: v.label }));
+        if (chips) {
+            syncChips();
             chips.addEventListener('select', (event) => navigate(event.detail.id));
         }
 

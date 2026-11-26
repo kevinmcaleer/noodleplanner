@@ -102,6 +102,10 @@
     }
 
     function moreButton() {
+        // The table views shell has its own ⋯, in its bar (table-shell.js).
+        if (!isPhone() && document.documentElement.dataset.ui === 'tables') {
+            return $('tableShellMoreBtn') || $('phoneMoreBtn');
+        }
         return $('phoneMoreBtn');
     }
 
@@ -162,7 +166,8 @@
         });
         document.addEventListener('viewchange', refreshFab);
         document.addEventListener('layoutchange', () => {
-            if (!isPhone() && sheet && sheet.dataset.purpose !== 'projects') sheet.close();
+            const tables = document.documentElement.dataset.ui === 'tables';
+            if (!isPhone() && !tables && sheet && sheet.dataset.purpose !== 'projects') sheet.close();
             refreshFab();
         });
         refreshFab();

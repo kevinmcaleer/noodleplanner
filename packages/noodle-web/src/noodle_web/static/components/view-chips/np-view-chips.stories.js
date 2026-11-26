@@ -61,3 +61,27 @@ export const WhiteboardMode = {
   args: { active: 'cards' },
   argTypes: { active: { control: { type: 'select' }, options: ['cards', 'canvas'] } },
 };
+
+/** Underlined tabs for the table views bar (table-shell.js): the Plan table's views. */
+export const AsTabs = {
+  name: 'As tabs (table views)',
+  render: ({ active }) => {
+    const frame = document.createElement('div');
+    frame.style.cssText = 'width: 560px; border-bottom: 1px solid var(--np-border); background: var(--np-surface);';
+    const chips = document.createElement('np-view-chips');
+    chips.setAttribute('variant', 'tabs');
+    chips.setAttribute('label', 'Views of Plan');
+    chips.views = [
+      { id: 'tasks', label: 'Table' }, { id: 'gantt', label: 'Gantt' }, { id: 'kanban', label: 'Board' },
+      { id: 'calendar', label: 'Calendar' }, { id: 'timeline', label: 'Timeline' },
+      { id: 'milestones', label: 'Milestones' }, { id: 'pbs', label: 'PBS' },
+      { id: 'product-flow', label: 'Product Flow' }, { id: 'mindmap', label: 'Mind Map' },
+    ];
+    chips.setAttribute('active', active || 'gantt');
+    chips.addEventListener('select', (e) => chips.setAttribute('active', e.detail.id));
+    frame.appendChild(chips);
+    return frame;
+  },
+  args: { active: 'gantt' },
+  argTypes: { active: { control: { type: 'select' }, options: ['tasks', 'gantt', 'kanban', 'calendar', 'timeline', 'milestones', 'pbs', 'product-flow', 'mindmap'] } },
+};

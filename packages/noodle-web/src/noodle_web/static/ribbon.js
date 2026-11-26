@@ -809,7 +809,10 @@ function openFormatMenu(formats, label, anchorEl = ribbonActionAnchor) {
     closePopovers();
     // A phone has no ribbon to hang the menu off (#1382): the same choices
     // open as a sheet instead (phone-commands.js).
-    if (document.documentElement.dataset.layout === 'phone' && window.NoodlePhoneCommands) {
+    // The table views shell hides the ribbon's buttons too (table-shell.js).
+    const noRibbon = document.documentElement.dataset.layout === 'phone'
+        || document.documentElement.dataset.ui === 'tables';
+    if (noRibbon && window.NoodlePhoneCommands) {
         window.NoodlePhoneCommands.openChoices(label, formats);
         return;
     }
