@@ -692,10 +692,23 @@ function initResizer() {
 /**
  * Initialize the draggable editor splitter for resizing the editor panel.
  */
+/**
+ * What the editor panel's width is limited against: the editor layout it
+ * sits in -- or, in the table views shell (table-shell.js), which lifts the
+ * panel out to sit beside every view, the whole content area.
+ */
+function editorResizeFrame() {
+    const panel = document.querySelector('.editor-panel');
+    if (panel && panel.parentElement && panel.parentElement.id === 'tableShellMarkdown') {
+        return document.getElementById('main-content');
+    }
+    return document.querySelector('.editor-layout');
+}
+
 function initEditorSplitter() {
     const splitter = document.getElementById('editorSplitter');
     const panel = document.querySelector('.editor-panel');
-    const layout = document.querySelector('.editor-layout');
+    const layout = editorResizeFrame();
 
     if (!splitter || !panel || !layout) return;
 
@@ -738,7 +751,7 @@ function handleEditorSplitterMove(e) {
     if (!isEditorResizing) return;
 
     const panel = document.querySelector('.editor-panel');
-    const layout = document.querySelector('.editor-layout');
+    const layout = editorResizeFrame();
     if (!panel || !layout) return;
 
     const delta = e.clientX - editorStartX;
@@ -781,7 +794,7 @@ function handleEditorSplitterTouchMove(e) {
     if (!isEditorResizing) return;
 
     const panel = document.querySelector('.editor-panel');
-    const layout = document.querySelector('.editor-layout');
+    const layout = editorResizeFrame();
     if (!panel || !layout) return;
 
     const delta = e.touches[0].clientX - editorStartX;
@@ -811,7 +824,7 @@ function handleEditorSplitterTouchEnd() {
  */
 function constrainEditorPanelWidth() {
     const panel = document.querySelector('.editor-panel');
-    const layout = document.querySelector('.editor-layout');
+    const layout = editorResizeFrame();
     if (!panel || !layout || panel.classList.contains('collapsed')) return;
 
     const maxWidth = layout.offsetWidth * 0.7;

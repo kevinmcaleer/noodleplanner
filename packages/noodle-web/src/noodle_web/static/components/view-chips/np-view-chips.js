@@ -19,6 +19,12 @@
  * "Views" by default -- the whiteboard's Cards / Canvas switch on a phone
  * (#1384) is the same strip under another name.
  *
+ * Attribute `variant="tabs"`: the same strip drawn as underlined tabs rather
+ * than pills, for the table views bar on a tablet or a desktop
+ * (table-shell.js), where it sits in a toolbar beside other controls. There
+ * a mouse wheel scrolls the strip sideways, and its edges fade where more
+ * tabs are off to that side.
+ *
  * Events (bubbling, composed): `select` with `{ id }`.
  */
 
@@ -69,6 +75,48 @@ TEMPLATE.innerHTML = `
       background: var(--np-accent, #edb52a);
       border-color: var(--np-accent, #edb52a);
     }
+
+    :host([variant="tabs"]) {
+      background: transparent;
+      border-bottom: 0;
+      min-width: 0;
+    }
+    :host([variant="tabs"]) nav {
+      gap: var(--np-space-4, 4px);
+      padding: 0 var(--np-space-8, 8px);
+      /* Snapping would pull the first tab over the strip's own padding and
+         leave it permanently "scrolled". */
+      scroll-snap-type: none;
+    }
+    :host([variant="tabs"][data-more-start]) nav {
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 32px);
+      mask-image: linear-gradient(to right, transparent, #000 32px);
+    }
+    :host([variant="tabs"][data-more-end]) nav {
+      -webkit-mask-image: linear-gradient(to left, transparent, #000 32px);
+      mask-image: linear-gradient(to left, transparent, #000 32px);
+    }
+    :host([variant="tabs"][data-more-start][data-more-end]) nav {
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+      mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+    }
+    :host([variant="tabs"]) button {
+      padding: 0 var(--np-space-12, 12px);
+      background: transparent;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      border-radius: var(--np-radius-sm, 4px) var(--np-radius-sm, 4px) 0 0;
+    }
+    :host([variant="tabs"]) button:hover {
+      color: var(--np-ink, #23201c);
+      background: var(--np-sunken, #efe9de);
+    }
+    :host([variant="tabs"]) button[aria-current="page"] {
+      color: var(--np-ink, #23201c);
+      font-weight: var(--np-weight-semibold, 600);
+      background: transparent;
+      border-bottom-color: var(--np-accent, #edb52a);
+    }
   </style>
   <nav part="nav" aria-label="Views"></nav>
 `;
@@ -93,10 +141,34 @@ export class NpViewChips extends HTMLElement {
         composed: true,
       }));
     });
+    // As tabs the strip sits in a desktop toolbar, where there is no finger
+    // to drag it: an ordinary mouse wheel scrolls it sideways.
+    this._nav.addEventListener('wheel', (event) => {
+      if (this.getAttribute('variant') !== 'tabs') return;
+      if (this._nav.scrollWidth <= this._nav.clientWidth) return;
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      event.preventDefault();
+      this._nav.scrollLeft += event.deltaY;
+    }, { passive: false });
+    this._nav.addEventListener('scroll', () => this._markOverflow(), { passive: true });
+    this._resize = typeof ResizeObserver === 'function' ? new ResizeObserver(() => this._markOverflow()) : null;
+  }
+
+  disconnectedCallback() {
+    if (this._resize) this._resize.disconnect();
+  }
+
+  /** Which sides have tabs scrolled out of sight, for the edge fades. */
+  _markOverflow() {
+    const strip = this._nav;
+    const max = strip.scrollWidth - strip.clientWidth;
+    this.toggleAttribute('data-more-start', strip.scrollLeft > 1);
+    this.toggleAttribute('data-more-end', strip.scrollLeft < max - 1);
   }
 
   connectedCallback() {
     upgradeProperty(this, 'views');
+    if (this._resize) this._resize.observe(this._nav);
     this._render();
   }
 
@@ -137,6 +209,7 @@ export class NpViewChips extends HTMLElement {
       const left = current.offsetLeft - strip.clientWidth / 2 + current.offsetWidth / 2;
       strip.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
     }
+    this._markOverflow();
   }
 }
 

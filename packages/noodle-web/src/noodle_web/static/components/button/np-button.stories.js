@@ -290,3 +290,25 @@ export const IconOnlyVariants = {
     return wrap;
   },
 };
+
+/** A toggle: `aria-pressed` on the host reaches the real button, and a
+ * pressed neutral button takes the accent tint (the table views bar's
+ * "Markdown" button). Click to toggle. */
+export const Toggle = {
+  name: 'Toggle (aria-pressed)',
+  render: () => {
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.alignItems = 'center';
+    wrap.style.gap = '12px';
+    for (const pressed of ['true', 'false']) {
+      const button = makeIconButton({ variant: 'neutral', size: 'small', iconName: 'doc', label: 'Markdown' });
+      button.setAttribute('aria-pressed', pressed);
+      button.addEventListener('click', () => {
+        button.setAttribute('aria-pressed', String(button.getAttribute('aria-pressed') !== 'true'));
+      });
+      wrap.appendChild(button);
+    }
+    return wrap;
+  },
+};
