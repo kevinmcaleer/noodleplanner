@@ -747,6 +747,21 @@ function runAction(scopeId, label, anchorEl = null) {
  * `[{ id, label, items: [{ scopeId, label, icon, help, disabled, active,
  * href }] }]`. */
 async function ribbonCommandSections() {
+    const tabs = await ribbonCommandTabs();
+    return tabs.map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+        items: tab.groups.flatMap((group) => group.items),
+    }));
+}
+
+/** The same commands with the ribbon's own grouping kept, for the table
+ * views toolbar (table-shell.js): `[{ id, label, context, groups: [{ name,
+ * items }] }]`. `context` marks the view's contextual tab. An item also says
+ * whether it is a `caret` button (it opens choices of its own) and whether
+ * it only switches view (`nav`), which a shell with its own view tabs has no
+ * use for. */
+async function ribbonCommandTabs() {
     const ia = await loadIA();
     const live = getLiveState();
     const scope = ribbonPinnedTabId() ? ribbonState.scope : ia.scopeForView(live.view);
@@ -755,27 +770,37 @@ async function ribbonCommandSections() {
     return tabs.map((tab) => ({
         id: tab.id,
         label: tab.label,
-        items: tab.groups.flatMap(flattenGroupButtons).map(([icon, label, flag]) => {
-            const href = linkHrefFor(flag);
-            const help = LABEL_HELP[label] || '';
-            if (href) return { scopeId: tab.id, label, icon, href, help: help || 'Opens in a new tab', disabled: false, active: false };
-            const action = resolveAction(tab.id, label);
-            return {
-                scopeId: tab.id,
-                label,
-                icon,
-                help: action ? help : "Not available yet",
-                disabled: !action,
-                active: isButtonActive(tab.id, label, live),
-            };
-        }),
+        context: tab === ctx,
+        groups: tab.groups.map((group) => ({
+            name: group.name,
+            items: flattenGroupButtons(group).map(([icon, label, flag]) => {
+                const href = linkHrefFor(flag);
+                const help = LABEL_HELP[label] || '';
+                if (href) return { scopeId: tab.id, label, icon, href, help: help || 'Opens in a new tab', disabled: false, active: false };
+                const action = resolveAction(tab.id, label);
+                const nav = tab.id.startsWith('pf-')
+                    ? !!PORTFOLIO_SUBVIEW_FOR_LABEL[label]
+                    : (!scopedAction(tab.id, label) && !!VIEW_FOR_LABEL[label]);
+                return {
+                    scopeId: tab.id,
+                    label,
+                    icon,
+                    help: action ? help : "Not available yet",
+                    disabled: !action,
+                    active: isButtonActive(tab.id, label, live),
+                    caret: flag === 'caret' || OPENS_OWN_POPOVER.has(label),
+                    nav,
+                };
+            }),
+        })),
     }));
 }
 
 /** Run one of ribbonCommandSections()'s commands, exactly as its ribbon
- * button would. */
-function runRibbonCommand(scopeId, label) {
-    runAction(scopeId, label, null);
+ * button would. `anchorEl` is what a command that opens choices of its own
+ * (Export, Group by ...) hangs them from. */
+function runRibbonCommand(scopeId, label, anchorEl = null) {
+    runAction(scopeId, label, anchorEl);
 }
 
 /** The current view's main create action, for the phone's "+" (#1382):
@@ -812,6 +837,12 @@ function openFormatMenu(formats, label, anchorEl = ribbonActionAnchor) {
     // The table views shell hides the ribbon's buttons too (table-shell.js).
     const noRibbon = document.documentElement.dataset.layout === 'phone'
         || document.documentElement.dataset.ui === 'tables';
+    // From the table views toolbar the choices open as a menu under the
+    // button that asked for them.
+    if (anchorEl && window.NoodleTableShell && window.NoodleTableShell.ownsAnchor(anchorEl)) {
+        window.NoodleTableShell.openChoices(anchorEl, formats);
+        return;
+    }
     if (noRibbon && window.NoodlePhoneCommands) {
         window.NoodlePhoneCommands.openChoices(label, formats);
         return;

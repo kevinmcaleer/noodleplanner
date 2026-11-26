@@ -241,6 +241,9 @@
                     </np-button>
                 </div>
             </div>
+            <!-- The open view's commands, and the Reports, Export and Import
+                 menus: the ribbon's own, at one row (table-shell.js). -->
+            <np-toolbar id="tableShellTools" class="table-shell-tools" label="Commands for this view"></np-toolbar>
             <div id="tableShellMarkdown" class="table-shell-markdown" aria-label="Plan Markdown"></div>
 
             <!-- Loading indicator for Portfolio/Project context switches (#581 / UX-3) -->
@@ -4194,6 +4197,7 @@ Build
     <script type="module" src="/static/components/app-bar/np-app-bar.js?v={{ v }}"></script>
     <script type="module" src="/static/components/view-chips/np-view-chips.js?v={{ v }}"></script>
     <script type="module" src="/static/components/side-nav/np-side-nav.js?v={{ v }}"></script>
+    <script type="module" src="/static/components/toolbar/np-toolbar.js?v={{ v }}"></script>
     <script type="module" src="/static/components/nav-drawer/np-nav-drawer.js?v={{ v }}"></script>
     <script type="module" src="/static/components/action-sheet/np-action-sheet.js?v={{ v }}"></script>
     <script type="module" src="/static/components/fab/np-fab.js?v={{ v }}"></script>

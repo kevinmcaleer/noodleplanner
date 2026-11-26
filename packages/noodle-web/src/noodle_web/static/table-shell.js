@@ -9,6 +9,7 @@
  *
  *   <np-side-nav>    Dashboard, then the tables
  *   #tableShellBar   the open table's views as tabs | Markdown, New, ...
+ *   <np-toolbar>     the open view's commands | Reports, Export, Import
  *   #tableShellMarkdown   the plan's Markdown, to the left of any view
  *
  * It is opt-in (ui-mode.js: Settings -> Layout -> Interface, or ?ui=tables)
@@ -22,6 +23,14 @@
  * - "New" is the view's create action and "..." is every ribbon command for
  *   the view, both from ribbon.js through phone-commands.js -- the ribbon's
  *   buttons are hidden here, so this is where its commands live.
+ * - The toolbar under the tabs is the ribbon at one row: the open view's
+ *   contextual tab (Gantt Tools, Board Tools, RAID Log ...) as buttons, in
+ *   the ribbon's groups, and the Report tab as three menus. Its commands are
+ *   ribbon.js's ribbonCommandTabs(), run by runRibbonCommand(), so nothing
+ *   is implemented twice and a command added to the ribbon appears here.
+ *   Commands that only switch view are left out (the tabs do that), and so
+ *   are the ones the ribbon itself marks "not available yet".
+ * - The portfolio keeps the bar and the toolbar: its sub-views are the tabs.
  * - The Markdown panel is the classic editor panel itself, with its
  *   splitter, moved out of the editor tab into #tableShellMarkdown so it can
  *   stay beside views that are not in that tab (RAID, Budget, the board).
@@ -48,6 +57,12 @@
 
     let side = null;
     let tabs = null;
+    let tools = null;
+    // The toolbar's buttons and menu items, by id, and the choices of the
+    // menu a command last opened (Export -> PDF, Excel ...).
+    let commands = new Map();
+    let choices = new Map();
+    let choiceAnchor = null;
 
     function enabled() {
         return document.documentElement.dataset.ui === 'tables';
@@ -198,22 +213,176 @@
         if (create) $('tableShellNewLabel').textContent = create.label;
     }
 
+    function onPortfolio() {
+        return currentView() === 'portfolio';
+    }
+
+    function portfolioSubview() {
+        return (typeof currentPortfolioSubview !== 'undefined') ? currentPortfolioSubview : 'projects';
+    }
+
+    function setTabs(label, views, activeId) {
+        if (!tabs) return;
+        tabs.setAttribute('label', 'Views of ' + label);
+        const ids = views.map((view) => view.id).join(' ');
+        if (tabs.dataset.views !== ids) {
+            tabs.dataset.views = ids;
+            tabs.views = views;
+        }
+        tabs.setAttribute('active', activeId);
+    }
+
+    function onTabSelect(event) {
+        const id = event.detail.id;
+        if (onPortfolio()) {
+            if (typeof switchPortfolioView === 'function') switchPortfolioView(id);
+            return;
+        }
+        switchToView(id);
+    }
+
     function refreshBar() {
         const table = currentTable();
-        document.documentElement.dataset.tableScope = table ? 'project' : 'other';
-        if (!table) return;
+        const portfolio = !table && onPortfolio();
+        document.documentElement.dataset.tableScope = table ? 'project' : (portfolio ? 'portfolio' : 'other');
         const title = $('tableShellTitle');
-        if (title) title.textContent = table.label;
-        if (tabs) {
-            tabs.setAttribute('label', 'Views of ' + table.label);
-            const ids = table.views.map((view) => view.id).join(' ');
-            if (tabs.dataset.views !== ids) {
-                tabs.dataset.views = ids;
-                tabs.views = table.views;
-            }
-            tabs.setAttribute('active', currentView());
+        if (portfolio) {
+            if (title) title.textContent = 'Portfolio';
+            const views = window.NoodleViewCatalogue ? window.NoodleViewCatalogue.portfolioViews() : [];
+            setTabs('Portfolio', views.map((view) => ({ id: view.id, label: view.label })), portfolioSubview());
+            refreshNew();
+            refreshTools();
+            return;
         }
+        if (!table) return;
+        if (title) title.textContent = table.label;
+        setTabs(table.label, table.views, currentView());
         refreshNew();
+        refreshTools();
+    }
+
+    // -----------------------------------------------------------------
+    // The toolbar
+    // -----------------------------------------------------------------
+
+    const MENU_ICONS = { Reports: 'project-report', Export: 'download', Import: 'upload' };
+
+    /** The toolbar's groups for the ribbon's tabs (ribbonCommandTabs()):
+     * the view's own commands inline, then the Reports, Export and Import
+     * menus. Fills `commands` with what each id runs. Exposed for tests. */
+    function toolbarGroups(ribbonTabs, table) {
+        commands = new Map();
+        const usable = (cmd) => !cmd.disabled && !cmd.href;
+        const button = (cmd) => {
+            const id = cmd.scopeId + ':' + cmd.label;
+            commands.set(id, cmd);
+            return {
+                id, label: cmd.label, icon: cmd.icon, help: cmd.help, caret: !!cmd.caret,
+                // Only a toggle that is on is "pressed"; most commands are not toggles.
+                active: cmd.active ? true : undefined,
+            };
+        };
+        const groups = [];
+        const seen = new Set();
+        // A contextual tab's own shortcuts to a sibling view (Resource
+        // Tools' Timesheet and Workload) repeat the tabs above.
+        const tabLabels = new Set();
+        const viewCatalogue = window.NoodleViewCatalogue;
+        if (table) {
+            table.views.forEach((view) => {
+                tabLabels.add(view.label);
+                const label = viewCatalogue && viewCatalogue.label(view.id);
+                if (label) tabLabels.add(label);
+            });
+        } else if (viewCatalogue) {
+            viewCatalogue.portfolioViews().forEach((view) => tabLabels.add(view.label));
+        }
+        const inline = (tab, group) => {
+            const items = group.items.filter((cmd) => usable(cmd) && !cmd.nav && !seen.has(cmd.label) && !tabLabels.has(cmd.label));
+            items.forEach((cmd) => seen.add(cmd.label));
+            if (items.length) groups.push({ id: tab.id + '/' + group.name, label: group.name, items: items.map(button) });
+        };
+
+        const context = ribbonTabs.find((tab) => tab.context);
+        const rest = ribbonTabs.filter((tab) => !tab.context);
+        if (context) context.groups.forEach((group) => inline(context, group));
+
+        const portfolio = rest.some((tab) => tab.id.indexOf('pf-') === 0);
+        if (portfolio) {
+            // Everything the portfolio's ribbon does besides switching view.
+            rest.forEach((tab) => tab.groups.forEach((group) => inline(tab, group)));
+            return groups;
+        }
+
+        // A Plan view with no tools of its own still edits tasks.
+        const home = rest.find((tab) => tab.id === 'home');
+        if (!context && table && table.id === 'plan' && home) {
+            home.groups.filter((group) => group.name === 'Plan').forEach((group) => inline(home, group));
+        }
+
+        const report = rest.find((tab) => tab.id === 'report');
+        const reports = report && report.groups.find((group) => group.name === 'Reports');
+        if (reports) {
+            const items = reports.items.filter(usable).map(button);
+            if (items.length) groups.push({ id: 'menu:reports', label: 'Reports', icon: MENU_ICONS.Reports, menu: true, items });
+        }
+        // Export and Import open the ribbon's own format choices when
+        // pressed. Where the view has an Export of its own (the RAID log's),
+        // these say they are the plan's.
+        for (const label of ['Export', 'Import']) {
+            const cmd = rest.flatMap((tab) => tab.groups.flatMap((group) => group.items))
+                .find((candidate) => candidate.label === label && usable(candidate));
+            if (!cmd) continue;
+            const id = 'menu:' + label.toLowerCase();
+            commands.set(id, cmd);
+            groups.push({
+                id, label: seen.has(label) ? label + ' plan' : label, icon: MENU_ICONS[label], menu: true, help: cmd.help,
+            });
+        }
+        return groups;
+    }
+
+    async function refreshTools() {
+        if (!tools || !active() || typeof ribbonCommandTabs !== 'function') return;
+        const view = currentView();
+        const ribbonTabs = await ribbonCommandTabs();
+        // The view may have changed while the ribbon's commands loaded.
+        if (view !== currentView()) return;
+        const groups = toolbarGroups(ribbonTabs, currentTable());
+        tools.groups = groups;
+        tools.hidden = groups.length === 0;
+        tools.toggleAttribute('touch', layout() === 'tablet' || document.documentElement.dataset.pointer === 'coarse');
+    }
+
+    function onToolSelect(event) {
+        const id = event.detail.id;
+        if (choices.has(id)) {
+            const choice = choices.get(id);
+            choices = new Map();
+            choice.run();
+            refreshTools();
+            return;
+        }
+        const cmd = commands.get(id);
+        if (!cmd || typeof runRibbonCommand !== 'function') return;
+        choiceAnchor = id;
+        runRibbonCommand(cmd.scopeId, cmd.label, tools);
+        // A command that opened its own choices has a menu up that a
+        // re-render would close; anything else may have changed what is
+        // pressed.
+        if (!tools.menuOpen) refreshTools();
+    }
+
+    /** ribbon.js's openFormatMenu() hands a toolbar command's choices here,
+     * to open as a menu under the button that asked. */
+    function ownsAnchor(el) {
+        return active() && !!tools && el === tools;
+    }
+
+    function openChoices(_anchor, formats) {
+        if (!tools || !choiceAnchor) return;
+        choices = new Map((formats || []).map((format, index) => ['choice:' + index, format]));
+        tools.openMenu(choiceAnchor, [...choices].map(([id, format]) => ({ id, label: format.label })));
     }
 
     // -----------------------------------------------------------------
@@ -306,7 +475,9 @@
 
         side.addEventListener('select', onSideSelect);
         side.addEventListener('toggle', onSideToggle);
-        if (tabs) tabs.addEventListener('select', (event) => switchToView(event.detail.id));
+        tools = $('tableShellTools');
+        if (tabs) tabs.addEventListener('select', onTabSelect);
+        if (tools) tools.addEventListener('select', onToolSelect);
 
         const markdown = $('tableShellMarkdownBtn');
         if (markdown) markdown.addEventListener('click', toggleMarkdown);
@@ -320,6 +491,7 @@
         }
 
         document.addEventListener('viewchange', refresh);
+        document.addEventListener('portfolioviewchange', refresh);
         document.addEventListener('layoutchange', onModeChange);
         document.addEventListener('uimodechange', onModeChange);
         window.addEventListener('projectLoaded', refresh);
@@ -335,6 +507,7 @@
 
     window.NoodleTableShell = {
         enabled, active, openTable, viewForTable, currentTable, sideSections, refresh,
+        toolbarGroups, ownsAnchor, openChoices,
     };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

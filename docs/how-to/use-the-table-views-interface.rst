@@ -66,7 +66,8 @@ tabs sideways with the mouse wheel or a finger.
    :alt: The Plan table on its Gantt view, with the Markdown panel closed so the chart has the full width
    :width: 100%
 
-   The same table as a Gantt chart, with the Markdown panel closed.
+   The same table as a Gantt chart, with the Markdown panel closed and
+   the Gantt's commands on the toolbar.
 
 The button at the top of the list shrinks it to a strip of icons, and
 brings it back.
@@ -88,15 +89,52 @@ budget or the board, and watch the view follow.
 Drag the panel's right edge to resize it. NoodlePlanner remembers its width,
 and whether it was open, in this browser.
 
-Adding Things and Finding Commands
-----------------------------------
+The Toolbar
+-----------
+
+Under the tabs is a toolbar with the commands for the view that is open.
+They are the ribbon's own commands, at one row:
+
+- On the left, what the open view can do, in the ribbon's groups. The Gantt
+  shows Link, Critical Path, Baseline, the scale (Days to Years) and the
+  rest; the Board shows its grouping; the RAID log shows New Risk, New
+  Issue and its own Import and Export. A button that is switched on, such
+  as the scale in use, is tinted yellow.
+- On the right, three menus that are always there in a project:
+  **Reports** (Project Report, Highlights, Analysis, Milestones, Budget,
+  Benefits, By Assignment and Slippage), **Export** (Markdown, Excel, CSV,
+  PDF, PowerPoint and MS Project) and **Import**.
+
+.. figure:: /_static/img/how-to/tv-06-toolbar-export.png
+   :alt: The toolbar under the view tabs on the Gantt view, with the Export menu open and listing Markdown, Excel, CSV, PDF, PowerPoint and MS Project
+   :width: 100%
+
+   The toolbar on the Gantt view, with the Export menu open.
+
+If the buttons do not fit, scroll the toolbar sideways with the mouse wheel
+or a finger. Where a view has an Export of its own, as the RAID log does,
+the menus on the right are named **Export plan** and **Import plan**.
+
+Commands that only switch view are left off the toolbar, because the tabs
+do that. Commands the ribbon marks as not available yet are left off too.
+
+Adding Things and Finding Everything Else
+-----------------------------------------
 
 - The yellow **New** button adds to the open table: a task in Plan, an item
   in the RAID log, and so on.
-- The **⋯** button lists every command for the open view: the same commands
-  the ribbon has, grouped the same way.
+- The **⋯** button lists every command for the open view, including the
+  ones from the ribbon's other tabs.
 - Save, Undo, Redo, Print, search and the **Project**, **Programme** and
   **Portfolio** switch stay in the bar along the top.
+
+The Portfolio
+-------------
+
+Choose **Portfolio** in the bar along the top to leave the project. The
+portfolio's views (Projects, Status, Actions, Risks and so on) become the
+tabs, and its commands, such as New Project and Export Report, are on the
+toolbar.
 
 On a Tablet or a Phone
 ----------------------
